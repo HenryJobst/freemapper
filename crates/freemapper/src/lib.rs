@@ -3,3 +3,5 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod crs;
+pub mod georef;
+pub mod omap;
