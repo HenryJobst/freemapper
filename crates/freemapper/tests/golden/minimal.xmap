@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map xmlns="http://openorienteering.org/apps/mapper/xml/v2" version="9">
+<notes>test notes</notes>
+<georeferencing scale="1000" grid_scale_factor="0.999675" auxiliary_scale_factor="1" declination="5.5" grivation="6.42">
+<projected_crs id="EPSG"><spec language="PROJ.4">+init=epsg:25833</spec><parameter>25833</parameter><ref_point x="421600" y="5821700"/></projected_crs>
+<geographic_crs id="Geographic coordinates"><spec language="PROJ.4">+proj=latlong +datum=WGS84</spec><ref_point_deg lat="52.5401" lon="13.8442"/></geographic_crs>
+</georeferencing>
+<colors count="1">
+<color priority="0" name="Black" c="0" m="0" y="0" k="1" opacity="1"><cmyk method="custom"/><rgb method="custom" r="0" g="0" b="0"/></color>
+</colors>
+<barrier version="6" required="0.6.0">
+<symbols count="1" id="Test">
+<symbol type="4" id="0" code="1" name="Area"><area_symbol inner_color="0" min_area="0" patterns="0"/></symbol>
+</symbols>
+<parts count="1" current="0">
+<part name="default part"><objects count="1">
+<object type="1" symbol="0"><tags><t k="freemapper:source">test</t></tags><coords count="5">
+<coord x="0" y="0"/>
+<coord x="4000" y="0"/>
+<coord x="4000" y="-2000"/>
+<coord x="0" y="-2000"/>
+<coord x="0" y="0" flags="18"/>
+</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+</objects></part>
+</parts>
+<templates count="0" first_front_template="0">
+<defaults use_meters_per_pixel="true" meters_per_pixel="0" dpi="0" scale="0"/>
+</templates>
+<view>
+<grid color="#646464" display="0" alignment="0" additional_rotation="0" unit="1" h_spacing="500" v_spacing="500" h_offset="0" v_offset="0" snapping_enabled="true"/>
+<map_view zoom="1" position_x="0" position_y="0"><map opacity="1" visible="true"/><templates count="0"/></map_view>
+</view>
+</barrier>
+</map>
