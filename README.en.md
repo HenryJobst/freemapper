@@ -25,6 +25,22 @@ cargo build --release
 Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git hooks: `lefthook install`.
 
+## Usage (milestone M1)
+
+```sh
+freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
+freemapper export clara-zetkin-schule
+```
+
+Result in the project folder:
+
+- `freemapper.toml` – map area, map kind, scale, declination date
+- `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
+- `templates/candidates.omap` – template map with the outline of the map area
+- `ATTRIBUTION.txt` – attribution of the data sources
+
+Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSprOM 2019, 1:4000).
+
 ## Licence and attribution
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). Generated maps carry the required attribution of the data

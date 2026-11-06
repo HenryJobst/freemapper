@@ -25,6 +25,22 @@ cargo build --release
 Entwicklung: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git-Hooks: `lefthook install`.
 
+## Benutzung (Stand M1)
+
+```sh
+freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
+freemapper export clara-zetkin-schule
+```
+
+Ergebnis im Projektordner:
+
+- `freemapper.toml` – Kartengebiet, Kartenart, Maßstab, Datum der Missweisung
+- `clara-zetkin-schule.omap` – georeferenzierte OOM-Karte (EPSG:25833, 1:1000, IOF-Schulsymbolsatz 2019)
+- `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets
+- `ATTRIBUTION.txt` – Namensnennung der Datenquellen
+
+Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
+
 ## Lizenz und Namensnennung
 
 GPL-3.0-or-later, siehe [LICENSE](LICENSE). Erzeugte Karten enthalten die Pflichtvermerke der
