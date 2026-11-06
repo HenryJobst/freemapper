@@ -2,6 +2,8 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod area;
 pub mod crs;
 pub mod georef;
 pub mod omap;
+pub mod project;
