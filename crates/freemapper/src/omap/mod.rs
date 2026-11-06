@@ -1,6 +1,7 @@
 //! OpenOrienteering Mapper file format (XML, version 9).
 
 pub mod coord;
+pub mod enlarge;
 pub mod model;
 pub mod symbol_set;
 pub mod writer;
