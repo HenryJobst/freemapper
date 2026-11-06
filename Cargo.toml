@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+rust-version = "1.85"
+repository = "https://github.com/freemapper/freemapper"
+
+[workspace.dependencies]
+freemapper = { path = "crates/freemapper" }
+anyhow = "1.0.104"
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
+clap = { version = "4.6.7", features = ["derive"] }
+geo = "0.33.1"
+geo-types = "0.7.20"
+geojson = "1.0.0"
+quick-xml = "0.42.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+toml = "1.2.1"
+world_magnetic_model = "1.2025.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
