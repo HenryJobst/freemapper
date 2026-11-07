@@ -10,3 +10,4 @@ pub mod lvermgeo;
 pub mod osm;
 pub mod region;
 pub mod wms;
+pub mod zip_range;
