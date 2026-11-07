@@ -6,6 +6,7 @@
 //! files and their ReadMe:
 //!
 //! Copyright (c) 1985, 1987, 1989, 1990, 1997 Adobe Systems Incorporated. All Rights Reserved.
+//! Helvetica is a trademark of Linotype-Hell AG and/or its subsidiaries.
 //!
 //! This file and the 14 PostScript(R) AFM files it accompanies may be used, copied, and distributed
 //! for any purpose and without charge, with or without modification, provided that all copyright

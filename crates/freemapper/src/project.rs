@@ -1954,13 +1954,22 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, _cache_dir) = derived_school(&fetcher);
         let pdf_path = export_training_pdf(dir.path()).unwrap();
         assert_eq!(pdf_path.extension().unwrap(), "pdf");
-        let pdf = std::fs::read(&pdf_path).unwrap();
-        assert!(pdf.starts_with(b"%PDF-"));
+        let file = std::fs::read(&pdf_path).unwrap();
+        assert!(file.starts_with(b"%PDF-"));
+        let pdf = crate::render::pdf::content_of(&file);
         // Building fill (black 60 %), tartan pitch candidate (lower brown 50 %), contours (brown).
         assert!(contains(&pdf, b"0 0 0 0.6 k"), "building");
         assert!(contains(&pdf, b"0 0.28 0.5 0.09 k"), "pitch");
         assert!(contains(&pdf, b"0 0.56 1 0.18 K"), "contours");
-        assert!(contains(&pdf, b"github.com/HenryJobst/freemapper"));
+        // Texts are WinAnsi hex strings in the content stream.
+        let credit: String = "github.com/HenryJobst/freemapper"
+            .bytes()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert!(
+            contains(&pdf, credit.as_bytes()),
+            "credit line on the sheet"
+        );
     }
 
     #[test]
@@ -1987,9 +1996,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     fn training_pdf_without_data_still_has_the_sheet() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
-        let pdf = std::fs::read(export_training_pdf(dir.path()).unwrap()).unwrap();
-        assert!(contains(&pdf, b"Tj"), "sheet texts");
-        assert!(contains(&pdf, b"/MediaBox"));
+        let file = std::fs::read(export_training_pdf(dir.path()).unwrap()).unwrap();
+        assert!(contains(&file, b"/MediaBox"));
+        assert!(
+            contains(&crate::render::pdf::content_of(&file), b"Tj"),
+            "sheet texts"
+        );
     }
 
     #[test]

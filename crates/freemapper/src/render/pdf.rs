@@ -2,7 +2,7 @@
 //! the standard fonts Helvetica / Helvetica-Bold with WinAnsi encoding.
 
 use pdf_writer::types::{LineCapStyle, LineJoinStyle};
-use pdf_writer::{Content, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
+use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 
 use super::draw::{Primitive, Shape};
 use super::geometry::Pt;
@@ -198,17 +198,22 @@ pub fn write_pdf(
     let mut content = Content::new();
     let (cx0, cy0) = t.pt((clip.min.0, clip.max.1));
     let (cx1, cy1) = t.pt((clip.max.0, clip.min.1));
+    // One clip block for each run of consecutive map primitives.
+    let mut clipping = false;
     for (primitive, clipped) in items {
-        if clipped {
+        if clipped && !clipping {
             content.save_state();
             content.rect(cx0, cy0, cx1 - cx0, cy1 - cy0);
             content.clip_nonzero();
             content.end_path();
-        }
-        paint(&mut content, &t, primitive, colours);
-        if clipped {
+        } else if !clipped && clipping {
             content.restore_state();
         }
+        clipping = clipped;
+        paint(&mut content, &t, primitive, colours);
+    }
+    if clipping {
+        content.restore_state();
     }
 
     let (catalog, pages, page, contents, regular, bold, info) = (
@@ -242,13 +247,24 @@ pub fn write_pdf(
             .base_font(Name(name))
             .encoding_predefined(Name(b"WinAnsiEncoding"));
     }
-    pdf.stream(contents, &content.finish());
+    let compressed = miniz_oxide::deflate::compress_to_vec_zlib(&content.finish(), 6);
+    pdf.stream(contents, &compressed)
+        .filter(Filter::FlateDecode);
     pdf.document_info(info)
         .title(TextStr(title))
         .creator(TextStr(
-            "freemapper - https://github.com/HenryJobst/freemapper",
+            "freemapper – https://github.com/HenryJobst/freemapper",
         ));
     pdf.finish()
+}
+
+/// The decompressed page content of a PDF written by [`write_pdf`] (for tests).
+#[cfg(test)]
+pub(crate) fn content_of(pdf: &[u8]) -> Vec<u8> {
+    let find = |needle: &[u8]| pdf.windows(needle.len()).position(|w| w == needle);
+    let start = find(b"stream\n").expect("content stream") + 7;
+    let end = find(b"\nendstream").expect("end of stream");
+    miniz_oxide::inflate::decompress_to_vec_zlib(&pdf[start..end]).expect("FlateDecode")
 }
 
 #[cfg(test)]
@@ -298,7 +314,13 @@ mod tests {
 
     #[test]
     fn primitives_are_painted_by_priority() {
-        let pdf = write_pdf(&[square(2), square(9)], &[], clip(), &colours(), "Test");
+        let pdf = content_of(&write_pdf(
+            &[square(2), square(9)],
+            &[],
+            clip(),
+            &colours(),
+            "Test",
+        ));
         let black = find(&pdf, b"0 0 0 1 k").expect("black fill");
         let grey = find(&pdf, b"0 0 0 0.6 k").expect("grey fill");
         assert!(
@@ -324,7 +346,7 @@ mod tests {
                 join: Join::Miter,
             },
         };
-        let pdf = write_pdf(&[line], &[], clip(), &colours(), "Test");
+        let pdf = content_of(&write_pdf(&[line], &[], clip(), &colours(), "Test"));
         assert!(find(&pdf, b"0 0 0 1 K").is_some(), "stroke colour");
         assert!(find(&pdf, b"1 J").is_some(), "round cap");
         assert!(find(&pdf, b"2.236068 M").is_some(), "miter limit");
@@ -345,8 +367,22 @@ mod tests {
         let pdf = write_pdf(&[], &[text], clip(), &colours(), "Test");
         assert!(find(&pdf, b"/Helvetica-Bold").is_some());
         assert!(find(&pdf, b"/WinAnsiEncoding").is_some());
+        let pdf = content_of(&pdf);
         // ß = 0xDF, © = 0xA9 in WinAnsi.
         assert!(find(&pdf, b"<4D61DF7374616220A9> Tj").is_some());
+    }
+
+    #[test]
+    fn content_is_compressed_and_clip_blocks_are_shared() {
+        let many: Vec<Primitive> = (0..200).map(|_| square(9)).collect();
+        let pdf = write_pdf(&many, &[], clip(), &colours(), "Test");
+        assert!(find(&pdf, b"/FlateDecode").is_some());
+        let start = find(&pdf, b"stream\n").unwrap() + 7;
+        let end = find(&pdf, b"\nendstream").unwrap();
+        let content = miniz_oxide::inflate::decompress_to_vec_zlib(&pdf[start..end]).unwrap();
+        let clips = content.windows(5).filter(|w| w == b"re\nW\n").count();
+        assert_eq!(clips, 1, "one clip block for a run of map primitives");
+        assert!(find(&content, b"0 0 0 0.6 k").is_some());
     }
 
     #[test]
@@ -356,8 +392,9 @@ mod tests {
         assert!(find(&pdf, b"xref").is_some() && find(&pdf, b"trailer").is_some());
         assert!(pdf.ends_with(b"%%EOF") || pdf.ends_with(b"%%EOF\n"));
         assert!(find(&pdf, b"(Strausberg Vorstadt)").is_some(), "title");
+        // UTF-16BE (the en dash is not ASCII): "HenryJobst".
         assert!(
-            find(&pdf, b"github.com/HenryJobst/freemapper").is_some(),
+            find(&pdf, b"00480065006E00720079004A006F00620073007400").is_some(),
             "creator"
         );
         assert!(

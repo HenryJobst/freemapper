@@ -645,6 +645,7 @@ dependencies = [
  "geojson",
  "image",
  "las",
+ "miniz_oxide 0.9.1",
  "osmpbf",
  "pdf-writer",
  "quick-xml",

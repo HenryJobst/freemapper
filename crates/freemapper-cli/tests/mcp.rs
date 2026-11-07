@@ -109,7 +109,8 @@ fn mcp_lists_the_tools() {
         .find(|t| t["name"] == "start_pipeline")
         .unwrap();
     assert!(
-        start["inputSchema"]["properties"]["ocad"].is_object(),
+        start["inputSchema"]["properties"]["ocad"].is_object()
+            && start["inputSchema"]["properties"]["pdf"].is_object(),
         "{start}"
     );
     let mut names: Vec<&str> = tools["tools"]

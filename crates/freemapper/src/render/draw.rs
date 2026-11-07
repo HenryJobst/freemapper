@@ -63,10 +63,10 @@ pub fn primitives(object: &MapObject, symbols: &RenderSymbols) -> Vec<Primitive>
         MapObjectKind::Point { rotation_rad } => {
             if let (Symbol::Point(def), Some(c)) = (symbol, object.coords.first()) {
                 let r = if def.rotatable { -rotation_rad } else { 0.0 };
-                out = point_primitives(def, (mm(f64::from(c.x)), mm(f64::from(c.y))), r, symbols);
+                out = point_symbol(def, (mm(f64::from(c.x)), mm(f64::from(c.y))), r, symbols, 0);
             }
         }
-        MapObjectKind::Path => path_symbol(symbol, &object.coords, symbols, &mut out),
+        MapObjectKind::Path => path_symbol(symbol, &object.coords, symbols, &mut out, 0),
         MapObjectKind::Text {
             text,
             h_align,
@@ -84,8 +84,14 @@ pub fn primitives(object: &MapObject, symbols: &RenderSymbols) -> Vec<Primitive>
             }
         }
     }
+    // A colour missing from the colour table is not drawn (as in OOM).
+    out.retain(|p| symbols.colour(p.priority).is_some());
     out
 }
+
+/// Nesting depth of symbols (combined parts, point elements) beyond which drawing stops: a
+/// symbol set that refers to itself must not overflow the stack.
+const MAX_DEPTH: u32 = 8;
 
 /// A symbol drawn on path coordinates (map objects and point symbol elements).
 fn path_symbol(
@@ -93,7 +99,11 @@ fn path_symbol(
     coords: &[MapCoord],
     symbols: &RenderSymbols,
     out: &mut Vec<Primitive>,
+    depth: u32,
 ) {
+    if depth > MAX_DEPTH {
+        return;
+    }
     match symbol {
         Symbol::Area { color } => {
             let parts = geometry::parts(coords);
@@ -110,7 +120,7 @@ fn path_symbol(
                 });
             }
         }
-        Symbol::Line(def) => line(def, coords, symbols, out),
+        Symbol::Line(def) => line(def, coords, symbols, out, depth),
         Symbol::Combined(parts) => {
             for part in parts {
                 let part_symbol = match part {
@@ -118,18 +128,19 @@ fn path_symbol(
                     SymbolPart::Inline(symbol) => Some(&**symbol),
                 };
                 if let Some(part_symbol) = part_symbol {
-                    path_symbol(part_symbol, coords, symbols, out);
+                    path_symbol(part_symbol, coords, symbols, out, depth + 1);
                 }
             }
         }
         // A point symbol element on a point object: drawn at its coordinate, unrotated.
         Symbol::Point(def) => {
             if let Some(c) = coords.first() {
-                out.extend(point_primitives(
+                out.extend(point_symbol(
                     def,
                     (mm(f64::from(c.x)), mm(f64::from(c.y))),
                     0.0,
                     symbols,
+                    depth + 1,
                 ));
             }
         }
@@ -157,7 +168,13 @@ fn stroke(
     })
 }
 
-fn line(def: &LineDef, coords: &[MapCoord], symbols: &RenderSymbols, out: &mut Vec<Primitive>) {
+fn line(
+    def: &LineDef,
+    coords: &[MapCoord],
+    symbols: &RenderSymbols,
+    out: &mut Vec<Primitive>,
+    depth: u32,
+) {
     let parts: Vec<Part> = geometry::parts(coords)
         .into_iter()
         .filter(|p| p.points.len() >= 2 && geometry::length(&p.points) > 0.0)
@@ -226,28 +243,34 @@ fn line(def: &LineDef, coords: &[MapCoord], symbols: &RenderSymbols, out: &mut V
         if let Some(mid) = &def.mid {
             for (at, angle) in geometry::mid_positions(part, mid) {
                 let r = if mid.symbol.rotatable { angle } else { 0.0 };
-                out.extend(point_primitives(&mid.symbol, at, r, symbols));
+                out.extend(point_symbol(&mid.symbol, at, r, symbols, depth + 1));
             }
         }
     }
-    // Start symbol on the first part, end symbol on the last, along the direction of travel.
+    // Start symbol on the first part (outgoing direction), end symbol on the last (incoming
+    // direction), also on closed lines (reference §2.6).
     if let (Some(start), Some(first)) = (&def.start, parts.first()) {
-        let (at, angle) = geometry::at(first, 0.0);
-        out.extend(point_primitives(
+        let angle = if start.rotatable {
+            geometry::start_angle(first)
+        } else {
+            0.0
+        };
+        out.extend(point_symbol(
             start,
-            at,
-            if start.rotatable { angle } else { 0.0 },
+            first.points[0],
+            angle,
             symbols,
+            depth + 1,
         ));
     }
     if let (Some(end), Some(last)) = (&def.end, parts.last()) {
-        let (at, angle) = geometry::at(last, geometry::length(&last.points));
-        out.extend(point_primitives(
-            end,
-            at,
-            if end.rotatable { angle } else { 0.0 },
-            symbols,
-        ));
+        let angle = if end.rotatable {
+            geometry::end_angle(last)
+        } else {
+            0.0
+        };
+        let at = *last.points.last().expect("parts have two points");
+        out.extend(point_symbol(end, at, angle, symbols, depth + 1));
     }
 }
 
@@ -258,7 +281,20 @@ pub fn point_primitives(
     rotation: f64,
     symbols: &RenderSymbols,
 ) -> Vec<Primitive> {
+    point_symbol(def, at, rotation, symbols, 0)
+}
+
+fn point_symbol(
+    def: &PointDef,
+    at: Pt,
+    rotation: f64,
+    symbols: &RenderSymbols,
+    depth: u32,
+) -> Vec<Primitive> {
     let mut out = Vec::new();
+    if depth > MAX_DEPTH {
+        return out;
+    }
     if let Some((color, radius)) = def.dot {
         out.push(Primitive {
             priority: color,
@@ -292,7 +328,7 @@ pub fn point_primitives(
                 }
             })
             .collect();
-        path_symbol(&element.symbol, &coords, symbols, &mut out);
+        path_symbol(&element.symbol, &coords, symbols, &mut out, depth + 1);
     }
     out
 }
@@ -506,6 +542,127 @@ mod tests {
             assert_eq!(*size, em);
             assert_eq!(p[0].priority, 2);
         }
+    }
+
+    fn closed_square(side: i32) -> Vec<MapCoord> {
+        closed_ring(&[(0, 0), (side, 0), (side, side), (0, side)])
+    }
+
+    fn stroke_paths(p: &[Primitive], width: f64) -> Vec<(&Vec<Pt>, bool)> {
+        p.iter()
+            .filter_map(|p| match &p.shape {
+                Shape::Stroke {
+                    path,
+                    closed,
+                    width: w,
+                    ..
+                } if (w - width).abs() < 1e-9 => Some((path, *closed)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn fence_ring_does_not_wrap_around() {
+        let (r, s) = set();
+        // 80 mm ring: ticks keep e2 from the closing point (0, 0) on both sides.
+        let p = primitives(
+            &object(&s, "518", MapObjectKind::Path, closed_square(20_000)),
+            &r,
+        );
+        let ticks = stroke_paths(&p, 0.14);
+        assert_eq!(ticks.len() % 2, 0);
+        let spots = ticks.len() / 2;
+        assert_eq!(spots, 21, "n·3.75 + 4.65 closest to 80 mm");
+        for (path, _) in &ticks {
+            let d = path
+                .iter()
+                .map(|q| q.0.hypot(q.1))
+                .fold(f64::INFINITY, f64::min);
+            assert!(d > 1.5, "no tick at the closing point: {path:?}");
+        }
+        let main = stroke_paths(&p, 0.4);
+        assert_eq!(main.len(), 1);
+        assert!(main[0].1, "the ring itself is closed");
+    }
+
+    #[test]
+    fn path_ring_borders_are_dashed_alike_on_both_sides() {
+        let (r, s) = set();
+        let p = primitives(
+            &object(&s, "505.1", MapObjectKind::Path, closed_square(10_000)),
+            &r,
+        );
+        let borders = stroke_paths(&p, 0.1);
+        assert!(borders.len() > 4);
+        assert_eq!(borders.len() % 2, 0, "one dash per side and position");
+        assert!(
+            borders.iter().all(|(_, closed)| !closed),
+            "dashes are open strokes"
+        );
+    }
+
+    #[test]
+    fn short_path_ring_has_one_border_dash_per_side() {
+        let (r, s) = set();
+        // 2.4 mm around: two half dashes joined at the closing point and one gap (reference §2.2:
+        // closed parts always have H = 2, so they are never drawn solid).
+        let p = primitives(
+            &object(&s, "505.1", MapObjectKind::Path, closed_square(600)),
+            &r,
+        );
+        let borders = stroke_paths(&p, 0.1);
+        assert_eq!(borders.len(), 2);
+        assert!(borders.iter().all(|(_, closed)| !closed));
+    }
+
+    #[test]
+    fn self_referencing_combined_symbol_stops() {
+        let (mut r, s) = set();
+        let id = s.id_for_code("521").unwrap();
+        r.symbols
+            .insert(id, Symbol::Combined(vec![SymbolPart::Ref(id)]));
+        let p = primitives(&object(&s, "521", MapObjectKind::Path, square(10_000)), &r);
+        assert!(p.is_empty());
+    }
+
+    #[test]
+    fn end_bars_of_a_closed_line_follow_their_segments() {
+        let set = SymbolSet::school_2019();
+        let r = RenderSymbols::from_set(&set);
+        let bench = object(&set, "543", MapObjectKind::Path, closed_square(5_000));
+        let p = primitives(&bench, &r);
+        // Bars along local y, 0.8 mm (enlarged 125 % in the school set? no: school additions are
+        // final sizes): the start bar is perpendicular to the first segment (east), so vertical.
+        let bars: Vec<&Vec<Pt>> = p
+            .iter()
+            .filter_map(|p| match &p.shape {
+                Shape::Stroke { path, .. } if path.len() == 2 && geometry::length(path) < 1.0 => {
+                    Some(path)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(bars.len(), 2, "{p:?}");
+        let vertical = |b: &Vec<Pt>| (b[0].0 - b[1].0).abs() < 1e-6;
+        let horizontal = |b: &Vec<Pt>| (b[0].1 - b[1].1).abs() < 1e-6;
+        assert!(
+            bars.iter().any(|b| vertical(b)),
+            "start bar ⟂ east: {bars:?}"
+        );
+        assert!(
+            bars.iter().any(|b| horizontal(b)),
+            "end bar ⟂ north: {bars:?}"
+        );
+    }
+
+    #[test]
+    fn unknown_colours_are_left_out() {
+        let (mut r, s) = set();
+        let id = s.id_for_code("520").unwrap();
+        r.symbols.insert(id, Symbol::Area { color: 99 });
+        let p = primitives(&object(&s, "520", MapObjectKind::Path, square(10_000)), &r);
+        assert!(p.is_empty());
     }
 
     #[test]

@@ -188,6 +188,27 @@ fn at_on(part: &Part, cum: &[f64], s: f64) -> (Pt, f64) {
     (pos, t.1.atan2(t.0))
 }
 
+/// Direction (radians) from the first point to the first point farther than 0.025 mm: the
+/// orientation of a start symbol.
+pub fn start_angle(part: &Part) -> f64 {
+    let first = part.points[0];
+    part.points
+        .iter()
+        .find(|&&p| dist(p, first) > TANGENT_EPSILON)
+        .map_or(0.0, |&p| (p.1 - first.1).atan2(p.0 - first.0))
+}
+
+/// Direction (radians) from the last point farther than 0.025 mm to the last point: the
+/// orientation of an end symbol.
+pub fn end_angle(part: &Part) -> f64 {
+    let last = *part.points.last().expect("parts are not empty");
+    part.points
+        .iter()
+        .rev()
+        .find(|&&p| dist(p, last) > TANGENT_EPSILON)
+        .map_or(0.0, |&p| (last.1 - p.1).atan2(last.0 - p.0))
+}
+
 /// The polyline between arc lengths `a` and `b`, through the vertices in between.
 fn between(points: &[Pt], cum: &[f64], a: f64, b: f64) -> Vec<Pt> {
     let (start, i) = locate(points, cum, a);
@@ -223,7 +244,7 @@ pub fn dashes(part: &Part, dash: &Dash) -> Vec<Vec<Pt>> {
     let period = group + b;
     let nf = hf + (l + b - hf * d / 2.0) / period;
     let lo = nf.floor();
-    let min_opt_dashes = f64::from(2 * k - h / 2);
+    let min_opt_dashes = 2.0 * kf - f64::from(h / 2);
     let sw = 0.2 * period / kf;
     let usable = d > 0.0 && b >= 0.0 && g >= 0.0 && period.is_finite() && nf.is_finite();
     if !usable || l <= 0.0 || (lo <= 1.0 && l < 2.0 * period - min_opt_dashes * sw) {
@@ -601,6 +622,15 @@ mod tests {
         };
         assert_eq!(dashes(&long, &nan).len(), 1, "solid");
         assert!(start.elapsed() < std::time::Duration::from_secs(2));
+    }
+
+    #[test]
+    fn huge_dash_groups_do_not_overflow() {
+        let huge = Dash {
+            group: u32::MAX,
+            ..dash_506()
+        };
+        assert_eq!(dashes(&line(&[(0.0, 0.0), (10.0, 0.0)]), &huge).len(), 1);
     }
 
     #[test]
