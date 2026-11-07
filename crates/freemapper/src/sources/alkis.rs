@@ -6,8 +6,8 @@ use serde_json::Value;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, Fetcher};
-use crate::sources::berlin;
 use crate::sources::region::{Region, regions_for};
+use crate::sources::{berlin, geosn_alkis};
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
@@ -71,8 +71,7 @@ pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Stri
     merged(bbox, |region| match region {
         Region::Brandenburg => collection_features(fetcher, BUILDINGS_ENDPOINT, bbox),
         Region::Berlin => berlin::fetch_buildings(fetcher, bbox),
-        // Saxony ALKIS follows with the GeoSN WFS.
-        Region::Saxony => Ok(Vec::new()),
+        Region::Saxony => geosn_alkis::fetch_buildings(fetcher, bbox),
     })
 }
 
@@ -82,7 +81,7 @@ pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Strin
     merged(bbox, |region| match region {
         Region::Brandenburg => collection_features(fetcher, LAND_USE_ENDPOINT, bbox),
         Region::Berlin => berlin::fetch_land_use(fetcher, bbox),
-        Region::Saxony => Ok(Vec::new()),
+        Region::Saxony => geosn_alkis::fetch_land_use(fetcher, bbox),
     })
 }
 
@@ -573,6 +572,37 @@ mod tests {
         assert_eq!(land.len(), 7);
         assert_eq!(land[0].nutzart, "Wald");
         assert_eq!(land[1].nutzart, "Fläche besonderer funktionaler Prägung");
+    }
+
+    #[test]
+    fn border_merges_brandenburg_and_saxony() {
+        // A vertex shared by the Brandenburg and Saxony boundaries (Lausitz).
+        let lausitz = BoundingBox {
+            min_e: 459_209.0,
+            min_n: 5_709_717.0,
+            max_e: 459_809.0,
+            max_n: 5_710_317.0,
+        };
+        let fetcher = MapFetcher::default();
+        let lgb = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Wohnhaus",
+            [459_300.0, 5_710_100.0, 10.0],
+        );
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
+        fetcher.insert_prefix(
+            geosn_alkis::WFS_URL,
+            geosn_alkis::test_support::BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings(&fetcher, &lausitz).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert_eq!(oids.len(), 4, "{oids:?}");
+        assert_eq!(oids[0], "DEBBAL0100000001");
+        assert!(
+            oids[1..].iter().all(|oid| oid.starts_with("DESN")),
+            "{oids:?}"
+        );
     }
 
     #[test]

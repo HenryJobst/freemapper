@@ -5,12 +5,11 @@
 //! states.
 
 use std::collections::HashSet;
-use std::time::Duration;
 
 use serde_json::{Map, Value};
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, Fetcher};
+use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::sources::alkis::invalid;
 
 pub const BUILDINGS_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis_gebaeude";
@@ -19,12 +18,6 @@ pub const LAND_USE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis";
 pub const LAND_USE_TYPE: &str = "alkis:tatsaechlichenutzungflaechen";
 /// Features per page; a 1 km tile in the city centre holds about 1100 buildings.
 const PAGE_COUNT: u32 = 5000;
-/// gdi.berlin.de drops about one request in twenty; each page gets this many attempts.
-const ATTEMPTS: u32 = 3;
-#[cfg(not(test))]
-const RETRY_DELAY: Duration = Duration::from_secs(2);
-#[cfg(test)]
-const RETRY_DELAY: Duration = Duration::ZERO;
 /// `bez` of a Berlin square: Berlin never records what a square is used for, so it stays a
 /// candidate instead of becoming a paved map object.
 pub const SQUARE_WITHOUT_FUNCTION: &str = "ohne Unterart (Berlin)";
@@ -118,28 +111,17 @@ pub fn fetch_wfs(
 /// FeatureCollection (GeoServer sends exception reports as XML with status 200) are retried;
 /// a missing service is not.
 fn fetch_page(fetcher: &dyn Fetcher, url: &str) -> Result<Value, FetchError> {
-    let mut attempt = 1;
-    loop {
-        let result = fetcher.get(url).and_then(|bytes| {
-            serde_json::from_slice::<Value>(&bytes)
-                .ok()
-                .filter(|page| page["type"] == "FeatureCollection" && page["features"].is_array())
-                .ok_or_else(|| {
-                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
-                    FetchError::Alkis(invalid(format!(
-                        "{url}: not a GeoJSON FeatureCollection: {start}"
-                    )))
-                })
-        });
-        match result {
-            Err(FetchError::NotFound(_)) => return result,
-            Err(_) if attempt < ATTEMPTS => {
-                std::thread::sleep(RETRY_DELAY * attempt);
-                attempt += 1;
-            }
-            _ => return result,
-        }
-    }
+    get_with_retries(fetcher, url, |bytes| {
+        serde_json::from_slice::<Value>(bytes)
+            .ok()
+            .filter(|page| page["type"] == "FeatureCollection" && page["features"].is_array())
+            .ok_or_else(|| {
+                let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
+                FetchError::Alkis(invalid(format!(
+                    "{url}: not a GeoJSON FeatureCollection: {start}"
+                )))
+            })
+    })
 }
 
 /// A Berlin building feature with LGB properties.

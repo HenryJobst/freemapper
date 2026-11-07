@@ -752,20 +752,14 @@ const RETRY_DELAY: Duration = Duration::ZERO;
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
 /// and answers `check` refuses (an error page with status 200) are retried, a missing URL is not.
-/// The last refusal becomes [`FetchError::Http`].
 pub(crate) fn get_with_retries<T>(
     fetcher: &dyn Fetcher,
     url: &str,
-    check: impl Fn(&[u8]) -> Result<T, String>,
+    check: impl Fn(&[u8]) -> Result<T, FetchError>,
 ) -> Result<T, FetchError> {
     let mut attempt = 1;
     loop {
-        let result = fetcher.get(url).and_then(|bytes| {
-            check(&bytes).map_err(|message| FetchError::Http {
-                url: url.to_string(),
-                message,
-            })
-        });
+        let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
             Err(FetchError::NotFound(_)) => return result,
             Err(_) if attempt < ATTEMPTS => {

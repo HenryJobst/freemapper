@@ -142,20 +142,24 @@ pub fn fetch_orthophoto(
     let mut mosaic = image::RgbImage::new(grid.width, grid.height);
     for (piece, url) in wms_requests(&grid) {
         let image = get_with_retries(fetcher, &url, |bytes| {
+            let refused = |message: String| FetchError::Http {
+                url: url.clone(),
+                message,
+            };
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
                 .map_err(|e| {
                     let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
-                    format!("not a JPEG ({e}): {start}")
+                    refused(format!("not a JPEG ({e}): {start}"))
                 })?
                 .into_rgb8();
             if (image.width(), image.height()) != (piece.width, piece.height) {
-                return Err(format!(
+                return Err(refused(format!(
                     "{} × {} pixels instead of {} × {}",
                     image.width(),
                     image.height(),
                     piece.width,
                     piece.height
-                ));
+                )));
             }
             Ok(image)
         })?;
