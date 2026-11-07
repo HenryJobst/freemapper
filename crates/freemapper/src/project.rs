@@ -204,9 +204,11 @@ pub fn fetch_project(
             records.push(record);
         }
     }
-    fetch_buildings_into(dir, fetcher, &project.bbox()?, mode, progress)?;
+    // Record the tiles first: they may have replaced older cached versions, and a failing
+    // buildings download must not leave the project pointing at those.
     project.tiles = records;
     project.save(dir)?;
+    fetch_buildings_into(dir, fetcher, &project.bbox()?, mode, progress)?;
     Ok(project)
 }
 
@@ -800,12 +802,34 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             crate::sources::alkis::BUILDINGS_ENDPOINT,
             b"<html>maintenance</html>".to_vec(),
         );
-        let result = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {});
-        assert!(result.is_err());
+        let err = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+            .unwrap_err();
+        assert!(
+            matches!(err, ProjectError::Fetch(FetchError::Alkis(_))),
+            "{err:?}"
+        );
         assert_eq!(
             std::fs::read(dir.path().join(BUILDINGS_RELPATH)).unwrap(),
             stored
         );
+    }
+
+    #[test]
+    fn alkis_failure_after_republished_tile_keeps_project_derivable() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-06-01");
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let err = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+            .unwrap_err();
+        assert!(
+            matches!(err, ProjectError::Fetch(FetchError::Alkis(_))),
+            "{err:?}"
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
     }
 
     #[test]
