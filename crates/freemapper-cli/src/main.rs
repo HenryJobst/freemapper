@@ -38,6 +38,9 @@ enum Commands {
         /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the map kind).
         #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
+        /// Map title for the peripheral information (default: the folder name).
+        #[arg(long)]
+        title: Option<String>,
     },
     /// Write the starter project (OOM map, templates, attribution) into a project folder.
     Export {
@@ -131,12 +134,13 @@ fn main() -> anyhow::Result<()> {
             geojson,
             kind,
             scale,
+            title,
         } => {
             let text = std::fs::read_to_string(&geojson)
                 .with_context(|| format!("reading {}", geojson.display()))?;
             let area = MapArea::from_geojson(&text)?;
             let today = chrono::Local::now().date_naive();
-            init_project(&dir, &area, kind.into(), scale, today)?;
+            init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());
         }
         Commands::Export { dir, force } => {

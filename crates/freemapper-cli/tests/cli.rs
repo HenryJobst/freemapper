@@ -245,3 +245,36 @@ fn live_run_school() {
     let buildings = map.matches(r#"<t k="freemapper:source">alkis</t>"#).count();
     assert!(buildings >= 5, "{buildings} ALKIS buildings");
 }
+
+#[test]
+fn init_with_title() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let init = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--geojson",
+            FIXTURE,
+            "--title",
+            "Clara-Zetkin-Schule Strausberg",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        init.status.success(),
+        "{}",
+        String::from_utf8_lossy(&init.stderr)
+    );
+    let export = freemapper()
+        .args(["export", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        export.status.success(),
+        "{}",
+        String::from_utf8_lossy(&export.stderr)
+    );
+    let map = std::fs::read_to_string(project.join("p.omap")).unwrap();
+    assert!(map.contains("<text>Clara-Zetkin-Schule Strausberg</text>"));
+}

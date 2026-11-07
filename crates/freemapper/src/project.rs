@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::building_objects;
+use crate::build::peripheral::{PaperRect, SheetInfo, info_block, north_lines};
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::DeriveError;
 use crate::derive::orthophoto::build_orthophoto;
@@ -114,6 +115,9 @@ pub struct ProjectFile {
     pub map_area_source_id: Option<String>,
     /// Map area as GeoJSON geometry in EPSG:4326.
     pub map_area: serde_json::Value,
+    /// Map title for the peripheral information; the folder name when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -134,6 +138,26 @@ impl ProjectFile {
         let path = dir.join(PROJECT_FILE_NAME);
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))
+    }
+
+    /// The title, or the folder name of `dir` with each `-`/`_`-separated word capitalized and
+    /// joined by `-` (`clara-zetkin-schule` → `Clara-Zetkin-Schule`).
+    pub fn display_title(&self, dir: &Path) -> String {
+        if let Some(title) = &self.title {
+            return title.clone();
+        }
+        let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
+        name.split(['-', '_'])
+            .filter(|word| !word.is_empty())
+            .map(|word| {
+                let mut chars = word.chars();
+                chars
+                    .next()
+                    .map(|first| first.to_uppercase().chain(chars).collect::<String>())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join("-")
     }
 
     /// Map area plus buffer in EPSG:25833.
@@ -157,6 +181,7 @@ pub fn init_project(
     map_kind: MapKind,
     scale_denominator: Option<u32>,
     declination_date: NaiveDate,
+    title: Option<String>,
 ) -> Result<ProjectFile, ProjectError> {
     let scale_denominator = scale_denominator.unwrap_or(map_kind.default_scale());
     if scale_denominator == 0 {
@@ -174,11 +199,15 @@ pub fn init_project(
         buffer_m: map_kind.default_buffer_m(),
         map_area_source_id: area.source_id.clone(),
         map_area: area.to_geojson_value(),
+        title,
         tiles: Vec::new(),
     };
     project.save(dir)?;
     Ok(project)
 }
+
+/// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
+const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
 const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
@@ -416,7 +445,10 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         behind_map: false,
     });
     let buildings_path = dir.join(BUILDINGS_RELPATH);
-    let mut parts = Vec::new();
+    let mut buildings_part = MapPart {
+        name: "default part".to_string(),
+        objects: Vec::new(),
+    };
     if buildings_path.exists() {
         let text = std::fs::read_to_string(&buildings_path)
             .map_err(|e| ProjectError::Io(buildings_path.clone(), e))?;
@@ -428,11 +460,27 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
             &georef,
             &symbol_set,
         )?;
-        parts.push(MapPart {
-            name: "default part".to_string(),
-            objects,
-        });
+        buildings_part.objects = objects;
     }
+    let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
+    let mut attribution = attribution_lines(&project);
+    attribution.push(FREEMAPPER_CREDIT.to_string());
+    let info = SheetInfo {
+        title: project.display_title(dir),
+        scale_denominator: project.scale_denominator,
+        contour_interval_m: project.map_kind.contour_interval_m(),
+        attribution,
+    };
+    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
+    let mut sheet_objects = north_lines(&content, spacing_mm, &symbol_set);
+    sheet_objects.extend(info_block(&content, &info, &symbol_set));
+    let parts = vec![
+        buildings_part,
+        MapPart {
+            name: "peripheral information".to_string(),
+            objects: sheet_objects,
+        },
+    ];
     let map = MapDocument {
         notes,
         georef,
@@ -562,6 +610,7 @@ mod tests {
                 "type": "Polygon",
                 "coordinates": [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }),
+            title: Some("Clara-Zetkin-Schule".to_string()),
             tiles: vec![TileRecord {
                 product: Product::Dtm,
                 tile: "33421-5821".to_string(),
@@ -592,7 +641,7 @@ mod tests {
 
     fn school_project(dir: &Path) {
         let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
-        init_project(dir, &fixture_area(), MapKind::Schoolyard, None, date).unwrap();
+        init_project(dir, &fixture_area(), MapKind::Schoolyard, None, date, None).unwrap();
     }
 
     fn fetch(dir: &Path, fetcher: &MapFetcher, cache: &Cache) -> (ProjectFile, Vec<String>) {
@@ -915,6 +964,55 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn project_without_title_loads() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.title, None);
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(!text.contains("title"), "{text}");
+    }
+
+    #[test]
+    fn display_title_from_folder_name() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let folder = Path::new("/maps/clara-zetkin-schule");
+        assert_eq!(project.display_title(folder), "Clara-Zetkin-Schule");
+        assert_eq!(
+            project.display_title(Path::new("/maps/sport_park")),
+            "Sport-Park"
+        );
+        project.title = Some("Clara-Zetkin-Schule Strausberg".to_string());
+        assert_eq!(
+            project.display_title(folder),
+            "Clara-Zetkin-Schule Strausberg"
+        );
+    }
+
+    #[test]
+    fn export_has_one_peripheral_part() {
+        let dir = tempfile::tempdir().unwrap();
+        let project_dir = dir.path().join("clara-zetkin-schule");
+        school_project(&project_dir);
+        export_starter_project(&project_dir, false).unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(&project_dir, true).unwrap()).unwrap();
+        assert_eq!(
+            map.matches(r#"<part name="peripheral information">"#)
+                .count(),
+            1
+        );
+        assert!(map.contains("<text>Clara-Zetkin-Schule</text>"));
+        assert!(map.contains(&format!("<text>{FREEMAPPER_CREDIT}</text>")));
+        assert!(map.contains("<text>Maßstab 1:1000 · Äquidistanz 1 m</text>"));
+        let default = map.find(r#"<part name="default part">"#).unwrap();
+        let sheet = map.find(r#"<part name="peripheral information">"#).unwrap();
+        assert!(default < sheet, "buildings part first");
+    }
+
+    #[test]
     fn export_names_freemapper_and_its_repository() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
@@ -954,6 +1052,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             MapKind::Schoolyard,
             Some(0),
             date,
+            None,
         );
         assert!(
             matches!(result, Err(ProjectError::InvalidScale(0))),
@@ -967,7 +1066,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let dir = tempfile::tempdir().unwrap();
         let area = fixture_area();
         let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
-        let project = init_project(dir.path(), &area, MapKind::Schoolyard, None, date).unwrap();
+        let project =
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
         let georef = Georeferencing::new(area.centroid(), 1000, date).unwrap();
         let outline =
             map_area_outline(&area, &georef, &MapKind::Schoolyard.symbol_set(), &project).unwrap();
