@@ -1044,7 +1044,7 @@ pub(crate) mod test_support {
     /// the surface lies 12 m above it) for the 2 km tiles of `bbox`, a WMS orthophoto of the
     /// right size, the Saxon ALKIS fixtures and the Saxony OSM extract.
     pub fn serve_synthetic_saxony(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::{geosn, geosn_alkis};
+        use crate::sources::{alkis_wfs, geosn};
         let tiles = crate::tiles::tiles_covering_grid(&bbox.buffered(0.0), 2);
         for (product, layer, lift) in [(Product::SaxonyDtm, 6, 0.0), (Product::SaxonyDsm, 4, 12.0)]
         {
@@ -1090,18 +1090,18 @@ pub(crate) mod test_support {
         );
         for (type_name, body) in [
             (
-                geosn_alkis::BUILDINGS_TYPE,
-                geosn_alkis::test_support::BUILDINGS,
+                alkis_wfs::GEOSN.buildings_type,
+                alkis_wfs::test_support::BUILDINGS,
             ),
             (
-                geosn_alkis::LAND_USE_TYPE,
-                geosn_alkis::test_support::LAND_USE,
+                alkis_wfs::GEOSN.land_use_type,
+                alkis_wfs::test_support::LAND_USE,
             ),
         ] {
             fetcher.insert_prefix(
                 &format!(
                     "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
-                    geosn_alkis::WFS_URL
+                    alkis_wfs::GEOSN.url
                 ),
                 body.as_bytes().to_vec(),
             );

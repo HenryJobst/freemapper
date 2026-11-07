@@ -1,42 +1,77 @@
-//! ALKIS buildings and land use from the GeoSN WFS ("ALKIS vereinfacht", GML 3.2 only), read
-//! into GeoJSON features with the LGB property schema (the attribute names are the same).
+//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo; GML 3.2
+//! only), read into GeoJSON features with the LGB property schema (the attribute names are the
+//! same).
 
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::sources::alkis::{AlkisError, invalid};
 
-pub const WFS_URL: &str = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs";
-pub const BUILDINGS_TYPE: &str = "ave:GebaeudeBauwerk";
-pub const LAND_USE_TYPE: &str = "ave:NutzungFlurstueck";
-/// Features per page; the server returns at most 20 000 per request.
+/// An ALKIS-vereinfacht WFS of one state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WfsService {
+    /// For messages, e.g. "GeoSN ALKIS".
+    pub name: &'static str,
+    pub url: &'static str,
+    pub buildings_type: &'static str,
+    pub land_use_type: &'static str,
+    /// The CRS asked for and answered in.
+    pub crs: Crs,
+    /// `bez` given to squares without one: the state never records what a square is used for,
+    /// so it stays a candidate instead of becoming a paved map object.
+    pub square_bez: &'static str,
+}
+
+/// GeoSN, Saxony (EPSG:25833; land use per parcel part).
+pub const GEOSN: WfsService = WfsService {
+    name: "GeoSN ALKIS",
+    url: "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm33,
+    square_bez: "ohne Unterart (Sachsen)",
+};
+
+/// LVermGeo, Saxony-Anhalt (EPSG:25832; land use objects, not split by parcel).
+pub const LVERMGEO: WfsService = WfsService {
+    name: "LVermGeo ALKIS",
+    url: "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:Nutzung",
+    crs: Crs::Utm32,
+    square_bez: "ohne Unterart (Sachsen-Anhalt)",
+};
+
+/// Features per page; GeoSN returns at most 20 000 per request.
 #[cfg(not(test))]
 const PAGE_COUNT: usize = 10_000;
 #[cfg(test)]
 const PAGE_COUNT: usize = 2;
-/// `bez` of a Saxon square: GeoSN never records what a square is used for, so it stays a
-/// candidate instead of becoming a paved map object.
-pub const SQUARE_WITHOUT_FUNCTION: &str = "ohne Unterart (Sachsen)";
 
-/// URL of the page of `type_name` features in `bbox` starting at feature `start`.
-pub fn wfs_url(type_name: &str, bbox: &BoundingBox, start: usize) -> String {
-    format!(
-        "{}&SORTBY=oid&COUNT={PAGE_COUNT}&STARTINDEX={start}",
-        query_url(type_name, bbox)
-    )
-}
+impl WfsService {
+    /// URL of the page of `type_name` features in `bbox` (in [`WfsService::crs`]) starting at
+    /// feature `start`.
+    pub fn wfs_url(&self, type_name: &str, bbox: &BoundingBox, start: usize) -> String {
+        format!(
+            "{}&SORTBY=oid&COUNT={PAGE_COUNT}&STARTINDEX={start}",
+            self.query_url(type_name, bbox)
+        )
+    }
 
-/// The query of `type_name` features in `bbox`, without paging.
-fn query_url(type_name: &str, bbox: &BoundingBox) -> String {
-    format!(
-        "{WFS_URL}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
-         &SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25833",
-        bbox.min_e.floor(),
-        bbox.min_n.floor(),
-        bbox.max_e.ceil(),
-        bbox.max_n.ceil()
-    )
+    /// The query of `type_name` features in `bbox`, without paging.
+    fn query_url(&self, type_name: &str, bbox: &BoundingBox) -> String {
+        let epsg = self.crs.epsg();
+        format!(
+            "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
+             &SRSNAME=urn:ogc:def:crs:EPSG::{epsg}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::{epsg}",
+            self.url,
+            bbox.min_e.floor(),
+            bbox.min_n.floor(),
+            bbox.max_e.ceil(),
+            bbox.max_n.ceil()
+        )
+    }
 }
 
 /// `numberMatched` of a WFS answer; `None` when the server does not know it ("unknown").
@@ -229,9 +264,11 @@ fn local(name: &str) -> String {
 /// (same `oid`) is kept once, and a page without new features ends the paging.
 pub fn fetch_wfs(
     fetcher: &dyn Fetcher,
+    service: &WfsService,
     type_name: &str,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
+    let name = service.name;
     let get = |url: &str| -> Result<String, FetchError> {
         get_with_retries(fetcher, url, |bytes| {
             let text = String::from_utf8_lossy(bytes).into_owned();
@@ -241,7 +278,7 @@ pub fn fetch_wfs(
         })
         .map_err(|e| match e {
             FetchError::Refused { status, .. } => FetchError::Alkis(invalid(format!(
-                "GeoSN ALKIS service refused the request (HTTP {status}): {url}"
+                "{name} service refused the request (HTTP {status}): {url}"
             ))),
             e => e,
         })
@@ -249,13 +286,13 @@ pub fn fetch_wfs(
     // The number of matches first, so that a page cap below PAGE_COUNT cannot cut the result.
     let matched = number_matched(&get(&format!(
         "{}&RESULTTYPE=hits",
-        query_url(type_name, bbox)
+        service.query_url(type_name, bbox)
     ))?);
     let mut features = Vec::new();
     let mut seen = std::collections::HashSet::new();
     let mut start = 0;
     loop {
-        let url = wfs_url(type_name, bbox, start);
+        let url = service.wfs_url(type_name, bbox, start);
         let page = parse_gml(&get(&url)?).map_err(FetchError::Alkis)?;
         let full = page.len() >= PAGE_COUNT;
         let mut new = false;
@@ -277,33 +314,38 @@ pub fn fetch_wfs(
     }
     if let Some(matched) = matched.filter(|&m| features.len() < m) {
         return Err(FetchError::Alkis(invalid(format!(
-            "GeoSN ALKIS returned {} of {matched} features in the area; run `freemapper fetch` again",
+            "{name} returned {} of {matched} features in the area; run `freemapper fetch` again",
             features.len()
         ))));
     }
     Ok(features)
 }
 
-/// The Saxon buildings in `bbox`.
+/// The buildings of `service` in `bbox` (in the service's CRS).
 pub fn fetch_buildings(
     fetcher: &dyn Fetcher,
+    service: &WfsService,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
-    fetch_wfs(fetcher, BUILDINGS_TYPE, bbox)
+    fetch_wfs(fetcher, service, service.buildings_type, bbox)
 }
 
-/// The Saxon land use in `bbox`; squares without `bez` get [`SQUARE_WITHOUT_FUNCTION`].
-pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Vec<Value>, FetchError> {
-    Ok(fetch_wfs(fetcher, LAND_USE_TYPE, bbox)?
+/// The land use of `service` in `bbox`; squares without `bez` get the service's `square_bez`.
+pub fn fetch_land_use(
+    fetcher: &dyn Fetcher,
+    service: &WfsService,
+    bbox: &BoundingBox,
+) -> Result<Vec<Value>, FetchError> {
+    Ok(fetch_wfs(fetcher, service, service.land_use_type, bbox)?
         .into_iter()
-        .map(normalise_land_use)
+        .map(|f| normalise_land_use(f, service.square_bez))
         .collect())
 }
 
-fn normalise_land_use(mut feature: Value) -> Value {
+fn normalise_land_use(mut feature: Value, square_bez: &str) -> Value {
     let properties = &mut feature["properties"];
     if properties["nutzart"] == "Platz" && properties.get("bez").is_none() {
-        properties["bez"] = Value::from(SQUARE_WITHOUT_FUNCTION);
+        properties["bez"] = Value::from(square_bez);
     }
     feature
 }
@@ -312,6 +354,10 @@ fn normalise_land_use(mut feature: Value) -> Value {
 pub(crate) mod test_support {
     pub const BUILDINGS: &str = include_str!("../../../../tests/fixtures/saxony-buildings.gml");
     pub const LAND_USE: &str = include_str!("../../../../tests/fixtures/saxony-land-use.gml");
+    pub const ST_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/saxony-anhalt-buildings.gml");
+    pub const ST_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/saxony-anhalt-land-use.gml");
 }
 
 #[cfg(test)]
@@ -336,7 +382,7 @@ mod tests {
     #[test]
     fn url_matches_the_wfs() {
         assert_eq!(
-            wfs_url(BUILDINGS_TYPE, &SCHOOL, 20),
+            GEOSN.wfs_url(GEOSN.buildings_type, &SCHOOL, 20),
             "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0\
              &REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833\
              &BBOX=415800,5655600,416150,5655900,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=2\
@@ -372,7 +418,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(LAND_USE)
             .unwrap()
             .into_iter()
-            .map(normalise_land_use)
+            .map(|f| normalise_land_use(f, GEOSN.square_bez))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         let classes: Vec<(&str, Option<&str>)> = land
@@ -383,7 +429,7 @@ mod tests {
             classes,
             [
                 ("Fläche besonderer funktionaler Prägung", None),
-                ("Platz", Some(SQUARE_WITHOUT_FUNCTION)),
+                ("Platz", Some(GEOSN.square_bez)),
                 ("Straßenverkehr", None),
                 (
                     "Industrie- und Gewerbefläche",
@@ -402,8 +448,8 @@ mod tests {
             .find(|f| f["properties"]["nutzart"] == "Platz")
             .unwrap();
         assert_eq!(
-            normalise_land_use(square)["properties"]["bez"],
-            SQUARE_WITHOUT_FUNCTION
+            normalise_land_use(square, GEOSN.square_bez)["properties"]["bez"],
+            GEOSN.square_bez
         );
     }
 
@@ -411,10 +457,10 @@ mod tests {
     fn html_error_page_is_an_error() {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            WFS_URL,
+            GEOSN.url,
             b"<!DOCTYPE html><html><head><title>Seite kann nicht angezeigt werden</title>".to_vec(),
         );
-        let err = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap_err();
+        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(
             err.to_string().contains("not a WFS FeatureCollection"),
             "{err}"
@@ -458,8 +504,8 @@ mod tests {
     #[test]
     fn refused_request_names_the_service() {
         let fetcher = MapFetcher::default();
-        fetcher.refusing.borrow_mut().push(WFS_URL.to_string());
-        let err = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap_err();
+        fetcher.refusing.borrow_mut().push(GEOSN.url.to_string());
+        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(
             err.to_string()
                 .contains("GeoSN ALKIS service refused the request (HTTP 400)"),
@@ -500,12 +546,12 @@ mod tests {
     #[test]
     fn fewer_features_than_matched_is_an_error() {
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(WFS_URL, BUILDINGS.as_bytes().to_vec());
+        fetcher.insert_prefix(GEOSN.url, BUILDINGS.as_bytes().to_vec());
         fetcher.insert_prefix(
-            &format!("{}&RESULTTYPE=hits", wfs_url(BUILDINGS_TYPE, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
+            &format!("{}&RESULTTYPE=hits", GEOSN.wfs_url(GEOSN.buildings_type, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
             br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberReturned="0" numberMatched="5"/>"#.to_vec(),
         );
-        let err = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap_err();
+        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(err.to_string().contains("3 of 5"), "{err}");
     }
 
@@ -548,7 +594,7 @@ mod tests {
         let fetcher = Paged {
             calls: std::cell::RefCell::new(Vec::new()),
         };
-        let features = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap();
+        let features = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap();
         assert_eq!(features.len(), 3);
         assert_eq!(*fetcher.calls.borrow(), [0, 2]);
     }
@@ -557,9 +603,92 @@ mod tests {
     fn repeated_pages_end_the_paging() {
         // A server that ignores STARTINDEX answers every page with the same features.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(WFS_URL, BUILDINGS.as_bytes().to_vec());
-        let features = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap();
+        fetcher.insert_prefix(GEOSN.url, BUILDINGS.as_bytes().to_vec());
+        let features = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap();
         assert_eq!(features.len(), 3);
         assert_eq!(fetcher.calls.get(), 3, "hits and two pages");
+    }
+
+    #[test]
+    fn lvermgeo_buildings_parse() {
+        let features = parse_gml(ST_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        let latina = &parsed.buildings[0];
+        assert_eq!(latina.oid, "DESTLIKA0001MuQqBL");
+        assert_eq!(latina.function, "Allgemein bildende Schule");
+        // Native EPSG:25832 coordinates.
+        let corner = latina.footprint.0[0].exterior().0[0];
+        assert!((700_000.0..710_000.0).contains(&corner.x), "{corner:?}");
+        let garage = parsed
+            .buildings
+            .iter()
+            .find(|b| b.function == "Tiefgarage")
+            .unwrap();
+        assert_eq!(garage.kind, "Bauteil");
+        assert!(garage.underground);
+    }
+
+    #[test]
+    fn lvermgeo_land_use_squares_stay_candidates() {
+        let features: Vec<Value> = parse_gml(ST_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, LVERMGEO.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        let classes: Vec<(&str, Option<&str>)> = land
+            .iter()
+            .map(|l| (l.nutzart.as_str(), l.bez.as_deref()))
+            .collect();
+        assert_eq!(
+            classes,
+            [
+                (
+                    "Fläche besonderer funktionaler Prägung",
+                    Some("Öffentliche Zwecke")
+                ),
+                ("Platz", Some("ohne Unterart (Sachsen-Anhalt)")),
+                ("Straßenverkehr", None),
+                ("Wohnbaufläche", None),
+            ]
+        );
+    }
+
+    #[test]
+    fn lvermgeo_urls_are_in_zone_32() {
+        let bbox = BoundingBox {
+            min_e: 706_350.0,
+            min_n: 5_706_800.0,
+            max_e: 706_550.0,
+            max_n: 5_707_000.0,
+        };
+        let url = LVERMGEO.wfs_url(LVERMGEO.land_use_type, &bbox, 0);
+        assert!(url.starts_with(LVERMGEO.url), "{url}");
+        assert!(url.contains("TYPENAMES=ave:Nutzung&"), "{url}");
+        assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
+        assert!(
+            url.contains("BBOX=706350,5706800,706550,5707000,urn:ogc:def:crs:EPSG::25832"),
+            "{url}"
+        );
+    }
+
+    #[test]
+    fn exception_with_status_200_is_an_error() {
+        let report = r#"<?xml version="1.0" encoding="UTF-8"?><ServiceExceptionReport version="1.2.0" xmlns="http://www.opengis.net/ogc"><ServiceException>Could not process client request</ServiceException></ServiceExceptionReport>"#;
+        assert!(parse_gml(report).is_err());
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(LVERMGEO.url, report.as_bytes().to_vec());
+        let bbox = BoundingBox {
+            min_e: 706_350.0,
+            min_n: 5_706_800.0,
+            max_e: 706_550.0,
+            max_n: 5_707_000.0,
+        };
+        let err = fetch_wfs(&fetcher, &LVERMGEO, LVERMGEO.buildings_type, &bbox).unwrap_err();
+        assert!(
+            err.to_string().contains("not a WFS FeatureCollection"),
+            "{err}"
+        );
     }
 }

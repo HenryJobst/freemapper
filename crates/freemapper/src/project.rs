@@ -34,8 +34,8 @@ use crate::omap::{
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
 use crate::raster::GridSpec;
-use crate::sources::alkis::{LandUse, fetch_land_use, parse_land_use};
-use crate::sources::alkis::{fetch_buildings, parse_buildings};
+use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
+use crate::sources::alkis::{fetch_buildings_in, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
     ExtractSource, OsmFeature, features_from_geojson, features_to_geojson, fetch_extract,
@@ -485,16 +485,20 @@ pub fn fetch_project(
         _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
     }
     project.save(dir)?;
-    let bbox = project.bbox()?;
+    let area = FetchArea {
+        region_bbox: project.region_bbox()?,
+        crs: project.crs(),
+        bbox: project.bbox()?,
+    };
     let previous = project.buildings.as_ref();
-    if let Some(record) = fetch_buildings_into(dir, fetcher, &bbox, mode, previous, progress)? {
+    if let Some(record) = fetch_buildings_into(dir, fetcher, &area, mode, previous, progress)? {
         project.buildings = Some(record);
         project.save(dir)?;
     }
     if let Some(record) = fetch_land_use_into(
         dir,
         fetcher,
-        &bbox,
+        &area,
         mode,
         project.land_use.as_ref(),
         progress,
@@ -864,11 +868,12 @@ fn merge_features(parts: Vec<Vec<OsmFeature>>) -> Vec<OsmFeature> {
 fn fetch_buildings_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
-    bbox: &BoundingBox,
+    area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Option<AlkisRecord>, ProjectError> {
+    let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
@@ -884,7 +889,7 @@ fn fetch_buildings_into(
         };
     }
     progress("downloading ALKIS buildings");
-    let text = fetch_buildings(fetcher, bbox)?;
+    let text = fetch_buildings_in(fetcher, area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_atomically(&path, text.as_bytes())?;
     let count = parsed.buildings.len();
@@ -942,11 +947,12 @@ fn fetch_buildings_into(
 fn fetch_land_use_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
-    bbox: &BoundingBox,
+    area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
     progress: &mut dyn FnMut(&str),
 ) -> Option<Option<AlkisRecord>> {
+    let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
     if mode == FetchMode::Offline {
         if previous.is_none() || !path.exists() {
@@ -957,7 +963,7 @@ fn fetch_land_use_into(
         return None;
     }
     progress("downloading ALKIS land use");
-    let downloaded = fetch_land_use(fetcher, bbox).and_then(|text| {
+    let downloaded = fetch_land_use_in(fetcher, area).and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_atomically(&dir.join(LAND_USE_RELPATH), text.as_bytes())?;
         Ok(land_use)
@@ -3056,7 +3062,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, tile, "2026-01-26");
         // Saxon ALKIS and the Saxony extract (empty answers are fine here).
         fetcher.insert_prefix(
-            crate::sources::geosn_alkis::WFS_URL,
+            crate::sources::alkis_wfs::GEOSN.url,
             include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
         );
         let saxony = crate::sources::osm::ExtractSource::Saxony;
