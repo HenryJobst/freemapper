@@ -1117,6 +1117,104 @@ pub(crate) mod test_support {
         );
     }
 
+    /// A WCS `multipart/related` answer like LVermGeo's: a GML part, then a Float32 TIFF on
+    /// `grid` with ModelPixelScale and ModelTiepoint tags.
+    pub fn wcs_answer(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
+        use tiff::tags::Tag;
+        let mut tiff = std::io::Cursor::new(Vec::new());
+        {
+            let mut encoder = tiff::encoder::TiffEncoder::new(&mut tiff).unwrap();
+            let mut image = encoder
+                .new_image::<tiff::encoder::colortype::Gray32Float>(grid.width, grid.height)
+                .unwrap();
+            image
+                .encoder()
+                .write_tag(
+                    Tag::ModelPixelScaleTag,
+                    &[grid.pixel_size, grid.pixel_size, 0.0][..],
+                )
+                .unwrap();
+            image
+                .encoder()
+                .write_tag(
+                    Tag::ModelTiepointTag,
+                    &[0.0, 0.0, 0.0, grid.west, grid.north, 0.0][..],
+                )
+                .unwrap();
+            image.write_data(values).unwrap();
+        }
+        let mut answer =
+            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
+                .to_vec();
+        answer.extend_from_slice(tiff.get_ref());
+        answer.extend_from_slice(b"\n--wcs--\n");
+        answer
+    }
+
+    /// Serves everything a Saxony-Anhalt project in `bbox` (EPSG:25832) fetches: DGM1 and DOM1
+    /// from the WCS (the terrain rises 1 m per metre east from 80 m, the surface lies 12 m above
+    /// it), a WMS orthophoto of the right size, the tile index dates, the Saxony-Anhalt ALKIS
+    /// fixtures and the Saxony-Anhalt OSM extract.
+    pub fn serve_synthetic_saxony_anhalt(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::{alkis_wfs, lvermgeo};
+        let grid = crate::raster::GridSpec::covering(bbox, 1.0);
+        for (model, lift) in [(lvermgeo::Model::Dgm1, 80.0), (lvermgeo::Model::Dom1, 92.0)] {
+            let values: Vec<f32> = (0..grid.width * grid.height)
+                .map(|i| (i % grid.width) as f32 * 0.01 + lift)
+                .collect();
+            fetcher.insert_prefix(model.wcs_endpoint(), wcs_answer(&grid, &values));
+        }
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap",
+                lvermgeo::WMS.url
+            ),
+            solid_jpeg(photo.width, photo.height, [200, 0, 200]),
+        );
+        for (layer, body) in [
+            ("truedop_kacheln", lvermgeo::test_support::TRUEDOP_INDEX),
+            (
+                "bdom_aktualitaet_zyklus",
+                lvermgeo::test_support::BDOM_INDEX,
+            ),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=atkis_geobasis_bestand:{layer}&",
+                    lvermgeo::INDEX_URL
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let service = alkis_wfs::LVERMGEO;
+        for (type_name, body) in [
+            (
+                service.buildings_type,
+                alkis_wfs::test_support::ST_BUILDINGS,
+            ),
+            (service.land_use_type, alkis_wfs::test_support::ST_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    service.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let extract = crate::sources::osm::ExtractSource::SaxonyAnhalt;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();

@@ -27,6 +27,8 @@ const BDOM_TILE_MB: f64 = 30.0;
 const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
 const GEOSN_WMS_MB_PER_KM2: f64 = 8.0;
+/// A 1 m Float32 height model from the LVermGeo WCS per km².
+const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
 
 /// One download of a project.
@@ -62,12 +64,16 @@ pub fn estimate_download(
 
 /// The tiles a map of `bbox` uses, on its raster provider's grid, and the grid size in km.
 fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
-    let km = match raster_region(bbox).map(Region::provider) {
-        Some(Provider::GeoSn) => Product::SaxonyDtm.grid_km(),
-        _ => 1,
-    };
     let provider = raster_region(bbox).map_or(Provider::Lgb, Region::provider);
-    (provider_tiles(bbox, provider, km), km)
+    match provider {
+        Provider::Lgb => (provider_tiles(bbox, provider, 1), 1),
+        Provider::GeoSn => {
+            let km = Product::SaxonyDtm.grid_km();
+            (provider_tiles(bbox, provider, km), km)
+        }
+        // LVermGeo rasters are fetched per area (WMS, WCS).
+        Provider::LvermGeo => (Vec::new(), 1),
+    }
 }
 
 fn estimate_area(
@@ -79,6 +85,7 @@ fn estimate_area(
     let (tiles, _) = area_tiles(bbox);
     let mut items = match raster_region(bbox).map(Region::provider) {
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
+        Some(Provider::LvermGeo) => lvermgeo_items(bbox),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -134,6 +141,25 @@ fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<Estim
         cached: false,
     });
     items
+}
+
+/// LVermGeo: the WMS orthophoto and the WCS height models of the area, fetched for every project.
+fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::lvermgeo::Model;
+    let km2 = bbox.width() * bbox.height() / 1e6;
+    let item = |what: String, mb_per_km2: f64| EstimateItem {
+        what,
+        megabytes: (km2 * mb_per_km2).max(0.1),
+        cached: false,
+    };
+    vec![
+        item(
+            "orthophoto (LVermGeo WMS)".to_string(),
+            GEOSN_WMS_MB_PER_KM2,
+        ),
+        item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
+        item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
+    ]
 }
 
 /// LGB: orthophoto, DTM and nDSM (or bDOM inside Berlin) per 1 km tile.
@@ -450,6 +476,30 @@ mod tests {
             (ne.easting - sw.easting - 2000.0).abs() < 1.0,
             "{sw:?} {ne:?}"
         );
+    }
+
+    #[test]
+    fn saxony_anhalt_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Latina, Halle.
+        let halle = square(11.9716, 51.4783, 0.002);
+        let preview = preview_area(&halle, 20.0, &cache, today());
+        assert!(!preview.outside_coverage);
+        let what: Vec<&str> = preview
+            .estimate
+            .items
+            .iter()
+            .map(|i| i.what.as_str())
+            .collect();
+        assert!(what.contains(&"orthophoto (LVermGeo WMS)"), "{what:?}");
+        assert!(what.contains(&"terrain model (LVermGeo DGM1)"), "{what:?}");
+        assert!(what.contains(&"surface model (LVermGeo DOM1)"), "{what:?}");
+        assert!(
+            what.contains(&"OSM extract Saxony-Anhalt (shared by all projects)"),
+            "{what:?}"
+        );
+        assert!(preview.tiles.is_empty(), "no data tiles in Saxony-Anhalt");
     }
 
     #[test]

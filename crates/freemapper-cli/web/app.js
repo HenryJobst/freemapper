@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -55,6 +55,7 @@ const TEXTS = {
     osm: "OpenStreetMap",
     aerial: "Luftbild Brandenburg/Berlin (LGB)",
     aerialSaxony: "Luftbild Sachsen (GeoSN)",
+    aerialSaxonyAnhalt: "Luftbild Sachsen-Anhalt (LVermGeo)",
   },
   en: {
     heading: "Choose the map area",
@@ -86,7 +87,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -109,6 +110,7 @@ const TEXTS = {
     osm: "OpenStreetMap",
     aerial: "Aerial photo Brandenburg/Berlin (LGB)",
     aerialSaxony: "Aerial photo Saxony (GeoSN)",
+    aerialSaxonyAnhalt: "Aerial photo Saxony-Anhalt (LVermGeo)",
   },
 };
 
@@ -153,7 +155,23 @@ const aerialSaxony = L.tileLayer.wms("https://geodienste.sachsen.de/wms_geosn_do
   maxZoom: 20,
   attribution: "Quelle: GeoSN, dl-de/by-2-0",
 });
-L.control.layers({ [T.osm]: osm, [T.aerial]: aerial, [T.aerialSaxony]: aerialSaxony }).addTo(map);
+const aerialSaxonyAnhalt = L.tileLayer.wms(
+  "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
+  {
+    layers: "lsa_lvermgeo_dop20_2",
+    format: "image/jpeg",
+    maxZoom: 20,
+    attribution: "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0",
+  },
+);
+L.control
+  .layers({
+    [T.osm]: osm,
+    [T.aerial]: aerial,
+    [T.aerialSaxony]: aerialSaxony,
+    [T.aerialSaxonyAnhalt]: aerialSaxonyAnhalt,
+  })
+  .addTo(map);
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
 );
