@@ -14,7 +14,7 @@ use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
-use crate::crs::{BoundingBox, LatLon, utm33_forward};
+use crate::crs::{BoundingBox, LatLon};
 use crate::derive::contours::{
     contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
 };
@@ -1002,7 +1002,7 @@ fn stored_paved_objects(
     if project.map_kind != MapKind::Sprint {
         return Ok(PavedObjects::default());
     }
-    let streets = osm.map(|(features, _)| unpaved_streets(features));
+    let streets = osm.map(|(features, _)| unpaved_streets(features, georef.crs()));
     Ok(paved_area_objects(
         land_use,
         streets.as_deref().unwrap_or_default(),
@@ -1939,10 +1939,10 @@ fn map_area_outline(
         .exterior()
         .points()
         .map(|p| {
-            let c = georef.projected_to_map(utm33_forward(LatLon {
+            let c = georef.geographic_to_map(LatLon {
                 lat: p.y(),
                 lon: p.x(),
-            }))?;
+            })?;
             Ok((c.x, c.y))
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -4274,7 +4274,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let vertices: Vec<_> = area.polygon.exterior().points().collect();
         assert_eq!(outline.coords.len(), vertices.len());
         for (coord, vertex) in outline.coords.iter().zip(&vertices) {
-            let expected = utm33_forward(LatLon {
+            let expected = crate::crs::utm33_forward(LatLon {
                 lat: vertex.y(),
                 lon: vertex.x(),
             });

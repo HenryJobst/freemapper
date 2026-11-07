@@ -73,70 +73,133 @@ const GRS80_A: f64 = 6_378_137.0;
 const GRS80_F: f64 = 1.0 / 298.257_222_101;
 /// UTM scale factor on the central meridian.
 const UTM_K0: f64 = 0.9996;
-/// Central meridian of UTM zone 33 in degrees.
+/// Central meridian of UTM zone 33 in degrees (zone 32: 9°).
 const UTM33_LON0: f64 = 15.0;
 const UTM_FALSE_EASTING: f64 = 500_000.0;
 
-/// Projects a geographic position to EPSG:25833.
-pub fn utm33_forward(p: LatLon) -> ProjectedPoint {
-    transverse_mercator(p).point
+/// A projected CRS freemapper works in: ETRS89 / UTM zone 32N or 33N.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Crs {
+    /// EPSG:25832, Saxony-Anhalt, Thuringia, Hesse.
+    Utm32,
+    /// EPSG:25833, Brandenburg, Berlin, Saxony.
+    Utm33,
 }
 
-/// Geographic position of an EPSG:25833 point: Newton iteration on [`utm33_forward`], so both
-/// directions agree to well below a millimetre. `None` for points no position projects to (far
-/// outside the zone) or when the iteration does not converge.
-pub fn utm33_inverse(p: ProjectedPoint) -> Option<LatLon> {
-    /// Finite-difference step in degrees (about 0.1 m).
-    const STEP: f64 = 1e-6;
-    if !p.easting.is_finite() || !p.northing.is_finite() {
-        return None;
-    }
-    let lat = p.northing / 111_132.0;
-    let mut q = LatLon {
-        lat,
-        lon: UTM33_LON0 + (p.easting - UTM_FALSE_EASTING) / (111_320.0 * lat.to_radians().cos()),
-    };
-    for _ in 0..10 {
-        let f = utm33_forward(q);
-        let (de, dn) = (p.easting - f.easting, p.northing - f.northing);
-        if de.abs() < 1e-6 && dn.abs() < 1e-6 {
-            return (q.lat.abs() <= 90.0 && q.lon.is_finite()).then_some(q);
+impl Crs {
+    pub fn epsg(self) -> u32 {
+        match self {
+            Self::Utm32 => 25832,
+            Self::Utm33 => EPSG_UTM33,
         }
-        let at_lat = utm33_forward(LatLon {
-            lat: q.lat + STEP,
-            ..q
-        });
-        let at_lon = utm33_forward(LatLon {
-            lon: q.lon + STEP,
-            ..q
-        });
-        let (e_lat, e_lon) = (
-            (at_lat.easting - f.easting) / STEP,
-            (at_lon.easting - f.easting) / STEP,
-        );
-        let (n_lat, n_lon) = (
-            (at_lat.northing - f.northing) / STEP,
-            (at_lon.northing - f.northing) / STEP,
-        );
-        let det = e_lat * n_lon - e_lon * n_lat;
-        q.lat += (n_lon * de - e_lon * dn) / det;
-        q.lon += (e_lat * dn - n_lat * de) / det;
-        if !q.lat.is_finite() || !q.lon.is_finite() {
+    }
+
+    pub fn from_epsg(epsg: u32) -> Option<Self> {
+        match epsg {
+            25832 => Some(Self::Utm32),
+            EPSG_UTM33 => Some(Self::Utm33),
+            _ => None,
+        }
+    }
+
+    /// Central meridian in degrees.
+    fn lon0(self) -> f64 {
+        match self {
+            Self::Utm32 => 9.0,
+            Self::Utm33 => UTM33_LON0,
+        }
+    }
+
+    /// Projects a geographic position.
+    pub fn forward(self, p: LatLon) -> ProjectedPoint {
+        transverse_mercator(p, self.lon0()).point
+    }
+
+    /// Geographic position of a projected point: Newton iteration on [`Crs::forward`], so both
+    /// directions agree to well below a millimetre. `None` for points no position projects to
+    /// (far outside the zone) or when the iteration does not converge.
+    pub fn inverse(self, p: ProjectedPoint) -> Option<LatLon> {
+        /// Finite-difference step in degrees (about 0.1 m).
+        const STEP: f64 = 1e-6;
+        if !p.easting.is_finite() || !p.northing.is_finite() {
             return None;
         }
+        let lat = p.northing / 111_132.0;
+        let mut q = LatLon {
+            lat,
+            lon: self.lon0()
+                + (p.easting - UTM_FALSE_EASTING) / (111_320.0 * lat.to_radians().cos()),
+        };
+        for _ in 0..10 {
+            let f = self.forward(q);
+            let (de, dn) = (p.easting - f.easting, p.northing - f.northing);
+            if de.abs() < 1e-6 && dn.abs() < 1e-6 {
+                return (q.lat.abs() <= 90.0 && q.lon.is_finite()).then_some(q);
+            }
+            let at_lat = self.forward(LatLon {
+                lat: q.lat + STEP,
+                ..q
+            });
+            let at_lon = self.forward(LatLon {
+                lon: q.lon + STEP,
+                ..q
+            });
+            let (e_lat, e_lon) = (
+                (at_lat.easting - f.easting) / STEP,
+                (at_lon.easting - f.easting) / STEP,
+            );
+            let (n_lat, n_lon) = (
+                (at_lat.northing - f.northing) / STEP,
+                (at_lon.northing - f.northing) / STEP,
+            );
+            let det = e_lat * n_lon - e_lon * n_lat;
+            q.lat += (n_lon * de - e_lon * dn) / det;
+            q.lon += (e_lat * dn - n_lat * de) / det;
+            if !q.lat.is_finite() || !q.lon.is_finite() {
+                return None;
+            }
+        }
+        None
     }
-    None
+
+    /// Grid convergence in degrees: angle from true north to grid north, negative west of the
+    /// central meridian (same sign convention as OOM).
+    pub fn convergence_deg(self, p: LatLon) -> f64 {
+        transverse_mercator(p, self.lon0()).convergence_deg
+    }
+
+    /// Point scale factor of the projection at `p`.
+    pub fn scale_factor(self, p: LatLon) -> f64 {
+        transverse_mercator(p, self.lon0()).scale_factor
+    }
+
+    /// `p`, given in `from`, in this CRS (through latitude/longitude).
+    pub fn reproject(self, from: Crs, p: ProjectedPoint) -> Option<ProjectedPoint> {
+        if from == self {
+            return Some(p);
+        }
+        from.inverse(p).map(|q| self.forward(q))
+    }
 }
 
-/// Grid convergence in degrees: angle from true north to grid north, negative west of the
-/// central meridian (same sign convention as OOM).
+/// Projects a geographic position to EPSG:25833.
+pub fn utm33_forward(p: LatLon) -> ProjectedPoint {
+    Crs::Utm33.forward(p)
+}
+
+/// Geographic position of an EPSG:25833 point; see [`Crs::inverse`].
+pub fn utm33_inverse(p: ProjectedPoint) -> Option<LatLon> {
+    Crs::Utm33.inverse(p)
+}
+
+/// Grid convergence in EPSG:25833; see [`Crs::convergence_deg`].
 pub fn grid_convergence_deg(p: LatLon) -> f64 {
-    transverse_mercator(p).convergence_deg
+    Crs::Utm33.convergence_deg(p)
 }
 
-/// Point scale factor of the projection at `p`.
+/// Point scale factor in EPSG:25833.
 pub fn point_scale_factor(p: LatLon) -> f64 {
-    transverse_mercator(p).scale_factor
+    Crs::Utm33.scale_factor(p)
 }
 
 struct TransverseMercator {
@@ -147,7 +210,7 @@ struct TransverseMercator {
 
 /// Krüger series of order n^6 (Karney 2011, "Transverse Mercator with an accuracy of a few
 /// nanometers").
-fn transverse_mercator(p: LatLon) -> TransverseMercator {
+fn transverse_mercator(p: LatLon, lon0: f64) -> TransverseMercator {
     let f = GRS80_F;
     let e = (f * (2.0 - f)).sqrt();
     let n = f / (2.0 - f);
@@ -167,7 +230,7 @@ fn transverse_mercator(p: LatLon) -> TransverseMercator {
     ];
 
     let phi = p.lat.to_radians();
-    let lambda = (p.lon - UTM33_LON0).to_radians();
+    let lambda = (p.lon - lon0).to_radians();
     let tau = phi.tan();
     let sigma = (e * (e * phi.sin()).atanh()).sinh();
     let tau_conformal = tau * (1.0 + sigma * sigma).sqrt() - sigma * (1.0 + tau * tau).sqrt();
@@ -285,6 +348,44 @@ mod tests {
         (52.0, 15.0, 500000.0, 5761038.2125, 0.0, 0.99960000),
         (53.0, 12.0, 298694.2000, 5876481.1399, -2.396705, 1.00009740),
     ];
+
+    #[test]
+    fn zone32_round_trip_and_reference_points() {
+        // Latina August Hermann Francke, Halle: 25833 E 289 795 N 5 707 067 is 25832 E 706 451
+        // N 5 706 913 (reference rounded to metres).
+        let p = Crs::Utm33
+            .inverse(ProjectedPoint {
+                easting: 289_795.0,
+                northing: 5_707_067.0,
+            })
+            .unwrap();
+        let q = Crs::Utm32.forward(p);
+        assert!((q.easting - 706_451.0).abs() < 1.0, "{q:?}");
+        assert!((q.northing - 5_706_913.0).abs() < 1.0, "{q:?}");
+        let back = Crs::Utm32.inverse(q).unwrap();
+        assert!((back.lat - p.lat).abs() < 1e-9 && (back.lon - p.lon).abs() < 1e-9);
+        assert_eq!(Crs::Utm32.epsg(), 25832);
+        assert_eq!(Crs::Utm33.epsg(), 25833);
+        assert_eq!(Crs::from_epsg(25832), Some(Crs::Utm32));
+        assert_eq!(Crs::from_epsg(4326), None);
+        // The zone-33 wrappers are unchanged.
+        assert_eq!(utm33_forward(p), Crs::Utm33.forward(p));
+    }
+
+    #[test]
+    fn zone32_convergence_is_positive_east_of_its_meridian() {
+        let halle = LatLon {
+            lat: 51.48,
+            lon: 11.97,
+        };
+        assert!((Crs::Utm32.convergence_deg(halle) - 2.33).abs() < 0.02);
+        assert!((Crs::Utm33.convergence_deg(halle) + 2.37).abs() < 0.02);
+        let on_meridian = LatLon {
+            lat: 51.0,
+            lon: 9.0,
+        };
+        assert!((Crs::Utm32.scale_factor(on_meridian) - 0.9996).abs() < 1e-9);
+    }
 
     #[test]
     fn forward_reference_points() {
