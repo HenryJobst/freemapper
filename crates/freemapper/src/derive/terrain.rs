@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{DeriveError, read_member};
+use super::{DeriveError, read_member, template_grid, write_file};
 use crate::crs::BoundingBox;
 use crate::fetch::FetchedTile;
 use crate::raster::{GridSpec, Raster};
@@ -34,13 +34,17 @@ pub fn mosaic_dtm(tiles: &[FetchedTile], bbox: &BoundingBox) -> Result<Raster<f3
             )));
         };
         let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
-        let mosaic = mosaic.get_or_insert_with(|| {
-            Raster::filled(GridSpec::covering(bbox, grid.pixel_size), f32::NAN)
-        });
+        let mosaic = match &mut mosaic {
+            Some(m) => m,
+            None => mosaic.insert(Raster::filled(
+                template_grid(bbox, grid.pixel_size)?,
+                f32::NAN,
+            )),
+        };
         mosaic.paste_with(&grid, |x, y| {
             let z = values[y as usize * width as usize + x as usize];
             if z < NODATA_BELOW { f32::NAN } else { z }
-        });
+        })?;
     }
     mosaic.ok_or(DeriveError::NoTiles)
 }
@@ -129,14 +133,15 @@ pub fn write_gray_png(r: &Raster<Option<u8>>, out_png: &Path) -> Result<(), Deri
         .collect();
     let image = image::GrayAlphaImage::from_raw(r.grid.width, r.grid.height, pixels)
         .expect("buffer matches the grid");
-    if let Some(dir) = out_png.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| DeriveError::Io(dir.to_path_buf(), e))?;
-    }
+    let mut png = std::io::Cursor::new(Vec::new());
     image
-        .save_with_format(out_png, image::ImageFormat::Png)
+        .write_to(&mut png, image::ImageFormat::Png)
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    let world_path = out_png.with_extension("pgw");
-    std::fs::write(&world_path, r.grid.world_file()).map_err(|e| DeriveError::Io(world_path, e))
+    write_file(out_png, png.get_ref())?;
+    write_file(
+        &out_png.with_extension("pgw"),
+        r.grid.world_file().as_bytes(),
+    )
 }
 
 #[cfg(test)]
@@ -276,6 +281,54 @@ mod tests {
         assert_eq!(mosaic.get(0, 0), 0.0);
         assert_eq!(mosaic.get(3, 3), 15.0);
         assert!(mosaic.get(1, 1).is_nan());
+    }
+
+    #[test]
+    fn cross_tile_dtm_is_seamless() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tiles = Vec::new();
+        for (east_km, height) in [(421, 10.0f32), (422, 20.0)] {
+            let tile = TileId {
+                east_km,
+                north_km: 5821,
+            };
+            let b = tile.bounds();
+            let world = format!("10\n0\n0\n-10\n{}\n{}\n", b.min_e + 5.0, b.max_n - 5.0);
+            let zip = dir.path().join(format!("{}.zip", tile.name()));
+            let values = vec![height; 100 * 100];
+            std::fs::write(
+                &zip,
+                tile_zip(Product::Dtm, tile, &dtm_tiff(100, 100, &values), &world),
+            )
+            .unwrap();
+            let date = "2026-01-26".parse().unwrap();
+            tiles.push(FetchedTile {
+                product: Product::Dtm,
+                tile,
+                url: String::new(),
+                currency: TileCurrency {
+                    created: date,
+                    revised: None,
+                    published: date,
+                },
+                zip,
+            });
+        }
+        let bbox = BoundingBox {
+            min_e: 421_900.0,
+            min_n: 5_821_400.0,
+            max_e: 422_100.0,
+            max_n: 5_821_600.0,
+        };
+        let mosaic = mosaic_dtm(&tiles, &bbox).unwrap();
+        assert_eq!(mosaic.grid.width, 20);
+        for x in 0..20 {
+            assert_eq!(
+                mosaic.get(x, 5),
+                if x < 10 { 10.0 } else { 20.0 },
+                "column {x}"
+            );
+        }
     }
 
     #[test]

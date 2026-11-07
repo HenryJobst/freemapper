@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{DeriveError, read_member};
+use super::{DeriveError, read_member, template_grid, write_file};
 use crate::crs::BoundingBox;
 use crate::fetch::FetchedTile;
 use crate::raster::{GridSpec, Raster};
@@ -30,37 +30,34 @@ pub fn build_orthophoto(
             image.width(),
             image.height(),
         )?;
-        let mosaic = mosaic.get_or_insert_with(|| {
-            Raster::filled(GridSpec::covering(bbox, grid.pixel_size), WHITE)
-        });
-        mosaic.paste_with(&grid, |x, y| image.get_pixel(x, y).0);
+        let mosaic = match &mut mosaic {
+            Some(m) => m,
+            None => mosaic.insert(Raster::filled(template_grid(bbox, grid.pixel_size)?, WHITE)),
+        };
+        mosaic.paste_with(&grid, |x, y| image.get_pixel(x, y).0)?;
     }
     let mosaic = mosaic.ok_or(DeriveError::NoTiles)?;
 
-    if let Some(dir) = out_jpg.parent() {
-        std::fs::create_dir_all(dir).map_err(|e| DeriveError::Io(dir.to_path_buf(), e))?;
-    }
-    let file =
-        std::fs::File::create(out_jpg).map_err(|e| DeriveError::Io(out_jpg.to_path_buf(), e))?;
-    let mut writer = std::io::BufWriter::new(file);
-    let pixels: Vec<u8> = mosaic.data.iter().flatten().copied().collect();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, JPEG_QUALITY)
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, JPEG_QUALITY)
         .encode(
-            &pixels,
+            mosaic.data.as_flattened(),
             mosaic.grid.width,
             mosaic.grid.height,
             image::ExtendedColorType::Rgb8,
         )
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    let world_path = out_jpg.with_extension("jgw");
-    std::fs::write(&world_path, mosaic.grid.world_file())
-        .map_err(|e| DeriveError::Io(world_path, e))
+    write_file(out_jpg, &jpeg)?;
+    write_file(
+        &out_jpg.with_extension("jgw"),
+        mosaic.grid.world_file().as_bytes(),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fetch::test_support::{red_jpeg, tile_zip};
+    use crate::fetch::test_support::{red_jpeg, solid_jpeg, tile_zip};
     use crate::sources::lgb::{Product, TileCurrency};
     use crate::tiles::TileId;
 
@@ -110,6 +107,100 @@ mod tests {
         let world = std::fs::read_to_string(dir.path().join("orthophoto.jgw")).unwrap();
         let grid = GridSpec::from_world_file(&world, 20, 30).unwrap();
         assert!(grid.bounds().intersection(&bbox) == Some(bbox), "{grid:?}");
+    }
+
+    fn fetched(
+        dir: &std::path::Path,
+        tile: TileId,
+        jpeg: Vec<u8>,
+        pixel: f64,
+        size: u32,
+    ) -> FetchedTile {
+        let b = tile.bounds();
+        let world = format!(
+            "{pixel}\n0\n0\n-{pixel}\n{}\n{}\n",
+            b.min_e + pixel / 2.0,
+            b.max_n - pixel / 2.0
+        );
+        let zip = dir.join(format!("{}.zip", tile.name()));
+        std::fs::write(&zip, tile_zip(Product::Orthophoto, tile, &jpeg, &world)).unwrap();
+        let date = "2026-10-09".parse().unwrap();
+        assert_eq!(f64::from(size) * pixel, 1000.0);
+        FetchedTile {
+            product: Product::Orthophoto,
+            tile,
+            url: String::new(),
+            currency: TileCurrency {
+                created: date,
+                revised: None,
+                published: date,
+            },
+            zip,
+        }
+    }
+
+    #[test]
+    fn cross_tile_orthophoto_is_seamless() {
+        let dir = tempfile::tempdir().unwrap();
+        let east = TileId {
+            east_km: 422,
+            north_km: 5821,
+        };
+        let tiles = [
+            fetched(
+                dir.path(),
+                TILE,
+                solid_jpeg(100, 100, [255, 0, 0]),
+                10.0,
+                100,
+            ),
+            fetched(
+                dir.path(),
+                east,
+                solid_jpeg(100, 100, [0, 0, 255]),
+                10.0,
+                100,
+            ),
+        ];
+        let bbox = BoundingBox {
+            min_e: 421_900.0,
+            min_n: 5_821_400.0,
+            max_e: 422_100.0,
+            max_n: 5_821_600.0,
+        };
+        let out = dir.path().join("orthophoto.jpg");
+        build_orthophoto(&tiles, &bbox, &out).unwrap();
+        let img = image::open(&out).unwrap().to_rgb8();
+        assert_eq!(img.dimensions(), (20, 20));
+        for x in 0..20 {
+            let p = img.get_pixel(x, 10).0;
+            if x < 10 {
+                assert!(p[0] > 200 && p[2] < 60, "column {x}: {p:?}");
+            } else {
+                assert!(p[2] > 200 && p[0] < 60, "column {x}: {p:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn oversized_area_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let tile = fetched(
+            dir.path(),
+            TILE,
+            solid_jpeg(100, 100, [255, 0, 0]),
+            10.0,
+            100,
+        );
+        let bbox = BoundingBox {
+            min_e: 200_000.0,
+            min_n: 5_700_000.0,
+            max_e: 500_000.0,
+            max_n: 5_800_000.0,
+        };
+        let err = build_orthophoto(&[tile], &bbox, &dir.path().join("o.jpg")).unwrap_err();
+        assert!(matches!(err, DeriveError::AreaTooLarge { .. }), "{err:?}");
+        assert!(err.to_string().contains("too large"), "{err}");
     }
 
     #[test]

@@ -9,6 +9,10 @@ const PIXEL_EPSILON: f64 = 1e-6;
 pub enum RasterError {
     #[error("invalid world file: {0}")]
     WorldFile(String),
+    #[error("rasters are not aligned to the same pixel grid: {0}")]
+    Misaligned(String),
+    #[error("rasters have different pixel sizes: {0}")]
+    PixelSizeMismatch(String),
 }
 
 /// Axis-parallel pixel grid: north-west corner, square pixel size in metres, size in pixels.
@@ -93,24 +97,26 @@ impl GridSpec {
 
     /// Offset of `other`'s north-west pixel in this grid, in whole pixels.
     ///
-    /// Panics if the grids differ in pixel size or are not aligned; LGB tiles always are.
-    fn offset_of(&self, other: &GridSpec) -> (i64, i64) {
+    /// Fails if the grids differ in pixel size or are not aligned to within 1 % of a pixel.
+    fn offset_of(&self, other: &GridSpec) -> Result<(i64, i64), RasterError> {
+        if (self.pixel_size - other.pixel_size).abs() >= self.pixel_size * PIXEL_EPSILON {
+            return Err(RasterError::PixelSizeMismatch(format!(
+                "{} m vs {} m",
+                self.pixel_size, other.pixel_size
+            )));
+        }
         let to_pixels = |metres: f64| {
             let pixels = metres / self.pixel_size;
-            assert!(
-                (pixels - pixels.round()).abs() < 0.01,
-                "grids are not aligned: {self:?} vs {other:?}"
-            );
-            pixels.round() as i64
+            if (pixels - pixels.round()).abs() < 0.01 {
+                Ok(pixels.round() as i64)
+            } else {
+                Err(RasterError::Misaligned(format!("{self:?} vs {other:?}")))
+            }
         };
-        assert!(
-            (self.pixel_size - other.pixel_size).abs() < self.pixel_size * PIXEL_EPSILON,
-            "pixel sizes differ: {self:?} vs {other:?}"
-        );
-        (
-            to_pixels(other.west - self.west),
-            to_pixels(self.north - other.north),
-        )
+        Ok((
+            to_pixels(other.west - self.west)?,
+            to_pixels(self.north - other.north)?,
+        ))
     }
 }
 
@@ -148,13 +154,17 @@ impl<T: Copy> Raster<T> {
     }
 
     /// Copies the pixels of `other` where both rasters overlap.
-    pub fn paste(&mut self, other: &Raster<T>) {
-        self.paste_with(&other.grid, |x, y| other.get(x, y));
+    pub fn paste(&mut self, other: &Raster<T>) -> Result<(), RasterError> {
+        self.paste_with(&other.grid, |x, y| other.get(x, y))
     }
 
     /// Like [`Self::paste`] for a source given as grid plus pixel accessor.
-    pub fn paste_with(&mut self, source: &GridSpec, pixel: impl Fn(u32, u32) -> T) {
-        let (dx, dy) = self.grid.offset_of(source);
+    pub fn paste_with(
+        &mut self,
+        source: &GridSpec,
+        pixel: impl Fn(u32, u32) -> T,
+    ) -> Result<(), RasterError> {
+        let (dx, dy) = self.grid.offset_of(source)?;
         let x_range = dx.max(0)..(dx + i64::from(source.width)).min(i64::from(self.grid.width));
         let y_range = dy.max(0)..(dy + i64::from(source.height)).min(i64::from(self.grid.height));
         for y in y_range {
@@ -163,6 +173,7 @@ impl<T: Copy> Raster<T> {
                 self.set(x as u32, y as u32, value);
             }
         }
+        Ok(())
     }
 }
 
@@ -221,8 +232,8 @@ mod tests {
         let west = Raster::filled(grid(0.0, 10.0, 10, 10), 1u8);
         let east = Raster::filled(grid(10.0, 10.0, 10, 10), 2u8);
         let mut target = Raster::filled(grid(0.0, 10.0, 20, 10), 0u8);
-        target.paste(&west);
-        target.paste(&east);
+        target.paste(&west).unwrap();
+        target.paste(&east).unwrap();
         for y in 0..10 {
             for x in 0..20 {
                 assert_eq!(target.get(x, y), if x < 10 { 1 } else { 2 }, "({x}, {y})");
@@ -231,10 +242,28 @@ mod tests {
     }
 
     #[test]
+    fn misaligned_tiles_are_an_error() {
+        let mut target = Raster::filled(grid(0.0, 10.0, 10, 10), 0u8);
+        let shifted = Raster::filled(grid(0.5, 10.0, 10, 10), 1u8);
+        assert!(matches!(
+            target.paste(&shifted),
+            Err(RasterError::Misaligned(_))
+        ));
+        let mut coarse_grid = grid(0.0, 10.0, 5, 5);
+        coarse_grid.pixel_size = 2.0;
+        let coarse = Raster::filled(coarse_grid, 1u8);
+        assert!(matches!(
+            target.paste(&coarse),
+            Err(RasterError::PixelSizeMismatch(_))
+        ));
+        assert!(target.data.iter().all(|v| *v == 0), "nothing pasted");
+    }
+
+    #[test]
     fn paste_copies_only_the_overlap() {
         let source = Raster::filled(grid(-5.0, 15.0, 10, 10), 7u8);
         let mut target = Raster::filled(grid(0.0, 10.0, 10, 10), 0u8);
-        target.paste(&source);
+        target.paste(&source).unwrap();
         assert_eq!(target.get(0, 0), 7);
         assert_eq!(target.get(4, 4), 7);
         assert_eq!(target.get(5, 5), 0);

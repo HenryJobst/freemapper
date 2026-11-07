@@ -19,6 +19,33 @@ pub enum DeriveError {
     Raster(#[from] RasterError),
     #[error("no tiles to derive from")]
     NoTiles,
+    #[error(
+        "map area too large for one template: {width} × {height} pixels (at most {MAX_RASTER_SIDE_PX} per side)"
+    )]
+    AreaTooLarge { width: u32, height: u32 },
+}
+
+/// Largest template side in pixels: 4 km of orthophoto at 0.2 m.
+pub const MAX_RASTER_SIDE_PX: u32 = 20_000;
+
+/// The pixel grid of a template covering `bbox`, refused when it exceeds [`MAX_RASTER_SIDE_PX`].
+pub(crate) fn template_grid(
+    bbox: &crate::crs::BoundingBox,
+    pixel_size: f64,
+) -> Result<crate::raster::GridSpec, DeriveError> {
+    let grid = crate::raster::GridSpec::covering(bbox, pixel_size);
+    if grid.width > MAX_RASTER_SIDE_PX || grid.height > MAX_RASTER_SIDE_PX {
+        return Err(DeriveError::AreaTooLarge {
+            width: grid.width,
+            height: grid.height,
+        });
+    }
+    Ok(grid)
+}
+
+/// Writes a template file atomically.
+pub(crate) fn write_file(path: &std::path::Path, bytes: &[u8]) -> Result<(), DeriveError> {
+    crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| DeriveError::Io(path, e))
 }
 
 /// Reads one member of a tile archive.

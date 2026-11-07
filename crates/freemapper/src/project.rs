@@ -51,6 +51,8 @@ pub enum ProjectError {
     Derive(#[from] DeriveError),
     #[error("no tiles fetched yet; run `freemapper fetch` first")]
     NotFetched,
+    #[error("the map area needs tiles {} that were not fetched; run `freemapper fetch`", tile_names(.0))]
+    TilesOutdated(Vec<TileId>),
     #[error("no ALKIS buildings stored; run `freemapper fetch` online first")]
     BuildingsNotFetched,
 }
@@ -206,6 +208,14 @@ pub fn init_project(
     Ok(project)
 }
 
+fn tile_names(tiles: &[TileId]) -> String {
+    tiles
+        .iter()
+        .map(TileId::name)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
@@ -296,6 +306,22 @@ pub fn derive_project(
         return Err(ProjectError::NotFetched);
     }
     let bbox = project.bbox()?;
+    let needed = tiles_covering(&bbox);
+    let outdated: Vec<TileId> = needed
+        .iter()
+        .copied()
+        .filter(|tile| {
+            PRODUCTS.iter().any(|product| {
+                !project
+                    .tiles
+                    .iter()
+                    .any(|r| r.product == *product && r.tile == tile.name())
+            })
+        })
+        .collect();
+    if !outdated.is_empty() {
+        return Err(ProjectError::TilesOutdated(outdated));
+    }
     let tiles = |product: Product| -> Result<Vec<FetchedTile>, ProjectError> {
         let mut fetched = Vec::new();
         let mut missing = Vec::new();
@@ -1025,6 +1051,53 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(candidates.contains(credit), "candidates notes");
         let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
         assert!(attribution.contains(credit), "{attribution}");
+    }
+
+    #[test]
+    fn derive_detects_stale_tile_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m = 600.0;
+        project.save(dir.path()).unwrap();
+        let err = derive_project(dir.path(), &cache, &mut |_| {}).unwrap_err();
+        assert!(matches!(err, ProjectError::TilesOutdated(_)), "{err:?}");
+        assert!(err.to_string().contains("freemapper fetch"), "{err}");
+    }
+
+    #[test]
+    fn derived_images_leave_no_partial_files() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path().join("templates"))
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".part"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+
+    #[test]
+    fn fetch_not_covered_leaves_project_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let fetcher = MapFetcher::default();
+        let elsewhere = crate::tiles::TileId::parse("33999-5999").unwrap();
+        serve_synthetic_tile(&fetcher, elsewhere, "2026-01-26");
+        let err = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+            .unwrap_err();
+        assert!(
+            matches!(err, ProjectError::Fetch(FetchError::TilesNotCovered(_))),
+            "{err:?}"
+        );
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
     }
 
     #[test]

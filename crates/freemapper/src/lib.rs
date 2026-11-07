@@ -7,6 +7,7 @@ pub mod build;
 pub mod crs;
 pub mod derive;
 pub mod fetch;
+mod fsutil;
 pub mod georef;
 pub mod omap;
 pub mod project;

@@ -286,16 +286,9 @@ fn newest_cached_version(path: &Path, tile: TileId) -> Option<(NaiveDate, PathBu
     cached_versions(path, tile).into_iter().next()
 }
 
-/// Writes `bytes` to `<path>.part` and renames it, so `path` never holds a partial file.
+/// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`].
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
-    let dir = path.parent().expect("cache paths have a parent");
-    std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
-    // The process id keeps concurrent runs from writing the same partial file.
-    let mut part = path.as_os_str().to_owned();
-    part.push(format!(".{}.part", std::process::id()));
-    let part = PathBuf::from(part);
-    std::fs::write(&part, bytes).map_err(|e| FetchError::Io(part.clone(), e))?;
-    std::fs::rename(&part, path).map_err(|e| FetchError::Io(path.to_path_buf(), e))
+    crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
 }
 
 /// Deletes the other cached publications of `tile` next to `current`, and partial downloads of
@@ -385,7 +378,12 @@ pub(crate) mod test_support {
 
     /// A uniformly red JPEG.
     pub fn red_jpeg(width: u32, height: u32) -> Vec<u8> {
-        let img = image::RgbImage::from_pixel(width, height, image::Rgb([255, 0, 0]));
+        solid_jpeg(width, height, [255, 0, 0])
+    }
+
+    /// A JPEG of one colour.
+    pub fn solid_jpeg(width: u32, height: u32, rgb: [u8; 3]) -> Vec<u8> {
+        let img = image::RgbImage::from_pixel(width, height, image::Rgb(rgb));
         let mut bytes = Vec::new();
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 95)
             .encode_image(&img)
