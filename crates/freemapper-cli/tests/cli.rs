@@ -381,3 +381,23 @@ fn export_ocad_keeps_an_existing_oom_map() {
         "{stdout}"
     );
 }
+
+#[test]
+fn export_pdf_writes_the_training_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let export = freemapper()
+        .args(["export", project.to_str().unwrap(), "--pdf"])
+        .output()
+        .unwrap();
+    assert!(
+        export.status.success(),
+        "{}",
+        String::from_utf8_lossy(&export.stderr)
+    );
+    let pdf = std::fs::read(project.join("schule.pdf")).unwrap();
+    assert!(pdf.starts_with(b"%PDF-"));
+    let stdout = String::from_utf8_lossy(&export.stdout);
+    assert!(stdout.contains("schule.pdf"), "{stdout}");
+}
