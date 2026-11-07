@@ -118,6 +118,33 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Ausgangsstand für OCAD
+
+```sh
+freemapper export clara-zetkin-schule --ocad      # oder: freemapper run clara-zetkin-schule --ocad
+```
+
+schreibt zusätzlich den Ordner `ocad/`:
+
+- `<name>.ocd`: Karte im OCAD-12-Format (sollte sich in OCAD 12 und neuer öffnen), mit Georeferenz
+  (ETRS89/UTM 33), Farben, den Kartenobjekten und den Vorlagen als Hintergrundkarten.
+- `<name>-candidates.ocd`: die Kandidaten als eigene OCAD-Karte.
+- Luftbild, Schummerung, Hangneigung und nDOM mit Weltdateien, direkt neben der `.ocd`.
+
+Die Symbole in der `.ocd` sind Platzhalter: richtige Nummer, Name und Hauptfarbe, aber einfache
+Grafik. In OCAD lädt man den offiziellen Satz (*Symbol › Farben und Symbole laden aus…*, ISSprOM 2019
+für Sprint, IOF-Schulsatz 2019 für Schulhof), der die Platzhalter nach Nummer ersetzt.
+- Die Nummern folgen OCADs offiziellen Sätzen, z. B. 501.001 für befestigte Fläche und 505.000/505.001
+  für Wege.
+- Eine vorhandene `.ocd` wird nur mit `--force` ersetzt (die alte bleibt als `.ocd.bak`); eine
+  vorhandene OOM-Karte bleibt bei `--ocad` ohne `--force` unverändert.
+
+Die Dateien sind noch nicht in OCAD geprüft. Was zu prüfen ist, steht in
+[`docs/ocad/test-checklist.md`](docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
+Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die Kandidaten-Karte deckungsgleich
+einblendet (sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
+OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
+
 ## Mit einem KI-Agenten (MCP)
 
 `freemapper mcp` ist ein MCP-Server auf stdin/stdout. Ein KI-Agent kann damit die Karte für jemanden
@@ -146,7 +173,8 @@ Ablauf, wie der Agent ihn geht:
 2. `create_project` – legt den Projektordner an (absoluter Pfad oder `~/…`), Kartenart und Maßstab
    wählbar.
 3. `estimate_download` – sagt, wie viel geladen werden muss (beim ersten Mal etwa 300 MB OSM-Auszug).
-4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück.
+4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück
+   (mit `ocad: true` auch den OCAD-Ausgangsstand).
 5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
 6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Vorlagen.
 

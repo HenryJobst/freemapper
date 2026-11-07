@@ -135,6 +135,8 @@ Orienteering Maps 2019 (IOF).
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
+| OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
+| Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
 | Ebene | layer | Ein Ergebnis (Objekte, Kandidaten oder Vorlage) mit einheitlichem Inhalt. | `Layer` |

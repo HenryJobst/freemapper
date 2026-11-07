@@ -27,6 +27,7 @@ use crate::fetch::{
     Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_atomically,
 };
 use crate::georef::{GeorefError, Georeferencing};
+use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::MapCoord;
 use crate::omap::{
     MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
@@ -69,6 +70,8 @@ pub enum ProjectError {
     NotFetched,
     #[error("{0}")]
     Layer(String),
+    #[error("OCAD export: {0}")]
+    Ocd(#[from] crate::ocd::file::OcdBuildError),
     #[error(
         "{}: image and world file do not match the map area; run `freemapper derive` again",
         .0.display()
@@ -1168,6 +1171,148 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
 /// `None` (the map is kept: it may contain the mapper's work). Candidates are a template that
 /// always follows the current map area.
 fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf, ProjectError> {
+    let StarterDocuments {
+        map,
+        candidates,
+        attribution_text,
+    } = starter_documents(dir)?;
+    let map_path = map_path(dir);
+    if let Some(force) = map_force
+        && map_path.exists()
+    {
+        if !force {
+            return Err(ProjectError::MapExists(map_path));
+        }
+        let backup = map_path.with_extension("omap.bak");
+        std::fs::copy(&map_path, &backup).map_err(|e| ProjectError::Io(backup, e))?;
+    }
+    write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
+    if map_force.is_some() {
+        write_document(&map, &map_path)?;
+    }
+    let attribution = dir.join("ATTRIBUTION.txt");
+    std::fs::write(
+        &attribution,
+        format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n"),
+    )
+    .map_err(|e| ProjectError::Io(attribution, e))?;
+    Ok(map_path)
+}
+
+/// Folder of the OCAD starting point inside a project.
+pub const OCAD_DIR: &str = "ocad";
+
+/// What [`export_ocad`] did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OcadOutcome {
+    pub map: PathBuf,
+    /// The OCAD map existed and `force` was not set, so it was left alone (it may contain the
+    /// mapper's work); candidates and images were refreshed.
+    pub kept: bool,
+    pub candidates: PathBuf,
+    pub objects: usize,
+    /// Objects OCAD cannot take (no symbol for OCAD, no area, outside its drawing area).
+    pub skipped: usize,
+    /// Degenerate line parts and hole rings left out of written objects.
+    pub dropped_parts: usize,
+}
+
+/// The world file next to an image: `.jpg` → `.jgw`, `.png` → `.pgw`.
+fn world_file_path(image: &Path) -> Option<PathBuf> {
+    let ext = image.extension()?.to_str()?;
+    let mut chars = ext.chars();
+    let (first, last) = (chars.next()?, ext.chars().last()?);
+    Some(image.with_extension(format!("{first}{last}w")))
+}
+
+/// Writes the OCAD starting point into `ocad/`: `<name>.ocd` (OCAD 12) with the map objects,
+/// `<name>-candidates.ocd`, and the raster templates with their world files as background maps.
+/// An existing `<name>.ocd` is only replaced when `force` is set (kept as `.ocd.bak`).
+pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError> {
+    let project = ProjectFile::load(dir)?;
+    let documents = starter_documents(dir)?;
+    let ocad_dir = dir.join(OCAD_DIR);
+    std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
+    // OCAD finds background maps by the ASCII names in the parameter strings, so the files get
+    // the same ASCII names ("Straußberg" → "Straussberg").
+    let name = map_path(dir)
+        .file_stem()
+        .map(|s| {
+            crate::ocd::symbols::ascii(&s.to_string_lossy())
+                .trim()
+                .to_string()
+        })
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "map".to_string());
+    let copy = |from: &Path, to: &Path| {
+        std::fs::copy(from, to)
+            .map(|_| ())
+            .map_err(|e| ProjectError::Io(to.to_path_buf(), e))
+    };
+    let mut backgrounds = Vec::new();
+    for template in &documents.map.templates {
+        if template.kind != TemplateKind::Image {
+            continue;
+        }
+        let image = dir.join(&template.relpath);
+        let Some(world) = world_file_path(&image).filter(|w| w.exists() && image.exists()) else {
+            continue;
+        };
+        let (Some(image_name), Some(world_name)) = (image.file_name(), world.file_name()) else {
+            continue;
+        };
+        copy(&image, &ocad_dir.join(image_name))?;
+        copy(&world, &ocad_dir.join(world_name))?;
+        let text =
+            std::fs::read_to_string(&world).map_err(|e| ProjectError::Io(world.clone(), e))?;
+        let world_file = WorldFile::parse(&text)
+            .ok_or_else(|| ProjectError::Layer(format!("{}: not a world file", world.display())))?;
+        let (width_px, height_px) = image::image_dimensions(&image)
+            .map_err(|e| ProjectError::Layer(format!("{}: {e}", image.display())))?;
+        backgrounds.push(Background::Image {
+            file_name: image_name.to_string_lossy().into_owned(),
+            width_px,
+            height_px,
+            world: world_file,
+            visible: template.visible,
+            opacity: template.opacity,
+        });
+    }
+    let candidates_name = format!("{name}-candidates.ocd");
+    backgrounds.push(Background::Map {
+        file_name: candidates_name.clone(),
+        visible: true,
+    });
+    let candidates = ocad_dir.join(&candidates_name);
+    let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
+    write_atomically(&candidates, &bytes)?;
+    let map = ocad_dir.join(format!("{name}.ocd"));
+    let kept = map.exists() && !force;
+    let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
+    if !kept {
+        if map.exists() {
+            copy(&map, &map.with_extension("ocd.bak"))?;
+        }
+        write_atomically(&map, &bytes)?;
+    }
+    Ok(OcadOutcome {
+        map,
+        kept,
+        candidates,
+        objects: report.objects,
+        skipped: report.skipped,
+        dropped_parts: report.dropped_parts,
+    })
+}
+
+/// The map and the candidates template map of a project, as written to OOM and OCAD files.
+struct StarterDocuments {
+    map: MapDocument,
+    candidates: MapDocument,
+    attribution_text: String,
+}
+
+fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
     let georef = Georeferencing::new(
@@ -1291,27 +1436,11 @@ fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf,
         templates,
     };
 
-    let map_path = map_path(dir);
-    if let Some(force) = map_force
-        && map_path.exists()
-    {
-        if !force {
-            return Err(ProjectError::MapExists(map_path));
-        }
-        let backup = map_path.with_extension("omap.bak");
-        std::fs::copy(&map_path, &backup).map_err(|e| ProjectError::Io(backup, e))?;
-    }
-    write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
-    if map_force.is_some() {
-        write_document(&map, &map_path)?;
-    }
-    let attribution = dir.join("ATTRIBUTION.txt");
-    std::fs::write(
-        &attribution,
-        format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n"),
-    )
-    .map_err(|e| ProjectError::Io(attribution, e))?;
-    Ok(map_path)
+    Ok(StarterDocuments {
+        map,
+        candidates,
+        attribution_text,
+    })
 }
 
 pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
@@ -1743,6 +1872,92 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(outcome.templates.len(), 4, "three images and the contours");
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
+    }
+
+    /// The fetched and derived school project.
+    fn derived_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, cache_dir, cache) = fetched_school(fetcher);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        (dir, cache_dir)
+    }
+
+    #[test]
+    fn export_ocad_writes_map_candidates_and_images() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let outcome = export_ocad(dir.path(), false).unwrap();
+        let name = map_path(dir.path())
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
+        let ocad = dir.path().join("ocad");
+        assert_eq!(outcome.map, ocad.join(format!("{name}.ocd")));
+        assert!(!outcome.kept);
+        for file in [
+            "orthophoto.jpg",
+            "orthophoto.jgw",
+            "hillshade.png",
+            "hillshade.pgw",
+            "slope.png",
+        ] {
+            assert!(ocad.join(file).exists(), "{file}");
+        }
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        assert!(map.objects.iter().any(|o| o.symbol == 521_000), "building");
+        let backgrounds: Vec<&str> = map
+            .strings
+            .iter()
+            .filter(|s| s.kind == 8)
+            .map(|s| s.text.split('\t').next().unwrap())
+            .collect();
+        assert!(backgrounds.contains(&"orthophoto.jpg"), "{backgrounds:?}");
+        assert!(backgrounds.contains(&format!("{name}-candidates.ocd").as_str()));
+        let notes = &map.strings.iter().find(|s| s.kind == 1061).unwrap().text;
+        assert!(
+            notes.contains("github.com/HenryJobst/freemapper"),
+            "{notes}"
+        );
+        let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
+        assert!(!candidates.objects.is_empty());
+        assert!(outcome.objects > 0);
+    }
+
+    #[test]
+    fn export_ocad_names_files_in_ascii() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("Straußberg Schule");
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(&dir, &fixture_area(), MapKind::Schoolyard, None, date, None).unwrap();
+        let outcome = export_ocad(&dir, false).unwrap();
+        assert_eq!(outcome.map.file_name().unwrap(), "Straussberg Schule.ocd");
+        assert_eq!(
+            outcome.candidates.file_name().unwrap(),
+            "Straussberg Schule-candidates.ocd"
+        );
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        let background = map.strings.iter().find(|s| s.kind == 8).unwrap();
+        assert_eq!(background.text, "Straussberg Schule-candidates.ocd\ts1\tr1");
+    }
+
+    #[test]
+    fn export_ocad_keeps_an_edited_ocd() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let first = export_ocad(dir.path(), false).unwrap();
+        std::fs::write(&first.map, "edited in OCAD").unwrap();
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(kept.kept);
+        assert_eq!(
+            std::fs::read_to_string(&kept.map).unwrap(),
+            "edited in OCAD"
+        );
+        assert!(kept.candidates.exists());
+        let replaced = export_ocad(dir.path(), true).unwrap();
+        assert!(!replaced.kept);
+        let backup = replaced.map.with_extension("ocd.bak");
+        assert_eq!(std::fs::read_to_string(backup).unwrap(), "edited in OCAD");
+        assert_eq!(&std::fs::read(&replaced.map).unwrap()[0..2], &[0xAD, 0x0C]);
     }
 
     #[test]
