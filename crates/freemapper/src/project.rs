@@ -354,6 +354,17 @@ const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
+/// Sets the map area of the project in `dir` (from the area selection page), keeping every other
+/// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
+pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
+    let mut project = ProjectFile::load(dir)?;
+    project.map_area = area.to_geojson_value();
+    project.map_area_source_id = area.source_id.clone();
+    check_area_size(&project.bbox()?)?;
+    project.save(dir)?;
+    Ok(project)
+}
+
 /// Refuses a map area plus buffer larger than the templates can cover.
 pub(crate) fn check_area_size(bbox: &BoundingBox) -> Result<(), ProjectError> {
     if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
@@ -1343,6 +1354,60 @@ fn write_document(doc: &MapDocument, path: &Path) -> Result<(), ProjectError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn set_map_area_keeps_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            date,
+            Some("Vorstadt".into()),
+        )
+        .unwrap();
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/strausberg-vorstadt-sprint.geojson"
+        ))
+        .unwrap();
+        let area = MapArea::from_geojson(&text).unwrap();
+        let project = set_map_area(dir.path(), &area).unwrap();
+        let loaded = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project, loaded);
+        assert_eq!(loaded.map_area, area.to_geojson_value());
+        assert_eq!(loaded.map_area_source_id, None);
+        assert_eq!(loaded.title.as_deref(), Some("Vorstadt"));
+        assert_eq!(loaded.map_kind, MapKind::Sprint);
+        assert_eq!(loaded.declination_date, date);
+    }
+
+    #[test]
+    fn set_map_area_refuses_too_large() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        let before = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let huge = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.7,52.5],[13.9,52.5],[13.9,52.6],[13.7,52.6],[13.7,52.5]]]}"#,
+        )
+        .unwrap();
+        let err = set_map_area(dir.path(), &huge).unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+        let after = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert_eq!(before, after);
+        assert!(set_map_area(tempfile::tempdir().unwrap().path(), &fixture_area()).is_err());
+    }
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_tile};
 
     #[test]

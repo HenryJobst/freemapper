@@ -82,6 +82,45 @@ pub fn utm33_forward(p: LatLon) -> ProjectedPoint {
     transverse_mercator(p).point
 }
 
+/// Geographic position of an EPSG:25833 point: Newton iteration on [`utm33_forward`], so both
+/// directions agree to well below a millimetre.
+pub fn utm33_inverse(p: ProjectedPoint) -> LatLon {
+    /// Finite-difference step in degrees (about 0.1 m).
+    const STEP: f64 = 1e-6;
+    let lat = p.northing / 111_132.0;
+    let mut q = LatLon {
+        lat,
+        lon: UTM33_LON0 + (p.easting - UTM_FALSE_EASTING) / (111_320.0 * lat.to_radians().cos()),
+    };
+    for _ in 0..10 {
+        let f = utm33_forward(q);
+        let (de, dn) = (p.easting - f.easting, p.northing - f.northing);
+        if de.abs() < 1e-6 && dn.abs() < 1e-6 {
+            break;
+        }
+        let at_lat = utm33_forward(LatLon {
+            lat: q.lat + STEP,
+            ..q
+        });
+        let at_lon = utm33_forward(LatLon {
+            lon: q.lon + STEP,
+            ..q
+        });
+        let (e_lat, e_lon) = (
+            (at_lat.easting - f.easting) / STEP,
+            (at_lon.easting - f.easting) / STEP,
+        );
+        let (n_lat, n_lon) = (
+            (at_lat.northing - f.northing) / STEP,
+            (at_lon.northing - f.northing) / STEP,
+        );
+        let det = e_lat * n_lon - e_lon * n_lat;
+        q.lat += (n_lon * de - e_lon * dn) / det;
+        q.lon += (e_lat * dn - n_lat * de) / det;
+    }
+    q
+}
+
 /// Grid convergence in degrees: angle from true north to grid north, negative west of the
 /// central meridian (same sign convention as OOM).
 pub fn grid_convergence_deg(p: LatLon) -> f64 {
@@ -159,6 +198,22 @@ fn transverse_mercator(p: LatLon) -> TransverseMercator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utm33_roundtrip() {
+        for (lat, lon) in [(52.5388, 13.8433), (51.4, 11.9), (53.5, 14.7), (52.0, 15.0)] {
+            let p = LatLon { lat, lon };
+            let back = utm33_inverse(utm33_forward(p));
+            let again = utm33_forward(back);
+            let there = utm33_forward(p);
+            assert!(
+                (again.easting - there.easting).abs() < 0.001
+                    && (again.northing - there.northing).abs() < 0.001,
+                "{p:?} -> {back:?}"
+            );
+            assert!((back.lat - lat).abs() < 1e-8 && (back.lon - lon).abs() < 1e-8);
+        }
+    }
 
     #[test]
     fn bbox_buffer_snap_intersection() {
