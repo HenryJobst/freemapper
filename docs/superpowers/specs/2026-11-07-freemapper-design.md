@@ -273,7 +273,11 @@ and in generic MCP client configs.
 | M7 | Sprint map kind (1:4000) for Strausberg Vorstadt: ALKIS traffic areas, OSM unpaved paths |
 | M8 | Browser area selection page |
 
-**Later:** OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
+**Later:** Quick training map (user, 2026-11-07): an optional switch (e.g. `--full`) that generates
+the most complete map possible and renders it to PDF. Unlike the default output policy, candidates
+(OSM furniture, barriers, contours, nDSM-derived features) become map objects. This needs a symbol
+renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, text) plus PDF output, and
+peripheral information on the sheet. OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
 added; image templates with world files already work in OCAD. Berlin adapter (ATOM/WFS, 2 km tiles, dl-de/zero-2-0), forest maps (ISOM, vegetation, cliffs via
