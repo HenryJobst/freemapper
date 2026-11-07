@@ -12,6 +12,7 @@ rust-version = "1.88"
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
 anyhow = "1.0.104"
+contour = "0.13.1"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
 clap = { version = "4.6.7", features = ["derive"] }
 dirs = "7.0.0"
@@ -19,6 +20,8 @@ geo = "0.33.1"
 geo-types = "0.7.20"
 geojson = "1.0.0"
 osmpbf = "0.3.8"
+# Pinned: newer releases are younger than two weeks.
+las = { version = "=0.11.1", features = ["laz"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 quick-xml = "0.42.0"
 serde = { version = "1", features = ["derive"] }

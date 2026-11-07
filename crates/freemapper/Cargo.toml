@@ -9,11 +9,13 @@ rust-version.workspace = true
 
 [dependencies]
 chrono.workspace = true
+contour.workspace = true
 dirs.workspace = true
 geo.workspace = true
 geo-types.workspace = true
 geojson.workspace = true
 image.workspace = true
+las.workspace = true
 osmpbf.workspace = true
 quick-xml.workspace = true
 serde.workspace = true
