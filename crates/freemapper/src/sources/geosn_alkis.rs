@@ -61,8 +61,8 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                     root_seen = true;
                     continue;
                 }
-                // wfs:member / <FeatureType> / property …
-                if path.len() == 1 && feature.is_none() {
+                // wfs:member / <FeatureType> / property …; wfs:boundedBy holds no feature.
+                if path.len() == 1 && path[0] == "member" && feature.is_none() {
                     feature = Some(GmlFeature::default());
                 } else if let Some(f) = feature.as_mut() {
                     match name.as_str() {
@@ -344,6 +344,20 @@ mod tests {
         let gml = r#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"><wfs:member><GebaeudeBauwerk><oid>DESN1</oid><lagebeztxt>Hof &amp; Garten &#228;</lagebeztxt></GebaeudeBauwerk></wfs:member></wfs:FeatureCollection>"#;
         let features = parse_gml(gml).unwrap();
         assert_eq!(features[0]["properties"]["lagebeztxt"], "Hof & Garten ä");
+    }
+
+    #[test]
+    fn bounded_by_is_not_a_feature() {
+        // Live answers start with the collection's envelope.
+        let gml = BUILDINGS.replacen(
+            "<wfs:member>",
+            r#"<wfs:boundedBy><gml:Envelope srsName="urn:ogc:def:crs:EPSG::25833" srsDimension="2"><gml:lowerCorner>415777.883 5655572.608</gml:lowerCorner><gml:upperCorner>416192.975 5655938.59</gml:upperCorner></gml:Envelope></wfs:boundedBy>
+<wfs:member>"#,
+            1,
+        );
+        let features = parse_gml(&gml).unwrap();
+        assert_eq!(features.len(), 3);
+        assert!(features.iter().all(|f| f["properties"]["oid"].is_string()));
     }
 
     #[test]
