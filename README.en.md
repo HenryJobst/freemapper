@@ -59,8 +59,9 @@ Result in the project folder:
 - `templates/candidates.omap` – template map with the outline of the map area and candidates from
   OpenStreetMap to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
   trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`),
-  contours, and private land as out-of-bounds (520: residential, commercial, mixed-use and railway land
-  from the ALKIS land use; on the schoolyard map without the school's own land)
+  contours, and out-of-bounds areas (520) from the ALKIS land use: on the schoolyard map everything but
+  the school's own parcel, on the sprint map private land (residential, commercial, mixed-use and
+  railway land)
 - peripheral information in the map (map part "peripheral information"): magnetic north lines over the
   map content, below it the title (`--title`, else the folder name), scale and contour interval, a bar
   scale, the attribution of the data sources and the freemapper credit line

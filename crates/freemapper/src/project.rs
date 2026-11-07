@@ -423,8 +423,15 @@ pub fn fetch_project(
         project.buildings = Some(record);
         project.save(dir)?;
     }
-    if let Some(record) = fetch_land_use_into(dir, fetcher, &bbox, mode, progress) {
-        project.land_use = Some(record);
+    if let Some(record) = fetch_land_use_into(
+        dir,
+        fetcher,
+        &bbox,
+        mode,
+        project.land_use.as_ref(),
+        progress,
+    ) {
+        project.land_use = record;
         project.save(dir)?;
     }
     project.osm = Some(fetch_osm_into(
@@ -546,17 +553,25 @@ fn fetch_buildings_into(
     Ok(Some(record))
 }
 
-/// Downloads the ALKIS land use in `bbox` to [`LAND_USE_RELPATH`] and returns the new record.
-/// Land use only gives candidates: when the download fails, the stored file stays and a warning
-/// is reported; offline, nothing is downloaded.
+/// Downloads the ALKIS land use in `bbox` to [`LAND_USE_RELPATH`] and returns the new record
+/// (`None`: leave the record as it is; `Some(None)`: drop it). Land use only gives candidates:
+/// when the download fails, a stored file that still covers `bbox` stays, one that does not is
+/// removed; each case is reported. Offline, nothing is downloaded.
 fn fetch_land_use_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     mode: FetchMode,
+    previous: Option<&AlkisRecord>,
     progress: &mut dyn FnMut(&str),
-) -> Option<AlkisRecord> {
+) -> Option<Option<AlkisRecord>> {
+    let path = dir.join(LAND_USE_RELPATH);
     if mode == FetchMode::Offline {
+        if previous.is_none() || !path.exists() {
+            progress(
+                "no ALKIS land use stored; run `freemapper fetch` online for out-of-bounds candidates",
+            );
+        }
         return None;
     }
     progress("downloading ALKIS land use");
@@ -568,7 +583,7 @@ fn fetch_land_use_into(
     match downloaded {
         Ok(land_use) => {
             progress(&format!("{} ALKIS land use parts", land_use.len()));
-            Some(AlkisRecord {
+            Some(Some(AlkisRecord {
                 bbox: [
                     bbox.min_e.floor(),
                     bbox.min_n.floor(),
@@ -578,14 +593,29 @@ fn fetch_land_use_into(
                 fetched: chrono::Local::now().date_naive(),
                 latest_update: land_use.iter().filter_map(|l| l.updated).max(),
                 count: land_use.len(),
-            })
+            }))
         }
-        Err(e) => {
-            progress(&format!(
-                "warning: ALKIS land use unavailable ({e}); keeping the stored land use"
-            ));
-            None
-        }
+        Err(e) => match previous.filter(|_| path.exists()) {
+            Some(record) if record.covers(bbox) => {
+                progress(&format!(
+                    "warning: ALKIS land use unavailable ({e}); keeping the stored land use"
+                ));
+                None
+            }
+            Some(_) => {
+                progress(&format!(
+                    "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area and was removed"
+                ));
+                let _ = std::fs::remove_file(&path);
+                Some(None)
+            }
+            None => {
+                progress(&format!(
+                    "warning: ALKIS land use unavailable ({e}); no out-of-bounds candidates"
+                ));
+                None
+            }
+        },
     }
 }
 
@@ -603,7 +633,8 @@ fn stored_out_of_bounds_objects(
     };
     let bbox = project.bbox()?;
     if !record.covers(&bbox) {
-        return Err(ProjectError::CandidatesOutdated);
+        // An optional template source: `fetch` reports this; the export goes on without it.
+        return Ok(Vec::new());
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
     let land_use = parse_land_use(&text).map_err(|e| ProjectError::StoredCandidates {
@@ -1993,6 +2024,87 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         assert!(!candidates.contains("alkis-nutzung"));
+    }
+
+    #[test]
+    fn stale_land_use_record_is_skipped_in_export() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.land_use.as_mut().unwrap().bbox[2] -= 50.0;
+        project.save(dir.path()).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(!candidates.contains("alkis-nutzung"));
+    }
+
+    #[test]
+    fn failed_land_use_fetch_after_area_change_drops_the_record() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m += 10.0;
+        project.save(dir.path()).unwrap();
+        fetcher.insert_prefix(
+            crate::sources::alkis::LAND_USE_ENDPOINT,
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let mut messages = Vec::new();
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(ProjectFile::load(dir.path()).unwrap().land_use.is_none());
+        assert!(!dir.path().join(LAND_USE_RELPATH).exists());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("no longer covers the map area")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn offline_fetch_leaves_land_use_alone() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let stored = std::fs::read(dir.path().join(LAND_USE_RELPATH)).unwrap();
+        let calls = fetcher.calls.get();
+        fetch_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetcher.calls.get(), calls);
+        assert_eq!(
+            std::fs::read(dir.path().join(LAND_USE_RELPATH)).unwrap(),
+            stored
+        );
+        assert!(ProjectFile::load(dir.path()).unwrap().land_use.is_some());
+    }
+
+    #[test]
+    fn first_land_use_failure_does_not_claim_a_stored_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::alkis::LAND_USE_ENDPOINT,
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        let warning = messages
+            .iter()
+            .find(|m| m.starts_with("warning: ALKIS land use unavailable"))
+            .expect("warning");
+        assert!(!warning.contains("keeping"), "{warning}");
     }
 
     #[test]

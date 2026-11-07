@@ -60,8 +60,9 @@ Ergebnis im Projektordner:
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets und Kandidaten aus
   OpenStreetMap zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
   Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`),
-  Höhenlinien und Privatgelände als Sperrgebiet (520: Wohn-, Gewerbe-, Mischnutzungs- und Bahnflächen
-  aus der ALKIS-Nutzung; auf der Schulhofkarte ohne das Schulgelände selbst)
+  Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
+  dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
+  Bahnflächen)
 - Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
   darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
   Namensnennung der Datenquellen und der Hinweis auf freemapper

@@ -1,6 +1,6 @@
 //! Private land (ALKIS land use) → 520 out-of-bounds candidates (spec §4.5).
 
-use geo::{Area as _, BooleanOps as _};
+use geo::{Area as _, BooleanOps as _, Length as _};
 use geo_types::Polygon;
 
 use crate::crs::{BoundingBox, ProjectedPoint};
@@ -20,7 +20,8 @@ const PRIVATE_LAND_USES: [&str; 4] = [
 ];
 /// On the schoolyard map, parts at least this much inside the map area are the school's land.
 const OWN_LAND_SHARE: f64 = 0.5;
-/// Parts smaller than (1 mm)² on paper are slivers along parcel boundaries.
+/// Pieces smaller than (1 mm)² or narrower than 1 mm on paper are slivers along parcel
+/// boundaries and at the clip edge.
 const MIN_SIDE_MM: f64 = 1.0;
 
 pub fn is_private(land: &LandUse) -> bool {
@@ -47,19 +48,30 @@ pub fn out_of_bounds_objects(
     let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
     let min_area = (MIN_SIDE_MM * metres_per_mm).powi(2);
     let mut objects = Vec::new();
-    for land in land_use.iter().filter(|l| is_private(l)) {
+    let area_size = map_area.unsigned_area();
+    // Schoolyard: everything off the school grounds is out of bounds (spec §4.5); sprint: only
+    // private land, streets and woods are part of the course.
+    let candidate = |l: &LandUse| kind == MapKind::Schoolyard || is_private(l);
+    for land in land_use.iter().filter(|l| candidate(l)) {
         for part in &land.footprint.0 {
             let part_area = part.unsigned_area();
             if part_area <= 0.0 {
                 continue;
             }
-            if kind == MapKind::Schoolyard
-                && part.intersection(map_area).unsigned_area() / part_area >= OWN_LAND_SHARE
-            {
+            // The share of the smaller of both shapes: a school parcel larger than the OSM
+            // outline still counts as the school's own land.
+            let overlap = part.intersection(map_area).unsigned_area();
+            if kind == MapKind::Schoolyard && overlap / part_area.min(area_size) >= OWN_LAND_SHARE {
                 continue;
             }
             for piece in part.intersection(&clip_polygon).0 {
-                if piece.unsigned_area() < min_area {
+                let piece_area = piece.unsigned_area();
+                let perimeter: f64 = std::iter::once(piece.exterior())
+                    .chain(piece.interiors())
+                    .map(|r| geo::Euclidean.length(r))
+                    .sum();
+                let width = 2.0 * piece_area / perimeter.max(f64::MIN_POSITIVE);
+                if piece_area < min_area || width < MIN_SIDE_MM * metres_per_mm {
                     continue;
                 }
                 let mut coords = Vec::new();
@@ -235,10 +247,64 @@ mod tests {
             .collect();
         for p in back {
             assert!(
-                p.easting <= f.clip.max_e + 0.01 && p.northing >= f.clip.min_n - 0.01,
+                p.easting <= f.clip.max_e + 0.01
+                    && p.easting >= f.clip.min_e - 0.01
+                    && p.northing >= f.clip.min_n - 0.01
+                    && p.northing <= f.clip.max_n + 0.01,
                 "{p:?}"
             );
         }
+    }
+
+    #[test]
+    fn large_school_parcel_is_own_land() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // The school's parcel is four times the map area drawn from OSM.
+        let school = land(
+            "Fläche gemischter Nutzung",
+            vec![Polygon::new(
+                ring(e - 100.0, n - 100.0, 200.0, 200.0),
+                vec![],
+            )],
+        );
+        assert!(objects(&f, &[school], MapKind::Schoolyard).0.is_empty());
+    }
+
+    #[test]
+    fn schoolyard_marks_all_other_land() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        let street = land(
+            "Straßenverkehr",
+            vec![Polygon::new(ring(e + 52.0, n - 30.0, 10.0, 60.0), vec![])],
+        );
+        let wood = land(
+            "Wald",
+            vec![Polygon::new(ring(e - 65.0, n - 30.0, 12.0, 60.0), vec![])],
+        );
+        let land_use = [street, wood];
+        assert_eq!(
+            objects(&f, &land_use, MapKind::Schoolyard).0.len(),
+            2,
+            "off the school grounds"
+        );
+        assert!(
+            objects(&f, &land_use, MapKind::Sprint).0.is_empty(),
+            "public on a sprint map"
+        );
+    }
+
+    #[test]
+    fn narrow_strips_are_dropped() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // 8 m² but only 0.8 m wide: below 1 mm on paper at 1:1000.
+        let strip = land(
+            "Wohnbaufläche",
+            vec![Polygon::new(ring(e + 55.0, n, 0.8, 10.0), vec![])],
+        );
+        assert!(objects(&f, &[strip], MapKind::Schoolyard).0.is_empty());
     }
 
     #[test]

@@ -308,20 +308,31 @@ pub fn fetch_extract(
     if mode == FetchMode::Offline {
         return newest.ok_or(FetchError::OsmExtractMissing);
     }
-    let state = match fetcher.get(STATE_URL) {
-        Ok(state) => state,
-        // Geofabrik unreachable: a cached extract is better than no candidates.
+    match refresh_extract(fetcher, cache, newest.clone(), progress) {
+        Ok(extract) => Ok(extract),
+        // Geofabrik unreachable, a portal page or a broken download: a cached extract is better
+        // than no candidates.
         Err(e) => match newest {
             Some(cached) => {
                 progress(&format!(
                     "warning: Geofabrik unavailable ({e}); using the cached OSM extract from {}",
                     cached.data_date
                 ));
-                return Ok(cached);
+                Ok(cached)
             }
-            None => return Err(e),
+            None => Err(e),
         },
-    };
+    }
+}
+
+/// The online part of [`fetch_extract`]: checks the state and downloads a newer extract.
+fn refresh_extract(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    newest: Option<Extract>,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Extract, FetchError> {
+    let state = fetcher.get(STATE_URL)?;
     let date =
         parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
             url: STATE_URL.to_string(),
@@ -615,6 +626,31 @@ mod tests {
         // Without a cached extract the error stands.
         let empty = Cache::new(dir.path().join("empty"));
         assert!(fetch_extract(&fetcher, &empty, FetchMode::Online, &mut |_| {}).is_err());
+    }
+
+    #[test]
+    fn state_without_timestamp_or_failed_download_use_cached_extract() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-10-01");
+        let cached = online(&fetcher, &cache).unwrap();
+        // A captive portal answers the state request.
+        fetcher.insert(STATE_URL, b"<html>login</html>".to_vec());
+        assert_eq!(online(&fetcher, &cache).unwrap(), cached);
+        // A newer extract exists, but its download fails.
+        fetcher.insert(STATE_URL, state("2026-11-06"));
+        fetcher.failing.borrow_mut().push(EXTRACT_URL.to_string());
+        let mut messages = Vec::new();
+        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(extract, cached);
+        assert!(
+            messages.iter().any(|m| m.starts_with("warning: ")),
+            "{messages:?}"
+        );
     }
 
     #[test]
