@@ -13,7 +13,7 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestones M0–M2, parts of M3 and M4). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development (milestones M0–M6; sprint polish, area selection in the browser, OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Build
 
@@ -32,6 +32,10 @@ freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule
   --title "Clara-Zetkin-Schule Strausberg"
 freemapper run clara-zetkin-schule
 ```
+
+Instead of a GeoJSON file, give the OSM object (`--osm way/992423119`) or the name
+(`--place "Clara-Zetkin-Schule Strausberg"`; the best match with an area is used, searched with
+OpenStreetMap's Nominatim).
 
 `run` performs three steps that are also available on their own:
 
@@ -76,6 +80,39 @@ The cache lives in the system cache folder (macOS `~/Library/Caches/freemapper`,
 `--cache-dir` picks another folder.
 
 Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSprOM 2019, 1:4000).
+
+## With an AI agent (MCP)
+
+`freemapper mcp` is an MCP server on stdin/stdout. An AI agent can use it to make the map for someone
+who would rather not use a command line: tell the agent the school, it does the rest.
+
+Register it in Claude Code:
+
+```sh
+claude mcp add freemapper -- freemapper mcp
+```
+
+Other MCP clients (generic configuration; `--cache-dir <folder>` is optional):
+
+```json
+{
+  "mcpServers": {
+    "freemapper": { "command": "freemapper", "args": ["mcp"] }
+  }
+}
+```
+
+The workflow the agent follows:
+
+1. `find_place` – searches the school by name and lists the matches; a match with an area becomes the
+   map area.
+2. `create_project` – creates the project folder (absolute path or `~/…`), map kind and scale optional.
+3. `estimate_download` – tells how much will be downloaded (about 300 MB OSM extract the first time).
+4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id.
+5. `project_status` – polls the progress until the job has finished or failed.
+6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
+
+Then open the `.omap` file in the project folder with OpenOrienteering Mapper.
 
 ## Licence and attribution
 
