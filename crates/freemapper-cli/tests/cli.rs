@@ -242,4 +242,6 @@ fn live_run_school() {
     }
     let map = std::fs::read_to_string(project.join("clara-zetkin-schule.omap")).unwrap();
     assert!(map.contains(r#"<templates count="4" first_front_template="3">"#));
+    let buildings = map.matches(r#"<t k="freemapper:source">alkis</t>"#).count();
+    assert!(buildings >= 5, "{buildings} ALKIS buildings");
 }

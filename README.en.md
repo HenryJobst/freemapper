@@ -13,7 +13,7 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestones M0–M2, part of M3). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development (milestones M0–M2, parts of M3 and M4). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Build
 
@@ -35,11 +35,14 @@ freemapper run clara-zetkin-schule
 `run` performs three steps that are also available on their own:
 
 - `freemapper fetch <dir>` – downloads the LGB orthophoto (DOP20) and terrain model (DGM1) tiles for
-  map area plus buffer into the cache. A tile is downloaded again only when LGB republished it;
-  `--offline` uses the cache only.
+  map area plus buffer into the cache, and the ALKIS buildings. A tile is downloaded again only when
+  LGB republished it; `--offline` uses data fetched before.
 - `freemapper derive <dir>` – computes orthophoto, hillshade and slope templates from them.
-- `freemapper export <dir>` – writes the OOM map; `--force` replaces an existing map and keeps the old
-  one as `.omap.bak`.
+- `freemapper export <dir>` – writes the OOM map with the buildings as finished map objects (symbol 521,
+  with provenance: ALKIS object id and data currency). Buildings up to the buffer around the map area
+  are included; underground parts, structures such as chimneys and very small buildings are left out,
+  and outlines are slightly simplified. `--force` replaces an existing map and keeps the old one as
+  `.omap.bak`; `run` leaves an existing map untouched without `--force`.
 
 Result in the project folder:
 
@@ -48,6 +51,7 @@ Result in the project folder:
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – templates behind the map, each with a
   world file (`.jgw`/`.pgw`); hillshade and slope can be switched on in OOM
 - `templates/candidates.omap` – template map with the outline of the map area
+- `data/alkis-buildings.geojson` – the fetched ALKIS buildings (for `--offline` and later reconciliation)
 - `ATTRIBUTION.txt` – attribution of the data sources
 
 The cache lives in the system cache folder (macOS `~/Library/Caches/freemapper`, Linux

@@ -13,7 +13,7 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilensteine M0–M2, M3 teilweise). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M2, M3 und M4 teilweise). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
@@ -35,11 +35,14 @@ freemapper run clara-zetkin-schule
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
 - `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
-  Kartengebiet plus Puffer in den Zwischenspeicher. Kacheln werden nur neu geladen, wenn das LGB sie
-  neu veröffentlicht hat; `--offline` nutzt nur den Zwischenspeicher.
+  Kartengebiet plus Puffer in den Zwischenspeicher, dazu die ALKIS-Gebäude. Kacheln werden nur neu
+  geladen, wenn das LGB sie neu veröffentlicht hat; `--offline` nutzt nur bereits geladene Daten.
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung und Hangneigung als Vorlagen.
-- `freemapper export <ordner>` – schreibt die OOM-Karte; `--force` ersetzt eine vorhandene Karte und
-  legt die alte als `.omap.bak` ab.
+- `freemapper export <ordner>` – schreibt die OOM-Karte mit den Gebäuden als fertigen Kartenobjekten
+  (Symbol 521, mit Herkunft: ALKIS-Objekt-ID und Datenstand). Übernommen werden Gebäude bis zum Puffer
+  um das Kartengebiet; unterirdische Bauteile und Bauwerke wie Schornsteine entfallen, sehr kleine
+  Gebäude ebenso, Umrisse werden leicht vereinfacht. `--force` ersetzt eine vorhandene Karte und legt
+  die alte als `.omap.bak` ab; `run` lässt eine vorhandene Karte ohne `--force` unverändert.
 
 Ergebnis im Projektordner:
 
@@ -49,6 +52,7 @@ Ergebnis im Projektordner:
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – Vorlagen hinter der Karte, jeweils mit
   Weltdatei (`.jgw`/`.pgw`); Schummerung und Hangneigung lassen sich in OOM einblenden
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets
+- `data/alkis-buildings.geojson` – die geladenen ALKIS-Gebäude (für `--offline` und spätere Abgleiche)
 - `ATTRIBUTION.txt` – Namensnennung der Datenquellen
 
 Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/freemapper`, Linux

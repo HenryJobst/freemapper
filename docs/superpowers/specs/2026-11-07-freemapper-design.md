@@ -128,6 +128,8 @@ clara-zetkin-schule/
     orthophoto.jpg  hillshade.png  slope.png  ndsm.png   (each with a world file .jgw/.pgw)
     candidates.omap          template map with candidates (contours, out-of-bounds, impassable features,
                              school furniture …), symbolized with the same symbol set
+  data/
+    alkis-buildings.geojson  ALKIS buildings as fetched (GeoJSON, EPSG:25833), input of the export
   ATTRIBUTION.txt
 ```
 
