@@ -21,8 +21,8 @@ pub enum FetchError {
     Io(PathBuf, std::io::Error),
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
-    #[error("tile {} is not covered by LGB Brandenburg data", .0.name())]
-    TileNotCovered(TileId),
+    #[error("tiles {} are not covered by LGB Brandenburg data", tile_names(.0))]
+    TilesNotCovered(Vec<TileId>),
     #[error("offline and not cached: {}", tile_names(.0))]
     MissingOffline(Vec<TileId>),
     #[error(transparent)]
@@ -189,17 +189,39 @@ pub fn fetch_tiles(
         write_atomically(&csv_path, &csv)?;
     }
 
+    let uncovered: Vec<TileId> = tiles
+        .iter()
+        .copied()
+        .filter(|tile| !table.contains_key(tile))
+        .collect();
+    if !uncovered.is_empty() {
+        return Err(FetchError::TilesNotCovered(uncovered));
+    }
+
     let mut fetched = Vec::new();
     let mut missing = Vec::new();
     for &tile in tiles {
-        let currency = *table.get(&tile).ok_or(FetchError::TileNotCovered(tile))?;
-        let zip = cache.tile_path(product, tile, currency.published);
+        let mut currency = table[&tile];
+        let mut zip = cache.tile_path(product, tile, currency.published);
         let url = product.tile_url(tile);
         if zip.exists() {
             progress(&format!("cached {}", tile.name()));
         } else if mode == FetchMode::Offline {
-            missing.push(tile);
-            continue;
+            match newest_cached_version(&zip, tile) {
+                Some((published, older)) => {
+                    progress(&format!(
+                        "warning: using cached {} from {published} (newer {} not downloaded)",
+                        tile.name(),
+                        currency.published
+                    ));
+                    currency.published = published;
+                    zip = older;
+                }
+                None => {
+                    missing.push(tile);
+                    continue;
+                }
+            }
         } else {
             progress(&format!("downloading {url}"));
             let bytes = fetcher.get(&url)?;
@@ -224,30 +246,60 @@ pub fn fetch_tiles(
     Ok(fetched)
 }
 
-/// Checks that `bytes` is a zip archive with the tile's raster and world file.
+/// Checks that `bytes` is a zip archive with the tile's raster and world file, reading both
+/// members to the end so their checksums are verified.
 fn check_archive(bytes: &[u8], product: Product, tile: TileId) -> Result<(), String> {
     let mut archive =
         zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?;
     for member in [product.raster_member(tile), product.world_file_member(tile)] {
-        archive
+        let mut entry = archive
             .by_name(&member)
             .map_err(|e| format!("{member}: {e}"))?;
+        std::io::copy(&mut entry, &mut std::io::sink()).map_err(|e| format!("{member}: {e}"))?;
     }
     Ok(())
+}
+
+/// Cached publications of `tile` in the folder of `path`, newest first.
+fn cached_versions(path: &Path, tile: TileId) -> Vec<(NaiveDate, PathBuf)> {
+    let dir = path.parent().expect("cache paths have a parent");
+    let prefix = format!("{}_", tile.name());
+    let mut versions: Vec<(NaiveDate, PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let date = name
+                .strip_prefix(&prefix)?
+                .strip_suffix(".zip")?
+                .parse()
+                .ok()?;
+            Some((date, entry.path()))
+        })
+        .collect();
+    versions.sort_by(|a, b| b.0.cmp(&a.0));
+    versions
+}
+
+fn newest_cached_version(path: &Path, tile: TileId) -> Option<(NaiveDate, PathBuf)> {
+    cached_versions(path, tile).into_iter().next()
 }
 
 /// Writes `bytes` to `<path>.part` and renames it, so `path` never holds a partial file.
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     let dir = path.parent().expect("cache paths have a parent");
     std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
+    // The process id keeps concurrent runs from writing the same partial file.
     let mut part = path.as_os_str().to_owned();
-    part.push(".part");
+    part.push(format!(".{}.part", std::process::id()));
     let part = PathBuf::from(part);
     std::fs::write(&part, bytes).map_err(|e| FetchError::Io(part.clone(), e))?;
     std::fs::rename(&part, path).map_err(|e| FetchError::Io(path.to_path_buf(), e))
 }
 
-/// Deletes the other cached publications of `tile` next to `current`.
+/// Deletes the other cached publications of `tile` next to `current`, and partial downloads of
+/// it left by interrupted runs.
 fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError> {
     let dir = current.parent().expect("cache paths have a parent");
     let prefix = format!("{}_", tile.name());
@@ -256,7 +308,8 @@ fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError>
         let path = entry.path();
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if path != current && name.starts_with(&prefix) && name.ends_with(".zip") {
+        let stale = name.ends_with(".zip") || name.ends_with(".part");
+        if path != current && name.starts_with(&prefix) && stale {
             std::fs::remove_file(&path).map_err(|e| FetchError::Io(path.clone(), e))?;
         }
     }
@@ -540,6 +593,132 @@ mod tests {
             message.contains("33421-5821") && message.contains("33421-5822"),
             "{message}"
         );
+    }
+
+    const NORTH: TileId = TileId {
+        east_km: 421,
+        north_km: 5822,
+    };
+    const EAST: TileId = TileId {
+        east_km: 422,
+        north_km: 5821,
+    };
+
+    #[test]
+    fn all_uncovered_tiles_reported_before_downloading() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        let err = fetch(&fetcher, &cache, &[TILE, NORTH, EAST], FetchMode::Online).unwrap_err();
+        assert!(
+            matches!(&err, FetchError::TilesNotCovered(t) if t == &[NORTH, EAST]),
+            "{err:?}"
+        );
+        let message = err.to_string();
+        assert!(
+            message.contains("33421-5822") && message.contains("33422-5821"),
+            "{message}"
+        );
+        assert_eq!(fetcher.calls.get(), 1, "only the currency CSV");
+    }
+
+    #[test]
+    fn offline_uses_older_cached_publication() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
+        std::fs::write(
+            cache.currency_csv_path(PRODUCT),
+            currency_csv(&[(TILE, "2026-06-01")]),
+        )
+        .unwrap();
+
+        let mut messages = Vec::new();
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE],
+            FetchMode::Offline,
+            &mut |m| messages.push(m.to_string()),
+        )
+        .unwrap();
+        assert_eq!(fetched[0].currency.published.to_string(), "2026-01-26");
+        assert_eq!(
+            fetched[0].zip,
+            cache.tile_path(PRODUCT, TILE, "2026-01-26".parse().unwrap())
+        );
+        assert!(
+            messages.contains(&"warning: using cached 33421-5821 from 2026-01-26 (newer 2026-06-01 not downloaded)".to_string()),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn corrupt_member_data_is_not_cached() {
+        use std::io::Write as _;
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let stored = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        zip.start_file(PRODUCT.raster_member(TILE), stored).unwrap();
+        zip.write_all(b"RASTERDATA-RASTERDATA").unwrap();
+        zip.start_file(PRODUCT.world_file_member(TILE), stored)
+            .unwrap();
+        zip.write_all(b"1\n0\n0\n-1\n421000.5\n5821999.5\n")
+            .unwrap();
+        let mut bytes = zip.finish().unwrap().into_inner();
+        let at = bytes.windows(10).position(|w| w == b"RASTERDATA").unwrap();
+        bytes[at] = b'X';
+        fetcher.insert(&PRODUCT.tile_url(TILE), bytes);
+
+        let err = fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap_err();
+        assert!(matches!(err, FetchError::CorruptArchive { .. }), "{err:?}");
+        assert_eq!(cached_files(&cache), ["currency.csv"]);
+    }
+
+    #[test]
+    fn stale_part_files_are_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let product_dir = cache
+            .currency_csv_path(PRODUCT)
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        std::fs::create_dir_all(&product_dir).unwrap();
+        for stale in [
+            "33421-5821_2026-01-26.zip.part",
+            "33421-5821_2025-01-01.zip.999999.part",
+        ] {
+            std::fs::write(product_dir.join(stale), b"partial").unwrap();
+        }
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
+        assert_eq!(
+            cached_files(&cache),
+            ["33421-5821_2026-01-26.zip", "currency.csv"]
+        );
+    }
+
+    #[test]
+    fn offline_fetch_succeeds_from_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        let online = fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
+        let calls = fetcher.calls.get();
+        let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
+        assert_eq!(offline, online);
+        assert_eq!(fetcher.calls.get(), calls);
     }
 
     #[test]
