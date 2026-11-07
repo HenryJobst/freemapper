@@ -1,16 +1,18 @@
 //! OSM features → candidate objects for the candidates template map (spec §4.5).
 
 use chrono::NaiveDate;
-use geo::{Distance as _, Euclidean};
+use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
 
-use crate::crs::{LatLon, utm33_forward};
+use crate::crs::{LatLon, ProjectedPoint, utm33_forward};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
+/// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
+const MIN_LINE_MM: f64 = 1.0;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid candidate rules: {0}")]
@@ -104,11 +106,12 @@ fn value<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {
     tags.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
 }
 
-/// A tag value as a number: `1.2`, `1,2`, `1.2 m`.
+/// A tag value as a positive number: `1.2`, `1,2`, `1.2 m`.
 fn number(value: &str) -> Option<f64> {
     let value = value.trim();
     let value = value.strip_suffix('m').unwrap_or(value).trim_end();
-    value.replace(',', ".").parse().ok()
+    let n: f64 = value.replace(',', ".").parse().ok()?;
+    (n.is_finite() && n > 0.0).then_some(n)
 }
 
 impl Condition {
@@ -159,6 +162,11 @@ impl Rules {
                             Some(key) => (key, true),
                             None => (key, false),
                         };
+                        if key.contains(['<', '>']) {
+                            return Err(RulesError(format!(
+                                "condition {condition:?}: only `key<number` compares"
+                            )));
+                        }
                         Ok(Condition {
                             key: key.to_string(),
                             test: Test::Values(
@@ -195,9 +203,16 @@ impl Rules {
     }
 
     /// Whether any rule's conditions hold for `tags` (used to filter the extract).
-    pub fn wants(&self, tags: &[(String, String)]) -> bool {
+    /// Whether a rule with a symbol for `kind` holds for `tags` (used to filter the extract).
+    pub fn wants(&self, tags: &[(String, String)], kind: MapKind) -> bool {
         let tags = tags.to_vec();
-        self.0.iter().any(|r| r.when.iter().all(|c| c.holds(&tags)))
+        self.0
+            .iter()
+            .filter(|r| match kind {
+                MapKind::Schoolyard => r.schoolyard.is_some(),
+                MapKind::Sprint => r.sprint.is_some(),
+            })
+            .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
 
     /// The symbol of the first rule whose conditions and geometry match; `None` when no rule
@@ -261,6 +276,15 @@ pub fn osm_objects(
     let to_map = |p: &LatLon| -> Result<MapCoord, GeorefError> {
         georef.projected_to_map(utm33_forward(*p))
     };
+    // Lines are clipped to the map area's bounding box plus buffer, like the land use objects, so
+    // they never reach into the peripheral information.
+    let clip = map_area.bounding_rect().map(|r| {
+        geo_types::Rect::new(
+            geo_types::coord! { x: r.min().x - buffer_m, y: r.min().y - buffer_m },
+            geo_types::coord! { x: r.max().x + buffer_m, y: r.max().y + buffer_m },
+        )
+    });
+    let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
     let mut objects = Vec::new();
     for feature in features {
         let Some(found) = rules
@@ -282,20 +306,50 @@ pub fn osm_objects(
         if distance > buffer_m {
             continue;
         }
-        let (kind, coords) = match (&feature.geometry, found.draw) {
+        let pieces = match (&feature.geometry, found.draw) {
+            (OsmGeometry::Line(points), Draw::Line)
+                if clip.is_some_and(|clip| {
+                    points.iter().map(projected).any(|c| {
+                        c.x < clip.min().x
+                            || c.x > clip.max().x
+                            || c.y < clip.min().y
+                            || c.y > clip.max().y
+                    })
+                }) =>
+            {
+                let clip = clip.expect("checked in the guard").to_polygon();
+                let line = geo_types::LineString(points.iter().map(projected).collect());
+                let mut pieces = Vec::new();
+                for piece in clip.clip(&geo_types::MultiLineString(vec![line]), false) {
+                    if Euclidean.length(&piece) < min_length {
+                        continue;
+                    }
+                    let coords = piece
+                        .coords()
+                        .map(|c| {
+                            georef.projected_to_map(ProjectedPoint {
+                                easting: c.x,
+                                northing: c.y,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    pieces.push((MapObjectKind::Path, coords));
+                }
+                pieces
+            }
             (OsmGeometry::Point(p), Draw::Point) => {
-                (MapObjectKind::Point { rotation_rad: 0.0 }, vec![to_map(p)?])
+                vec![(MapObjectKind::Point { rotation_rad: 0.0 }, vec![to_map(p)?])]
             }
             (OsmGeometry::Point(p), Draw::ShortLine(mm)) => {
                 let c = to_map(p)?;
                 let half = (mm * 500.0).round() as i32;
-                (
+                vec![(
                     MapObjectKind::Path,
                     vec![
                         MapCoord::new(c.x - half, c.y),
                         MapCoord::new(c.x + half, c.y),
                     ],
-                )
+                )]
             }
             (OsmGeometry::Line(points), Draw::Line) => {
                 let coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
@@ -306,28 +360,31 @@ pub fn osm_objects(
                 } else {
                     coords
                 };
-                (MapObjectKind::Path, coords)
+                vec![(MapObjectKind::Path, coords)]
             }
             (OsmGeometry::Line(points), Draw::Area) => {
                 let ring = points
                     .iter()
                     .map(|p| to_map(p).map(|c| (c.x, c.y)))
                     .collect::<Result<Vec<_>, _>>()?;
-                (MapObjectKind::Path, closed_ring(&ring))
+                vec![(MapObjectKind::Path, closed_ring(&ring))]
             }
             _ => continue,
         };
-        objects.push(MapObject {
-            symbol_id,
-            kind,
-            coords,
-            tags: vec![
-                ("freemapper:source".to_string(), "osm".to_string()),
-                ("freemapper:source_id".to_string(), feature.id.clone()),
-                ("freemapper:osm".to_string(), found.matched),
-                ("freemapper:currency".to_string(), currency.to_string()),
-            ],
-        });
+        let tags = vec![
+            ("freemapper:source".to_string(), "osm".to_string()),
+            ("freemapper:source_id".to_string(), feature.id.clone()),
+            ("freemapper:osm".to_string(), found.matched),
+            ("freemapper:currency".to_string(), currency.to_string()),
+        ];
+        for (kind, coords) in pieces {
+            objects.push(MapObject {
+                symbol_id,
+                kind,
+                coords,
+                tags: tags.clone(),
+            });
+        }
     }
     Ok(objects)
 }
@@ -463,8 +520,8 @@ mod tests {
         );
         assert_eq!(other.map(|m| m.code), Some("531".to_string()));
         assert!(Rules::from_toml("[[rule]]\nwhen = [\"amenity\"]\ndraw = \"point\"").is_err());
-        assert!(Rules::embedded().wants(&tags(&[("barrier", "fence")])));
-        assert!(!Rules::embedded().wants(&tags(&[("building", "yes")])));
+        assert!(Rules::embedded().wants(&tags(&[("barrier", "fence")]), MapKind::Schoolyard));
+        assert!(!Rules::embedded().wants(&tags(&[("building", "yes")]), MapKind::Sprint));
     }
 
     fn way() -> OsmGeometry {
@@ -545,7 +602,111 @@ mod tests {
     fn path_without_surface_is_a_candidate() {
         let path = sprint_way(&[("highway", "path")]);
         assert_eq!(path, Some(("505.1".to_string(), Target::Candidates)));
-        assert!(Rules::embedded().wants(&tags(&[("highway", "track")])));
+        assert!(Rules::embedded().wants(&tags(&[("highway", "track")]), MapKind::Sprint));
+    }
+
+    #[test]
+    fn schoolyard_does_not_want_highways() {
+        let track = tags(&[("highway", "track"), ("surface", "gravel")]);
+        assert!(!Rules::embedded().wants(&track, MapKind::Schoolyard));
+        assert!(Rules::embedded().wants(&track, MapKind::Sprint));
+    }
+
+    #[test]
+    fn building_passages_and_area_ways_are_candidates() {
+        for extra in [
+            ("tunnel", "building_passage"),
+            ("covered", "yes"),
+            ("indoor", "yes"),
+            ("area", "yes"),
+        ] {
+            let found = sprint_way(&[("highway", "footway"), ("surface", "fine_gravel"), extra]);
+            assert_eq!(
+                found,
+                Some(("505.1".to_string(), Target::Candidates)),
+                "{extra:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_unpaved_surface_is_a_candidate() {
+        let found = sprint_way(&[("highway", "path"), ("surface", "pebblestone")]);
+        assert_eq!(found, Some(("505.1".to_string(), Target::Candidates)));
+        let paved = sprint_way(&[("highway", "path"), ("surface", "paving_stones")]);
+        assert_eq!(paved, None);
+    }
+
+    #[test]
+    fn unpaved_street_is_a_candidate() {
+        let found = sprint_way(&[("highway", "residential"), ("surface", "sand")]);
+        assert_eq!(found, Some(("505.2".to_string(), Target::Candidates)));
+        assert_eq!(
+            sprint_way(&[("highway", "residential"), ("surface", "asphalt")]),
+            None
+        );
+    }
+
+    #[test]
+    fn nonsense_widths_do_not_count() {
+        for width in ["-1", "0", "-inf", "inf", "NaN"] {
+            let found = sprint_way(&[("highway", "path"), ("surface", "dirt"), ("width", width)]);
+            assert_eq!(
+                found,
+                Some(("505.1".to_string(), Target::Map)),
+                "width={width}"
+            );
+        }
+    }
+
+    #[test]
+    fn comparison_keys_are_rejected() {
+        for condition in ["width<=1.5", "width>2", "width>=2"] {
+            let toml =
+                format!("[[rule]]\nwhen = [\"{condition}\"]\ndraw = \"line\"\nsprint = \"506\"");
+            assert!(Rules::from_toml(&toml).is_err(), "{condition}");
+        }
+    }
+
+    #[test]
+    fn lines_are_clipped_to_the_map_area_and_buffer() {
+        let f = fixture();
+        // From the centre 500 m east: clipped at 60 m (area) + 20 m (buffer).
+        let track = line(
+            "way/9",
+            &[("highway", "track"), ("surface", "gravel")],
+            vec![SCHOOL, at(0.0, 0.0074)],
+        );
+        let set = MapKind::Sprint.symbol_set();
+        let currency = "2026-11-06".parse().unwrap();
+        let objects = osm_objects(
+            &[track],
+            &Rules::embedded(),
+            Target::Map,
+            MapKind::Sprint,
+            &f.area,
+            20.0,
+            &f.georef,
+            &set,
+            currency,
+        )
+        .unwrap();
+        assert_eq!(objects.len(), 1);
+        let (e, n) = (
+            f.georef.ref_projected.easting,
+            f.georef.ref_projected.northing,
+        );
+        for c in &objects[0].coords {
+            let p = f.georef.map_to_projected(*c);
+            assert!(
+                (p.easting - e).abs() <= 80.1 && (p.northing - n).abs() <= 80.1,
+                "{p:?}"
+            );
+        }
+        let last = f
+            .georef
+            .map_to_projected(*objects[0].coords.last().unwrap());
+        assert!((last.easting - e - 80.0).abs() < 0.5, "{last:?}");
     }
 
     #[test]

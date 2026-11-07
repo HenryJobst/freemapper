@@ -11,7 +11,7 @@ use crate::area::{AreaError, MapArea};
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
-use crate::build::paved::{PavedObjects, paved_area_objects};
+use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
@@ -37,7 +37,7 @@ use crate::sources::alkis::{LAND_USE_ENDPOINT, LandUse, fetch_collection, parse_
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::sources::osm::{
-    features_from_geojson, features_to_geojson, fetch_extract, read_extract,
+    OsmFeature, features_from_geojson, features_to_geojson, fetch_extract, read_extract,
 };
 use crate::tiles::{TileId, tiles_covering};
 
@@ -478,7 +478,9 @@ fn fetch_osm_into(
     };
     progress(&format!("reading OSM extract from {}", extract.data_date));
     let rules = Rules::embedded();
-    let features = read_extract(&extract.path, &area, &|tags| rules.wants(tags))?;
+    let features = read_extract(&extract.path, &area, &|tags| {
+        rules.wants(tags, project.map_kind)
+    })?;
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     write_atomically(&path, features_to_geojson(&features).as_bytes())?;
     progress(&format!("{} OSM candidate features", features.len()));
@@ -666,6 +668,7 @@ fn stored_out_of_bounds_objects(
 /// 501.5 paved areas from the stored land use; sprint maps only (spec §4.5).
 fn stored_paved_objects(
     land_use: &[LandUse],
+    osm: Option<&(Vec<OsmFeature>, NaiveDate)>,
     project: &ProjectFile,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
@@ -673,8 +676,10 @@ fn stored_paved_objects(
     if project.map_kind != MapKind::Sprint {
         return Ok(PavedObjects::default());
     }
+    let streets = osm.map(|(features, _)| unpaved_streets(features));
     Ok(paved_area_objects(
         land_use,
+        streets.as_deref().unwrap_or_default(),
         &project.bbox()?,
         georef,
         symbol_set,
@@ -940,19 +945,16 @@ fn stored_building_objects(
     )?)
 }
 
-/// Objects for the stored OSM features whose rule has `target`; none when no features were stored.
+/// The stored OSM features and the date of their extract; none when no features were stored.
 /// Fails when the recorded read does not cover the current map area plus buffer.
-fn stored_osm_objects(
-    target: Target,
+fn stored_osm_features(
     dir: &Path,
     project: &ProjectFile,
     area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
+) -> Result<Option<(Vec<OsmFeature>, NaiveDate)>, ProjectError> {
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     let Some(record) = project.osm.as_ref().filter(|_| path.exists()) else {
-        return Ok(Vec::new());
+        return Ok(None);
     };
     if !record.covers(&area.geo_box(project.buffer_m)) {
         return Err(ProjectError::CandidatesOutdated);
@@ -962,8 +964,23 @@ fn stored_osm_objects(
         path: path.clone(),
         message: e.to_string(),
     })?;
+    Ok(Some((features, record.extract)))
+}
+
+/// Objects for the stored OSM features whose rule has `target`.
+fn stored_osm_objects(
+    target: Target,
+    osm: Option<&(Vec<OsmFeature>, NaiveDate)>,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let Some((features, extract)) = osm else {
+        return Ok(Vec::new());
+    };
     Ok(osm_objects(
-        &features,
+        features,
         &Rules::embedded(),
         target,
         project.map_kind,
@@ -971,7 +988,7 @@ fn stored_osm_objects(
         project.buffer_m,
         georef,
         symbol_set,
-        record.extract,
+        *extract,
     )?)
 }
 
@@ -1125,7 +1142,8 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     // Buildings first: they are the map's own objects, candidates only a template.
     let building_objects = stored_building_objects(dir, &project, &area, &georef, &symbol_set)?;
     let land_use = stored_land_use(dir, &project)?;
-    let paved = stored_paved_objects(&land_use, &project, &georef, &symbol_set)?;
+    let osm = stored_osm_features(dir, &project, &area)?;
+    let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -1135,7 +1153,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
                 .chain(stored_osm_objects(
                     Target::Candidates,
-                    dir,
+                    osm.as_ref(),
                     &project,
                     &area,
                     &georef,
@@ -1195,7 +1213,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     map_objects.extend(paved.map);
     map_objects.extend(stored_osm_objects(
         Target::Map,
-        dir,
+        osm.as_ref(),
         &project,
         &area,
         &georef,
@@ -2023,6 +2041,65 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         assert!(!map.contains("DEBBAL0100000030"));
+        // On the schoolyard map the way parcel is out of bounds (520), not a paved candidate.
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let out_of_bounds = MapKind::Schoolyard.symbol_set().id_for_code("520").unwrap();
+        assert_eq!(symbols_of(&candidates, "DEBBAL0100000031"), [out_of_bounds]);
+    }
+
+    /// The symbol ids of the objects tagged with `source_id` in an OOM file.
+    fn symbols_of(omap: &str, source_id: &str) -> Vec<u32> {
+        omap.split("<object ")
+            .skip(1)
+            .filter(|o| o.contains(&format!(r#"<t k="freemapper:source_id">{source_id}</t>"#)))
+            .map(|o| {
+                let start = o.find(r#"symbol=""#).unwrap() + 8;
+                o[start..].split('"').next().unwrap().parse().unwrap()
+            })
+            .collect()
+    }
+
+    /// The geographic position of an EPSG:25833 point (iterating the forward projection).
+    fn lat_lon_at(easting: f64, northing: f64) -> LatLon {
+        let mut p = fixture_area().centroid();
+        for _ in 0..6 {
+            let q = crate::crs::utm33_forward(p);
+            p.lat += (northing - q.northing) / 111_200.0;
+            p.lon += (easting - q.easting) / (111_200.0 * p.lat.to_radians().cos());
+        }
+        p
+    }
+
+    #[test]
+    fn unpaved_street_keeps_its_parcel_a_candidate() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        store_traffic_areas(dir.path());
+        // A sand road across the Straßenverkehr square (421 560–421 590 E, 5 821 690–720 N).
+        let road = crate::sources::osm::OsmFeature {
+            id: "way/3".to_string(),
+            tags: vec![
+                ("highway".to_string(), "residential".to_string()),
+                ("surface".to_string(), "sand".to_string()),
+            ],
+            geometry: crate::sources::osm::OsmGeometry::Line(vec![
+                lat_lon_at(421_550.0, 5_821_705.0),
+                lat_lon_at(421_600.0, 5_821_705.0),
+            ]),
+        };
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[road]),
+        )
+        .unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(!map.contains("DEBBAL0100000030"), "sand road: not paved");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let paved = MapKind::Sprint.symbol_set().id_for_code("501.5").unwrap();
+        assert_eq!(symbols_of(&candidates, "DEBBAL0100000030"), [paved]);
     }
 
     #[test]

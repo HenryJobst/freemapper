@@ -84,13 +84,16 @@ Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSpr
 The sprint map also contains, as finished map objects:
 
 - paved areas (501.5) from the ALKIS land use: carriageways with sidewalks and parking lanes
-  (`Straßenverkehr`) and squares and car parks (`Platz`). Verges (green strips, tree rows) are not
-  drawn. ALKIS `Weg` is a candidate only: in town it is sidewalks and lanes, in the woods unpaved
-  tracks. Check street areas under tree canopies against the orthophoto.
+  (`Straßenverkehr`) and squares, car parks, market squares and pedestrian zones (`Platz`). Verges
+  (green strips, tree rows) are not drawn. Candidates only: ALKIS `Weg` (sidewalks and lanes in town,
+  unpaved tracks in the woods), other squares (e.g. fairgrounds) and street parcels on which OSM knows
+  an unpaved street (sand roads). Check street areas under tree canopies against the orthophoto.
 - unpaved ways from OSM that state their surface (`surface=dirt`, `gravel`, `compacted` …): tracks
-  505.2, footpaths and paths 505.1, narrow (`width` below 1.5 m) or faint paths 506. Ways without
-  `surface` are candidates (505.1); freemapper leaves out paved ways and sidewalks, which the ALKIS
-  areas and the orthophoto show.
+  505.2, footpaths and paths 505.1, narrow (`width` below 1.5 m) or faint paths 506. Candidates (505.1)
+  are ways without `surface` or with an unusual one, passages through buildings, covered ways and
+  pedestrian areas; unpaved streets are candidates 505.2. freemapper leaves out paved ways and
+  sidewalks, which the ALKIS areas and the orthophoto show. All lines end at the buffer around the map
+  area.
 
 Example Strausberg Vorstadt:
 

@@ -54,6 +54,7 @@ Orienteering Maps 2019 (IOF).
 | Befestigte Fläche | paved area | Asphalt-, Pflaster- oder Plattenfläche (ISSprOM 501). | `PavedArea` |
 | Unbefestigter Weg | unpaved path | Weg/Pfad ohne Befestigung (ISSprOM 505/506/507). | `UnpavedPath` |
 | Verkehrsfläche | traffic area | ALKIS-Nutzung `Straßenverkehr`, `Weg`, `Platz`; Quelle der befestigten Flächen der Sprintkarte. | `paved_area_objects` |
+| Regelziel | rule target | Wohin eine OSM-Regel ein Objekt schreibt: in die Karte (verlässlich) oder in die Kandidaten. | `Target` |
 | Begleitfläche | verge | ALKIS `Begleitfläche Straßenverkehr`: Grünstreifen und Baumreihen neben der Fahrbahn; wird nicht gezeichnet. | `VERGE` |
 | Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520); Kandidaten aus der ALKIS-Nutzung. | `out_of_bounds_objects` |
 | Unpassierbares Objekt / Durchgangsbarriere | impassable feature | Darf nicht überquert werden: Mauer, Zaun, Hecke usw. | `ImpassableFeature` |

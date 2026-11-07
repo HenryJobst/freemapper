@@ -85,13 +85,17 @@ Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISS
 Die Sprintkarte enthält zusätzlich, als fertige Kartenobjekte:
 
 - befestigte Flächen (501.5) aus der ALKIS-Nutzung: Fahrbahnen mit Gehwegen und Parkstreifen
-  (`Straßenverkehr`) sowie Plätze und Parkplätze (`Platz`). Begleitflächen (Grünstreifen, Baumreihen)
-  werden nicht gezeichnet. ALKIS-`Weg` kommt nur als Kandidat, weil es in der Stadt Gehwege und Gassen,
-  im Wald aber unbefestigte Wege sind. Straßenflächen unter Baumkronen am Luftbild prüfen.
+  (`Straßenverkehr`) sowie Plätze, Parkplätze, Marktplätze und Fußgängerzonen (`Platz`). Begleitflächen
+  (Grünstreifen, Baumreihen) werden nicht gezeichnet. Nur als Kandidat kommen: ALKIS-`Weg` (in der Stadt
+  Gehwege und Gassen, im Wald unbefestigte Wege), andere Plätze (z. B. Festplätze) und Straßenflurstücke,
+  auf denen OSM eine unbefestigte Straße kennt (Sandstraßen). Straßenflächen unter Baumkronen am
+  Luftbild prüfen.
 - unbefestigte Wege aus OSM mit Angabe zur Oberfläche (`surface=dirt`, `gravel`, `compacted` …):
   Wirtschaftswege 505.2, Fußwege und Pfade 505.1, schmale (`width` unter 1,5 m) oder schwer
-  erkennbare Pfade 506. Wege ohne `surface` sind Kandidaten (505.1); befestigte Wege und Gehwege an
-  Straßen übernimmt freemapper nicht, die zeigen ALKIS-Flächen und Luftbild.
+  erkennbare Pfade 506. Kandidaten (505.1) sind Wege ohne `surface` oder mit ungewöhnlicher Oberfläche
+  sowie Durchgänge durch Gebäude, überdachte Wege und Fußgängerflächen; unbefestigte Straßen sind
+  Kandidaten 505.2. Befestigte Wege und Gehwege an Straßen übernimmt freemapper nicht, die zeigen
+  ALKIS-Flächen und Luftbild. Alle Linien enden am Puffer um das Kartengebiet.
 
 Beispiel Strausberg Vorstadt:
 
