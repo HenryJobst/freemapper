@@ -96,7 +96,7 @@ fn write_parts(s: &mut String, doc: &MapDocument, format: XmlFormat) {
 }
 
 fn write_object(s: &mut String, object: &MapObject, format: XmlFormat) {
-    match object.kind {
+    match &object.kind {
         MapObjectKind::Point { rotation_rad } => {
             let _ = write!(
                 s,
@@ -107,6 +107,15 @@ fn write_object(s: &mut String, object: &MapObject, format: XmlFormat) {
         MapObjectKind::Path => {
             let _ = write!(s, r#"<object type="1" symbol="{}">"#, object.symbol_id);
         }
+        MapObjectKind::Text {
+            h_align, v_align, ..
+        } => {
+            let _ = write!(
+                s,
+                r#"<object type="4" symbol="{}" h_align="{h_align}" v_align="{v_align}">"#,
+                object.symbol_id
+            );
+        }
     }
     if !object.tags.is_empty() {
         s.push_str("<tags>");
@@ -116,8 +125,14 @@ fn write_object(s: &mut String, object: &MapObject, format: XmlFormat) {
         s.push_str("</tags>");
     }
     write_coords(s, &object.coords, format);
-    if object.kind == MapObjectKind::Path {
-        s.push_str(r#"<pattern rotation="0"><coord x="0" y="0"/></pattern>"#);
+    match &object.kind {
+        MapObjectKind::Path => {
+            s.push_str(r#"<pattern rotation="0"><coord x="0" y="0"/></pattern>"#);
+        }
+        MapObjectKind::Text { text, .. } => {
+            let _ = write!(s, "<text>{}</text>", escape(text));
+        }
+        MapObjectKind::Point { .. } => {}
     }
     s.push_str("</object>\n");
 }

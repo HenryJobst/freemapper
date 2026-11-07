@@ -203,3 +203,38 @@ fn image_template_has_crs_spec() {
     assert!(xml.contains(r#"georef="true"><crs_spec>+init=epsg:25833</crs_spec></template>"#));
     parses(&xml);
 }
+
+fn text_doc(text: &str) -> MapDocument {
+    let mut d = doc("n", Vec::new());
+    d.parts[0].objects = vec![MapObject {
+        symbol_id: 0,
+        kind: MapObjectKind::Text {
+            text: text.to_string(),
+            h_align: 1,
+            v_align: 0,
+        },
+        coords: vec![MapCoord::new(1000, 2000)],
+        tags: Vec::new(),
+    }];
+    d
+}
+
+#[test]
+fn text_object_written_like_oom() {
+    let xml = render(&text_doc("Clara-Zetkin-Schule"), XmlFormat::Compact);
+    assert!(
+        xml.contains(r#"<object type="4" symbol="0" h_align="1" v_align="0"><coords count="1">1000 2000;</coords><text>Clara-Zetkin-Schule</text></object>"#),
+        "{xml}"
+    );
+    parses(&xml);
+}
+
+#[test]
+fn text_object_escapes_content() {
+    let xml = render(&text_doc(r#"A & B <C> "D""#), XmlFormat::Compact);
+    assert!(
+        xml.contains("<text>A &amp; B &lt;C&gt; &quot;D&quot;</text>"),
+        "{xml}"
+    );
+    parses(&xml);
+}

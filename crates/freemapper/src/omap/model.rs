@@ -6,8 +6,17 @@ use crate::georef::Georeferencing;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MapObjectKind {
-    Point { rotation_rad: f64 },
+    Point {
+        rotation_rad: f64,
+    },
     Path,
+    /// Text at a single anchor; alignments as in OOM (`h_align` 0 left, 1 centre, 2 right;
+    /// `v_align` 0 baseline, 1 top, 2 centre, 3 bottom).
+    Text {
+        text: String,
+        h_align: u8,
+        v_align: u8,
+    },
 }
 
 /// A single map object with symbol, geometry and tags.
