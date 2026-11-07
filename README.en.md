@@ -1,6 +1,6 @@
 # freemapper
 
-[Deutsche Version](README.md) · [Glossary](docs/glossary.md)
+[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md)
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
@@ -77,7 +77,8 @@ freemapper select clara-zetkin-schule --kind schoolyard
 
 The page opens in the default browser (`--no-browser` only prints the address). Search a place there, or
 draw a rectangle (click two corners) or a polygon (click the corners, double-click closes). The
-background is OpenStreetMap or the LGB aerial photo. The page shows the LGB 1 km tiles, the size with
+background is OpenStreetMap or the orthophoto (LGB, GeoSN). The page shows the data tiles (LGB 1 km,
+GeoSN 2 km), the size with
 buffer and the estimated download; "Save" creates the project or changes the map area of an existing
 one (an existing map stays as it is), "Done" ends the page. The page runs on this computer only
 (127.0.0.1, random address).

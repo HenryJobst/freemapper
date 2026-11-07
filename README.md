@@ -1,6 +1,6 @@
 # freemapper
 
-[English version](README.en.md) · [Glossar](docs/glossary.md)
+[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md)
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -81,8 +81,8 @@ freemapper select clara-zetkin-schule --kind schoolyard
 
 Die Seite öffnet sich im Standardbrowser (`--no-browser` gibt nur die Adresse aus). Dort sucht man einen
 Ort oder zeichnet ein Rechteck (zwei Ecken anklicken) oder ein Polygon (Ecken anklicken, Doppelklick
-schließt). Hintergrund wahlweise OpenStreetMap oder das Luftbild des LGB. Die Seite zeigt die
-1-km-Kacheln des LGB, die Größe mit Puffer und den geschätzten Download; „Speichern“ legt das Projekt an
+schließt). Hintergrund wahlweise OpenStreetMap oder das Luftbild (LGB, GeoSN). Die Seite zeigt die
+Datenkacheln (LGB 1 km, GeoSN 2 km), die Größe mit Puffer und den geschätzten Download; „Speichern“ legt das Projekt an
 oder ändert das Kartengebiet eines vorhandenen (eine vorhandene Karte bleibt unverändert), „Fertig“
 beendet die Seite. Die Seite läuft nur auf diesem Rechner (127.0.0.1, zufällige Adresse).
 
