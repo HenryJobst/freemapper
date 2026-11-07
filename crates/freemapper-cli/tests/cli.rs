@@ -250,6 +250,14 @@ fn live_run_school() {
         "OSM tartan pitch as a candidate"
     );
     assert!(candidates.contains("lgb-dgm1"), "contour candidates");
+    assert!(
+        candidates.contains("alkis-nutzung"),
+        "out-of-bounds candidates"
+    );
+    assert!(
+        candidates.contains("Industrie- und Gewerbefläche"),
+        "Am Sportpark 2"
+    );
     assert!(project.join("templates/ndsm.png").exists(), "nDSM template");
 }
 

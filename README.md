@@ -59,12 +59,15 @@ Ergebnis im Projektordner:
   einblenden. nDOM-Farben: gelb 0,3–1 m, orange 1–2,5 m, hellgrün 2,5–8 m, dunkelgrün über 8 m
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets und Kandidaten aus
   OpenStreetMap zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
-  Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`)
+  Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`),
+  Höhenlinien und Privatgelände als Sperrgebiet (520: Wohn-, Gewerbe-, Mischnutzungs- und Bahnflächen
+  aus der ALKIS-Nutzung; auf der Schulhofkarte ohne das Schulgelände selbst)
 - Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
   darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
   Namensnennung der Datenquellen und der Hinweis auf freemapper
 - `data/osm-candidates.geojson` – die OSM-Objekte des Kartengebiets, aus denen die Kandidaten entstehen
 - `data/contours.geojson` – die Höhenlinien aus `derive`
+- `data/alkis-land-use.geojson` – die geladene ALKIS-Nutzung der Flurstücke
 - `data/alkis-buildings.geojson` – die geladenen ALKIS-Gebäude (für `--offline` und spätere Abgleiche)
 - `ATTRIBUTION.txt` – Namensnennung der Datenquellen
 

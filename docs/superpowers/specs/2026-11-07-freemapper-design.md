@@ -132,6 +132,7 @@ clara-zetkin-schule/
     alkis-buildings.geojson  ALKIS buildings as fetched (GeoJSON, EPSG:25833), input of the export
     osm-candidates.geojson   OSM features matching the candidate rules (GeoJSON, EPSG:4326)
     contours.geojson         contour lines from derive (GeoJSON, EPSG:25833, property height)
+    alkis-land-use.geojson   ALKIS land use per parcel part (nutzung_flurstueck), source of 520 candidates
   ATTRIBUTION.txt
 ```
 

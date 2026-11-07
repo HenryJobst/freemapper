@@ -58,12 +58,15 @@ Result in the project folder:
   colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m
 - `templates/candidates.omap` – template map with the outline of the map area and candidates from
   OpenStreetMap to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
-  trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`)
+  trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`),
+  contours, and private land as out-of-bounds (520: residential, commercial, mixed-use and railway land
+  from the ALKIS land use; on the schoolyard map without the school's own land)
 - peripheral information in the map (map part "peripheral information"): magnetic north lines over the
   map content, below it the title (`--title`, else the folder name), scale and contour interval, a bar
   scale, the attribution of the data sources and the freemapper credit line
 - `data/osm-candidates.geojson` – the OSM features of the map area the candidates come from
 - `data/contours.geojson` – the contour lines from `derive`
+- `data/alkis-land-use.geojson` – the fetched ALKIS land use per parcel part
 - `data/alkis-buildings.geojson` – the fetched ALKIS buildings (for `--offline` and later reconciliation)
 - `ATTRIBUTION.txt` – attribution of the data sources
 

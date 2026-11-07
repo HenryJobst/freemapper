@@ -308,7 +308,20 @@ pub fn fetch_extract(
     if mode == FetchMode::Offline {
         return newest.ok_or(FetchError::OsmExtractMissing);
     }
-    let state = fetcher.get(STATE_URL)?;
+    let state = match fetcher.get(STATE_URL) {
+        Ok(state) => state,
+        // Geofabrik unreachable: a cached extract is better than no candidates.
+        Err(e) => match newest {
+            Some(cached) => {
+                progress(&format!(
+                    "warning: Geofabrik unavailable ({e}); using the cached OSM extract from {}",
+                    cached.data_date
+                ));
+                return Ok(cached);
+            }
+            None => return Err(e),
+        },
+    };
     let date =
         parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
             url: STATE_URL.to_string(),
@@ -577,6 +590,31 @@ mod tests {
         let extract = online(&fetcher, &cache).unwrap();
         assert_eq!(extract.date.to_string(), "2026-11-06");
         assert_eq!(extracts(&cache), ["brandenburg_2026-11-06.osm.pbf"]);
+    }
+
+    #[test]
+    fn unreachable_state_uses_cached_extract() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let cached = online(&fetcher, &cache).unwrap();
+        fetcher.failing.borrow_mut().push(STATE_URL.to_string());
+        let mut messages = Vec::new();
+        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(extract, cached);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: Geofabrik unavailable")),
+            "{messages:?}"
+        );
+        // Without a cached extract the error stands.
+        let empty = Cache::new(dir.path().join("empty"));
+        assert!(fetch_extract(&fetcher, &empty, FetchMode::Online, &mut |_| {}).is_err());
     }
 
     #[test]

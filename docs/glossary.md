@@ -53,7 +53,7 @@ Orienteering Maps 2019 (IOF).
 | Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! | `Canopy` |
 | Befestigte Fläche | paved area | Asphalt-, Pflaster- oder Plattenfläche (ISSprOM 501). | `PavedArea` |
 | Unbefestigter Weg | unpaved path | Weg/Pfad ohne Befestigung (ISSprOM 505/506/507). | `UnpavedPath` |
-| Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520). | `OutOfBoundsArea` |
+| Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520); Kandidaten aus der ALKIS-Nutzung. | `out_of_bounds_objects` |
 | Unpassierbares Objekt / Durchgangsbarriere | impassable feature | Darf nicht überquert werden: Mauer, Zaun, Hecke usw. | `ImpassableFeature` |
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |
 | Mauer | wall | Linienhafte Barriere aus Stein/Beton. | `Wall` |
