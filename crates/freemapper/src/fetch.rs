@@ -293,6 +293,17 @@ impl Cache {
         })
     }
 
+    /// Whether some publication of `tile` of `product` is cached.
+    pub fn has_tile(&self, product: Product, tile: TileId) -> bool {
+        let probe = self.tile_path(product, tile, NaiveDate::MIN);
+        !cached_versions(&probe, tile).is_empty()
+    }
+
+    /// Whether an nDSM point cloud of `tile` is cached.
+    pub fn has_ndsm(&self, tile: TileId) -> bool {
+        !cached_ndsm(&self.ndsm_dir(), tile).is_empty()
+    }
+
     /// Folder of the cached OSM extracts.
     pub fn osm_dir(&self) -> PathBuf {
         self.root.join("osm")

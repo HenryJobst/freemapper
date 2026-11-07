@@ -66,6 +66,8 @@ pub enum ProjectError {
     Derive(#[from] DeriveError),
     #[error("no tiles fetched yet; run `freemapper fetch` first")]
     NotFetched,
+    #[error("{0}")]
+    Layer(String),
     #[error(
         "{}: image and world file do not match the map area; run `freemapper derive` again",
         .0.display()
@@ -336,20 +338,20 @@ const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
 const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
-const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
-const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
-const SLOPE_RELPATH: &str = "templates/slope.png";
-const NDSM_RELPATH: &str = "templates/ndsm.png";
+pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
+pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
+pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
+pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// Contour lines from `derive` (GeoJSON in EPSG:25833), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
 const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
 /// ALKIS land use per parcel part around the map area (GeoJSON, EPSG:25833), input of the export.
-const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
+pub(crate) const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 /// Skipped ALKIS features listed in a progress message.
 const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
-const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
+pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
 /// Fetches the tiles covering the map area plus buffer into `cache` and records them in the
 /// project file. Warns through `progress` when a tile was republished since the last fetch.
@@ -1206,7 +1208,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     Ok(map_path)
 }
 
-const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
+pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";

@@ -269,6 +269,11 @@ pub fn parse_state_date(text: &str) -> Option<NaiveDate> {
     value.get(..10)?.parse().ok()
 }
 
+/// Whether an OSM extract is cached.
+pub fn has_cached_extract(cache: &Cache) -> bool {
+    !cached_extracts(cache).is_empty()
+}
+
 /// Cached extracts, newest first.
 fn cached_extracts(cache: &Cache) -> Vec<Extract> {
     let mut extracts: Vec<Extract> = std::fs::read_dir(cache.osm_dir())
