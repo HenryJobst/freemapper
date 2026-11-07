@@ -22,6 +22,8 @@ const SAXONY_BOUNDARY: &str = include_str!("../../../../assets/regions/saxony.ge
 /// the others.
 const SAXONY_ANHALT_BOUNDARY: &str =
     include_str!("../../../../assets/regions/saxony-anhalt.geojson");
+/// Hamburg from LGV `app:landesgrenze` (dl-de/by-2-0), with Neuwerk and Scharhörn.
+const HAMBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/hamburg.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -34,10 +36,12 @@ pub enum Region {
     Berlin,
     Saxony,
     SaxonyAnhalt,
+    Hamburg,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Provider {
     /// LGB Brandenburg, also for Berlin.
     Lgb,
@@ -45,15 +49,26 @@ pub enum Provider {
     GeoSn,
     /// LVermGeo, Saxony-Anhalt (EPSG:25832).
     LvermGeo,
+    /// LGV, Hamburg (EPSG:25832).
+    Lgv,
+}
+
+impl Provider {
+    /// Whether the provider's rasters are fetched per map area (WMS, WCS, zip members) instead of
+    /// as recorded tiles.
+    pub fn per_area(self) -> bool {
+        matches!(self, Self::LvermGeo | Self::Lgv)
+    }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
         Self::SaxonyAnhalt,
+        Self::Hamburg,
     ];
 
     /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`).
@@ -63,6 +78,7 @@ impl Region {
             Some("DEBE") => Some(Self::Berlin),
             Some("DESN") => Some(Self::Saxony),
             Some("DEST") => Some(Self::SaxonyAnhalt),
+            Some("DEHH") => Some(Self::Hamburg),
             _ => None,
         }
     }
@@ -72,20 +88,22 @@ impl Region {
             Self::Brandenburg | Self::Berlin => Provider::Lgb,
             Self::Saxony => Provider::GeoSn,
             Self::SaxonyAnhalt => Provider::LvermGeo,
+            Self::Hamburg => Provider::Lgv,
         }
     }
 
     /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
     pub fn crs(self) -> crate::crs::Crs {
         match self {
-            Self::SaxonyAnhalt => crate::crs::Crs::Utm32,
+            Self::SaxonyAnhalt | Self::Hamburg => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 4] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 5] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -96,6 +114,7 @@ impl Region {
             Self::Berlin => (1, BERLIN_BOUNDARY),
             Self::Saxony => (2, SAXONY_BOUNDARY),
             Self::SaxonyAnhalt => (3, SAXONY_ANHALT_BOUNDARY),
+            Self::Hamburg => (4, HAMBURG_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -313,6 +332,20 @@ mod tests {
         assert_eq!(
             Region::of_object_id("DESTLIKA0001MuQqBL"),
             Some(Region::SaxonyAnhalt)
+        );
+    }
+
+    #[test]
+    fn eppendorf_is_hamburg_in_zone_32() {
+        // Gymnasium Eppendorf (25833).
+        let school = around(168_078.0, 5_949_079.0, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::Hamburg]);
+        assert_eq!(raster_region(&school), Some(Region::Hamburg));
+        assert_eq!(Region::Hamburg.provider(), Provider::Lgv);
+        assert_eq!(Region::Hamburg.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(
+            Region::of_object_id("DEHHALKAP0007dHTBL"),
+            Some(Region::Hamburg)
         );
     }
 

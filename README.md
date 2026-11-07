@@ -16,13 +16,13 @@ in OOM oder OCAD.
     [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
-- Regionen: Brandenburg, Berlin, Sachsen und Sachsen-Anhalt (Open Data von LGB, Geoportal Berlin,
-  GeoSN und LVermGeo);
+- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt und Hamburg (Open Data von LGB, Geoportal
+  Berlin, GeoSN, LVermGeo und LGV);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen und Sachsen-Anhalt, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Hamburg und die übrigen Bundesländer, danach Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt und Hamburg, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen die übrigen Bundesländer, danach Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -163,6 +163,7 @@ freemapper run vorstadt
 | Berlin | LGB, ALKIS vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
+| Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026) |
 
 An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im

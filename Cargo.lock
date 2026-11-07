@@ -639,6 +639,7 @@ version = "0.2.0"
 dependencies = [
  "chrono",
  "contour",
+ "crc32fast",
  "dirs",
  "geo",
  "geo-types",

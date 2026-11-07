@@ -46,6 +46,13 @@ pub enum FetchError {
     /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
     #[error("{url}: the server refused the request (HTTP {status})")]
     Refused { url: String, status: u16 },
+    /// The server answered a byte range with the whole file; asking again does not help.
+    #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
+    RangeIgnored {
+        url: String,
+        range: String,
+        status: u16,
+    },
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -80,6 +87,17 @@ pub trait Fetcher {
         Ok(None)
     }
 
+    /// Bytes `range` of `url`, for reading single members of very large archives.
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        let bytes = self.get(url)?;
+        let len = bytes.len() as u64;
+        let (start, end) = match range {
+            ByteRange::From { start, len: n } => (start.min(len), (start + n).min(len)),
+            ByteRange::Last(n) => (len.saturating_sub(n), len),
+        };
+        Ok(bytes[start as usize..end as usize].to_vec())
+    }
+
     /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
     /// being held in memory.
     fn download_to(
@@ -96,6 +114,15 @@ pub trait Fetcher {
         progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
         Ok(())
     }
+}
+
+/// A part of a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteRange {
+    /// `len` bytes from `start`.
+    From { start: u64, len: u64 },
+    /// The last `n` bytes.
+    Last(u64),
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -177,6 +204,42 @@ impl Default for HttpFetcher {
 }
 
 impl Fetcher for HttpFetcher {
+    /// Asks for `range` only; a server that answers with the whole file (not 206) is refused
+    /// before its body is read, so a 1 GB archive is never downloaded by accident.
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        let (header, limit) = match range {
+            ByteRange::From { len: 0, .. } | ByteRange::Last(0) => return Ok(Vec::new()),
+            ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
+            ByteRange::Last(n) => (format!("bytes=-{n}"), n),
+        };
+        let mut response = self
+            .agent
+            .get(url)
+            .header("User-Agent", USER_AGENT)
+            .header("Range", &header)
+            .call()
+            .map_err(|e| status_error(url, e))?;
+        if response.status() != 206 {
+            return Err(FetchError::RangeIgnored {
+                url: url.to_string(),
+                range: header,
+                status: response.status().as_u16(),
+            });
+        }
+        // One byte more than asked, so an oversized answer shows.
+        let mut bytes = Vec::new();
+        response
+            .body_mut()
+            .as_reader()
+            .take(limit + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| FetchError::Http {
+                url: url.to_string(),
+                message: e.to_string(),
+            })?;
+        Ok(bytes)
+    }
+
     fn download_to(
         &self,
         url: &str,
@@ -324,6 +387,11 @@ impl Cache {
         self.product_dir(product).join("currency.csv")
     }
 
+    /// Folder of the LGV Hamburg archive members.
+    pub fn lgv_dir(&self) -> PathBuf {
+        self.root.join("lgv")
+    }
+
     /// The collected GeoSN tile index rows of `product`.
     pub fn currency_index_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.json")
@@ -449,7 +517,7 @@ fn currency_table(
         Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
         Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
         // LVermGeo rasters are fetched per area (WMS, WCS), not as tiles.
-        Provider::LvermGeo => Err(FetchError::TilesNotCovered(tiles.to_vec())),
+        Provider::LvermGeo | Provider::Lgv => Err(FetchError::TilesNotCovered(tiles.to_vec())),
     }
 }
 
@@ -797,6 +865,47 @@ pub(crate) fn get_with_retries<T>(
     }
 }
 
+/// Bytes `range` of `url`, asked for up to three times like [`get_with_retries`]; an answer
+/// of another length than asked for (a clamped or cut range) is an error.
+pub(crate) fn get_range_with_retries(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    range: ByteRange,
+) -> Result<Vec<u8>, FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.get_range(url, range).and_then(|bytes| {
+            let fits = match range {
+                ByteRange::From { len, .. } => bytes.len() as u64 == len,
+                ByteRange::Last(n) => bytes.len() as u64 <= n,
+            };
+            if fits {
+                return Ok(bytes);
+            }
+            let asked = match range {
+                ByteRange::From { start, len } => format!("{len} bytes from byte {start}"),
+                ByteRange::Last(n) => format!("the last {n} bytes"),
+            };
+            Err(FetchError::Http {
+                url: url.to_string(),
+                message: format!("asked for {asked}, got {} bytes", bytes.len()),
+            })
+        });
+        match result {
+            Err(
+                FetchError::NotFound(_)
+                | FetchError::Refused { .. }
+                | FetchError::RangeIgnored { .. },
+            ) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
 /// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`].
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
@@ -1120,6 +1229,17 @@ pub(crate) mod test_support {
     /// A WCS `multipart/related` answer like LVermGeo's: a GML part, then a Float32 TIFF on
     /// `grid` with ModelPixelScale and ModelTiepoint tags.
     pub fn wcs_answer(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
+        let mut answer =
+            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
+                .to_vec();
+        answer.extend_from_slice(&geotiff(grid, values));
+        answer.extend_from_slice(b"\n--wcs--\n");
+        answer
+    }
+
+    /// A Float32 GeoTIFF on `grid` with ModelPixelScale and ModelTiepoint tags (no world file),
+    /// like the LVermGeo WCS answers and the LGV height model tiles.
+    pub fn geotiff(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
         use tiff::tags::Tag;
         let mut tiff = std::io::Cursor::new(Vec::new());
         {
@@ -1143,12 +1263,7 @@ pub(crate) mod test_support {
                 .unwrap();
             image.write_data(values).unwrap();
         }
-        let mut answer =
-            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
-                .to_vec();
-        answer.extend_from_slice(tiff.get_ref());
-        answer.extend_from_slice(b"\n--wcs--\n");
-        answer
+        tiff.into_inner()
     }
 
     /// Serves everything a Saxony-Anhalt project in `bbox` (EPSG:25832) fetches: DGM1 and DOM1
@@ -1205,6 +1320,91 @@ pub(crate) mod test_support {
             );
         }
         let extract = crate::sources::osm::ExtractSource::SaxonyAnhalt;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
+    /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
+    /// bDOM zips with the 1 km tiles of `bbox` (terrain 5 m rising 0.01 m per metre east, surface
+    /// 12 m above), a WMS orthophoto of the right size, the DOP metadata, the Hamburg ALKIS
+    /// fixtures and the Hamburg OSM extract.
+    pub fn serve_synthetic_hamburg(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::lgv;
+        let zip_of = |members: Vec<(String, Vec<u8>)>| {
+            let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+            for (name, bytes) in members {
+                zip.start_file(name, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(&bytes).unwrap();
+            }
+            zip.finish().unwrap().into_inner()
+        };
+        let tiles = crate::tiles::tiles_covering(bbox);
+        for (model, prefix, lift) in [
+            (lgv::Model::Dgm1, "dgm1", 5.0),
+            (lgv::Model::Bdom, "dom1", 17.0),
+        ] {
+            let members = tiles
+                .iter()
+                .map(|t| {
+                    let grid = crate::raster::GridSpec {
+                        west: f64::from(t.east_km) * 1000.0,
+                        north: f64::from(t.north_km + 1) * 1000.0,
+                        pixel_size: 1.0,
+                        width: 1000,
+                        height: 1000,
+                    };
+                    let values: Vec<f32> = (0..1000 * 1000)
+                        .map(|i| (i % 1000) as f32 * 0.01 + lift)
+                        .collect();
+                    (
+                        format!(
+                            "s32_{}/{prefix}_32_{}_{}_1_hh_2022.tif",
+                            t.east_km, t.east_km, t.north_km
+                        ),
+                        geotiff(&grid, &values),
+                    )
+                })
+                .collect();
+            fetcher.insert(model.archive_url(), zip_of(members));
+        }
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!("{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap", lgv::WMS.url),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        let centre = (
+            ((bbox.min_e + bbox.max_e) / 2000.0).floor(),
+            ((bbox.min_n + bbox.max_n) / 2000.0).floor(),
+        );
+        let csv = format!(
+            "Kachelname;Aktualitaet;Erfassungsmethode\ndop20rgbi_32_{:03}_{:04}_1_hh_2026.tif;19.03.2026;0\n",
+            centre.0, centre.1
+        );
+        fetcher.insert(
+            lgv::METADATA_URL,
+            zip_of(vec![(
+                "DOP_unbelaubt_AdV-Metadaten_Hamburg/AdV-Metadaten_DOP_2026_unbelaubt_hh.csv"
+                    .to_string(),
+                csv.into_bytes(),
+            )]),
+        );
+        fetcher.insert_prefix(
+            lgv::BUILDINGS_ENDPOINT,
+            lgv::test_support::BUILDINGS.as_bytes().to_vec(),
+        );
+        fetcher.insert_prefix(
+            lgv::LAND_USE_ENDPOINT,
+            lgv::test_support::LAND_USE.as_bytes().to_vec(),
+        );
+        let extract = crate::sources::osm::ExtractSource::Hamburg;
         fetcher.insert(
             extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
@@ -2036,6 +2236,150 @@ mod tests {
         assert!(matches!(err, FetchError::CurrencyCsv(_)), "{err:?}");
         let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
         assert_eq!(offline[0].currency.published.to_string(), "2026-01-26");
+    }
+
+    #[test]
+    fn ignored_range_is_an_error() {
+        // A server that answers every request with the whole file (200, not 206).
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.zip", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().take(2).flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let body = vec![b'x'; 10_000];
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(&body);
+            }
+        });
+        let fetcher = HttpFetcher::new();
+        let err = fetcher
+            .get_range(
+                &url,
+                ByteRange::From {
+                    start: 100,
+                    len: 10,
+                },
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("byte range"), "{err}");
+    }
+
+    /// A server answering every request with `status` and `body`; counts the connections.
+    fn answering(
+        status: &'static str,
+        body: Vec<u8>,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.zip", listener.local_addr().unwrap());
+        let connections = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(&body);
+            }
+        });
+        (url, connections)
+    }
+
+    #[test]
+    fn ignored_range_is_not_retried() {
+        let (url, connections) = answering("200 OK", vec![b'x'; 10_000]);
+        let err = get_range_with_retries(
+            &HttpFetcher::new(),
+            &url,
+            ByteRange::From {
+                start: 100,
+                len: 10,
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(err, FetchError::RangeIgnored { .. }), "{err}");
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn partial_answer_of_the_wrong_length_is_an_error() {
+        let (url, _) = answering("206 Partial Content", vec![b'x'; 20]);
+        let err = get_range_with_retries(
+            &HttpFetcher::new(),
+            &url,
+            ByteRange::From {
+                start: 100,
+                len: 10,
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("got 11 bytes"), "{err}");
+    }
+
+    #[test]
+    fn range_reads_are_retried() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert("https://example.org/f".to_string(), 2);
+        let bytes = get_range_with_retries(
+            &fetcher,
+            "https://example.org/f",
+            ByteRange::From { start: 2, len: 3 },
+        )
+        .unwrap();
+        assert_eq!(bytes, b"234");
+    }
+
+    #[test]
+    fn short_range_is_an_error() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        let err = get_range_with_retries(
+            &fetcher,
+            "https://example.org/f",
+            ByteRange::From { start: 8, len: 5 },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("got 2 bytes"), "{err}");
+    }
+
+    #[test]
+    fn empty_range_needs_no_request() {
+        // Nothing listens on port 9 (discard): a request would fail.
+        let bytes = HttpFetcher::new()
+            .get_range("http://127.0.0.1:9/f", ByteRange::From { start: 5, len: 0 })
+            .unwrap();
+        assert!(bytes.is_empty());
+    }
+
+    #[test]
+    fn default_range_slices_the_answer() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        let url = "https://example.org/f";
+        assert_eq!(
+            fetcher
+                .get_range(url, ByteRange::From { start: 2, len: 3 })
+                .unwrap(),
+            b"234"
+        );
+        assert_eq!(fetcher.get_range(url, ByteRange::Last(4)).unwrap(), b"6789");
     }
 
     #[test]

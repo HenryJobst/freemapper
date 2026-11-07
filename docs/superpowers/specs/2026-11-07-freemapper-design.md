@@ -140,6 +140,16 @@ tile index WFS (`truedop_kacheln`, `bdom_aktualitaet_zyklus`); nDSM = DOM1 − D
 `ave:GebaeudeBauwerk` / `ave:Nutzung` (GML, shared reader with GeoSN; `rellage` present). OCAD grid code 8007 for zone 32.
 Attribution `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert`.
 
+**Hamburg (verified live 2026-11-07, details `docs/regions/hamburg-reference.md`):** LGV, EPSG:25832 (second zone-32
+provider; a provider change inside a zone drops the records like a zone change). Orthophoto from the WMS
+`dop_zeitreihe_unbelaubt` pinned to `TIME=2026` (2023 is a closed-licence satellite vintage), flight date from the AdV
+metadata CSV. DGM1 and bDOM (2022, 1 m) read per 1 km tile by HTTP range out of the statewide zips (central directory
+from the archive's end, deflated members checked against their CRC, cached per tile and archive release; a
+server ignoring `Range` is refused, a clamped range is an error). ALKIS from the OGC API
+`alkis_vereinfacht` (`GebaeudeBauwerk`, `NutzungFlurstueck`, 25832) with the ASCII spellings normalised to the LGB ones.
+Attribution `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten
+geändert`.
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -337,7 +347,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony and Saxony-Anhalt (done 2026-11-07: §4.1), then Hamburg and all other German states (user, 2026-11-07), then forest maps; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt and Hamburg (done 2026-11-07: §4.1), then all other German states (user, 2026-11-07), then forest maps; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 

@@ -7,11 +7,10 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 use crate::sources::region::{Region, regions_for};
-use crate::sources::{alkis_wfs, berlin};
+use crate::sources::{alkis_wfs, berlin, lgv};
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
-const CRS_25833: &str = "http://www.opengis.net/def/crs/EPSG/0/25833";
 /// Features per page; a 1 km tile holds about 800 buildings.
 const PAGE_LIMIT: u32 = 10_000;
 /// `rellage` value of building parts below ground.
@@ -54,10 +53,17 @@ pub fn buildings_url(bbox: &BoundingBox) -> String {
     collection_url(BUILDINGS_ENDPOINT, bbox)
 }
 
-/// URL of the first page of the features of a collection endpoint in `bbox`, rounded outward.
+/// URL of the first page of the features of a collection endpoint in `bbox` (EPSG:25833),
+/// rounded outward.
 pub fn collection_url(endpoint: &str, bbox: &BoundingBox) -> String {
+    collection_url_in(endpoint, bbox, Crs::Utm33)
+}
+
+/// URL of the first page of a collection endpoint in `bbox`, asked and answered in `crs`.
+pub fn collection_url_in(endpoint: &str, bbox: &BoundingBox, crs: Crs) -> String {
+    let crs = format!("http://www.opengis.net/def/crs/EPSG/0/{}", crs.epsg());
     format!(
-        "{endpoint}?f=json&bbox={},{},{},{}&bbox-crs={CRS_25833}&crs={CRS_25833}&limit={PAGE_LIMIT}",
+        "{endpoint}?f=json&bbox={},{},{},{}&bbox-crs={crs}&crs={crs}&limit={PAGE_LIMIT}",
         bbox.min_e.floor(),
         bbox.min_n.floor(),
         bbox.max_e.ceil(),
@@ -163,6 +169,18 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             ),
             Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+            Region::Hamburg => (
+                collection_features_in(
+                    fetcher,
+                    lgv::BUILDINGS_ENDPOINT,
+                    &in_crs(Crs::Utm32),
+                    Crs::Utm32,
+                )?
+                .into_iter()
+                .map(lgv::normalise_building)
+                .collect(),
+                Crs::Utm32,
+            ),
         })
     })
 }
@@ -182,6 +200,18 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             ),
             Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+            Region::Hamburg => (
+                collection_features_in(
+                    fetcher,
+                    lgv::LAND_USE_ENDPOINT,
+                    &in_crs(Crs::Utm32),
+                    Crs::Utm32,
+                )?
+                .into_iter()
+                .map(lgv::normalise_land_use)
+                .collect(),
+                Crs::Utm32,
+            ),
         })
     })
 }
@@ -275,10 +305,20 @@ fn collection_features(
     endpoint: &str,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
+    collection_features_in(fetcher, endpoint, bbox, Crs::Utm33)
+}
+
+/// The features of all pages of a collection endpoint in `bbox`, in `crs`.
+fn collection_features_in(
+    fetcher: &dyn Fetcher,
+    endpoint: &str,
+    bbox: &BoundingBox,
+    crs: Crs,
+) -> Result<Vec<Value>, FetchError> {
     let mut features: Vec<Value> = Vec::new();
     let mut seen_oids = std::collections::HashSet::new();
     let mut visited = Vec::new();
-    let mut next = Some(collection_url(endpoint, bbox));
+    let mut next = Some(collection_url_in(endpoint, bbox, crs));
     while let Some(url) = next.take() {
         let bytes = fetcher.get(&url)?;
         let page: Value =
@@ -816,6 +856,77 @@ mod tests {
                 .borrow()
                 .iter()
                 .any(|u| u.starts_with(alkis_wfs::LVERMGEO.url) && u.contains("EPSG::25832"))
+        );
+    }
+
+    #[test]
+    fn hamburg_collection_url_is_25832() {
+        let bbox = BoundingBox {
+            min_e: 564_950.4,
+            min_n: 5_937_650.0,
+            max_e: 565_350.0,
+            max_n: 5_938_000.2,
+        };
+        let url = collection_url_in(crate::sources::lgv::BUILDINGS_ENDPOINT, &bbox, Crs::Utm32);
+        assert!(
+            url.starts_with(crate::sources::lgv::BUILDINGS_ENDPOINT),
+            "{url}"
+        );
+        assert!(url.contains("bbox=564950,5937650,565350,5938001"), "{url}");
+        assert!(
+            url.contains("bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25832"),
+            "{url}"
+        );
+        assert!(
+            url.contains("&crs=http://www.opengis.net/def/crs/EPSG/0/25832"),
+            "{url}"
+        );
+        assert_eq!(
+            collection_url(BUILDINGS_ENDPOINT, &bbox),
+            collection_url_in(BUILDINGS_ENDPOINT, &bbox, Crs::Utm33)
+        );
+    }
+
+    #[test]
+    fn hamburg_alkis_is_fetched_normalised() {
+        // Gymnasium Eppendorf (25833 region box), mapped in zone 32.
+        let region_bbox = BoundingBox {
+            min_e: 167_878.0,
+            min_n: 5_948_879.0,
+            max_e: 168_278.0,
+            max_n: 5_949_279.0,
+        };
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            crate::sources::lgv::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            crate::sources::lgv::LAND_USE_ENDPOINT,
+            crate::sources::lgv::test_support::LAND_USE
+                .as_bytes()
+                .to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        assert_eq!(parsed.buildings.len(), 4);
+        assert_eq!(parsed.buildings[0].kind, "Gebäude");
+        let corner = parsed.buildings[0].footprint.0[0].exterior().0[0];
+        assert!(
+            (560_000.0..570_000.0).contains(&corner.x),
+            "kept in 25832: {corner:?}"
+        );
+        let land = parse_land_use(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
+        assert_eq!(land[2].nutzart, "Wohnbaufläche");
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .all(|u| !u.contains("geobasis-bb")),
+            "no LGB request"
         );
     }
 

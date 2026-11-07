@@ -20,6 +20,8 @@ pub struct WmsService {
     pub url: &'static str,
     pub layer: &'static str,
     pub crs: Crs,
+    /// More GetMap parameters, e.g. `&TIME=2026`.
+    pub extra: &'static str,
 }
 
 /// The GetMap requests covering `grid` (in the service's CRS): pieces of at most [`WMS_MAX_PX`]
@@ -39,7 +41,7 @@ pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> 
             let b = piece.bounds();
             let url = format!(
                 "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={}&STYLES=\
-                 &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg",
+                 &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg{}",
                 service.url,
                 service.layer,
                 service.crs.epsg(),
@@ -48,7 +50,8 @@ pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> 
                 mm(b.max_e),
                 mm(b.max_n),
                 piece.width,
-                piece.height
+                piece.height,
+                service.extra
             );
             pieces.push((piece, url));
         }
