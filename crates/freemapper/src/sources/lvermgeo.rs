@@ -58,10 +58,7 @@ pub fn wcs_url(model: Model, bbox: &BoundingBox) -> String {
 
 /// The TIFF part of a WCS `multipart/related` answer.
 pub fn multipart_tiff(bytes: &[u8]) -> Result<&[u8], String> {
-    let refused = || {
-        let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
-        format!("no TIFF in the WCS answer: {start}")
-    };
+    let refused = || format!("no TIFF in the WCS answer: {}", exception_text(bytes));
     // The first line is the delimiter, e.g. `--wcs`.
     let first_line_end = bytes.iter().position(|&b| b == b'\n').ok_or_else(refused)?;
     let delimiter = bytes[..first_line_end]
@@ -96,6 +93,22 @@ pub fn multipart_tiff(bytes: &[u8]) -> Result<&[u8], String> {
             .strip_prefix(b"\r\n")
             .or_else(|| rest.strip_prefix(b"\n"))
             .unwrap_or(rest);
+    }
+}
+
+/// What an error answer says: an OWS exception's code and text, else its start.
+fn exception_text(bytes: &[u8]) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let between = |open: &str, close: char| {
+        let start = text.find(open)? + open.len();
+        text[start..].split(close).next().map(str::to_string)
+    };
+    let code = between("exceptionCode=\"", '"');
+    let message = between("ExceptionText>", '<');
+    match (code, message) {
+        (Some(code), Some(message)) => format!("{code}: {message}"),
+        (Some(one), None) | (None, Some(one)) => one,
+        (None, None) => text.chars().take(80).collect(),
     }
 }
 
@@ -144,6 +157,14 @@ pub fn decode_float_tiff(bytes: &[u8]) -> Result<Raster<f32>, String> {
 const NODATA_BELOW: f32 = -9998.0;
 /// Largest side of one GetCoverage; the WCS allows 4000 px (= m) per axis.
 const WCS_MAX_M: f64 = 4000.0;
+/// The WCS answers 404 for any subset reaching past its coverage (verified live 2026-11-07), so
+/// requests are cut to it; the rest stays empty.
+const COVERAGE: BoundingBox = BoundingBox {
+    min_e: 606_000.0,
+    min_n: 5_646_000.0,
+    max_e: 790_000.0,
+    max_n: 5_882_000.0,
+};
 
 /// Downloads `model` over `bbox` (EPSG:25832) in pieces of at most 4000 m and writes it as a
 /// Float32 GeoTIFF `out` with its world file (`.tfw`).
@@ -155,7 +176,10 @@ pub fn fetch_model(
 ) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
-    let b = grid.bounds();
+    let Some(b) = grid.bounds().intersection(&COVERAGE) else {
+        // Nothing of the area lies in the coverage: an empty model.
+        return write_model(model, &raster, out);
+    };
     let starts = |min: f64, max: f64| {
         let n = ((max - min) / WCS_MAX_M).ceil().max(1.0) as u32;
         (0..n).map(move |i| {
@@ -190,6 +214,12 @@ pub fn fetch_model(
                 })?;
         }
     }
+    write_model(model, &raster, out)
+}
+
+/// Writes `raster` as a Float32 GeoTIFF `out` with its world file (`.tfw`).
+fn write_model(model: Model, raster: &Raster<f32>, out: &Path) -> Result<(), FetchError> {
+    let grid = raster.grid;
     let mut tiff = std::io::Cursor::new(Vec::new());
     tiff::encoder::TiffEncoder::new(&mut tiff)
         .and_then(|encoder| {
@@ -235,8 +265,20 @@ fn index_date(fetcher: &dyn Fetcher, layer: &str, bbox: &BoundingBox) -> Option<
         (e + 10.0).ceil(),
         (n + 10.0).ceil()
     );
-    let bytes = fetcher.get(&url).ok()?;
-    parse_index_date(&String::from_utf8_lossy(&bytes))
+    // A failed index costs a re-download of the orthophoto, so it gets the usual retries.
+    get_with_retries(fetcher, &url, |bytes| {
+        let text = String::from_utf8_lossy(bytes);
+        serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .filter(|answer| answer["features"].is_array())
+            .map(|_| parse_index_date(&text))
+            .ok_or_else(|| FetchError::Http {
+                url: url.clone(),
+                message: format!("not a tile index answer: {}", exception_text(bytes)),
+            })
+    })
+    .ok()
+    .flatten()
 }
 
 /// The flight date (`BFDATUM`, e.g. `29.04.2026`) of the first feature in a tile index answer.
@@ -363,5 +405,100 @@ mod tests {
             "{url}"
         );
         assert!(url.contains("LAYERS=lsa_lvermgeo_dop20_2"), "{url}");
+    }
+
+    /// Answers every GetCoverage with a synthetic TIFF of exactly the requested subset (heights
+    /// 50 m), and records the subsets asked for.
+    struct Wcs {
+        subsets: std::cell::RefCell<Vec<(f64, f64, f64, f64)>>,
+    }
+
+    impl Fetcher for Wcs {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            let range = |axis: &str| -> (f64, f64) {
+                let start = url.find(&format!("SUBSET={axis}(")).unwrap() + axis.len() + 8;
+                let inner = &url[start..url[start..].find(')').unwrap() + start];
+                let (a, b) = inner.split_once(',').unwrap();
+                (a.parse().unwrap(), b.parse().unwrap())
+            };
+            let ((x0, x1), (y0, y1)) = (range("x"), range("y"));
+            self.subsets.borrow_mut().push((x0, x1, y0, y1));
+            let grid = crate::raster::GridSpec {
+                west: x0,
+                north: y1,
+                pixel_size: 1.0,
+                width: (x1 - x0) as u32,
+                height: (y1 - y0) as u32,
+            };
+            let values = vec![50.0; (grid.width * grid.height) as usize];
+            Ok(crate::fetch::test_support::wcs_answer(&grid, &values))
+        }
+    }
+
+    #[test]
+    fn wcs_requests_stay_inside_the_coverage_and_split_at_4000_m() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = Wcs {
+            subsets: std::cell::RefCell::new(Vec::new()),
+        };
+        // 4100 m wide, reaching 50 m past the east edge of the coverage (E 790 000).
+        let bbox = BoundingBox {
+            min_e: 785_950.0,
+            min_n: 5_700_000.0,
+            max_e: 790_050.0,
+            max_n: 5_700_010.0,
+        };
+        let out = dir.path().join("dgm1.tif");
+        fetch_model(&fetcher, Model::Dgm1, &bbox, &out).unwrap();
+        let subsets = fetcher.subsets.borrow();
+        assert_eq!(
+            *subsets,
+            [
+                (785_950.0, 789_950.0, 5_700_000.0, 5_700_010.0),
+                (789_950.0, 790_000.0, 5_700_000.0, 5_700_010.0)
+            ]
+        );
+        let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
+        assert_eq!(raster.grid.width, 4100);
+        assert_eq!(raster.get(0, 0), 50.0);
+        assert!(raster.get(4099, 0).is_nan(), "beyond the coverage");
+    }
+
+    #[test]
+    fn area_outside_the_coverage_asks_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = Wcs {
+            subsets: std::cell::RefCell::new(Vec::new()),
+        };
+        let bbox = BoundingBox {
+            min_e: 795_000.0,
+            min_n: 5_700_000.0,
+            max_e: 795_100.0,
+            max_n: 5_700_100.0,
+        };
+        fetch_model(&fetcher, Model::Dgm1, &bbox, &dir.path().join("x.tif")).unwrap();
+        assert!(fetcher.subsets.borrow().is_empty());
+    }
+
+    #[test]
+    fn wcs_exception_text_is_shown() {
+        let report = br#"<?xml version="1.0" encoding="UTF-8"?><ExceptionReport xmlns="http://www.opengis.net/ows/2.0" version="2.0.0"><Exception exceptionCode="InvalidSubsetting" locator="x"><ExceptionText>Subset is outside the coverage extent</ExceptionText></Exception></ExceptionReport>"#;
+        let err = multipart_tiff(report).unwrap_err();
+        assert!(err.contains("InvalidSubsetting"), "{err}");
+        assert!(
+            err.contains("Subset is outside the coverage extent"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn tile_index_is_retried() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(INDEX_URL, TRUEDOP_INDEX.as_bytes().to_vec());
+        fetcher.flaky.borrow_mut().insert(INDEX_URL.to_string(), 1);
+        assert_eq!(
+            flight_date(&fetcher, &SAMPLE).as_deref(),
+            Some("29.04.2026")
+        );
     }
 }

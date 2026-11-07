@@ -44,6 +44,8 @@ const TEXTS = {
     save: "Speichern",
     saving: "Speichere …",
     saved: "Gespeichert in freemapper.toml.",
+    zoneChanged:
+      "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; die Daten werden beim nächsten Laden neu geholt.",
     hasMap:
       "Die vorhandene Karte (.omap) bleibt, wie sie ist; neue Vorlagen und Kandidaten entstehen für das neue Gebiet. Mit „freemapper run --force“ wird auch die Karte neu erzeugt (die alte bleibt als .omap.bak).",
     done: "Fertig",
@@ -99,6 +101,8 @@ const TEXTS = {
     save: "Save",
     saving: "Saving …",
     saved: "Saved to freemapper.toml.",
+    zoneChanged:
+      "Saved. The area now lies in another UTM zone; its data is fetched again on the next run.",
     hasMap:
       "The existing map (.omap) stays as it is; new templates and candidates are made for the new area. “freemapper run --force” makes the map anew too (the old one is kept as .omap.bak).",
     done: "Done",
@@ -464,7 +468,7 @@ $("save").addEventListener("click", async () => {
     }
     const answer = await api("api/save", body);
     savedHere = true;
-    setMessage(T.saved, "ok");
+    setMessage(answer.zone_changed ? T.zoneChanged : T.saved, "ok");
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
     showSettings();

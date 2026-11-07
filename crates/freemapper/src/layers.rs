@@ -10,7 +10,8 @@ use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, map_path,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, check_size, map_crs,
+    map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
@@ -221,7 +222,9 @@ pub struct AreaPreview {
 /// The preview of `area` with `buffer_m` around it; ALKIS data counts as not downloaded yet.
 pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDate) -> AreaPreview {
     let bbox = area.projected_bbox().buffered(buffer_m);
-    let check = check_area(&bbox);
+    // The size counts in the map's CRS, where the templates are built.
+    let map_bbox = area.projected_bbox_in(map_crs(&bbox)).buffered(buffer_m);
+    let check = check_area(&bbox).and_then(|()| check_size(&map_bbox));
     let outside_coverage = matches!(check, Err(ProjectError::OutsideCoverage));
     let too_large = matches!(check, Err(ProjectError::AreaTooLarge { .. }));
     let usable = check.is_ok();
@@ -257,8 +260,8 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
     };
     AreaPreview {
         tiles: outlines,
-        width_m: bbox.width(),
-        height_m: bbox.height(),
+        width_m: map_bbox.width(),
+        height_m: map_bbox.height(),
         too_large,
         outside_coverage,
         estimate,
@@ -500,6 +503,43 @@ mod tests {
             "{what:?}"
         );
         assert!(preview.tiles.is_empty(), "no data tiles in Saxony-Anhalt");
+    }
+
+    #[test]
+    fn preview_checks_the_size_in_the_map_crs() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // 3950 m along the zone-33 axes at Halle: with its buffer it fits in 25833, not in 25832.
+        let corner = |de: f64, dn: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 289_795.0 + de,
+                northing: 5_707_067.0 + dn,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let h = 1975.0;
+        let ring = [
+            corner(-h, -h),
+            corner(h, -h),
+            corner(h, h),
+            corner(-h, h),
+            corner(-h, -h),
+        ];
+        let area = crate::area::MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        assert!(area.projected_bbox().buffered(20.0).width() <= crate::project::MAX_AREA_SIDE_M);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        assert!(
+            preview.too_large,
+            "{} × {}",
+            preview.width_m, preview.height_m
+        );
+        let max = crate::project::MAX_AREA_SIDE_M;
+        assert!(preview.width_m > max || preview.height_m > max);
     }
 
     #[test]

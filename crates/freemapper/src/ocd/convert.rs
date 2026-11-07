@@ -396,7 +396,6 @@ fn background_string(
     }
 }
 
-/// The OCAD 12 file of `doc`, with `backgrounds` next to it.
 /// OCAD's grid and zone code (`grid × 1000 + zone`, grid 8 = ETRS89/UTM, Germany), as in OOM's
 /// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008.
 fn ocad_grid_code(crs: crate::crs::Crs) -> u32 {
@@ -406,6 +405,7 @@ fn ocad_grid_code(crs: crate::crs::Crs) -> u32 {
     }
 }
 
+/// The OCAD 12 file of `doc`, with `backgrounds` next to it.
 pub fn map_to_ocd(
     doc: &MapDocument,
     kind: MapKind,

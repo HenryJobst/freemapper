@@ -42,7 +42,7 @@ const UNPAVED: [&str; 10] = [
     "woodchips",
 ];
 
-/// The unpaved OSM streets among `features`, in EPSG:25833.
+/// The unpaved OSM streets among `features`, in `crs`.
 pub fn unpaved_streets(features: &[OsmFeature], crs: Crs) -> Vec<LineString<f64>> {
     let tag = |f: &OsmFeature, key: &str| {
         f.tags
@@ -81,7 +81,7 @@ pub struct PavedObjects {
 }
 
 /// 501.5 objects for the traffic areas of `land_use`, clipped to `clip` (map area plus buffer,
-/// EPSG:25833). A street parcel crossed by one of `unpaved_streets` (EPSG:25833) is a candidate.
+/// the map's CRS). A street parcel crossed by one of `unpaved_streets` (same CRS) is a candidate.
 pub fn paved_area_objects(
     land_use: &[LandUse],
     unpaved_streets: &[LineString<f64>],
