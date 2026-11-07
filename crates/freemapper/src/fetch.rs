@@ -237,7 +237,7 @@ fn check_archive(bytes: &[u8], product: Product, tile: TileId) -> Result<(), Str
 }
 
 /// Writes `bytes` to `<path>.part` and renames it, so `path` never holds a partial file.
-fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
+pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     let dir = path.parent().expect("cache paths have a parent");
     std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
     let mut part = path.as_os_str().to_owned();
@@ -270,6 +270,8 @@ pub(crate) mod test_support {
     use std::io::Write as _;
 
     use super::{FetchError, Fetcher};
+    use crate::sources::alkis::BUILDINGS_ENDPOINT;
+    use crate::sources::alkis::test_support::{building_feature, page};
     use crate::sources::lgb::Product;
     use crate::tiles::TileId;
 
@@ -372,7 +374,17 @@ pub(crate) mod test_support {
                 tile_zip(product, tile, &raster, &world),
             );
         }
+        let school = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Allgemein bildende Schule",
+            SCHOOL_BUILDING,
+        );
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[school], None));
     }
+
+    /// A 10 m square near the centroid of the fixture school area (EPSG:25833 corner + side).
+    pub const SCHOOL_BUILDING: [f64; 3] = [421_605.0, 5_821_730.0, 10.0];
 
     /// A currency CSV with one row per tile and the given publication date.
     pub fn currency_csv(rows: &[(TileId, &str)]) -> Vec<u8> {

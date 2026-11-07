@@ -7,16 +7,20 @@ use chrono::{Datelike as _, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 use crate::area::{AreaError, MapArea};
+use crate::build::buildings::building_objects;
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::DeriveError;
 use crate::derive::orthophoto::build_orthophoto;
 use crate::derive::terrain::{hillshade, mosaic_dtm, slope_deg, slope_shade, write_gray_png};
-use crate::fetch::{Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles};
+use crate::fetch::{
+    Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_atomically,
+};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{
     MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
+use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::tiles::{TileId, tiles_covering};
 
@@ -46,6 +50,8 @@ pub enum ProjectError {
     Derive(#[from] DeriveError),
     #[error("no tiles fetched yet; run `freemapper fetch` first")]
     NotFetched,
+    #[error("no ALKIS buildings stored; run `freemapper fetch` online first")]
+    BuildingsNotFetched,
 }
 
 /// Kind of orienteering map; selects norm, symbol set and default scale.
@@ -161,6 +167,8 @@ const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
 const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 const SLOPE_RELPATH: &str = "templates/slope.png";
+/// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
+const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
 /// Fetches the tiles covering the map area plus buffer into `cache` and records them in the
 /// project file. Warns through `progress` when a tile was republished since the last fetch.
@@ -196,9 +204,35 @@ pub fn fetch_project(
             records.push(record);
         }
     }
+    fetch_buildings_into(dir, fetcher, &project.bbox()?, mode, progress)?;
     project.tiles = records;
     project.save(dir)?;
     Ok(project)
+}
+
+/// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`]; the stored file is only
+/// replaced by an answer that parses. Offline, the stored file must exist.
+fn fetch_buildings_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    let path = dir.join(BUILDINGS_RELPATH);
+    if mode == FetchMode::Offline {
+        return if path.exists() {
+            Ok(())
+        } else {
+            Err(ProjectError::BuildingsNotFetched)
+        };
+    }
+    progress("downloading ALKIS buildings");
+    let text = fetch_buildings(fetcher, bbox)?;
+    let count = parse_buildings(&text).map_err(FetchError::from)?.len();
+    write_atomically(&path, text.as_bytes())?;
+    progress(&format!("{count} ALKIS buildings"));
+    Ok(())
 }
 
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
@@ -361,11 +395,29 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         opacity: 0.7,
         behind_map: false,
     });
+    let buildings_path = dir.join(BUILDINGS_RELPATH);
+    let mut parts = Vec::new();
+    if buildings_path.exists() {
+        let text = std::fs::read_to_string(&buildings_path)
+            .map_err(|e| ProjectError::Io(buildings_path.clone(), e))?;
+        let buildings = parse_buildings(&text).map_err(FetchError::from)?;
+        let objects = building_objects(
+            &buildings,
+            &area.projected_polygon(),
+            project.buffer_m,
+            &georef,
+            &symbol_set,
+        )?;
+        parts.push(MapPart {
+            name: "default part".to_string(),
+            objects,
+        });
+    }
     let map = MapDocument {
         notes,
         georef,
         symbol_set,
-        parts: Vec::new(),
+        parts,
         templates,
     };
 
@@ -716,6 +768,95 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 references_images: true
             }
         );
+    }
+
+    fn fetched_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
+        fetch(dir.path(), fetcher, &cache);
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn fetch_stores_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let text = std::fs::read_to_string(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        assert_eq!(
+            crate::sources::alkis::parse_buildings(&text).unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
+    fn failed_alkis_fetch_keeps_stored_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let stored = std::fs::read(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let result = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {});
+        assert!(result.is_err());
+        assert_eq!(
+            std::fs::read(dir.path().join(BUILDINGS_RELPATH)).unwrap(),
+            stored
+        );
+    }
+
+    #[test]
+    fn offline_fetch_uses_stored_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let before = fetcher.calls.get();
+        fetch_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetcher.calls.get(), before, "offline makes no requests");
+
+        std::fs::remove_file(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        let err = fetch_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(matches!(err, ProjectError::BuildingsNotFetched), "{err:?}");
+    }
+
+    #[test]
+    fn export_includes_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let map_path = export_starter_project(dir.path(), false).unwrap();
+        let map = std::fs::read_to_string(map_path).unwrap();
+        let parts = map.find("<parts ").unwrap();
+        assert_eq!(
+            map[parts..]
+                .matches(r#"<t k="freemapper:source">alkis</t>"#)
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn export_without_buildings_has_empty_map() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let map_path = export_starter_project(dir.path(), false).unwrap();
+        let map = std::fs::read_to_string(map_path).unwrap();
+        assert!(!map.contains("alkis"));
     }
 
     #[test]
