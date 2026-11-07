@@ -307,6 +307,7 @@ pub fn init_project(
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
     }
+    check_area_size(&area.projected_bbox().buffered(map_kind.default_buffer_m()))?;
     std::fs::create_dir_all(dir).map_err(|e| ProjectError::Io(dir.to_path_buf(), e))?;
     let project = ProjectFile {
         map_kind,
@@ -332,7 +333,7 @@ use crate::fetch::tile_names;
 const STALE_TEMPLATE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// Largest side of map area plus buffer: [`MAX_RASTER_SIDE_PX`] orthophoto pixels of 0.2 m.
-const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
+pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
 
 /// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
@@ -1382,6 +1383,20 @@ mod tests {
         assert_eq!(loaded.title.as_deref(), Some("Vorstadt"));
         assert_eq!(loaded.map_kind, MapKind::Sprint);
         assert_eq!(loaded.declination_date, date);
+    }
+
+    #[test]
+    fn init_refuses_too_large_area() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("huge");
+        let huge = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.7,52.5],[13.9,52.5],[13.9,52.6],[13.7,52.6],[13.7,52.5]]]}"#,
+        )
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let err = init_project(&project, &huge, MapKind::Sprint, None, date, None).unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+        assert!(!project.exists());
     }
 
     #[test]

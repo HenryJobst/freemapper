@@ -1,6 +1,8 @@
 //! `freemapper` command line interface.
 
 mod mcp;
+mod nominatim;
+mod select;
 
 use std::path::PathBuf;
 
@@ -79,6 +81,29 @@ enum Commands {
         /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
         #[arg(long)]
         force: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Choose the map area in the browser: draw it or pick a place; saving writes freemapper.toml
+    /// (creating the project folder if needed).
+    Select {
+        /// Project folder (created on saving if it does not exist).
+        dir: PathBuf,
+        /// Map kind of a new project.
+        #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
+        kind: Kind,
+        /// Scale denominator of a new project (default depends on the map kind).
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        scale: Option<u32>,
+        /// Map title of a new project.
+        #[arg(long)]
+        title: Option<String>,
+        /// Only print the address of the page; do not open the browser.
+        #[arg(long)]
+        no_browser: bool,
+        /// Port on 127.0.0.1 (default: a free one).
+        #[arg(long, default_value_t = 0)]
+        port: u16,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -250,6 +275,39 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
+        }
+        Commands::Select {
+            dir,
+            kind,
+            scale,
+            title,
+            no_browser,
+            port,
+            cache,
+        } => {
+            let cache = cache.cache()?;
+            let defaults = select::Defaults {
+                kind: kind.into(),
+                scale,
+                title,
+            };
+            tokio::runtime::Runtime::new()?.block_on(async {
+                let selector = select::Selector::start(dir.clone(), defaults, cache, port).await?;
+                println!("{}", selector.url);
+                std::io::Write::flush(&mut std::io::stdout())?;
+                eprintln!(
+                    "Area selection for {}: press \"Done\" on the page or Ctrl+C to stop.",
+                    dir.display()
+                );
+                if !no_browser && let Err(e) = select::open_browser(&selector.url) {
+                    eprintln!("Could not open the browser ({e}); open the address above.");
+                }
+                tokio::select! {
+                    finished = selector.finished() => finished?,
+                    _ = tokio::signal::ctrl_c() => {}
+                }
+                anyhow::Ok(())
+            })?;
         }
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;

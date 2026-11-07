@@ -14,7 +14,12 @@ pub enum AreaError {
     OutOfRange { lat: f64, lon: f64 },
     #[error("{0}")]
     Place(String),
+    #[error("not a usable map area: {0}")]
+    NotAnArea(String),
 }
+
+/// Smallest area / perimeter² of a usable map area.
+const MIN_ROUNDNESS: f64 = 1e-4;
 
 /// Metres per degree of latitude (and of longitude on the equator), close enough for a filter box.
 const METRES_PER_DEGREE: f64 = 111_320.0;
@@ -88,6 +93,23 @@ impl MapArea {
     }
 
     /// The polygon in EPSG:25833.
+    /// Checks that a drawn polygon encloses an area: at least three corners, no crossing edges.
+    pub fn validate(&self) -> Result<(), AreaError> {
+        use geo::{Area as _, Euclidean, Length as _, Validation as _};
+        let polygon = self.projected_polygon();
+        // Corners on one line enclose (almost) nothing: area against perimeter², 1/(4π) for a
+        // circle, 1/16 for a square, still 0.0025 for a 10 m × 1 km corridor.
+        let perimeter = Euclidean.length(polygon.exterior());
+        if polygon.unsigned_area() <= MIN_ROUNDNESS * perimeter * perimeter {
+            return Err(AreaError::NotAnArea(
+                "it has no area; draw at least three corners".to_string(),
+            ));
+        }
+        polygon
+            .check_validation()
+            .map_err(|e| AreaError::NotAnArea(format!("{e}; edges must not cross")))
+    }
+
     pub fn projected_polygon(&self) -> geo_types::Polygon<f64> {
         use geo::MapCoords as _;
         self.polygon.map_coords(|c| {
@@ -167,6 +189,26 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../../../tests/fixtures/clara-zetkin-schule.geojson");
+
+    #[test]
+    fn validate_rejects_degenerate_and_crossing() {
+        assert!(MapArea::from_geojson(FIXTURE).unwrap().validate().is_ok());
+        for coordinates in [
+            "[[13.84,52.53],[13.85,52.54],[13.84,52.53]]",
+            "[[13.84,52.53],[13.85,52.54],[13.86,52.55],[13.84,52.53]]",
+            "[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]",
+        ] {
+            let text = format!(r#"{{"type":"Polygon","coordinates":[{coordinates}]}}"#);
+            let err = MapArea::from_geojson(&text)
+                .unwrap()
+                .validate()
+                .unwrap_err();
+            assert!(
+                matches!(err, AreaError::NotAnArea(_)),
+                "{coordinates}: {err:?}"
+            );
+        }
+    }
 
     fn geometry(json: &str) -> Result<MapArea, AreaError> {
         MapArea::from_geojson(json)

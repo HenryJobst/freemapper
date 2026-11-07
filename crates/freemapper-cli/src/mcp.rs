@@ -4,7 +4,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant};
 
 use base64::Engine;
 use freemapper::area::MapArea;
@@ -24,8 +23,6 @@ use serde_json::{Value, json};
 const JOB_LINES: usize = 50;
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
-/// Nominatim allows one request per second.
-const NOMINATIM_INTERVAL: Duration = Duration::from_secs(1);
 
 const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
 orienteering maps (schoolyard 1:1000, sprint 1:4000) from official Brandenburg geodata and OSM. \
@@ -201,7 +198,6 @@ pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
     jobs: Arc<Mutex<Jobs>>,
-    last_nominatim: Arc<Mutex<Option<Instant>>>,
 }
 
 /// The job table; a panic elsewhere never makes it unusable.
@@ -362,22 +358,7 @@ impl FreemapperServer {
             tool_router: Self::tool_router(),
             cache,
             jobs: Arc::default(),
-            last_nominatim: Arc::default(),
         }
-    }
-
-    /// Waits until a Nominatim request is allowed again, then claims the slot.
-    fn nominatim_slot(&self) -> Duration {
-        let mut last = self
-            .last_nominatim
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        let now = Instant::now();
-        let wait = last
-            .map(|t| NOMINATIM_INTERVAL.saturating_sub(now - t))
-            .unwrap_or_default();
-        *last = Some(now + wait);
-        wait
     }
 
     #[tool(
@@ -389,7 +370,7 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<FindPlace>,
     ) -> Result<CallToolResult, McpError> {
-        tokio::time::sleep(self.nominatim_slot()).await;
+        crate::nominatim::wait_turn().await;
         let places = blocking(move || {
             find_places(&HttpFetcher::new(), &req.query).map_err(|e| describe(&e))
         })
@@ -433,7 +414,7 @@ impl FreemapperServer {
         };
         let area = match (req.osm_id, req.geojson) {
             (Some(osm_id), None) => {
-                tokio::time::sleep(self.nominatim_slot()).await;
+                crate::nominatim::wait_turn().await;
                 blocking(move || place_area(&HttpFetcher::new(), &osm_id).map_err(|e| describe(&e)))
                     .await
             }
