@@ -13,7 +13,7 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestone M0/M1). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development (milestones M0–M2, part of M3). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Build
 
@@ -25,19 +25,34 @@ cargo build --release
 Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git hooks: `lefthook install`.
 
-## Usage (milestone M1)
+## Usage
 
 ```sh
 freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
-freemapper export clara-zetkin-schule
+freemapper run clara-zetkin-schule
 ```
+
+`run` performs three steps that are also available on their own:
+
+- `freemapper fetch <dir>` – downloads the LGB orthophoto (DOP20) and terrain model (DGM1) tiles for
+  map area plus buffer into the cache. A tile is downloaded again only when LGB republished it;
+  `--offline` uses the cache only.
+- `freemapper derive <dir>` – computes orthophoto, hillshade and slope templates from them.
+- `freemapper export <dir>` – writes the OOM map; `--force` replaces an existing map and keeps the old
+  one as `.omap.bak`.
 
 Result in the project folder:
 
-- `freemapper.toml` – map area, map kind, scale, declination date
+- `freemapper.toml` – map area, map kind, scale, declination date, tiles used with their data currency
 - `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
+- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – templates behind the map, each with a
+  world file (`.jgw`/`.pgw`); hillshade and slope can be switched on in OOM
 - `templates/candidates.omap` – template map with the outline of the map area
 - `ATTRIBUTION.txt` – attribution of the data sources
+
+The cache lives in the system cache folder (macOS `~/Library/Caches/freemapper`, Linux
+`~/.cache/freemapper`, Windows `%LOCALAPPDATA%\freemapper`) and is shared by all projects;
+`--cache-dir` picks another folder.
 
 Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSprOM 2019, 1:4000).
 

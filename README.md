@@ -13,7 +13,7 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilenstein M0/M1). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M2, M3 teilweise). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
@@ -25,19 +25,35 @@ cargo build --release
 Entwicklung: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git-Hooks: `lefthook install`.
 
-## Benutzung (Stand M1)
+## Benutzung
 
 ```sh
 freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
-freemapper export clara-zetkin-schule
+freemapper run clara-zetkin-schule
 ```
+
+`run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
+
+- `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
+  Kartengebiet plus Puffer in den Zwischenspeicher. Kacheln werden nur neu geladen, wenn das LGB sie
+  neu veröffentlicht hat; `--offline` nutzt nur den Zwischenspeicher.
+- `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung und Hangneigung als Vorlagen.
+- `freemapper export <ordner>` – schreibt die OOM-Karte; `--force` ersetzt eine vorhandene Karte und
+  legt die alte als `.omap.bak` ab.
 
 Ergebnis im Projektordner:
 
-- `freemapper.toml` – Kartengebiet, Kartenart, Maßstab, Datum der Missweisung
+- `freemapper.toml` – Kartengebiet, Kartenart, Maßstab, Datum der Missweisung, verwendete Kacheln mit
+  Datenstand
 - `clara-zetkin-schule.omap` – georeferenzierte OOM-Karte (EPSG:25833, 1:1000, IOF-Schulsymbolsatz 2019)
+- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – Vorlagen hinter der Karte, jeweils mit
+  Weltdatei (`.jgw`/`.pgw`); Schummerung und Hangneigung lassen sich in OOM einblenden
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets
 - `ATTRIBUTION.txt` – Namensnennung der Datenquellen
+
+Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/freemapper`, Linux
+`~/.cache/freemapper`, Windows `%LOCALAPPDATA%\freemapper`) und wird von allen Projekten geteilt;
+`--cache-dir` wählt einen anderen Ordner.
 
 Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
 

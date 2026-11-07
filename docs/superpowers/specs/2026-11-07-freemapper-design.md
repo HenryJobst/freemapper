@@ -81,7 +81,7 @@ crates/
     crs/               EPSG:25833 <-> EPSG:4326, grid convergence, scale factor, declination (WMM)
     cache/             tile cache in dirs::cache_dir()/freemapper, shared across projects
     sources/           SourceAdapter trait + adapters: lgb_brandenburg, osm
-    raster/            simple georeferenced raster type, GeoTIFF read/write, mosaic + clip
+    raster/            simple georeferenced raster type, world files, mosaic + clip
     derive/            dtm (from DGM1 tiles), hillshade, slope, contours, ndsm (from nDOM LAZ)
     build/             symbol mapping rules -> MapObjects, Candidates, Templates
     omap/              OOM XML writer (+ minimal reader for tests), symbol sets embedded,
@@ -123,7 +123,7 @@ clara-zetkin-schule/
                              per-tile URL + data currency, OSM extract timestamp, declination date
   clara-zetkin-schule.omap   the starter project
   templates/
-    hillshade.tif  slope.tif  ndsm.tif  orthophoto.tif
+    orthophoto.jpg  hillshade.png  slope.png  ndsm.png   (each with a world file .jgw/.pgw)
     candidates.omap          template map with candidates (contours, out-of-bounds, impassable features,
                              school furniture …), symbolized with the same symbol set
   ATTRIBUTION.txt
@@ -172,11 +172,14 @@ asset (`assets/symbol-sets/school-2019_1000.omap`) so the binary embeds a fixed 
 ### 4.4 Derivation (MVP)
 
 - DTM: mosaic DGM1 tiles over map area + buffer (default 20 m for schoolyard, 50 m for sprint).
-- Hillshade (azimuth 315°, altitude 45°) and slope with 3×3 kernels, written as GeoTIFF.
+- Hillshade (azimuth 315°, altitude 45°) and slope with 3×3 kernels, written as PNG + world file.
 - Contours: smooth the DTM (Gaussian, configurable σ), then marching squares (`contour` crate), simplify, clip.
   Interval: schoolyard 1 m (index 5 m), sprint 2 m (index 10 m). Contours are candidates only.
-- nDSM: rasterize nDOM points (max Z per 0.2 m cell), written as GeoTIFF with a height colour ramp.
-- Orthophoto: mosaic + clip DOP20 RGB JPEG tiles, written as GeoTIFF.
+- nDSM: rasterize nDOM points (max Z per 0.2 m cell), written as PNG + world file with a height colour ramp.
+- Orthophoto: mosaic + clip DOP20 RGB JPEG tiles, written as JPEG + world file.
+- Raster templates use image + world file instead of GeoTIFF (decided in M2/M3a): OOM's `TemplateImage`
+  reads world files and takes the CRS from the template's `<crs_spec>`, OCAD reads world files too, and
+  no GeoTIFF writer is needed.
 
 ### 4.5 Symbol mapping
 

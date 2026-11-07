@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use freemapper::area::MapArea;
-use freemapper::project::{MapKind, export_starter_project, init_project};
+use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
+use freemapper::project::{
+    MapKind, derive_project, export_starter_project, fetch_project, init_project,
+};
 
 #[derive(Parser)]
 #[command(
@@ -43,6 +46,65 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Download the tiles for the map area (orthophoto, terrain model) into the cache.
+    Fetch {
+        /// Project folder.
+        dir: PathBuf,
+        /// Use the cache only, without network access.
+        #[arg(long)]
+        offline: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Compute the templates (orthophoto, hillshade, slope) from the fetched tiles.
+    Derive {
+        /// Project folder.
+        dir: PathBuf,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Fetch, derive and export in one go.
+    Run {
+        /// Project folder.
+        dir: PathBuf,
+        /// Use the cache only, without network access.
+        #[arg(long)]
+        offline: bool,
+        /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
+        #[arg(long)]
+        force: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+}
+
+#[derive(clap::Args)]
+struct CacheArgs {
+    /// Cache folder for downloaded tiles (default: the system cache folder + `freemapper`).
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+}
+
+impl CacheArgs {
+    fn cache(self) -> anyhow::Result<Cache> {
+        match self.cache_dir {
+            Some(dir) => Ok(Cache::new(dir)),
+            None => Cache::default_location()
+                .context("no cache directory on this system; pass --cache-dir"),
+        }
+    }
+}
+
+fn mode(offline: bool) -> FetchMode {
+    if offline {
+        FetchMode::Offline
+    } else {
+        FetchMode::Online
+    }
+}
+
+fn report(message: &str) {
+    eprintln!("{message}");
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -77,6 +139,37 @@ fn main() -> anyhow::Result<()> {
             println!("Created project {}", dir.display());
         }
         Commands::Export { dir, force } => {
+            let map = export_starter_project(&dir, force)?;
+            println!("Wrote {}", map.display());
+        }
+        Commands::Fetch {
+            dir,
+            offline,
+            cache,
+        } => {
+            let project = fetch_project(
+                &dir,
+                &HttpFetcher,
+                &cache.cache()?,
+                mode(offline),
+                &mut report,
+            )?;
+            println!("Fetched {} tiles", project.tiles.len());
+        }
+        Commands::Derive { dir, cache } => {
+            for path in derive_project(&dir, &cache.cache()?, &mut report)? {
+                println!("Wrote {}", path.display());
+            }
+        }
+        Commands::Run {
+            dir,
+            offline,
+            force,
+            cache,
+        } => {
+            let cache = cache.cache()?;
+            fetch_project(&dir, &HttpFetcher, &cache, mode(offline), &mut report)?;
+            derive_project(&dir, &cache, &mut report)?;
             let map = export_starter_project(&dir, force)?;
             println!("Wrote {}", map.display());
         }

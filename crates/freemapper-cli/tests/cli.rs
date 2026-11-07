@@ -165,3 +165,81 @@ fn export_refuses_to_overwrite_map_without_force() {
             .contains("<map xmlns=")
     );
 }
+
+fn init_school(project: &std::path::Path) {
+    let init = freemapper()
+        .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    assert!(
+        init.status.success(),
+        "{}",
+        String::from_utf8_lossy(&init.stderr)
+    );
+}
+
+#[test]
+fn derive_before_fetch_explains_next_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let cache = dir.path().join("cache");
+    let output = freemapper()
+        .args([
+            "derive",
+            project.to_str().unwrap(),
+            "--cache-dir",
+            cache.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("freemapper fetch"), "stderr: {stderr}");
+}
+
+#[test]
+fn offline_fetch_with_empty_cache_fails_cleanly() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let cache = dir.path().join("cache");
+    let output = freemapper()
+        .args([
+            "fetch",
+            project.to_str().unwrap(),
+            "--offline",
+            "--cache-dir",
+            cache.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("33421-5821"), "stderr: {stderr}");
+}
+
+#[test]
+#[ignore = "network"]
+fn live_run_school() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("clara-zetkin-schule");
+    init_school(&project);
+    let run = freemapper()
+        .args(["run", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    for file in ["orthophoto.jpg", "hillshade.png", "slope.png"] {
+        assert!(
+            project.join("templates").join(file).exists(),
+            "{file} missing"
+        );
+    }
+    let map = std::fs::read_to_string(project.join("clara-zetkin-schule.omap")).unwrap();
+    assert!(map.contains(r#"<templates count="4" first_front_template="3">"#));
+}
