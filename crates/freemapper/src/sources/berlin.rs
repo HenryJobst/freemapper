@@ -408,6 +408,7 @@ mod tests {
             err.to_string().contains("not a GeoJSON FeatureCollection"),
             "{err}"
         );
+        assert!(err.to_string().starts_with("invalid ALKIS data: "), "{err}");
         assert_eq!(
             fetcher.calls.borrow().len(),
             3,

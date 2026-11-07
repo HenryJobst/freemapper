@@ -18,20 +18,27 @@ const BERLIN_BOUNDARY: &str = include_str!("../../../../assets/regions/berlin.ge
 const MARGIN_M: f64 = 100.0;
 
 /// A state with its own ALKIS service.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Region {
     Brandenburg,
     Berlin,
 }
 
+impl Region {
+    /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`).
+    pub fn of_object_id(oid: &str) -> Option<Self> {
+        match oid.get(..4) {
+            Some("DEBB") => Some(Self::Brandenburg),
+            Some("DEBE") => Some(Self::Berlin),
+            _ => None,
+        }
+    }
+}
+
 /// The regions whose ALKIS data covers `bbox` (EPSG:25833), Brandenburg first.
 pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
-    let wide = bbox.buffered(MARGIN_M);
-    let rect: Polygon<f64> = Rect::new(
-        coord! { x: wide.min_e, y: wide.min_n },
-        coord! { x: wide.max_e, y: wide.max_n },
-    )
-    .to_polygon();
+    let rect = rectangle(&bbox.buffered(MARGIN_M));
     let berlin = berlin();
     let mut regions = Vec::new();
     if !berlin.contains(&rect) {
@@ -41,6 +48,19 @@ pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
         regions.push(Region::Berlin);
     }
     regions
+}
+
+/// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
+pub fn touches_berlin(bbox: &BoundingBox) -> bool {
+    berlin().intersects(&rectangle(bbox))
+}
+
+fn rectangle(bbox: &BoundingBox) -> Polygon<f64> {
+    Rect::new(
+        coord! { x: bbox.min_e, y: bbox.min_n },
+        coord! { x: bbox.max_e, y: bbox.max_n },
+    )
+    .to_polygon()
 }
 
 /// The Berlin boundary, parsed once.
@@ -108,6 +128,26 @@ mod tests {
             regions_for(&around(407_850.0, 5_799_124.0, 50.0)),
             vec![Region::Brandenburg]
         );
+    }
+
+    #[test]
+    fn object_ids_name_their_state() {
+        assert_eq!(
+            Region::of_object_id("DEBE03YY600004AR"),
+            Some(Region::Berlin)
+        );
+        assert_eq!(
+            Region::of_object_id("DEBBAL0100000001"),
+            Some(Region::Brandenburg)
+        );
+        assert_eq!(Region::of_object_id("DESNAL01"), None);
+    }
+
+    #[test]
+    fn touching_berlin_needs_no_margin() {
+        // 50 m south of the boundary: within the fetch margin, but not in Berlin.
+        assert!(!touches_berlin(&around(407_850.0, 5_799_424.0, 40.0)));
+        assert!(touches_berlin(&around(407_850.0, 5_799_524.0, 40.0)));
     }
 
     #[test]

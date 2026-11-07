@@ -1,5 +1,6 @@
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
+use std::collections::HashMap;
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -343,6 +344,68 @@ pub fn fetch_tiles(
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Vec<FetchedTile>, FetchError> {
+    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
+    let uncovered: Vec<TileId> = tiles
+        .iter()
+        .copied()
+        .filter(|tile| !table.contains_key(tile))
+        .collect();
+    if !uncovered.is_empty() {
+        return Err(FetchError::TilesNotCovered(uncovered));
+    }
+    let mut fetched = Vec::new();
+    let mut missing = Vec::new();
+    for &tile in tiles {
+        match fetch_tile(fetcher, cache, product, tile, table[&tile], mode, progress)? {
+            Some(tile) => fetched.push(tile),
+            None => missing.push(tile),
+        }
+    }
+    if !missing.is_empty() {
+        return Err(FetchError::MissingOffline(product, missing));
+    }
+    Ok(fetched)
+}
+
+/// One tile of [`fetch_tiles_each`] and how fetching it went.
+pub type TileOutcome = (TileId, Result<FetchedTile, FetchError>);
+
+/// Like [`fetch_tiles`], but every tile succeeds or fails on its own; only a currency CSV that
+/// cannot be read fails the whole call.
+pub fn fetch_tiles_each(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Vec<TileOutcome>, FetchError> {
+    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
+    Ok(tiles
+        .iter()
+        .map(|&tile| {
+            let result = match table.get(&tile) {
+                None => Err(FetchError::TilesNotCovered(vec![tile])),
+                Some(&currency) => fetch_tile(
+                    fetcher, cache, product, tile, currency, mode, progress,
+                )
+                .and_then(|fetched| fetched.ok_or(FetchError::MissingOffline(product, vec![tile]))),
+            };
+            (tile, result)
+        })
+        .collect())
+}
+
+/// The currency table of `product`: downloaded online (replacing the cached CSV once it
+/// parses), the cached CSV offline.
+fn currency_table(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<HashMap<TileId, TileCurrency>, FetchError> {
     let csv_path = cache.currency_csv_path(product);
     let csv = match mode {
         FetchMode::Online => {
@@ -360,63 +423,54 @@ pub fn fetch_tiles(
         // Only a CSV that parsed replaces the cached one, so `--offline` keeps working.
         write_atomically(&csv_path, &csv)?;
     }
+    Ok(table)
+}
 
-    let uncovered: Vec<TileId> = tiles
-        .iter()
-        .copied()
-        .filter(|tile| !table.contains_key(tile))
-        .collect();
-    if !uncovered.is_empty() {
-        return Err(FetchError::TilesNotCovered(uncovered));
-    }
-
-    let mut fetched = Vec::new();
-    let mut missing = Vec::new();
-    for &tile in tiles {
-        let mut currency = table[&tile];
-        let mut zip = cache.tile_path(product, tile, currency.published);
-        let url = product.tile_url(tile);
-        if zip.exists() {
-            progress(&format!("cached {}", tile.name()));
-        } else if mode == FetchMode::Offline {
-            match newest_cached_version(&zip, tile) {
-                Some((published, older)) => {
-                    progress(&format!(
-                        "warning: using cached {product} tile {} from {published} (newer {} not downloaded)",
-                        tile.name(),
-                        currency.published
-                    ));
-                    currency.published = published;
-                    zip = older;
-                }
-                None => {
-                    missing.push(tile);
-                    continue;
-                }
+/// One tile of `product` in the cache; `None` offline when no version of it is cached.
+fn fetch_tile(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    product: Product,
+    tile: TileId,
+    mut currency: TileCurrency,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Option<FetchedTile>, FetchError> {
+    let mut zip = cache.tile_path(product, tile, currency.published);
+    let url = product.tile_url(tile);
+    if zip.exists() {
+        progress(&format!("cached {}", tile.name()));
+    } else if mode == FetchMode::Offline {
+        match newest_cached_version(&zip, tile) {
+            Some((published, older)) => {
+                progress(&format!(
+                    "warning: using cached {product} tile {} from {published} (newer {} not downloaded)",
+                    tile.name(),
+                    currency.published
+                ));
+                currency.published = published;
+                zip = older;
             }
-        } else {
-            progress(&format!("downloading {url}"));
-            let bytes = fetcher.get(&url)?;
-            check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
-                url: url.clone(),
-                message,
-            })?;
-            write_atomically(&zip, &bytes)?;
-            remove_older_versions(&zip, tile)?;
-            crate::fsutil::remove_stale_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
+            None => return Ok(None),
         }
-        fetched.push(FetchedTile {
-            product,
-            tile,
-            url,
-            currency,
-            zip,
-        });
+    } else {
+        progress(&format!("downloading {url}"));
+        let bytes = fetcher.get(&url)?;
+        check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
+            url: url.clone(),
+            message,
+        })?;
+        write_atomically(&zip, &bytes)?;
+        remove_older_versions(&zip, tile)?;
+        crate::fsutil::remove_stale_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
     }
-    if !missing.is_empty() {
-        return Err(FetchError::MissingOffline(product, missing));
-    }
-    Ok(fetched)
+    Ok(Some(FetchedTile {
+        product,
+        tile,
+        url,
+        currency,
+        zip,
+    }))
 }
 
 /// A cached nDSM point cloud of one tile.
@@ -474,7 +528,7 @@ pub fn fetch_ndsm_tiles(
             Ok(date) => date,
             Err(FetchError::NotFound(_)) => {
                 progress(&format!(
-                    "warning: no nDSM published for tile {}",
+                    "no nDSM point cloud published for tile {}",
                     tile.name()
                 ));
                 continue;
@@ -801,7 +855,7 @@ pub(crate) mod test_support {
 
     /// A coarse synthetic bDOM archive for `tile` (100 × 100 pixels of 10 m) and its currency
     /// CSV: the surface lies 12 m above the synthetic DTM of [`serve_synthetic_tile`].
-    pub fn serve_synthetic_bdom(fetcher: &MapFetcher, tile: TileId) {
+    pub fn serve_synthetic_bdom(fetcher: &MapFetcher, tile: TileId, published: &str) {
         let bounds = tile.bounds();
         let world = format!(
             "10\n0\n0\n-10\n{}\n{}\n",
@@ -812,7 +866,7 @@ pub(crate) mod test_support {
         let product = Product::ImageDsm;
         fetcher.insert(
             product.currency_csv_url(),
-            currency_csv(&[(tile, "2026-09-10")]),
+            currency_csv(&[(tile, published)]),
         );
         fetcher.insert(
             &product.tile_url(tile),
@@ -1028,6 +1082,58 @@ mod tests {
         east_km: 422,
         north_km: 5821,
     };
+
+    #[test]
+    fn each_tile_succeeds_or_fails_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        fetcher.insert(
+            PRODUCT.currency_csv_url(),
+            currency_csv(&[(TILE, "2026-01-26"), (EAST, "2026-01-26")]),
+        );
+        fetcher.failing.borrow_mut().push(PRODUCT.tile_url(EAST));
+        let tiles = [TILE, EAST, NORTH];
+        let results = fetch_tiles_each(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].0, TILE);
+        assert!(results[0].1.is_ok(), "{:?}", results[0].1);
+        assert!(
+            matches!(results[1].1, Err(FetchError::Http { .. })),
+            "{:?}",
+            results[1].1
+        );
+        assert!(
+            matches!(&results[2].1, Err(FetchError::TilesNotCovered(t)) if t == &[NORTH]),
+            "{:?}",
+            results[2].1
+        );
+
+        let results = fetch_tiles_each(
+            &fetcher,
+            &cache,
+            PRODUCT,
+            &[TILE, EAST],
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(results[0].1.is_ok());
+        assert!(
+            matches!(&results[1].1, Err(FetchError::MissingOffline(_, t)) if t == &[EAST]),
+            "{:?}",
+            results[1].1
+        );
+    }
 
     #[test]
     fn all_uncovered_tiles_reported_before_downloading() {
@@ -1312,7 +1418,7 @@ mod tests {
         assert_eq!(tiles.len(), 1);
         assert_eq!(tiles[0].published, None, "no Last-Modified");
         assert!(
-            messages.contains(&"warning: no nDSM published for tile 33421-5822".to_string()),
+            messages.contains(&"no nDSM point cloud published for tile 33421-5822".to_string()),
             "{messages:?}"
         );
     }

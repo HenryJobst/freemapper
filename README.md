@@ -248,5 +248,6 @@ Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mappe
 
 GPL-3.0-or-later, siehe [LICENSE](LICENSE). Erzeugte Karten enthalten die Pflichtvermerke der
 Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` und
-`© OpenStreetMap contributors, ODbL`, in Berlin zusätzlich
-`© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert`.
+`© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
+`© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
+Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu.

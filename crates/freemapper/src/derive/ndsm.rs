@@ -93,23 +93,30 @@ fn nearest(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
         .filter(|v| !v.is_nan())
 }
 
-/// Bilinear interpolation between the four cell centres around (e, n); `None` if one is missing.
+/// Bilinear interpolation between the four cell centres around (e, n), held constant beyond the
+/// outer centres up to the raster edge; `None` outside the raster or if a centre is missing.
 fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
-    let fx = (e - r.grid.west) / r.grid.pixel_size - 0.5;
-    let fy = (r.grid.north - n) / r.grid.pixel_size - 0.5;
-    let (x0, y0) = (fx.floor(), fy.floor());
-    if x0 < 0.0
-        || y0 < 0.0
-        || x0 + 1.0 >= f64::from(r.grid.width)
-        || y0 + 1.0 >= f64::from(r.grid.height)
-    {
+    let (w, h) = (f64::from(r.grid.width), f64::from(r.grid.height));
+    let cx = (e - r.grid.west) / r.grid.pixel_size;
+    let cy = (r.grid.north - n) / r.grid.pixel_size;
+    if !(0.0..=w).contains(&cx) || !(0.0..=h).contains(&cy) || w < 1.0 || h < 1.0 {
         return None;
     }
+    let fx = (cx - 0.5).clamp(0.0, w - 1.0);
+    let fy = (cy - 0.5).clamp(0.0, h - 1.0);
+    let (x0, y0) = (
+        fx.floor().min(w - 2.0).max(0.0),
+        fy.floor().min(h - 2.0).max(0.0),
+    );
     let (tx, ty) = (fx - x0, fy - y0);
     let (x0, y0) = (x0 as u32, y0 as u32);
+    let (x1, y1) = (
+        (x0 + 1).min(r.grid.width - 1),
+        (y0 + 1).min(r.grid.height - 1),
+    );
     let z = |x: u32, y: u32| Some(f64::from(r.get(x, y))).filter(|v| !v.is_nan());
-    let top = z(x0, y0)? * (1.0 - tx) + z(x0 + 1, y0)? * tx;
-    let bottom = z(x0, y0 + 1)? * (1.0 - tx) + z(x0 + 1, y0 + 1)? * tx;
+    let top = z(x0, y0)? * (1.0 - tx) + z(x1, y0)? * tx;
+    let bottom = z(x0, y1)? * (1.0 - tx) + z(x1, y1)? * tx;
     Some((top * (1.0 - ty) + bottom * ty) as f32)
 }
 
@@ -276,6 +283,19 @@ mod tests {
         );
         // e = 392 809.9: ground 39.9 m above the surface; clamped at 0.
         assert_eq!(ndsm.get(49, 0), 0.0);
+    }
+
+    #[test]
+    fn edge_cells_are_filled() {
+        // The DTM mosaic covers exactly the map area, like in derive.
+        let dtm = surface(&AREA, 1.0, |_, _| 30.0);
+        let dsm = surface(&AREA, 0.2, |_, _| 45.0);
+        let mut ndsm = rasterize(&[], &AREA).unwrap();
+        fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        let last = ndsm.grid.width - 1;
+        for (x, y) in [(0, 0), (last, 0), (0, last), (last, last)] {
+            assert_eq!(ndsm.get(x, y), 15.0, "({x}, {y})");
+        }
     }
 
     #[test]

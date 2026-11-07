@@ -18,7 +18,7 @@ const PAGE_LIMIT: u32 = 10_000;
 const UNDERGROUND: &str = "Unter der Erdoberfläche";
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
-#[error("invalid ALKIS buildings: {message}")]
+#[error("invalid ALKIS data: {message}")]
 pub struct AlkisError {
     pub message: String,
 }

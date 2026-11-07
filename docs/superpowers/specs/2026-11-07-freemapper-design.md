@@ -116,8 +116,11 @@ is per region (`sources/region.rs`, boundary `assets/regions/berlin.geojson`, 10
 queries both): buildings `https://gdi.berlin.de/services/wfs/alkis_gebaeude` (`alkis_gebaeude:gebaeude`), land
 use `https://gdi.berlin.de/services/wfs/alkis` (`alkis:tatsaechlichenutzungflaechen`), GeoJSON, normalised to
 the LGB property schema; up to 3 attempts per page (the server drops about 1 request in 20). Berlin squares
-(`AX_Platz`, never refined) get `bez = "ohne Unterart (Berlin)"` and stay candidates. Attribution adds
-`© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert`.
+(`AX_Platz`, never refined) get `bez = "ohne Unterart (Berlin)"` and stay candidates. Attribution: for an area touching
+Berlin the LGB line becomes `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten
+geändert` (LGB's licence note); once Berlin ALKIS objects were fetched (`AlkisRecord.regions`),
+`© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added. bDOM tiles are fetched one by one,
+so one failing tile costs only its part of the nDSM.
 
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element

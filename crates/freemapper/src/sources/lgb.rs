@@ -183,6 +183,13 @@ pub fn attribution(year: i32) -> String {
     format!("© GeoBasis-DE/LGB {year}, dl-de/by-2-0, Daten geändert")
 }
 
+/// The LGB attribution for tiles holding Berlin data, as the LGB licence note asks.
+pub fn attribution_with_berlin(year: i32) -> String {
+    format!(
+        "© GeoBasis-DE/LGB {year}, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,7 +218,10 @@ mod tests {
             "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv"
         );
         assert_eq!(Product::ImageDsm.raster_member(tile), "bdom_33392-5820.tif");
-        assert_eq!(Product::ImageDsm.world_file_member(tile), "bdom_33392-5820.tfw");
+        assert_eq!(
+            Product::ImageDsm.world_file_member(tile),
+            "bdom_33392-5820.tfw"
+        );
         assert_eq!(Product::ImageDsm.cache_dir_name(), "bdom");
     }
 
