@@ -42,17 +42,23 @@ pub struct Building {
     pub footprint: geo_types::MultiPolygon<f64>,
 }
 
-/// URL of the first page of buildings in `bbox` (EPSG:25833).
+/// URL of the first page of buildings in `bbox` (EPSG:25833), rounded outward to whole metres.
 pub fn buildings_url(bbox: &BoundingBox) -> String {
     format!(
         "{BUILDINGS_ENDPOINT}?f=json&bbox={},{},{},{}&bbox-crs={CRS_25833}&crs={CRS_25833}&limit={PAGE_LIMIT}",
-        bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n
+        bbox.min_e.floor(),
+        bbox.min_n.floor(),
+        bbox.max_e.ceil(),
+        bbox.max_n.ceil()
     )
 }
 
 /// Downloads all pages of buildings in `bbox` and returns them as one GeoJSON FeatureCollection.
+/// Paging stops at an empty page or a `next` link seen before; a feature repeated on a later page
+/// (same `oid`) is kept once.
 pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    let mut features = Vec::new();
+    let mut features: Vec<Value> = Vec::new();
+    let mut seen_oids = std::collections::HashSet::new();
     let mut visited = Vec::new();
     let mut next = Some(buildings_url(bbox));
     while let Some(url) = next.take() {
@@ -62,8 +68,20 @@ pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Stri
         let page_features = page["features"]
             .as_array()
             .ok_or_else(|| invalid(format!("{url}: no features")))?;
-        features.extend(page_features.iter().cloned());
+        let empty = page_features.is_empty();
+        for feature in page_features {
+            let new = match feature["properties"]["oid"].as_str() {
+                Some(oid) => seen_oids.insert(oid.to_string()),
+                None => true,
+            };
+            if new {
+                features.push(feature.clone());
+            }
+        }
         visited.push(url);
+        if empty {
+            break;
+        }
         next = page["links"]
             .as_array()
             .into_iter()
@@ -76,13 +94,33 @@ pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Stri
     Ok(serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string())
 }
 
+/// Buildings read from a FeatureCollection, and the features that could not be read.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedBuildings {
+    pub buildings: Vec<Building>,
+    /// One line per skipped feature: its oid (if any) and why.
+    pub skipped: Vec<String>,
+}
+
 /// Reads the buildings of a GeoJSON FeatureCollection as returned by [`fetch_buildings`].
-pub fn parse_buildings(geojson: &str) -> Result<Vec<Building>, AlkisError> {
+/// A feature without oid or with an unusable geometry is skipped and listed; a document that is
+/// not a FeatureCollection is an error.
+pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
     let collection: Value = serde_json::from_str(geojson).map_err(|e| invalid(e.to_string()))?;
     let features = collection["features"]
         .as_array()
         .ok_or_else(|| invalid("no features"))?;
-    features.iter().map(parse_feature).collect()
+    let mut parsed = ParsedBuildings {
+        buildings: Vec::new(),
+        skipped: Vec::new(),
+    };
+    for feature in features {
+        match parse_feature(feature) {
+            Ok(building) => parsed.buildings.push(building),
+            Err(e) => parsed.skipped.push(e.message),
+        }
+    }
+    Ok(parsed)
 }
 
 fn parse_feature(feature: &Value) -> Result<Building, AlkisError> {
@@ -190,7 +228,7 @@ mod tests {
             r#""rellage":"Unter der Erdoberfläche","gmdschl""#,
         );
         let text = String::from_utf8(page(&[school, garage], None)).unwrap();
-        let buildings = parse_buildings(&text).unwrap();
+        let buildings = parse_buildings(&text).unwrap().buildings;
         assert_eq!(buildings.len(), 2);
         assert_eq!(buildings[0].oid, "DEBBAL0100000001");
         assert_eq!(buildings[0].kind, "Gebäude");
@@ -213,12 +251,83 @@ mod tests {
 
         let text = fetch_buildings(&fetcher, &BBOX).unwrap();
         assert_eq!(fetcher.calls.get(), 2);
-        let oids: Vec<String> = parse_buildings(&text)
+        let oids = oids(&text);
+        assert_eq!(oids, ["A", "B"]);
+    }
+
+    fn wohnhaus(oid: &str) -> String {
+        building_feature(oid, "Gebäude", "Wohnhaus", [421_600.0, 5_821_700.0, 10.0])
+    }
+
+    fn oids(text: &str) -> Vec<String> {
+        parse_buildings(text)
             .unwrap()
+            .buildings
             .into_iter()
             .map(|b| b.oid)
-            .collect();
-        assert_eq!(oids, ["A", "B"]);
+            .collect()
+    }
+
+    #[test]
+    fn fetch_stops_on_repeated_next_link() {
+        let fetcher = MapFetcher::default();
+        let first = buildings_url(&BBOX);
+        fetcher.insert(&first, page(&[wohnhaus("A")], Some(&first)));
+        let text = fetch_buildings(&fetcher, &BBOX).unwrap();
+        assert_eq!(fetcher.calls.get(), 1);
+        assert_eq!(oids(&text), ["A"]);
+    }
+
+    #[test]
+    fn fetch_stops_on_empty_page() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &buildings_url(&BBOX),
+            page(&[wohnhaus("A")], Some("https://x/p2")),
+        );
+        fetcher.insert("https://x/p2", page(&[], Some("https://x/p3")));
+        fetcher.insert("https://x/p3", page(&[wohnhaus("C")], None));
+        let text = fetch_buildings(&fetcher, &BBOX).unwrap();
+        assert_eq!(fetcher.calls.get(), 2);
+        assert_eq!(oids(&text), ["A"]);
+    }
+
+    #[test]
+    fn duplicate_oids_across_pages_are_merged() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &buildings_url(&BBOX),
+            page(&[wohnhaus("A")], Some("https://x/p2")),
+        );
+        fetcher.insert("https://x/p2", page(&[wohnhaus("A"), wohnhaus("B")], None));
+        let text = fetch_buildings(&fetcher, &BBOX).unwrap();
+        assert_eq!(oids(&text), ["A", "B"]);
+    }
+
+    #[test]
+    fn unusual_feature_is_skipped() {
+        let no_geometry = r#"{"type":"Feature","geometry":null,"properties":{"oid":"X1","gebnutzbez":"Gebäude"}}"#;
+        let no_oid = wohnhaus("X2").replace(r#""oid":"X2","#, "");
+        let text = String::from_utf8(page(
+            &[no_geometry.to_string(), no_oid, wohnhaus("A")],
+            None,
+        ))
+        .unwrap();
+        let parsed = parse_buildings(&text).unwrap();
+        assert_eq!(parsed.buildings.len(), 1);
+        assert_eq!(parsed.skipped.len(), 2, "{:?}", parsed.skipped);
+        assert!(parsed.skipped[0].contains("X1"), "{:?}", parsed.skipped);
+    }
+
+    #[test]
+    fn buildings_url_rounds_bbox_outward() {
+        let fractional = BoundingBox {
+            min_e: 421_490.6,
+            min_n: 5_821_580.2,
+            max_e: 421_736.1,
+            max_n: 5_821_896.9,
+        };
+        assert!(buildings_url(&fractional).contains("bbox=421490,5821580,421737,5821897"));
     }
 
     #[test]
@@ -233,7 +342,7 @@ mod tests {
     #[ignore = "network"]
     fn live_school_buildings() {
         let text = fetch_buildings(&crate::fetch::HttpFetcher::new(), &BBOX).unwrap();
-        let buildings = parse_buildings(&text).unwrap();
+        let buildings = parse_buildings(&text).unwrap().buildings;
         assert!(buildings.len() >= 10, "{} buildings", buildings.len());
         assert!(
             buildings

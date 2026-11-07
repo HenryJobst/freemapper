@@ -12,7 +12,7 @@ use crate::sources::alkis::Building;
 const BUILDING_SYMBOL_CODE: &str = "521";
 /// `gebnutzbez` of real buildings; parts and structures (chimneys …) are not mapped.
 const BUILDING_KIND: &str = "Gebäude";
-/// Smallest building side on paper; smaller footprints are dropped.
+/// Footprints and holes with an area below (`MIN_SIDE_MM`)² on paper are dropped.
 const MIN_SIDE_MM: f64 = 0.5;
 /// Outline simplification tolerance on paper.
 const SIMPLIFY_MM: f64 = 0.1;
@@ -56,7 +56,13 @@ pub fn building_objects(
             if Euclidean.distance(part, map_area) > buffer_m || part.unsigned_area() < min_area {
                 continue;
             }
-            let part = part.simplify(tolerance);
+            let interiors = part
+                .interiors()
+                .iter()
+                .filter(|hole| Polygon::new((*hole).clone(), vec![]).unsigned_area() >= min_area)
+                .cloned()
+                .collect();
+            let part = Polygon::new(part.exterior().clone(), interiors).simplify(tolerance);
             let mut coords = Vec::new();
             for ring in std::iter::once(part.exterior()).chain(part.interiors()) {
                 let points = ring
@@ -259,6 +265,18 @@ mod tests {
         assert_eq!(coords.len(), 10);
         assert_eq!(coords[4].flags, FLAG_HOLE | FLAG_CLOSE);
         assert_eq!(coords[9].flags, FLAG_HOLE | FLAG_CLOSE);
+    }
+
+    #[test]
+    fn tiny_holes_are_dropped() {
+        let f = fixture();
+        let (e, n) = centre(&f);
+        let shaft = Polygon::new(
+            ring(e, n, 30.0, 30.0),
+            vec![ring(e + 10.0, n + 10.0, 0.3, 0.3)],
+        );
+        let objects = objects(&f, &[building("Gebäude", vec![shaft])]);
+        assert_eq!(objects[0].coords.len(), 5);
     }
 
     #[test]

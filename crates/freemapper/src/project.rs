@@ -53,8 +53,10 @@ pub enum ProjectError {
     NotFetched,
     #[error("the map area needs tiles {} that were not fetched; run `freemapper fetch`", tile_names(.0))]
     TilesOutdated(Vec<TileId>),
-    #[error("no ALKIS buildings stored; run `freemapper fetch` online first")]
+    #[error("no ALKIS buildings stored for this map area; run `freemapper fetch` online first")]
     BuildingsNotFetched,
+    #[error("{}: {message}; run `freemapper fetch` again", path.display())]
+    StoredBuildings { path: PathBuf, message: String },
 }
 
 /// Kind of orienteering map; selects norm, symbol set and default scale.
@@ -132,6 +134,27 @@ pub struct ProjectFile {
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
+    /// The ALKIS buildings of the last online `fetch`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub buildings: Option<BuildingsRecord>,
+}
+
+/// Which ALKIS buildings were fetched and how current they are.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BuildingsRecord {
+    /// Queried area in EPSG:25833: min easting, min northing, max easting, max northing.
+    pub bbox: [f64; 4],
+    pub fetched: NaiveDate,
+    /// Newest `aktualit` among the buildings.
+    pub latest_update: Option<NaiveDate>,
+    pub count: usize,
+}
+
+impl BuildingsRecord {
+    fn covers(&self, bbox: &BoundingBox) -> bool {
+        let [min_e, min_n, max_e, max_n] = self.bbox;
+        min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
+    }
 }
 
 /// One fetched tile: where it came from and its data currency.
@@ -212,6 +235,7 @@ pub fn init_project(
         map_area: area.to_geojson_value(),
         title,
         tiles: Vec::new(),
+        buildings: None,
     };
     project.save(dir)?;
     Ok(project)
@@ -274,33 +298,67 @@ pub fn fetch_project(
     // buildings download must not leave the project pointing at those.
     project.tiles = records;
     project.save(dir)?;
-    fetch_buildings_into(dir, fetcher, &project.bbox()?, mode, progress)?;
+    let bbox = project.bbox()?;
+    let previous = project.buildings.as_ref();
+    if let Some(record) = fetch_buildings_into(dir, fetcher, &bbox, mode, previous, progress)? {
+        project.buildings = Some(record);
+        project.save(dir)?;
+    }
     Ok(project)
 }
 
-/// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`]; the stored file is only
-/// replaced by an answer that parses. Offline, the stored file must exist.
+/// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`] and returns the new record;
+/// the stored file is only replaced by an answer that parses. Offline, the stored file must
+/// exist and, if recorded, cover `bbox`; nothing new is recorded then.
 fn fetch_buildings_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     mode: FetchMode,
+    previous: Option<&BuildingsRecord>,
     progress: &mut dyn FnMut(&str),
-) -> Result<(), ProjectError> {
+) -> Result<Option<BuildingsRecord>, ProjectError> {
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
-        return if path.exists() {
-            Ok(())
+        let covered = previous.is_none_or(|record| record.covers(bbox));
+        return if path.exists() && covered {
+            Ok(None)
         } else {
             Err(ProjectError::BuildingsNotFetched)
         };
     }
     progress("downloading ALKIS buildings");
     let text = fetch_buildings(fetcher, bbox)?;
-    let count = parse_buildings(&text).map_err(FetchError::from)?.len();
+    let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_atomically(&path, text.as_bytes())?;
+    let count = parsed.buildings.len();
     progress(&format!("{count} ALKIS buildings"));
-    Ok(())
+    if !parsed.skipped.is_empty() {
+        progress(&format!(
+            "skipped {} ALKIS features: {}",
+            parsed.skipped.len(),
+            parsed.skipped.join("; ")
+        ));
+    }
+    let latest_update = parsed.buildings.iter().filter_map(|b| b.updated).max();
+    if let Some(old) = previous.and_then(|p| p.latest_update)
+        && let Some(new) = latest_update.filter(|new| *new != old)
+    {
+        progress(&format!(
+            "warning: ALKIS buildings changed upstream ({old} → {new})"
+        ));
+    }
+    Ok(Some(BuildingsRecord {
+        bbox: [
+            bbox.min_e.floor(),
+            bbox.min_n.floor(),
+            bbox.max_e.ceil(),
+            bbox.max_n.ceil(),
+        ],
+        fetched: chrono::Local::now().date_naive(),
+        latest_update,
+        count,
+    }))
 }
 
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
@@ -391,6 +449,8 @@ pub enum MapOutcome {
     Kept {
         map: PathBuf,
         references_images: bool,
+        /// Buildings are stored for the project, but the kept map has none.
+        missing_buildings: bool,
     },
 }
 
@@ -418,6 +478,8 @@ pub fn run_project(
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
         MapOutcome::Kept {
             references_images: text.contains(ORTHOPHOTO_RELPATH),
+            missing_buildings: dir.join(BUILDINGS_RELPATH).exists()
+                && !text.contains(r#"<t k="freemapper:source">alkis</t>"#),
             map: existing,
         }
     } else {
@@ -488,7 +550,12 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     if buildings_path.exists() {
         let text = std::fs::read_to_string(&buildings_path)
             .map_err(|e| ProjectError::Io(buildings_path.clone(), e))?;
-        let buildings = parse_buildings(&text).map_err(FetchError::from)?;
+        let buildings = parse_buildings(&text)
+            .map_err(|e| ProjectError::StoredBuildings {
+                path: buildings_path.clone(),
+                message: e.to_string(),
+            })?
+            .buildings;
         let objects = building_objects(
             &buildings,
             &area.projected_polygon(),
@@ -660,6 +727,12 @@ mod tests {
                 currency: NaiveDate::from_ymd_opt(2023, 5, 4).unwrap(),
                 published: NaiveDate::from_ymd_opt(2026, 1, 26).unwrap(),
             }],
+            buildings: Some(BuildingsRecord {
+                bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
+                fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
+                latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
+                count: 18,
+            }),
         };
         file.save(dir.path()).unwrap();
         assert!(dir.path().join(PROJECT_FILE_NAME).exists());
@@ -876,7 +949,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             outcome.map,
             MapOutcome::Kept {
                 map: map.clone(),
-                references_images: false
+                references_images: false,
+                missing_buildings: true
             }
         );
         assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
@@ -889,7 +963,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             again.map,
             MapOutcome::Kept {
                 map,
-                references_images: true
+                references_images: true,
+                missing_buildings: false
             }
         );
     }
@@ -909,10 +984,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let text = std::fs::read_to_string(dir.path().join(BUILDINGS_RELPATH)).unwrap();
-        assert_eq!(
-            crate::sources::alkis::parse_buildings(&text).unwrap().len(),
-            1
-        );
+        let parsed = crate::sources::alkis::parse_buildings(&text).unwrap();
+        assert_eq!(parsed.buildings.len(), 1);
     }
 
     #[test]
@@ -970,6 +1043,70 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(fetcher.calls.get(), before, "offline makes no requests");
 
         std::fs::remove_file(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        let err = fetch_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(matches!(err, ProjectError::BuildingsNotFetched), "{err:?}");
+    }
+
+    #[test]
+    fn corrupt_stored_buildings_name_the_file() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        std::fs::write(dir.path().join(BUILDINGS_RELPATH), "{ broken").unwrap();
+        let err = export_starter_project(dir.path(), false).unwrap_err();
+        assert!(
+            matches!(err, ProjectError::StoredBuildings { .. }),
+            "{err:?}"
+        );
+        let message = err.to_string();
+        assert!(
+            message.contains("alkis-buildings.geojson") && message.contains("freemapper fetch"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn fetch_records_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let record = project.buildings.clone().expect("buildings recorded");
+        assert_eq!(record.count, 1);
+        assert_eq!(record.latest_update, "2023-05-04".parse().ok());
+        let bbox = project.bbox().unwrap();
+        assert!(
+            record.bbox[0] <= bbox.min_e && record.bbox[3] >= bbox.max_n,
+            "{record:?}"
+        );
+
+        let newer = crate::sources::alkis::test_support::building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Allgemein bildende Schule",
+            crate::fetch::test_support::SCHOOL_BUILDING,
+        )
+        .replace("2023-05-04", "2024-01-01");
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[newer], None),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.contains(
+                &"warning: ALKIS buildings changed upstream (2023-05-04 → 2024-01-01)".to_string()
+            ),
+            "{messages:?}"
+        );
+
+        let mut grown = ProjectFile::load(dir.path()).unwrap();
+        grown.buffer_m += 100.0;
+        grown.save(dir.path()).unwrap();
         let err = fetch_project(
             dir.path(),
             &fetcher,

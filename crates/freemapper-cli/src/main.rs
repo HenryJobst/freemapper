@@ -188,6 +188,7 @@ fn main() -> anyhow::Result<()> {
                 MapOutcome::Kept {
                     map,
                     references_images,
+                    missing_buildings,
                 } => {
                     println!("Kept {} (it may contain your work)", map.display());
                     if !references_images {
@@ -195,6 +196,12 @@ fn main() -> anyhow::Result<()> {
                             "The map does not reference the image templates yet: add them in OOM \
                              (Templates > Open template…) or replace the map with --force \
                              (the old one is kept as .omap.bak)."
+                        );
+                    }
+                    if missing_buildings {
+                        println!(
+                            "The map has no ALKIS buildings yet: replace it with --force \
+                             (the old one is kept as .omap.bak) to add them."
                         );
                     }
                 }
