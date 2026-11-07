@@ -12,6 +12,8 @@ const DOP_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv";
 const DGM_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv";
+const BDOM_CURRENCY_CSV: &str =
+    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv";
 
 /// LGB product used by freemapper.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -21,6 +23,9 @@ pub enum Product {
     Orthophoto,
     /// DGM1 digital terrain model, GeoTIFF f32 + world file, 1 m.
     Dtm,
+    /// bDOM image-matched surface model, GeoTIFF f32 + world file, 0.2 m; the nDSM source
+    /// where no nDOM point cloud is published (Berlin).
+    Dsm,
 }
 
 impl Product {
@@ -28,6 +33,7 @@ impl Product {
         match self {
             Self::Orthophoto => "dop",
             Self::Dtm => "dgm",
+            Self::Dsm => "bdom",
         }
     }
 
@@ -35,6 +41,7 @@ impl Product {
         let dir = match self {
             Self::Orthophoto => "dop/rgb_jpg",
             Self::Dtm => "dgm/tif",
+            Self::Dsm => "bdom/tif",
         };
         format!("{DATA_URL}/{dir}/{}_{}.zip", self.file_prefix(), t.name())
     }
@@ -43,6 +50,7 @@ impl Product {
         match self {
             Self::Orthophoto => DOP_CURRENCY_CSV,
             Self::Dtm => DGM_CURRENCY_CSV,
+            Self::Dsm => BDOM_CURRENCY_CSV,
         }
     }
 
@@ -50,7 +58,7 @@ impl Product {
     pub fn raster_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jpg",
-            Self::Dtm => "tif",
+            Self::Dtm | Self::Dsm => "tif",
         };
         format!("{}_{}.{ext}", self.file_prefix(), t.name())
     }
@@ -59,7 +67,7 @@ impl Product {
     pub fn world_file_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jgw",
-            Self::Dtm => "tfw",
+            Self::Dtm | Self::Dsm => "tfw",
         };
         format!("{}_{}.{ext}", self.file_prefix(), t.name())
     }
@@ -69,6 +77,7 @@ impl Product {
         match self {
             Self::Orthophoto => "orthophoto (DOP20)",
             Self::Dtm => "terrain model (DGM1)",
+            Self::Dsm => "surface model (bDOM)",
         }
     }
 
@@ -77,6 +86,7 @@ impl Product {
         match self {
             Self::Orthophoto => "dop20rgb",
             Self::Dtm => "dgm1",
+            Self::Dsm => "bdom",
         }
     }
 }
@@ -184,6 +194,25 @@ mod tests {
 
     fn date(s: &str) -> NaiveDate {
         s.parse().unwrap()
+    }
+
+    #[test]
+    fn bdom_url_matches_lgb_layout() {
+        let tile = TileId {
+            east_km: 392,
+            north_km: 5820,
+        };
+        assert_eq!(
+            Product::Dsm.tile_url(tile),
+            "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33392-5820.zip"
+        );
+        assert_eq!(
+            Product::Dsm.currency_csv_url(),
+            "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv"
+        );
+        assert_eq!(Product::Dsm.raster_member(tile), "bdom_33392-5820.tif");
+        assert_eq!(Product::Dsm.world_file_member(tile), "bdom_33392-5820.tfw");
+        assert_eq!(Product::Dsm.cache_dir_name(), "bdom");
     }
 
     #[test]

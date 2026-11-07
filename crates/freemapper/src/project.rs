@@ -18,7 +18,7 @@ use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::contours::{
     contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
 };
-use crate::derive::ndsm::{rasterize, write_ndsm_png};
+use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
 use crate::derive::orthophoto::build_orthophoto;
 use crate::derive::terrain::{hillshade, mosaic_dtm, slope_deg, slope_shade, write_gray_png};
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
@@ -460,7 +460,37 @@ pub fn fetch_project(
             ));
         }
     }
+    // Where no nDOM point cloud is published (Berlin), the nDSM comes from the bDOM surface
+    // model minus the DTM. It is only a template: an unavailable bDOM costs a warning.
+    let without_ndsm: Vec<TileId> = tiles
+        .iter()
+        .copied()
+        .filter(|tile| !ndsm_tiles.iter().any(|r| r.tile == tile.name()))
+        .collect();
     project.ndsm_tiles = ndsm_tiles;
+    if !without_ndsm.is_empty() {
+        match fetch_tiles(fetcher, cache, Product::Dsm, &without_ndsm, mode, progress) {
+            Ok(fetched) => {
+                for fetched in fetched {
+                    progress(&format!(
+                        "nDSM of tile {} from the surface model (bDOM)",
+                        fetched.tile.name()
+                    ));
+                    project.tiles.push(TileRecord {
+                        product: Product::Dsm,
+                        tile: fetched.tile.name(),
+                        url: fetched.url,
+                        currency: fetched.currency.currency(),
+                        published: fetched.currency.published,
+                    });
+                }
+            }
+            Err(e) => progress(&format!(
+                "warning: surface model (bDOM) unavailable ({e}); no nDSM template for {}",
+                crate::fetch::tile_names(&without_ndsm)
+            )),
+        }
+    }
     project.save(dir)?;
     let bbox = project.bbox()?;
     let previous = project.buildings.as_ref();
@@ -807,7 +837,8 @@ pub fn derive_project(
     write_atomically(&contours_path, contours_to_geojson(&lines).as_bytes())?;
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
-    if project.ndsm_tiles.is_empty() {
+    let dsm_recorded = project.tiles.iter().any(|r| r.product == Product::Dsm);
+    if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
     }
     let ndsm_files: Vec<PathBuf> = project
@@ -843,14 +874,31 @@ pub fn derive_project(
         })
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
-    if ndsm_files.is_empty() {
+    let dsm = if dsm_recorded {
+        match tiles(Product::Dsm).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?)) {
+            Ok(dsm) => Some(dsm),
+            Err(e) => {
+                progress(&format!(
+                    "warning: surface model (bDOM) unusable ({e}); run `freemapper fetch`"
+                ));
+                None
+            }
+        }
+    } else {
+        None
+    };
+    if ndsm_files.is_empty() && dsm.is_none() {
         // An older nDSM template would no longer match the map area: remove it.
         for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
             let _ = std::fs::remove_file(stale);
         }
     } else {
         progress(&format!("writing {NDSM_RELPATH}"));
-        write_ndsm_png(&rasterize(&ndsm_files, &bbox)?, &ndsm_path)?;
+        let mut ndsm = rasterize(&ndsm_files, &bbox)?;
+        if let Some(dsm) = &dsm {
+            fill_from_dsm(&mut ndsm, dsm, &dtm);
+        }
+        write_ndsm_png(&ndsm, &ndsm_path)?;
         written.push(ndsm_path);
     }
     written.push(contours_path);
@@ -2329,6 +2377,49 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         export_starter_project(dir.path(), false).unwrap();
         let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
         assert!(!attribution.contains("Geoportal Berlin"), "{attribution}");
+    }
+
+    #[test]
+    fn missing_ndom_falls_back_to_bdom() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        crate::fetch::test_support::serve_synthetic_bdom(&fetcher, tile);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "nDSM of tile 33392-5820 from the surface model (bDOM)"),
+            "{messages:?}"
+        );
+        assert!(
+            project
+                .tiles
+                .iter()
+                .any(|r| r.product == Product::Dsm && r.tile == "33392-5820")
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn unavailable_bdom_only_warns() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: surface model (bDOM) unavailable")),
+            "{messages:?}"
+        );
+        assert!(!project.tiles.iter().any(|r| r.product == Product::Dsm));
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
     }
 
     #[test]

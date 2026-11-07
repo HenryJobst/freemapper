@@ -799,6 +799,27 @@ pub(crate) mod test_support {
         );
     }
 
+    /// A coarse synthetic bDOM archive for `tile` (100 × 100 pixels of 10 m) and its currency
+    /// CSV: the surface lies 12 m above the synthetic DTM of [`serve_synthetic_tile`].
+    pub fn serve_synthetic_bdom(fetcher: &MapFetcher, tile: TileId) {
+        let bounds = tile.bounds();
+        let world = format!(
+            "10\n0\n0\n-10\n{}\n{}\n",
+            bounds.min_e + 5.0,
+            bounds.max_n - 5.0
+        );
+        let heights: Vec<f32> = (0..100 * 100).map(|i| (i % 100) as f32 + 12.0).collect();
+        let product = Product::Dsm;
+        fetcher.insert(
+            product.currency_csv_url(),
+            currency_csv(&[(tile, "2026-09-10")]),
+        );
+        fetcher.insert(
+            &product.tile_url(tile),
+            tile_zip(product, tile, &dtm_tiff(100, 100, &heights), &world),
+        );
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();
