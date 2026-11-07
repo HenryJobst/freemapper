@@ -285,6 +285,14 @@ impl Cache {
         self.root.join("lgb").join("ndom")
     }
 
+    /// Cached nDSM file of `tile`, named after the server date (`<tile>.laz` when undated).
+    pub fn ndsm_path(&self, tile: TileId, published: Option<NaiveDate>) -> PathBuf {
+        self.ndsm_dir().join(match published {
+            Some(date) => format!("{}_{date}.laz", tile.name()),
+            None => format!("{}.laz", tile.name()),
+        })
+    }
+
     /// Folder of the cached OSM extracts.
     pub fn osm_dir(&self) -> PathBuf {
         self.root.join("osm")
@@ -448,10 +456,7 @@ pub fn fetch_ndsm_tiles(
             }
             Err(e) => return Err(e),
         };
-        let path = dir.join(match published {
-            Some(date) => format!("{}_{date}.laz", tile.name()),
-            None => format!("{}.laz", tile.name()),
-        });
+        let path = cache.ndsm_path(tile, published);
         if path.exists() {
             progress(&format!("cached nDSM {}", tile.name()));
         } else {

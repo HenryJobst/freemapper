@@ -241,7 +241,7 @@ fn live_run_school() {
         );
     }
     let map = std::fs::read_to_string(project.join("clara-zetkin-schule.omap")).unwrap();
-    assert!(map.contains(r#"<templates count="4" first_front_template="3">"#));
+    assert!(map.contains(r#"<templates count="5" first_front_template="4">"#));
     let buildings = map.matches(r#"<t k="freemapper:source">alkis</t>"#).count();
     assert!(buildings >= 5, "{buildings} ALKIS buildings");
     let candidates = std::fs::read_to_string(project.join("templates/candidates.omap")).unwrap();
@@ -249,6 +249,8 @@ fn live_run_school() {
         candidates.contains("way/1028507308"),
         "OSM tartan pitch as a candidate"
     );
+    assert!(candidates.contains("lgb-dgm1"), "contour candidates");
+    assert!(project.join("templates/ndsm.png").exists(), "nDSM template");
 }
 
 #[test]

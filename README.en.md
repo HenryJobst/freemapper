@@ -39,7 +39,9 @@ freemapper run clara-zetkin-schule
   map area plus buffer into the cache, the ALKIS buildings and Geofabrik's OSM extract for Brandenburg
   (about 300 MB the first time, afterwards only when it is more than 7 days old). A tile is downloaded again only when
   LGB republished it; `--offline` uses data fetched before.
-- `freemapper derive <dir>` – computes orthophoto, hillshade and slope templates from them.
+- `freemapper derive <dir>` – computes orthophoto, hillshade, slope and nDSM (height above ground:
+  hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
+  1 m, sprint 2 m; every fifth an index contour) as candidates.
 - `freemapper export <dir>` – writes the OOM map with the buildings as finished map objects (symbol 521,
   with provenance: ALKIS object id and data currency). Buildings up to the buffer around the map area
   are included; underground parts, structures such as chimneys and very small buildings are left out,
@@ -50,8 +52,9 @@ Result in the project folder:
 
 - `freemapper.toml` – map area, map kind, scale, declination date, tiles used with their data currency
 - `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
-- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – templates behind the map, each with a
-  world file (`.jgw`/`.pgw`); hillshade and slope can be switched on in OOM
+- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – templates behind the map,
+  each with a world file (`.jgw`/`.pgw`); hillshade, slope and nDSM can be switched on in OOM. nDSM
+  colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m
 - `templates/candidates.omap` – template map with the outline of the map area and candidates from
   OpenStreetMap to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
   trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`)
@@ -59,6 +62,7 @@ Result in the project folder:
   map content, below it the title (`--title`, else the folder name), scale and contour interval, a bar
   scale, the attribution of the data sources and the freemapper credit line
 - `data/osm-candidates.geojson` – the OSM features of the map area the candidates come from
+- `data/contours.geojson` – the contour lines from `derive`
 - `data/alkis-buildings.geojson` – the fetched ALKIS buildings (for `--offline` and later reconciliation)
 - `ATTRIBUTION.txt` – attribution of the data sources
 

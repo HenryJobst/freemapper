@@ -608,11 +608,15 @@ pub fn derive_project(
         .ndsm_tiles
         .iter()
         .filter_map(|record| {
-            let name = match record.published {
-                Some(date) => format!("{}_{date}.laz", record.tile),
-                None => format!("{}.laz", record.tile),
+            // The tile comes from the project file: only a valid tile id names a cache file.
+            let Some(tile) = TileId::parse(&record.tile) else {
+                progress(&format!(
+                    "warning: invalid nDSM tile {:?} in freemapper.toml; skipped",
+                    record.tile
+                ));
+                return None;
             };
-            let path = cache.ndsm_dir().join(name);
+            let path = cache.ndsm_path(tile, record.published);
             if !path.exists() {
                 progress(&format!(
                     "warning: nDSM {} not cached; run `freemapper fetch`",
@@ -2037,6 +2041,34 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let project = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project.ndsm_tiles.len(), 1);
         assert_eq!(project.ndsm_tiles[0].published, "2025-03-03".parse().ok());
+    }
+
+    #[test]
+    fn ndsm_record_with_a_path_as_tile_is_ignored() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        let outside = dir.path().join("outside.laz");
+        std::fs::copy(
+            cache.ndsm_path(school_tile(), "2025-03-03".parse().ok()),
+            &outside,
+        )
+        .unwrap();
+        std::fs::remove_file(dir.path().join(NDSM_RELPATH)).unwrap();
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        // A tampered project file pointing outside the cache.
+        project.ndsm_tiles[0].tile =
+            format!("../../../../{}", outside.with_extension("").display());
+        project.ndsm_tiles[0].published = None;
+        project.save(dir.path()).unwrap();
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(
+            !dir.path().join(NDSM_RELPATH).exists(),
+            "nothing read outside the cache"
+        );
+        assert!(
+            messages.iter().any(|m| m.contains("invalid nDSM tile")),
+            "{messages:?}"
+        );
     }
 
     #[test]
