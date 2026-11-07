@@ -11,6 +11,7 @@ use crate::area::{AreaError, MapArea};
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
+use crate::build::paved::{PavedObjects, paved_area_objects};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
@@ -32,7 +33,7 @@ use crate::omap::{
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
 use crate::raster::GridSpec;
-use crate::sources::alkis::{LAND_USE_ENDPOINT, fetch_collection, parse_land_use};
+use crate::sources::alkis::{LAND_USE_ENDPOINT, LandUse, fetch_collection, parse_land_use};
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::sources::osm::{
@@ -627,33 +628,54 @@ fn fetch_land_use_into(
     }
 }
 
+/// The stored ALKIS land use; none when it was not fetched or does not cover the map area plus
+/// buffer (an optional source: `fetch` reports this, the export goes on without it).
+fn stored_land_use(dir: &Path, project: &ProjectFile) -> Result<Vec<LandUse>, ProjectError> {
+    let path = dir.join(LAND_USE_RELPATH);
+    let Some(record) = project.land_use.as_ref().filter(|_| path.exists()) else {
+        return Ok(Vec::new());
+    };
+    if !record.covers(&project.bbox()?) {
+        return Ok(Vec::new());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    parse_land_use(&text).map_err(|e| ProjectError::StoredCandidates {
+        path: path.clone(),
+        message: e.to_string(),
+    })
+}
+
 /// 520 candidates for the private land around the map area; none without stored land use.
 fn stored_out_of_bounds_objects(
-    dir: &Path,
+    land_use: &[LandUse],
     project: &ProjectFile,
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    let path = dir.join(LAND_USE_RELPATH);
-    let Some(record) = project.land_use.as_ref().filter(|_| path.exists()) else {
-        return Ok(Vec::new());
-    };
-    let bbox = project.bbox()?;
-    if !record.covers(&bbox) {
-        // An optional template source: `fetch` reports this; the export goes on without it.
-        return Ok(Vec::new());
-    }
-    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let land_use = parse_land_use(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: path.clone(),
-        message: e.to_string(),
-    })?;
     Ok(out_of_bounds_objects(
-        &land_use,
+        land_use,
         &area.projected_polygon(),
-        &bbox,
+        &project.bbox()?,
         project.map_kind,
+        georef,
+        symbol_set,
+    )?)
+}
+
+/// 501.5 paved areas from the stored land use; sprint maps only (spec §4.5).
+fn stored_paved_objects(
+    land_use: &[LandUse],
+    project: &ProjectFile,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<PavedObjects, ProjectError> {
+    if project.map_kind != MapKind::Sprint {
+        return Ok(PavedObjects::default());
+    }
+    Ok(paved_area_objects(
+        land_use,
+        &project.bbox()?,
         georef,
         symbol_set,
     )?)
@@ -1102,6 +1124,8 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
 
     // Buildings first: they are the map's own objects, candidates only a template.
     let building_objects = stored_building_objects(dir, &project, &area, &georef, &symbol_set)?;
+    let land_use = stored_land_use(dir, &project)?;
+    let paved = stored_paved_objects(&land_use, &project, &georef, &symbol_set)?;
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -1124,8 +1148,9 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
                     &georef,
                     &symbol_set,
                 )?)
+                .chain(paved.candidates)
                 .chain(stored_out_of_bounds_objects(
-                    dir,
+                    &land_use,
                     &project,
                     &area,
                     &georef,
@@ -1167,6 +1192,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         behind_map: false,
     });
     let mut map_objects = building_objects;
+    map_objects.extend(paved.map);
     map_objects.extend(stored_osm_objects(
         Target::Map,
         dir,
@@ -1950,6 +1976,53 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         )
         .unwrap();
         (dir, cache_dir)
+    }
+
+    /// Replaces the stored land use with one carriageway (`Straßenverkehr`) and one way (`Weg`)
+    /// next to the school building.
+    fn store_traffic_areas(dir: &Path) {
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let land_use = [
+            land_use_feature(
+                "DEBBAL0100000030",
+                "Straßenverkehr",
+                None,
+                [421_560.0, 5_821_690.0, 30.0],
+            ),
+            land_use_feature(
+                "DEBBAL0100000031",
+                "Weg",
+                None,
+                [421_620.0, 5_821_690.0, 30.0],
+            ),
+        ];
+        std::fs::write(dir.join(LAND_USE_RELPATH), page(&land_use, None)).unwrap();
+    }
+
+    #[test]
+    fn export_adds_paved_areas_to_sprint_map() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        store_traffic_areas(dir.path());
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        let paved = MapKind::Sprint.symbol_set().id_for_code("501.5").unwrap();
+        assert!(map.contains(r#"<t k="freemapper:source_id">DEBBAL0100000030</t>"#));
+        assert!(map.contains(&format!(r#"<object type="1" symbol="{paved}""#)));
+        assert!(!map.contains("DEBBAL0100000031"), "Weg is a candidate");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000031</t>"#));
+    }
+
+    #[test]
+    fn schoolyard_export_has_no_paved_areas() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        store_traffic_areas(dir.path());
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(!map.contains("DEBBAL0100000030"));
     }
 
     #[test]

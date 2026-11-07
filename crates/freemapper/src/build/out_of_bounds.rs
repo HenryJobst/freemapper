@@ -40,13 +40,7 @@ pub fn out_of_bounds_objects(
     let symbol_id = symbol_set
         .id_for_code(OUT_OF_BOUNDS_CODE)
         .expect("symbol set defines 520");
-    let clip_polygon = geo_types::Rect::new(
-        geo_types::coord! { x: clip.min_e, y: clip.min_n },
-        geo_types::coord! { x: clip.max_e, y: clip.max_n },
-    )
-    .to_polygon();
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
-    let min_area = (MIN_SIDE_MM * metres_per_mm).powi(2);
+    let clip = LandClip::new(clip, georef);
     let mut objects = Vec::new();
     let area_size = map_area.unsigned_area();
     // Schoolyard: everything off the school grounds is out of bounds (spec §4.5); sprint: only
@@ -64,51 +58,87 @@ pub fn out_of_bounds_objects(
             if kind == MapKind::Schoolyard && overlap / part_area.min(area_size) >= OWN_LAND_SHARE {
                 continue;
             }
-            for piece in part.intersection(&clip_polygon).0 {
-                let piece_area = piece.unsigned_area();
-                let perimeter: f64 = std::iter::once(piece.exterior())
-                    .chain(piece.interiors())
-                    .map(|r| geo::Euclidean.length(r))
-                    .sum();
-                let width = 2.0 * piece_area / perimeter.max(f64::MIN_POSITIVE);
-                if piece_area < min_area || width < MIN_SIDE_MM * metres_per_mm {
-                    continue;
-                }
-                let mut coords = Vec::new();
-                for ring in std::iter::once(piece.exterior()).chain(piece.interiors()) {
-                    let points = ring
-                        .coords()
-                        .map(|c| {
-                            georef
-                                .projected_to_map(ProjectedPoint {
-                                    easting: c.x,
-                                    northing: c.y,
-                                })
-                                .map(|m| (m.x, m.y))
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    coords.extend(closed_ring(&points));
-                }
-                let nutzart = match &land.bez {
-                    Some(bez) => format!("{} / {bez}", land.nutzart),
-                    None => land.nutzart.clone(),
-                };
-                let mut tags = vec![
-                    ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
-                    ("freemapper:source_id".to_string(), land.oid.clone()),
-                    ("freemapper:nutzart".to_string(), nutzart),
-                ];
-                if let Some(updated) = land.updated {
-                    tags.push(("freemapper:currency".to_string(), updated.to_string()));
-                }
-                objects.push(MapObject {
-                    symbol_id,
-                    kind: MapObjectKind::Path,
-                    coords,
-                    tags,
-                });
-            }
+            objects.extend(clipped_part_objects(land, part, &clip, symbol_id, georef)?);
         }
+    }
+    Ok(objects)
+}
+
+/// The clip window for land use objects (map area plus buffer) and the sliver limits.
+pub(crate) struct LandClip {
+    polygon: Polygon<f64>,
+    min_area: f64,
+    min_width: f64,
+}
+
+impl LandClip {
+    pub(crate) fn new(clip: &BoundingBox, georef: &Georeferencing) -> Self {
+        let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+        Self {
+            polygon: geo_types::Rect::new(
+                geo_types::coord! { x: clip.min_e, y: clip.min_n },
+                geo_types::coord! { x: clip.max_e, y: clip.max_n },
+            )
+            .to_polygon(),
+            min_area: (MIN_SIDE_MM * metres_per_mm).powi(2),
+            min_width: MIN_SIDE_MM * metres_per_mm,
+        }
+    }
+}
+
+/// Area objects with `symbol_id` for the pieces of `part` (a part of `land`) inside the clip
+/// window, slivers dropped, tagged with the land use's provenance.
+pub(crate) fn clipped_part_objects(
+    land: &LandUse,
+    part: &Polygon<f64>,
+    clip: &LandClip,
+    symbol_id: u32,
+    georef: &Georeferencing,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let mut objects = Vec::new();
+    for piece in part.intersection(&clip.polygon).0 {
+        let piece_area = piece.unsigned_area();
+        let perimeter: f64 = std::iter::once(piece.exterior())
+            .chain(piece.interiors())
+            .map(|r| geo::Euclidean.length(r))
+            .sum();
+        let width = 2.0 * piece_area / perimeter.max(f64::MIN_POSITIVE);
+        if piece_area < clip.min_area || width < clip.min_width {
+            continue;
+        }
+        let mut coords = Vec::new();
+        for ring in std::iter::once(piece.exterior()).chain(piece.interiors()) {
+            let points = ring
+                .coords()
+                .map(|c| {
+                    georef
+                        .projected_to_map(ProjectedPoint {
+                            easting: c.x,
+                            northing: c.y,
+                        })
+                        .map(|m| (m.x, m.y))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            coords.extend(closed_ring(&points));
+        }
+        let nutzart = match &land.bez {
+            Some(bez) => format!("{} / {bez}", land.nutzart),
+            None => land.nutzart.clone(),
+        };
+        let mut tags = vec![
+            ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
+            ("freemapper:source_id".to_string(), land.oid.clone()),
+            ("freemapper:nutzart".to_string(), nutzart),
+        ];
+        if let Some(updated) = land.updated {
+            tags.push(("freemapper:currency".to_string(), updated.to_string()));
+        }
+        objects.push(MapObject {
+            symbol_id,
+            kind: MapObjectKind::Path,
+            coords,
+            tags,
+        });
     }
     Ok(objects)
 }
