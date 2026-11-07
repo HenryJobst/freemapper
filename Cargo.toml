@@ -26,6 +26,7 @@ osmpbf = "0.3.8"
 las = { version = "=0.11.1", features = ["laz"] }
 getrandom = "0.4.3"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
+pdf-writer = "0.15.0"
 quick-xml = "0.42.0"
 rust-embed = { version = "8.13.0", features = ["debug-embed", "mime-guess"] }
 # Pinned: newer releases are younger than two weeks. rmcp-macros is held at 3.6.0 in
