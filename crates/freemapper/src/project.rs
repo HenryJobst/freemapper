@@ -14,7 +14,7 @@ use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
-use crate::crs::{BoundingBox, LatLon};
+use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
     contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
 };
@@ -98,7 +98,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -182,6 +182,10 @@ pub struct ProjectFile {
     pub map_area_source_id: Option<String>,
     /// Map area as GeoJSON geometry in EPSG:4326.
     pub map_area: serde_json::Value,
+    /// EPSG code of the map's CRS: 25832 or 25833, from the raster region. Projects from before
+    /// it was recorded are 25833.
+    #[serde(default = "default_crs")]
+    pub crs: u32,
     /// Map title for the peripheral information; the folder name when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -313,10 +317,31 @@ impl ProjectFile {
         clean_title(&title).unwrap_or_else(|| DEFAULT_TITLE.to_string())
     }
 
-    /// Map area plus buffer in EPSG:25833.
+    /// The map's CRS.
+    pub fn crs(&self) -> Crs {
+        Crs::from_epsg(self.crs).unwrap_or(Crs::Utm33)
+    }
+
+    /// Map area plus buffer in the map's CRS.
     pub fn bbox(&self) -> Result<BoundingBox, ProjectError> {
         let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        Ok(area.projected_bbox_in(self.crs()).buffered(self.buffer_m))
+    }
+
+    /// Map area plus buffer in EPSG:25833, where the region boundaries are.
+    pub fn region_bbox(&self) -> Result<BoundingBox, ProjectError> {
+        let area = MapArea::from_geojson(&self.map_area.to_string())?;
         Ok(area.projected_bbox().buffered(self.buffer_m))
+    }
+
+    /// Forgets everything fetched for another CRS.
+    fn drop_fetched(&mut self) {
+        self.tiles.clear();
+        self.ndsm_tiles.clear();
+        self.buildings = None;
+        self.land_use = None;
+        self.osm = None;
+        self.orthophoto = None;
     }
 
     pub fn save(&self, dir: &Path) -> Result<(), ProjectError> {
@@ -344,13 +369,16 @@ pub fn init_project(
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
     }
-    check_area(&area.projected_bbox().buffered(map_kind.default_buffer_m()))?;
+    let region_bbox = area.projected_bbox().buffered(map_kind.default_buffer_m());
+    check_area(&region_bbox)?;
+    let crs = map_crs(&region_bbox);
     std::fs::create_dir_all(dir).map_err(|e| ProjectError::Io(dir.to_path_buf(), e))?;
     let project = ProjectFile {
         map_kind,
         scale_denominator,
         declination_date,
         buffer_m: map_kind.default_buffer_m(),
+        crs: crs.epsg(),
         map_area_source_id: area.source_id.clone(),
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
@@ -401,9 +429,25 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectEr
     let mut project = ProjectFile::load(dir)?;
     project.map_area = area.to_geojson_value();
     project.map_area_source_id = area.source_id.clone();
-    check_area(&project.bbox()?)?;
+    let region_bbox = project.region_bbox()?;
+    check_area(&region_bbox)?;
+    // Data fetched in the other UTM zone cannot be compared with the new area: fetch it again.
+    let crs = map_crs(&region_bbox);
+    if crs != project.crs() {
+        project.crs = crs.epsg();
+        project.drop_fetched();
+    }
     project.save(dir)?;
     Ok(project)
+}
+
+/// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
+fn map_crs(region_bbox: &BoundingBox) -> Crs {
+    raster_region(region_bbox).map_or(Crs::Utm33, Region::crs)
+}
+
+fn default_crs() -> u32 {
+    Crs::Utm33.epsg()
 }
 
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
@@ -432,8 +476,9 @@ pub fn fetch_project(
 ) -> Result<ProjectFile, ProjectError> {
     let mut project = ProjectFile::load(dir)?;
     let bbox = project.bbox()?;
-    check_area(&bbox)?;
-    match raster_region(&bbox).map(Region::provider) {
+    let region_bbox = project.region_bbox()?;
+    check_area(&region_bbox)?;
+    match raster_region(&region_bbox).map(Region::provider) {
         Some(Provider::GeoSn) => {
             fetch_geosn_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -699,6 +744,7 @@ fn raster_tiles(
             match provider {
                 Provider::Lgb => "LGB",
                 Provider::GeoSn => "GeoSN",
+                Provider::LvermGeo => "LVermGeo",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -743,7 +789,7 @@ fn fetch_osm_into(
 ) -> Result<OsmRecord, ProjectError> {
     let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
     let mut sources: Vec<ExtractSource> = Vec::new();
-    for region in regions_for(&project.bbox()?) {
+    for region in regions_for(&project.region_bbox()?) {
         let source = ExtractSource::for_region(region);
         if !sources.contains(&source) {
             sources.push(source);
@@ -983,7 +1029,7 @@ fn stored_out_of_bounds_objects(
 ) -> Result<Vec<MapObject>, ProjectError> {
     Ok(out_of_bounds_objects(
         land_use,
-        &area.projected_polygon(),
+        &area.projected_polygon_in(project.crs()),
         &project.bbox()?,
         project.map_kind,
         georef,
@@ -1024,13 +1070,19 @@ pub fn derive_project(
         return Err(ProjectError::NotFetched);
     }
     let bbox = project.bbox()?;
-    let provider = raster_region(&bbox)
+    let region_bbox = project.region_bbox()?;
+    let provider = raster_region(&region_bbox)
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products each provider needs, and its terrain and surface models.
+    if provider == Provider::LvermGeo {
+        return Err(ProjectError::Layer(
+            "Saxony-Anhalt templates are not supported yet".to_string(),
+        ));
+    }
     let (required, dtm_product, dsm_product): (&[Product], Product, Product) = match provider {
         Provider::Lgb => (&PRODUCTS, Product::Dtm, Product::ImageDsm),
-        Provider::GeoSn => (
+        Provider::GeoSn | Provider::LvermGeo => (
             &[Product::SaxonyDtm],
             Product::SaxonyDtm,
             Product::SaxonyDsm,
@@ -1086,7 +1138,7 @@ pub fn derive_project(
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?,
-        Provider::GeoSn => {
+        Provider::GeoSn | Provider::LvermGeo => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -1115,7 +1167,7 @@ pub fn derive_project(
     write_atomically(&contours_path, contours_to_geojson(&lines).as_bytes())?;
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
-    if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&bbox) {
+    if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
         progress(
             "warning: no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin",
         );
@@ -1310,7 +1362,7 @@ fn stored_building_objects(
         .buildings;
     Ok(building_objects(
         &buildings,
-        &area.projected_polygon(),
+        &area.projected_polygon_in(project.crs()),
         project.buffer_m,
         georef,
         symbol_set,
@@ -1356,7 +1408,7 @@ fn stored_osm_objects(
         &Rules::embedded(),
         target,
         project.map_kind,
-        &area.projected_polygon(),
+        &area.projected_polygon_in(project.crs()),
         project.buffer_m,
         georef,
         symbol_set,
@@ -1395,7 +1447,7 @@ fn stored_contour_objects(
             .expect("symbol set defines contours")
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
-    let map_area = area.projected_polygon();
+    let map_area = area.projected_polygon_in(project.crs());
     // DGM1 is interpolated under buildings: closed rings there are artefacts.
     let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
         .into_iter()
@@ -1482,7 +1534,8 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
     }
     let project = ProjectFile::load(dir)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
-    let georef = Georeferencing::new(
+    let georef = Georeferencing::new_in(
+        project.crs(),
         area.centroid(),
         project.scale_denominator,
         project.declination_date,
@@ -1714,7 +1767,8 @@ struct StarterDocuments {
 fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
-    let georef = Georeferencing::new(
+    let georef = Georeferencing::new_in(
+        project.crs(),
         area.centroid(),
         project.scale_denominator,
         project.declination_date,
@@ -1917,7 +1971,9 @@ fn lgb_attribution(project: &ProjectFile) -> Option<String> {
         .map(|r| r.fetched.year())
         .max();
     let year = tile_year.or(alkis_year)?;
-    let in_berlin = project.bbox().is_ok_and(|bbox| touches_berlin(&bbox));
+    let in_berlin = project
+        .region_bbox()
+        .is_ok_and(|bbox| touches_berlin(&bbox));
     Some(if in_berlin {
         attribution_with_berlin(year)
     } else {
@@ -2028,8 +2084,89 @@ mod tests {
         let err = init_project(&project, &munich, MapKind::Sprint, None, date, None).unwrap_err();
         assert!(matches!(err, ProjectError::OutsideCoverage), "{err:?}");
         assert!(err.to_string().contains("Brandenburg"), "{err}");
-        assert!(err.to_string().contains("Saxony"), "{err}");
+        assert!(err.to_string().contains("Saxony-Anhalt"), "{err}");
         assert!(!project.exists());
+    }
+
+    /// The Latina August Hermann Francke in Halle as a map area (a 200 m square).
+    fn latina_area() -> MapArea {
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(289_695.0, 5_706_967.0),
+            corner(289_895.0, 5_706_967.0),
+            corner(289_895.0, 5_707_167.0),
+            corner(289_695.0, 5_707_167.0),
+            corner(289_695.0, 5_706_967.0),
+        ];
+        MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn halle_project_is_in_zone_32() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let project = init_project(
+            dir.path(),
+            &latina_area(),
+            MapKind::Schoolyard,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        let bbox = project.bbox().unwrap();
+        assert!(
+            (bbox.min_e + bbox.max_e) / 2.0 - 706_451.0 < 50.0,
+            "{bbox:?}"
+        );
+        assert!(
+            ((bbox.min_n + bbox.max_n) / 2.0 - 5_706_913.0).abs() < 50.0,
+            "{bbox:?}"
+        );
+        let region = project.region_bbox().unwrap();
+        assert!(
+            ((region.min_e + region.max_e) / 2.0 - 289_795.0).abs() < 1.0,
+            "{region:?}"
+        );
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(text.contains("crs = 25832"), "{text}");
+    }
+
+    #[test]
+    fn brandenburg_project_stays_25833() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.crs(), crate::crs::Crs::Utm33);
+        assert_eq!(project.bbox().unwrap(), project.region_bbox().unwrap());
+    }
+
+    #[test]
+    fn moving_across_the_zone_line_drops_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let before = ProjectFile::load(dir.path()).unwrap();
+        assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
+        let project = set_map_area(dir.path(), &latina_area()).unwrap();
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
+        assert!(project.buildings.is_none() && project.land_use.is_none());
+        assert!(project.osm.is_none() && project.orthophoto.is_none());
+        // Moving within a zone keeps them (they are checked against the new area on fetch).
+        let back = set_map_area(dir.path(), &fixture_area()).unwrap();
+        assert_eq!(back.crs(), crate::crs::Crs::Utm33);
     }
 
     #[test]
@@ -2126,6 +2263,7 @@ mod tests {
                 "type": "Polygon",
                 "coordinates": [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }),
+            crs: 25833,
             title: Some("Clara-Zetkin-Schule".to_string()),
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -2219,6 +2357,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(project.tiles, []);
         assert_eq!(project.title, None);
         assert_eq!(project.buildings, None);
+        assert_eq!(
+            project.crs(),
+            crate::crs::Crs::Utm33,
+            "older projects are 25833"
+        );
     }
 
     #[test]

@@ -53,7 +53,7 @@ impl Product {
     pub fn grid_km(self) -> u32 {
         match self.provider() {
             Provider::Lgb => 1,
-            Provider::GeoSn => 2,
+            Provider::GeoSn | Provider::LvermGeo => 2,
         }
     }
 
@@ -71,7 +71,7 @@ impl Product {
     fn stem(self, t: TileId) -> String {
         match self.provider() {
             Provider::Lgb => format!("{}_{}", self.file_prefix(), t.name()),
-            Provider::GeoSn => format!(
+            Provider::GeoSn | Provider::LvermGeo => format!(
                 "{}_33{:03}_{:04}_2_sn",
                 self.file_prefix(),
                 t.east_km,
@@ -142,6 +142,7 @@ impl Product {
         match self.provider() {
             Provider::Lgb => "lgb",
             Provider::GeoSn => "geosn",
+            Provider::LvermGeo => "lvermgeo",
         }
     }
 

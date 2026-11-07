@@ -53,7 +53,8 @@ pub fn estimate_download(
     today: NaiveDate,
 ) -> Result<DownloadEstimate, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let bbox = project.bbox()?;
+    // Regions and sizes are judged in EPSG:25833, where the boundaries are.
+    let bbox = project.region_bbox()?;
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     Ok(estimate_area(&bbox, cache, today, alkis_cached))

@@ -18,6 +18,10 @@ const BRANDENBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/bran
 const BERLIN_BOUNDARY: &str = include_str!("../../../../assets/regions/berlin.geojson");
 /// Saxony from GeoSN ALKIS `VerwaltungsEinheit` DE14 (dl-de/by-2-0).
 const SAXONY_BOUNDARY: &str = include_str!("../../../../assets/regions/saxony.geojson");
+/// Saxony-Anhalt from LVermGeo DVG `VerwaltungsEinheit` DE15 (dl-de/by-2-0), in EPSG:25833 like
+/// the others.
+const SAXONY_ANHALT_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/saxony-anhalt.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -29,6 +33,7 @@ pub enum Region {
     Brandenburg,
     Berlin,
     Saxony,
+    SaxonyAnhalt,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -38,11 +43,18 @@ pub enum Provider {
     Lgb,
     /// GeoSN, Saxony.
     GeoSn,
+    /// LVermGeo, Saxony-Anhalt (EPSG:25832).
+    LvermGeo,
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 3] = [Self::Brandenburg, Self::Berlin, Self::Saxony];
+    pub const ALL: [Self; 4] = [
+        Self::Brandenburg,
+        Self::Berlin,
+        Self::Saxony,
+        Self::SaxonyAnhalt,
+    ];
 
     /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`).
     pub fn of_object_id(oid: &str) -> Option<Self> {
@@ -50,6 +62,7 @@ impl Region {
             Some("DEBB") => Some(Self::Brandenburg),
             Some("DEBE") => Some(Self::Berlin),
             Some("DESN") => Some(Self::Saxony),
+            Some("DEST") => Some(Self::SaxonyAnhalt),
             _ => None,
         }
     }
@@ -58,17 +71,31 @@ impl Region {
         match self {
             Self::Brandenburg | Self::Berlin => Provider::Lgb,
             Self::Saxony => Provider::GeoSn,
+            Self::SaxonyAnhalt => Provider::LvermGeo,
+        }
+    }
+
+    /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
+    pub fn crs(self) -> crate::crs::Crs {
+        match self {
+            Self::SaxonyAnhalt => crate::crs::Crs::Utm32,
+            _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 3] =
-            [OnceLock::new(), OnceLock::new(), OnceLock::new()];
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 4] = [
+            OnceLock::new(),
+            OnceLock::new(),
+            OnceLock::new(),
+            OnceLock::new(),
+        ];
         let (index, text) = match self {
             Self::Brandenburg => (0, BRANDENBURG_BOUNDARY),
             Self::Berlin => (1, BERLIN_BOUNDARY),
             Self::Saxony => (2, SAXONY_BOUNDARY),
+            Self::SaxonyAnhalt => (3, SAXONY_ANHALT_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -245,8 +272,8 @@ mod tests {
 
     #[test]
     fn outside_every_region_is_refused() {
-        // Saxony-Anhalt, west of Brandenburg and Saxony.
-        let elsewhere = around(230_000.0, 5_800_000.0, 300.0);
+        // Lower Saxony, west of Saxony-Anhalt.
+        let elsewhere = around(150_000.0, 5_800_000.0, 300.0);
         assert_eq!(raster_region(&elsewhere), None);
         assert!(regions_for(&elsewhere).is_empty());
         let nan = around(f64::NAN, 5_800_000.0, 300.0);
@@ -275,6 +302,21 @@ mod tests {
     }
 
     #[test]
+    fn halle_is_saxony_anhalt_in_zone_32() {
+        // Latina August Hermann Francke, Halle (25833).
+        let latina = around(289_795.0, 5_707_067.0, 200.0);
+        assert_eq!(regions_for(&latina), vec![Region::SaxonyAnhalt]);
+        assert_eq!(raster_region(&latina), Some(Region::SaxonyAnhalt));
+        assert_eq!(Region::SaxonyAnhalt.provider(), Provider::LvermGeo);
+        assert_eq!(Region::SaxonyAnhalt.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(Region::Saxony.crs(), crate::crs::Crs::Utm33);
+        assert_eq!(
+            Region::of_object_id("DESTLIKA0001MuQqBL"),
+            Some(Region::SaxonyAnhalt)
+        );
+    }
+
+    #[test]
     fn object_ids_name_their_state() {
         assert_eq!(
             Region::of_object_id("DEBE03YY600004AR"),
@@ -288,7 +330,7 @@ mod tests {
             Region::of_object_id("DESNALK0CrM0003UBL"),
             Some(Region::Saxony)
         );
-        assert_eq!(Region::of_object_id("DEST01"), None);
+        assert_eq!(Region::of_object_id("DETH01"), None);
     }
 
     #[test]

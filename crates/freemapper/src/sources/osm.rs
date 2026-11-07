@@ -250,6 +250,10 @@ const SAXONY_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf";
 const SAXONY_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt";
+const SAXONY_ANHALT_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf";
+const SAXONY_ANHALT_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -260,6 +264,7 @@ pub enum ExtractSource {
     /// Brandenburg with Berlin.
     Brandenburg,
     Saxony,
+    SaxonyAnhalt,
 }
 
 impl ExtractSource {
@@ -268,6 +273,7 @@ impl ExtractSource {
         match region {
             Region::Brandenburg | Region::Berlin => Self::Brandenburg,
             Region::Saxony => Self::Saxony,
+            Region::SaxonyAnhalt => Self::SaxonyAnhalt,
         }
     }
 
@@ -275,6 +281,7 @@ impl ExtractSource {
         match self {
             Self::Brandenburg => EXTRACT_URL,
             Self::Saxony => SAXONY_EXTRACT_URL,
+            Self::SaxonyAnhalt => SAXONY_ANHALT_EXTRACT_URL,
         }
     }
 
@@ -282,6 +289,7 @@ impl ExtractSource {
         match self {
             Self::Brandenburg => STATE_URL,
             Self::Saxony => SAXONY_STATE_URL,
+            Self::SaxonyAnhalt => SAXONY_ANHALT_STATE_URL,
         }
     }
 
@@ -290,6 +298,7 @@ impl ExtractSource {
         match self {
             Self::Brandenburg => "brandenburg_",
             Self::Saxony => "sachsen_",
+            Self::SaxonyAnhalt => "sachsen-anhalt_",
         }
     }
 
@@ -298,6 +307,7 @@ impl ExtractSource {
         match self {
             Self::Brandenburg => 300.0,
             Self::Saxony => 270.0,
+            Self::SaxonyAnhalt => 177.0,
         }
     }
 
@@ -305,6 +315,7 @@ impl ExtractSource {
         match self {
             Self::Brandenburg => "Brandenburg",
             Self::Saxony => "Saxony",
+            Self::SaxonyAnhalt => "Saxony-Anhalt",
         }
     }
 }
