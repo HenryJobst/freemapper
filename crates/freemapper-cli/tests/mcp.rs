@@ -102,6 +102,16 @@ fn mcp_lists_the_tools() {
             .contains("find_place")
     );
     let tools = session.request("tools/list", json!({}));
+    let start = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "start_pipeline")
+        .unwrap();
+    assert!(
+        start["inputSchema"]["properties"]["ocad"].is_object(),
+        "{start}"
+    );
     let mut names: Vec<&str> = tools["tools"]
         .as_array()
         .unwrap()

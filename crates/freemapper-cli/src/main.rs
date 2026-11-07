@@ -12,8 +12,8 @@ use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, derive_project, export_starter_project, fetch_project, init_project,
-    run_project,
+    MapKind, MapOutcome, OcadOutcome, derive_project, export_ocad, export_starter_project,
+    fetch_project, init_project, map_path, run_project,
 };
 
 #[derive(Parser)]
@@ -53,6 +53,10 @@ enum Commands {
         /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
         #[arg(long)]
         force: bool,
+        /// Also write an OCAD starting point into `ocad/` (OCAD 12 format); an existing OOM map is
+        /// then kept unless --force is given.
+        #[arg(long)]
+        ocad: bool,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -81,6 +85,9 @@ enum Commands {
         /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
         #[arg(long)]
         force: bool,
+        /// Also write an OCAD starting point into `ocad/` (OCAD 12 format).
+        #[arg(long)]
+        ocad: bool,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -178,6 +185,33 @@ fn mode(offline: bool) -> FetchMode {
     }
 }
 
+/// What the OCAD export wrote and what the user does next in OCAD.
+fn report_ocad(outcome: &OcadOutcome) {
+    if outcome.kept {
+        println!(
+            "Kept {} (it may contain your work; --force replaces it, the old one is kept as .ocd.bak)",
+            outcome.map.display()
+        );
+    } else {
+        println!(
+            "Wrote {} ({} objects)",
+            outcome.map.display(),
+            outcome.objects
+        );
+    }
+    println!("Wrote {}", outcome.candidates.display());
+    if outcome.skipped > 0 {
+        println!(
+            "{} objects were left out of the OCAD map (no area, or outside OCAD's drawing area).",
+            outcome.skipped
+        );
+    }
+    println!(
+        "In OCAD: Symbol > Load Colors and Symbols From… and pick the official ISSprOM 2019 or \
+         school symbol set; it replaces freemapper's placeholder symbols by number."
+    );
+}
+
 fn report(message: &str) {
     eprintln!("{message}");
 }
@@ -212,9 +246,17 @@ fn main() -> anyhow::Result<()> {
             init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());
         }
-        Commands::Export { dir, force } => {
-            let map = export_starter_project(&dir, force)?;
-            println!("Wrote {}", map.display());
+        Commands::Export { dir, force, ocad } => {
+            let existing = map_path(&dir);
+            if ocad && existing.exists() && !force {
+                println!("Kept {} (it may contain your work)", existing.display());
+            } else {
+                let map = export_starter_project(&dir, force)?;
+                println!("Wrote {}", map.display());
+            }
+            if ocad {
+                report_ocad(&export_ocad(&dir, force)?);
+            }
         }
         Commands::Fetch {
             dir,
@@ -239,6 +281,7 @@ fn main() -> anyhow::Result<()> {
             dir,
             offline,
             force,
+            ocad,
             cache,
         } => {
             let outcome = run_project(
@@ -274,6 +317,9 @@ fn main() -> anyhow::Result<()> {
                         );
                     }
                 }
+            }
+            if ocad {
+                report_ocad(&export_ocad(&dir, force)?);
             }
         }
         Commands::Select {

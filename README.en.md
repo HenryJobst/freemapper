@@ -116,6 +116,29 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Starting point for OCAD
+
+```sh
+freemapper export clara-zetkin-schule --ocad      # or: freemapper run clara-zetkin-schule --ocad
+```
+
+also writes the folder `ocad/`:
+
+- `<name>.ocd`: the map in OCAD 12 format (opens in OCAD 12 and newer), with georeferencing
+  (ETRS89/UTM 33), colours, the map objects and the templates as background maps.
+- `<name>-candidates.ocd`: the candidates as a separate OCAD map.
+- Orthophoto, hillshade, slope and nDSM with world files, right next to the `.ocd`.
+
+The symbols in the `.ocd` are placeholders: right number, name and main colour, but simple graphics.
+In OCAD, load the official set (*Symbol › Load Colors and Symbols From…*: ISSprOM 2019 for sprint, the
+IOF school symbol set 2019 for schoolyards); it replaces the placeholders by number.
+- The numbers follow OCAD's official sets, e.g. 501.001 for paved area and 505.000/505.001 for paths.
+- An existing `.ocd` is only replaced with `--force` (the old one is kept as `.ocd.bak`); with `--ocad`
+  an existing OOM map stays as it is unless `--force` is given.
+
+Still to check in OCAD: whether "Replace" when loading the symbol set keeps the sheet symbols
+(991–994), and whether OCAD shows the candidates map as a background correctly.
+
 ## With an AI agent (MCP)
 
 `freemapper mcp` is an MCP server on stdin/stdout. An AI agent can use it to make the map for someone
@@ -143,7 +166,8 @@ The workflow the agent follows:
    map area.
 2. `create_project` – creates the project folder (absolute path or `~/…`), map kind and scale optional.
 3. `estimate_download` – tells how much will be downloaded (about 300 MB OSM extract the first time).
-4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id.
+4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id
+   (with `ocad: true` also the OCAD starting point).
 5. `project_status` – polls the progress until the job has finished or failed.
 6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
 

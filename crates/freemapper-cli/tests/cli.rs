@@ -354,3 +354,30 @@ fn live_init_by_place() {
     let toml = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(toml.contains("way/992423119"), "{toml}");
 }
+
+#[test]
+fn export_ocad_keeps_an_existing_oom_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let map = project.join("schule.omap");
+    std::fs::write(&map, "edited in OOM").unwrap();
+    let export = freemapper()
+        .args(["export", project.to_str().unwrap(), "--ocad"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&export.stdout);
+    assert!(
+        export.status.success(),
+        "{}",
+        String::from_utf8_lossy(&export.stderr)
+    );
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+    let ocd = project.join("ocad/schule.ocd");
+    assert_eq!(&std::fs::read(&ocd).unwrap()[0..2], &[0xAD, 0x0C]);
+    assert!(project.join("ocad/schule-candidates.ocd").exists());
+    assert!(
+        stdout.contains("schule.ocd") && stdout.contains("Load"),
+        "{stdout}"
+    );
+}

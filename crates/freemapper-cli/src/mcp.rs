@@ -11,7 +11,8 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, ProjectFile, RunOutcome, init_project, run_project,
+    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_ocad, init_project,
+    run_project,
 };
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
@@ -189,6 +190,9 @@ struct StartPipeline {
     force: Option<bool>,
     /// Use the download cache only, without network access. Default false.
     offline: Option<bool>,
+    /// Also write an OCAD starting point into the folder ocad/ (OCAD 12 format, for users who
+    /// edit in OCAD). Default false.
+    ocad: Option<bool>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -382,6 +386,28 @@ fn summary(outcome: &RunOutcome) -> String {
     lines.join("\n")
 }
 
+/// What the OCAD export did, in words for the user.
+fn ocad_summary(outcome: &OcadOutcome) -> String {
+    let mut text = if outcome.kept {
+        format!(
+            "\nKept the existing OCAD map {} (it may contain the mapper's work; force replaces it)",
+            outcome.map.display()
+        )
+    } else {
+        format!(
+            "\nWrote the OCAD map {} ({} objects)",
+            outcome.map.display(),
+            outcome.objects
+        )
+    };
+    text.push_str(&format!(
+        "\nWrote {}\nIn OCAD: Symbol > Load Colors and Symbols From… with the official ISSprOM 2019 \
+         or school symbol set replaces the placeholder symbols by number.",
+        outcome.candidates.display()
+    ));
+    text
+}
+
 /// Runs blocking library code off the async runtime.
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -564,13 +590,20 @@ impl FreemapperServer {
             FetchMode::Online
         };
         let force = req.force.unwrap_or(false);
+        let ocad = req.ocad.unwrap_or(false);
         let job_id = id.clone();
         let job_dir = dir.clone();
         tokio::task::spawn_blocking(move || {
             run_job(&jobs, &job_id, |progress| {
-                run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
-                    .map(|outcome| summary(&outcome))
-                    .map_err(|e| describe(&e))
+                let mut text =
+                    run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
+                        .map(|outcome| summary(&outcome))
+                        .map_err(|e| describe(&e))?;
+                if ocad {
+                    let outcome = export_ocad(&job_dir, force).map_err(|e| describe(&e))?;
+                    text.push_str(&ocad_summary(&outcome));
+                }
+                Ok(text)
             });
         });
         text(json!({ "job_id": id, "dir": dir, "state": "running" }).to_string())
