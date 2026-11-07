@@ -406,7 +406,11 @@ fn refresh_extract(
             message: "no timestamp in the state file".to_string(),
         })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
-        progress(&format!("cached OSM extract from {}", cached.date));
+        progress(&format!(
+            "cached OSM extract {} from {}",
+            source.label(),
+            cached.date
+        ));
         return Ok(cached);
     }
     progress(&format!(

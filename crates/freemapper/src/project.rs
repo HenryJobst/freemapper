@@ -700,7 +700,7 @@ fn fetch_osm_into(
     let mut extracts = Vec::new();
     for source in sources {
         match fetch_extract(fetcher, cache, source, mode, progress) {
-            Ok(extract) => extracts.push(extract),
+            Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
             Err(FetchError::OsmExtractMissing)
                 if dir.join(OSM_CANDIDATES_RELPATH).exists()
@@ -718,8 +718,12 @@ fn fetch_osm_into(
     }
     let rules = Rules::embedded();
     let mut parts = Vec::new();
-    for extract in &extracts {
-        progress(&format!("reading OSM extract from {}", extract.data_date));
+    for (source, extract) in &extracts {
+        progress(&format!(
+            "reading OSM extract {} from {}",
+            source.label(),
+            extract.data_date
+        ));
         parts.push(read_extract(&extract.path, &area, &|tags| {
             rules.wants(tags, project.map_kind)
         })?);
@@ -730,7 +734,7 @@ fn fetch_osm_into(
     progress(&format!("{} OSM candidate features", features.len()));
     let extract_date = extracts
         .iter()
-        .map(|e| e.data_date)
+        .map(|(_, e)| e.data_date)
         .min()
         .expect("every map area touches a region");
     Ok(OsmRecord {
@@ -2687,6 +2691,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(project.land_use.unwrap().regions, [Region::Saxony]);
         assert!(
             messages.iter().any(|m| m == "3 ALKIS buildings"),
+            "{messages:?}"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Saxony from 2026-11-06"),
             "{messages:?}"
         );
         assert!(
