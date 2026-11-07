@@ -18,14 +18,14 @@ use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::contours::{
     contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
 };
-use crate::derive::ndsm::{rasterize, write_ndsm_png};
+use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
 use crate::derive::orthophoto::build_orthophoto;
 use crate::derive::terrain::{hillshade, mosaic_dtm, slope_deg, slope_shade, write_gray_png};
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
-use crate::fetch::fetch_ndsm_tiles;
 use crate::fetch::{
     Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_atomically,
 };
+use crate::fetch::{fetch_ndsm_tiles, fetch_tiles_each};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::MapCoord;
@@ -34,12 +34,13 @@ use crate::omap::{
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
 use crate::raster::GridSpec;
-use crate::sources::alkis::{LAND_USE_ENDPOINT, LandUse, fetch_collection, parse_land_use};
+use crate::sources::alkis::{LandUse, fetch_land_use, parse_land_use};
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
-use crate::sources::lgb::{Product, TileCurrency, attribution};
+use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
     OsmFeature, features_from_geojson, features_to_geojson, fetch_extract, read_extract,
 };
+use crate::sources::region::{Region, touches_berlin};
 use crate::tiles::{TileId, tiles_covering};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -234,6 +235,9 @@ pub struct AlkisRecord {
     /// Newest `aktualit` among the buildings.
     pub latest_update: Option<NaiveDate>,
     pub count: usize,
+    /// The states whose services delivered objects (missing in projects fetched before Berlin).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub regions: Vec<Region>,
 }
 
 impl AlkisRecord {
@@ -438,6 +442,12 @@ pub fn fetch_project(
     }
     // Record the tiles first: they may have replaced older cached versions, and a failing
     // buildings download must not leave the project pointing at those.
+    let previous_dsm: Vec<TileRecord> = project
+        .tiles
+        .iter()
+        .filter(|r| r.product == Product::ImageDsm)
+        .cloned()
+        .collect();
     project.tiles = records;
     project.save(dir)?;
     let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, progress)?
@@ -459,7 +469,67 @@ pub fn fetch_project(
             ));
         }
     }
+    // Where no nDOM point cloud is published (Berlin), the nDSM comes from the bDOM surface
+    // model minus the DTM. It is only a template: an unavailable bDOM costs a warning.
+    let without_ndsm: Vec<TileId> = tiles
+        .iter()
+        .copied()
+        .filter(|tile| !ndsm_tiles.iter().any(|r| r.tile == tile.name()))
+        .collect();
     project.ndsm_tiles = ndsm_tiles;
+    if !without_ndsm.is_empty() {
+        match fetch_tiles_each(
+            fetcher,
+            cache,
+            Product::ImageDsm,
+            &without_ndsm,
+            mode,
+            progress,
+        ) {
+            Ok(results) => {
+                for (tile, result) in results {
+                    let fetched = match result {
+                        Ok(fetched) => fetched,
+                        Err(e) => {
+                            progress(&format!(
+                                "warning: surface model (bDOM) of tile {} unavailable ({e}); no nDSM template there",
+                                tile.name()
+                            ));
+                            continue;
+                        }
+                    };
+                    progress(&format!(
+                        "nDSM of tile {} from the surface model (bDOM)",
+                        tile.name()
+                    ));
+                    let record = TileRecord {
+                        product: Product::ImageDsm,
+                        tile: tile.name(),
+                        url: fetched.url,
+                        currency: fetched.currency.currency(),
+                        published: fetched.currency.published,
+                    };
+                    if let Some(previous) = previous_dsm
+                        .iter()
+                        .find(|p| p.tile == record.tile && p.published != record.published)
+                    {
+                        progress(&format!(
+                            "warning: {:?} tile {} changed upstream ({} → {})",
+                            Product::ImageDsm,
+                            record.tile,
+                            previous.published,
+                            record.published
+                        ));
+                    }
+                    project.tiles.push(record);
+                }
+            }
+            Err(e) => progress(&format!(
+                "warning: surface model (bDOM) unavailable ({e}); no nDSM template for {}",
+                crate::fetch::tile_names(&without_ndsm)
+            )),
+        }
+    }
     project.save(dir)?;
     let bbox = project.bbox()?;
     let previous = project.buildings.as_ref();
@@ -557,6 +627,9 @@ fn fetch_buildings_into(
     write_atomically(&path, text.as_bytes())?;
     let count = parsed.buildings.len();
     progress(&format!("{count} ALKIS buildings"));
+    if count == 0 {
+        progress("warning: no ALKIS buildings found in the map area");
+    }
     if !parsed.skipped.is_empty() {
         let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
         let more = parsed.skipped.len() > SKIPPED_SHOWN;
@@ -577,6 +650,7 @@ fn fetch_buildings_into(
         fetched: chrono::Local::now().date_naive(),
         latest_update: parsed.buildings.iter().filter_map(|b| b.updated).max(),
         count,
+        regions: regions_of(parsed.buildings.iter().map(|b| b.oid.as_str())),
     };
     // Compare only the same area: a grown area brings in other buildings, not changed ones.
     if let Some(old) = previous.filter(|old| old.bbox == record.bbox) {
@@ -621,7 +695,7 @@ fn fetch_land_use_into(
         return None;
     }
     progress("downloading ALKIS land use");
-    let downloaded = fetch_collection(fetcher, LAND_USE_ENDPOINT, bbox).and_then(|text| {
+    let downloaded = fetch_land_use(fetcher, bbox).and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_atomically(&dir.join(LAND_USE_RELPATH), text.as_bytes())?;
         Ok(land_use)
@@ -639,6 +713,7 @@ fn fetch_land_use_into(
                 fetched: chrono::Local::now().date_naive(),
                 latest_update: land_use.iter().filter_map(|l| l.updated).max(),
                 count: land_use.len(),
+                regions: regions_of(land_use.iter().map(|l| l.oid.as_str())),
             }))
         }
         Err(e) => match previous.filter(|_| path.exists()) {
@@ -803,7 +878,13 @@ pub fn derive_project(
     write_atomically(&contours_path, contours_to_geojson(&lines).as_bytes())?;
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
-    if project.ndsm_tiles.is_empty() {
+    if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&bbox) {
+        progress(
+            "warning: no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin",
+        );
+    }
+    let dsm_recorded = project.tiles.iter().any(|r| r.product == Product::ImageDsm);
+    if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
     }
     let ndsm_files: Vec<PathBuf> = project
@@ -839,14 +920,32 @@ pub fn derive_project(
         })
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
-    if ndsm_files.is_empty() {
+    let dsm = if dsm_recorded {
+        match tiles(Product::ImageDsm).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?)) {
+            Ok(dsm) => Some(dsm),
+            Err(e) => {
+                progress(&format!(
+                    "warning: surface model (bDOM) unusable ({e}); run `freemapper fetch`"
+                ));
+                None
+            }
+        }
+    } else {
+        None
+    };
+    if ndsm_files.is_empty() && dsm.is_none() {
         // An older nDSM template would no longer match the map area: remove it.
         for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
             let _ = std::fs::remove_file(stale);
         }
     } else {
         progress(&format!("writing {NDSM_RELPATH}"));
-        write_ndsm_png(&rasterize(&ndsm_files, &bbox)?, &ndsm_path)?;
+        let mut ndsm = rasterize(&ndsm_files, &bbox)?;
+        // Consumed here: the 0.2 m surface model is as large as the nDSM itself.
+        if let Some(dsm) = dsm {
+            fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        }
+        write_ndsm_png(&ndsm, &ndsm_path)?;
         written.push(ndsm_path);
     }
     written.push(contours_path);
@@ -1474,6 +1573,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(lgb_attribution(&project));
+    attribution.extend(berlin_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -1508,6 +1608,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
 
 pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
+/// Geoportal Berlin data needs no attribution (dl-de/zero-2-0); it is named anyway.
+const BERLIN_ATTRIBUTION: &str =
+    "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -1516,17 +1619,43 @@ const FREEMAPPER_CREDIT_DE: &str =
 /// Names the tool and where to get it, in every generated project.
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
-/// Attribution of every source the project uses: OSM, and LGB once tiles were fetched.
+/// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
+/// Geoportal Berlin.
 fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
     lines.extend(lgb_attribution(project));
+    lines.extend(berlin_attribution(project));
     lines
 }
 
-/// The LGB attribution line, once tiles were fetched.
+/// The Geoportal Berlin ALKIS line, once Berlin ALKIS objects were fetched.
+fn berlin_attribution(project: &ProjectFile) -> Option<String> {
+    [&project.buildings, &project.land_use]
+        .into_iter()
+        .flatten()
+        .any(|record| record.regions.contains(&Region::Berlin))
+        .then(|| BERLIN_ATTRIBUTION.to_string())
+}
+
+/// The states of the given ALKIS object ids, Brandenburg first.
+fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<Region> {
+    let found: Vec<Region> = oids.filter_map(Region::of_object_id).collect();
+    [Region::Brandenburg, Region::Berlin]
+        .into_iter()
+        .filter(|r| found.contains(r))
+        .collect()
+}
+
+/// The LGB attribution line, once tiles were fetched. LGB tiles in Berlin hold Berlin data, and
+/// LGB's licence note then asks for the Geoportal Berlin as well.
 fn lgb_attribution(project: &ProjectFile) -> Option<String> {
     let year = project.tiles.iter().map(|t| t.published.year()).max()?;
-    Some(attribution(year))
+    let in_berlin = project.bbox().is_ok_and(|bbox| touches_berlin(&bbox));
+    Some(if in_berlin {
+        attribution_with_berlin(year)
+    } else {
+        attribution(year)
+    })
 }
 /// Line symbol used for the map area outline in the candidates template map.
 const OUTLINE_SYMBOL_CODE: &str = "501.1";
@@ -1716,12 +1845,14 @@ mod tests {
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
                 count: 18,
+                regions: vec![Region::Brandenburg],
             }),
             land_use: Some(AlkisRecord {
                 bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2025, 9, 30),
                 count: 24,
+                regions: Vec::new(),
             }),
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
@@ -2205,6 +2336,233 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
         fetch(dir.path(), fetcher, &cache);
         (dir, cache_dir, cache)
+    }
+
+    /// A schoolyard project around the Helene-Haeusler-Schule, Berlin-Prenzlauer Berg (tile
+    /// 33392-5820), served with LGB rasters and the Berlin ALKIS fixtures.
+    fn berlin_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(392_750.0, 5_820_800.0),
+            corner(392_850.0, 5_820_800.0),
+            corner(392_850.0, 5_820_900.0),
+            corner(392_750.0, 5_820_900.0),
+            corner(392_750.0, 5_820_800.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        serve_synthetic_tile(fetcher, tile, "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::berlin::BUILDINGS_SERVICE,
+            crate::sources::berlin::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            crate::sources::berlin::LAND_USE_SERVICE,
+            crate::sources::berlin::test_support::LAND_USE
+                .as_bytes()
+                .to_vec(),
+        );
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn berlin_project_gets_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m == "4 ALKIS buildings"),
+            "{messages:?}"
+        );
+        assert!(
+            messages.iter().any(|m| m == "6 ALKIS land use parts"),
+            "{messages:?}"
+        );
+        assert_eq!(project.buildings.unwrap().count, 4);
+        let text = std::fs::read_to_string(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        let parsed = crate::sources::alkis::parse_buildings(&text).unwrap();
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DEBE")));
+    }
+
+    #[test]
+    fn attribution_names_geoportal_berlin() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        let lgb = "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert";
+        assert!(attribution.contains(lgb), "{attribution}");
+        assert!(attribution.contains(BERLIN_ATTRIBUTION), "{attribution}");
+        let documents = starter_documents(dir.path()).unwrap();
+        let sheet_texts: Vec<&str> = documents
+            .map
+            .parts
+            .iter()
+            .filter(|p| p.name == SHEET_PART)
+            .flat_map(|p| &p.objects)
+            .filter_map(|o| match &o.kind {
+                crate::omap::model::MapObjectKind::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(sheet_texts.contains(&BERLIN_ATTRIBUTION), "{sheet_texts:?}");
+        assert!(sheet_texts.contains(&lgb), "{sheet_texts:?}");
+
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(!attribution.contains("Geoportal Berlin"), "{attribution}");
+    }
+
+    #[test]
+    fn missing_ndom_falls_back_to_bdom() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        crate::fetch::test_support::serve_synthetic_bdom(&fetcher, tile, "2026-09-10");
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "nDSM of tile 33392-5820 from the surface model (bDOM)"),
+            "{messages:?}"
+        );
+        assert!(
+            project
+                .tiles
+                .iter()
+                .any(|r| r.product == Product::ImageDsm && r.tile == "33392-5820")
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn unavailable_bdom_only_warns() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: surface model (bDOM) unavailable")),
+            "{messages:?}"
+        );
+        assert!(!project.tiles.iter().any(|r| r.product == Product::ImageDsm));
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
+    }
+
+    #[test]
+    fn alkis_records_name_their_regions() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.buildings.unwrap().regions, [Region::Berlin]);
+        assert_eq!(project.land_use.unwrap().regions, [Region::Berlin]);
+
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.buildings.unwrap().regions, [Region::Brandenburg]);
+    }
+
+    #[test]
+    fn berlin_alkis_line_needs_berlin_objects() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        assert!(
+            !attribution_lines(&project)
+                .iter()
+                .any(|l| l.contains("Berlin"))
+        );
+        project.buildings.as_mut().unwrap().regions = vec![Region::Brandenburg, Region::Berlin];
+        assert!(attribution_lines(&project).contains(&BERLIN_ATTRIBUTION.to_string()));
+    }
+
+    #[test]
+    fn republished_bdom_warns() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        crate::fetch::test_support::serve_synthetic_bdom(&fetcher, tile, "2026-09-10");
+        fetch(dir.path(), &fetcher, &cache);
+        crate::fetch::test_support::serve_synthetic_bdom(&fetcher, tile, "2026-10-01");
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.contains(
+                &"warning: ImageDsm tile 33392-5820 changed upstream (2026-09-10 → 2026-10-01)"
+                    .to_string()
+            ),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn empty_berlin_buildings_hint_to_refetch() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        fetcher.insert_prefix(
+            crate::sources::berlin::BUILDINGS_SERVICE,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        fetch(dir.path(), &fetcher, &cache);
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: no ALKIS buildings stored for this area")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn empty_alkis_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: no ALKIS buildings found")),
+            "{messages:?}"
+        );
     }
 
     #[test]

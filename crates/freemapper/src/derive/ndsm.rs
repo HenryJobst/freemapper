@@ -1,4 +1,5 @@
-//! nDSM template: LGB nDOM point clouds rasterized to heights above ground, as a coloured PNG.
+//! nDSM template: LGB nDOM point clouds rasterized to heights above ground, where none is
+//! published the bDOM surface model minus the DGM1, as a coloured PNG.
 
 use std::path::{Path, PathBuf};
 
@@ -60,6 +61,63 @@ pub fn colour(height: f32) -> [u8; 4] {
         h if h < 8.0 => [0x4a, 0xa3, 0x5a, 255],
         _ => [0x1f, 0x6b, 0x3a, 255],
     }
+}
+
+/// Fills the empty cells of `ndsm` with the surface model minus the terrain (bilinear), clamped
+/// at 0; cells where either is missing stay empty.
+pub fn fill_from_dsm(ndsm: &mut Raster<f32>, dsm: &Raster<f32>, dtm: &Raster<f32>) {
+    let grid = ndsm.grid;
+    for y in 0..grid.height {
+        let n = grid.north - (f64::from(y) + 0.5) * grid.pixel_size;
+        for x in 0..grid.width {
+            if !ndsm.get(x, y).is_nan() {
+                continue;
+            }
+            let e = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
+            let (Some(surface), Some(ground)) = (nearest(dsm, e, n), bilinear(dtm, e, n)) else {
+                continue;
+            };
+            ndsm.set(x, y, (surface - ground).max(0.0));
+        }
+    }
+}
+
+/// The value of the cell containing (e, n), if it has one.
+fn nearest(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
+    let col = ((e - r.grid.west) / r.grid.pixel_size).floor();
+    let row = ((r.grid.north - n) / r.grid.pixel_size).floor();
+    let inside =
+        col >= 0.0 && row >= 0.0 && col < f64::from(r.grid.width) && row < f64::from(r.grid.height);
+    inside
+        .then(|| r.get(col as u32, row as u32))
+        .filter(|v| !v.is_nan())
+}
+
+/// Bilinear interpolation between the four cell centres around (e, n), held constant beyond the
+/// outer centres up to the raster edge; `None` outside the raster or if a centre is missing.
+fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
+    let (w, h) = (f64::from(r.grid.width), f64::from(r.grid.height));
+    let cx = (e - r.grid.west) / r.grid.pixel_size;
+    let cy = (r.grid.north - n) / r.grid.pixel_size;
+    if !(0.0..=w).contains(&cx) || !(0.0..=h).contains(&cy) || w < 1.0 || h < 1.0 {
+        return None;
+    }
+    let fx = (cx - 0.5).clamp(0.0, w - 1.0);
+    let fy = (cy - 0.5).clamp(0.0, h - 1.0);
+    let (x0, y0) = (
+        fx.floor().min(w - 2.0).max(0.0),
+        fy.floor().min(h - 2.0).max(0.0),
+    );
+    let (tx, ty) = (fx - x0, fy - y0);
+    let (x0, y0) = (x0 as u32, y0 as u32);
+    let (x1, y1) = (
+        (x0 + 1).min(r.grid.width - 1),
+        (y0 + 1).min(r.grid.height - 1),
+    );
+    let z = |x: u32, y: u32| Some(f64::from(r.get(x, y))).filter(|v| !v.is_nan());
+    let top = z(x0, y0)? * (1.0 - tx) + z(x1, y0)? * tx;
+    let bottom = z(x0, y1)? * (1.0 - tx) + z(x1, y1)? * tx;
+    Some((top * (1.0 - ty) + bottom * ty) as f32)
 }
 
 /// Writes the coloured nDSM as RGBA PNG with its world file (`.pgw`).
@@ -183,5 +241,89 @@ mod tests {
         let world = std::fs::read_to_string(dir.path().join("ndsm.pgw")).unwrap();
         let grid = crate::raster::GridSpec::from_world_file(&world, 5, 5).unwrap();
         assert!((grid.west - 421_000.0).abs() < 1e-6);
+    }
+
+    /// A raster over `bbox` with `pixel` metres per cell and the value `f(e, n)` at each centre.
+    fn surface(bbox: &BoundingBox, pixel: f64, f: impl Fn(f64, f64) -> f32) -> Raster<f32> {
+        let grid = template_grid(bbox, pixel).unwrap();
+        let mut r = Raster::filled(grid, f32::NAN);
+        for y in 0..grid.height {
+            for x in 0..grid.width {
+                let e = grid.west + (f64::from(x) + 0.5) * pixel;
+                let n = grid.north - (f64::from(y) + 0.5) * pixel;
+                r.set(x, y, f(e, n));
+            }
+        }
+        r
+    }
+
+    const AREA: BoundingBox = BoundingBox {
+        min_e: 392_800.0,
+        min_n: 5_820_800.0,
+        max_e: 392_810.0,
+        max_n: 5_820_810.0,
+    };
+
+    #[test]
+    fn ndsm_from_bdom_minus_dtm() {
+        // Ground rises 1 m per metre east from 30 m; the surface is flat at 38 m.
+        let dtm = surface(&AREA.buffered(2.0), 1.0, |e, _| {
+            (30.0 + (e - 392_800.0)) as f32
+        });
+        let dsm = surface(&AREA, 0.2, |_, _| 38.0);
+        let mut ndsm = rasterize(&[], &AREA).unwrap();
+        fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        // Cell centre at e = 392 800.1: ground 30.1 m (bilinear between 1 m centres).
+        assert!((ndsm.get(0, 0) - 7.9).abs() < 1e-3, "{}", ndsm.get(0, 0));
+        // e = 392 805.1: ground 35.1 m.
+        assert!(
+            (ndsm.get(25, 10) - 2.9).abs() < 1e-3,
+            "{}",
+            ndsm.get(25, 10)
+        );
+        // e = 392 809.9: ground 39.9 m above the surface; clamped at 0.
+        assert_eq!(ndsm.get(49, 0), 0.0);
+    }
+
+    #[test]
+    fn edge_cells_are_filled() {
+        // The DTM mosaic covers exactly the map area, like in derive.
+        let dtm = surface(&AREA, 1.0, |_, _| 30.0);
+        let dsm = surface(&AREA, 0.2, |_, _| 45.0);
+        let mut ndsm = rasterize(&[], &AREA).unwrap();
+        fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        let last = ndsm.grid.width - 1;
+        for (x, y) in [(0, 0), (last, 0), (0, last), (last, last)] {
+            assert_eq!(ndsm.get(x, y), 15.0, "({x}, {y})");
+        }
+    }
+
+    #[test]
+    fn laz_wins_over_bdom() {
+        let dir = tempfile::tempdir().unwrap();
+        let tile = laz(dir.path(), "a.laz", &[(392_800.1, 5_820_809.9, 2.0)]);
+        let mut ndsm = rasterize(&[tile], &AREA).unwrap();
+        let dtm = surface(&AREA.buffered(2.0), 1.0, |_, _| 30.0);
+        let dsm = surface(&AREA, 0.2, |_, _| 45.0);
+        fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        assert_eq!(ndsm.get(0, 0), 2.0);
+        assert_eq!(ndsm.get(1, 0), 15.0);
+    }
+
+    #[test]
+    fn missing_surface_or_ground_stays_empty() {
+        let mut ndsm = rasterize(&[], &AREA).unwrap();
+        let dtm = surface(&AREA.buffered(2.0), 1.0, |e, _| {
+            if e < 392_805.0 { 30.0 } else { f32::NAN }
+        });
+        let dsm = surface(
+            &AREA,
+            0.2,
+            |_, n| if n > 5_820_805.0 { 45.0 } else { f32::NAN },
+        );
+        fill_from_dsm(&mut ndsm, &dsm, &dtm);
+        assert_eq!(ndsm.get(0, 0), 15.0);
+        assert!(ndsm.get(0, 49).is_nan(), "no surface");
+        assert!(ndsm.get(49, 0).is_nan(), "no ground");
     }
 }

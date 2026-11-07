@@ -27,8 +27,9 @@ pub fn mosaic_dtm(tiles: &[FetchedTile], bbox: &BoundingBox) -> Result<Raster<f3
             decoder.read_image().map_err(tiff_error)?
         else {
             return Err(DeriveError::Image(format!(
-                "{}: DTM is not 32-bit float",
-                tile.tile.name()
+                "{}: {} is not 32-bit float",
+                tile.tile.name(),
+                tile.product
             )));
         };
         let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
@@ -168,6 +169,41 @@ mod tests {
 
     fn all(r: &Raster<Option<u8>>) -> Vec<Option<u8>> {
         r.data.clone()
+    }
+
+    #[test]
+    fn non_float_surface_model_is_named() {
+        use crate::fetch::test_support::tile_zip;
+        use crate::sources::lgb::{Product, TileCurrency};
+        let dir = tempfile::tempdir().unwrap();
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        let mut tiff = std::io::Cursor::new(Vec::new());
+        tiff::encoder::TiffEncoder::new(&mut tiff)
+            .unwrap()
+            .write_image::<tiff::encoder::colortype::Gray8>(2, 2, &[0, 1, 2, 3])
+            .unwrap();
+        let zip = dir.path().join("bdom.zip");
+        let world = "1\n0\n0\n-1\n392000.5\n5820999.5\n";
+        let bytes = tile_zip(Product::ImageDsm, tile, &tiff.into_inner(), world);
+        std::fs::write(&zip, bytes).unwrap();
+        let date = "2026-09-10".parse().unwrap();
+        let fetched = FetchedTile {
+            product: Product::ImageDsm,
+            tile,
+            url: String::new(),
+            currency: TileCurrency {
+                created: date,
+                revised: None,
+                published: date,
+            },
+            zip,
+        };
+        let err = mosaic_dtm(&[fetched], &tile.bounds()).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("surface model (bDOM) is not 32-bit float"),
+            "{err}"
+        );
     }
 
     #[test]

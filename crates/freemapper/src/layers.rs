@@ -14,12 +14,15 @@ use crate::project::{
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date};
+use crate::sources::region::{Region, regions_for};
 use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
 const DOP_TILE_MB: f64 = 8.0;
 const DGM_TILE_MB: f64 = 1.3;
 const NDSM_TILE_MB: f64 = 15.0;
+/// The bDOM GeoTIFF that replaces the nDOM inside Berlin.
+const BDOM_TILE_MB: f64 = 30.0;
 const OSM_EXTRACT_MB: f64 = 300.0;
 const ALKIS_MB: f64 = 0.5;
 
@@ -76,10 +79,20 @@ fn estimate_tiles(
                 cached: cache.has_tile(product, tile),
             });
         }
-        items.push(EstimateItem {
-            what: format!("nDSM tile {}", tile.name()),
-            megabytes: NDSM_TILE_MB,
-            cached: cache.has_ndsm(tile),
+        // LGB publishes no nDOM inside Berlin; the bDOM stands in for it.
+        let inside_berlin = regions_for(&tile.bounds()) == [Region::Berlin];
+        items.push(if inside_berlin {
+            EstimateItem {
+                what: format!("nDSM tile {} ({})", tile.name(), Product::ImageDsm),
+                megabytes: BDOM_TILE_MB,
+                cached: cache.has_tile(Product::ImageDsm, tile),
+            }
+        } else {
+            EstimateItem {
+                what: format!("nDSM tile {}", tile.name()),
+                megabytes: NDSM_TILE_MB,
+                cached: cache.has_ndsm(tile),
+            }
         });
     }
     items.push(EstimateItem {
@@ -270,7 +283,8 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
     let project = ProjectFile::load(dir)?;
     let path = dir.join(relpath);
     if !path.exists() {
-        if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() {
+        let no_dsm = !project.tiles.iter().any(|r| r.product == Product::ImageDsm);
+        if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() && no_dsm {
             return Err(ProjectError::Layer(
                 "no nDSM is published for the tiles of this map area, so there is no ndsm template"
                     .to_string(),
@@ -403,6 +417,28 @@ mod tests {
             .unwrap();
         assert!(!osm.cached, "{osm:?}");
         assert_eq!(estimate.total_megabytes, OSM_EXTRACT_MB);
+    }
+
+    #[test]
+    fn berlin_estimate_counts_the_bdom() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let today = "2026-11-07".parse().unwrap();
+        let mitte = TileId::parse("33392-5820").unwrap();
+        let strausberg = TileId::parse("33421-5821").unwrap();
+        let estimate = estimate_tiles(&[mitte, strausberg], &cache, today, false);
+        let what: Vec<&str> = estimate.items.iter().map(|i| i.what.as_str()).collect();
+        assert!(
+            what.contains(&"nDSM tile 33392-5820 (surface model (bDOM))"),
+            "{what:?}"
+        );
+        assert!(what.contains(&"nDSM tile 33421-5821"), "{what:?}");
+        let bdom = estimate
+            .items
+            .iter()
+            .find(|i| i.what.contains("bDOM"))
+            .unwrap();
+        assert_eq!(bdom.megabytes, BDOM_TILE_MB);
     }
 
     #[test]

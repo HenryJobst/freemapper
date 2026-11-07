@@ -9,11 +9,12 @@ Drawing and field checking stay in OOM.
 
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- First: Brandenburg (LGB open data), schoolyard maps 1:1000 and sprint maps 1:4000.
+- First: Brandenburg and Berlin (LGB and Geoportal Berlin open data), schoolyard maps 1:1000 and
+  sprint maps 1:4000.
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, OCAD starting point, PDF training map; Berlin follows. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg and Berlin, OCAD starting point, PDF training map; Saxony follows, then Saxony-Anhalt, Mecklenburg-Vorpommern, Thuringia and Hesse. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -142,6 +143,24 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Berlin and the border area
+
+LGB provides orthophoto, terrain model and surface model for Berlin as well. Inside Berlin the ALKIS
+buildings and actual land use come from the Geoportal Berlin (WFS, dl-de/zero-2-0); freemapper tells
+from the map area which state is responsible and queries both services at the state border.
+Differences from Brandenburg:
+
+- LGB publishes no nDSM point cloud for Berlin. There the nDSM template is computed from the
+  image-based surface model (bDOM, 0.2 m, about 30 MB per tile) minus the terrain model. It is a bit
+  softer than the laser nDSM: thin objects such as lamp posts or fences are often missing, parked cars
+  are included.
+- Berlin ALKIS areas are not split by parcel, and street areas include the grass and tree strips at
+  their edges. These appear as paved area on the map and need correcting in the field.
+- Berlin never records what a square is used for (no "car park" or "market square"). Squares therefore
+  only become candidates, not finished map objects.
+- The Geoportal service occasionally drops connections; freemapper tries every request up to three
+  times.
+
 ## Quick training map (PDF)
 
 ```sh
@@ -222,4 +241,6 @@ Then open the `.omap` file in the project folder with OpenOrienteering Mapper.
 
 GPL-3.0-or-later, see [LICENSE](LICENSE). Generated maps carry the required attribution of the data
 sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
-`© OpenStreetMap contributors, ODbL`.
+`© OpenStreetMap contributors, ODbL`. In Berlin the LGB line reads, as LGB requires,
+`© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
+Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added.

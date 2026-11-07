@@ -9,11 +9,12 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
-- Zuerst: Brandenburg (LGB-Open-Data), Schulhofkarten 1:1000 und Sprintkarten 1:4000.
+- Zuerst: Brandenburg und Berlin (LGB- und Geoportal-Berlin-Open-Data), Schulhofkarten 1:1000 und
+  Sprintkarten 1:4000.
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, OCAD-Ausgangsstand, PDF-Trainingskarte; Berlin folgt. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung: Schulhof- und Sprintkarten für Brandenburg und Berlin, OCAD-Ausgangsstand, PDF-Trainingskarte; Sachsen folgt, danach Sachsen-Anhalt, Mecklenburg-Vorpommern, Thüringen und Hessen. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -146,6 +147,25 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Berlin und das Grenzgebiet
+
+Luftbild, Geländemodell und Oberflächenmodell liefert das LGB auch für Berlin. Die ALKIS-Gebäude und
+die tatsächliche Nutzung kommen in Berlin vom Geoportal Berlin (WFS, dl-de/zero-2-0); freemapper
+erkennt am Kartengebiet, welches Land zuständig ist, und fragt an der Landesgrenze beide Dienste ab.
+Unterschiede zu Brandenburg:
+
+- Ein nDOM veröffentlicht das LGB in Berlin nicht. Die nDOM-Vorlage wird dort aus dem bildbasierten
+  Oberflächenmodell (bDOM, 0,2 m, etwa 30 MB je Kachel) minus Geländemodell berechnet. Sie ist etwas
+  weicher als das Laser-nDOM: dünne Objekte wie Laternen oder Zäune fehlen oft, parkende Autos sind
+  enthalten.
+- Berliner ALKIS-Flächen sind nicht nach Flurstücken geteilt, und Straßenflächen enthalten Grün- und
+  Baumstreifen am Rand. Diese erscheinen in der Karte als befestigte Fläche und müssen im Gelände
+  korrigiert werden.
+- Plätze sind in Berlin nie genauer bestimmt (kein „Parkplatz“ oder „Marktplatz“). Sie werden daher nur
+  Kandidaten, keine fertigen Kartenobjekte.
+- Der Geoportal-Dienst bricht gelegentlich Verbindungen ab; freemapper versucht jede Anfrage bis zu
+  dreimal.
+
 ## Schnelle Trainingskarte (PDF)
 
 ```sh
@@ -228,4 +248,6 @@ Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mappe
 
 GPL-3.0-or-later, siehe [LICENSE](LICENSE). Erzeugte Karten enthalten die Pflichtvermerke der
 Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` und
-`© OpenStreetMap contributors, ODbL`.
+`© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
+`© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
+Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu.
