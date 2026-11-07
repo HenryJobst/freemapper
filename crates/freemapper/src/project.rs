@@ -210,10 +210,6 @@ fn map_area_outline(
     if let Some(id) = &project.map_area_source_id {
         tags.push(("freemapper:source_id".to_string(), id.clone()));
     }
-    tags.push((
-        "freemapper:currency".to_string(),
-        project.declination_date.to_string(),
-    ));
     Ok(MapObject {
         symbol_id: symbol_set
             .id_for_code(OUTLINE_SYMBOL_CODE)
@@ -324,6 +320,8 @@ mod tests {
                 "{back:?} vs {expected:?}"
             );
         }
+        let keys: Vec<&str> = outline.tags.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(keys, ["freemapper:source", "freemapper:source_id"]);
         // Regression pin: the first vertex, south-west of the centroid on paper.
         assert_eq!(
             (outline.coords[0].x, outline.coords[0].y),

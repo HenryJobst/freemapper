@@ -14,6 +14,56 @@ pub struct ProjectedPoint {
     pub northing: f64,
 }
 
+/// Axis-parallel rectangle in projected coordinates (metres).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BoundingBox {
+    pub min_e: f64,
+    pub min_n: f64,
+    pub max_e: f64,
+    pub max_n: f64,
+}
+
+impl BoundingBox {
+    /// The box grown by `m` metres on every side.
+    pub fn buffered(&self, m: f64) -> Self {
+        Self {
+            min_e: self.min_e - m,
+            min_n: self.min_n - m,
+            max_e: self.max_e + m,
+            max_n: self.max_n + m,
+        }
+    }
+
+    /// The smallest box with corners on multiples of `step` that contains this box.
+    pub fn snapped_outward(&self, step: f64) -> Self {
+        Self {
+            min_e: (self.min_e / step).floor() * step,
+            min_n: (self.min_n / step).floor() * step,
+            max_e: (self.max_e / step).ceil() * step,
+            max_n: (self.max_n / step).ceil() * step,
+        }
+    }
+
+    /// The common part of both boxes, if it is not empty.
+    pub fn intersection(&self, other: &Self) -> Option<Self> {
+        let b = Self {
+            min_e: self.min_e.max(other.min_e),
+            min_n: self.min_n.max(other.min_n),
+            max_e: self.max_e.min(other.max_e),
+            max_n: self.max_n.min(other.max_n),
+        };
+        (b.min_e < b.max_e && b.min_n < b.max_n).then_some(b)
+    }
+
+    pub fn width(&self) -> f64 {
+        self.max_e - self.min_e
+    }
+
+    pub fn height(&self) -> f64 {
+        self.max_n - self.min_n
+    }
+}
+
 /// EPSG code of ETRS89 / UTM zone 33N.
 pub const EPSG_UTM33: u32 = 25833;
 
@@ -109,6 +159,48 @@ fn transverse_mercator(p: LatLon) -> TransverseMercator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bbox_buffer_snap_intersection() {
+        let b = BoundingBox {
+            min_e: 0.3,
+            min_n: 0.3,
+            max_e: 9.7,
+            max_n: 9.7,
+        };
+        let buffered = b.buffered(1.0);
+        assert!((buffered.min_e + 0.7).abs() < 1e-9 && (buffered.max_n - 10.7).abs() < 1e-9);
+        assert_eq!(
+            buffered.snapped_outward(1.0),
+            BoundingBox {
+                min_e: -1.0,
+                min_n: -1.0,
+                max_e: 11.0,
+                max_n: 11.0
+            }
+        );
+        assert!((b.width() - 9.4).abs() < 1e-9 && (b.height() - 9.4).abs() < 1e-9);
+        let other = BoundingBox {
+            min_e: 20.0,
+            min_n: 0.0,
+            max_e: 30.0,
+            max_n: 10.0,
+        };
+        assert_eq!(b.intersection(&other), None);
+        let overlap = BoundingBox {
+            min_e: 5.0,
+            ..other
+        };
+        assert_eq!(
+            b.intersection(&overlap),
+            Some(BoundingBox {
+                min_e: 5.0,
+                min_n: 0.3,
+                max_e: 9.7,
+                max_n: 9.7
+            })
+        );
+    }
 
     /// (lat, lon, easting, northing, convergence_deg, scale factor), reference values from the
     /// Krüger series of order n^6.
