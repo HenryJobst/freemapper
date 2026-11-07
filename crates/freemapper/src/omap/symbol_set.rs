@@ -291,6 +291,67 @@ mod tests {
         while !matches!(reader.read_event().unwrap(), quick_xml::events::Event::Eof) {}
     }
 
+    /// (top-level symbol id, element, attribute, value) for every size attribute in `xml`.
+    fn size_attributes(xml: &str) -> Vec<(String, String, &'static str, f64)> {
+        use quick_xml::events::Event;
+        const SIZES: [(&str, &str); 3] = [
+            ("line_symbol", "line_width"),
+            ("point_symbol", "inner_radius"),
+            ("point_symbol", "outer_width"),
+        ];
+        let mut reader = quick_xml::Reader::from_str(xml);
+        let (mut depth, mut symbol_id) = (0, String::new());
+        let mut sizes = Vec::new();
+        loop {
+            let (e, is_start) = match reader.read_event().unwrap() {
+                Event::Start(e) => (e, true),
+                Event::Empty(e) => (e, false),
+                Event::End(_) => {
+                    depth -= 1;
+                    continue;
+                }
+                Event::Eof => break,
+                _ => continue,
+            };
+            let tag = e.name().as_ref().to_string();
+            if tag == "symbol" && depth == 1 {
+                symbol_id = attribute(&e, "id").unwrap().unwrap();
+            }
+            for (element, name) in SIZES {
+                if tag == element
+                    && let Some(value) = attribute(&e, name).unwrap()
+                {
+                    sizes.push((symbol_id.clone(), tag.clone(), name, value.parse().unwrap()));
+                }
+            }
+            if is_start {
+                depth += 1;
+            }
+        }
+        sizes
+    }
+
+    #[test]
+    fn school_set_enlarges_every_issprom_size() {
+        let issprom = size_attributes(&SymbolSet::issprom_2019().symbols_xml);
+        let school = size_attributes(&SymbolSet::school_2019().symbols_xml);
+        assert!(issprom.len() > 300, "{} sizes", issprom.len());
+        // The school additions come after all ISSprOM symbols.
+        assert!(school.len() > issprom.len());
+        // 501 edge (108) and the combined paved areas (104, 113) are redefined by the norm.
+        let redefined = ["104", "108", "113"];
+        for (base, enlarged) in issprom.iter().zip(&school) {
+            assert_eq!(
+                (&base.0, &base.1, base.2),
+                (&enlarged.0, &enlarged.1, enlarged.2)
+            );
+            if redefined.contains(&base.0.as_str()) && base.2 == "line_width" {
+                continue;
+            }
+            assert_eq!(enlarged.3, (base.3 * 1.25).round(), "{base:?}");
+        }
+    }
+
     #[test]
     fn issprom_codes() {
         let set = SymbolSet::issprom_2019();

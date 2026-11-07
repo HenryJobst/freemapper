@@ -11,11 +11,12 @@ use freemapper::project::{MapKind, export_starter_project, init_project};
 #[command(
     name = "freemapper",
     version,
-    about = "Builds OOM starter projects from geodata"
+    about = "Builds OOM starter projects from geodata",
+    arg_required_else_help = true
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -31,7 +32,7 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
         /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the map kind).
-        #[arg(long)]
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
     },
     /// Write the starter project (OOM map, templates, attribution) into a project folder.
@@ -62,12 +63,12 @@ impl From<Kind> for MapKind {
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Some(Commands::Init {
+        Commands::Init {
             dir,
             geojson,
             kind,
             scale,
-        }) => {
+        } => {
             let text = std::fs::read_to_string(&geojson)
                 .with_context(|| format!("reading {}", geojson.display()))?;
             let area = MapArea::from_geojson(&text)?;
@@ -75,11 +76,10 @@ fn main() -> anyhow::Result<()> {
             init_project(&dir, &area, kind.into(), scale, today)?;
             println!("Created project {}", dir.display());
         }
-        Some(Commands::Export { dir, force }) => {
+        Commands::Export { dir, force } => {
             let map = export_starter_project(&dir, force)?;
             println!("Wrote {}", map.display());
         }
-        None => {}
     }
     Ok(())
 }

@@ -14,6 +14,8 @@ use crate::omap::MapCoord;
 pub enum GeorefError {
     #[error("date {0} is outside the World Magnetic Model validity")]
     DateOutsideModel(NaiveDate),
+    #[error("point E {easting:.1} N {northing:.1} lies beyond the map coordinate range")]
+    OutsideMapRange { easting: f64, northing: f64 },
 }
 
 /// Magnetic declination in degrees (east positive) at `p` on `date`, from the World Magnetic
@@ -89,17 +91,25 @@ impl Georeferencing {
         self.grid_scale_factor * f64::from(self.scale_denominator) / 1000.0
     }
 
-    pub fn projected_to_map(&self, p: ProjectedPoint) -> MapCoord {
+    /// Map coordinates of `p`; fails if they exceed the 32-bit range of OOM map coordinates.
+    pub fn projected_to_map(&self, p: ProjectedPoint) -> Result<MapCoord, GeorefError> {
         let s = self.metres_per_map_mm();
         let (sin_g, cos_g) = self.grivation_deg().to_radians().sin_cos();
         let de = p.easting - self.ref_projected.easting;
         let dn = p.northing - self.ref_projected.northing;
         let x_mm = (de * cos_g - dn * sin_g) / s;
         let y_mm = -(de * sin_g + dn * cos_g) / s;
-        MapCoord::new(
-            (x_mm * 1000.0).round() as i32,
-            (y_mm * 1000.0).round() as i32,
-        )
+        let to_micrometres = |mm: f64| {
+            let um = (mm * 1000.0).round();
+            (um.abs() <= f64::from(i32::MAX)).then_some(um as i32)
+        };
+        match (to_micrometres(x_mm), to_micrometres(y_mm)) {
+            (Some(x), Some(y)) => Ok(MapCoord::new(x, y)),
+            _ => Err(GeorefError::OutsideMapRange {
+                easting: p.easting,
+                northing: p.northing,
+            }),
+        }
     }
 
     pub fn map_to_projected(&self, c: MapCoord) -> ProjectedPoint {
@@ -182,18 +192,21 @@ mod tests {
     #[test]
     fn ref_point_maps_to_origin() {
         let g = Georeferencing::new(school(), 1000, date()).unwrap();
-        assert_eq!(g.projected_to_map(g.ref_projected), MapCoord::new(0, 0));
+        assert_eq!(
+            g.projected_to_map(g.ref_projected).unwrap(),
+            MapCoord::new(0, 0)
+        );
     }
 
     #[test]
     fn north_is_up_without_grivation() {
         let g = manual(0.0, 0.0, 1.0);
         assert_eq!(
-            g.projected_to_map(offset(&g, 0.0, 100.0)),
+            g.projected_to_map(offset(&g, 0.0, 100.0)).unwrap(),
             MapCoord::new(0, -100_000)
         );
         assert_eq!(
-            g.projected_to_map(offset(&g, 50.0, 0.0)),
+            g.projected_to_map(offset(&g, 50.0, 0.0)).unwrap(),
             MapCoord::new(50_000, 0)
         );
     }
@@ -201,7 +214,7 @@ mod tests {
     #[test]
     fn grivation_rotates_grid_north_left() {
         let g = manual(5.0, -1.0, 1.0);
-        let c = g.projected_to_map(offset(&g, 0.0, 100.0));
+        let c = g.projected_to_map(offset(&g, 0.0, 100.0)).unwrap();
         assert!(c.x < 0 && c.y < 0, "{c:?}");
         let expected = 100_000.0 * 6.0_f64.to_radians().sin();
         assert!((f64::from(c.x).abs() - expected).abs() <= 2.0, "{c:?}");
@@ -210,8 +223,18 @@ mod tests {
     #[test]
     fn combined_factor_scales() {
         let g = manual(0.0, 0.0, 0.9996);
-        let c = g.projected_to_map(offset(&g, 100.0, 0.0));
+        let c = g.projected_to_map(offset(&g, 100.0, 0.0)).unwrap();
         assert_eq!(c.x, (100_000.0 / 0.9996_f64).round() as i32);
+    }
+
+    #[test]
+    fn points_beyond_map_coordinate_range_are_rejected() {
+        let g = manual(0.0, 0.0, 1.0);
+        let far = offset(&g, 3_000_000.0, 0.0);
+        assert!(matches!(
+            g.projected_to_map(far),
+            Err(GeorefError::OutsideMapRange { .. })
+        ));
     }
 
     #[test]
@@ -219,7 +242,7 @@ mod tests {
         let g = Georeferencing::new(school(), 1000, date()).unwrap();
         for (de, dn) in [(12.3, -45.6), (-130.0, 140.0), (0.5, 0.25)] {
             let p = offset(&g, de, dn);
-            let back = g.map_to_projected(g.projected_to_map(p));
+            let back = g.map_to_projected(g.projected_to_map(p).unwrap());
             assert!(
                 (back.easting - p.easting).abs() < 0.001,
                 "{back:?} vs {p:?}"

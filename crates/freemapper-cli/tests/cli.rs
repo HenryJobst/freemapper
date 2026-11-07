@@ -12,6 +12,33 @@ fn version_flag_prints_name() {
     assert!(stdout.starts_with("freemapper "), "stdout: {stdout}");
 }
 
+#[test]
+fn no_subcommand_prints_help() {
+    let output = freemapper().output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Usage:"), "stderr: {stderr}");
+}
+
+#[test]
+fn init_rejects_scale_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let output = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--geojson",
+            FIXTURE,
+            "--scale",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(!project.join("freemapper.toml").exists());
+}
+
 const FIXTURE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../tests/fixtures/clara-zetkin-schule.geojson"

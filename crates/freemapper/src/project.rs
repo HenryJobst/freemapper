@@ -24,6 +24,8 @@ pub enum ProjectError {
     AlreadyExists(PathBuf),
     #[error("map already exists (it may contain your work); use --force to replace it: {0}")]
     MapExists(PathBuf),
+    #[error("invalid scale 1:{0}")]
+    InvalidScale(u32),
     #[error("invalid project file: {0}")]
     Toml(String),
     #[error(transparent)]
@@ -101,6 +103,10 @@ pub fn init_project(
     scale_denominator: Option<u32>,
     declination_date: NaiveDate,
 ) -> Result<ProjectFile, ProjectError> {
+    let scale_denominator = scale_denominator.unwrap_or(map_kind.default_scale());
+    if scale_denominator == 0 {
+        return Err(ProjectError::InvalidScale(scale_denominator));
+    }
     let path = dir.join(PROJECT_FILE_NAME);
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
@@ -108,7 +114,7 @@ pub fn init_project(
     std::fs::create_dir_all(dir).map_err(|e| ProjectError::Io(dir.to_path_buf(), e))?;
     let project = ProjectFile {
         map_kind,
-        scale_denominator: scale_denominator.unwrap_or(map_kind.default_scale()),
+        scale_denominator,
         declination_date,
         buffer_m: map_kind.default_buffer_m(),
         map_area_source_id: area.source_id.clone(),
@@ -140,7 +146,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         symbol_set: symbol_set.clone(),
         parts: vec![MapPart {
             name: "candidates".to_string(),
-            objects: vec![map_area_outline(&area, &georef, &symbol_set, &project)],
+            objects: vec![map_area_outline(&area, &georef, &symbol_set, &project)?],
         }],
         templates: Vec::new(),
     };
@@ -187,8 +193,8 @@ fn map_area_outline(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
     project: &ProjectFile,
-) -> MapObject {
-    let points: Vec<(i32, i32)> = area
+) -> Result<MapObject, GeorefError> {
+    let points = area
         .polygon
         .exterior()
         .points()
@@ -196,10 +202,10 @@ fn map_area_outline(
             let c = georef.projected_to_map(utm33_forward(LatLon {
                 lat: p.y(),
                 lon: p.x(),
-            }));
-            (c.x, c.y)
+            }))?;
+            Ok((c.x, c.y))
         })
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
     let mut tags = vec![("freemapper:source".to_string(), "osm".to_string())];
     if let Some(id) = &project.map_area_source_id {
         tags.push(("freemapper:source_id".to_string(), id.clone()));
@@ -208,14 +214,14 @@ fn map_area_outline(
         "freemapper:currency".to_string(),
         project.declination_date.to_string(),
     ));
-    MapObject {
+    Ok(MapObject {
         symbol_id: symbol_set
             .id_for_code(OUTLINE_SYMBOL_CODE)
             .expect("symbol set defines 501.1"),
         kind: MapObjectKind::Path,
         coords: closed_ring(&points),
         tags,
-    }
+    })
 }
 
 fn write_document(doc: &MapDocument, path: &Path) -> Result<(), ProjectError> {
@@ -261,5 +267,67 @@ mod tests {
         file.save(dir.path()).unwrap();
         assert!(dir.path().join(PROJECT_FILE_NAME).exists());
         assert_eq!(ProjectFile::load(dir.path()).unwrap(), file);
+    }
+
+    fn fixture_area() -> MapArea {
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/clara-zetkin-schule.geojson"
+        ))
+        .unwrap();
+        MapArea::from_geojson(&text).unwrap()
+    }
+
+    #[test]
+    fn init_rejects_scale_zero() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let result = init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Schoolyard,
+            Some(0),
+            date,
+        );
+        assert!(
+            matches!(result, Err(ProjectError::InvalidScale(0))),
+            "{result:?}"
+        );
+        assert!(!dir.path().join(PROJECT_FILE_NAME).exists());
+    }
+
+    #[test]
+    fn outline_maps_back_onto_area_vertices() {
+        let dir = tempfile::tempdir().unwrap();
+        let area = fixture_area();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let project = init_project(dir.path(), &area, MapKind::Schoolyard, None, date).unwrap();
+        let georef = Georeferencing::new(area.centroid(), 1000, date).unwrap();
+        let outline =
+            map_area_outline(&area, &georef, &MapKind::Schoolyard.symbol_set(), &project).unwrap();
+
+        let vertices: Vec<_> = area.polygon.exterior().points().collect();
+        assert_eq!(outline.coords.len(), vertices.len());
+        for (coord, vertex) in outline.coords.iter().zip(&vertices) {
+            let expected = utm33_forward(LatLon {
+                lat: vertex.y(),
+                lon: vertex.x(),
+            });
+            let back = georef.map_to_projected(*coord);
+            // 1 µm on paper is 1 mm on the ground at 1:1000.
+            assert!(
+                (back.easting - expected.easting).abs() < 0.002,
+                "{back:?} vs {expected:?}"
+            );
+            assert!(
+                (back.northing - expected.northing).abs() < 0.002,
+                "{back:?} vs {expected:?}"
+            );
+        }
+        // Regression pin: the first vertex, south-west of the centroid on paper.
+        assert_eq!(
+            (outline.coords[0].x, outline.coords[0].y),
+            (-46_668, 142_622)
+        );
     }
 }
