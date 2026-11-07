@@ -13,7 +13,7 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestones M0–M6; sprint polish, area selection in the browser, OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development (milestones M0–M7; area selection in the browser, OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Build
 
@@ -80,6 +80,25 @@ The cache lives in the system cache folder (macOS `~/Library/Caches/freemapper`,
 `--cache-dir` picks another folder.
 
 Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSprOM 2019, 1:4000).
+
+The sprint map also contains, as finished map objects:
+
+- paved areas (501.5) from the ALKIS land use: carriageways with sidewalks and parking lanes
+  (`Straßenverkehr`) and squares and car parks (`Platz`). Verges (green strips, tree rows) are not
+  drawn. ALKIS `Weg` is a candidate only: in town it is sidewalks and lanes, in the woods unpaved
+  tracks. Check street areas under tree canopies against the orthophoto.
+- unpaved ways from OSM that state their surface (`surface=dirt`, `gravel`, `compacted` …): tracks
+  505.2, footpaths and paths 505.1, narrow (`width` below 1.5 m) or faint paths 506. Ways without
+  `surface` are candidates (505.1); freemapper leaves out paved ways and sidewalks, which the ALKIS
+  areas and the orthophoto show.
+
+Example Strausberg Vorstadt:
+
+```sh
+freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geojson --kind sprint \
+  --title "Strausberg Vorstadt"
+freemapper run vorstadt
+```
 
 ## With an AI agent (MCP)
 

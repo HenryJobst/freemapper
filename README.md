@@ -13,7 +13,7 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilensteine M0–M6; Sprint-Feinschliff, Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M7; Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
@@ -81,6 +81,25 @@ Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/
 `--cache-dir` wählt einen anderen Ordner.
 
 Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
+
+Die Sprintkarte enthält zusätzlich, als fertige Kartenobjekte:
+
+- befestigte Flächen (501.5) aus der ALKIS-Nutzung: Fahrbahnen mit Gehwegen und Parkstreifen
+  (`Straßenverkehr`) sowie Plätze und Parkplätze (`Platz`). Begleitflächen (Grünstreifen, Baumreihen)
+  werden nicht gezeichnet. ALKIS-`Weg` kommt nur als Kandidat, weil es in der Stadt Gehwege und Gassen,
+  im Wald aber unbefestigte Wege sind. Straßenflächen unter Baumkronen am Luftbild prüfen.
+- unbefestigte Wege aus OSM mit Angabe zur Oberfläche (`surface=dirt`, `gravel`, `compacted` …):
+  Wirtschaftswege 505.2, Fußwege und Pfade 505.1, schmale (`width` unter 1,5 m) oder schwer
+  erkennbare Pfade 506. Wege ohne `surface` sind Kandidaten (505.1); befestigte Wege und Gehwege an
+  Straßen übernimmt freemapper nicht, die zeigen ALKIS-Flächen und Luftbild.
+
+Beispiel Strausberg Vorstadt:
+
+```sh
+freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geojson --kind sprint \
+  --title "Strausberg Vorstadt"
+freemapper run vorstadt
+```
 
 ## Mit einem KI-Agenten (MCP)
 
