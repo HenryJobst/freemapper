@@ -10,9 +10,9 @@ use crate::area::{AreaError, MapArea};
 use crate::build::buildings::building_objects;
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
-use crate::derive::DeriveError;
 use crate::derive::orthophoto::build_orthophoto;
 use crate::derive::terrain::{hillshade, mosaic_dtm, slope_deg, slope_shade, write_gray_png};
+use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
 use crate::fetch::{
     Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_atomically,
 };
@@ -55,6 +55,10 @@ pub enum ProjectError {
     TilesOutdated(Vec<TileId>),
     #[error("no ALKIS buildings stored for this map area; run `freemapper fetch` online first")]
     BuildingsNotFetched,
+    #[error(
+        "map area plus buffer is {width_m:.0} × {height_m:.0} m, more than {MAX_AREA_SIDE_M:.0} m per side; reduce the map area or buffer_m in freemapper.toml"
+    )]
+    AreaTooLarge { width_m: f64, height_m: f64 },
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
 }
@@ -252,6 +256,9 @@ fn tile_names(tiles: &[TileId]) -> String {
         .join(", ")
 }
 
+/// Largest side of map area plus buffer: [`MAX_RASTER_SIDE_PX`] orthophoto pixels of 0.2 m.
+const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
+
 /// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
@@ -273,7 +280,14 @@ pub fn fetch_project(
     progress: &mut dyn FnMut(&str),
 ) -> Result<ProjectFile, ProjectError> {
     let mut project = ProjectFile::load(dir)?;
-    let tiles = tiles_covering(&project.bbox()?);
+    let bbox = project.bbox()?;
+    if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
+        return Err(ProjectError::AreaTooLarge {
+            width_m: bbox.width(),
+            height_m: bbox.height(),
+        });
+    }
+    let tiles = tiles_covering(&bbox);
     let mut records = Vec::new();
     for product in PRODUCTS {
         for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, progress)? {
@@ -497,8 +511,7 @@ pub fn run_project(
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
         MapOutcome::Kept {
             references_images: text.contains(ORTHOPHOTO_RELPATH),
-            missing_buildings: dir.join(BUILDINGS_RELPATH).exists()
-                && !text.contains(r#"<t k="freemapper:source">alkis</t>"#),
+            missing_buildings: map_lacks_buildings(dir, &text)?,
             map: existing,
         }
     } else {
@@ -506,6 +519,59 @@ pub fn run_project(
     };
     Ok(RunOutcome { templates, map })
 }
+
+/// 521 objects for the stored ALKIS buildings; none when no buildings were fetched. Fails when the
+/// recorded fetch does not cover the current map area plus buffer.
+fn stored_building_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let path = dir.join(BUILDINGS_RELPATH);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    if let Some(record) = &project.buildings
+        && !record.covers(&project.bbox()?)
+    {
+        return Err(ProjectError::BuildingsNotFetched);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let buildings = parse_buildings(&text)
+        .map_err(|e| ProjectError::StoredBuildings {
+            path: path.clone(),
+            message: e.to_string(),
+        })?
+        .buildings;
+    Ok(building_objects(
+        &buildings,
+        &area.projected_polygon(),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
+}
+
+/// Whether the stored buildings give map objects that the map at `map_text` lacks.
+fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
+    if map_text.contains(ALKIS_SOURCE_TAG) {
+        return Ok(false);
+    }
+    let project = ProjectFile::load(dir)?;
+    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let georef = Georeferencing::new(
+        area.centroid(),
+        project.scale_denominator,
+        project.declination_date,
+    )?;
+    let symbol_set = project.map_kind.symbol_set();
+    Ok(!stored_building_objects(dir, &project, &area, &georef, &symbol_set)?.is_empty())
+}
+
+/// How a building object's provenance appears in the map file.
+const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"#;
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
@@ -561,29 +627,10 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         opacity: 0.7,
         behind_map: false,
     });
-    let buildings_path = dir.join(BUILDINGS_RELPATH);
-    let mut buildings_part = MapPart {
+    let buildings_part = MapPart {
         name: "default part".to_string(),
-        objects: Vec::new(),
+        objects: stored_building_objects(dir, &project, &area, &georef, &symbol_set)?,
     };
-    if buildings_path.exists() {
-        let text = std::fs::read_to_string(&buildings_path)
-            .map_err(|e| ProjectError::Io(buildings_path.clone(), e))?;
-        let buildings = parse_buildings(&text)
-            .map_err(|e| ProjectError::StoredBuildings {
-                path: buildings_path.clone(),
-                message: e.to_string(),
-            })?
-            .buildings;
-        let objects = building_objects(
-            &buildings,
-            &area.projected_polygon(),
-            project.buffer_m,
-            &georef,
-            &symbol_set,
-        )?;
-        buildings_part.objects = objects;
-    }
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(attribution_lines(&project).into_iter().skip(1));
@@ -995,6 +1042,62 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 missing_buildings: false
             }
         );
+    }
+
+    #[test]
+    fn run_does_not_hint_when_there_are_no_buildings_to_add() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        run(dir.path(), &fetcher, &cache, false);
+        let again = run(dir.path(), &fetcher, &cache, false);
+        assert!(
+            matches!(
+                again.map,
+                MapOutcome::Kept {
+                    missing_buildings: false,
+                    ..
+                }
+            ),
+            "{:?}",
+            again.map
+        );
+    }
+
+    #[test]
+    fn export_refuses_buildings_that_do_not_cover_the_area() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m += 40.0;
+        project.save(dir.path()).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let err = export_starter_project(dir.path(), false).unwrap_err();
+        assert!(matches!(err, ProjectError::BuildingsNotFetched), "{err:?}");
+    }
+
+    #[test]
+    fn oversized_area_is_refused_before_downloading() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m = 2_500.0;
+        project.save(dir.path()).unwrap();
+        let fetcher = MapFetcher::default();
+        let err = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+        assert!(err.to_string().contains("buffer_m"), "{err}");
+        assert_eq!(fetcher.calls.get(), 0);
     }
 
     fn fetched_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
