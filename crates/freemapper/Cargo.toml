@@ -14,6 +14,7 @@ geo.workspace = true
 geo-types.workspace = true
 geojson.workspace = true
 image.workspace = true
+osmpbf.workspace = true
 quick-xml.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -14,6 +14,25 @@ pub enum AreaError {
     OutOfRange { lat: f64, lon: f64 },
 }
 
+/// Metres per degree of latitude (and of longitude on the equator), close enough for a filter box.
+const METRES_PER_DEGREE: f64 = 111_320.0;
+
+/// Axis-parallel box in geographic coordinates (degrees).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GeoBox {
+    pub min_lat: f64,
+    pub min_lon: f64,
+    pub max_lat: f64,
+    pub max_lon: f64,
+}
+
+impl GeoBox {
+    pub fn contains(&self, p: LatLon) -> bool {
+        (self.min_lat..=self.max_lat).contains(&p.lat)
+            && (self.min_lon..=self.max_lon).contains(&p.lon)
+    }
+}
+
 /// Map area as a polygon in geographic coordinates (x = longitude, y = latitude).
 #[derive(Debug, Clone, PartialEq)]
 pub struct MapArea {
@@ -73,6 +92,24 @@ impl MapArea {
             let p = utm33_forward(LatLon { lat: c.y, lon: c.x });
             geo_types::coord! { x: p.easting, y: p.northing }
         })
+    }
+
+    /// Geographic bounds of the polygon grown by `buffer_m` metres on every side.
+    pub fn geo_box(&self, buffer_m: f64) -> GeoBox {
+        use geo::BoundingRect as _;
+        let rect = self
+            .polygon
+            .bounding_rect()
+            .expect("map area polygon is not empty");
+        let mid_lat = (rect.min().y + rect.max().y) / 2.0;
+        let dlat = buffer_m / METRES_PER_DEGREE;
+        let dlon = buffer_m / (METRES_PER_DEGREE * mid_lat.to_radians().cos());
+        GeoBox {
+            min_lat: rect.min().y - dlat,
+            min_lon: rect.min().x - dlon,
+            max_lat: rect.max().y + dlat,
+            max_lon: rect.max().x + dlon,
+        }
     }
 
     /// Bounding box of the exterior ring in EPSG:25833.
@@ -183,6 +220,23 @@ mod tests {
         let bbox = area.projected_bbox();
         assert_eq!((rect.min().x, rect.min().y), (bbox.min_e, bbox.min_n));
         assert_eq!((rect.max().x, rect.max().y), (bbox.max_e, bbox.max_n));
+    }
+
+    #[test]
+    fn geo_box_grows_by_buffer() {
+        let area = MapArea::from_geojson(FIXTURE).unwrap();
+        let tight = area.geo_box(0.0);
+        let grown = area.geo_box(100.0);
+        // 100 m are about 0.0009° of latitude and 0.0015° of longitude at 52.5° N.
+        assert!(
+            ((tight.min_lat - grown.min_lat) - 0.000_898).abs() < 0.000_01,
+            "{grown:?}"
+        );
+        assert!(
+            ((grown.max_lon - tight.max_lon) - 0.001_477).abs() < 0.000_02,
+            "{grown:?}"
+        );
+        assert!(tight.min_lat < 52.5402 && tight.max_lat > 52.5402);
     }
 
     #[test]

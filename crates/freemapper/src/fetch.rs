@@ -36,6 +36,8 @@ pub enum FetchError {
     CurrencyCsv(#[from] CurrencyCsvError),
     #[error(transparent)]
     Alkis(#[from] AlkisError),
+    #[error("no OSM extract cached; run `freemapper fetch` online")]
+    OsmExtractMissing,
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -64,6 +66,15 @@ const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 /// Source of downloads; HTTP in production, in-memory in tests.
 pub trait Fetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
+
+    /// Downloads `url` into the file `path`; large files stream instead of being held in memory.
+    fn download_to(&self, url: &str, path: &Path) -> Result<(), FetchError> {
+        let bytes = self.get(url)?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
+        }
+        std::fs::write(path, bytes).map_err(|e| FetchError::Io(path.to_path_buf(), e))
+    }
 }
 
 /// Time to open a connection and to wait for the response headers.
@@ -72,9 +83,13 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
 /// Time to receive a whole body; an 8 MB tile at 128 kbit/s takes about 9 minutes.
 const BODY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
+/// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
+const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
+
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
 pub struct HttpFetcher {
     agent: ureq::Agent,
+    large: ureq::Agent,
 }
 
 impl HttpFetcher {
@@ -88,13 +103,17 @@ impl HttpFetcher {
     }
 
     fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
-        let config = ureq::Agent::config_builder()
-            .timeout_connect(Some(connect))
-            .timeout_recv_response(Some(response))
-            .timeout_recv_body(Some(body))
-            .build();
+        let agent = |body: Duration| -> ureq::Agent {
+            ureq::Agent::config_builder()
+                .timeout_connect(Some(connect))
+                .timeout_recv_response(Some(response))
+                .timeout_recv_body(Some(body))
+                .build()
+                .into()
+        };
         Self {
-            agent: config.into(),
+            agent: agent(body),
+            large: agent(LARGE_BODY_TIMEOUT.max(body)),
         }
     }
 }
@@ -106,6 +125,30 @@ impl Default for HttpFetcher {
 }
 
 impl Fetcher for HttpFetcher {
+    fn download_to(&self, url: &str, path: &Path) -> Result<(), FetchError> {
+        let http_error = |message: String| FetchError::Http {
+            url: url.to_string(),
+            message,
+        };
+        let mut response = self
+            .large
+            .get(url)
+            .header(
+                "User-Agent",
+                concat!("freemapper/", env!("CARGO_PKG_VERSION")),
+            )
+            .call()
+            .map_err(|e| http_error(e.to_string()))?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
+        }
+        let mut file =
+            std::fs::File::create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+        std::io::copy(&mut response.body_mut().as_reader(), &mut file)
+            .map_err(|e| http_error(e.to_string()))?;
+        Ok(())
+    }
+
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let http_error = |e: ureq::Error| FetchError::Http {
             url: url.to_string(),
@@ -157,6 +200,11 @@ impl Cache {
     pub fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
         self.product_dir(product)
             .join(format!("{}_{published}.zip", tile.name()))
+    }
+
+    /// Folder of the cached OSM extracts.
+    pub fn osm_dir(&self) -> PathBuf {
+        self.root.join("osm")
     }
 
     pub fn currency_csv_path(&self, product: Product) -> PathBuf {
