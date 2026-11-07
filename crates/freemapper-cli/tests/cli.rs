@@ -89,7 +89,7 @@ fn init_then_export_creates_starter_project() {
     let map = std::fs::read_to_string(project.join("clara-zetkin-schule.omap")).unwrap();
     assert!(map.contains(r#"scale="1000""#));
     assert!(map.contains("<parameter>25833</parameter>"));
-    assert!(map.contains(r#"<symbols count="191""#));
+    assert!(map.contains(r#"<symbols count="195""#));
     assert!(map.contains(r#"type="TemplateMap""#));
     assert!(map.contains("© OpenStreetMap contributors"));
 }

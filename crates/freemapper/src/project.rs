@@ -77,10 +77,28 @@ impl MapKind {
         }
     }
 
+    /// The map kind's symbol set plus the sheet symbols for the peripheral information.
     pub fn symbol_set(self) -> SymbolSet {
         match self {
             Self::Schoolyard => SymbolSet::school_2019(),
             Self::Sprint => SymbolSet::issprom_2019(),
+        }
+        .with_sheet_symbols()
+    }
+
+    /// Enlargement of the norm's symbols over ISSprOM 2019 (school set: 125 %).
+    pub fn symbol_enlargement(self) -> f64 {
+        match self {
+            Self::Schoolyard => 1.25,
+            Self::Sprint => 1.0,
+        }
+    }
+
+    /// Contour interval in metres (spec §4.4).
+    pub fn contour_interval_m(self) -> u32 {
+        match self {
+            Self::Schoolyard => 1,
+            Self::Sprint => 2,
         }
     }
 }
@@ -514,8 +532,21 @@ mod tests {
         assert_eq!(MapKind::Sprint.default_scale(), 4000);
         assert_eq!(MapKind::Schoolyard.default_buffer_m(), 20.0);
         assert_eq!(MapKind::Sprint.default_buffer_m(), 50.0);
-        assert_eq!(MapKind::Schoolyard.symbol_set().symbol_count(), 191);
-        assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 185);
+        assert_eq!(MapKind::Schoolyard.symbol_set().symbol_count(), 195);
+        assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 189);
+    }
+
+    #[test]
+    fn map_kind_sheet_values() {
+        assert_eq!(MapKind::Schoolyard.symbol_enlargement(), 1.25);
+        assert_eq!(MapKind::Sprint.symbol_enlargement(), 1.0);
+        assert_eq!(MapKind::Schoolyard.contour_interval_m(), 1);
+        assert_eq!(MapKind::Sprint.contour_interval_m(), 2);
+        assert_eq!(
+            MapKind::Schoolyard.symbol_set().id_for_code("991"),
+            Some(191)
+        );
+        assert_eq!(MapKind::Sprint.symbol_set().id_for_code("991"), Some(185));
     }
 
     #[test]

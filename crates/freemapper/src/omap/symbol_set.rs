@@ -21,6 +21,7 @@ pub struct SymbolSet {
 
 const SCHOOL_2019_ADDITIONS: &str =
     include_str!("../../../../assets/symbol-sets/school-2019-additions.xml");
+const SHEET_ADDITIONS: &str = include_str!("../../../../assets/symbol-sets/sheet-additions.xml");
 /// IOF school symbol set 2019: all ISSprOM 2019 symbols are enlarged to 125 %.
 const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
 
@@ -137,8 +138,29 @@ impl SymbolSet {
             );
         }
 
-        let mut next_id = issprom.max_id() + 1;
-        let additions = SCHOOL_2019_ADDITIONS
+        let map = ISSPROM_2019_4000
+            .replacen(&issprom.symbols_xml, &symbols, 1)
+            .replacen(
+                r#"<georeferencing scale="4000""#,
+                r#"<georeferencing scale="1000""#,
+                1,
+            );
+        Self::from_omap_xml(&map)
+            .expect("generated school symbol set is valid")
+            .with_additions(SCHOOL_2019_ADDITIONS)
+    }
+
+    /// This set plus the freemapper sheet symbols for the peripheral information (991–994).
+    /// They are added unscaled: their sizes are absolute on paper.
+    pub fn with_sheet_symbols(&self) -> Self {
+        self.with_additions(SHEET_ADDITIONS)
+    }
+
+    /// Appends symbols given one per line with `id="@"`; they get consecutive ids after the
+    /// highest existing id, so existing ids stay unchanged.
+    pub fn with_additions(&self, additions_xml: &str) -> Self {
+        let mut next_id = self.max_id() + 1;
+        let additions = additions_xml
             .lines()
             .filter(|line| !line.trim().is_empty())
             .map(|line| {
@@ -147,29 +169,28 @@ impl SymbolSet {
                 symbol
             })
             .collect::<Vec<_>>();
-        let closing = symbols
+        let count: usize = first_attribute_after(&self.symbols_xml, "<symbols ", "count")
+            .and_then(|c| c.parse().ok())
+            .expect("symbols fragment has a count");
+        let closing = self
+            .symbols_xml
             .rfind("</symbols>")
             .expect("symbols fragment is closed");
-        let count = issprom.symbol_count() + additions.len();
-        symbols = format!(
+        let symbols = format!(
             "{}{}\n</symbols>",
-            &symbols[..closing],
+            &self.symbols_xml[..closing],
             additions.join("\n")
-        );
-        symbols = symbols.replacen(
-            &format!(r#"<symbols count="{}""#, issprom.symbol_count()),
+        )
+        .replacen(
             &format!(r#"<symbols count="{count}""#),
+            &format!(r#"<symbols count="{}""#, count + additions.len()),
             1,
         );
-
-        let map = ISSPROM_2019_4000
-            .replacen(&issprom.symbols_xml, &symbols, 1)
-            .replacen(
-                r#"<georeferencing scale="4000""#,
-                r#"<georeferencing scale="1000""#,
-                1,
-            );
-        Self::from_omap_xml(&map).expect("generated school symbol set is valid")
+        let map = format!(
+            r#"<map><georeferencing scale="{}"/>{}<barrier>{symbols}<view>{}</view></barrier></map>"#,
+            self.scale_denominator, self.colors_xml, self.grid_xml
+        );
+        Self::from_omap_xml(&map).expect("symbol set with additions is valid")
     }
 
     /// Id of the first top-level symbol with the given code.
@@ -350,6 +371,34 @@ mod tests {
             }
             assert_eq!(enlarged.3, (base.3 * 1.25).round(), "{base:?}");
         }
+    }
+
+    #[test]
+    fn sheet_additions_extend_both_sets() {
+        let school = SymbolSet::school_2019().with_sheet_symbols();
+        assert_eq!(school.symbol_count(), 195);
+        assert_eq!(school.id_for_code("321"), Some(185));
+        for (code, id) in [("991", 191), ("992", 192), ("993", 193), ("994", 194)] {
+            assert_eq!(school.id_for_code(code), Some(id), "code {code}");
+        }
+        assert!(
+            school
+                .symbols_xml
+                .starts_with(r#"<symbols count="195" id="ISSprOM 2019">"#)
+        );
+        assert_eq!(school.scale_denominator, 1000);
+
+        let sprint = SymbolSet::issprom_2019().with_sheet_symbols();
+        assert_eq!(sprint.symbol_count(), 189);
+        assert_eq!(sprint.id_for_code("991"), Some(185));
+        assert_eq!(sprint.scale_denominator, 4000);
+        assert_eq!(
+            first_attr(&sprint.symbols_xml, r#"code="994""#, "line_width"),
+            "250"
+        );
+        let title = r#"code="991""#;
+        assert_eq!(first_attr(&sprint.symbols_xml, title, "size"), "5000");
+        assert_eq!(first_attr(&sprint.symbols_xml, title, "bold"), "true");
     }
 
     #[test]
