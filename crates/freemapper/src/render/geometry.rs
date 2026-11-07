@@ -19,6 +19,9 @@ pub struct Part {
 /// Bézier flattening: chords at most 1 mm, control polygon at most 0.005 mm longer than the chord.
 const MAX_CHORD: f64 = 1.0;
 const MAX_ERROR: f64 = 0.005;
+/// At most this many dashes or mid symbols per part; more means a broken symbol definition, and
+/// the line is drawn solid (dashes) or without mid symbols.
+const MAX_REPEATS: usize = 100_000;
 /// Points closer than this are skipped when looking for a direction (0.025 mm).
 const TANGENT_EPSILON: f64 = 0.025;
 
@@ -131,12 +134,16 @@ fn locate(points: &[Pt], cum: &[f64], s: f64) -> (Pt, usize) {
 /// Position and direction (radians, y down) at arc length `s`: the segment direction, the
 /// bisector at a vertex, the single direction at an open end.
 pub fn at(part: &Part, s: f64) -> (Pt, f64) {
+    at_on(part, &cumulative(&part.points), s)
+}
+
+/// [`at`] with the cumulative lengths of the part computed once.
+fn at_on(part: &Part, cum: &[f64], s: f64) -> (Pt, f64) {
     let points = &part.points;
     if points.len() < 2 {
         return (points.first().copied().unwrap_or((0.0, 0.0)), 0.0);
     }
-    let cum = cumulative(points);
-    let (pos, _) = locate(points, &cum, s);
+    let (pos, _) = locate(points, cum, s);
     let n = points.len();
     // The nearest points before and after `pos` that are not within the epsilon.
     let after = |from: usize| -> Option<Pt> {
@@ -218,7 +225,8 @@ pub fn dashes(part: &Part, dash: &Dash) -> Vec<Vec<Pt>> {
     let lo = nf.floor();
     let min_opt_dashes = f64::from(2 * k - h / 2);
     let sw = 0.2 * period / kf;
-    if l <= 0.0 || (lo <= 1.0 && l < 2.0 * period - min_opt_dashes * sw) {
+    let usable = d > 0.0 && b >= 0.0 && g >= 0.0 && period.is_finite() && nf.is_finite();
+    if !usable || l <= 0.0 || (lo <= 1.0 && l < 2.0 * period - min_opt_dashes * sw) {
         return vec![points.clone()];
     }
     let hi = nf.ceil();
@@ -229,6 +237,9 @@ pub fn dashes(part: &Part, dash: &Dash) -> Vec<Vec<Pt>> {
         let dhi = (hi * period - (l + b)) / hi;
         if dlo > dhi { hi } else { lo }
     };
+    if n * kf > MAX_REPEATS as f64 {
+        return vec![points.clone()];
+    }
     let dash_len = ((l - (n - 1.0) * b - n * (kf - 1.0) * g) * 2.0 / (2.0 * n * kf - hf)).max(0.0);
     let groups = n as u32;
     let mut out = Vec::new();
@@ -269,10 +280,12 @@ pub fn mid_positions(part: &Part, mid: &Mid) -> Vec<(Pt, f64)> {
     let m = mid.per_spot.max(1);
     let msl = f64::from(m - 1) * q;
     let mut spots = Vec::new();
-    if s <= 0.0 || l <= 0.0 {
+    if !(s > 0.0 && s.is_finite() && e >= 0.0 && q >= 0.0 && msl.is_finite()) || l <= 0.0 {
         return spots;
     }
-    let mut place = |p: f64| spots.push(at(part, p));
+    // Spots per section, bounded: a broken definition gets no mid symbols.
+    let bound = |n: f64| (n + 1.0) * f64::from(m) <= MAX_REPEATS as f64;
+    let mut place = |p: f64| spots.push(at_on(part, &cum, p));
     if e == 0.0 && !part.closed {
         place(0.0);
     }
@@ -289,6 +302,9 @@ pub fn mid_positions(part: &Part, mid: &Mid) -> Vec<(Pt, f64)> {
             let dlo = (l - lo * s - (lo + 1.0) * msl - 2.0 * e).abs();
             let dhi = (l - hi * s - (hi + 1.0) * msl - 2.0 * e).abs();
             let (n, dev) = if dlo >= dhi { (hi, -dhi) } else { (lo, dlo) };
+            if !bound(n) {
+                return Vec::new();
+            }
             let ideal = n * s + 2.0 * e;
             let e2 = e + dev * e / ideal;
             let s2 = s + dev * s / ideal;
@@ -305,6 +321,9 @@ pub fn mid_positions(part: &Part, mid: &Mid) -> Vec<(Pt, f64)> {
             let dlo = (l - lo * s - (lo + 1.0) * msl).abs() / lo;
             let dhi = (l - hi * s - (hi + 1.0) * msl).abs() / hi;
             let n = if dlo > dhi { hi } else { lo };
+            if !bound(n) {
+                return Vec::new();
+            }
             let a = (l - (n + 1.0) * msl) / n + msl;
             if a >= msl {
                 'spots: for i in 0..=n as u32 {
@@ -556,6 +575,32 @@ mod tests {
         let one = mid_positions(&line(&[(0.0, 0.0), (3.0, 0.0)]), &fence_mid());
         assert_eq!(one.len(), 1);
         assert!(near(one[0].0.0, 1.5));
+    }
+
+    #[test]
+    fn absurd_patterns_are_bounded() {
+        let long = line(&[(0.0, 0.0), (10_000.0, 0.0)]);
+        let tiny = Dash {
+            dash: 0.001,
+            gap: 0.0,
+            group: 1_000_000,
+            in_group_gap: 0.0,
+            half_outer: false,
+        };
+        let start = std::time::Instant::now();
+        let pieces = dashes(&long, &tiny);
+        assert!(pieces.len() <= MAX_REPEATS, "{}", pieces.len());
+        let mut mid = fence_mid();
+        mid.segment = 0.001;
+        mid.end = 0.001;
+        mid.per_spot = 1_000_000;
+        assert!(mid_positions(&long, &mid).len() <= MAX_REPEATS);
+        let nan = Dash {
+            dash: f64::NAN,
+            ..dash_506()
+        };
+        assert_eq!(dashes(&long, &nan).len(), 1, "solid");
+        assert!(start.elapsed() < std::time::Duration::from_secs(2));
     }
 
     #[test]
