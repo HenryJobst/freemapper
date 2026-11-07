@@ -3,10 +3,15 @@
 [Deutsche Version](README.md) · [Glossary](docs/glossary.md)
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
-into a **starter project for OpenOrienteering Mapper (OOM)**: a georeferenced `.omap` file with the
-reliable map objects already symbolized, plus templates for everything the mapper has to judge.
-Drawing and field checking stay in OOM.
+into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
+georeferenced map with the reliable map objects already symbolized, plus templates for everything
+the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 
+- **Output:**
+  - always an OOM map (`.omap`);
+  - with `--ocad`, also an OCAD map (`.ocd`, OCAD 12 and newer), see
+    [Starting point for OCAD](#starting-point-for-ocad);
+  - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
 - First: Brandenburg and Berlin (LGB and Geoportal Berlin open data), schoolyard maps 1:1000 and
