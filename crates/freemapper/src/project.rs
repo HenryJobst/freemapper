@@ -94,7 +94,7 @@ impl MapKind {
     /// Enlargement of the norm's symbols over ISSprOM 2019 (school set: 125 %).
     pub fn symbol_enlargement(self) -> f64 {
         match self {
-            Self::Schoolyard => 1.25,
+            Self::Schoolyard => crate::omap::symbol_set::SCHOOL_SYMBOL_ENLARGEMENT,
             Self::Sprint => 1.0,
         }
     }
@@ -174,14 +174,16 @@ impl ProjectFile {
         toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))
     }
 
-    /// The title, or the folder name of `dir` with each `-`/`_`-separated word capitalized and
-    /// joined by `-` (`clara-zetkin-schule` → `Clara-Zetkin-Schule`).
+    /// The title without control characters, or the folder name of `dir` with each
+    /// `-`/`_`-separated word capitalized and joined by `-` (`clara-zetkin-schule` →
+    /// `Clara-Zetkin-Schule`), or `Karte` when neither gives a text.
     pub fn display_title(&self, dir: &Path) -> String {
-        if let Some(title) = &self.title {
-            return title.clone();
+        if let Some(title) = self.title.as_deref().and_then(clean_title) {
+            return title;
         }
-        let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
-        name.split(['-', '_'])
+        let name = folder_name(dir).unwrap_or_default();
+        let title = name
+            .split(['-', '_'])
             .filter(|word| !word.is_empty())
             .map(|word| {
                 let mut chars = word.chars();
@@ -191,7 +193,8 @@ impl ProjectFile {
                     .unwrap_or_default()
             })
             .collect::<Vec<_>>()
-            .join("-")
+            .join("-");
+        clean_title(&title).unwrap_or_else(|| DEFAULT_TITLE.to_string())
     }
 
     /// Map area plus buffer in EPSG:25833.
@@ -233,7 +236,7 @@ pub fn init_project(
         buffer_m: map_kind.default_buffer_m(),
         map_area_source_id: area.source_id.clone(),
         map_area: area.to_geojson_value(),
-        title,
+        title: title.as_deref().and_then(clean_title),
         tiles: Vec::new(),
         buildings: None,
     };
@@ -436,8 +439,24 @@ pub fn derive_project(
 
 /// Path of the project's map file: `<dir>/<dir name>.omap`.
 pub fn map_path(dir: &Path) -> PathBuf {
-    let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
+    let name = folder_name(dir).unwrap_or_else(|| "map".to_string());
     dir.join(format!("{name}.omap"))
+}
+
+/// Name of the folder `dir`, also for paths like `.` that have no file name of their own.
+fn folder_name(dir: &Path) -> Option<String> {
+    let resolved = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    resolved.file_name()?.to_str().map(str::to_string)
+}
+
+/// Title for the peripheral information when neither title nor folder name gives one.
+const DEFAULT_TITLE: &str = "Karte";
+
+/// `title` trimmed and without control characters; `None` when nothing is left.
+fn clean_title(title: &str) -> Option<String> {
+    let cleaned: String = title.chars().filter(|c| !c.is_control()).collect();
+    let cleaned = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!cleaned.is_empty()).then_some(cleaned)
 }
 
 /// What [`run_project`] did with the map file.
@@ -566,8 +585,9 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         buildings_part.objects = objects;
     }
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
-    let mut attribution = attribution_lines(&project);
-    attribution.push(FREEMAPPER_CREDIT.to_string());
+    let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
+    attribution.extend(attribution_lines(&project).into_iter().skip(1));
+    attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
         scale_denominator: project.scale_denominator,
@@ -613,6 +633,11 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
 
 const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "Map area: © OpenStreetMap contributors, ODbL";
+/// [`OSM_ATTRIBUTION`] for the German peripheral information.
+const OSM_ATTRIBUTION_DE: &str = "Kartengebiet: © OpenStreetMap-Mitwirkende, ODbL";
+/// [`FREEMAPPER_CREDIT`] for the German peripheral information.
+const FREEMAPPER_CREDIT_DE: &str =
+    concat!("Erstellt mit freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 /// Names the tool and where to get it, in every generated project.
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
@@ -785,7 +810,10 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 "#,
         )
         .unwrap();
-        assert_eq!(ProjectFile::load(dir.path()).unwrap().tiles, []);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.tiles, []);
+        assert_eq!(project.title, None);
+        assert_eq!(project.buildings, None);
     }
 
     #[test]
@@ -1171,6 +1199,65 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn empty_title_falls_back_to_folder_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let project = init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Schoolyard,
+            None,
+            date,
+            Some("  ".to_string()),
+        )
+        .unwrap();
+        assert_eq!(project.title, None);
+        assert_eq!(project.display_title(Path::new("/maps/--")), "Karte");
+        let mut titled = project.clone();
+        titled.title = Some("Schule\u{7} Nord".to_string());
+        assert_eq!(titled.display_title(Path::new("/maps/x")), "Schule Nord");
+    }
+
+    #[test]
+    fn display_title_of_dot_uses_the_real_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let project_dir = dir.path().join("clara-zetkin-schule");
+        school_project(&project_dir);
+        let project = ProjectFile::load(&project_dir).unwrap();
+        // Like `.` from inside the folder: the path has no file name of its own.
+        std::fs::create_dir(project_dir.join("x")).unwrap();
+        let unnamed = project_dir.join("x").join("..");
+        assert_eq!(unnamed.file_name(), None);
+        let title = project.display_title(&unnamed);
+        let map = map_path(&unnamed);
+        assert_eq!(title, "Clara-Zetkin-Schule");
+        assert_eq!(map.file_name().unwrap(), "clara-zetkin-schule.omap");
+    }
+
+    #[test]
+    fn export_sprint_project() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(map.contains("<text>Maßstab 1:4000 · Äquidistanz 2 m</text>"));
+        assert!(
+            map.contains(r#"<coords count="2">30000 "#),
+            "north line at 30 mm"
+        );
+        assert!(!map.contains(r#"<coords count="2">37500 "#));
+    }
+
+    #[test]
     fn export_has_one_peripheral_part() {
         let dir = tempfile::tempdir().unwrap();
         let project_dir = dir.path().join("clara-zetkin-schule");
@@ -1184,7 +1271,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             1
         );
         assert!(map.contains("<text>Clara-Zetkin-Schule</text>"));
-        assert!(map.contains(&format!("<text>{FREEMAPPER_CREDIT}</text>")));
+        assert!(map.contains(
+            "<text>Erstellt mit freemapper – https://github.com/HenryJobst/freemapper</text>"
+        ));
+        assert!(map.contains("<text>Kartengebiet: © OpenStreetMap-Mitwirkende, ODbL</text>"));
+        assert!(
+            map.contains(FREEMAPPER_CREDIT),
+            "notes keep the English credit"
+        );
         assert!(map.contains("<text>Maßstab 1:1000 · Äquidistanz 1 m</text>"));
         let default = map.find(r#"<part name="default part">"#).unwrap();
         let sheet = map.find(r#"<part name="peripheral information">"#).unwrap();

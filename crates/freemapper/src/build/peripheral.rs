@@ -10,8 +10,8 @@ const TITLE_CODE: &str = "991";
 const TEXT_CODE: &str = "992";
 const SMALL_TEXT_CODE: &str = "993";
 const BAR_LINE_CODE: &str = "994";
-/// Length of the bar scale on paper.
-const BAR_LENGTH_MM: f64 = 50.0;
+/// Longest bar scale on paper; the bar is the longest round ground distance that fits.
+const BAR_MAX_MM: f64 = 60.0;
 /// Text alignments as in OOM.
 const ALIGN_LEFT: u8 = 0;
 const ALIGN_CENTRE: u8 = 1;
@@ -115,13 +115,46 @@ pub fn north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet)
         .collect()
 }
 
-/// Ground distance for a bar scale label: whole metres without decimals.
+/// Ground distance for a bar scale label: whole metres without decimals, else a decimal comma.
 fn metres_label(metres: f64) -> String {
     if metres.fract() == 0.0 {
         format!("{metres:.0}")
     } else {
-        format!("{metres}")
+        format!("{metres}").replace('.', ",")
     }
+}
+
+/// Longest ground distance of 1, 2 or 5 × 10ⁿ m whose bar is at most [`BAR_MAX_MM`] on paper.
+fn bar_length_m(scale_denominator: u32) -> f64 {
+    let max_m = BAR_MAX_MM * f64::from(scale_denominator) / 1000.0;
+    let decade = 10f64.powi(max_m.log10().floor() as i32);
+    [5.0, 2.0, 1.0]
+        .into_iter()
+        .map(|step| step * decade)
+        .find(|length| *length <= max_m)
+        .unwrap_or(decade)
+}
+
+/// Bar scale with ticks at 0, ½ and the end, labelled in ground metres, starting at `origin`.
+fn bar_scale(origin: (i32, i32), scale_denominator: u32, bar: u32, small: u32) -> Vec<MapObject> {
+    let (x0, y) = origin;
+    let length_m = bar_length_m(scale_denominator);
+    let length_mm = length_m * 1000.0 / f64::from(scale_denominator);
+    let bar_end = x0 + mm(length_mm);
+    let mut objects = vec![line(bar, (x0, y), (bar_end, y))];
+    for fraction in [0.0, 0.5, 1.0] {
+        let x = x0 + mm(length_mm * fraction);
+        objects.push(line(bar, (x, y), (x, y - mm(1.5))));
+        let label = metres_label(length_m * fraction);
+        objects.push(text(small, (x, y - mm(2.5)), label, ALIGN_CENTRE));
+    }
+    objects.push(text(
+        small,
+        (bar_end + mm(1.5), y),
+        "m".to_string(),
+        ALIGN_LEFT,
+    ));
+    objects
 }
 
 /// Title, scale and contour interval, bar scale and attribution below `content`.
@@ -152,15 +185,7 @@ pub fn info_block(
     ));
 
     y += mm(7.0);
-    let bar_end = x0 + mm(BAR_LENGTH_MM);
-    objects.push(line(bar, (x0, y), (bar_end, y)));
-    let bar_metres = BAR_LENGTH_MM * f64::from(info.scale_denominator) / 1000.0;
-    for (fraction, unit) in [(0.0, ""), (0.5, ""), (1.0, " m")] {
-        let x = x0 + mm(BAR_LENGTH_MM * fraction);
-        objects.push(line(bar, (x, y), (x, y - mm(1.5))));
-        let label = format!("{}{unit}", metres_label(bar_metres * fraction));
-        objects.push(text(small, (x, y - mm(2.5)), label, ALIGN_CENTRE));
-    }
+    objects.extend(bar_scale((x0, y), info.scale_denominator, bar, small));
 
     y += mm(6.0);
     for line_text in &info.attribution {
@@ -230,7 +255,8 @@ mod tests {
     #[test]
     fn north_line_spacing_sprint() {
         let content = rect_mm(-10.0, -10.0, 40.0, 10.0);
-        let xs: Vec<i32> = north_lines(&content, 30.0, &school_set())
+        let sprint = SymbolSet::issprom_2019().with_sheet_symbols();
+        let xs: Vec<i32> = north_lines(&content, 30.0, &sprint)
             .iter()
             .map(|l| l.coords[0].x)
             .collect();
@@ -260,7 +286,8 @@ mod tests {
                 "Maßstab 1:1000 · Äquidistanz 1 m",
                 "0",
                 "25",
-                "50 m",
+                "50",
+                "m",
                 "© OSM",
                 "Created with freemapper"
             ]
@@ -275,8 +302,8 @@ mod tests {
         let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(4000, 2), &set);
         let all = texts(&objects);
         assert_eq!(
-            &all[1..5],
-            ["Maßstab 1:4000 · Äquidistanz 2 m", "0", "100", "200 m"]
+            &all[1..6],
+            ["Maßstab 1:4000 · Äquidistanz 2 m", "0", "100", "200", "m"]
         );
         let bar = set.id_for_code("994");
         let longest = objects
@@ -285,6 +312,35 @@ mod tests {
             .map(|o| (o.coords[1].x - o.coords[0].x).abs())
             .max();
         assert_eq!(longest, Some(50_000));
+    }
+
+    #[test]
+    fn bar_scale_uses_round_lengths() {
+        assert_eq!(bar_length_m(1000), 50.0);
+        assert_eq!(bar_length_m(4000), 200.0);
+        assert_eq!(bar_length_m(1500), 50.0);
+        assert_eq!(bar_length_m(2500), 100.0);
+        assert_eq!(metres_label(2.5), "2,5");
+        assert_eq!(metres_label(25.0), "25");
+    }
+
+    #[test]
+    fn bar_unit_is_its_own_text() {
+        let set = school_set();
+        let content = rect_mm(-50.0, -50.0, 50.0, 50.0);
+        let objects = info_block(&content, &info(1000, 1), &set);
+        let label = |t: &str| {
+            objects
+                .iter()
+                .find(|o| matches!(&o.kind, MapObjectKind::Text { text, .. } if text == t))
+                .unwrap()
+        };
+        let end = label("50");
+        assert!(matches!(end.kind, MapObjectKind::Text { h_align: 1, .. }));
+        assert_eq!(end.coords[0].x, content.min_x + 50_000);
+        let unit = label("m");
+        assert!(matches!(unit.kind, MapObjectKind::Text { h_align: 0, .. }));
+        assert!(unit.coords[0].x > content.min_x + 50_000);
     }
 
     #[test]

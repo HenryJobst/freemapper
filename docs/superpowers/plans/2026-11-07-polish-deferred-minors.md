@@ -100,6 +100,26 @@ The M4b review minors are added as a further task once that review is in.
   - `buildings_url_rounds_bbox_outward`: `bbox=421490,5821580,421737,5821897` for a fractional bbox.
 - [ ] Commit `fix(alkis): paging guards, skipped features, traceability, tiny holes`.
 
-### Task 5: M4b review minors
+### Task 5: M4b review findings (2 important, minors)
 
-Filled in from the M4b final review.
+**Files:** `crates/freemapper/src/project.rs`, `crates/freemapper/src/build/peripheral.rs`,
+`crates/freemapper/src/omap/symbol_set.rs`, `docs/glossary.md`.
+
+- [ ] Tests, then fixes:
+  - `empty_title_falls_back_to_folder_name`: `--title ""` / whitespace → `None`; a folder of only
+    separators → `Karte`; control characters are removed from the title.
+  - `display_title_of_dot_uses_the_real_folder`: `display_title(Path::new("."))` and `map_path(".")`
+    use the canonical folder name.
+  - `bar_scale_uses_round_lengths`: the bar is the largest 1/2/5 × 10ⁿ m not longer than 60 mm on paper
+    (1:1000 → 50 m, 1:4000 → 200 m, 1:1500 → 50 m = 33.3 mm); labels use a decimal comma (`2,5`).
+  - `bar_unit_is_its_own_text`: labels `0`, `25`, `50` centred on their ticks, `m` left-aligned after
+    the bar end.
+  - `sheet_text_is_german`: sheet lines `Kartengebiet: © OpenStreetMap-Mitwirkende, ODbL` and
+    `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper` (notes and ATTRIBUTION.txt
+    keep the English lines).
+  - `export_sprint_project`: north lines 30 mm apart, `Maßstab 1:4000 · Äquidistanz 2 m`.
+  - `project_file_without_tiles_loads` also asserts `title == None` (hand-written old toml).
+  - `north_line_spacing_sprint` uses the sprint set.
+- [ ] `MapKind::symbol_enlargement` reuses the symbol set's constant; `bar_scale` becomes its own
+  function (glossary code term).
+- [ ] Commit `fix(sheet): title fallback, round bar scale, German sheet text`.

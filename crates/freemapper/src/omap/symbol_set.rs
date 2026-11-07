@@ -23,7 +23,7 @@ const SCHOOL_2019_ADDITIONS: &str =
     include_str!("../../../../assets/symbol-sets/school-2019-additions.xml");
 const SHEET_ADDITIONS: &str = include_str!("../../../../assets/symbol-sets/sheet-additions.xml");
 /// IOF school symbol set 2019: all ISSprOM 2019 symbols are enlarged to 125 %.
-const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
+pub const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
 
 const ISSPROM_2019_4000: &str =
     include_str!("../../../../assets/symbol-sets/ISSprOM 2019_4000.omap");
