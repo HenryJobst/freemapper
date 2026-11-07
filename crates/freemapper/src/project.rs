@@ -34,12 +34,13 @@ use crate::omap::{
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
 use crate::raster::GridSpec;
-use crate::sources::alkis::{LAND_USE_ENDPOINT, LandUse, fetch_collection, parse_land_use};
+use crate::sources::alkis::{LandUse, fetch_land_use, parse_land_use};
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::sources::osm::{
     OsmFeature, features_from_geojson, features_to_geojson, fetch_extract, read_extract,
 };
+use crate::sources::region::{Region, regions_for};
 use crate::tiles::{TileId, tiles_covering};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -557,6 +558,9 @@ fn fetch_buildings_into(
     write_atomically(&path, text.as_bytes())?;
     let count = parsed.buildings.len();
     progress(&format!("{count} ALKIS buildings"));
+    if count == 0 {
+        progress("warning: no ALKIS buildings found in the map area");
+    }
     if !parsed.skipped.is_empty() {
         let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
         let more = parsed.skipped.len() > SKIPPED_SHOWN;
@@ -621,7 +625,7 @@ fn fetch_land_use_into(
         return None;
     }
     progress("downloading ALKIS land use");
-    let downloaded = fetch_collection(fetcher, LAND_USE_ENDPOINT, bbox).and_then(|text| {
+    let downloaded = fetch_land_use(fetcher, bbox).and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_atomically(&dir.join(LAND_USE_RELPATH), text.as_bytes())?;
         Ok(land_use)
@@ -1474,6 +1478,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(lgb_attribution(&project));
+    attribution.extend(berlin_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -1508,6 +1513,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
 
 pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
+/// Geoportal Berlin data needs no attribution (dl-de/zero-2-0); it is named anyway.
+const BERLIN_ATTRIBUTION: &str =
+    "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -1516,11 +1524,31 @@ const FREEMAPPER_CREDIT_DE: &str =
 /// Names the tool and where to get it, in every generated project.
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
-/// Attribution of every source the project uses: OSM, and LGB once tiles were fetched.
+/// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
+/// Geoportal Berlin.
 fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
     lines.extend(lgb_attribution(project));
+    lines.extend(berlin_attribution(project));
     lines
+}
+
+/// The Geoportal Berlin line, once ALKIS data of an area touching Berlin was fetched.
+fn berlin_attribution(project: &ProjectFile) -> Option<String> {
+    let berlin = [&project.buildings, &project.land_use]
+        .into_iter()
+        .flatten()
+        .any(|record| {
+            let [min_e, min_n, max_e, max_n] = record.bbox;
+            regions_for(&BoundingBox {
+                min_e,
+                min_n,
+                max_e,
+                max_n,
+            })
+            .contains(&Region::Berlin)
+        });
+    berlin.then(|| BERLIN_ATTRIBUTION.to_string())
 }
 
 /// The LGB attribution line, once tiles were fetched.
@@ -2205,6 +2233,123 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
         fetch(dir.path(), fetcher, &cache);
         (dir, cache_dir, cache)
+    }
+
+    /// A schoolyard project around the Helene-Haeusler-Schule, Berlin-Prenzlauer Berg (tile
+    /// 33392-5820), served with LGB rasters and the Berlin ALKIS fixtures.
+    fn berlin_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(392_750.0, 5_820_800.0),
+            corner(392_850.0, 5_820_800.0),
+            corner(392_850.0, 5_820_900.0),
+            corner(392_750.0, 5_820_900.0),
+            corner(392_750.0, 5_820_800.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
+        serve_synthetic_tile(fetcher, tile, "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::berlin::BUILDINGS_SERVICE,
+            crate::sources::berlin::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            crate::sources::berlin::LAND_USE_SERVICE,
+            crate::sources::berlin::test_support::LAND_USE
+                .as_bytes()
+                .to_vec(),
+        );
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn berlin_project_gets_buildings() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m == "4 ALKIS buildings"),
+            "{messages:?}"
+        );
+        assert!(
+            messages.iter().any(|m| m == "6 ALKIS land use parts"),
+            "{messages:?}"
+        );
+        assert_eq!(project.buildings.unwrap().count, 4);
+        let text = std::fs::read_to_string(dir.path().join(BUILDINGS_RELPATH)).unwrap();
+        let parsed = crate::sources::alkis::parse_buildings(&text).unwrap();
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DEBE")));
+    }
+
+    #[test]
+    fn attribution_names_geoportal_berlin() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(attribution.contains(BERLIN_ATTRIBUTION), "{attribution}");
+        assert!(attribution.contains("GeoBasis-DE/LGB"), "{attribution}");
+        let documents = starter_documents(dir.path()).unwrap();
+        let sheet_texts: Vec<&str> = documents
+            .map
+            .parts
+            .iter()
+            .filter(|p| p.name == SHEET_PART)
+            .flat_map(|p| &p.objects)
+            .filter_map(|o| match &o.kind {
+                crate::omap::model::MapObjectKind::Text { text, .. } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert!(sheet_texts.contains(&BERLIN_ATTRIBUTION), "{sheet_texts:?}");
+
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(!attribution.contains("Geoportal Berlin"), "{attribution}");
+    }
+
+    #[test]
+    fn empty_alkis_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: no ALKIS buildings found")),
+            "{messages:?}"
+        );
     }
 
     #[test]
