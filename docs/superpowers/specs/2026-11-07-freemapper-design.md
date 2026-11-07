@@ -273,7 +273,10 @@ and in generic MCP client configs.
 | M7 | Sprint map kind (1:4000) for Strausberg Vorstadt: ALKIS traffic areas, OSM unpaved paths |
 | M8 | Browser area selection page |
 
-**Later:** Berlin adapter (ATOM/WFS, 2 km tiles, dl-de/zero-2-0), forest maps (ISOM, vegetation, cliffs via
+**Later:** OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
+editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
+OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
+added; image templates with world files already work in OCAD. Berlin adapter (ATOM/WFS, 2 km tiles, dl-de/zero-2-0), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 
