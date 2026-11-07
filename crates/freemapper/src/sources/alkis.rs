@@ -181,6 +181,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 .collect(),
                 Crs::Utm32,
             ),
+            Region::Hessen => (Vec::new(), Crs::Utm32), // Task 6: HVBG ALKIS
         })
     })
 }
@@ -212,6 +213,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 .collect(),
                 Crs::Utm32,
             ),
+            Region::Hessen => (Vec::new(), Crs::Utm32), // Task 6: HVBG ALKIS
         })
     })
 }

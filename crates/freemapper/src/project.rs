@@ -595,6 +595,8 @@ pub fn fetch_project(
         Some(Provider::GeoSn) => {
             fetch_geosn_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
+        // Task 5: the HVBG rasters (WMS orthophoto, DGM1/DOM1) are not fetched yet.
+        Some(Provider::Hvbg) => {}
         _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
     }
     project.save(dir)?;
@@ -1029,6 +1031,10 @@ fn raster_tiles(
     km: u32,
     progress: &mut dyn FnMut(&str),
 ) -> Vec<TileId> {
+    if provider.per_area() {
+        // No 25833 tile grid (Hesse even has negative eastings, which a `TileId` cannot hold).
+        return Vec::new();
+    }
     let tiles = provider_tiles(bbox, provider, km);
     let outside: Vec<TileId> = tiles_covering_grid(bbox, km)
         .into_iter()
@@ -1042,6 +1048,7 @@ fn raster_tiles(
                 Provider::GeoSn => "GeoSN",
                 Provider::LvermGeo => "LVermGeo",
                 Provider::Lgv => "LGV",
+                Provider::Hvbg => "HVBG",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1377,7 +1384,7 @@ pub fn derive_project(
     // no tiles: its height models are stored per area).
     let (required, dtm_product, dsm_product): (&[Product], Product, Product) = match provider {
         Provider::Lgb => (&PRODUCTS, Product::Dtm, Product::ImageDsm),
-        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv => (
+        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => (
             &[Product::SaxonyDtm],
             Product::SaxonyDtm,
             Product::SaxonyDsm,
@@ -1437,7 +1444,7 @@ pub fn derive_project(
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?,
-        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv => {
+        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);

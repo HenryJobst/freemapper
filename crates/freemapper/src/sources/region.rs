@@ -24,6 +24,9 @@ const SAXONY_ANHALT_BOUNDARY: &str =
     include_str!("../../../../assets/regions/saxony-anhalt.geojson");
 /// Hamburg from LGV `app:landesgrenze` (dl-de/by-2-0), with Neuwerk and Scharhörn.
 const HAMBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/hamburg.geojson");
+/// Hesse from HVBG ALKIS vereinfacht `VerwaltungsEinheit` DE06 (dl-de/zero-2-0). In EPSG:25833 it
+/// has negative eastings (Hesse reaches from about -17 km to 167 km).
+const HESSEN_BOUNDARY: &str = include_str!("../../../../assets/regions/hessen.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -37,6 +40,7 @@ pub enum Region {
     Saxony,
     SaxonyAnhalt,
     Hamburg,
+    Hessen,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -51,27 +55,30 @@ pub enum Provider {
     LvermGeo,
     /// LGV, Hamburg (EPSG:25832).
     Lgv,
+    /// HVBG, Hesse (EPSG:25832).
+    Hvbg,
 }
 
 impl Provider {
     /// Whether the provider's rasters are fetched per map area (WMS, WCS, zip members) instead of
     /// as recorded tiles.
     pub fn per_area(self) -> bool {
-        matches!(self, Self::LvermGeo | Self::Lgv)
+        matches!(self, Self::LvermGeo | Self::Lgv | Self::Hvbg)
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
         Self::SaxonyAnhalt,
         Self::Hamburg,
+        Self::Hessen,
     ];
 
-    /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`).
+    /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`, `DEHE…`).
     pub fn of_object_id(oid: &str) -> Option<Self> {
         match oid.get(..4) {
             Some("DEBB") => Some(Self::Brandenburg),
@@ -79,6 +86,7 @@ impl Region {
             Some("DESN") => Some(Self::Saxony),
             Some("DEST") => Some(Self::SaxonyAnhalt),
             Some("DEHH") => Some(Self::Hamburg),
+            Some("DEHE") => Some(Self::Hessen),
             _ => None,
         }
     }
@@ -89,20 +97,22 @@ impl Region {
             Self::Saxony => Provider::GeoSn,
             Self::SaxonyAnhalt => Provider::LvermGeo,
             Self::Hamburg => Provider::Lgv,
+            Self::Hessen => Provider::Hvbg,
         }
     }
 
     /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
     pub fn crs(self) -> crate::crs::Crs {
         match self {
-            Self::SaxonyAnhalt | Self::Hamburg => crate::crs::Crs::Utm32,
+            Self::SaxonyAnhalt | Self::Hamburg | Self::Hessen => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 5] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 6] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -115,6 +125,7 @@ impl Region {
             Self::Saxony => (2, SAXONY_BOUNDARY),
             Self::SaxonyAnhalt => (3, SAXONY_ANHALT_BOUNDARY),
             Self::Hamburg => (4, HAMBURG_BOUNDARY),
+            Self::Hessen => (5, HESSEN_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -157,6 +168,11 @@ pub fn raster_region(bbox: &BoundingBox) -> Option<Region> {
 /// The tiles of a `km` grid over `bbox` that touch a region of `provider`; providers publish only
 /// those.
 pub fn provider_tiles(bbox: &BoundingBox, provider: Provider, km: u32) -> Vec<TileId> {
+    // Per-area providers have no 25833 tile grid (and Hesse reaches negative eastings, which a
+    // `TileId` cannot hold).
+    if provider.per_area() {
+        return Vec::new();
+    }
     crate::tiles::tiles_covering_grid(bbox, km)
         .into_iter()
         .filter(|tile| {
@@ -345,6 +361,42 @@ mod tests {
         assert_eq!(Region::Hamburg.crs(), crate::crs::Crs::Utm32);
         assert_eq!(
             Region::of_object_id("DEHHALKAP0007dHTBL"),
+            Some(Region::Hamburg)
+        );
+    }
+
+    #[test]
+    fn frankfurt_school_is_hessen_in_zone_32() {
+        // Lessing-Gymnasium Frankfurt (25833).
+        let school = around(47_838.0, 5_571_740.0, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::Hessen]);
+        assert_eq!(raster_region(&school), Some(Region::Hessen));
+        assert_eq!(Region::Hessen.provider(), Provider::Hvbg);
+        assert!(Provider::Hvbg.per_area());
+        assert_eq!(Region::Hessen.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm32);
+    }
+
+    #[test]
+    fn wiesbaden_with_negative_eastings_is_hessen() {
+        // West of the 25833 central meridian's origin: eastings below zero.
+        let west = around(-5_000.0, 5_564_000.0, 200.0);
+        assert_eq!(regions_for(&west), vec![Region::Hessen]);
+        assert_eq!(raster_region(&west), Some(Region::Hessen));
+        assert!(!touches_berlin(&west));
+        // A per-area provider never has a 25833 tile grid.
+        assert!(provider_tiles(&west, Provider::Hvbg, 1).is_empty());
+        assert!(provider_tiles(&west, Provider::Hvbg, 2).is_empty());
+    }
+
+    #[test]
+    fn hessen_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DEHE0000AbCdEfGh"),
+            Some(Region::Hessen)
+        );
+        assert_eq!(
+            Region::of_object_id("DEHH0000AbCdEfGh"),
             Some(Region::Hamburg)
         );
     }
