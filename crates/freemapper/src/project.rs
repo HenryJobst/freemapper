@@ -21,6 +21,7 @@ use crate::omap::{
     MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
+use crate::raster::GridSpec;
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::tiles::{TileId, tiles_covering};
@@ -51,6 +52,11 @@ pub enum ProjectError {
     Derive(#[from] DeriveError),
     #[error("no tiles fetched yet; run `freemapper fetch` first")]
     NotFetched,
+    #[error(
+        "{}: image and world file do not match the map area; run `freemapper derive` again",
+        .0.display()
+    )]
+    TemplateOutdated(PathBuf),
     #[error("the map area needs tiles {} that were not fetched; run `freemapper fetch`", tile_names(.0))]
     TilesOutdated(Vec<TileId>),
     #[error("no ALKIS buildings stored for this map area; run `freemapper fetch` online first")]
@@ -543,6 +549,26 @@ pub fn run_project(
     Ok(RunOutcome { templates, map })
 }
 
+/// Checks that a template image and its world file form the grid `derive` would write for
+/// `bbox` now; a pair from different runs (crash between the two files, changed map area) fails.
+fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> {
+    let outdated = || ProjectError::TemplateOutdated(image.to_path_buf());
+    let world_extension = match image.extension().and_then(|e| e.to_str()) {
+        Some("jpg") => "jgw",
+        _ => "pgw",
+    };
+    let world =
+        std::fs::read_to_string(image.with_extension(world_extension)).map_err(|_| outdated())?;
+    let (width, height) = image::image_dimensions(image).map_err(|_| outdated())?;
+    let grid = GridSpec::from_world_file(&world, width, height).map_err(|_| outdated())?;
+    let expected = GridSpec::covering(bbox, grid.pixel_size);
+    let tolerance = grid.pixel_size / 100.0;
+    let matches = (grid.width, grid.height) == (expected.width, expected.height)
+        && (grid.west - expected.west).abs() < tolerance
+        && (grid.north - expected.north).abs() < tolerance;
+    if matches { Ok(()) } else { Err(outdated()) }
+}
+
 /// 521 objects for the stored ALKIS buildings; none when no buildings were fetched. Fails when the
 /// recorded fetch does not cover the current map area plus buffer.
 fn stored_building_objects(
@@ -631,16 +657,19 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     ]
     .into_iter()
     .filter(|(relpath, _, _)| dir.join(relpath).exists())
-    .map(|(relpath, visible, opacity)| TemplateRef {
-        kind: TemplateKind::Image,
-        relpath: relpath.to_string(),
-        georeferenced: true,
-        crs_spec: Some(crs_spec.clone()),
-        visible,
-        opacity,
-        behind_map: true,
+    .map(|(relpath, visible, opacity)| {
+        check_template(&dir.join(relpath), &project.bbox()?)?;
+        Ok(TemplateRef {
+            kind: TemplateKind::Image,
+            relpath: relpath.to_string(),
+            georeferenced: true,
+            crs_spec: Some(crs_spec.clone()),
+            visible,
+            opacity,
+            behind_map: true,
+        })
     })
-    .collect();
+    .collect::<Result<_, ProjectError>>()?;
     templates.push(TemplateRef {
         kind: TemplateKind::Map,
         relpath: CANDIDATES_RELPATH.to_string(),
@@ -1548,6 +1577,31 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
             before
         );
+    }
+
+    #[test]
+    fn export_detects_template_not_matching_the_area() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+
+        // A world file of another run, e.g. after a crash between image and world file.
+        let world = dir.path().join("templates/hillshade.pgw");
+        let shifted = std::fs::read_to_string(&world)
+            .unwrap()
+            .replacen("421", "420", 1);
+        std::fs::write(&world, shifted).unwrap();
+        let err = export_starter_project(dir.path(), true).unwrap_err();
+        assert!(matches!(err, ProjectError::TemplateOutdated(_)), "{err:?}");
+        let message = err.to_string();
+        assert!(
+            message.contains("hillshade.png") && message.contains("freemapper derive"),
+            "{message}"
+        );
+
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), true).unwrap();
     }
 
     #[test]

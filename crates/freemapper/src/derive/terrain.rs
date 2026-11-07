@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{DeriveError, read_member, template_grid, write_file};
+use super::{DeriveError, read_member, template_grid, write_image_with_world_file};
 use crate::crs::BoundingBox;
 use crate::fetch::FetchedTile;
 use crate::raster::{GridSpec, Raster};
@@ -133,11 +133,7 @@ pub fn write_gray_png(r: &Raster<Option<u8>>, out_png: &Path) -> Result<(), Deri
     image
         .write_to(&mut png, image::ImageFormat::Png)
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    write_file(out_png, png.get_ref())?;
-    write_file(
-        &out_png.with_extension("pgw"),
-        r.grid.world_file().as_bytes(),
-    )
+    write_image_with_world_file(out_png, png.get_ref(), "pgw", &r.grid.world_file())
 }
 
 #[cfg(test)]

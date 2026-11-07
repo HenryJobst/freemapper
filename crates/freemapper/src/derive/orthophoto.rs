@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use super::{DeriveError, read_member, template_grid, write_file};
+use super::{DeriveError, read_member, template_grid, write_image_with_world_file};
 use crate::crs::BoundingBox;
 use crate::fetch::FetchedTile;
 use crate::raster::{GridSpec, Raster};
@@ -47,11 +47,7 @@ pub fn build_orthophoto(
             image::ExtendedColorType::Rgb8,
         )
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    write_file(out_jpg, &jpeg)?;
-    write_file(
-        &out_jpg.with_extension("jgw"),
-        mosaic.grid.world_file().as_bytes(),
-    )
+    write_image_with_world_file(out_jpg, &jpeg, "jgw", &mosaic.grid.world_file())
 }
 
 #[cfg(test)]
