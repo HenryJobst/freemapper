@@ -7,6 +7,7 @@ use chrono::NaiveDate;
 use crate::area::GeoBox;
 use crate::crs::LatLon;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher};
+use crate::sources::region::Region;
 
 /// Read buffer for the extract.
 const READ_BUFFER_BYTES: usize = 4 * 1024 * 1024;
@@ -240,14 +241,73 @@ pub fn features_from_geojson(text: &str) -> Result<Vec<OsmFeature>, OsmError> {
         .collect()
 }
 
+/// The Brandenburg extract; it holds Berlin too.
 pub const EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf";
 pub const STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt";
+const SAXONY_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf";
+const SAXONY_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
-const EXTRACT_PREFIX: &str = "brandenburg_";
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
+
+/// A Geofabrik extract freemapper reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtractSource {
+    /// Brandenburg with Berlin.
+    Brandenburg,
+    Saxony,
+}
+
+impl ExtractSource {
+    /// The extract holding `region`.
+    pub fn for_region(region: Region) -> Self {
+        match region {
+            Region::Brandenburg | Region::Berlin => Self::Brandenburg,
+            Region::Saxony => Self::Saxony,
+        }
+    }
+
+    pub fn url(self) -> &'static str {
+        match self {
+            Self::Brandenburg => EXTRACT_URL,
+            Self::Saxony => SAXONY_EXTRACT_URL,
+        }
+    }
+
+    pub fn state_url(self) -> &'static str {
+        match self {
+            Self::Brandenburg => STATE_URL,
+            Self::Saxony => SAXONY_STATE_URL,
+        }
+    }
+
+    /// Start of the cache file name, `<prefix><date>.osm.pbf`.
+    fn prefix(self) -> &'static str {
+        match self {
+            Self::Brandenburg => "brandenburg_",
+            Self::Saxony => "sachsen_",
+        }
+    }
+
+    /// Rough download size in MB.
+    pub fn megabytes(self) -> f64 {
+        match self {
+            Self::Brandenburg => 300.0,
+            Self::Saxony => 270.0,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Brandenburg => "Brandenburg",
+            Self::Saxony => "Saxony",
+        }
+    }
+}
 /// Partial downloads older than this are left over from interrupted runs.
 const STALE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
@@ -270,12 +330,12 @@ pub fn parse_state_date(text: &str) -> Option<NaiveDate> {
 }
 
 /// Date of the newest cached OSM extract (Geofabrik's state when downloaded).
-pub fn cached_extract_date(cache: &Cache) -> Option<NaiveDate> {
-    cached_extracts(cache).first().map(|e| e.date)
+pub fn cached_extract_date(cache: &Cache, source: ExtractSource) -> Option<NaiveDate> {
+    cached_extracts(cache, source).first().map(|e| e.date)
 }
 
 /// Cached extracts, newest first.
-fn cached_extracts(cache: &Cache) -> Vec<Extract> {
+fn cached_extracts(cache: &Cache, source: ExtractSource) -> Vec<Extract> {
     let mut extracts: Vec<Extract> = std::fs::read_dir(cache.osm_dir())
         .into_iter()
         .flatten()
@@ -283,7 +343,7 @@ fn cached_extracts(cache: &Cache) -> Vec<Extract> {
         .filter_map(|entry| {
             let name = entry.file_name().to_string_lossy().into_owned();
             let date = name
-                .strip_prefix(EXTRACT_PREFIX)?
+                .strip_prefix(source.prefix())?
                 .strip_suffix(EXTRACT_SUFFIX)?
                 .parse()
                 .ok()?;
@@ -299,21 +359,22 @@ fn cached_extracts(cache: &Cache) -> Vec<Extract> {
     extracts
 }
 
-/// Makes the Brandenburg extract available in `cache`. Online, the state is checked on every
-/// call and the extract (about 300 MB) downloaded only when the cached one is more than
+/// Makes the extract of `source` available in `cache`. Online, the state is checked on every
+/// call and the extract (a few hundred MB) downloaded only when the cached one is more than
 /// [`MAX_EXTRACT_AGE_DAYS`] older; offline, the newest cached extract is used.
 pub fn fetch_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,
+    source: ExtractSource,
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Extract, FetchError> {
     crate::fsutil::remove_stale_parts(&cache.osm_dir(), STALE_PART_AGE);
-    let newest = cached_extracts(cache).into_iter().next();
+    let newest = cached_extracts(cache, source).into_iter().next();
     if mode == FetchMode::Offline {
         return newest.ok_or(FetchError::OsmExtractMissing);
     }
-    match refresh_extract(fetcher, cache, newest.clone(), progress) {
+    match refresh_extract(fetcher, cache, source, newest.clone(), progress) {
         Ok(extract) => Ok(extract),
         // Geofabrik unreachable, a portal page or a broken download: a cached extract is better
         // than no candidates.
@@ -334,26 +395,31 @@ pub fn fetch_extract(
 fn refresh_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,
+    source: ExtractSource,
     newest: Option<Extract>,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Extract, FetchError> {
-    let state = fetcher.get(STATE_URL)?;
+    let state = fetcher.get(source.state_url())?;
     let date =
         parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
-            url: STATE_URL.to_string(),
+            url: source.state_url().to_string(),
             message: "no timestamp in the state file".to_string(),
         })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
         progress(&format!("cached OSM extract from {}", cached.date));
         return Ok(cached);
     }
-    progress(&format!("downloading {EXTRACT_URL} (about 300 MB)"));
+    progress(&format!(
+        "downloading {} (about {} MB)",
+        source.url(),
+        source.megabytes()
+    ));
     let path = cache
         .osm_dir()
-        .join(format!("{EXTRACT_PREFIX}{date}{EXTRACT_SUFFIX}"));
+        .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
     let result = fetcher
-        .download_to(EXTRACT_URL, &part, progress)
+        .download_to(source.url(), &part, progress)
         .and_then(|()| check_pbf(&part));
     let header_date = match result {
         Ok(header_date) => header_date,
@@ -363,7 +429,7 @@ fn refresh_extract(
         }
     };
     std::fs::rename(&part, &path).map_err(|e| FetchError::Io(path.clone(), e))?;
-    for older in cached_extracts(cache)
+    for older in cached_extracts(cache, source)
         .into_iter()
         .filter(|e| e.path != path)
     {
@@ -420,7 +486,59 @@ mod tests {
     }
 
     fn online(fetcher: &MapFetcher, cache: &Cache) -> Result<Extract, FetchError> {
-        fetch_extract(fetcher, cache, FetchMode::Online, &mut |_| {})
+        fetch_extract(
+            fetcher,
+            cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+    }
+
+    #[test]
+    fn saxony_extract_is_cached_beside_brandenburg() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let saxony = ExtractSource::Saxony;
+        assert_eq!(
+            saxony.url(),
+            "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf"
+        );
+        assert_eq!(
+            saxony.state_url(),
+            "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt"
+        );
+        fetcher.insert(saxony.state_url(), state("2026-11-06"));
+        fetcher.insert(saxony.url(), std::fs::read(FIXTURE_PBF).unwrap());
+        online(&fetcher, &cache).unwrap();
+        let mut messages = Vec::new();
+        fetch_extract(&fetcher, &cache, saxony, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(
+            extracts(&cache),
+            [
+                "brandenburg_2026-11-06.osm.pbf",
+                "sachsen_2026-11-06.osm.pbf"
+            ]
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("sachsen-latest.osm.pbf (about 270 MB)")),
+            "{messages:?}"
+        );
+        assert_eq!(
+            cached_extract_date(&cache, saxony),
+            "2026-11-06".parse().ok()
+        );
+        assert_eq!(
+            ExtractSource::for_region(crate::sources::region::Region::Berlin),
+            ExtractSource::Brandenburg
+        );
     }
 
     fn extracts(cache: &Cache) -> Vec<String> {
@@ -549,9 +667,13 @@ mod tests {
     fn live_osm_extract() {
         let cache = Cache::default_location().unwrap();
         let fetcher = crate::fetch::HttpFetcher::new();
-        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
-            eprintln!("{m}")
-        })
+        let extract = fetch_extract(
+            &fetcher,
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |m| eprintln!("{m}"),
+        )
         .unwrap();
         let features = read_extract(&extract.path, &school_box(), &candidates_wanted).unwrap();
         assert!(
@@ -617,9 +739,13 @@ mod tests {
         let cached = online(&fetcher, &cache).unwrap();
         fetcher.failing.borrow_mut().push(STATE_URL.to_string());
         let mut messages = Vec::new();
-        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
-            messages.push(m.to_string())
-        })
+        let extract = fetch_extract(
+            &fetcher,
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |m| messages.push(m.to_string()),
+        )
         .unwrap();
         assert_eq!(extract, cached);
         assert!(
@@ -630,7 +756,16 @@ mod tests {
         );
         // Without a cached extract the error stands.
         let empty = Cache::new(dir.path().join("empty"));
-        assert!(fetch_extract(&fetcher, &empty, FetchMode::Online, &mut |_| {}).is_err());
+        assert!(
+            fetch_extract(
+                &fetcher,
+                &empty,
+                ExtractSource::Brandenburg,
+                FetchMode::Online,
+                &mut |_| {}
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -647,9 +782,13 @@ mod tests {
         fetcher.insert(STATE_URL, state("2026-11-06"));
         fetcher.failing.borrow_mut().push(EXTRACT_URL.to_string());
         let mut messages = Vec::new();
-        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
-            messages.push(m.to_string())
-        })
+        let extract = fetch_extract(
+            &fetcher,
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |m| messages.push(m.to_string()),
+        )
         .unwrap();
         assert_eq!(extract, cached);
         assert!(
@@ -666,7 +805,14 @@ mod tests {
         serve(&fetcher, "2026-11-06");
         let online_extract = online(&fetcher, &cache).unwrap();
         let calls = fetcher.calls.get();
-        let offline = fetch_extract(&fetcher, &cache, FetchMode::Offline, &mut |_| {}).unwrap();
+        let offline = fetch_extract(
+            &fetcher,
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
         assert_eq!(offline, online_extract);
         assert_eq!(fetcher.calls.get(), calls);
     }
@@ -678,6 +824,7 @@ mod tests {
         let err = fetch_extract(
             &MapFetcher::default(),
             &cache,
+            ExtractSource::Brandenburg,
             FetchMode::Offline,
             &mut |_| {},
         )
@@ -746,9 +893,13 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve(&fetcher, "2026-11-06");
         let mut messages = Vec::new();
-        fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
-            messages.push(m.to_string())
-        })
+        fetch_extract(
+            &fetcher,
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |m| messages.push(m.to_string()),
+        )
         .unwrap();
         assert!(
             messages

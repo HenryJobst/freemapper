@@ -6,16 +6,16 @@ use std::path::Path;
 use chrono::NaiveDate;
 
 use crate::area::MapArea;
-use crate::crs::{LatLon, ProjectedPoint, utm33_inverse};
+use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
     ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, map_path,
 };
 use crate::sources::lgb::Product;
-use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date};
-use crate::sources::region::{Region, regions_for};
-use crate::tiles::{TileId, tiles_covering};
+use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
+use crate::sources::region::{Provider, Region, raster_region, regions_for};
+use crate::tiles::{TileId, tiles_covering_grid};
 
 /// Typical download sizes in MB.
 const DOP_TILE_MB: f64 = 8.0;
@@ -23,7 +23,10 @@ const DGM_TILE_MB: f64 = 1.3;
 const NDSM_TILE_MB: f64 = 15.0;
 /// The bDOM GeoTIFF that replaces the nDOM inside Berlin.
 const BDOM_TILE_MB: f64 = 30.0;
-const OSM_EXTRACT_MB: f64 = 300.0;
+/// GeoSN 2 km tiles and the WMS orthophoto per km² of map area plus buffer.
+const GEOSN_DGM1_TILE_MB: f64 = 14.0;
+const GEOSN_DOM1_TILE_MB: f64 = 15.0;
+const GEOSN_WMS_MB_PER_KM2: f64 = 8.0;
 const ALKIS_MB: f64 = 0.5;
 
 /// One download of a project.
@@ -53,20 +56,86 @@ pub fn estimate_download(
     let bbox = project.bbox()?;
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
-    Ok(estimate_tiles(
-        &tiles_covering(&bbox),
-        cache,
-        today,
-        alkis_cached,
-    ))
+    Ok(estimate_area(&bbox, cache, today, alkis_cached))
 }
 
-fn estimate_tiles(
-    tiles: &[TileId],
+/// The tiles a map of `bbox` uses, on its raster provider's grid, and the grid size in km.
+fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
+    let km = match raster_region(bbox).map(Region::provider) {
+        Some(Provider::GeoSn) => Product::SaxonyDtm.grid_km(),
+        _ => 1,
+    };
+    (tiles_covering_grid(bbox, km), km)
+}
+
+fn estimate_area(
+    bbox: &BoundingBox,
     cache: &Cache,
     today: NaiveDate,
     alkis_cached: bool,
 ) -> DownloadEstimate {
+    let (tiles, _) = area_tiles(bbox);
+    let mut items = match raster_region(bbox).map(Region::provider) {
+        Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
+        _ => lgb_items(&tiles, cache),
+    };
+    let mut sources: Vec<ExtractSource> = Vec::new();
+    for region in regions_for(bbox) {
+        let source = ExtractSource::for_region(region);
+        if !sources.contains(&source) {
+            sources.push(source);
+        }
+    }
+    for source in sources {
+        items.push(EstimateItem {
+            what: format!("OSM extract {} (shared by all projects)", source.label()),
+            megabytes: source.megabytes(),
+            cached: cached_extract_date(cache, source)
+                .is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS),
+        });
+    }
+    items.push(EstimateItem {
+        what: "ALKIS buildings and land use".to_string(),
+        megabytes: ALKIS_MB,
+        cached: alkis_cached,
+    });
+    let total_megabytes = items
+        .iter()
+        .filter(|i| !i.cached)
+        .map(|i| i.megabytes)
+        .sum();
+    DownloadEstimate {
+        tiles: tiles.iter().map(|t| t.name()).collect(),
+        items,
+        total_megabytes,
+    }
+}
+
+/// GeoSN: DGM1 and DOM1 tiles, and the WMS orthophoto of the area (fetched for every project).
+fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
+    let mut items = Vec::new();
+    for &tile in tiles {
+        for (product, mb) in [
+            (Product::SaxonyDtm, GEOSN_DGM1_TILE_MB),
+            (Product::SaxonyDsm, GEOSN_DOM1_TILE_MB),
+        ] {
+            items.push(EstimateItem {
+                what: format!("{product} tile {}", tile.name()),
+                megabytes: mb,
+                cached: cache.has_tile(product, tile),
+            });
+        }
+    }
+    items.push(EstimateItem {
+        what: "orthophoto (GeoSN WMS)".to_string(),
+        megabytes: (bbox.width() * bbox.height() / 1e6 * GEOSN_WMS_MB_PER_KM2).max(0.1),
+        cached: false,
+    });
+    items
+}
+
+/// LGB: orthophoto, DTM and nDSM (or bDOM inside Berlin) per 1 km tile.
+fn lgb_items(tiles: &[TileId], cache: &Cache) -> Vec<EstimateItem> {
     let mut items = Vec::new();
     for &tile in tiles {
         for (product, mb) in [
@@ -95,30 +164,11 @@ fn estimate_tiles(
             }
         });
     }
-    items.push(EstimateItem {
-        what: "OSM extract Brandenburg (shared by all projects)".to_string(),
-        megabytes: OSM_EXTRACT_MB,
-        cached: cached_extract_date(cache)
-            .is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS),
-    });
-    items.push(EstimateItem {
-        what: "ALKIS buildings and land use".to_string(),
-        megabytes: ALKIS_MB,
-        cached: alkis_cached,
-    });
-    let total_megabytes = items
-        .iter()
-        .filter(|i| !i.cached)
-        .map(|i| i.megabytes)
-        .sum();
-    DownloadEstimate {
-        tiles: tiles.iter().map(|t| t.name()).collect(),
-        items,
-        total_megabytes,
-    }
+    items
 }
 
-/// An LGB tile as drawn on a web map: corners south-west, south-east, north-east, north-west.
+/// A data tile (LGB 1 km, GeoSN 2 km) as drawn on a web map: corners south-west, south-east,
+/// north-east, north-west.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TileOutline {
     pub name: String,
@@ -147,15 +197,15 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
     let outside_coverage = matches!(check, Err(ProjectError::OutsideCoverage));
     let too_large = matches!(check, Err(ProjectError::AreaTooLarge { .. }));
     let usable = check.is_ok();
-    let tiles = if usable {
-        tiles_covering(&bbox)
+    let (tiles, km) = if usable {
+        area_tiles(&bbox)
     } else {
-        Vec::new()
+        (Vec::new(), 1)
     };
     let outlines = tiles
         .iter()
         .filter_map(|tile| {
-            let b = tile.bounds();
+            let b = tile.bounds_km(km);
             let corner = |easting, northing| utm33_inverse(ProjectedPoint { easting, northing });
             Some(TileOutline {
                 name: tile.name(),
@@ -175,7 +225,7 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
             total_megabytes: 0.0,
         }
     } else {
-        estimate_tiles(&tiles, cache, today, false)
+        estimate_area(&bbox, cache, today, false)
     };
     AreaPreview {
         tiles: outlines,
@@ -341,6 +391,86 @@ mod tests {
         crate::area::MapArea::from_geojson(&std::fs::read_to_string(path).unwrap()).unwrap()
     }
 
+    fn square(lon: f64, lat: f64, size: f64) -> crate::area::MapArea {
+        crate::area::MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[[{lon},{lat}],[{},{lat}],[{},{}],[{lon},{}],[{lon},{lat}]]]}}"#,
+            lon + size,
+            lon + size,
+            lat + size,
+            lat + size
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn saxony_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let dresden = square(13.818, 51.043, 0.002);
+        let preview = preview_area(&dresden, 20.0, &cache, today());
+        let what: Vec<&str> = preview
+            .estimate
+            .items
+            .iter()
+            .map(|i| i.what.as_str())
+            .collect();
+        assert!(
+            what.contains(&"terrain model (GeoSN DGM1) tile 33416-5654"),
+            "{what:?}"
+        );
+        assert!(
+            what.contains(&"surface model (GeoSN DOM1) tile 33416-5654"),
+            "{what:?}"
+        );
+        assert!(what.contains(&"orthophoto (GeoSN WMS)"), "{what:?}");
+        assert!(
+            what.contains(&"OSM extract Saxony (shared by all projects)"),
+            "{what:?}"
+        );
+        assert!(
+            !what
+                .iter()
+                .any(|w| w.contains("DOP20") || w.contains("Brandenburg")),
+            "{what:?}"
+        );
+        let dgm = preview
+            .estimate
+            .items
+            .iter()
+            .find(|i| i.what.contains("DGM1"))
+            .unwrap();
+        assert_eq!(dgm.megabytes, GEOSN_DGM1_TILE_MB);
+        // The outline is the 2 km tile.
+        let corners = &preview.tiles[0].corners;
+        let sw = crate::crs::utm33_forward(corners[0]);
+        let ne = crate::crs::utm33_forward(corners[2]);
+        assert!(
+            (ne.easting - sw.easting - 2000.0).abs() < 1.0,
+            "{sw:?} {ne:?}"
+        );
+    }
+
+    #[test]
+    fn border_estimate_counts_both_extracts() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // At the Brandenburg/Saxony boundary vertex E 459 509 N 5 710 017.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 459_400.0,
+            northing: 5_709_900.0,
+        })
+        .unwrap();
+        let preview = preview_area(&square(p.lon, p.lat, 0.003), 20.0, &cache, today());
+        let osm: Vec<&str> = preview
+            .estimate
+            .items
+            .iter()
+            .map(|i| i.what.as_str())
+            .filter(|w| w.starts_with("OSM extract"))
+            .collect();
+        assert_eq!(osm.len(), 2, "{osm:?}");
+    }
+
     #[test]
     fn preview_lists_tile_outlines() {
         let cache_dir = tempfile::tempdir().unwrap();
@@ -416,28 +546,26 @@ mod tests {
             .find(|i| i.what.contains("OSM"))
             .unwrap();
         assert!(!osm.cached, "{osm:?}");
-        assert_eq!(estimate.total_megabytes, OSM_EXTRACT_MB);
+        assert_eq!(
+            estimate.total_megabytes,
+            ExtractSource::Brandenburg.megabytes()
+        );
     }
 
     #[test]
     fn berlin_estimate_counts_the_bdom() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let today = "2026-11-07".parse().unwrap();
         let mitte = TileId::parse("33392-5820").unwrap();
         let strausberg = TileId::parse("33421-5821").unwrap();
-        let estimate = estimate_tiles(&[mitte, strausberg], &cache, today, false);
-        let what: Vec<&str> = estimate.items.iter().map(|i| i.what.as_str()).collect();
+        let items = lgb_items(&[mitte, strausberg], &cache);
+        let what: Vec<&str> = items.iter().map(|i| i.what.as_str()).collect();
         assert!(
             what.contains(&"nDSM tile 33392-5820 (surface model (bDOM))"),
             "{what:?}"
         );
         assert!(what.contains(&"nDSM tile 33421-5821"), "{what:?}");
-        let bdom = estimate
-            .items
-            .iter()
-            .find(|i| i.what.contains("bDOM"))
-            .unwrap();
+        let bdom = items.iter().find(|i| i.what.contains("bDOM")).unwrap();
         assert_eq!(bdom.megabytes, BDOM_TILE_MB);
     }
 

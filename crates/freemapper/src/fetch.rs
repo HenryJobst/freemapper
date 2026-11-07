@@ -982,6 +982,84 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Saxony project in `bbox` fetches: the GeoSN index rows and coarse
+    /// synthetic DGM1/DOM1 archives (200 × 200 pixels of 10 m; the DTM rises 1 m per 10 m east,
+    /// the surface lies 12 m above it) for the 2 km tiles of `bbox`, a WMS orthophoto of the
+    /// right size, the Saxon ALKIS fixtures and the Saxony OSM extract.
+    pub fn serve_synthetic_saxony(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::{geosn, geosn_alkis};
+        let tiles = crate::tiles::tiles_covering_grid(&bbox.buffered(0.0), 2);
+        for (product, layer, lift) in [(Product::SaxonyDtm, 6, 0.0), (Product::SaxonyDsm, 4, 12.0)]
+        {
+            let rows: Vec<String> = tiles
+                .iter()
+                .map(|t| {
+                    format!(
+                        r#"{{"attributes":{{"Kachel":"{:03}{:04}","Download":"{}","Stand":"2024-11-30"}}}}"#,
+                        t.east_km,
+                        t.north_km,
+                        product.tile_url(*t)
+                    )
+                })
+                .collect();
+            fetcher.insert_prefix(
+                &format!("{}/{layer}/query?", geosn::INDEX_URL),
+                format!(r#"{{"features":[{}]}}"#, rows.join(",")).into_bytes(),
+            );
+            for &tile in &tiles {
+                let b = tile.bounds_km(2);
+                let world = format!("10\n0\n0\n-10\n{}\n{}\n", b.min_e + 5.0, b.max_n - 5.0);
+                let heights: Vec<f32> = (0..200 * 200).map(|i| (i % 200) as f32 + lift).collect();
+                fetcher.insert(
+                    &product.tile_url(tile),
+                    tile_zip(product, tile, &dtm_tiff(200, 200, &heights), &world),
+                );
+            }
+        }
+        let grid = crate::raster::GridSpec::covering(bbox, geosn::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap",
+                geosn::WMS_URL
+            ),
+            solid_jpeg(grid.width, grid.height, [0, 200, 0]),
+        );
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                geosn::WMS_URL
+            ),
+            b"Gebiet: Dresden | Datum: 19.03. + 07.04.2024 | ROHDOP: DOP".to_vec(),
+        );
+        for (type_name, body) in [
+            (
+                geosn_alkis::BUILDINGS_TYPE,
+                geosn_alkis::test_support::BUILDINGS,
+            ),
+            (
+                geosn_alkis::LAND_USE_TYPE,
+                geosn_alkis::test_support::LAND_USE,
+            ),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    geosn_alkis::WFS_URL
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        fetcher.insert(
+            saxony.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            saxony.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();
