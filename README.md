@@ -3,10 +3,17 @@
 [English version](README.en.md) · [Glossar](docs/glossary.md)
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
-ein **Startprojekt für OpenOrienteering Mapper (OOM)**: eine georeferenzierte `.omap`-Datei, in der
-verlässliche Kartenobjekte schon symbolisiert sind, plus Kartenvorlagen für alles, was der Kartierer
-selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OOM.
+ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
+georeferenzierte Karte, in der verlässliche Kartenobjekte schon symbolisiert sind, plus Kartenvorlagen
+für alles, was der Kartierer selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin
+in OOM oder OCAD.
 
+- **Ausgabe:**
+  - immer eine OOM-Karte (`.omap`);
+  - mit `--ocad` zusätzlich eine OCAD-Karte (`.ocd`, OCAD 12 und neuer), siehe
+    [Ausgangsstand für OCAD](#ausgangsstand-für-ocad);
+  - mit `--pdf` eine druckfertige Trainingskarte, siehe
+    [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
 - Zuerst: Brandenburg und Berlin (LGB- und Geoportal-Berlin-Open-Data), Schulhofkarten 1:1000 und
