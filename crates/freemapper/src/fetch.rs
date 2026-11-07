@@ -134,9 +134,7 @@ pub fn fetch_tiles(
         FetchMode::Online => {
             let url = product.currency_csv_url();
             progress(&format!("downloading {url}"));
-            let bytes = fetcher.get(url)?;
-            write_atomically(&csv_path, &bytes)?;
-            bytes
+            fetcher.get(url)?
         }
         FetchMode::Offline => match std::fs::read(&csv_path) {
             Ok(bytes) => bytes,
@@ -144,6 +142,10 @@ pub fn fetch_tiles(
         },
     };
     let table = parse_currency_csv(&String::from_utf8_lossy(&csv))?;
+    if mode == FetchMode::Online {
+        // Only a CSV that parsed replaces the cached one, so `--offline` keeps working.
+        write_atomically(&csv_path, &csv)?;
+    }
 
     let mut fetched = Vec::new();
     let mut missing = Vec::new();
@@ -469,6 +471,24 @@ mod tests {
             message.contains("33421-5821") && message.contains("33421-5822"),
             "{message}"
         );
+    }
+
+    #[test]
+    fn invalid_csv_download_keeps_cached_csv() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-01-26");
+        fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
+
+        fetcher.insert(
+            PRODUCT.currency_csv_url(),
+            b"<html>captive portal</html>".to_vec(),
+        );
+        let err = fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap_err();
+        assert!(matches!(err, FetchError::CurrencyCsv(_)), "{err:?}");
+        let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
+        assert_eq!(offline[0].currency.published.to_string(), "2026-01-26");
     }
 
     #[test]

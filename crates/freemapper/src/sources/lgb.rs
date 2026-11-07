@@ -73,6 +73,9 @@ impl Product {
     }
 }
 
+/// First columns of an LGB currency CSV.
+const CURRENCY_CSV_HEADER: &str = "sheetnr;sheetname;creationdate;revisiondate;publicationdate";
+
 /// Data currency of one tile from the LGB currency CSV.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TileCurrency {
@@ -97,14 +100,17 @@ pub struct CurrencyCsvError {
 
 /// Parses an LGB currency CSV (`sheetnr;sheetname;creationdate;revisiondate;publicationdate;…`).
 pub fn parse_currency_csv(text: &str) -> Result<HashMap<TileId, TileCurrency>, CurrencyCsvError> {
+    let mut lines = text.trim_start_matches('\u{feff}').lines();
+    let header = lines.next().unwrap_or_default();
+    if !header.starts_with(CURRENCY_CSV_HEADER) {
+        return Err(CurrencyCsvError {
+            line: 1,
+            message: format!("unexpected header {header:?}"),
+        });
+    }
     let mut table = HashMap::new();
-    for (index, line) in text
-        .trim_start_matches('\u{feff}')
-        .lines()
-        .enumerate()
-        .skip(1)
-    {
-        let line_no = index + 1;
+    for (index, line) in lines.enumerate() {
+        let line_no = index + 2;
         if line.trim().is_empty() {
             continue;
         }
@@ -218,6 +224,12 @@ mod tests {
                    33421-5822;;2026-13-01;;2026-10-09;\n";
         let err = parse_currency_csv(csv).unwrap_err();
         assert_eq!(err.line, 3);
+    }
+
+    #[test]
+    fn currency_csv_rejects_other_documents() {
+        let err = parse_currency_csv("<html>captive portal</html>").unwrap_err();
+        assert_eq!(err.line, 1);
     }
 
     #[test]
