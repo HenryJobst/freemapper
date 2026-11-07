@@ -3,3 +3,4 @@
 pub mod file;
 #[cfg(test)]
 pub(crate) mod read;
+pub mod symbols;
