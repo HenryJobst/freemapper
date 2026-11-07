@@ -63,6 +63,8 @@ struct Condition {
     key: String,
     /// `None` for `*`.
     values: Option<Vec<String>>,
+    /// `key!=value`: holds when the tag is absent or has none of the values.
+    negated: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -84,11 +86,12 @@ fn value<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {
 
 impl Condition {
     fn holds(&self, tags: &Tags) -> bool {
-        match (value(tags, &self.key), &self.values) {
+        let matches = match (value(tags, &self.key), &self.values) {
             (Some(_), None) => true,
             (Some(v), Some(values)) => values.iter().any(|allowed| allowed == v),
             (None, _) => false,
-        }
+        };
+        matches != self.negated
     }
 }
 
@@ -110,13 +113,30 @@ impl Rules {
                         let (key, values) = condition.split_once('=').ok_or_else(|| {
                             RulesError(format!("condition {condition:?} lacks `=`"))
                         })?;
+                        let (key, negated) = match key.strip_suffix('!') {
+                            Some(key) => (key, true),
+                            None => (key, false),
+                        };
                         Ok(Condition {
                             key: key.to_string(),
                             values: (values != "*")
                                 .then(|| values.split('|').map(str::to_string).collect()),
+                            negated,
                         })
                     })
                     .collect::<Result<Vec<_>, RulesError>>()?;
+                let problem = if !when.iter().any(|c| !c.negated) {
+                    Some("needs a condition that is not negated")
+                } else if entry.schoolyard.is_none() && entry.sprint.is_none() {
+                    Some("has no symbol for any map kind")
+                } else if entry.point_as_short_line_mm.is_some() && entry.draw != DrawKind::Line {
+                    Some("point_as_short_line_mm needs draw = \"line\"")
+                } else {
+                    None
+                };
+                if let Some(problem) = problem {
+                    return Err(RulesError(format!("rule {:?} {problem}", entry.when)));
+                }
                 Ok(Rule {
                     when,
                     draw: entry.draw,
@@ -227,10 +247,17 @@ pub fn candidate_objects(
                     ],
                 )
             }
-            (OsmGeometry::Line(points), Draw::Line) => (
-                MapObjectKind::Path,
-                points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?,
-            ),
+            (OsmGeometry::Line(points), Draw::Line) => {
+                let coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
+                let closed = coords.len() > 3 && coords.first() == coords.last();
+                let coords = if closed {
+                    // A ring (fence or hedge around a yard) stays closed in OOM.
+                    closed_ring(&coords.iter().map(|c| (c.x, c.y)).collect::<Vec<_>>())
+                } else {
+                    coords
+                };
+                (MapObjectKind::Path, coords)
+            }
             (OsmGeometry::Line(points), Draw::Area) => {
                 let ring = points
                     .iter()
@@ -449,6 +476,81 @@ mod tests {
             "1.5 mm on paper"
         );
         assert_eq!(bench.coords[0].y, bench.coords[1].y);
+    }
+
+    #[test]
+    fn closed_fence_becomes_a_closed_line() {
+        let ring = line("way/5", &[("barrier", "fence")], square());
+        let (objects, _) = objects(&[ring], MapKind::Sprint);
+        assert_eq!(objects[0].coords.len(), 5);
+        assert_eq!(objects[0].coords[4].flags, FLAG_HOLE | FLAG_CLOSE);
+    }
+
+    #[test]
+    fn underground_hydrant_is_not_a_candidate() {
+        let mut hydrant = point(
+            "node/9669755236",
+            &[
+                ("emergency", "fire_hydrant"),
+                ("fire_hydrant:type", "underground"),
+            ],
+        );
+        assert!(
+            objects(std::slice::from_ref(&hydrant), MapKind::Schoolyard)
+                .0
+                .is_empty()
+        );
+        hydrant.tags = tags(&[
+            ("emergency", "fire_hydrant"),
+            ("fire_hydrant:type", "pillar"),
+        ]);
+        assert_eq!(objects(&[hydrant], MapKind::Schoolyard).0.len(), 1);
+    }
+
+    #[test]
+    fn invalid_rules_are_rejected() {
+        let rule = |body: &str| Rules::from_toml(&format!("[[rule]]\n{body}"));
+        assert!(
+            rule("when = []\ndraw = \"point\"\nsprint = \"418\"").is_err(),
+            "empty when"
+        );
+        assert!(
+            rule("when = [\"natural=tree\"]\ndraw = \"point\"").is_err(),
+            "no symbol"
+        );
+        assert!(
+            rule("when = [\"natural=tree\"]\ndraw = \"point\"\npoint_as_short_line_mm = 1.0\nsprint = \"418\"").is_err(),
+            "short line on a point rule"
+        );
+        assert!(
+            rule("when = [\"a!=b\"]\ndraw = \"point\"\nsprint = \"418\"").is_err(),
+            "only negated"
+        );
+        assert!(rule("when = [\"a=*\", \"b!=c\"]\ndraw = \"point\"\nsprint = \"418\"").is_ok());
+    }
+
+    #[test]
+    fn embedded_rule_symbols_fit_their_draw_kind() {
+        for rule in &Rules::embedded().0 {
+            for (code, kind) in [
+                (&rule.schoolyard, MapKind::Schoolyard),
+                (&rule.sprint, MapKind::Sprint),
+            ] {
+                let Some(code) = code else { continue };
+                let set = kind.symbol_set();
+                let symbol_type = set.symbol_type(set.id_for_code(code).unwrap());
+                let fits: &[u32] = match rule.draw {
+                    DrawKind::Point => &[1],
+                    DrawKind::Line => &[2, 16],
+                    DrawKind::Area => &[4, 16],
+                };
+                assert!(
+                    symbol_type.is_some_and(|t| fits.contains(&t)),
+                    "{code}: type {symbol_type:?} for {:?}",
+                    rule.draw
+                );
+            }
+        }
     }
 
     #[test]

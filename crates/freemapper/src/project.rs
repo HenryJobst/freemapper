@@ -68,6 +68,8 @@ pub enum ProjectError {
     BuildingsNotFetched,
     #[error("the stored OSM candidates do not cover the map area; run `freemapper fetch`")]
     CandidatesOutdated,
+    #[error("{}: {message}; run `freemapper fetch` again", path.display())]
+    StoredCandidates { path: PathBuf, message: String },
     #[error(transparent)]
     Osm(#[from] crate::sources::osm::OsmError),
     #[error(
@@ -378,16 +380,30 @@ fn fetch_osm_into(
     project: &ProjectFile,
     progress: &mut dyn FnMut(&str),
 ) -> Result<OsmRecord, ProjectError> {
-    let extract = fetch_extract(fetcher, cache, mode, progress)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
-    progress(&format!("reading OSM extract from {}", extract.date));
+    let extract = match fetch_extract(fetcher, cache, mode, progress) {
+        // Offline without an extract, stored candidates that cover the area are still good.
+        Err(FetchError::OsmExtractMissing)
+            if dir.join(OSM_CANDIDATES_RELPATH).exists()
+                && project.osm.as_ref().is_some_and(|r| r.covers(&area)) =>
+        {
+            let record = project.osm.clone().expect("checked above");
+            progress(&format!(
+                "warning: no OSM extract cached; keeping the stored OSM candidates from {}",
+                record.extract
+            ));
+            return Ok(record);
+        }
+        other => other?,
+    };
+    progress(&format!("reading OSM extract from {}", extract.data_date));
     let rules = Rules::embedded();
     let features = read_extract(&extract.path, &area, &|tags| rules.wants(tags))?;
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     write_atomically(&path, features_to_geojson(&features).as_bytes())?;
     progress(&format!("{} OSM candidate features", features.len()));
     Ok(OsmRecord {
-        extract: extract.date,
+        extract: extract.data_date,
         area: [area.min_lat, area.min_lon, area.max_lat, area.max_lon],
         count: features.len(),
     })
@@ -684,7 +700,10 @@ fn stored_candidate_objects(
         return Err(ProjectError::CandidatesOutdated);
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let features = features_from_geojson(&text)?;
+    let features = features_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
+        path: path.clone(),
+        message: e.to_string(),
+    })?;
     Ok(candidate_objects(
         &features,
         &Rules::embedded(),
@@ -1478,8 +1497,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
         let features = crate::sources::osm::features_from_geojson(&text).unwrap();
         assert!(
-            features.iter().any(|f| f.id == "node/9669755236"),
-            "school hydrant"
+            features.iter().any(|f| f.id == "way/1028507308"),
+            "tartan pitch"
+        );
+        assert!(
+            !features.iter().any(|f| f.id == "node/9669755236"),
+            "the underground hydrant is not wanted"
         );
         let record = ProjectFile::load(dir.path())
             .unwrap()
@@ -1516,11 +1539,46 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         export_starter_project(dir.path(), false).unwrap();
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        assert!(
-            !candidates
-                .contains(r#"<t k="freemapper:source">osm</t><t k="freemapper:source_id">node/"#)
-        );
+        assert!(!candidates.contains("way/1028507308"), "no OSM candidates");
         assert!(candidates.contains("way/992423119"), "outline stays");
+    }
+
+    #[test]
+    fn corrupt_stored_candidates_name_the_file() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        std::fs::write(dir.path().join(OSM_CANDIDATES_RELPATH), "{ broken").unwrap();
+        let message = export_starter_project(dir.path(), false)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            message.contains("osm-candidates.geojson") && message.contains("freemapper fetch"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn offline_without_extract_keeps_stored_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        for entry in std::fs::read_dir(cache.osm_dir()).unwrap().flatten() {
+            std::fs::remove_file(entry.path()).unwrap();
+        }
+        let mut messages = Vec::new();
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Offline, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: no OSM extract cached")),
+            "{messages:?}"
+        );
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains("way/1028507308"));
     }
 
     #[test]

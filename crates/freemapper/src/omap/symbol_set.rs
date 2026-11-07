@@ -201,6 +201,20 @@ impl SymbolSet {
             .map(|(_, id)| *id)
     }
 
+    /// OOM type of the top-level symbol `id` (1 point, 2 line, 4 area, 8 text, 16 combined).
+    pub fn symbol_type(&self, id: u32) -> Option<u32> {
+        let marker = format!(r#"" id="{id}""#);
+        self.symbols_xml
+            .match_indices(r#"<symbol type=""#)
+            .find_map(|(at, open)| {
+                let rest = &self.symbols_xml[at + open.len()..];
+                let digits = rest.find('"')?;
+                rest[digits..]
+                    .starts_with(&marker)
+                    .then(|| rest[..digits].parse().ok())?
+            })
+    }
+
     pub fn symbol_count(&self) -> usize {
         self.codes.len()
     }

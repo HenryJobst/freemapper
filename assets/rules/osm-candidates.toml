@@ -2,14 +2,16 @@
 #
 # The first rule whose conditions and geometry match a feature decides; a map kind without a
 # symbol code skips the feature. Conditions in `when` must all hold: `key=value`, `key=a|b`
-# (alternatives) or `key=*` (any value).
+# (alternatives), `key=*` (any value) or `key!=value` (absent or another value); at least one
+# condition must not be negated.
 #
 # `draw`: `point` (nodes), `line` (ways; with `point_as_short_line_mm` also nodes, drawn as a
 # short horizontal line of that length on paper for the mapper to rotate), `area` (closed ways).
 # Codes refer to ISSprOM 2019 and the IOF school symbol set 2019.
 
+# Underground hydrants are not visible on the ground.
 [[rule]]
-when = ["emergency=fire_hydrant"]
+when = ["emergency=fire_hydrant", "fire_hydrant:type!=underground"]
 draw = "point"
 schoolyard = "321"
 

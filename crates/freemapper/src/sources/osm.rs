@@ -74,7 +74,7 @@ pub fn read_extract(
         })
     };
     let mut nodes = osmpbf::ElementReader::from_path(path)
-        .map_err(osm_error)?
+        .map_err(in_file(path))?
         .par_map_reduce(
             |element| match element {
                 Element::Node(n) => node(n.id(), n.lat(), n.lon(), sorted_tags(n.tags()))
@@ -91,15 +91,15 @@ pub fn read_extract(
                 a
             },
         )
-        .map_err(osm_error)?;
+        .map_err(in_file(path))?;
     nodes.sort_by_key(|(id, _)| *id);
 
     let mut ways: Vec<(i64, Tags, Vec<i64>)> = Vec::new();
     let mut coords = std::collections::HashMap::new();
     // Buffered: the indexed reader seeks and reads many small blobs.
-    let file = std::fs::File::open(path).map_err(osm_error)?;
+    let file = std::fs::File::open(path).map_err(in_file(path))?;
     osmpbf::IndexedReader::new(std::io::BufReader::with_capacity(READ_BUFFER_BYTES, file))
-        .map_err(osm_error)?
+        .map_err(in_file(path))?
         .read_ways_and_deps(
             |way| {
                 let tags = sorted_tags(way.tags());
@@ -128,13 +128,13 @@ pub fn read_extract(
                 Element::Relation(_) => {}
             },
         )
-        .map_err(osm_error)?;
+        .map_err(in_file(path))?;
     ways.sort_by_key(|(id, _, _)| *id);
 
     let mut features: Vec<OsmFeature> = nodes.into_iter().map(|(_, f)| f).collect();
     for (id, tags, refs) in ways {
         let points: Option<Vec<LatLon>> = refs.iter().map(|r| coords.get(r).copied()).collect();
-        if let Some(points) = points.filter(|p| p.iter().any(|p| area.contains(*p))) {
+        if let Some(points) = points.filter(|p| touches(p, area)) {
             features.push(OsmFeature {
                 id: format!("way/{id}"),
                 tags,
@@ -143,6 +143,28 @@ pub fn read_extract(
         }
     }
     Ok(features)
+}
+
+/// Error converter naming the extract file.
+fn in_file<E: std::fmt::Display>(path: &Path) -> impl Fn(E) -> OsmError + '_ {
+    move |e| osm_error(format!("{}: {e}", path.display()))
+}
+
+/// Whether a way with these points has a vertex inside `area` or a segment crossing it.
+fn touches(points: &[LatLon], area: &GeoBox) -> bool {
+    use geo::Intersects as _;
+    let rect = geo_types::Rect::new(
+        geo_types::coord! { x: area.min_lon, y: area.min_lat },
+        geo_types::coord! { x: area.max_lon, y: area.max_lat },
+    );
+    points.iter().any(|p| area.contains(*p))
+        || points.windows(2).any(|w| {
+            geo_types::Line::new(
+                geo_types::coord! { x: w[0].lon, y: w[0].lat },
+                geo_types::coord! { x: w[1].lon, y: w[1].lat },
+            )
+            .intersects(&rect)
+        })
 }
 
 /// The features as a GeoJSON FeatureCollection (tags as properties).
@@ -226,12 +248,17 @@ pub const STATE_URL: &str =
 const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_PREFIX: &str = "brandenburg_";
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
+/// Partial downloads older than this are left over from interrupted runs.
+const STALE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// A cached extract and the date of its data.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extract {
     pub path: PathBuf,
+    /// Date of Geofabrik's state when downloaded; names the cache file.
     pub date: NaiveDate,
+    /// Date of the data: the replication timestamp in the file header, else `date`.
+    pub data_date: NaiveDate,
 }
 
 /// Date of the `timestamp=` line in a Geofabrik `state.txt`.
@@ -255,8 +282,10 @@ fn cached_extracts(cache: &Cache) -> Vec<Extract> {
                 .strip_suffix(EXTRACT_SUFFIX)?
                 .parse()
                 .ok()?;
+            let path = entry.path();
             Some(Extract {
-                path: entry.path(),
+                data_date: check_pbf(&path).ok().flatten().unwrap_or(date),
+                path,
                 date,
             })
         })
@@ -274,6 +303,7 @@ pub fn fetch_extract(
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Extract, FetchError> {
+    crate::fsutil::remove_stale_parts(&cache.osm_dir(), STALE_PART_AGE);
     let newest = cached_extracts(cache).into_iter().next();
     if mode == FetchMode::Offline {
         return newest.ok_or(FetchError::OsmExtractMissing);
@@ -294,12 +324,15 @@ pub fn fetch_extract(
         .join(format!("{EXTRACT_PREFIX}{date}{EXTRACT_SUFFIX}"));
     let part = path.with_extension("pbf.part");
     let result = fetcher
-        .download_to(EXTRACT_URL, &part)
+        .download_to(EXTRACT_URL, &part, progress)
         .and_then(|()| check_pbf(&part));
-    if let Err(e) = result {
-        let _ = std::fs::remove_file(&part);
-        return Err(e);
-    }
+    let header_date = match result {
+        Ok(header_date) => header_date,
+        Err(e) => {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
+        }
+    };
     std::fs::rename(&part, &path).map_err(|e| FetchError::Io(path.clone(), e))?;
     for older in cached_extracts(cache)
         .into_iter()
@@ -307,11 +340,16 @@ pub fn fetch_extract(
     {
         let _ = std::fs::remove_file(older.path);
     }
-    Ok(Extract { path, date })
+    Ok(Extract {
+        path,
+        date,
+        data_date: header_date.unwrap_or(date),
+    })
 }
 
-/// Checks that `path` starts with an OSM PBF header block.
-fn check_pbf(path: &Path) -> Result<(), FetchError> {
+/// Checks that `path` starts with an OSM PBF header block and returns the date of its replication
+/// timestamp, if it has one.
+fn check_pbf(path: &Path) -> Result<Option<NaiveDate>, FetchError> {
     let corrupt = |message: String| FetchError::CorruptArchive {
         url: EXTRACT_URL.to_string(),
         message,
@@ -322,7 +360,10 @@ fn check_pbf(path: &Path) -> Result<(), FetchError> {
         .ok_or_else(|| corrupt("empty file".to_string()))?
         .map_err(|e| corrupt(e.to_string()))?;
     match first.decode().map_err(|e| corrupt(e.to_string()))? {
-        osmpbf::BlobDecode::OsmHeader(_) => Ok(()),
+        osmpbf::BlobDecode::OsmHeader(header) => Ok(header
+            .osmosis_replication_timestamp()
+            .and_then(|seconds| chrono::DateTime::from_timestamp(seconds, 0))
+            .map(|time| time.date_naive())),
         _ => Err(corrupt("no OSM header".to_string())),
     }
 }
@@ -564,6 +605,90 @@ mod tests {
         .unwrap_err();
         assert!(matches!(err, FetchError::OsmExtractMissing), "{err:?}");
         assert!(err.to_string().contains("freemapper fetch"), "{err}");
+    }
+
+    #[test]
+    fn way_segment_crossing_the_box_counts() {
+        let area = GeoBox {
+            min_lat: 52.0,
+            min_lon: 13.0,
+            max_lat: 52.1,
+            max_lon: 13.1,
+        };
+        let p = |lat, lon| LatLon { lat, lon };
+        // A straight fence passing through the box, both vertices outside it.
+        assert!(touches(&[p(52.05, 12.9), p(52.05, 13.2)], &area));
+        assert!(touches(&[p(52.05, 13.05), p(52.5, 13.5)], &area));
+        assert!(!touches(&[p(52.2, 12.9), p(52.2, 13.2)], &area));
+    }
+
+    #[test]
+    fn extract_date_comes_from_the_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        // Geofabrik's state is a few days older than the file's own header (2026-11-06).
+        serve(&fetcher, "2026-11-03");
+        let extract = online(&fetcher, &cache).unwrap();
+        assert_eq!(
+            extract.date.to_string(),
+            "2026-11-03",
+            "cache key from the state"
+        );
+        assert_eq!(
+            extract.data_date.to_string(),
+            "2026-11-06",
+            "currency from the header"
+        );
+        let cached = online(&fetcher, &cache).unwrap();
+        assert_eq!(cached.data_date, extract.data_date);
+    }
+
+    #[test]
+    fn stale_partial_extract_is_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        std::fs::create_dir_all(cache.osm_dir()).unwrap();
+        let stale = cache.osm_dir().join("brandenburg_2026-10-01.osm.pbf.part");
+        std::fs::write(&stale, b"partial").unwrap();
+        let file = std::fs::File::options().write(true).open(&stale).unwrap();
+        file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(7200))
+            .unwrap();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        online(&fetcher, &cache).unwrap();
+        assert!(!stale.exists());
+    }
+
+    #[test]
+    fn download_reports_its_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let mut messages = Vec::new();
+        fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("downloaded ") && m.ends_with(" MB")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn corrupt_extract_names_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let broken = dir.path().join("brandenburg_2026-11-06.osm.pbf");
+        std::fs::write(&broken, b"not a pbf").unwrap();
+        let err = read_extract(&broken, &school_box(), &candidates_wanted).unwrap_err();
+        assert!(
+            err.to_string().contains("brandenburg_2026-11-06.osm.pbf"),
+            "{err}"
+        );
     }
 
     #[test]

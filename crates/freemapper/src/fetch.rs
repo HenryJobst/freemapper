@@ -67,13 +67,21 @@ const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 pub trait Fetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
 
-    /// Downloads `url` into the file `path`; large files stream instead of being held in memory.
-    fn download_to(&self, url: &str, path: &Path) -> Result<(), FetchError> {
+    /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
+    /// being held in memory.
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<(), FetchError> {
         let bytes = self.get(url)?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
-        std::fs::write(path, bytes).map_err(|e| FetchError::Io(path.to_path_buf(), e))
+        std::fs::write(path, &bytes).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+        progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
+        Ok(())
     }
 }
 
@@ -82,6 +90,13 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
 /// Time to receive a whole body; an 8 MB tile at 128 kbit/s takes about 9 minutes.
 const BODY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// Progress is reported after each step of a large download.
+const PROGRESS_STEP_BYTES: u64 = 25 * 1024 * 1024;
+
+fn megabytes(bytes: u64) -> u64 {
+    bytes / (1024 * 1024)
+}
 
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
@@ -125,7 +140,12 @@ impl Default for HttpFetcher {
 }
 
 impl Fetcher for HttpFetcher {
-    fn download_to(&self, url: &str, path: &Path) -> Result<(), FetchError> {
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<(), FetchError> {
         let http_error = |message: String| FetchError::Http {
             url: url.to_string(),
             message,
@@ -142,10 +162,34 @@ impl Fetcher for HttpFetcher {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
+        let total = response
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok());
         let mut file =
             std::fs::File::create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
-        std::io::copy(&mut response.body_mut().as_reader(), &mut file)
-            .map_err(|e| http_error(e.to_string()))?;
+        let mut reader = response.body_mut().as_reader();
+        let mut buffer = vec![0u8; 1 << 16];
+        let (mut done, mut reported) = (0u64, 0u64);
+        loop {
+            let n = std::io::Read::read(&mut reader, &mut buffer)
+                .map_err(|e| http_error(e.to_string()))?;
+            if n == 0 {
+                break;
+            }
+            std::io::Write::write_all(&mut file, &buffer[..n])
+                .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+            done += n as u64;
+            if done - reported >= PROGRESS_STEP_BYTES {
+                reported = done;
+                let of = total
+                    .map(|t| format!(" of {} MB", megabytes(t)))
+                    .unwrap_or_default();
+                progress(&format!("downloaded {} MB{of}", megabytes(done)));
+            }
+        }
+        progress(&format!("downloaded {} MB", megabytes(done)));
         Ok(())
     }
 

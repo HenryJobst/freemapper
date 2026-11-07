@@ -6,7 +6,8 @@ Usage (needs pyosmium, e.g. in a virtual environment: pip install osmium):
 
 Keeps every node inside BOX, every way with at least one node inside BOX, and all nodes those ways
 reference (so ways crossing the box edge stay complete). Nodes are written before ways, as the PBF
-readers expect. Data © OpenStreetMap contributors, ODbL.
+readers expect. The replication timestamp of the source header is kept. Data © OpenStreetMap
+contributors, ODbL.
 """
 
 import sys
@@ -58,7 +59,15 @@ class Write(osmium.SimpleHandler):
 def main(source, target):
     collected = Collect()
     collected.apply_file(source)
-    writer = osmium.SimpleWriter(target)
+    reader = osmium.io.Reader(source, osmium.osm.osm_entity_bits.NOTHING)
+    source_header = reader.header()
+    reader.close()
+    header = osmium.io.Header()
+    for key in ("osmosis_replication_timestamp", "timestamp"):
+        value = source_header.get(key)
+        if value:
+            header.set(key, value)
+    writer = osmium.SimpleWriter(target, header=header, overwrite=True)
     try:
         Write(collected, writer).apply_file(source)
     finally:
