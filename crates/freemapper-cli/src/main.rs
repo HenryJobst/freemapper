@@ -1,5 +1,7 @@
 //! `freemapper` command line interface.
 
+mod mcp;
+
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -77,6 +79,11 @@ enum Commands {
         /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
         #[arg(long)]
         force: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Serve the tools to an AI agent over MCP (stdin/stdout).
+    Mcp {
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -243,6 +250,10 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
+        }
+        Commands::Mcp { cache } => {
+            let cache = cache.cache()?;
+            tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;
         }
     }
     Ok(())

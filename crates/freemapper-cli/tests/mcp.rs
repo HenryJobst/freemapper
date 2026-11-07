@@ -1,0 +1,204 @@
+//! The MCP server spoken to over stdio, as an agent would.
+
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+
+use serde_json::{Value, json};
+
+const FIXTURE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tests/fixtures/clara-zetkin-schule.geojson"
+);
+
+struct Session {
+    child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+    next_id: u64,
+    info: Value,
+}
+
+impl Session {
+    fn start(cache: &std::path::Path) -> Self {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .args(["mcp", "--cache-dir", cache.to_str().unwrap()])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let stdin = child.stdin.take().unwrap();
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut session = Self {
+            child,
+            stdin,
+            stdout,
+            next_id: 1,
+            info: Value::Null,
+        };
+        session.info = session.request(
+            "initialize",
+            json!({
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": { "name": "test", "version": "1" }
+            }),
+        );
+        session.send(json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        session
+    }
+
+    fn send(&mut self, message: Value) {
+        writeln!(self.stdin, "{message}").unwrap();
+        self.stdin.flush().unwrap();
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Value {
+        let id = self.next_id;
+        self.next_id += 1;
+        self.send(json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
+        loop {
+            let mut line = String::new();
+            assert!(
+                self.stdout.read_line(&mut line).unwrap() > 0,
+                "server closed"
+            );
+            let message: Value = serde_json::from_str(&line).unwrap();
+            if message["id"] == id {
+                return message["result"].clone();
+            }
+        }
+    }
+
+    /// Calls a tool; returns (is_error, text of the first content block).
+    fn call(&mut self, tool: &str, arguments: Value) -> (bool, String) {
+        let result = self.request(
+            "tools/call",
+            json!({ "name": tool, "arguments": arguments }),
+        );
+        let text = result["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        (result["isError"] == true, text)
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+    }
+}
+
+#[test]
+fn mcp_lists_the_tools() {
+    let cache = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    assert_eq!(session.info["serverInfo"]["name"], "freemapper");
+    assert!(
+        session.info["instructions"]
+            .as_str()
+            .unwrap()
+            .contains("find_place")
+    );
+    let tools = session.request("tools/list", json!({}));
+    let mut names: Vec<&str> = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            "create_project",
+            "estimate_download",
+            "find_place",
+            "list_layers",
+            "preview_layer",
+            "project_status",
+            "start_pipeline"
+        ]
+    );
+}
+
+#[test]
+fn mcp_creates_a_project_and_lists_layers() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("clara-zetkin-schule");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE, "title": "Clara-Zetkin-Schule" }),
+    );
+    assert!(!error, "{text}");
+    assert!(text.contains("way/992423119"), "{text}");
+    assert!(project.join("freemapper.toml").exists());
+
+    let (error, text) = session.call("estimate_download", json!({ "dir": project }));
+    assert!(!error, "{text}");
+    assert!(text.contains("33421-5821"), "{text}");
+
+    let (error, text) = session.call("list_layers", json!({ "dir": project }));
+    assert!(!error, "{text}");
+    assert!(
+        text.contains("orthophoto") && text.contains("\"ready\":false"),
+        "{text}"
+    );
+
+    let (error, text) = session.call(
+        "preview_layer",
+        json!({ "dir": project, "layer": "orthophoto" }),
+    );
+    assert!(error);
+    assert!(text.contains("freemapper derive"), "{text}");
+}
+
+#[test]
+fn mcp_reports_tool_errors() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call("create_project", json!({ "dir": dir.path().join("p") }));
+    assert!(error);
+    assert!(
+        text.contains("osm_id") && text.contains("geojson"),
+        "{text}"
+    );
+    let (error, text) = session.call("project_status", json!({ "job_id": "job-99" }));
+    assert!(error);
+    assert!(text.contains("job-99"), "{text}");
+}
+
+#[test]
+fn mcp_failed_job_is_reported() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE }),
+    );
+    assert!(!error, "{text}");
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
+    let job: Value = serde_json::from_str(&text).unwrap();
+    let job_id = job["job_id"].as_str().unwrap().to_string();
+    let status = loop {
+        let (error, text) = session.call("project_status", json!({ "job_id": job_id }));
+        assert!(!error, "{text}");
+        let status: Value = serde_json::from_str(&text).unwrap();
+        if status["state"] != "running" {
+            break status;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    };
+    assert_eq!(status["state"], "failed", "{status}");
+    assert!(
+        status["error"].as_str().unwrap().contains("33421-5821"),
+        "{status}"
+    );
+}
