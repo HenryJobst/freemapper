@@ -1,10 +1,13 @@
-//! ALKIS buildings from the LGB OGC API Features service (dl-de/by-2-0).
+//! ALKIS buildings and land use: the LGB OGC API Features service (dl-de/by-2-0), and inside
+//! Berlin the Geoportal Berlin WFS (see [`berlin`]).
 
 use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, Fetcher};
+use crate::sources::berlin;
+use crate::sources::region::{Region, regions_for};
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
@@ -20,7 +23,7 @@ pub struct AlkisError {
     pub message: String,
 }
 
-fn invalid(message: impl Into<String>) -> AlkisError {
+pub(crate) fn invalid(message: impl Into<String>) -> AlkisError {
     AlkisError {
         message: message.into(),
     }
@@ -62,9 +65,39 @@ pub fn collection_url(endpoint: &str, bbox: &BoundingBox) -> String {
     )
 }
 
-/// Downloads all pages of buildings in `bbox` and returns them as one GeoJSON FeatureCollection.
+/// Downloads the buildings in `bbox` from every state service covering it (Brandenburg, Berlin)
+/// and returns them as one GeoJSON FeatureCollection in the LGB schema.
 pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    fetch_collection(fetcher, BUILDINGS_ENDPOINT, bbox)
+    merged(bbox, |region| match region {
+        Region::Brandenburg => collection_features(fetcher, BUILDINGS_ENDPOINT, bbox),
+        Region::Berlin => berlin::fetch_buildings(fetcher, bbox),
+    })
+}
+
+/// Downloads the land use in `bbox` from every state service covering it, like
+/// [`fetch_buildings`].
+pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
+    merged(bbox, |region| match region {
+        Region::Brandenburg => collection_features(fetcher, LAND_USE_ENDPOINT, bbox),
+        Region::Berlin => berlin::fetch_land_use(fetcher, bbox),
+    })
+}
+
+/// The features of every region covering `bbox` as one FeatureCollection; object ids of the
+/// states never collide (`DEBBAL…`, `DEBE…`).
+fn merged(
+    bbox: &BoundingBox,
+    mut fetch: impl FnMut(Region) -> Result<Vec<Value>, FetchError>,
+) -> Result<String, FetchError> {
+    let mut features = Vec::new();
+    for region in regions_for(bbox) {
+        features.extend(fetch(region)?);
+    }
+    Ok(feature_collection(features))
+}
+
+fn feature_collection(features: Vec<Value>) -> String {
+    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
 }
 
 /// Downloads all pages of a collection endpoint in `bbox` as one GeoJSON FeatureCollection.
@@ -75,6 +108,15 @@ pub fn fetch_collection(
     endpoint: &str,
     bbox: &BoundingBox,
 ) -> Result<String, FetchError> {
+    collection_features(fetcher, endpoint, bbox).map(feature_collection)
+}
+
+/// The features of all pages of a collection endpoint in `bbox`.
+fn collection_features(
+    fetcher: &dyn Fetcher,
+    endpoint: &str,
+    bbox: &BoundingBox,
+) -> Result<Vec<Value>, FetchError> {
     let mut features: Vec<Value> = Vec::new();
     let mut seen_oids = std::collections::HashSet::new();
     let mut visited = Vec::new();
@@ -109,7 +151,7 @@ pub fn fetch_collection(
             .map(str::to_string)
             .filter(|href| !visited.contains(href));
     }
-    Ok(serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string())
+    Ok(features)
 }
 
 /// Buildings read from a FeatureCollection, and the features that could not be read.
@@ -471,5 +513,92 @@ mod tests {
                 .any(|b| b.function == "Allgemein bildende Schule")
         );
         assert!(buildings.iter().any(|b| b.underground));
+    }
+
+    /// Across the Berlin border at Schönefeld.
+    const BORDER: BoundingBox = BoundingBox {
+        min_e: 407_550.0,
+        min_n: 5_799_224.0,
+        max_e: 408_150.0,
+        max_n: 5_799_824.0,
+    };
+
+    #[test]
+    fn border_merges_both_sources() {
+        let fetcher = MapFetcher::default();
+        let lgb = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Wohnhaus",
+            [407_600.0, 5_799_300.0, 10.0],
+        );
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
+        fetcher.insert_prefix(
+            crate::sources::berlin::BUILDINGS_SERVICE,
+            crate::sources::berlin::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings(&fetcher, &BORDER).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert_eq!(oids.len(), 5, "{oids:?}");
+        assert_eq!(oids[0], "DEBBAL0100000001");
+        assert!(
+            oids[1..].iter().all(|oid| oid.starts_with("DEBE")),
+            "{oids:?}"
+        );
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn border_land_use_merges_both_sources() {
+        let fetcher = MapFetcher::default();
+        let lgb = land_use_feature(
+            "DEBBAL0200000001",
+            "Wald",
+            None,
+            [407_600.0, 5_799_300.0, 10.0],
+        );
+        fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&[lgb], None));
+        fetcher.insert_prefix(
+            crate::sources::berlin::LAND_USE_SERVICE,
+            crate::sources::berlin::test_support::LAND_USE
+                .as_bytes()
+                .to_vec(),
+        );
+        let land = parse_land_use(&fetch_land_use(&fetcher, &BORDER).unwrap()).unwrap();
+        assert_eq!(land.len(), 7);
+        assert_eq!(land[0].nutzart, "Wald");
+        assert_eq!(land[1].nutzart, "Fläche besonderer funktionaler Prägung");
+    }
+
+    #[test]
+    fn brandenburg_area_makes_no_berlin_request() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[], None));
+        fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&[], None));
+        fetch_buildings(&fetcher, &BBOX).unwrap();
+        fetch_land_use(&fetcher, &BBOX).unwrap();
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn berlin_area_makes_no_brandenburg_request() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::berlin::BUILDINGS_SERVICE,
+            crate::sources::berlin::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        let school = BoundingBox {
+            min_e: 392_700.0,
+            min_n: 5_820_750.0,
+            max_e: 392_900.0,
+            max_n: 5_820_950.0,
+        };
+        let parsed = parse_buildings(&fetch_buildings(&fetcher, &school).unwrap()).unwrap();
+        assert_eq!(parsed.buildings.len(), 4);
+        assert_eq!(fetcher.calls.get(), 1);
     }
 }
