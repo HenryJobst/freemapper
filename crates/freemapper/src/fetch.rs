@@ -536,7 +536,10 @@ mod tests {
         fetcher.insert_prefix("https://a.example/", b"short".to_vec());
         fetcher.insert_prefix("https://a.example/items", b"long".to_vec());
         fetcher.insert("https://a.example/items?x=1", b"exact".to_vec());
-        assert_eq!(fetcher.get("https://a.example/items?x=1").unwrap(), b"exact");
+        assert_eq!(
+            fetcher.get("https://a.example/items?x=1").unwrap(),
+            b"exact"
+        );
         assert_eq!(fetcher.get("https://a.example/items?x=2").unwrap(), b"long");
         assert_eq!(fetcher.get("https://a.example/other").unwrap(), b"short");
         assert!(fetcher.get("https://b.example/").is_err());

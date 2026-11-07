@@ -3,6 +3,7 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod area;
+pub mod build;
 pub mod crs;
 pub mod derive;
 pub mod fetch;

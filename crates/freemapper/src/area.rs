@@ -66,6 +66,15 @@ impl MapArea {
         Ok(Self { polygon, source_id })
     }
 
+    /// The polygon in EPSG:25833.
+    pub fn projected_polygon(&self) -> geo_types::Polygon<f64> {
+        use geo::MapCoords as _;
+        self.polygon.map_coords(|c| {
+            let p = utm33_forward(LatLon { lat: c.y, lon: c.x });
+            geo_types::coord! { x: p.easting, y: p.northing }
+        })
+    }
+
     /// Bounding box of the exterior ring in EPSG:25833.
     pub fn projected_bbox(&self) -> BoundingBox {
         let mut points = self
@@ -162,6 +171,18 @@ mod tests {
             5_821_000.0 < bbox.min_n && bbox.max_n < 5_822_000.0,
             "{bbox:?}"
         );
+    }
+
+    #[test]
+    fn projected_polygon_of_fixture() {
+        use geo::BoundingRect as _;
+        let area = MapArea::from_geojson(FIXTURE).unwrap();
+        let polygon = area.projected_polygon();
+        assert_eq!(polygon.exterior().0.len(), area.polygon.exterior().0.len());
+        let rect = polygon.bounding_rect().unwrap();
+        let bbox = area.projected_bbox();
+        assert_eq!((rect.min().x, rect.min().y), (bbox.min_e, bbox.min_n));
+        assert_eq!((rect.max().x, rect.max().y), (bbox.max_e, bbox.max_n));
     }
 
     #[test]
