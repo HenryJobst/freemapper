@@ -10,6 +10,7 @@ pub mod fetch;
 mod fsutil;
 pub mod georef;
 pub mod omap;
+pub mod places;
 pub mod project;
 pub mod raster;
 pub mod sources;

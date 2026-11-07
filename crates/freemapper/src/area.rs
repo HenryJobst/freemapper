@@ -12,6 +12,8 @@ pub enum AreaError {
     MultiPolygon(usize),
     #[error("coordinate out of range: lat {lat}, lon {lon}")]
     OutOfRange { lat: f64, lon: f64 },
+    #[error("{0}")]
+    Place(String),
 }
 
 /// Metres per degree of latitude (and of longitude on the equator), close enough for a filter box.

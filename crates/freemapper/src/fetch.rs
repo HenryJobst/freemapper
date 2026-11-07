@@ -104,6 +104,15 @@ fn status_error(url: &str, e: ureq::Error) -> FetchError {
     }
 }
 
+/// Identifies freemapper to the servers (Nominatim requires it).
+const USER_AGENT: &str = concat!(
+    "freemapper/",
+    env!("CARGO_PKG_VERSION"),
+    " (+",
+    env!("CARGO_PKG_REPOSITORY"),
+    ")"
+);
+
 /// Time to open a connection and to wait for the response headers.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -172,10 +181,7 @@ impl Fetcher for HttpFetcher {
         let mut response = self
             .large
             .get(url)
-            .header(
-                "User-Agent",
-                concat!("freemapper/", env!("CARGO_PKG_VERSION")),
-            )
+            .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| http_error(e.to_string()))?;
         if let Some(dir) = path.parent() {
@@ -216,10 +222,7 @@ impl Fetcher for HttpFetcher {
         let response = self
             .agent
             .head(url)
-            .header(
-                "User-Agent",
-                concat!("freemapper/", env!("CARGO_PKG_VERSION")),
-            )
+            .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| status_error(url, e))?;
         Ok(response
@@ -235,10 +238,7 @@ impl Fetcher for HttpFetcher {
         let mut response = self
             .agent
             .get(url)
-            .header(
-                "User-Agent",
-                concat!("freemapper/", env!("CARGO_PKG_VERSION")),
-            )
+            .header("User-Agent", USER_AGENT)
             .call()
             .map_err(http_error)?;
         let mut bytes = Vec::new();
