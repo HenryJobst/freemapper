@@ -170,15 +170,12 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
             Region::Hamburg => (
-                collection_features_in(
+                lgv_features(
                     fetcher,
-                    lgv::BUILDINGS_ENDPOINT,
+                    (lgv::BUILDINGS_ENDPOINT, alkis_wfs::LGV.buildings_type),
                     &in_crs(Crs::Utm32),
-                    Crs::Utm32,
-                )?
-                .into_iter()
-                .map(lgv::normalise_building)
-                .collect(),
+                    lgv::normalise_building,
+                )?,
                 Crs::Utm32,
             ),
         })
@@ -201,15 +198,12 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
             Region::Hamburg => (
-                collection_features_in(
+                lgv_features(
                     fetcher,
-                    lgv::LAND_USE_ENDPOINT,
+                    (lgv::LAND_USE_ENDPOINT, alkis_wfs::LGV.land_use_type),
                     &in_crs(Crs::Utm32),
-                    Crs::Utm32,
-                )?
-                .into_iter()
-                .map(lgv::normalise_land_use)
-                .collect(),
+                    lgv::normalise_land_use,
+                )?,
                 Crs::Utm32,
             ),
         })
@@ -217,6 +211,21 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
 }
 
 type Features = (Vec<Value>, Crs);
+
+/// Hamburg's features of one collection in `bbox` (EPSG:25832), normalised to the LGB spellings:
+/// from the OGC API, or from the classic WFS (the same data) when the OGC API fails. When both
+/// fail, the OGC API's error is reported.
+fn lgv_features(
+    fetcher: &dyn Fetcher,
+    (endpoint, wfs_type): (&str, &str),
+    bbox: &BoundingBox,
+    normalise: fn(Value) -> Value,
+) -> Result<Vec<Value>, FetchError> {
+    let features = collection_features_in(fetcher, endpoint, bbox, Crs::Utm32).or_else(|e| {
+        alkis_wfs::fetch_wfs(fetcher, &alkis_wfs::LGV, wfs_type, bbox).map_err(|_| e)
+    })?;
+    Ok(features.into_iter().map(normalise).collect())
+}
 
 fn wfs_buildings(
     fetcher: &dyn Fetcher,
@@ -884,6 +893,85 @@ mod tests {
         assert_eq!(
             collection_url(BUILDINGS_ENDPOINT, &bbox),
             collection_url_in(BUILDINGS_ENDPOINT, &bbox, Crs::Utm33)
+        );
+    }
+
+    /// The Gymnasium Eppendorf (25833 region box), mapped in zone 32.
+    fn eppendorf_area() -> FetchArea {
+        FetchArea::new(
+            BoundingBox {
+                min_e: 167_878.0,
+                min_n: 5_948_879.0,
+                max_e: 168_278.0,
+                max_n: 5_949_279.0,
+            },
+            Crs::Utm32,
+        )
+    }
+
+    /// A fetcher whose LGV OGC API resets every connection.
+    fn ogc_api_down() -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        for endpoint in [
+            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            crate::sources::lgv::LAND_USE_ENDPOINT,
+        ] {
+            fetcher.flaky.borrow_mut().insert(endpoint.to_string(), 100);
+        }
+        fetcher
+    }
+
+    #[test]
+    fn hamburg_alkis_falls_back_to_the_wfs() {
+        let fetcher = ogc_api_down();
+        for (type_name, body) in [
+            (
+                alkis_wfs::LGV.buildings_type,
+                include_str!("../../../../tests/fixtures/hamburg-wfs-buildings.gml"),
+            ),
+            (
+                alkis_wfs::LGV.land_use_type,
+                include_str!("../../../../tests/fixtures/hamburg-wfs-land-use.gml"),
+            ),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    alkis_wfs::LGV.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let area = eppendorf_area();
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        assert_eq!(parsed.buildings.len(), 15);
+        assert!(
+            parsed
+                .buildings
+                .iter()
+                .all(|b| b.kind == "Gebäude" || b.kind == "Bauteil")
+        );
+        let land = parse_land_use(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
+        assert_eq!(land.len(), 20);
+        assert!(
+            land.iter().any(|l| l.nutzart == "Straßenverkehr"),
+            "normalised"
+        );
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.starts_with(alkis_wfs::LGV.url) && u.contains("EPSG::25832"))
+        );
+    }
+
+    #[test]
+    fn hamburg_alkis_reports_the_ogc_api_error_when_both_fail() {
+        let err = fetch_buildings_in(&ogc_api_down(), &eppendorf_area()).unwrap_err();
+        assert!(
+            err.to_string().contains("api.hamburg.de"),
+            "the first error is reported: {err}"
         );
     }
 
