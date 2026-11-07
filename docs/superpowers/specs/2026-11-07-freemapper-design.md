@@ -186,7 +186,8 @@ asset (`assets/symbol-sets/school-2019_1000.omap`) so the binary embeds a fixed 
 - Contours: smooth the DTM (Gaussian, configurable σ), then marching squares (`contour` crate), simplify, clip.
   Interval: schoolyard 1 m (index 5 m), sprint 2 m (index 10 m). Contours are candidates only.
 - nDSM: rasterize nDOM points (max Z per 0.2 m cell), written as PNG + world file with a height colour ramp.
-  LGB publishes no currency for nDOM tiles; the cache is keyed by the server's `Last-Modified` date.
+  LGB publishes no currency for nDOM tiles; the cache is keyed by the server's `Last-Modified` date (a
+  server without that header gives an undated file that is not refreshed until it is deleted).
 - Orthophoto: mosaic + clip DOP20 RGB JPEG tiles, written as JPEG + world file.
 - Raster templates use image + world file instead of GeoTIFF (decided in M2/M3a): OOM's `TemplateImage`
   reads world files and takes the CRS from the template's `<crs_spec>`, OCAD reads world files too, and

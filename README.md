@@ -36,7 +36,8 @@ freemapper run clara-zetkin-schule
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
 - `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
-  Kartengebiet plus Puffer in den Zwischenspeicher, dazu die ALKIS-Gebäude und den OSM-Auszug für
+  Kartengebiet plus Puffer in den Zwischenspeicher, dazu das nDOM (etwa 15 MB je Kachel; erneuert,
+  wenn der Server ein neueres Änderungsdatum meldet), die ALKIS-Gebäude und den OSM-Auszug für
   Brandenburg von Geofabrik (beim ersten Mal etwa 300 MB, danach nur, wenn er mehr als 7 Tage alt ist). Kacheln werden nur neu
   geladen, wenn das LGB sie neu veröffentlicht hat; `--offline` nutzt nur bereits geladene Daten.
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung und das nDOM

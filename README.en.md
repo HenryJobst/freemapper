@@ -36,7 +36,8 @@ freemapper run clara-zetkin-schule
 `run` performs three steps that are also available on their own:
 
 - `freemapper fetch <dir>` – downloads the LGB orthophoto (DOP20) and terrain model (DGM1) tiles for
-  map area plus buffer into the cache, the ALKIS buildings and Geofabrik's OSM extract for Brandenburg
+  map area plus buffer into the cache, the nDSM (about 15 MB per tile; refreshed when the server reports
+  a newer modification date), the ALKIS buildings and Geofabrik's OSM extract for Brandenburg
   (about 300 MB the first time, afterwards only when it is more than 7 days old). A tile is downloaded again only when
   LGB republished it; `--offline` uses data fetched before.
 - `freemapper derive <dir>` – computes orthophoto, hillshade, slope and nDSM (height above ground:

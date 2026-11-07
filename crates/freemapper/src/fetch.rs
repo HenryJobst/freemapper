@@ -445,6 +445,20 @@ pub fn fetch_ndsm_tiles(
             }
             continue;
         }
+        // The nDSM is only a template: a failing server falls back to the cache or skips the tile.
+        let unavailable = |reason: String, progress: &mut dyn FnMut(&str)| {
+            let fallback = cached.first().cloned();
+            progress(&format!(
+                "warning: nDSM tile {} unavailable ({reason}); {}",
+                tile.name(),
+                if fallback.is_some() {
+                    "using the cached file"
+                } else {
+                    "skipped"
+                }
+            ));
+            fallback
+        };
         let published = match fetcher.last_modified(&url) {
             Ok(date) => date,
             Err(FetchError::NotFound(_)) => {
@@ -454,20 +468,37 @@ pub fn fetch_ndsm_tiles(
                 ));
                 continue;
             }
-            Err(e) => return Err(e),
+            Err(e) => {
+                if let Some((published, path)) = unavailable(e.to_string(), progress) {
+                    fetched.push(NdsmTile {
+                        tile,
+                        url,
+                        published,
+                        path,
+                    });
+                }
+                continue;
+            }
         };
         let path = cache.ndsm_path(tile, published);
         if path.exists() {
             progress(&format!("cached nDSM {}", tile.name()));
         } else {
             progress(&format!("downloading {url}"));
-            let bytes = fetcher.get(&url)?;
-            if !bytes.starts_with(b"LASF") {
-                return Err(FetchError::CorruptArchive {
-                    url,
-                    message: "not a LAS point cloud".to_string(),
-                });
-            }
+            let bytes = match fetcher.get(&url).and_then(|b| check_las(&url, b)) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    if let Some((published, path)) = unavailable(e.to_string(), progress) {
+                        fetched.push(NdsmTile {
+                            tile,
+                            url,
+                            published,
+                            path,
+                        });
+                    }
+                    continue;
+                }
+            };
             write_atomically(&path, &bytes)?;
             for (_, older) in cached_ndsm(&dir, tile)
                 .into_iter()
@@ -484,6 +515,26 @@ pub fn fetch_ndsm_tiles(
         });
     }
     Ok(fetched)
+}
+
+/// Checks that `bytes` is a complete LAS/LAZ point cloud: the header, the LAZ chunk table at the
+/// end of the file and the point count all have to be readable.
+fn check_las(url: &str, bytes: Vec<u8>) -> Result<Vec<u8>, FetchError> {
+    let corrupt = |message: String| FetchError::CorruptArchive {
+        url: url.to_string(),
+        message: format!("not a complete LAS point cloud: {message}"),
+    };
+    {
+        let mut reader = las::Reader::new(std::io::Cursor::new(bytes.clone()))
+            .map_err(|e| corrupt(e.to_string()))?;
+        let total = reader.header().number_of_points();
+        // The last chunk ends the file: reading the final point fails on a truncated download.
+        if total > 0 {
+            reader.seek(total - 1).map_err(|e| corrupt(e.to_string()))?;
+            reader.read_points(1).map_err(|e| corrupt(e.to_string()))?;
+        }
+    }
+    Ok(bytes)
 }
 
 /// Cached nDSM files of `tile`, newest first (undated ones last).
@@ -589,6 +640,8 @@ pub(crate) mod test_support {
         /// `Last-Modified` dates by URL.
         pub modified: RefCell<HashMap<String, chrono::NaiveDate>>,
         pub calls: Cell<usize>,
+        /// URLs that fail with a server error.
+        pub failing: RefCell<Vec<String>>,
     }
 
     impl MapFetcher {
@@ -600,6 +653,16 @@ pub(crate) mod test_support {
             self.prefixes.borrow_mut().insert(prefix.to_string(), bytes);
         }
 
+        fn fail_if_failing(&self, url: &str) -> Result<(), FetchError> {
+            if self.failing.borrow().iter().any(|u| u == url) {
+                return Err(FetchError::Http {
+                    url: url.to_string(),
+                    message: "503 Service Unavailable".to_string(),
+                });
+            }
+            Ok(())
+        }
+
         pub fn set_modified(&self, url: &str, date: chrono::NaiveDate) {
             self.modified.borrow_mut().insert(url.to_string(), date);
         }
@@ -608,6 +671,7 @@ pub(crate) mod test_support {
     impl Fetcher for MapFetcher {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
             self.calls.set(self.calls.get() + 1);
+            self.fail_if_failing(url)?;
             let by_prefix = || {
                 let prefixes = self.prefixes.borrow();
                 prefixes
@@ -626,6 +690,7 @@ pub(crate) mod test_support {
 
         fn last_modified(&self, url: &str) -> Result<Option<chrono::NaiveDate>, FetchError> {
             self.calls.set(self.calls.get() + 1);
+            self.fail_if_failing(url)?;
             if !self.responses.borrow().contains_key(url) {
                 return Err(FetchError::NotFound(url.to_string()));
             }
@@ -1052,10 +1117,11 @@ mod tests {
         assert_eq!(fetcher.calls.get(), calls);
     }
 
+    /// A small valid LAZ point cloud.
     fn las_bytes() -> Vec<u8> {
-        let mut bytes = b"LASF".to_vec();
-        bytes.extend_from_slice(&[0; 200]);
-        bytes
+        let source = MapFetcher::default();
+        test_support::serve_synthetic_ndsm(&source, TILE);
+        source.get(&ndsm_tile_url(TILE)).unwrap()
     }
 
     fn ndsm(fetcher: &MapFetcher, cache: &Cache, mode: FetchMode) -> (Vec<NdsmTile>, Vec<String>) {
@@ -1085,6 +1151,65 @@ mod tests {
             .last_modified(&ndsm_tile_url(missing))
             .unwrap_err();
         assert!(matches!(err, FetchError::NotFound(_)), "{err:?}");
+    }
+
+    #[test]
+    fn ndsm_server_error_falls_back_to_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let url = ndsm_tile_url(TILE);
+        fetcher.insert(&url, las_bytes());
+        fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+        fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {}).unwrap();
+        fetcher.failing.borrow_mut().push(url);
+        let mut messages = Vec::new();
+        let tiles = fetch_ndsm_tiles(
+            &fetcher,
+            &cache,
+            &[TILE, NORTH],
+            FetchMode::Online,
+            &mut |m| messages.push(m.to_string()),
+        )
+        .unwrap();
+        assert_eq!(tiles.len(), 1, "the cached tile is used");
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: nDSM tile 33421-5821 unavailable")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn truncated_laz_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let mut bytes = std::fs::read(cache_free_laz(dir.path())).unwrap();
+        bytes.truncate(bytes.len() / 2);
+        fetcher.insert(&ndsm_tile_url(TILE), bytes);
+        let mut messages = Vec::new();
+        let tiles = fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(tiles.is_empty());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("not a complete LAS point cloud")),
+            "{messages:?}"
+        );
+    }
+
+    /// A small valid LAZ file written outside the cache.
+    fn cache_free_laz(dir: &Path) -> PathBuf {
+        let source = MapFetcher::default();
+        test_support::serve_synthetic_ndsm(&source, TILE);
+        let path = dir.join("source.laz");
+        std::fs::write(&path, source.get(&ndsm_tile_url(TILE)).unwrap()).unwrap();
+        path
     }
 
     #[test]
@@ -1170,9 +1295,19 @@ mod tests {
         let cache = Cache::new(dir.path().to_path_buf());
         let fetcher = MapFetcher::default();
         fetcher.insert(&ndsm_tile_url(TILE), b"<html>maintenance</html>".to_vec());
-        let err = fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {})
-            .unwrap_err();
-        assert!(matches!(err, FetchError::CorruptArchive { .. }), "{err:?}");
+        let mut messages = Vec::new();
+        let tiles = fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(tiles.is_empty(), "skipped, not cached");
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("not a complete LAS point cloud")),
+            "{messages:?}"
+        );
+        assert!(cached_ndsm(&cache.ndsm_dir(), TILE).is_empty());
     }
 
     #[test]

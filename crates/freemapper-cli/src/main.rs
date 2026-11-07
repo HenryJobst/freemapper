@@ -50,7 +50,7 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Download the tiles for the map area (orthophoto, terrain model) into the cache.
+    /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
         /// Project folder.
         dir: PathBuf,
@@ -60,7 +60,7 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
-    /// Compute the templates (orthophoto, hillshade, slope) from the fetched tiles.
+    /// Compute the templates (orthophoto, hillshade, slope, nDSM) and contours from the fetched data.
     Derive {
         /// Project folder.
         dir: PathBuf,

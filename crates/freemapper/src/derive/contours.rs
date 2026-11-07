@@ -7,6 +7,8 @@ use crate::raster::Raster;
 /// Simplification tolerance and shortest kept line, on paper.
 const SIMPLIFY_MM: f64 = 0.1;
 const MIN_LENGTH_MM: f64 = 2.0;
+/// Closed rings enclosing less than this on paper are noise at a 1 m interval.
+const MIN_RING_AREA_MM2: f64 = 1.5;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid contours: {0}")]
@@ -190,14 +192,21 @@ fn usable_runs(ring: &[(f64, f64)], unusable: &dyn Fn(f64, f64) -> bool) -> Vec<
     runs
 }
 
-/// Simplifies the lines for the map scale and drops lines shorter than 2 mm on paper.
+/// Simplifies the lines for the map scale and drops lines shorter than 2 mm and closed rings
+/// enclosing less than 1.5 mm² on paper.
 pub fn generalize(lines: Vec<ContourLine>, scale_denominator: u32) -> Vec<ContourLine> {
+    use geo::Area as _;
     let metres_per_mm = f64::from(scale_denominator) / 1000.0;
     lines
         .into_iter()
         .filter_map(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
             let simplified = ls.simplify(SIMPLIFY_MM * metres_per_mm);
+            let closed = simplified.0.len() > 3 && simplified.is_closed();
+            let ring_area = geo_types::Polygon::new(simplified.clone(), vec![]).unsigned_area();
+            if closed && ring_area < MIN_RING_AREA_MM2 * metres_per_mm * metres_per_mm {
+                return None;
+            }
             (geo::Euclidean.length(&simplified) >= MIN_LENGTH_MM * metres_per_mm).then(|| {
                 ContourLine {
                     height: line.height,
@@ -332,10 +341,54 @@ mod tests {
             lines.iter().all(|l| !l.points.iter().any(in_hole)),
             "{lines:?}"
         );
-        let three = lines.iter().filter(|l| l.height == 2.0).count();
-        assert_eq!(three, 2, "the 2 m line is cut in two by the hole");
+        let two_metre_lines = lines.iter().filter(|l| l.height == 2.0).count();
+        assert_eq!(two_metre_lines, 2, "the 2 m line is cut in two by the hole");
         assert!(smooth.get(25, 25).is_nan());
         assert!((smooth.get(10, 10) - 52.3).abs() < 1e-4);
+        // Next to the hole and on the border: neither pulled down by nodata nor biased.
+        assert!(
+            (smooth.get(19, 25) - 52.3).abs() < 1e-4,
+            "{}",
+            smooth.get(19, 25)
+        );
+        assert!(
+            (smooth.get(0, 0) - 52.3).abs() < 1e-4,
+            "{}",
+            smooth.get(0, 0)
+        );
+    }
+
+    #[test]
+    fn runs_wrap_around_the_ring_start() {
+        // A closed ring starting inside a usable stretch, with one unusable point in the middle.
+        let ring = [
+            (1.0, 1.0),
+            (2.0, 1.0),
+            (9.0, 9.0),
+            (2.0, 2.0),
+            (1.0, 2.0),
+            (1.0, 1.0),
+        ];
+        let runs = usable_runs(&ring, &|x, _| x > 5.0);
+        assert_eq!(runs, [vec![(2.0, 2.0), (1.0, 2.0), (1.0, 1.0), (2.0, 1.0)]]);
+    }
+
+    #[test]
+    fn tiny_closed_rings_are_dropped() {
+        let ring = |side: f64| ContourLine {
+            height: 60.0,
+            points: vec![
+                (0.0, 0.0),
+                (side, 0.0),
+                (side, side),
+                (0.0, side),
+                (0.0, 0.0),
+            ],
+        };
+        // At 1:1000, 1.5 mm² on paper are 1.5 m²: a 1 m square ring goes, a 2 m one stays.
+        let kept = generalize(vec![ring(1.0), ring(2.0)], 1000);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].points[1], (2.0, 0.0));
     }
 
     #[test]

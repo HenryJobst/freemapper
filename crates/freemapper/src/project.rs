@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
-use crate::build::buildings::building_objects;
+use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, candidate_objects};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
@@ -388,7 +388,7 @@ pub fn fetch_project(
     // buildings download must not leave the project pointing at those.
     project.tiles = records;
     project.save(dir)?;
-    project.ndsm_tiles = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, progress)?
+    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, progress)?
         .into_iter()
         .map(|t| NdsmRecord {
             tile: t.tile.name(),
@@ -396,6 +396,18 @@ pub fn fetch_project(
             published: t.published,
         })
         .collect();
+    for record in &ndsm_tiles {
+        let previous = project.ndsm_tiles.iter().find(|p| p.tile == record.tile);
+        if let Some(previous) = previous.filter(|p| p.published != record.published)
+            && let (Some(old), Some(new)) = (previous.published, record.published)
+        {
+            progress(&format!(
+                "warning: nDSM tile {} changed upstream ({old} → {new})",
+                record.tile
+            ));
+        }
+    }
+    project.ndsm_tiles = ndsm_tiles;
     project.save(dir)?;
     let bbox = project.bbox()?;
     let previous = project.buildings.as_ref();
@@ -604,6 +616,9 @@ pub fn derive_project(
     write_atomically(&contours_path, contours_to_geojson(&lines).as_bytes())?;
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
+    if project.ndsm_tiles.is_empty() {
+        progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
+    }
     let ndsm_files: Vec<PathBuf> = project
         .ndsm_tiles
         .iter()
@@ -622,16 +637,32 @@ pub fn derive_project(
                     "warning: nDSM {} not cached; run `freemapper fetch`",
                     record.tile
                 ));
+                return None;
             }
-            path.exists().then_some(path)
+            // A damaged cached file costs only its part of the template, not the whole derive.
+            if let Err(e) = las::Reader::from_path(&path) {
+                progress(&format!(
+                    "warning: nDSM {} unreadable ({e}); delete {} and run `freemapper fetch`",
+                    record.tile,
+                    path.display()
+                ));
+                return None;
+            }
+            Some(path)
         })
         .collect();
-    if !ndsm_files.is_empty() {
-        let ndsm_path = dir.join(NDSM_RELPATH);
+    let ndsm_path = dir.join(NDSM_RELPATH);
+    if ndsm_files.is_empty() {
+        // An older nDSM template would no longer match the map area: remove it.
+        for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
+            let _ = std::fs::remove_file(stale);
+        }
+    } else {
         progress(&format!("writing {NDSM_RELPATH}"));
         write_ndsm_png(&rasterize(&ndsm_files, &bbox)?, &ndsm_path)?;
         written.push(ndsm_path);
     }
+    written.push(contours_path);
     Ok(written)
 }
 
@@ -799,9 +830,11 @@ fn stored_candidate_objects(
 fn stored_contour_objects(
     dir: &Path,
     project: &ProjectFile,
+    area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
+    use geo::{Contains as _, Distance as _, InteriorPoint as _};
     let path = dir.join(CONTOURS_RELPATH);
     if !path.exists() {
         return Ok(Vec::new());
@@ -824,8 +857,25 @@ fn stored_contour_objects(
             .expect("symbol set defines contours")
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
+    let map_area = area.projected_polygon();
+    // DGM1 is interpolated under buildings: closed rings there are artefacts.
+    let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
+        .into_iter()
+        .filter(|b| classify(b) == Rule::Object)
+        .flat_map(|b| b.footprint.0)
+        .collect();
+    let on_a_building = |ring: &geo_types::LineString<f64>| {
+        geo_types::Polygon::new(ring.clone(), vec![])
+            .interior_point()
+            .is_some_and(|p| footprints.iter().any(|f| f.contains(&p)))
+    };
     lines
         .iter()
+        .filter(|line| {
+            let ls = geo_types::LineString::from(line.points.clone());
+            let near = geo::Euclidean.distance(&ls, &map_area) <= project.buffer_m;
+            near && !(ls.is_closed() && ls.0.len() > 3 && on_a_building(&ls))
+        })
         .map(|line| {
             let coords: Vec<(i32, i32)> = line
                 .points
@@ -871,6 +921,21 @@ fn stored_contour_objects(
 /// ISSprOM contour and index contour.
 const CONTOUR_CODE: &str = "101";
 const INDEX_CONTOUR_CODE: &str = "102";
+
+/// The stored ALKIS buildings; none when no buildings were fetched.
+fn stored_buildings(dir: &Path) -> Result<Vec<crate::sources::alkis::Building>, ProjectError> {
+    let path = dir.join(BUILDINGS_RELPATH);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    Ok(parse_buildings(&text)
+        .map_err(|e| ProjectError::StoredBuildings {
+            path: path.clone(),
+            message: e.to_string(),
+        })?
+        .buildings)
+}
 
 /// Whether the stored buildings give map objects that the map at `map_text` lacks.
 fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
@@ -924,7 +989,13 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
                     &georef,
                     &symbol_set,
                 )?)
-                .chain(stored_contour_objects(dir, &project, &georef, &symbol_set)?)
+                .chain(stored_contour_objects(
+                    dir,
+                    &project,
+                    &area,
+                    &georef,
+                    &symbol_set,
+                )?)
                 .collect(),
         }],
         templates: Vec::new(),
@@ -1275,7 +1346,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             [
                 templates.join("orthophoto.jpg"),
                 templates.join("hillshade.png"),
-                templates.join("slope.png")
+                templates.join("slope.png"),
+                dir.path().join("data/contours.geojson")
             ]
         );
         for file in ["orthophoto.jgw", "hillshade.pgw", "slope.pgw"] {
@@ -1351,7 +1423,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
 
         let outcome = run(dir.path(), &fetcher, &cache, false);
-        assert_eq!(outcome.templates.len(), 3);
+        assert_eq!(outcome.templates.len(), 4, "three images and the contours");
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
     }
 
@@ -2094,10 +2166,112 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         assert!(map.contains(r#"relpath="templates/ndsm.png""#));
+        let ndsm_ref = map
+            .split("<ref ")
+            .nth(4)
+            .expect("fourth template ref is the nDSM");
+        assert!(
+            ndsm_ref.starts_with(r#"template="3" visible="false" opacity="0.6""#),
+            "{ndsm_ref}"
+        );
         assert!(
             map.contains(r#"first_front_template="4""#),
             "four rasters behind the map"
         );
+    }
+
+    #[test]
+    fn stale_ndsm_template_is_removed_when_no_ndsm_is_available() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.ndsm_tiles.clear();
+        project.save(dir.path()).unwrap();
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
+        assert!(!dir.path().join("templates/ndsm.pgw").exists());
+        assert!(
+            messages.iter().any(|m| m.contains("no nDSM recorded")),
+            "{messages:?}"
+        );
+        export_starter_project(dir.path(), true).unwrap();
+    }
+
+    #[test]
+    fn contours_inside_buildings_and_far_away_are_left_out() {
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        let mut lines = vec![
+            // A ring on the synthetic school building (10 m square at 421 605 / 5 821 730).
+            crate::derive::contours::ContourLine {
+                height: 61.0,
+                points: vec![
+                    (421_606.0, 5_821_731.0),
+                    (421_614.0, 5_821_731.0),
+                    (421_614.0, 5_821_739.0),
+                    (421_606.0, 5_821_739.0),
+                    (421_606.0, 5_821_731.0),
+                ],
+            },
+            // A line 500 m away, beyond map area and buffer.
+            crate::derive::contours::ContourLine {
+                height: 62.0,
+                points: vec![(422_200.0, 5_821_700.0), (422_210.0, 5_821_700.0)],
+            },
+        ];
+        let kept_line = crate::derive::contours::ContourLine {
+            height: 63.0,
+            points: vec![(421_600.0, 5_821_700.0), (421_640.0, 5_821_700.0)],
+        };
+        lines.push(kept_line);
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&lines),
+        )
+        .unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let heights: Vec<&str> = candidates
+            .match_indices(r#"<t k="freemapper:height">"#)
+            .map(|(i, m)| {
+                let rest = &candidates[i + m.len()..];
+                &rest[..rest.find('<').unwrap()]
+            })
+            .collect();
+        assert_eq!(heights, ["63"]);
+    }
+
+    #[test]
+    fn republished_ndsm_tile_warns() {
+        let fetcher = MapFetcher::default();
+        crate::fetch::test_support::serve_synthetic_ndsm(&fetcher, school_tile());
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        fetcher.set_modified(
+            &crate::sources::lgb::ndsm_tile_url(school_tile()),
+            "2026-09-01".parse().unwrap(),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.contains(
+                &"warning: nDSM tile 33421-5821 changed upstream (2025-03-03 → 2026-09-01)"
+                    .to_string()
+            ),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn unreadable_cached_ndsm_is_skipped() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        let cached = cache.ndsm_path(school_tile(), "2025-03-03".parse().ok());
+        std::fs::write(&cached, b"LASF broken").unwrap();
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(
+            messages.iter().any(|m| m.contains("unreadable")),
+            "{messages:?}"
+        );
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
     }
 
     #[test]
