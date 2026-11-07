@@ -7,7 +7,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::project::{
-    MapKind, derive_project, export_starter_project, fetch_project, init_project,
+    MapKind, MapOutcome, derive_project, export_starter_project, fetch_project, init_project,
+    run_project,
 };
 
 #[derive(Parser)]
@@ -167,17 +168,33 @@ fn main() -> anyhow::Result<()> {
             force,
             cache,
         } => {
-            let cache = cache.cache()?;
-            fetch_project(
+            let outcome = run_project(
                 &dir,
                 &HttpFetcher::new(),
-                &cache,
+                &cache.cache()?,
                 mode(offline),
+                force,
                 &mut report,
             )?;
-            derive_project(&dir, &cache, &mut report)?;
-            let map = export_starter_project(&dir, force)?;
-            println!("Wrote {}", map.display());
+            for path in outcome.templates {
+                println!("Wrote {}", path.display());
+            }
+            match outcome.map {
+                MapOutcome::Written(map) => println!("Wrote {}", map.display()),
+                MapOutcome::Kept {
+                    map,
+                    references_images,
+                } => {
+                    println!("Kept {} (it may contain your work)", map.display());
+                    if !references_images {
+                        println!(
+                            "The map does not reference the image templates yet: add them in OOM \
+                             (Templates > Open template…) or replace the map with --force \
+                             (the old one is kept as .omap.bak)."
+                        );
+                    }
+                }
+            }
         }
     }
     Ok(())

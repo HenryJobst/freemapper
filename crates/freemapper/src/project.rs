@@ -257,6 +257,56 @@ pub fn derive_project(
     Ok(vec![orthophoto, hillshade_path, slope_path])
 }
 
+/// Path of the project's map file: `<dir>/<dir name>.omap`.
+pub fn map_path(dir: &Path) -> PathBuf {
+    let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
+    dir.join(format!("{name}.omap"))
+}
+
+/// What [`run_project`] did with the map file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MapOutcome {
+    Written(PathBuf),
+    /// The map existed and `force` was not set, so it was left alone; the templates it
+    /// references by path were refreshed.
+    Kept {
+        map: PathBuf,
+        references_images: bool,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunOutcome {
+    pub templates: Vec<PathBuf>,
+    pub map: MapOutcome,
+}
+
+/// Fetch, derive and export. An existing map is kept unless `force` is set, because it may
+/// contain the mapper's work.
+pub fn run_project(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    force: bool,
+    progress: &mut dyn FnMut(&str),
+) -> Result<RunOutcome, ProjectError> {
+    fetch_project(dir, fetcher, cache, mode, progress)?;
+    let templates = derive_project(dir, cache, progress)?;
+    let existing = map_path(dir);
+    let map = if existing.exists() && !force {
+        let text = std::fs::read_to_string(&existing)
+            .map_err(|e| ProjectError::Io(existing.clone(), e))?;
+        MapOutcome::Kept {
+            references_images: text.contains(ORTHOPHOTO_RELPATH),
+            map: existing,
+        }
+    } else {
+        MapOutcome::Written(export_starter_project(dir, force)?)
+    };
+    Ok(RunOutcome { templates, map })
+}
+
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
 ///
@@ -319,13 +369,12 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         templates,
     };
 
-    let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
-    let map_path = dir.join(format!("{name}.omap"));
+    let map_path = map_path(dir);
     if map_path.exists() {
         if !force {
             return Err(ProjectError::MapExists(map_path));
         }
-        let backup = dir.join(format!("{name}.omap.bak"));
+        let backup = map_path.with_extension("omap.bak");
         std::fs::copy(&map_path, &backup).map_err(|e| ProjectError::Io(backup, e))?;
     }
     write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
@@ -614,6 +663,58 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(
             attribution.contains(lgb) && attribution.contains("OpenStreetMap"),
             "{attribution}"
+        );
+    }
+
+    fn run(dir: &Path, fetcher: &MapFetcher, cache: &Cache, force: bool) -> RunOutcome {
+        run_project(dir, fetcher, cache, FetchMode::Online, force, &mut |_| {}).unwrap()
+    }
+
+    #[test]
+    fn run_writes_map_when_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(outcome.templates.len(), 3);
+        assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
+    }
+
+    #[test]
+    fn run_keeps_existing_map_and_refreshes_templates() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let map = export_starter_project(dir.path(), false).unwrap();
+        std::fs::write(&map, "edited in OOM").unwrap();
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(
+            outcome.map,
+            MapOutcome::Kept {
+                map: map.clone(),
+                references_images: false
+            }
+        );
+        assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+        assert!(dir.path().join(ORTHOPHOTO_RELPATH).exists());
+
+        let replaced = run(dir.path(), &fetcher, &cache, true);
+        assert_eq!(replaced.map, MapOutcome::Written(map.clone()));
+        let again = run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(
+            again.map,
+            MapOutcome::Kept {
+                map,
+                references_images: true
+            }
         );
     }
 
