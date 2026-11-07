@@ -1,6 +1,7 @@
 //! Derived templates: orthophoto mosaic, hillshade, slope.
 
 pub mod contours;
+pub mod ndsm;
 pub mod orthophoto;
 pub mod terrain;
 
