@@ -22,6 +22,8 @@ pub enum ProjectError {
     Io(PathBuf, std::io::Error),
     #[error("project already exists: {0}")]
     AlreadyExists(PathBuf),
+    #[error("map already exists (it may contain your work); use --force to replace it: {0}")]
+    MapExists(PathBuf),
     #[error("invalid project file: {0}")]
     Toml(String),
     #[error(transparent)]
@@ -118,7 +120,10 @@ pub fn init_project(
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
-pub fn export_starter_project(dir: &Path) -> Result<PathBuf, ProjectError> {
+///
+/// An existing map file may already contain the mapper's work: it is only replaced when
+/// `force` is set, and then kept as `<name>.omap.bak`.
+pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
     let georef = Georeferencing::new(
@@ -156,6 +161,13 @@ pub fn export_starter_project(dir: &Path) -> Result<PathBuf, ProjectError> {
 
     let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
     let map_path = dir.join(format!("{name}.omap"));
+    if map_path.exists() {
+        if !force {
+            return Err(ProjectError::MapExists(map_path));
+        }
+        let backup = dir.join(format!("{name}.omap.bak"));
+        std::fs::copy(&map_path, &backup).map_err(|e| ProjectError::Io(backup, e))?;
+    }
     write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
     write_document(&map, &map_path)?;
     let attribution = dir.join("ATTRIBUTION.txt");

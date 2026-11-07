@@ -103,3 +103,38 @@ fn outline_vertices_map_inside_paper() {
         assert!(x.abs() < 200_000 && y.abs() < 200_000, "({x}, {y})");
     }
 }
+
+#[test]
+fn export_refuses_to_overwrite_map_without_force() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_and_export(&project);
+    let map = project.join("p.omap");
+    std::fs::write(&map, "edited in OOM").unwrap();
+
+    let again = freemapper()
+        .args(["export", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!again.status.success());
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+
+    let forced = freemapper()
+        .args(["export", project.to_str().unwrap(), "--force"])
+        .output()
+        .unwrap();
+    assert!(
+        forced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&forced.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(project.join("p.omap.bak")).unwrap(),
+        "edited in OOM"
+    );
+    assert!(
+        std::fs::read_to_string(&map)
+            .unwrap()
+            .contains("<map xmlns=")
+    );
+}

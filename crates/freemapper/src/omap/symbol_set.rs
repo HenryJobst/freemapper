@@ -113,14 +113,28 @@ impl SymbolSet {
         let mut symbols = enlarge_symbols(&issprom.symbols_xml, SCHOOL_SYMBOL_ENLARGEMENT)
             .expect("embedded ISSprOM 2019 symbols are valid XML");
 
-        let path_width = first_attribute_after(&symbols, r#" code="505.1""#, "line_width")
-            .expect("ISSprOM 2019 defines 505.1")
-            .to_string();
+        // IOF school set, 501: the edge line has the width of an unpaved footpath (505.1).
+        let path_width: u32 = first_attribute_after(&symbols, r#" code="505.1""#, "line_width")
+            .and_then(|w| w.parse().ok())
+            .expect("ISSprOM 2019 defines 505.1");
+        symbols = replace_first_attribute_after(
+            &symbols,
+            r#"<symbol type="2" id="108""#,
+            "line_width",
+            &path_width.to_string(),
+        );
+        // The edge inside the combined paved-area symbols is drawn half below the fill, so its
+        // line is twice as wide as the visible part.
         for combined in [
             r#"<symbol type="16" id="104""#,
             r#"<symbol type="16" id="113""#,
         ] {
-            symbols = replace_first_attribute_after(&symbols, combined, "line_width", &path_width);
+            symbols = replace_first_attribute_after(
+                &symbols,
+                combined,
+                "line_width",
+                &(2 * path_width).to_string(),
+            );
         }
 
         let mut next_id = issprom.max_id() + 1;
@@ -257,11 +271,18 @@ mod tests {
 
         let path = first_attr(&school.symbols_xml, r#"code="505.1""#, "line_width");
         assert_eq!(path, "438");
+        let edge = first_attr(
+            &school.symbols_xml,
+            r#"<symbol type="2" id="108""#,
+            "line_width",
+        );
+        assert_eq!(edge, path, "visible edge 501.1 is as wide as 505.1");
         for id in ["104", "113"] {
+            // The border of the combined symbols is drawn half below the brown fill.
             let combined = format!(r#"<symbol type="16" id="{id}""#);
             assert_eq!(
                 first_attr(&school.symbols_xml, &combined, "line_width"),
-                path,
+                "876",
                 "id {id}"
             );
         }

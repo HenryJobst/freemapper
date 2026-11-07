@@ -38,6 +38,9 @@ enum Commands {
     Export {
         /// Project folder.
         dir: PathBuf,
+        /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -72,8 +75,8 @@ fn main() -> anyhow::Result<()> {
             init_project(&dir, &area, kind.into(), scale, today)?;
             println!("Created project {}", dir.display());
         }
-        Some(Commands::Export { dir }) => {
-            let map = export_starter_project(&dir)?;
+        Some(Commands::Export { dir, force }) => {
+            let map = export_starter_project(&dir, force)?;
             println!("Wrote {}", map.display());
         }
         None => {}
