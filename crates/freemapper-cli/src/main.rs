@@ -13,7 +13,7 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, derive_project, export_ocad, export_starter_project,
-    fetch_project, init_project, map_path, run_project,
+    export_training_pdf, fetch_project, init_project, map_path, run_project,
 };
 
 #[derive(Parser)]
@@ -57,6 +57,10 @@ enum Commands {
         /// then kept unless --force is given.
         #[arg(long)]
         ocad: bool,
+        /// Also write `<name>.pdf`, a fully generated training map (all candidates drawn as map
+        /// objects); an existing OOM map is then kept unless --force is given.
+        #[arg(long)]
+        pdf: bool,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -88,6 +92,9 @@ enum Commands {
         /// Also write an OCAD starting point into `ocad/` (OCAD 12 format).
         #[arg(long)]
         ocad: bool,
+        /// Also write `<name>.pdf`, a fully generated training map.
+        #[arg(long)]
+        pdf: bool,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -185,6 +192,13 @@ fn mode(offline: bool) -> FetchMode {
     }
 }
 
+fn report_pdf(path: &std::path::Path) {
+    println!(
+        "Wrote {} (training map: every candidate is drawn as a map object; check it in the terrain)",
+        path.display()
+    );
+}
+
 /// What the OCAD export wrote and what the user does next in OCAD.
 fn report_ocad(outcome: &OcadOutcome) {
     if outcome.kept {
@@ -247,9 +261,14 @@ fn main() -> anyhow::Result<()> {
             init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());
         }
-        Commands::Export { dir, force, ocad } => {
+        Commands::Export {
+            dir,
+            force,
+            ocad,
+            pdf,
+        } => {
             let existing = map_path(&dir);
-            if ocad && existing.exists() && !force {
+            if (ocad || pdf) && existing.exists() && !force {
                 println!("Kept {} (it may contain your work)", existing.display());
             } else {
                 let map = export_starter_project(&dir, force)?;
@@ -257,6 +276,9 @@ fn main() -> anyhow::Result<()> {
             }
             if ocad {
                 report_ocad(&export_ocad(&dir, force)?);
+            }
+            if pdf {
+                report_pdf(&export_training_pdf(&dir)?);
             }
         }
         Commands::Fetch {
@@ -283,6 +305,7 @@ fn main() -> anyhow::Result<()> {
             offline,
             force,
             ocad,
+            pdf,
             cache,
         } => {
             let outcome = run_project(
@@ -321,6 +344,9 @@ fn main() -> anyhow::Result<()> {
             }
             if ocad {
                 report_ocad(&export_ocad(&dir, force)?);
+            }
+            if pdf {
+                report_pdf(&export_training_pdf(&dir)?);
             }
         }
         Commands::Select {

@@ -15,5 +15,6 @@ pub mod omap;
 pub mod places;
 pub mod project;
 pub mod raster;
+pub mod render;
 pub mod sources;
 pub mod tiles;

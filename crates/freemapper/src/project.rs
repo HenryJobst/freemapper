@@ -1305,6 +1305,69 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
     })
 }
 
+/// The map part with the peripheral information (north lines, title, scale bar, credits).
+const SHEET_PART: &str = "peripheral information";
+
+/// The objects of the training map: everything of the map and every candidate except the map
+/// area outline (the first candidate), and separately the sheet objects, which are not clipped.
+fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapObject>) {
+    let (sheet, own): (Vec<&MapPart>, Vec<&MapPart>) = documents
+        .map
+        .parts
+        .iter()
+        .partition(|p| p.name == SHEET_PART);
+    let map = own
+        .iter()
+        .flat_map(|p| &p.objects)
+        .chain(
+            documents
+                .candidates
+                .parts
+                .iter()
+                .flat_map(|p| p.objects.iter().skip(1)),
+        )
+        .collect();
+    (map, sheet.iter().flat_map(|p| &p.objects).collect())
+}
+
+/// Writes `<name>.pdf`, a fully generated training map: the map objects and all candidates
+/// drawn with the project's symbol set (this deliberately goes beyond "only reliable data as map
+/// objects"), the peripheral information on the sheet.
+pub fn export_training_pdf(dir: &Path) -> Result<PathBuf, ProjectError> {
+    use crate::render::{draw, pdf, symbols::RenderSymbols};
+    let project = ProjectFile::load(dir)?;
+    let documents = starter_documents(dir)?;
+    let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
+    let (map, sheet) = training_objects(&documents);
+    let render = |objects: &[&MapObject]| -> Vec<draw::Primitive> {
+        objects
+            .iter()
+            .flat_map(|o| draw::primitives(o, &symbols))
+            .collect()
+    };
+    let content = PaperRect::of_bbox(&project.bbox()?, &documents.map.georef)?;
+    let clip = pdf::PaperBox {
+        min: (
+            f64::from(content.min_x) / 1000.0,
+            f64::from(content.min_y) / 1000.0,
+        ),
+        max: (
+            f64::from(content.max_x) / 1000.0,
+            f64::from(content.max_y) / 1000.0,
+        ),
+    };
+    let bytes = pdf::write_pdf(
+        &render(&map),
+        &render(&sheet),
+        clip,
+        &symbols.colours,
+        &project.display_title(dir),
+    );
+    let path = map_path(dir).with_extension("pdf");
+    write_atomically(&path, &bytes)?;
+    Ok(path)
+}
+
 /// The map and the candidates template map of a project, as written to OOM and OCAD files.
 struct StarterDocuments {
     map: MapDocument,
@@ -1424,7 +1487,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let parts = vec![
         buildings_part,
         MapPart {
-            name: "peripheral information".to_string(),
+            name: SHEET_PART.to_string(),
             objects: sheet_objects,
         },
     ];
@@ -1879,6 +1942,66 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, cache_dir, cache) = fetched_school(fetcher);
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         (dir, cache_dir)
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[test]
+    fn training_pdf_draws_map_and_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let pdf_path = export_training_pdf(dir.path()).unwrap();
+        assert_eq!(pdf_path.extension().unwrap(), "pdf");
+        let file = std::fs::read(&pdf_path).unwrap();
+        assert!(file.starts_with(b"%PDF-"));
+        let pdf = crate::render::pdf::content_of(&file);
+        // Building fill (black 60 %), tartan pitch candidate (lower brown 50 %), contours (brown).
+        assert!(contains(&pdf, b"0 0 0 0.6 k"), "building");
+        assert!(contains(&pdf, b"0 0.28 0.5 0.09 k"), "pitch");
+        assert!(contains(&pdf, b"0 0.56 1 0.18 K"), "contours");
+        // Texts are WinAnsi hex strings in the content stream.
+        let credit: String = "github.com/HenryJobst/freemapper"
+            .bytes()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert!(
+            contains(&pdf, credit.as_bytes()),
+            "credit line on the sheet"
+        );
+    }
+
+    #[test]
+    fn training_map_takes_all_but_the_outline() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let (map, sheet) = training_objects(&documents);
+        let outline = &documents.candidates.parts[0].objects[0];
+        assert!(!map.iter().any(|o| std::ptr::eq(*o, outline)));
+        let candidates = documents.candidates.parts[0].objects.len() - 1;
+        let own = documents
+            .map
+            .parts
+            .iter()
+            .filter(|p| p.name != SHEET_PART)
+            .map(|p| p.objects.len())
+            .sum::<usize>();
+        assert_eq!(map.len(), own + candidates);
+        assert!(!sheet.is_empty());
+    }
+
+    #[test]
+    fn training_pdf_without_data_still_has_the_sheet() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let file = std::fs::read(export_training_pdf(dir.path()).unwrap()).unwrap();
+        assert!(contains(&file, b"/MediaBox"));
+        assert!(
+            contains(&crate::render::pdf::content_of(&file), b"Tj"),
+            "sheet texts"
+        );
     }
 
     #[test]

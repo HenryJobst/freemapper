@@ -116,6 +116,19 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Quick training map (PDF)
+
+```sh
+freemapper export clara-zetkin-schule --pdf      # or: freemapper run clara-zetkin-schule --pdf
+```
+
+writes `<name>.pdf`: a fully generated map ready to print (A4 or A3, CMYK). Unlike the starter
+project, **every candidate becomes a map object** here: furniture, barriers, paths without a surface
+tag, contours, out-of-bounds areas and ALKIS ways. It is drawn with the project's symbol set the way
+OOM draws it (dashes, symbols along lines, colour order), with the peripheral information, the data
+credits and the freemapper credit line. The orthophoto is not part of it. Because uncertain data is
+drawn too, check the map in the terrain before training.
+
 ## Starting point for OCAD
 
 ```sh
@@ -170,7 +183,7 @@ The workflow the agent follows:
 2. `create_project` – creates the project folder (absolute path or `~/…`), map kind and scale optional.
 3. `estimate_download` – tells how much will be downloaded (about 300 MB OSM extract the first time).
 4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id
-   (with `ocad: true` also the OCAD starting point).
+   (with `ocad: true` also the OCAD starting point, with `pdf: true` the training map).
 5. `project_status` – polls the progress until the job has finished or failed.
 6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
 

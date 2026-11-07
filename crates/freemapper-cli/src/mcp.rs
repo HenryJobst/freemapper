@@ -11,8 +11,8 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_ocad, init_project,
-    run_project,
+    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_ocad, export_training_pdf,
+    init_project, run_project,
 };
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
@@ -193,6 +193,9 @@ struct StartPipeline {
     /// Also write an OCAD starting point into the folder ocad/ (OCAD 12 format, for users who
     /// edit in OCAD). Default false.
     ocad: Option<bool>,
+    /// Also write <name>.pdf, a fully generated training map ready to print (every candidate drawn
+    /// as a map object, to be checked in the terrain). Default false.
+    pdf: Option<bool>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -597,6 +600,7 @@ impl FreemapperServer {
         };
         let force = req.force.unwrap_or(false);
         let ocad = req.ocad.unwrap_or(false);
+        let pdf = req.pdf.unwrap_or(false);
         let job_id = id.clone();
         let job_dir = dir.clone();
         tokio::task::spawn_blocking(move || {
@@ -610,6 +614,15 @@ impl FreemapperServer {
                     match export_ocad(&job_dir, force) {
                         Ok(outcome) => text.push_str(&ocad_summary(&outcome)),
                         Err(e) => text.push_str(&format!("\nOCAD export failed: {}", describe(&e))),
+                    }
+                }
+                if pdf {
+                    match export_training_pdf(&job_dir) {
+                        Ok(path) => text.push_str(&format!(
+                            "\nWrote the training map {} (every candidate drawn as a map object)",
+                            path.display()
+                        )),
+                        Err(e) => text.push_str(&format!("\nPDF export failed: {}", describe(&e))),
                     }
                 }
                 Ok(text)

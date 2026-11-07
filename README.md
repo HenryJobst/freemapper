@@ -118,6 +118,19 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
+## Schnelle Trainingskarte (PDF)
+
+```sh
+freemapper export clara-zetkin-schule --pdf      # oder: freemapper run clara-zetkin-schule --pdf
+```
+
+schreibt `<name>.pdf`: eine voll generierte, druckfertige Karte (A4 oder A3, CMYK). Anders als im
+Startprojekt werden hier **alle Kandidaten zu Kartenobjekten**: Möblierung, Barrieren, Wege ohne
+Oberflächenangabe, Höhenlinien, Sperrgebiete und ALKIS-Wege. Gezeichnet wird mit dem Symbolsatz des
+Projekts so, wie OOM ihn zeichnet (Strichelungen, Zeichen auf Linien, Farbreihenfolge), dazu die
+Randangaben mit der Namensnennung und dem Hinweis auf freemapper. Das Luftbild gehört nicht dazu.
+Weil auch unsichere Daten eingezeichnet sind, ist die Karte vor dem Training im Gelände zu prüfen.
+
 ## Ausgangsstand für OCAD
 
 ```sh
@@ -174,7 +187,7 @@ Ablauf, wie der Agent ihn geht:
    wählbar.
 3. `estimate_download` – sagt, wie viel geladen werden muss (beim ersten Mal etwa 300 MB OSM-Auszug).
 4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück
-   (mit `ocad: true` auch den OCAD-Ausgangsstand).
+   (mit `ocad: true` auch den OCAD-Ausgangsstand, mit `pdf: true` die Trainingskarte).
 5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
 6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Vorlagen.
 
