@@ -28,6 +28,8 @@ pub struct MapPart {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemplateKind {
+    /// Raster image located by a world file (`TemplateImage`).
+    Image,
     Gdal,
     Ogr,
     Map,
@@ -42,6 +44,8 @@ pub struct TemplateRef {
     pub crs_spec: Option<String>,
     pub visible: bool,
     pub opacity: f32,
+    /// Drawn below the map objects (rasters) rather than above them.
+    pub behind_map: bool,
 }
 
 /// A complete OOM map document.

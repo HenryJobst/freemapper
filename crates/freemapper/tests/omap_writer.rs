@@ -136,6 +136,7 @@ fn template_refs_visible_in_view() {
         crs_spec: None,
         visible: true,
         opacity: 0.7,
+        behind_map: false,
     };
     let xml = render(&doc("n", vec![template]), XmlFormat::Compact);
     assert!(xml.contains(r#"type="TemplateMap""#), "{xml}");
@@ -143,5 +144,62 @@ fn template_refs_visible_in_view() {
     assert!(xml.contains(r#"georef="true""#));
     assert!(xml.contains(r#"<templates count="1" first_front_template="0">"#));
     assert!(xml.contains(r#"<ref template="0" visible="true" opacity="0.7"/>"#));
+    parses(&xml);
+}
+
+fn image_template(relpath: &str, visible: bool) -> TemplateRef {
+    TemplateRef {
+        kind: TemplateKind::Image,
+        relpath: relpath.to_string(),
+        georeferenced: true,
+        crs_spec: Some("+init=epsg:25833".to_string()),
+        visible,
+        opacity: 0.5,
+        behind_map: true,
+    }
+}
+
+#[test]
+fn behind_templates_come_first() {
+    let candidates = TemplateRef {
+        kind: TemplateKind::Map,
+        relpath: "templates/candidates.omap".to_string(),
+        georeferenced: true,
+        crs_spec: None,
+        visible: true,
+        opacity: 0.7,
+        behind_map: false,
+    };
+    let xml = render(
+        &doc(
+            "n",
+            vec![candidates, image_template("templates/hillshade.png", false)],
+        ),
+        XmlFormat::Compact,
+    );
+    assert!(
+        xml.contains(r#"<templates count="2" first_front_template="1">"#),
+        "{xml}"
+    );
+    let image = xml.find(r#"relpath="templates/hillshade.png""#).unwrap();
+    let map = xml.find(r#"relpath="templates/candidates.omap""#).unwrap();
+    assert!(image < map, "behind-map template is written first");
+    assert!(xml.contains(
+        r#"<ref template="0" visible="false" opacity="0.5"/><ref template="1" visible="true" opacity="0.7"/>"#
+    ));
+    parses(&xml);
+}
+
+#[test]
+fn image_template_has_crs_spec() {
+    let xml = render(
+        &doc("n", vec![image_template("templates/orthophoto.jpg", true)]),
+        XmlFormat::Compact,
+    );
+    assert!(
+        xml.contains(r#"<template type="TemplateImage" open="true" name="orthophoto.jpg""#),
+        "{xml}"
+    );
+    assert!(xml.contains(r#"georef="true"><crs_spec>+init=epsg:25833</crs_spec></template>"#));
     parses(&xml);
 }

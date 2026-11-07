@@ -3,7 +3,7 @@
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use chrono::NaiveDate;
+use chrono::{Datelike as _, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 use crate::area::{AreaError, MapArea};
@@ -17,7 +17,7 @@ use crate::omap::{
     MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
-use crate::sources::lgb::{Product, TileCurrency};
+use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::tiles::{TileId, tiles_covering};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -271,7 +271,8 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set();
-    let notes = format!("{OSM_ATTRIBUTION}\nfreemapper starter project");
+    let attribution_text = attribution_lines(&project).join("\n");
+    let notes = format!("{attribution_text}\nfreemapper starter project");
 
     let candidates = MapDocument {
         notes: notes.clone(),
@@ -283,19 +284,39 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         }],
         templates: Vec::new(),
     };
+    let crs_spec = format!("+init=epsg:{}", georef.epsg);
+    let mut templates: Vec<TemplateRef> = [
+        (ORTHOPHOTO_RELPATH, true, 1.0),
+        (HILLSHADE_RELPATH, false, 0.5),
+        (SLOPE_RELPATH, false, 0.5),
+    ]
+    .into_iter()
+    .filter(|(relpath, _, _)| dir.join(relpath).exists())
+    .map(|(relpath, visible, opacity)| TemplateRef {
+        kind: TemplateKind::Image,
+        relpath: relpath.to_string(),
+        georeferenced: true,
+        crs_spec: Some(crs_spec.clone()),
+        visible,
+        opacity,
+        behind_map: true,
+    })
+    .collect();
+    templates.push(TemplateRef {
+        kind: TemplateKind::Map,
+        relpath: CANDIDATES_RELPATH.to_string(),
+        georeferenced: true,
+        crs_spec: None,
+        visible: true,
+        opacity: 0.7,
+        behind_map: false,
+    });
     let map = MapDocument {
         notes,
         georef,
         symbol_set,
         parts: Vec::new(),
-        templates: vec![TemplateRef {
-            kind: TemplateKind::Map,
-            relpath: CANDIDATES_RELPATH.to_string(),
-            georeferenced: true,
-            crs_spec: None,
-            visible: true,
-            opacity: 0.7,
-        }],
+        templates,
     };
 
     let name = dir.file_name().and_then(|n| n.to_str()).unwrap_or("map");
@@ -310,13 +331,22 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
     write_document(&map, &map_path)?;
     let attribution = dir.join("ATTRIBUTION.txt");
-    std::fs::write(&attribution, format!("{OSM_ATTRIBUTION}\n"))
+    std::fs::write(&attribution, format!("{attribution_text}\n"))
         .map_err(|e| ProjectError::Io(attribution, e))?;
     Ok(map_path)
 }
 
 const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "Map area: © OpenStreetMap contributors, ODbL";
+
+/// Attribution of every source the project uses: OSM, and LGB once tiles were fetched.
+fn attribution_lines(project: &ProjectFile) -> Vec<String> {
+    let mut lines = vec![OSM_ATTRIBUTION.to_string()];
+    if let Some(year) = project.tiles.iter().map(|t| t.published.year()).max() {
+        lines.push(attribution(year));
+    }
+    lines
+}
 /// Line symbol used for the map area outline in the candidates template map.
 const OUTLINE_SYMBOL_CODE: &str = "501.1";
 
@@ -526,6 +556,60 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         for file in ["orthophoto.jgw", "hillshade.pgw", "slope.pgw"] {
             assert!(templates.join(file).exists(), "{file} missing");
         }
+    }
+
+    fn templates_of(map: &str) -> Vec<String> {
+        map.match_indices("<template type=")
+            .map(|(i, _)| {
+                let rel = i + map[i..].find("relpath=\"").unwrap() + "relpath=\"".len();
+                map[rel..rel + map[rel..].find('"').unwrap()].to_string()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn export_without_rasters_has_only_candidates() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let map_path = export_starter_project(dir.path(), false).unwrap();
+        let map = std::fs::read_to_string(map_path).unwrap();
+        assert_eq!(templates_of(&map), ["templates/candidates.omap"]);
+        assert!(map.contains(r#"first_front_template="0""#));
+        assert!(!map.contains("GeoBasis-DE/LGB"));
+    }
+
+    #[test]
+    fn export_after_derive_references_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let project_dir = dir.path().join("school");
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(&project_dir);
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetch(&project_dir, &fetcher, &cache);
+        derive_project(&project_dir, &cache, &mut |_| {}).unwrap();
+
+        let map_path = export_starter_project(&project_dir, false).unwrap();
+        let map = std::fs::read_to_string(map_path).unwrap();
+        assert_eq!(
+            templates_of(&map),
+            [
+                "templates/orthophoto.jpg",
+                "templates/hillshade.png",
+                "templates/slope.png",
+                "templates/candidates.omap"
+            ]
+        );
+        assert!(map.contains(r#"first_front_template="3""#), "{map}");
+        assert!(map.contains(r#"type="TemplateImage""#));
+        let lgb = "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert";
+        assert!(map.contains(lgb));
+        let attribution = std::fs::read_to_string(project_dir.join("ATTRIBUTION.txt")).unwrap();
+        assert!(
+            attribution.contains(lgb) && attribution.contains("OpenStreetMap"),
+            "{attribution}"
+        );
     }
 
     #[test]

@@ -152,19 +152,27 @@ fn write_coords(s: &mut String, coords: &[MapCoord], format: XmlFormat) {
 
 fn template_type(kind: TemplateKind) -> &'static str {
     match kind {
+        TemplateKind::Image => "TemplateImage",
         TemplateKind::Gdal => "GdalTemplate",
         TemplateKind::Ogr => "OgrTemplate",
         TemplateKind::Map => "TemplateMap",
     }
 }
 
+/// Templates in file order: the ones behind the map first, each group in the given order.
+fn ordered_templates(templates: &[TemplateRef]) -> Vec<&TemplateRef> {
+    let (behind, front): (Vec<_>, Vec<_>) = templates.iter().partition(|t| t.behind_map);
+    behind.into_iter().chain(front).collect()
+}
+
 fn write_templates(s: &mut String, templates: &[TemplateRef]) {
     let _ = writeln!(
         s,
-        r#"<templates count="{}" first_front_template="0">"#,
-        templates.len()
+        r#"<templates count="{}" first_front_template="{}">"#,
+        templates.len(),
+        templates.iter().filter(|t| t.behind_map).count()
     );
-    for t in templates {
+    for t in ordered_templates(templates) {
         let name = t.relpath.rsplit('/').next().unwrap_or(&t.relpath);
         let _ = write!(
             s,
@@ -198,7 +206,7 @@ fn write_view(s: &mut String, doc: &MapDocument) {
         s.push_str(r#"<templates count="0"/>"#);
     } else {
         let _ = write!(s, r#"<templates count="{}">"#, doc.templates.len());
-        for (i, t) in doc.templates.iter().enumerate() {
+        for (i, t) in ordered_templates(&doc.templates).into_iter().enumerate() {
             let _ = write!(
                 s,
                 r#"<ref template="{i}" visible="{}" opacity="{}"/>"#,
