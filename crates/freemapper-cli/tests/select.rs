@@ -30,10 +30,21 @@ impl Selector {
             .stderr(Stdio::null())
             .spawn()
             .unwrap();
-        let mut line = String::new();
-        BufReader::new(child.stdout.take().unwrap())
-            .read_line(&mut line)
-            .unwrap();
+        // The URL is the first line; give up after ten seconds instead of hanging.
+        let stdout = child.stdout.take().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut line = String::new();
+            let _ = BufReader::new(stdout).read_line(&mut line);
+            let _ = sender.send(line);
+        });
+        let line = match receiver.recv_timeout(Duration::from_secs(10)) {
+            Ok(line) => line,
+            Err(_) => {
+                let _ = child.kill();
+                panic!("freemapper select printed no URL");
+            }
+        };
         let url = line.trim().to_string();
         assert!(
             url.starts_with("http://127.0.0.1:") && url.ends_with('/'),
@@ -94,6 +105,7 @@ impl Selector {
 impl Drop for Selector {
     fn drop(&mut self) {
         let _ = self.child.kill();
+        let _ = self.child.wait();
     }
 }
 
@@ -103,11 +115,27 @@ fn school_area() -> Value {
 
 /// Sends one raw request and returns the status code.
 fn raw_status(address: &str, request: &str) -> u16 {
+    raw_response(address, request)
+        .split(' ')
+        .nth(1)
+        .unwrap()
+        .parse()
+        .unwrap()
+}
+
+/// Sends one raw request and returns the whole response.
+fn raw_response(address: &str, request: &str) -> String {
     let mut stream = std::net::TcpStream::connect(address).unwrap();
     stream.write_all(request.as_bytes()).unwrap();
     let mut response = String::new();
     let _ = stream.read_to_string(&mut response);
-    response.split(' ').nth(1).unwrap().parse().unwrap()
+    response
+}
+
+fn rectangle(lon: f64, lat: f64) -> Value {
+    json!({ "type": "Polygon", "coordinates": [[
+        [lon, lat], [lon + 0.003, lat], [lon + 0.003, lat + 0.002], [lon, lat + 0.002], [lon, lat]
+    ]] })
 }
 
 #[test]
@@ -266,4 +294,144 @@ fn done_stops_the_server() {
     assert_eq!(status, 200);
     let exit = selector.wait().expect("select ends after done");
     assert!(exit.success());
+}
+
+#[test]
+fn foreign_origin_and_bad_requests_are_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("school"), cache.path(), &[]);
+    let (address, token) = selector.address_and_token();
+    let port = address.rsplit(':').next().unwrap();
+    let post = |origin: &str, content_type: &str| {
+        format!(
+            "POST /{token}/api/preview HTTP/1.1\r\nHost: {address}\r\n{origin}Content-Type: {content_type}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}"
+        )
+    };
+    let evil = post("Origin: https://evil.example\r\n", "application/json");
+    assert_eq!(raw_status(&address, &evil), 403);
+    let own = post(&format!("Origin: http://{address}\r\n"), "application/json");
+    assert_eq!(raw_status(&address, &own), 400, "own origin, empty area");
+    let form = post("", "text/plain");
+    assert_eq!(raw_status(&address, &form), 415);
+    let no_port = format!("GET /{token}/ HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
+    assert_eq!(raw_status(&address, &no_port), 403);
+    let page = raw_response(
+        &address,
+        &format!("GET /{token}/ HTTP/1.1\r\nHost: localhost:{port}\r\nConnection: close\r\n\r\n"),
+    )
+    .to_lowercase();
+    assert!(page.contains("referrer-policy: no-referrer"), "{page}");
+}
+
+#[test]
+fn preview_uses_the_kind_chosen_on_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("school"), cache.path(), &[]);
+    let width = |kind: &str| {
+        let (status, preview) = selector.post(
+            "api/preview",
+            json!({ "area": school_area(), "kind": kind }),
+        );
+        assert_eq!(status, 200, "{preview}");
+        preview["width_m"].as_f64().unwrap()
+    };
+    // Sprint buffer 50 m, schoolyard 20 m: 2 × 30 m wider.
+    assert!((width("sprint") - width("schoolyard") - 60.0).abs() < 0.01);
+}
+
+#[test]
+fn area_outside_brandenburg_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("munich");
+    let selector = Selector::start(&project, cache.path(), &[]);
+    let munich = rectangle(11.57, 48.13);
+    let (status, preview) = selector.post("api/preview", json!({ "area": munich }));
+    assert_eq!(status, 200, "{preview}");
+    assert_eq!(preview["outside_coverage"], true);
+    assert!(preview["tiles"].as_array().unwrap().is_empty());
+    let (status, answer) = selector.post("api/save", json!({ "area": munich }));
+    assert_eq!(status, 400);
+    assert!(
+        answer["error"].as_str().unwrap().contains("Brandenburg"),
+        "{answer}"
+    );
+    assert!(!project.exists());
+}
+
+#[test]
+fn broken_project_file_is_reported() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    std::fs::create_dir(&project).unwrap();
+    std::fs::write(project.join("freemapper.toml"), "map_kind = [broken").unwrap();
+    let selector = Selector::start(&project, cache.path(), &[]);
+    let mut response = selector
+        .agent
+        .get(&format!("{}api/project", selector.url))
+        .call()
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 400);
+    let text = response.body_mut().read_to_string().unwrap();
+    assert!(
+        text.contains("freemapper.toml") || text.contains("TOML"),
+        "{text}"
+    );
+}
+
+#[test]
+fn save_into_a_project_with_a_map_says_so() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    for args in [
+        vec!["init", project.to_str().unwrap(), "--geojson", FIXTURE],
+        vec!["export", project.to_str().unwrap()],
+    ] {
+        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .args(&args)
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success(), "{args:?}");
+    }
+    let selector = Selector::start(&project, cache.path(), &[]);
+    let (_, state) = selector.get("api/project");
+    let state: Value = serde_json::from_str(&state).unwrap();
+    assert_eq!(state["has_map"], true);
+    assert_eq!(state["from_agent"], false);
+    let (status, saved) = selector.post("api/save", json!({ "area": rectangle(13.843, 52.539) }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(saved["has_map"], true);
+    assert_eq!(saved["created"], false);
+}
+
+#[test]
+fn busy_port_names_the_port() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("a"), cache.path(), &[]);
+    let (address, _) = selector.address_and_token();
+    let port = address.rsplit(':').next().unwrap().to_string();
+    let output = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        .arg("select")
+        .arg(dir.path().join("b"))
+        .args([
+            "--no-browser",
+            "--port",
+            &port,
+            "--cache-dir",
+            cache.path().to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains(&port) && stderr.contains("--port"),
+        "{stderr}"
+    );
 }

@@ -290,9 +290,11 @@ fn main() -> anyhow::Result<()> {
                 kind: kind.into(),
                 scale,
                 title,
+                from_agent: false,
             };
             tokio::runtime::Runtime::new()?.block_on(async {
-                let selector = select::Selector::start(dir.clone(), defaults, cache, port).await?;
+                let selector =
+                    select::Selector::start(dir.clone(), defaults, cache, port, None).await?;
                 println!("{}", selector.url);
                 std::io::Write::flush(&mut std::io::stdout())?;
                 eprintln!(

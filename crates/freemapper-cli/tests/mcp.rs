@@ -250,3 +250,65 @@ fn mcp_open_area_selector_returns_one_url_per_folder() {
     assert!(error);
     assert!(text.contains("relative"), "{text}");
 }
+
+#[test]
+fn mcp_page_and_pipeline_do_not_overlap() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE }),
+    );
+    assert!(!error, "{text}");
+    // Another spelling of the same folder gives the same page.
+    let spelled = dir.path().join("school").join("..").join("school");
+    let (error, text) = session.call(
+        "open_area_selector",
+        json!({ "dir": project, "open_browser": false }),
+    );
+    assert!(!error, "{text}");
+    let url = serde_json::from_str::<Value>(&text).unwrap()["url"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (error, text) = session.call(
+        "open_area_selector",
+        json!({ "dir": spelled, "kind": "sprint", "open_browser": false }),
+    );
+    assert!(!error, "{text}");
+    let again: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(again["url"], url.as_str());
+    assert!(
+        again["note"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("already open"),
+        "{again}"
+    );
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(error, "{text}");
+    assert!(text.contains("Done"), "{text}");
+    // After Done the pipeline may start, and a new call opens a new page.
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let done = agent
+        .post(&format!("{url}api/done"))
+        .header("Content-Type", "application/json")
+        .send("{}")
+        .unwrap();
+    assert_eq!(done.status().as_u16(), 200);
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
+    let (error, text) = session.call(
+        "open_area_selector",
+        json!({ "dir": project, "open_browser": false }),
+    );
+    assert!(!error, "{text}");
+    let reopened: Value = serde_json::from_str(&text).unwrap();
+    assert_ne!(reopened["url"], url.as_str());
+}

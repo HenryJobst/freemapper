@@ -31,6 +31,8 @@ const TEXTS = {
     cached: "schon geladen",
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
+    outside:
+      "Das Gebiet liegt außerhalb der LGB-Daten (Brandenburg und Berlin); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -47,6 +49,8 @@ const TEXTS = {
     done: "Fertig",
     closed: "Fertig. Du kannst dieses Fenster schließen.",
     next: (dir) => `Weiter: freemapper run "${dir}"`,
+    backToAgent: "Sag deinem KI-Assistenten, dass das Gebiet gespeichert ist.",
+    nothingSaved: "Es wurde nichts gespeichert.",
     failed: "Fehler: ",
     osm: "OpenStreetMap",
     aerial: "Luftbild (LGB)",
@@ -80,6 +84,8 @@ const TEXTS = {
     cached: "cached",
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
+    outside:
+      "The area lies outside the LGB data (Brandenburg and Berlin); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -96,6 +102,8 @@ const TEXTS = {
     done: "Done",
     closed: "Done. You can close this window.",
     next: (dir) => `Next: freemapper run "${dir}"`,
+    backToAgent: "Tell your AI assistant that the area is saved.",
+    nothingSaved: "Nothing was saved.",
     failed: "Error: ",
     osm: "OpenStreetMap",
     aerial: "Aerial photo (LGB)",
@@ -154,6 +162,9 @@ let area = null;
 let sourceId = null;
 let sourceName = null;
 let preview = null;
+// Answers to older preview requests are dropped.
+let previewRequest = 0;
+let savedHere = false;
 
 function setMessage(text, kind) {
   const el = $("message");
@@ -185,13 +196,24 @@ async function chooseArea(geojson, id, name, fit) {
   sourceId = id;
   sourceName = name;
   showArea(fit);
+  await updatePreview();
+}
+
+async function updatePreview() {
+  if (!area) return;
+  const request = ++previewRequest;
   $("save").disabled = true;
   try {
-    preview = await api("api/preview", { area, source_id: sourceId });
+    const body = { area, source_id: sourceId };
+    if (project && !project.exists) body.kind = $("kind").value;
+    const answer = await api("api/preview", body);
+    if (request !== previewRequest) return;
+    preview = answer;
     showPreview();
-    $("save").disabled = preview.too_large;
+    $("save").disabled = preview.too_large || preview.outside_coverage;
     setMessage("");
   } catch (e) {
+    if (request !== previewRequest) return;
     preview = null;
     showPreview();
     setMessage(T.failed + e.message, "error");
@@ -210,12 +232,15 @@ function showPreview() {
     return;
   }
   $("size").textContent = T.size(Math.round(preview.width_m), Math.round(preview.height_m));
-  $("too-large").hidden = !preview.too_large;
-  $("too-large").textContent = T.tooLarge(Math.round(preview.max_side_m));
+  const unusable = preview.too_large || preview.outside_coverage;
+  $("too-large").hidden = !unusable;
+  $("too-large").textContent = preview.outside_coverage
+    ? T.outside
+    : T.tooLarge(Math.round(preview.max_side_m));
   const names = preview.tiles.map((t) => t.name);
-  $("tiles").textContent = preview.too_large ? "" : T.tiles(names.length, names.join(", "));
+  $("tiles").textContent = unusable ? "" : T.tiles(names.length, names.join(", "));
   const mb = preview.estimate.total_megabytes;
-  $("download").textContent = preview.too_large
+  $("download").textContent = unusable
     ? ""
     : mb > 0 ? T.download(Math.ceil(mb)) : T.downloadNone;
   $("items").replaceChildren(
@@ -396,6 +421,8 @@ $("clear").addEventListener("click", () => {
 
 $("kind").addEventListener("change", () => {
   $("scale").value = $("kind").value === "sprint" ? 4000 : 1000;
+  // The buffer depends on the map kind.
+  updatePreview();
 });
 
 $("save").addEventListener("click", async () => {
@@ -410,6 +437,7 @@ $("save").addEventListener("click", async () => {
       body.title = $("title").value.trim() || undefined;
     }
     const answer = await api("api/save", body);
+    savedHere = true;
     setMessage(T.saved, "ok");
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
@@ -417,7 +445,7 @@ $("save").addEventListener("click", async () => {
   } catch (e) {
     setMessage(T.failed + e.message, "error");
   } finally {
-    $("save").disabled = !area || (preview && preview.too_large);
+    $("save").disabled = !area || !preview || preview.too_large || preview.outside_coverage;
   }
 });
 
@@ -427,7 +455,11 @@ $("done").addEventListener("click", async () => {
   } catch (e) {
     // The server may close before it answers; the page is finished either way.
   }
-  $("next").textContent = T.next(project ? project.dir : "");
+  $("next").textContent = !savedHere
+    ? T.nothingSaved
+    : project && project.from_agent
+      ? T.backToAgent
+      : T.next(project ? project.dir : "");
   $("closed").hidden = false;
 });
 

@@ -5,7 +5,7 @@
 //! another host name are refused, so other websites cannot reach it (also not by DNS rebinding).
 
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::Json;
@@ -43,13 +43,23 @@ pub struct Defaults {
     pub kind: MapKind,
     pub scale: Option<u32>,
     pub title: Option<String>,
+    /// The page was opened by an AI agent: after "done" the user goes back to the agent.
+    pub from_agent: bool,
 }
+
+/// Whether a pipeline is running for a folder; saving is refused then, because the pipeline
+/// would write its own copy of the project file back.
+pub type Busy = Arc<dyn Fn(&Path) -> bool + Send + Sync>;
 
 struct AppState {
     dir: PathBuf,
     defaults: Defaults,
     cache: Cache,
     allowed_hosts: [String; 2],
+    allowed_origins: [String; 2],
+    busy: Option<Busy>,
+    /// Saves one after the other.
+    saving: tokio::sync::Mutex<()>,
     done: Notify,
 }
 
@@ -66,16 +76,30 @@ impl Selector {
         defaults: Defaults,
         cache: Cache,
         port: u16,
+        busy: Option<Busy>,
     ) -> anyhow::Result<Self> {
-        let listener =
-            tokio::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port))).await?;
+        let listener = tokio::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port)))
+            .await
+            .map_err(|e| {
+                if port == 0 {
+                    anyhow::anyhow!("cannot listen on 127.0.0.1: {e}")
+                } else {
+                    anyhow::anyhow!(
+                        "cannot listen on 127.0.0.1:{port} ({e}); leave out --port to pick a free port"
+                    )
+                }
+            })?;
         let port = listener.local_addr()?.port();
         let token = token()?;
+        let hosts = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
         let state = Arc::new(AppState {
             dir,
             defaults,
             cache,
-            allowed_hosts: [format!("127.0.0.1:{port}"), format!("localhost:{port}")],
+            allowed_origins: hosts.clone().map(|host| format!("http://{host}")),
+            allowed_hosts: hosts,
+            busy,
+            saving: tokio::sync::Mutex::new(()),
             done: Notify::new(),
         });
         let app = router(&token, Arc::clone(&state));
@@ -133,6 +157,15 @@ fn router(token: &str, state: Arc<AppState>) -> Router {
                 if !state.allowed_hosts.iter().any(|allowed| allowed == host) {
                     return StatusCode::FORBIDDEN.into_response();
                 }
+                // Browsers send Origin on cross-site requests: only the page itself may call.
+                if let Some(origin) = request.headers().get(header::ORIGIN)
+                    && !state
+                        .allowed_origins
+                        .iter()
+                        .any(|allowed| allowed == origin)
+                {
+                    return StatusCode::FORBIDDEN.into_response();
+                }
                 let mut response = next.run(request).await;
                 let headers = response.headers_mut();
                 headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
@@ -141,6 +174,11 @@ fn router(token: &str, state: Arc<AppState>) -> Router {
                     HeaderValue::from_static(CONTENT_SECURITY_POLICY),
                 );
                 headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+                // The token is in the URL: never send it to the tile servers.
+                headers.insert(
+                    header::REFERRER_POLICY,
+                    HeaderValue::from_static("no-referrer"),
+                );
                 response
             }
         }))
@@ -191,18 +229,22 @@ fn parse_kind(kind: &str) -> Result<MapKind, String> {
     }
 }
 
-/// The saved project, if there is one.
-fn saved_project(state: &AppState) -> Option<ProjectFile> {
-    state
-        .dir
-        .join("freemapper.toml")
-        .exists()
-        .then(|| ProjectFile::load(&state.dir).ok())
-        .flatten()
+/// The saved project, if there is one; an error when its file cannot be read.
+fn saved_project(state: &AppState) -> Result<Option<ProjectFile>, String> {
+    if !state.dir.join("freemapper.toml").exists() {
+        return Ok(None);
+    }
+    ProjectFile::load(&state.dir)
+        .map(Some)
+        .map_err(|e| e.to_string())
 }
 
 async fn project(State(state): State<Arc<AppState>>) -> Response {
-    let answer = match saved_project(&state) {
+    let saved = match saved_project(&state) {
+        Ok(saved) => saved,
+        Err(e) => return bad_request(e),
+    };
+    let answer = match saved {
         Some(project) => json!({
             "exists": true,
             "dir": state.dir,
@@ -214,6 +256,7 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
             "source_id": project.map_area_source_id,
             "has_map": map_path(&state.dir).exists(),
             "max_side_m": MAX_AREA_SIDE_M,
+            "from_agent": state.defaults.from_agent,
         }),
         None => json!({
             "exists": false,
@@ -226,6 +269,7 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
             "source_id": null,
             "has_map": false,
             "max_side_m": MAX_AREA_SIDE_M,
+            "from_agent": state.defaults.from_agent,
         }),
     };
     Json(answer).into_response()
@@ -264,6 +308,7 @@ fn preview_json(preview: &AreaPreview) -> Value {
         "width_m": preview.width_m,
         "height_m": preview.height_m,
         "too_large": preview.too_large,
+        "outside_coverage": preview.outside_coverage,
         "max_side_m": MAX_AREA_SIDE_M,
         "estimate": {
             "tiles": preview.estimate.tiles,
@@ -274,20 +319,30 @@ fn preview_json(preview: &AreaPreview) -> Value {
 }
 
 async fn preview(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    let area = match area_of(&body) {
-        Ok(area) => area,
-        Err(e) => return bad_request(e),
-    };
-    let buffer_m = saved_project(&state)
-        .map(|p| p.buffer_m)
-        .unwrap_or(state.defaults.kind.default_buffer_m());
     let today = chrono::Local::now().date_naive();
-    let answer = tokio::task::spawn_blocking(move || {
-        preview_json(&preview_area(&area, buffer_m, &state.cache, today))
+    // Validating a large outline takes a while: off the async workers.
+    let answer = tokio::task::spawn_blocking(move || -> Result<Value, String> {
+        let area = area_of(&body)?;
+        // An existing project keeps its buffer; a new one gets the buffer of the kind chosen
+        // on the page.
+        let buffer_m = match saved_project(&state)? {
+            Some(project) => project.buffer_m,
+            None => match body["kind"].as_str() {
+                Some(kind) => parse_kind(kind)?.default_buffer_m(),
+                None => state.defaults.kind.default_buffer_m(),
+            },
+        };
+        Ok(preview_json(&preview_area(
+            &area,
+            buffer_m,
+            &state.cache,
+            today,
+        )))
     })
     .await;
     match answer {
-        Ok(answer) => Json(answer).into_response(),
+        Ok(Ok(answer)) => Json(answer).into_response(),
+        Ok(Err(e)) => bad_request(e),
         Err(e) => bad_request(format!("internal error: {e}")),
     }
 }
@@ -343,11 +398,18 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
 }
 
 async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    let area = match area_of(&body) {
-        Ok(area) => area,
-        Err(e) => return bad_request(e),
-    };
+    if state.busy.as_ref().is_some_and(|busy| busy(&state.dir)) {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({ "error": "a pipeline is running for this project; save again when it has finished" })),
+        )
+            .into_response();
+    }
+    let _saving = state.saving.lock().await;
+    let task_state = Arc::clone(&state);
     let saved = tokio::task::spawn_blocking(move || -> Result<Value, String> {
+        let state = task_state;
+        let area = area_of(&body)?;
         let dir = &state.dir;
         let created = !dir.join("freemapper.toml").exists();
         if created {
@@ -389,7 +451,8 @@ async fn done(State(state): State<Arc<AppState>>) -> Response {
     Json(json!({ "done": true })).into_response()
 }
 
-/// Opens `url` in the default browser; an error when there is none (e.g. on a server).
+/// Opens `url` in the default browser; an error when no opener can be started (e.g. on a server).
+/// Does not wait for the opener: some keep running as long as the browser.
 pub fn open_browser(url: &str) -> std::io::Result<()> {
     let mut command = if cfg!(target_os = "macos") {
         std::process::Command::new("open")
@@ -400,16 +463,54 @@ pub fn open_browser(url: &str) -> std::io::Result<()> {
     } else {
         std::process::Command::new("xdg-open")
     };
-    let status = command
+    let mut child = command
         .arg(url)
+        // The MCP server's stdin is the protocol pipe.
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(std::io::Error::other(format!(
-            "browser start failed: {status}"
-        )))
+        .spawn()?;
+    std::thread::spawn(move || child.wait());
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn save_is_refused_while_a_pipeline_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let busy: Busy = Arc::new(|_| true);
+        let defaults = Defaults {
+            kind: MapKind::Schoolyard,
+            scale: None,
+            title: None,
+            from_agent: true,
+        };
+        let cache = Cache::new(dir.path().join("cache"));
+        let selector = Selector::start(dir.path().join("p"), defaults, cache, 0, Some(busy))
+            .await
+            .unwrap();
+        let url = format!("{}api/save", selector.url);
+        let (status, text) = tokio::task::spawn_blocking(move || {
+            let agent: ureq::Agent = ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .build()
+                .into();
+            let area = r#"{"area":{"type":"Polygon","coordinates":[[[13.843,52.539],[13.846,52.539],[13.846,52.541],[13.843,52.539]]]}}"#;
+            let mut response = agent
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .send(area)
+                .unwrap();
+            let status = response.status().as_u16();
+            (status, response.body_mut().read_to_string().unwrap())
+        })
+        .await
+        .unwrap();
+        assert_eq!(status, 409, "{text}");
+        assert!(text.contains("pipeline"), "{text}");
+        assert!(!dir.path().join("p").exists());
     }
 }

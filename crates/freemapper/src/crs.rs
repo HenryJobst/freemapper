@@ -83,10 +83,14 @@ pub fn utm33_forward(p: LatLon) -> ProjectedPoint {
 }
 
 /// Geographic position of an EPSG:25833 point: Newton iteration on [`utm33_forward`], so both
-/// directions agree to well below a millimetre.
-pub fn utm33_inverse(p: ProjectedPoint) -> LatLon {
+/// directions agree to well below a millimetre. `None` for points no position projects to (far
+/// outside the zone) or when the iteration does not converge.
+pub fn utm33_inverse(p: ProjectedPoint) -> Option<LatLon> {
     /// Finite-difference step in degrees (about 0.1 m).
     const STEP: f64 = 1e-6;
+    if !p.easting.is_finite() || !p.northing.is_finite() {
+        return None;
+    }
     let lat = p.northing / 111_132.0;
     let mut q = LatLon {
         lat,
@@ -96,7 +100,7 @@ pub fn utm33_inverse(p: ProjectedPoint) -> LatLon {
         let f = utm33_forward(q);
         let (de, dn) = (p.easting - f.easting, p.northing - f.northing);
         if de.abs() < 1e-6 && dn.abs() < 1e-6 {
-            break;
+            return (q.lat.abs() <= 90.0 && q.lon.is_finite()).then_some(q);
         }
         let at_lat = utm33_forward(LatLon {
             lat: q.lat + STEP,
@@ -117,8 +121,11 @@ pub fn utm33_inverse(p: ProjectedPoint) -> LatLon {
         let det = e_lat * n_lon - e_lon * n_lat;
         q.lat += (n_lon * de - e_lon * dn) / det;
         q.lon += (e_lat * dn - n_lat * de) / det;
+        if !q.lat.is_finite() || !q.lon.is_finite() {
+            return None;
+        }
     }
-    q
+    None
 }
 
 /// Grid convergence in degrees: angle from true north to grid north, negative west of the
@@ -200,10 +207,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn utm33_inverse_reports_impossible_points() {
+        for (easting, northing) in [(500_000.0, 1e9), (-5e7, 5_800_000.0), (f64::NAN, 0.0)] {
+            assert_eq!(utm33_inverse(ProjectedPoint { easting, northing }), None);
+        }
+    }
+
+    #[test]
     fn utm33_roundtrip() {
         for (lat, lon) in [(52.5388, 13.8433), (51.4, 11.9), (53.5, 14.7), (52.0, 15.0)] {
             let p = LatLon { lat, lon };
-            let back = utm33_inverse(utm33_forward(p));
+            let back = utm33_inverse(utm33_forward(p)).unwrap();
             let again = utm33_forward(back);
             let there = utm33_forward(p);
             assert!(

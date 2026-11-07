@@ -18,7 +18,7 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
 
-use crate::select::{Defaults, Selector, open_browser};
+use crate::select::{Busy, Defaults, Selector, open_browser};
 use serde_json::{Value, json};
 
 /// Progress lines kept per job.
@@ -101,6 +101,13 @@ impl Jobs {
             },
         );
         Ok(id)
+    }
+
+    /// Whether a job runs for the folder `key` (see [`folder_key`]).
+    fn running_for(&self, key: &Path) -> bool {
+        self.jobs
+            .values()
+            .any(|job| job.state == JobState::Running && folder_key(&job.dir) == key)
     }
 
     fn progress(&mut self, id: &str, line: &str) {
@@ -217,7 +224,7 @@ pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
     jobs: Arc<Mutex<Jobs>>,
-    /// Area selection pages by project folder, one per folder.
+    /// Area selection pages by [`folder_key`], one per folder.
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
 }
 
@@ -295,6 +302,18 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
         ));
     }
     Ok(resolved)
+}
+
+/// One spelling per folder (`..`, symlinks and letter case resolved as far as the folder or its
+/// nearest existing parent exists), to find the page or job of a folder.
+fn folder_key(dir: &Path) -> PathBuf {
+    for ancestor in dir.ancestors() {
+        if let Ok(canonical) = std::fs::canonicalize(ancestor) {
+            let rest = dir.strip_prefix(ancestor).unwrap_or(Path::new(""));
+            return canonical.join(rest);
+        }
+    }
+    dir.to_path_buf()
 }
 
 /// The folder of an existing project.
@@ -521,6 +540,18 @@ impl FreemapperServer {
         if let Err(e) = ProjectFile::load(&dir) {
             return failure(describe(&e));
         }
+        let page_open = self
+            .selectors
+            .lock()
+            .await
+            .get(&folder_key(&dir))
+            .is_some_and(Selector::is_running);
+        if page_open {
+            return failure(
+                "the area selection page for this project is still open; ask the user to save \
+                 the area and press Done on the page, then start the pipeline",
+            );
+        }
         let id = match lock(&self.jobs).start(&dir) {
             Ok(id) => id,
             Err(e) => return failure(e),
@@ -609,24 +640,36 @@ impl FreemapperServer {
             Ok(kind) => kind,
             Err(e) => return failure(e),
         };
+        let key = folder_key(&dir);
         let mut selectors = self.selectors.lock().await;
         selectors.retain(|_, selector| selector.is_running());
-        let url = match selectors.get(&dir) {
-            Some(selector) => selector.url.clone(),
+        let (url, note) = match selectors.get(&key) {
+            Some(selector) => (
+                selector.url.clone(),
+                Some(
+                    "The page for this folder is already open; it keeps the settings it was \
+                     opened with.",
+                ),
+            ),
             None => {
                 let defaults = Defaults {
                     kind,
                     scale: req.scale,
                     title: req.title,
+                    from_agent: true,
                 };
-                let selector =
-                    match Selector::start(dir.clone(), defaults, self.cache.clone(), 0).await {
-                        Ok(selector) => selector,
-                        Err(e) => return failure(format!("cannot start the page: {e}")),
-                    };
+                let jobs = Arc::clone(&self.jobs);
+                let busy: Busy =
+                    Arc::new(move |dir: &Path| lock(&jobs).running_for(&folder_key(dir)));
+                let started =
+                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(busy)).await;
+                let selector = match started {
+                    Ok(selector) => selector,
+                    Err(e) => return failure(format!("cannot start the page: {e}")),
+                };
                 let url = selector.url.clone();
-                selectors.insert(dir.clone(), selector);
-                url
+                selectors.insert(key, selector);
+                (url, None)
             }
         };
         drop(selectors);
@@ -636,6 +679,7 @@ impl FreemapperServer {
                 "url": url,
                 "dir": dir,
                 "opened_browser": opened,
+                "note": note,
                 "next": "Ask the user to choose the area on the page, press Save and then Done.",
             })
             .to_string(),

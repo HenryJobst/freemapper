@@ -10,7 +10,7 @@ use crate::crs::{LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area_size, map_path,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date};
@@ -48,7 +48,7 @@ pub fn estimate_download(
 ) -> Result<DownloadEstimate, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let bbox = project.bbox()?;
-    check_area_size(&bbox)?;
+    check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     Ok(estimate_tiles(
         &tiles_covering(&bbox),
@@ -115,42 +115,47 @@ pub struct TileOutline {
 /// What an area that is not saved yet would mean: its tiles, size and download.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AreaPreview {
-    /// Tiles covering the area plus buffer; empty when the area is too large.
+    /// Tiles covering the area plus buffer; empty when the area is too large or outside.
     pub tiles: Vec<TileOutline>,
     /// Size of the area plus buffer in metres.
     pub width_m: f64,
     pub height_m: f64,
     pub too_large: bool,
-    /// Empty when the area is too large.
+    /// The area lies outside the LGB data (Brandenburg and Berlin).
+    pub outside_coverage: bool,
+    /// Empty when the area is too large or outside the LGB data.
     pub estimate: DownloadEstimate,
 }
 
 /// The preview of `area` with `buffer_m` around it; ALKIS data counts as not downloaded yet.
 pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDate) -> AreaPreview {
     let bbox = area.projected_bbox().buffered(buffer_m);
-    let too_large = check_area_size(&bbox).is_err();
-    let tiles = if too_large {
-        Vec::new()
-    } else {
+    let check = check_area(&bbox);
+    let outside_coverage = matches!(check, Err(ProjectError::OutsideCoverage));
+    let too_large = matches!(check, Err(ProjectError::AreaTooLarge { .. }));
+    let usable = check.is_ok();
+    let tiles = if usable {
         tiles_covering(&bbox)
+    } else {
+        Vec::new()
     };
     let outlines = tiles
         .iter()
-        .map(|tile| {
+        .filter_map(|tile| {
             let b = tile.bounds();
             let corner = |easting, northing| utm33_inverse(ProjectedPoint { easting, northing });
-            TileOutline {
+            Some(TileOutline {
                 name: tile.name(),
                 corners: [
-                    corner(b.min_e, b.min_n),
-                    corner(b.max_e, b.min_n),
-                    corner(b.max_e, b.max_n),
-                    corner(b.min_e, b.max_n),
+                    corner(b.min_e, b.min_n)?,
+                    corner(b.max_e, b.min_n)?,
+                    corner(b.max_e, b.max_n)?,
+                    corner(b.min_e, b.max_n)?,
                 ],
-            }
+            })
         })
         .collect();
-    let estimate = if too_large {
+    let estimate = if !usable {
         DownloadEstimate {
             tiles: Vec::new(),
             items: Vec::new(),
@@ -164,6 +169,7 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
         width_m: bbox.width(),
         height_m: bbox.height(),
         too_large,
+        outside_coverage,
         estimate,
     }
 }
@@ -344,6 +350,27 @@ mod tests {
             preview.width_m
         );
         assert!(preview.estimate.total_megabytes > 300.0);
+    }
+
+    #[test]
+    fn preview_flags_outside_coverage() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        for (lon, lat) in [(11.57, 48.13), (151.2, -33.87), (-170.0, 52.5), (3.0, 52.5)] {
+            let text = format!(
+                r#"{{"type":"Polygon","coordinates":[[[{lon},{lat}],[{},{lat}],[{},{}],[{lon},{}],[{lon},{lat}]]]}}"#,
+                lon + 0.005,
+                lon + 0.005,
+                lat + 0.005,
+                lat + 0.005
+            );
+            let area = crate::area::MapArea::from_geojson(&text).unwrap();
+            let preview = preview_area(&area, 20.0, &cache, today());
+            assert!(preview.outside_coverage, "{lon} {lat}");
+            assert!(preview.tiles.is_empty() && preview.estimate.items.is_empty());
+        }
+        let school = fixture_area("clara-zetkin-schule.geojson");
+        assert!(!preview_area(&school, 20.0, &cache, today()).outside_coverage);
     }
 
     #[test]
