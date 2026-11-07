@@ -13,12 +13,12 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilensteine M0–M2, M3 und M4 teilweise). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M6; Sprint-Feinschliff, Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
 ```sh
-cargo build --release
+cargo build --release --locked
 ./target/release/freemapper --version
 ```
 
@@ -32,6 +32,10 @@ freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule
   --title "Clara-Zetkin-Schule Strausberg"
 freemapper run clara-zetkin-schule
 ```
+
+Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`) oder der Name
+(`--place "Clara-Zetkin-Schule Strausberg"`; genommen wird der beste Treffer mit Fläche, gesucht über
+Nominatim von OpenStreetMap).
 
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
@@ -77,6 +81,40 @@ Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/
 `--cache-dir` wählt einen anderen Ordner.
 
 Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
+
+## Mit einem KI-Agenten (MCP)
+
+`freemapper mcp` ist ein MCP-Server auf stdin/stdout. Ein KI-Agent kann damit die Karte für jemanden
+erstellen, der keine Kommandozeile benutzen möchte: Man nennt dem Agenten die Schule, er erledigt den Rest.
+
+In Claude Code anmelden:
+
+```sh
+claude mcp add freemapper -- freemapper mcp
+```
+
+Andere MCP-Clients (allgemeine Konfiguration; `--cache-dir <ordner>` ist optional):
+
+```json
+{
+  "mcpServers": {
+    "freemapper": { "command": "freemapper", "args": ["mcp"] }
+  }
+}
+```
+
+Ablauf, wie der Agent ihn geht:
+
+1. `find_place` – sucht die Schule per Name und zeigt die Treffer; ein Treffer mit Fläche wird das
+   Kartengebiet.
+2. `create_project` – legt den Projektordner an (absoluter Pfad oder `~/…`), Kartenart und Maßstab
+   wählbar.
+3. `estimate_download` – sagt, wie viel geladen werden muss (beim ersten Mal etwa 300 MB OSM-Auszug).
+4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück.
+5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
+6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Vorlagen.
+
+Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mapper.
 
 ## Lizenz und Namensnennung
 

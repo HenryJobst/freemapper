@@ -1,0 +1,66 @@
+[
+ {
+  "place_id": 145069700,
+  "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+  "osm_type": "way",
+  "osm_id": 992423119,
+  "lat": "52.5401177",
+  "lon": "13.8442444",
+  "category": "amenity",
+  "type": "school",
+  "place_rank": 30,
+  "importance": 5.654001678487858e-05,
+  "addresstype": "amenity",
+  "name": "Clara-Zetkin-Schule",
+  "display_name": "Clara-Zetkin-Schule, 1, Am Sportpark, Strausberg Vorstadt, Strausberg, Märkisch-Oderland, Brandenburg, 15344, Deutschland",
+  "boundingbox": [
+   "52.5388259",
+   "52.5413300",
+   "13.8427017",
+   "13.8456815"
+  ],
+  "geojson": {
+   "type": "Polygon",
+   "coordinates": [
+    [
+     [
+      13.8427017,
+      52.53908
+     ],
+     [
+      13.8431744,
+      52.5388752
+     ],
+     [
+      13.8433089,
+      52.5388259
+     ],
+     [
+      13.8435234,
+      52.5390078
+     ],
+     [
+      13.8446151,
+      52.5400586
+     ],
+     [
+      13.8456815,
+      52.541085
+     ],
+     [
+      13.8451098,
+      52.54133
+     ],
+     [
+      13.8438756,
+      52.5401768
+     ],
+     [
+      13.8427017,
+      52.53908
+     ]
+    ]
+   ]
+  }
+ }
+]

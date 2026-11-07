@@ -12,6 +12,7 @@ rust-version = "1.88"
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
 anyhow = "1.0.104"
+base64 = "0.23.1"
 contour = "0.13.1"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
 clap = { version = "4.6.7", features = ["derive"] }
@@ -24,11 +25,16 @@ osmpbf = "0.3.8"
 las = { version = "=0.11.1", features = ["laz"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 quick-xml = "0.42.0"
+# Pinned: newer releases are younger than two weeks. rmcp-macros is held at 3.6.0 in
+# Cargo.lock only (rmcp asks for ^3.6.0), so build with --locked.
+rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
+schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tiff = "0.11.3"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std"] }
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
