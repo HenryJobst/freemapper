@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::building_objects;
-use crate::build::peripheral::{PaperRect, SheetInfo, info_block, north_lines};
+use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::DeriveError;
 use crate::derive::orthophoto::build_orthophoto;
@@ -465,7 +465,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = attribution_lines(&project);
     attribution.push(FREEMAPPER_CREDIT.to_string());
-    let info = SheetInfo {
+    let info = PeripheralInfo {
         title: project.display_title(dir),
         scale_denominator: project.scale_denominator,
         contour_interval_m: project.map_kind.contour_interval_m(),

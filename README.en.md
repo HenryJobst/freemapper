@@ -28,7 +28,8 @@ Git hooks: `lefthook install`.
 ## Usage
 
 ```sh
-freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
+freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard \
+  --title "Clara-Zetkin-Schule Strausberg"
 freemapper run clara-zetkin-schule
 ```
 
@@ -51,6 +52,9 @@ Result in the project folder:
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – templates behind the map, each with a
   world file (`.jgw`/`.pgw`); hillshade and slope can be switched on in OOM
 - `templates/candidates.omap` – template map with the outline of the map area
+- peripheral information in the map (map part "peripheral information"): magnetic north lines over the
+  map content, below it the title (`--title`, else the folder name), scale and contour interval, a bar
+  scale, the attribution of the data sources and the freemapper credit line
 - `data/alkis-buildings.geojson` – the fetched ALKIS buildings (for `--offline` and later reconciliation)
 - `ATTRIBUTION.txt` – attribution of the data sources
 

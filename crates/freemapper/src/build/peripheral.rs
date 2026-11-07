@@ -57,7 +57,7 @@ impl PaperRect {
 
 /// Texts of the info block.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SheetInfo {
+pub struct PeripheralInfo {
     pub title: String,
     pub scale_denominator: u32,
     pub contour_interval_m: u32,
@@ -125,7 +125,11 @@ fn metres_label(metres: f64) -> String {
 }
 
 /// Title, scale and contour interval, bar scale and attribution below `content`.
-pub fn info_block(content: &PaperRect, info: &SheetInfo, symbol_set: &SymbolSet) -> Vec<MapObject> {
+pub fn info_block(
+    content: &PaperRect,
+    info: &PeripheralInfo,
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
     let (title, text_id, small) = (
         symbol(symbol_set, TITLE_CODE),
         symbol(symbol_set, TEXT_CODE),
@@ -185,8 +189,8 @@ mod tests {
         SymbolSet::school_2019().with_sheet_symbols()
     }
 
-    fn info(scale_denominator: u32, contour_interval_m: u32) -> SheetInfo {
-        SheetInfo {
+    fn info(scale_denominator: u32, contour_interval_m: u32) -> PeripheralInfo {
+        PeripheralInfo {
             title: "Clara-Zetkin-Schule".to_string(),
             scale_denominator,
             contour_interval_m,

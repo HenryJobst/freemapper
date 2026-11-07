@@ -28,7 +28,8 @@ Git-Hooks: `lefthook install`.
 ## Benutzung
 
 ```sh
-freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard
+freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule.geojson --kind schoolyard \
+  --title "Clara-Zetkin-Schule Strausberg"
 freemapper run clara-zetkin-schule
 ```
 
@@ -52,6 +53,9 @@ Ergebnis im Projektordner:
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – Vorlagen hinter der Karte, jeweils mit
   Weltdatei (`.jgw`/`.pgw`); Schummerung und Hangneigung lassen sich in OOM einblenden
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets
+- Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
+  darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
+  Namensnennung der Datenquellen und der Hinweis auf freemapper
 - `data/alkis-buildings.geojson` – die geladenen ALKIS-Gebäude (für `--offline` und spätere Abgleiche)
 - `ATTRIBUTION.txt` – Namensnennung der Datenquellen
 

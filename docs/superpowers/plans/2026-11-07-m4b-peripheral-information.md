@@ -85,10 +85,10 @@ modify `crates/freemapper/src/omap/symbol_set.rs`, `crates/freemapper/src/projec
 - `build::peripheral::PaperRect { min_x: i32, min_y: i32, max_x: i32, max_y: i32 }` (µm on paper),
   `PaperRect::of_bbox(bbox: &BoundingBox, georef: &Georeferencing) -> Result<Self, GeorefError>` (the
   four corners projected).
-- `build::peripheral::SheetInfo { title: String, scale_denominator: u32, contour_interval_m: u32,
+- `build::peripheral::PeripheralInfo { title: String, scale_denominator: u32, contour_interval_m: u32,
   attribution: Vec<String> }` (the credit line is the last attribution line).
 - `build::peripheral::north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet) -> Vec<MapObject>`
-- `build::peripheral::info_block(content: &PaperRect, info: &SheetInfo, symbol_set: &SymbolSet) -> Vec<MapObject>`
+- `build::peripheral::info_block(content: &PaperRect, info: &PeripheralInfo, symbol_set: &SymbolSet) -> Vec<MapObject>`
 
 Layout of the info block (left edge = `content.min_x`, y grows southwards, values in mm on paper):
 title baseline at `max_y + 12`; `Maßstab 1:… · Äquidistanz … m` baseline at `+ 6` below the title;
