@@ -163,6 +163,8 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             ),
             Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+            // Hamburg ALKIS follows with the OGC API reader.
+            Region::Hamburg => (Vec::new(), Crs::Utm32),
         })
     })
 }
@@ -182,6 +184,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             ),
             Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+            Region::Hamburg => (Vec::new(), Crs::Utm32),
         })
     })
 }

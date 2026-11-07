@@ -73,7 +73,7 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
             (provider_tiles(bbox, provider, km), km)
         }
         // LVermGeo rasters are fetched per area (WMS, WCS).
-        Provider::LvermGeo => (Vec::new(), 1),
+        Provider::LvermGeo | Provider::Lgv => (Vec::new(), 1),
     }
 }
 
