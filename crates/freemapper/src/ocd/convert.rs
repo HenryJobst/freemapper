@@ -75,6 +75,8 @@ pub struct OcdReport {
     pub objects: usize,
     /// Objects without a usable geometry or symbol, or outside OCAD's drawing area.
     pub skipped: usize,
+    /// Degenerate parts of written objects (line parts, hole rings) that were left out.
+    pub dropped_parts: usize,
 }
 
 /// OCAD's paper ↔ EPSG:25833 transformation: origin in whole metres, angle = grivation.
@@ -208,7 +210,8 @@ fn part_coords(
         .map(|&c| ocad.coord(georef, c))
         .collect::<Option<_>>()?;
     for (i, c) in part.iter().enumerate() {
-        if c.flags & FLAG_CURVE_START != 0 && i + 2 < out.len() {
+        // A curve needs its two control points and its end point.
+        if c.flags & FLAG_CURVE_START != 0 && i + 3 < out.len() {
             out[i + 1].xflags |= X_CURVE_1;
             out[i + 2].xflags |= X_CURVE_2;
         }
@@ -233,21 +236,23 @@ fn distinct(coords: &[OcdCoord]) -> usize {
         .len()
 }
 
-/// The OCAD objects of one freemapper object; empty when nothing usable remains.
+/// The OCAD objects of one freemapper object (empty when nothing usable remains) and the number
+/// of degenerate parts left out.
 fn objects_of(
     object: &MapObject,
     ocad: &OcadGeoref,
     georef: &Georeferencing,
     table: &SymbolTable,
     placeholder: &Placeholder,
-) -> Vec<OcdObject> {
-    match (&object.kind, &placeholder.kind) {
+) -> (Vec<OcdObject>, usize) {
+    let mut dropped = 0;
+    let objects = match (&object.kind, &placeholder.kind) {
         (MapObjectKind::Point { rotation_rad }, PlaceholderKind::Point { .. }) => {
             let Some(number) = table.numbers.get(&(object.symbol_id, TextAlign::Left)) else {
-                return Vec::new();
+                return (Vec::new(), 0);
             };
             let Some(at) = object.coords.first().and_then(|&c| ocad.coord(georef, c)) else {
-                return Vec::new();
+                return (Vec::new(), 0);
             };
             let angle = (rotation_rad.to_degrees() * 10.0)
                 .round()
@@ -263,12 +268,13 @@ fn objects_of(
             let mut coords = Vec::new();
             for (i, part) in parts(&object.coords).into_iter().enumerate() {
                 let Some(mut ring) = part_coords(ocad, georef, part) else {
-                    return Vec::new();
+                    return (Vec::new(), 0);
                 };
                 if distinct(&ring) < 3 || doubled_area(&ring) == 0 {
                     if i == 0 {
-                        return Vec::new();
+                        return (Vec::new(), 0);
                     }
+                    dropped += 1;
                     continue;
                 }
                 if i > 0 {
@@ -284,8 +290,9 @@ fn objects_of(
         }
         (MapObjectKind::Path, PlaceholderKind::Line { .. }) => {
             let number = table.numbers[&(object.symbol_id, TextAlign::Left)];
-            parts(&object.coords)
-                .into_iter()
+            let all = parts(&object.coords);
+            let lines: Vec<OcdObject> = all
+                .iter()
                 .filter_map(|part| part_coords(ocad, georef, part))
                 .filter(|line| distinct(line) >= 2)
                 .map(|coords| OcdObject {
@@ -293,16 +300,20 @@ fn objects_of(
                     kind: OcdObjectKind::Line,
                     coords,
                 })
-                .collect()
+                .collect();
+            if !lines.is_empty() {
+                dropped += all.len() - lines.len();
+            }
+            lines
         }
         (MapObjectKind::Text { text, h_align, .. }, PlaceholderKind::Text { size, .. }) => {
             let align = text_align(*h_align);
             let number = table.numbers[&(object.symbol_id, align)];
             let Some(anchor) = object.coords.first().and_then(|&c| ocad.coord(georef, c)) else {
-                return Vec::new();
+                return (Vec::new(), 0);
             };
             if text.trim().is_empty() {
-                return Vec::new();
+                return (Vec::new(), 0);
             }
             // Em size in 0.01 mm from points × 10.
             let em = f64::from(*size) / 10.0 * 25.4 / 72.0 * 100.0;
@@ -320,6 +331,12 @@ fn objects_of(
                 - (lines.len().saturating_sub(1)) as f64 * LINE_EM * em
                 - DESCENT_EM * em;
             let corner = |x: f64, y: f64| OcdCoord::new(x.round() as i32, y.round() as i32);
+            let inside = |v: f64| v.abs() <= f64::from(MAX_COORD);
+            if ![left, left + width].into_iter().all(inside)
+                || ![top, bottom].into_iter().all(inside)
+            {
+                return (Vec::new(), 0);
+            }
             vec![OcdObject {
                 symbol: number,
                 kind: OcdObjectKind::Text {
@@ -336,7 +353,8 @@ fn objects_of(
             }]
         }
         _ => Vec::new(),
-    }
+    };
+    (objects, dropped)
 }
 
 /// The type 8 string of a background map.
@@ -408,28 +426,32 @@ pub fn map_to_ocd(
         .replace("\r\n", "\n")
         .replace('\n', "\r\n");
     builder.add_string(1061, &notes);
-    for symbol in table.symbols.clone() {
-        builder.add_symbol(symbol)?;
-    }
-
     let mut report = OcdReport::default();
-    let (mut min, mut max) = ((i32::MAX, i32::MAX), (i32::MIN, i32::MIN));
+    let mut objects = Vec::new();
     for object in doc.parts.iter().flat_map(|p| &p.objects) {
-        let converted = placeholders
+        let (converted, dropped) = placeholders
             .get(&object.symbol_id)
             .map(|p| objects_of(object, &ocad, georef, &table, p))
             .unwrap_or_default();
         if converted.is_empty() {
             report.skipped += 1;
         }
-        for ocd_object in converted {
-            for c in &ocd_object.coords {
-                min = (min.0.min(c.x), min.1.min(c.y));
-                max = (max.0.max(c.x), max.1.max(c.y));
-            }
-            builder.add_object(ocd_object)?;
-            report.objects += 1;
+        report.dropped_parts += dropped;
+        objects.extend(converted);
+    }
+    // Only symbols that objects use: a placeholder without objects would only clutter OCAD's list.
+    let used: BTreeSet<i32> = objects.iter().map(|o| o.symbol).collect();
+    for symbol in table.symbols.iter().filter(|s| used.contains(&s.number)) {
+        builder.add_symbol(symbol.clone())?;
+    }
+    let (mut min, mut max) = ((i32::MAX, i32::MAX), (i32::MIN, i32::MIN));
+    for ocd_object in objects {
+        for c in &ocd_object.coords {
+            min = (min.0.min(c.x), min.1.min(c.y));
+            max = (max.0.max(c.x), max.1.max(c.y));
         }
+        builder.add_object(ocd_object)?;
+        report.objects += 1;
     }
     let (cx, cy) = if report.objects > 0 {
         (
@@ -613,10 +635,58 @@ mod tests {
             report,
             OcdReport {
                 objects: 0,
-                skipped: 3
+                skipped: 3,
+                dropped_parts: 0
             }
         );
         assert!(file.objects.is_empty());
+    }
+
+    #[test]
+    fn dropped_parts_are_counted() {
+        let mut line = vec![MapCoord::new(0, 0), MapCoord::new(5_000, 0)];
+        line[1].flags = FLAG_HOLE;
+        line.extend([MapCoord::new(0, 2_000), MapCoord::new(0, 2_000)]);
+        let mut area = closed_ring(&square(0, 0, 10_000));
+        area.extend(closed_ring(&[
+            (1_000, 1_000),
+            (2_000, 1_000),
+            (3_000, 1_000),
+        ]));
+        let (file, report) = convert(vec![path("505.1", line), path("521", area)]);
+        assert_eq!(report.objects, 2);
+        assert_eq!(report.dropped_parts, 2);
+        assert_eq!(file.objects[1].coords.len(), 5, "only the outer ring");
+    }
+
+    #[test]
+    fn text_reaching_beyond_the_drawing_area_is_skipped() {
+        let text = MapObject {
+            symbol_id: id("993"),
+            kind: MapObjectKind::Text {
+                text: "a long line of text near the edge of the sheet".into(),
+                h_align: 0,
+                v_align: 0,
+            },
+            coords: vec![MapCoord::new(1_985_000, 0)],
+            tags: Vec::new(),
+        };
+        let (file, report) = convert(vec![text]);
+        assert_eq!(report.skipped, 1);
+        assert!(file.objects.is_empty());
+        assert!(file.symbols.is_empty(), "no symbol without objects");
+    }
+
+    #[test]
+    fn incomplete_curves_get_no_control_points() {
+        let mut coords = vec![
+            MapCoord::new(0, 0),
+            MapCoord::new(1_000, 1_000),
+            MapCoord::new(2_000, 0),
+        ];
+        coords[0].flags = FLAG_CURVE_START;
+        let (file, _) = convert(vec![path("505.1", coords)]);
+        assert!(file.objects[0].coords.iter().all(|c| c.2 == 0));
     }
 
     #[test]

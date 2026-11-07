@@ -124,7 +124,7 @@ freemapper export clara-zetkin-schule --ocad      # or: freemapper run clara-zet
 
 also writes the folder `ocad/`:
 
-- `<name>.ocd`: the map in OCAD 12 format (opens in OCAD 12 and newer), with georeferencing
+- `<name>.ocd`: the map in OCAD 12 format (expected to open in OCAD 12 and newer), with georeferencing
   (ETRS89/UTM 33), colours, the map objects and the templates as background maps.
 - `<name>-candidates.ocd`: the candidates as a separate OCAD map.
 - Orthophoto, hillshade, slope and nDSM with world files, right next to the `.ocd`.
@@ -136,8 +136,11 @@ IOF school symbol set 2019 for schoolyards); it replaces the placeholders by num
 - An existing `.ocd` is only replaced with `--force` (the old one is kept as `.ocd.bak`); with `--ocad`
   an existing OOM map stays as it is unless `--force` is given.
 
-Still to check in OCAD: whether "Replace" when loading the symbol set keeps the sheet symbols
-(991–994), and whether OCAD shows the candidates map as a background correctly.
+The files have not been checked in OCAD yet. What to check is listed in
+[`docs/ocad/test-checklist.md`](docs/ocad/test-checklist.md), e.g. whether "Replace" when loading the
+symbol set keeps the sheet symbols (991–994) and whether OCAD shows the candidates map aligned (else
+open it as a background map by hand). Folder names with umlauts are written in ASCII for the OCAD
+files ("Straußberg" → "Straussberg").
 
 ## With an AI agent (MCP)
 

@@ -1211,8 +1211,10 @@ pub struct OcadOutcome {
     pub kept: bool,
     pub candidates: PathBuf,
     pub objects: usize,
-    /// Objects OCAD cannot take (no area, outside its drawing area).
+    /// Objects OCAD cannot take (no symbol for OCAD, no area, outside its drawing area).
     pub skipped: usize,
+    /// Degenerate line parts and hole rings left out of written objects.
+    pub dropped_parts: usize,
 }
 
 /// The world file next to an image: `.jpg` → `.jgw`, `.png` → `.pgw`.
@@ -1231,9 +1233,16 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
     let documents = starter_documents(dir)?;
     let ocad_dir = dir.join(OCAD_DIR);
     std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
+    // OCAD finds background maps by the ASCII names in the parameter strings, so the files get
+    // the same ASCII names ("Straußberg" → "Straussberg").
     let name = map_path(dir)
         .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
+        .map(|s| {
+            crate::ocd::symbols::ascii(&s.to_string_lossy())
+                .trim()
+                .to_string()
+        })
+        .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "map".to_string());
     let copy = |from: &Path, to: &Path| {
         std::fs::copy(from, to)
@@ -1292,6 +1301,7 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
         candidates,
         objects: report.objects,
         skipped: report.skipped,
+        dropped_parts: report.dropped_parts,
     })
 }
 
@@ -1911,6 +1921,23 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
         assert!(!candidates.objects.is_empty());
         assert!(outcome.objects > 0);
+    }
+
+    #[test]
+    fn export_ocad_names_files_in_ascii() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("Straußberg Schule");
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(&dir, &fixture_area(), MapKind::Schoolyard, None, date, None).unwrap();
+        let outcome = export_ocad(&dir, false).unwrap();
+        assert_eq!(outcome.map.file_name().unwrap(), "Straussberg Schule.ocd");
+        assert_eq!(
+            outcome.candidates.file_name().unwrap(),
+            "Straussberg Schule-candidates.ocd"
+        );
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        let background = map.strings.iter().find(|s| s.kind == 8).unwrap();
+        assert_eq!(background.text, "Straussberg Schule-candidates.ocd\ts1\tr1");
     }
 
     #[test]

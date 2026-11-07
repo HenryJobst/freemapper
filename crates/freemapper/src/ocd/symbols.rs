@@ -270,15 +270,18 @@ fn oom_symbols(set: &SymbolSet) -> HashMap<u32, OomSymbol> {
             ("symbol", None) => {
                 let id = num(&e, "id").map(|v| v as u32);
                 if let Some(id) = id {
-                    current = Some((
-                        id,
-                        OomSymbol {
-                            code: attr(&e, "code").unwrap_or_default(),
-                            name: attr(&e, "name").unwrap_or_default(),
-                            kind: num(&e, "type").unwrap_or(0.0) as u32,
-                            ..OomSymbol::default()
-                        },
-                    ));
+                    let symbol = OomSymbol {
+                        code: attr(&e, "code").unwrap_or_default(),
+                        name: attr(&e, "name").unwrap_or_default(),
+                        kind: num(&e, "type").unwrap_or(0.0) as u32,
+                        ..OomSymbol::default()
+                    };
+                    // `<symbol …/>` has no end event: it is complete already.
+                    if empty {
+                        symbols.insert(id, symbol);
+                        continue;
+                    }
+                    current = Some((id, symbol));
                     depth = 0;
                 }
             }
@@ -551,6 +554,32 @@ mod tests {
             by_code("505.1").name,
             "Unpaved footpath or track, footprint: 1.4 m"
         );
+    }
+
+    #[test]
+    fn school_set_symbols_get_placeholders() {
+        let set = SymbolSet::school_2019();
+        let all = placeholders(&set);
+        assert_eq!(all.len(), set.symbol_count());
+        for code in ["321", "541", "542", "543", "544", "545"] {
+            let id = set.id_for_code(code).unwrap();
+            assert_eq!(all[&id].code, code);
+        }
+    }
+
+    #[test]
+    fn empty_symbol_elements_do_not_swallow_the_next() {
+        let omap = include_str!("../../../../assets/symbol-sets/ISSprOM 2019_4000.omap");
+        let at = omap.find("<symbol type=").unwrap();
+        let omap = format!(
+            r#"{}<symbol type="1" id="900" code="900" name="Empty"/>{}"#,
+            &omap[..at],
+            &omap[at..]
+        );
+        let set = SymbolSet::from_omap_xml(&omap).unwrap();
+        let all = placeholders(&set);
+        let first = set.id_for_code("101").unwrap();
+        assert_eq!(all[&first].code, "101");
     }
 
     #[test]

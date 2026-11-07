@@ -200,10 +200,11 @@ fn report_ocad(outcome: &OcadOutcome) {
         );
     }
     println!("Wrote {}", outcome.candidates.display());
-    if outcome.skipped > 0 {
+    if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         println!(
-            "{} objects were left out of the OCAD map (no area, or outside OCAD's drawing area).",
-            outcome.skipped
+            "Left out of the OCAD map: {} objects (no symbol for OCAD, no area, or outside OCAD's \
+             drawing area of ±2 m) and {} degenerate line parts or holes.",
+            outcome.skipped, outcome.dropped_parts
         );
     }
     println!(

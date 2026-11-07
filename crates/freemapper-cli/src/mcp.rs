@@ -400,6 +400,12 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             outcome.objects
         )
     };
+    if outcome.skipped > 0 || outcome.dropped_parts > 0 {
+        text.push_str(&format!(
+            "\nLeft out of the OCAD map: {} objects and {} degenerate parts",
+            outcome.skipped, outcome.dropped_parts
+        ));
+    }
     text.push_str(&format!(
         "\nWrote {}\nIn OCAD: Symbol > Load Colors and Symbols From… with the official ISSprOM 2019 \
          or school symbol set replaces the placeholder symbols by number.",
@@ -599,9 +605,12 @@ impl FreemapperServer {
                     run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
                         .map(|outcome| summary(&outcome))
                         .map_err(|e| describe(&e))?;
+                // The OOM project is written already: an OCAD failure is reported, not fatal.
                 if ocad {
-                    let outcome = export_ocad(&job_dir, force).map_err(|e| describe(&e))?;
-                    text.push_str(&ocad_summary(&outcome));
+                    match export_ocad(&job_dir, force) {
+                        Ok(outcome) => text.push_str(&ocad_summary(&outcome)),
+                        Err(e) => text.push_str(&format!("\nOCAD export failed: {}", describe(&e))),
+                    }
                 }
                 Ok(text)
             });

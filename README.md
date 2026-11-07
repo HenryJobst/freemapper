@@ -126,7 +126,7 @@ freemapper export clara-zetkin-schule --ocad      # oder: freemapper run clara-z
 
 schreibt zusätzlich den Ordner `ocad/`:
 
-- `<name>.ocd`: Karte im OCAD-12-Format (öffnet sich in OCAD 12 und neuer), mit Georeferenz
+- `<name>.ocd`: Karte im OCAD-12-Format (sollte sich in OCAD 12 und neuer öffnen), mit Georeferenz
   (ETRS89/UTM 33), Farben, den Kartenobjekten und den Vorlagen als Hintergrundkarten.
 - `<name>-candidates.ocd`: die Kandidaten als eigene OCAD-Karte.
 - Luftbild, Schummerung, Hangneigung und nDOM mit Weltdateien, direkt neben der `.ocd`.
@@ -139,8 +139,11 @@ für Sprint, IOF-Schulsatz 2019 für Schulhof), der die Platzhalter nach Nummer 
 - Eine vorhandene `.ocd` wird nur mit `--force` ersetzt (die alte bleibt als `.ocd.bak`); eine
   vorhandene OOM-Karte bleibt bei `--ocad` ohne `--force` unverändert.
 
-Noch in OCAD zu prüfen: ob „Ersetzen“ beim Laden des Symbolsatzes die Randangaben-Symbole (991–994)
-behält, und ob OCAD die Kandidaten-Karte als Hintergrund richtig einblendet.
+Die Dateien sind noch nicht in OCAD geprüft. Was zu prüfen ist, steht in
+[`docs/ocad/test-checklist.md`](docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
+Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die Kandidaten-Karte deckungsgleich
+einblendet (sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
+OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
 
 ## Mit einem KI-Agenten (MCP)
 
