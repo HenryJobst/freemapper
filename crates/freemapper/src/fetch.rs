@@ -278,7 +278,7 @@ fn cached_versions(path: &Path, tile: TileId) -> Vec<(NaiveDate, PathBuf)> {
             Some((date, entry.path()))
         })
         .collect();
-    versions.sort_by(|a, b| b.0.cmp(&a.0));
+    versions.sort_by_key(|v| std::cmp::Reverse(v.0));
     versions
 }
 
