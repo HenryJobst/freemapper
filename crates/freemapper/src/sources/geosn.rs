@@ -1,11 +1,27 @@
 //! GeoSN Saxony open data (dl-de/by-2-0, source note "GeoSN"): 2 km tiles of the terrain and
 //! surface models, their currency and download links from the ArcGIS tile index.
 
+use std::path::Path;
+
 use chrono::NaiveDate;
 use serde_json::Value;
 
+use crate::crs::BoundingBox;
+use crate::fetch::{FetchError, Fetcher, get_with_retries, write_atomically};
+use crate::raster::GridSpec;
 use crate::sources::lgb::Product;
 use crate::tiles::TileId;
+
+/// The orthophoto WMS (DOP20 RGB, released flights), and its layers.
+pub const WMS_URL: &str = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest";
+const WMS_LAYER: &str = "sn_dop_020";
+const WMS_INFO_LAYER: &str = "sn_dop_020_info";
+/// Pixel size of the orthophoto template, as DOP20.
+pub const ORTHOPHOTO_PIXEL_M: f64 = 0.2;
+/// Largest side of one WMS request; the server allows 4096.
+const WMS_MAX_PX: u32 = 4000;
+/// JPEG quality of the stitched orthophoto.
+const JPEG_QUALITY: u8 = 90;
 
 /// The ArcGIS tile index with one layer per product (`Kachel`, `Download`, `Stand`).
 pub const INDEX_URL: &str = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer";
@@ -77,6 +93,121 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexRow>, String> {
             })
         })
         .collect())
+}
+
+/// The GetMap requests covering `grid`: pieces of at most [`WMS_MAX_PX`] per side, each with its
+/// own grid inside `grid`.
+pub fn wms_requests(grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    let starts = |len: u32| (0..len.div_ceil(WMS_MAX_PX)).map(|i| i * WMS_MAX_PX);
+    let mut pieces = Vec::new();
+    for x0 in starts(grid.width) {
+        for y0 in starts(grid.height) {
+            let piece = GridSpec {
+                west: mm(grid.west + f64::from(x0) * grid.pixel_size),
+                north: mm(grid.north - f64::from(y0) * grid.pixel_size),
+                pixel_size: grid.pixel_size,
+                width: WMS_MAX_PX.min(grid.width - x0),
+                height: WMS_MAX_PX.min(grid.height - y0),
+            };
+            let b = piece.bounds();
+            let url = format!(
+                "{WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={WMS_LAYER}&STYLES=\
+                 &CRS=EPSG:25833&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg",
+                mm(b.min_e),
+                mm(b.min_n),
+                mm(b.max_e),
+                mm(b.max_n),
+                piece.width,
+                piece.height
+            );
+            pieces.push((piece, url));
+        }
+    }
+    pieces
+}
+
+/// `v` rounded to millimetres, so that sums of 0.2 m pixels print without float noise.
+fn mm(v: f64) -> f64 {
+    (v * 1000.0).round() / 1000.0
+}
+
+/// Downloads the orthophoto over `bbox` at 0.2 m from the WMS, stitched, as `out` (JPEG) with its
+/// world file (`.jgw`). Returns the flight date text of the area's centre, if the server tells it.
+pub fn fetch_orthophoto(
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+    out: &Path,
+) -> Result<Option<String>, FetchError> {
+    let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
+    let mut mosaic = image::RgbImage::new(grid.width, grid.height);
+    for (piece, url) in wms_requests(&grid) {
+        let image = get_with_retries(fetcher, &url, |bytes| {
+            let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
+                .map_err(|e| {
+                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
+                    format!("not a JPEG ({e}): {start}")
+                })?
+                .into_rgb8();
+            if (image.width(), image.height()) != (piece.width, piece.height) {
+                return Err(format!(
+                    "{} × {} pixels instead of {} × {}",
+                    image.width(),
+                    image.height(),
+                    piece.width,
+                    piece.height
+                ));
+            }
+            Ok(image)
+        })?;
+        let (x0, y0) = (
+            ((piece.west - grid.west) / grid.pixel_size).round() as i64,
+            ((grid.north - piece.north) / grid.pixel_size).round() as i64,
+        );
+        image::imageops::replace(&mut mosaic, &image, x0, y0);
+    }
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, JPEG_QUALITY)
+        .encode(
+            mosaic.as_raw(),
+            mosaic.width(),
+            mosaic.height(),
+            image::ExtendedColorType::Rgb8,
+        )
+        .map_err(|e| FetchError::Http {
+            url: WMS_URL.to_string(),
+            message: e.to_string(),
+        })?;
+    write_atomically(out, &jpeg)?;
+    write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
+    Ok(flight_date(fetcher, bbox))
+}
+
+/// The flight date at the centre of `bbox` from the info layer; `None` when the server does not
+/// tell it (it is only shown to the user).
+fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        mm((bbox.min_e + bbox.max_e) / 2.0),
+        mm((bbox.min_n + bbox.max_n) / 2.0),
+    );
+    let url = format!(
+        "{WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:25833&BBOX={},{},{},{}&WIDTH=101\
+         &HEIGHT=101&I=50&J=50&INFO_FORMAT=text/plain",
+        e - 10.1,
+        n - 10.1,
+        e + 10.1,
+        n + 10.1
+    );
+    let bytes = fetcher.get(&url).ok()?;
+    parse_flight_date(&String::from_utf8_lossy(&bytes))
+}
+
+/// The flight date of a `sn_dop_020_info` answer, e.g. `19.03. + 07.04.2024` from
+/// `Gebiet: Dresden | Datum: 19.03. + 07.04.2024 | ROHDOP: DOP`.
+pub fn parse_flight_date(text: &str) -> Option<String> {
+    let after = text.split_once("Datum:")?.1;
+    let date = after.split(['|', '\n']).next()?.trim();
+    (!date.is_empty()).then(|| date.to_string())
 }
 
 #[cfg(test)]
@@ -164,5 +295,138 @@ mod tests {
         assert_eq!(rows[1].tile, EAST);
         assert_eq!(rows[2].currency, "2024-12-28".parse::<NaiveDate>().unwrap());
         assert!(parse_index(r#"{"error":{"code":400,"message":"Invalid query"}}"#).is_err());
+    }
+
+    fn grid(width: u32, height: u32) -> GridSpec {
+        GridSpec {
+            west: 415_000.0,
+            north: 5_656_000.0,
+            pixel_size: ORTHOPHOTO_PIXEL_M,
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn wms_pieces_cover_the_grid() {
+        let pieces = wms_requests(&grid(9000, 5000));
+        let sizes: Vec<(u32, u32)> = pieces.iter().map(|(g, _)| (g.width, g.height)).collect();
+        assert_eq!(
+            sizes,
+            [
+                (4000, 4000),
+                (4000, 1000),
+                (4000, 4000),
+                (4000, 1000),
+                (1000, 4000),
+                (1000, 1000)
+            ]
+        );
+        let (first, url) = &pieces[0];
+        assert_eq!((first.west, first.north), (415_000.0, 5_656_000.0));
+        assert_eq!(
+            url,
+            &format!(
+                "{WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=sn_dop_020&STYLES=\
+                 &CRS=EPSG:25833&BBOX=415000,5655200,415800,5656000&WIDTH=4000&HEIGHT=4000\
+                 &FORMAT=image/jpeg"
+            )
+        );
+        let (last, _) = &pieces[5];
+        assert!((last.west - 416_600.0).abs() < 1e-6 && (last.north - 5_655_200.0).abs() < 1e-6);
+    }
+
+    /// Answers every GetMap with a JPEG of the requested size, red west of E 415 800, blue east;
+    /// GetFeatureInfo with the Dresden flight text.
+    struct Wms {
+        calls: std::cell::Cell<usize>,
+    }
+
+    impl Fetcher for Wms {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.calls.set(self.calls.get() + 1);
+            if url.contains("REQUEST=GetFeatureInfo") {
+                return Ok(b"Gebiet: Dresden | Datum: 19.03. + 07.04.2024 | ROHDOP: DOP".to_vec());
+            }
+            let param = |name: &str| -> String {
+                url.split('&')
+                    .find_map(|p| p.strip_prefix(&format!("{name}=")))
+                    .unwrap()
+                    .to_string()
+            };
+            let (w, h): (u32, u32) = (
+                param("WIDTH").parse().unwrap(),
+                param("HEIGHT").parse().unwrap(),
+            );
+            let west: f64 = param("BBOX").split(',').next().unwrap().parse().unwrap();
+            let rgb = if west < 415_800.0 {
+                [255, 0, 0]
+            } else {
+                [0, 0, 255]
+            };
+            Ok(crate::fetch::test_support::solid_jpeg(w, h, rgb))
+        }
+    }
+
+    #[test]
+    fn stitched_image_is_georeferenced() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("orthophoto-wms.jpg");
+        let bbox = BoundingBox {
+            min_e: 415_000.0,
+            min_n: 5_655_500.0,
+            max_e: 416_000.0,
+            max_n: 5_656_000.0,
+        };
+        let fetcher = Wms {
+            calls: std::cell::Cell::new(0),
+        };
+        let flight = fetch_orthophoto(&fetcher, &bbox, &out).unwrap();
+        assert_eq!(flight.as_deref(), Some("19.03. + 07.04.2024"));
+        let image = image::open(&out).unwrap().to_rgb8();
+        assert_eq!((image.width(), image.height()), (5000, 2500));
+        assert!(image.get_pixel(100, 100).0[0] > 200, "west piece is red");
+        assert!(image.get_pixel(4900, 100).0[2] > 200, "east piece is blue");
+        let world = std::fs::read_to_string(out.with_extension("jgw")).unwrap();
+        assert_eq!(
+            world,
+            GridSpec::covering(&bbox, ORTHOPHOTO_PIXEL_M).world_file()
+        );
+        // Two pieces and one feature info request.
+        assert_eq!(fetcher.calls.get(), 3);
+    }
+
+    #[test]
+    fn xml_instead_of_jpeg_is_retried_then_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = crate::fetch::test_support::MapFetcher::default();
+        fetcher.insert_prefix(
+            WMS_URL,
+            br#"<?xml version="1.0"?><ServiceExceptionReport/>"#.to_vec(),
+        );
+        let bbox = BoundingBox {
+            min_e: 415_000.0,
+            min_n: 5_655_900.0,
+            max_e: 415_100.0,
+            max_n: 5_656_000.0,
+        };
+        let err = fetch_orthophoto(&fetcher, &bbox, &dir.path().join("o.jpg")).unwrap_err();
+        assert!(err.to_string().contains("not a JPEG"), "{err}");
+        assert_eq!(fetcher.calls.get(), 3);
+        assert!(!dir.path().join("o.jpg").exists());
+    }
+
+    #[test]
+    fn flight_date_from_feature_info() {
+        assert_eq!(
+            parse_flight_date("Gebiet: Dresden | Datum: 19.03. + 07.04.2024 | ROHDOP: DOP")
+                .as_deref(),
+            Some("19.03. + 07.04.2024")
+        );
+        assert_eq!(
+            parse_flight_date("Datum: 2025-04-03\n").as_deref(),
+            Some("2025-04-03")
+        );
+        assert_eq!(parse_flight_date("no information"), None);
     }
 }

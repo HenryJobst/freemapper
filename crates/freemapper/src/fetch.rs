@@ -743,6 +743,40 @@ fn newest_cached_version(path: &Path, tile: TileId) -> Option<(NaiveDate, PathBu
     cached_versions(path, tile).into_iter().next()
 }
 
+/// Attempts per request to a server that drops connections now and then (gdi.berlin.de, GeoSN).
+pub(crate) const ATTEMPTS: u32 = 3;
+#[cfg(not(test))]
+const RETRY_DELAY: Duration = Duration::from_secs(2);
+#[cfg(test)]
+const RETRY_DELAY: Duration = Duration::ZERO;
+
+/// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
+/// and answers `check` refuses (an error page with status 200) are retried, a missing URL is not.
+/// The last refusal becomes [`FetchError::Http`].
+pub(crate) fn get_with_retries<T>(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    check: impl Fn(&[u8]) -> Result<T, String>,
+) -> Result<T, FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.get(url).and_then(|bytes| {
+            check(&bytes).map_err(|message| FetchError::Http {
+                url: url.to_string(),
+                message,
+            })
+        });
+        match result {
+            Err(FetchError::NotFound(_)) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
 /// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`].
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
