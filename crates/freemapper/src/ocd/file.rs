@@ -40,7 +40,7 @@ pub const Y_HOLE: u8 = 2;
 pub const X_CURVE_1: u8 = 1;
 pub const X_CURVE_2: u8 = 2;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextAlign {
     Left = 0,
     Centre = 1,
