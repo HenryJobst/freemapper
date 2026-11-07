@@ -40,7 +40,7 @@ use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_b
 use crate::sources::osm::{
     OsmFeature, features_from_geojson, features_to_geojson, fetch_extract, read_extract,
 };
-use crate::sources::region::{Region, touches_berlin};
+use crate::sources::region::{Region, raster_region, touches_berlin};
 use crate::tiles::{TileId, tiles_covering};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -93,7 +93,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the LGB data (Brandenburg and Berlin); freemapper has data sources for that region only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -377,22 +377,10 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectEr
     Ok(project)
 }
 
-/// The LGB tile range in EPSG:25833 (Brandenburg and Berlin with a margin).
-const LGB_COVERAGE: BoundingBox = BoundingBox {
-    min_e: 250_000.0,
-    min_n: 5_650_000.0,
-    max_e: 500_000.0,
-    max_n: 6_000_000.0,
-};
-
-/// Refuses a map area plus buffer outside the LGB data or larger than the templates can cover.
+/// Refuses a map area plus buffer outside every supported region or larger than the templates
+/// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    // Written so that NaN coordinates count as outside.
-    let inside = bbox.min_e >= LGB_COVERAGE.min_e
-        && bbox.min_n >= LGB_COVERAGE.min_n
-        && bbox.max_e <= LGB_COVERAGE.max_e
-        && bbox.max_n <= LGB_COVERAGE.max_n;
-    if !inside {
+    if raster_region(bbox).is_none() {
         return Err(ProjectError::OutsideCoverage);
     }
     if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
@@ -1761,7 +1749,27 @@ mod tests {
         let err = init_project(&project, &munich, MapKind::Sprint, None, date, None).unwrap_err();
         assert!(matches!(err, ProjectError::OutsideCoverage), "{err:?}");
         assert!(err.to_string().contains("Brandenburg"), "{err}");
+        assert!(err.to_string().contains("Saxony"), "{err}");
         assert!(!project.exists());
+    }
+
+    #[test]
+    fn init_accepts_saxony_and_its_east_edge() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        // Dresden, and Görlitz north (east of E 500 km, outside the old LGB box).
+        for (name, lon, lat) in [("dresden", 13.818, 51.043), ("goerlitz", 15.0, 51.22)] {
+            let area = MapArea::from_geojson(&format!(
+                r#"{{"type":"Polygon","coordinates":[[[{lon},{lat}],[{},{lat}],[{},{}],[{lon},{}],[{lon},{lat}]]]}}"#,
+                lon + 0.002,
+                lon + 0.002,
+                lat + 0.002,
+                lat + 0.002
+            ))
+            .unwrap();
+            init_project(&dir.path().join(name), &area, MapKind::Sprint, None, date, None)
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
     }
 
     #[test]

@@ -71,6 +71,8 @@ pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Stri
     merged(bbox, |region| match region {
         Region::Brandenburg => collection_features(fetcher, BUILDINGS_ENDPOINT, bbox),
         Region::Berlin => berlin::fetch_buildings(fetcher, bbox),
+        // Saxony ALKIS follows with the GeoSN WFS.
+        Region::Saxony => Ok(Vec::new()),
     })
 }
 
@@ -80,6 +82,7 @@ pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Strin
     merged(bbox, |region| match region {
         Region::Brandenburg => collection_features(fetcher, LAND_USE_ENDPOINT, bbox),
         Region::Berlin => berlin::fetch_land_use(fetcher, bbox),
+        Region::Saxony => Ok(Vec::new()),
     })
 }
 
