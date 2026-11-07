@@ -1,0 +1,457 @@
+// freemapper area selection page: draw or pick the map area, see tiles and download, save it.
+"use strict";
+
+const TEXTS = {
+  de: {
+    heading: "Kartengebiet wählen",
+    folder: "Projektordner",
+    pick: "Ort suchen",
+    queryPlaceholder: "z. B. Clara-Zetkin-Schule Strausberg",
+    searchButton: "Suchen",
+    searching: "Suche …",
+    noResults: "Nichts gefunden.",
+    pointOnly: "nur ein Punkt, keine Fläche",
+    draw: "Selbst zeichnen",
+    rectangle: "Rechteck",
+    polygon: "Polygon",
+    finishPolygon: "Polygon schließen",
+    clear: "Löschen",
+    hintRectangle: "Klicke zwei gegenüberliegende Ecken in die Karte.",
+    hintPolygon:
+      "Klicke die Ecken nacheinander. Schließen: erste Ecke anklicken, doppelklicken oder „Polygon schließen“. Esc bricht ab, Rücktaste nimmt die letzte Ecke zurück.",
+    hintIdle: "Wähle einen Ort aus der Suche oder zeichne das Gebiet selbst.",
+    summary: "Gebiet",
+    sourceOsm: "Aus OpenStreetMap: ",
+    sourceDrawn: "Selbst gezeichnet",
+    size: (w, h) => `Größe mit Puffer: ${w} × ${h} m`,
+    tiles: (n, names) => `${n} LGB-Kachel${n === 1 ? "" : "n"} (1 km): ${names}`,
+    download: (mb) => `Download: etwa ${mb} MB`,
+    downloadNone: "Download: alles schon im Zwischenspeicher",
+    downloadDetails: "Was geladen wird",
+    cached: "schon geladen",
+    tooLarge: (max) =>
+      `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
+    settings: "Karte",
+    kind: "Kartenart",
+    schoolyard: "Schulhofkarte (1:1000)",
+    sprint: "Sprintkarte (1:4000)",
+    scale: "Maßstab 1:",
+    title: "Titel",
+    settingsFixed:
+      "Das Projekt gibt es schon; Kartenart, Maßstab und Titel stehen in freemapper.toml.",
+    save: "Speichern",
+    saving: "Speichere …",
+    saved: "Gespeichert in freemapper.toml.",
+    hasMap:
+      "Die vorhandene Karte (.omap) bleibt, wie sie ist; neue Vorlagen und Kandidaten entstehen für das neue Gebiet. Mit „freemapper run --force“ wird auch die Karte neu erzeugt (die alte bleibt als .omap.bak).",
+    done: "Fertig",
+    closed: "Fertig. Du kannst dieses Fenster schließen.",
+    next: (dir) => `Weiter: freemapper run "${dir}"`,
+    failed: "Fehler: ",
+    osm: "OpenStreetMap",
+    aerial: "Luftbild (LGB)",
+  },
+  en: {
+    heading: "Choose the map area",
+    folder: "Project folder",
+    pick: "Search a place",
+    queryPlaceholder: "e.g. Clara-Zetkin-Schule Strausberg",
+    searchButton: "Search",
+    searching: "Searching …",
+    noResults: "Nothing found.",
+    pointOnly: "a point only, not an area",
+    draw: "Draw it yourself",
+    rectangle: "Rectangle",
+    polygon: "Polygon",
+    finishPolygon: "Close polygon",
+    clear: "Clear",
+    hintRectangle: "Click two opposite corners on the map.",
+    hintPolygon:
+      "Click the corners one after another. Close: click the first corner, double-click or “Close polygon”. Esc cancels, Backspace removes the last corner.",
+    hintIdle: "Pick a place from the search or draw the area yourself.",
+    summary: "Area",
+    sourceOsm: "From OpenStreetMap: ",
+    sourceDrawn: "Drawn by hand",
+    size: (w, h) => `Size with buffer: ${w} × ${h} m`,
+    tiles: (n, names) => `${n} LGB tile${n === 1 ? "" : "s"} (1 km): ${names}`,
+    download: (mb) => `Download: about ${mb} MB`,
+    downloadNone: "Download: everything is cached already",
+    downloadDetails: "What is downloaded",
+    cached: "cached",
+    tooLarge: (max) =>
+      `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
+    settings: "Map",
+    kind: "Map kind",
+    schoolyard: "Schoolyard map (1:1000)",
+    sprint: "Sprint map (1:4000)",
+    scale: "Scale 1:",
+    title: "Title",
+    settingsFixed:
+      "The project exists already; map kind, scale and title are in freemapper.toml.",
+    save: "Save",
+    saving: "Saving …",
+    saved: "Saved to freemapper.toml.",
+    hasMap:
+      "The existing map (.omap) stays as it is; new templates and candidates are made for the new area. “freemapper run --force” makes the map anew too (the old one is kept as .omap.bak).",
+    done: "Done",
+    closed: "Done. You can close this window.",
+    next: (dir) => `Next: freemapper run "${dir}"`,
+    failed: "Error: ",
+    osm: "OpenStreetMap",
+    aerial: "Aerial photo (LGB)",
+  },
+};
+
+const T = (navigator.language || "de").toLowerCase().startsWith("de") ? TEXTS.de : TEXTS.en;
+document.documentElement.lang = T === TEXTS.de ? "de" : "en";
+document.querySelectorAll("[data-text]").forEach((el) => {
+  const text = T[el.dataset.text];
+  if (typeof text === "string") el.textContent = text;
+});
+document.querySelectorAll("[data-placeholder]").forEach((el) => {
+  el.placeholder = T[el.dataset.placeholder];
+});
+
+const $ = (id) => document.getElementById(id);
+
+async function api(path, body) {
+  const options = body === undefined
+    ? {}
+    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const response = await fetch(path, options);
+  const answer = await response.json().catch(() => ({ error: response.statusText }));
+  if (!response.ok) throw new Error(answer.error || response.statusText);
+  return answer;
+}
+
+// --- Map -------------------------------------------------------------------------------------
+
+const map = L.map("map", { doubleClickZoom: true }).setView([52.45, 13.4], 8);
+const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+}).addTo(map);
+const aerial = L.tileLayer.wms("https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms", {
+  layers: "bebb_dop20c",
+  format: "image/png",
+  maxZoom: 20,
+  attribution: "© GeoBasis-DE/LGB, dl-de/by-2-0",
+});
+L.control.layers({ [T.osm]: osm, [T.aerial]: aerial }).addTo(map);
+map.attributionControl.addAttribution(
+  '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
+);
+
+const tileLayer = L.layerGroup().addTo(map);
+const areaLayer = L.layerGroup().addTo(map);
+const drawLayer = L.layerGroup().addTo(map);
+
+// --- State -----------------------------------------------------------------------------------
+
+let project = null;
+// The chosen area: GeoJSON polygon geometry and the OSM object it came from (or null).
+let area = null;
+let sourceId = null;
+let sourceName = null;
+let preview = null;
+
+function setMessage(text, kind) {
+  const el = $("message");
+  el.textContent = text;
+  el.className = kind || "";
+}
+
+function geometryOf(geojson) {
+  if (geojson.type === "Feature") return geometryOf(geojson.geometry);
+  if (geojson.type === "MultiPolygon" && geojson.coordinates.length === 1) {
+    return { type: "Polygon", coordinates: geojson.coordinates[0] };
+  }
+  return geojson;
+}
+
+function showArea(fit) {
+  areaLayer.clearLayers();
+  if (!area) return;
+  const shape = L.geoJSON(area, {
+    style: { color: "#d4145a", weight: 3, fillOpacity: 0.08 },
+    interactive: false,
+  });
+  shape.addTo(areaLayer);
+  if (fit) map.fitBounds(shape.getBounds(), { padding: [40, 40], maxZoom: 18 });
+}
+
+async function chooseArea(geojson, id, name, fit) {
+  area = geometryOf(geojson);
+  sourceId = id;
+  sourceName = name;
+  showArea(fit);
+  $("save").disabled = true;
+  try {
+    preview = await api("api/preview", { area, source_id: sourceId });
+    showPreview();
+    $("save").disabled = preview.too_large;
+    setMessage("");
+  } catch (e) {
+    preview = null;
+    showPreview();
+    setMessage(T.failed + e.message, "error");
+  }
+}
+
+function showPreview() {
+  tileLayer.clearLayers();
+  $("summary").hidden = !area;
+  if (!area) return;
+  $("source").textContent = sourceId ? T.sourceOsm + (sourceName || sourceId) : T.sourceDrawn;
+  if (!preview) {
+    ["size", "tiles", "download"].forEach((id) => ($(id).textContent = ""));
+    $("items").replaceChildren();
+    $("too-large").hidden = true;
+    return;
+  }
+  $("size").textContent = T.size(Math.round(preview.width_m), Math.round(preview.height_m));
+  $("too-large").hidden = !preview.too_large;
+  $("too-large").textContent = T.tooLarge(Math.round(preview.max_side_m));
+  const names = preview.tiles.map((t) => t.name);
+  $("tiles").textContent = preview.too_large ? "" : T.tiles(names.length, names.join(", "));
+  const mb = preview.estimate.total_megabytes;
+  $("download").textContent = preview.too_large
+    ? ""
+    : mb > 0 ? T.download(Math.ceil(mb)) : T.downloadNone;
+  $("items").replaceChildren(
+    ...preview.estimate.items.map((item) => {
+      const li = document.createElement("li");
+      li.textContent = `${item.what}: ${item.megabytes} MB${item.cached ? ` (${T.cached})` : ""}`;
+      return li;
+    }),
+  );
+  for (const tile of preview.tiles) {
+    L.polygon(tile.corners, {
+      color: "#ff7800",
+      weight: 2,
+      dashArray: "8 6",
+      fill: false,
+      interactive: false,
+    })
+      .bindTooltip(tile.name, { permanent: true, direction: "center", className: "tile-label" })
+      .addTo(tileLayer);
+  }
+}
+
+// --- Search ----------------------------------------------------------------------------------
+
+$("search").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = $("query").value.trim();
+  if (!query) return;
+  const list = $("results");
+  list.replaceChildren(Object.assign(document.createElement("li"), { textContent: T.searching }));
+  try {
+    const places = await api(`api/places?q=${encodeURIComponent(query)}`);
+    if (places.length === 0) {
+      list.replaceChildren(Object.assign(document.createElement("li"), { textContent: T.noResults }));
+      return;
+    }
+    list.replaceChildren(
+      ...places.map((place) => {
+        const li = document.createElement("li");
+        li.textContent = place.display_name;
+        if (!place.has_area) {
+          li.classList.add("point");
+          li.title = T.pointOnly;
+          li.textContent += ` (${T.pointOnly})`;
+          return li;
+        }
+        li.addEventListener("click", async () => {
+          setMessage(T.searching);
+          try {
+            const found = await api(`api/place?osm_id=${encodeURIComponent(place.osm_id)}`);
+            await chooseArea(found.area, found.source_id, place.name || place.display_name, true);
+          } catch (e) {
+            setMessage(T.failed + e.message, "error");
+          }
+        });
+        return li;
+      }),
+    );
+  } catch (e) {
+    list.replaceChildren();
+    setMessage(T.failed + e.message, "error");
+  }
+});
+
+// --- Drawing ---------------------------------------------------------------------------------
+
+let mode = null;
+let points = [];
+
+function setMode(next) {
+  mode = next;
+  points = [];
+  drawLayer.clearLayers();
+  $("draw-rectangle").classList.toggle("active", mode === "rectangle");
+  $("draw-polygon").classList.toggle("active", mode === "polygon");
+  $("finish-polygon").hidden = mode !== "polygon";
+  $("map").classList.toggle("drawing", mode !== null);
+  if (mode) map.doubleClickZoom.disable();
+  else map.doubleClickZoom.enable();
+  $("hint").textContent =
+    mode === "rectangle" ? T.hintRectangle : mode === "polygon" ? T.hintPolygon : T.hintIdle;
+}
+
+function ring(latlngs) {
+  const coordinates = latlngs.map((p) => [p.lng, p.lat]);
+  coordinates.push(coordinates[0]);
+  return { type: "Polygon", coordinates: [coordinates] };
+}
+
+function redraw(cursor) {
+  drawLayer.clearLayers();
+  // Not interactive: clicks must reach the map, or a corner drawn under the cursor would
+  // swallow the second click of a double-click.
+  const style = { color: "#0b6bcb", weight: 2, dashArray: "6 4", interactive: false };
+  if (mode === "rectangle" && points.length === 1 && cursor) {
+    L.rectangle(L.latLngBounds(points[0], cursor), style).addTo(drawLayer);
+  }
+  if (mode === "polygon" && points.length > 0) {
+    const line = cursor ? [...points, cursor] : points;
+    L.polyline(line, style).addTo(drawLayer);
+    points.forEach((p, i) =>
+      L.circleMarker(p, { radius: i === 0 ? 6 : 4, color: "#0b6bcb", interactive: false }).addTo(
+        drawLayer,
+      ),
+    );
+  }
+}
+
+function finishPolygon() {
+  if (points.length < 3) return;
+  const geometry = ring(points);
+  setMode(null);
+  chooseArea(geometry, null, null, false);
+}
+
+map.on("click", (event) => {
+  if (mode === "rectangle") {
+    points.push(event.latlng);
+    if (points.length === 2) {
+      const b = L.latLngBounds(points[0], points[1]);
+      const geometry = ring([b.getSouthWest(), b.getSouthEast(), b.getNorthEast(), b.getNorthWest()]);
+      setMode(null);
+      chooseArea(geometry, null, null, false);
+    } else {
+      redraw(event.latlng);
+    }
+  } else if (mode === "polygon") {
+    // Clicking near the first corner closes the polygon.
+    if (points.length >= 3) {
+      const first = map.latLngToContainerPoint(points[0]);
+      if (first.distanceTo(event.containerPoint) < 10) {
+        finishPolygon();
+        return;
+      }
+    }
+    points.push(event.latlng);
+    redraw(event.latlng);
+  }
+});
+
+map.on("mousemove", (event) => {
+  if (mode && points.length > 0) redraw(event.latlng);
+});
+
+map.on("dblclick", () => {
+  if (mode === "polygon") {
+    // The double-click's two clicks added the same corner twice.
+    points.pop();
+    finishPolygon();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!mode || event.target.tagName === "INPUT") return;
+  if (event.key === "Escape") setMode(null);
+  if (event.key === "Backspace" && mode === "polygon") {
+    points.pop();
+    redraw();
+    event.preventDefault();
+  }
+});
+
+$("draw-rectangle").addEventListener("click", () => setMode(mode === "rectangle" ? null : "rectangle"));
+$("draw-polygon").addEventListener("click", () => setMode(mode === "polygon" ? null : "polygon"));
+$("finish-polygon").addEventListener("click", finishPolygon);
+$("clear").addEventListener("click", () => {
+  setMode(null);
+  area = null;
+  sourceId = null;
+  preview = null;
+  areaLayer.clearLayers();
+  showPreview();
+  $("save").disabled = true;
+  setMessage("");
+});
+
+// --- Settings, save, done --------------------------------------------------------------------
+
+$("kind").addEventListener("change", () => {
+  $("scale").value = $("kind").value === "sprint" ? 4000 : 1000;
+});
+
+$("save").addEventListener("click", async () => {
+  if (!area) return;
+  setMessage(T.saving);
+  $("save").disabled = true;
+  try {
+    const body = { area, source_id: sourceId };
+    if (!project.exists) {
+      body.kind = $("kind").value;
+      body.scale = Number($("scale").value) || undefined;
+      body.title = $("title").value.trim() || undefined;
+    }
+    const answer = await api("api/save", body);
+    setMessage(T.saved, "ok");
+    $("has-map").hidden = !answer.has_map;
+    project = await api("api/project");
+    showSettings();
+  } catch (e) {
+    setMessage(T.failed + e.message, "error");
+  } finally {
+    $("save").disabled = !area || (preview && preview.too_large);
+  }
+});
+
+$("done").addEventListener("click", async () => {
+  try {
+    await api("api/done", {});
+  } catch (e) {
+    // The server may close before it answers; the page is finished either way.
+  }
+  $("next").textContent = T.next(project ? project.dir : "");
+  $("closed").hidden = false;
+});
+
+function showSettings() {
+  $("kind").value = project.kind;
+  $("scale").value = project.scale;
+  $("title").value = project.title || "";
+  for (const id of ["kind", "scale", "title"]) $(id).disabled = project.exists;
+  $("settings-fixed").hidden = !project.exists;
+}
+
+// --- Start -----------------------------------------------------------------------------------
+
+(async () => {
+  setMode(null);
+  try {
+    project = await api("api/project");
+    $("folder").textContent = project.dir;
+    showSettings();
+    $("has-map").hidden = !project.has_map;
+    if (project.area) {
+      await chooseArea(project.area, project.source_id, null, true);
+    }
+  } catch (e) {
+    setMessage(T.failed + e.message, "error");
+  }
+})();

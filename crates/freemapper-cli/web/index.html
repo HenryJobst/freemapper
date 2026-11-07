@@ -2,12 +2,85 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>freemapper – Gebietsauswahl</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 <div id="map"></div>
-<footer><a href="https://github.com/HenryJobst/freemapper">freemapper</a></footer>
+<aside id="panel">
+  <h1 data-text="heading">Kartengebiet wählen</h1>
+  <p class="folder"><span data-text="folder">Projektordner</span>: <code id="folder"></code></p>
+
+  <section>
+    <h2 data-text="pick">Ort suchen</h2>
+    <form id="search">
+      <input id="query" type="search" autocomplete="off" data-placeholder="queryPlaceholder">
+      <button type="submit" data-text="searchButton">Suchen</button>
+    </form>
+    <ul id="results"></ul>
+  </section>
+
+  <section>
+    <h2 data-text="draw">Selbst zeichnen</h2>
+    <div class="buttons">
+      <button id="draw-rectangle" type="button" data-text="rectangle">Rechteck</button>
+      <button id="draw-polygon" type="button" data-text="polygon">Polygon</button>
+      <button id="finish-polygon" type="button" data-text="finishPolygon" hidden>Polygon schließen</button>
+      <button id="clear" type="button" data-text="clear">Löschen</button>
+    </div>
+    <p id="hint" class="hint"></p>
+  </section>
+
+  <section id="summary" hidden>
+    <h2 data-text="summary">Gebiet</h2>
+    <p id="source"></p>
+    <p id="size"></p>
+    <p id="tiles"></p>
+    <p id="download"></p>
+    <details>
+      <summary data-text="downloadDetails">Was geladen wird</summary>
+      <ul id="items"></ul>
+    </details>
+    <p id="too-large" class="warning" hidden></p>
+  </section>
+
+  <section id="settings">
+    <h2 data-text="settings">Karte</h2>
+    <label><span data-text="kind">Kartenart</span>
+      <select id="kind">
+        <option value="schoolyard" data-text="schoolyard">Schulhofkarte (1:1000)</option>
+        <option value="sprint" data-text="sprint">Sprintkarte (1:4000)</option>
+      </select>
+    </label>
+    <label><span data-text="scale">Maßstab 1:</span>
+      <input id="scale" type="number" min="1" step="1">
+    </label>
+    <label><span data-text="title">Titel</span>
+      <input id="title" type="text">
+    </label>
+    <p id="settings-fixed" class="hint" data-text="settingsFixed" hidden></p>
+  </section>
+
+  <section>
+    <button id="save" type="button" class="primary" data-text="save" disabled>Speichern</button>
+    <p id="message" role="status"></p>
+    <p id="has-map" class="hint" data-text="hasMap" hidden></p>
+    <button id="done" type="button" data-text="done">Fertig</button>
+  </section>
+
+  <footer>
+    <a href="https://github.com/HenryJobst/freemapper" target="_blank" rel="noopener">freemapper</a>
+    – https://github.com/HenryJobst/freemapper
+  </footer>
+</aside>
+<div id="closed" hidden>
+  <p data-text="closed">Fertig. Du kannst dieses Fenster schließen.</p>
+  <p><code id="next"></code></p>
+</div>
 <script src="assets/vendor/leaflet/leaflet.js"></script>
+<script src="assets/app.js"></script>
 </body>
 </html>

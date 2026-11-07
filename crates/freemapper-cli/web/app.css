@@ -1,0 +1,183 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1d1d1f;
+}
+
+body {
+  display: flex;
+}
+
+#map {
+  flex: 1;
+  height: 100%;
+}
+
+#map.drawing {
+  cursor: crosshair;
+}
+
+#panel {
+  width: 340px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-left: 1px solid #ccc;
+  background: #fafafa;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 14px;
+  margin: 16px 0 6px;
+}
+
+.folder code {
+  word-break: break-all;
+}
+
+form, .buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+input[type="search"] {
+  flex: 1;
+  min-width: 0;
+}
+
+input, select, button {
+  font: inherit;
+  padding: 4px 8px;
+}
+
+button.active {
+  background: #0b6bcb;
+  color: white;
+}
+
+button.primary {
+  width: 100%;
+  padding: 8px;
+  background: #0b6bcb;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+button.primary:disabled {
+  background: #9bb8d6;
+}
+
+#done {
+  width: 100%;
+  margin-top: 8px;
+}
+
+label {
+  display: block;
+  margin: 6px 0;
+}
+
+label > span {
+  display: inline-block;
+  width: 80px;
+}
+
+#results {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+}
+
+#results li {
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#results li:hover {
+  background: #e4eefa;
+}
+
+#results li.point {
+  color: #888;
+  cursor: default;
+}
+
+#results li.point:hover {
+  background: none;
+}
+
+.hint {
+  color: #555;
+  font-size: 13px;
+}
+
+.warning {
+  color: #b00020;
+  font-weight: 600;
+}
+
+#message.error {
+  color: #b00020;
+}
+
+#message.ok {
+  color: #1b7f2a;
+}
+
+.tile-label {
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  box-shadow: none;
+  color: #444;
+  font-size: 11px;
+}
+
+footer {
+  margin-top: 24px;
+  font-size: 12px;
+  color: #666;
+}
+
+#closed {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 16px;
+  z-index: 2000;
+}
+
+#closed[hidden] {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  body {
+    flex-direction: column;
+  }
+
+  #map {
+    height: 55%;
+    flex: none;
+  }
+
+  #panel {
+    width: 100%;
+    height: 45%;
+    border-left: none;
+    border-top: 1px solid #ccc;
+  }
+}
