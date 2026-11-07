@@ -1,0 +1,94 @@
+# OSM tags → candidate symbols for templates/candidates.omap (spec §4.5).
+#
+# The first rule whose conditions and geometry match a feature decides; a map kind without a
+# symbol code skips the feature. Conditions in `when` must all hold: `key=value`, `key=a|b`
+# (alternatives) or `key=*` (any value).
+#
+# `draw`: `point` (nodes), `line` (ways; with `point_as_short_line_mm` also nodes, drawn as a
+# short horizontal line of that length on paper for the mapper to rotate), `area` (closed ways).
+# Codes refer to ISSprOM 2019 and the IOF school symbol set 2019.
+
+[[rule]]
+when = ["emergency=fire_hydrant"]
+draw = "point"
+schoolyard = "321"
+
+[[rule]]
+when = ["amenity=bench"]
+draw = "line"
+point_as_short_line_mm = 1.5
+schoolyard = "543"
+
+[[rule]]
+when = ["leisure=picnic_table"]
+draw = "point"
+schoolyard = "542"
+
+[[rule]]
+when = ["amenity=table"]
+draw = "point"
+schoolyard = "542"
+
+[[rule]]
+when = ["highway=street_lamp"]
+draw = "point"
+schoolyard = "545"
+
+[[rule]]
+when = ["man_made=flagpole|mast"]
+draw = "point"
+schoolyard = "544"
+
+[[rule]]
+when = ["playground=*"]
+draw = "line"
+point_as_short_line_mm = 1.8
+schoolyard = "541"
+
+[[rule]]
+when = ["natural=tree"]
+draw = "point"
+schoolyard = "418"
+sprint = "418"
+
+[[rule]]
+when = ["barrier=hedge"]
+draw = "line"
+schoolyard = "410.1"
+sprint = "410.1"
+
+[[rule]]
+when = ["barrier=wall"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+[[rule]]
+when = ["barrier=retaining_wall"]
+draw = "line"
+schoolyard = "513.2"
+sprint = "513.2"
+
+[[rule]]
+when = ["barrier=fence"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+[[rule]]
+when = ["natural=cliff"]
+draw = "line"
+schoolyard = "201"
+sprint = "201"
+
+[[rule]]
+when = ["leisure=pitch|track", "surface=tartan|asphalt|concrete"]
+draw = "area"
+schoolyard = "501.10"
+sprint = "501.10"
+
+[[rule]]
+when = ["leisure=pitch", "surface=grass"]
+draw = "area"
+schoolyard = "401"
+sprint = "401"
