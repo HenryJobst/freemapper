@@ -137,9 +137,11 @@ pub fn decode_float_tiff(bytes: &[u8]) -> Result<Raster<f32>, String> {
     let tiff::decoder::DecodingResult::F32(values) = decoder.read_image().map_err(error)? else {
         return Err("height model is not 32-bit float".to_string());
     };
+    // Tiepoints may carry float noise (LGV: 564999.9999999999); round to millimetres.
+    let mm = |v: f64| (v * 1000.0).round() / 1000.0;
     let grid = GridSpec {
-        west,
-        north,
+        west: mm(west),
+        north: mm(north),
         pixel_size: pixel,
         width,
         height,
@@ -178,7 +180,7 @@ pub fn fetch_model(
     let mut raster = Raster::filled(grid, f32::NAN);
     let Some(b) = grid.bounds().intersection(&COVERAGE) else {
         // Nothing of the area lies in the coverage: an empty model.
-        return write_model(model, &raster, out);
+        return write_float_raster(&raster, out, model.wcs_endpoint());
     };
     let starts = |min: f64, max: f64| {
         let n = ((max - min) / WCS_MAX_M).ceil().max(1.0) as u32;
@@ -214,11 +216,16 @@ pub fn fetch_model(
                 })?;
         }
     }
-    write_model(model, &raster, out)
+    write_float_raster(&raster, out, model.wcs_endpoint())
 }
 
-/// Writes `raster` as a Float32 GeoTIFF `out` with its world file (`.tfw`).
-fn write_model(model: Model, raster: &Raster<f32>, out: &Path) -> Result<(), FetchError> {
+/// Writes `raster` as a Float32 GeoTIFF `out` with its world file (`.tfw`); `source` names the
+/// service in an error.
+pub(crate) fn write_float_raster(
+    raster: &Raster<f32>,
+    out: &Path,
+    source: &str,
+) -> Result<(), FetchError> {
     let grid = raster.grid;
     let mut tiff = std::io::Cursor::new(Vec::new());
     tiff::encoder::TiffEncoder::new(&mut tiff)
@@ -232,7 +239,7 @@ fn write_model(model: Model, raster: &Raster<f32>, out: &Path) -> Result<(), Fet
             )
         })
         .map_err(|e| FetchError::Http {
-            url: model.wcs_endpoint().to_string(),
+            url: source.to_string(),
             message: e.to_string(),
         })?;
     write_atomically(out, tiff.get_ref())?;

@@ -80,6 +80,17 @@ pub trait Fetcher {
         Ok(None)
     }
 
+    /// Bytes `range` of `url`, for reading single members of very large archives.
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        let bytes = self.get(url)?;
+        let len = bytes.len() as u64;
+        let (start, end) = match range {
+            ByteRange::From { start, len: n } => (start.min(len), (start + n).min(len)),
+            ByteRange::Last(n) => (len.saturating_sub(n), len),
+        };
+        Ok(bytes[start as usize..end as usize].to_vec())
+    }
+
     /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
     /// being held in memory.
     fn download_to(
@@ -96,6 +107,15 @@ pub trait Fetcher {
         progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
         Ok(())
     }
+}
+
+/// A part of a file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ByteRange {
+    /// `len` bytes from `start`.
+    From { start: u64, len: u64 },
+    /// The last `n` bytes.
+    Last(u64),
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -177,6 +197,42 @@ impl Default for HttpFetcher {
 }
 
 impl Fetcher for HttpFetcher {
+    /// Asks for `range` only; a server that answers with the whole file (not 206) is refused
+    /// before its body is read, so a 1 GB archive is never downloaded by accident.
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        let header = match range {
+            ByteRange::From { start, len } => format!("bytes={start}-{}", start + len.max(1) - 1),
+            ByteRange::Last(n) => format!("bytes=-{n}"),
+        };
+        let mut response = self
+            .agent
+            .get(url)
+            .header("User-Agent", USER_AGENT)
+            .header("Range", &header)
+            .call()
+            .map_err(|e| status_error(url, e))?;
+        if response.status() != 206 {
+            return Err(FetchError::Http {
+                url: url.to_string(),
+                message: format!(
+                    "the server ignored the byte range {header} (HTTP {})",
+                    response.status().as_u16()
+                ),
+            });
+        }
+        let mut bytes = Vec::new();
+        response
+            .body_mut()
+            .as_reader()
+            .take(MAX_DOWNLOAD_BYTES)
+            .read_to_end(&mut bytes)
+            .map_err(|e| FetchError::Http {
+                url: url.to_string(),
+                message: e.to_string(),
+            })?;
+        Ok(bytes)
+    }
+
     fn download_to(
         &self,
         url: &str,
@@ -322,6 +378,11 @@ impl Cache {
 
     pub fn currency_csv_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.csv")
+    }
+
+    /// Folder of the LGV Hamburg archive members.
+    pub fn lgv_dir(&self) -> PathBuf {
+        self.root.join("lgv")
     }
 
     /// The collected GeoSN tile index rows of `product`.
@@ -1120,6 +1181,17 @@ pub(crate) mod test_support {
     /// A WCS `multipart/related` answer like LVermGeo's: a GML part, then a Float32 TIFF on
     /// `grid` with ModelPixelScale and ModelTiepoint tags.
     pub fn wcs_answer(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
+        let mut answer =
+            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
+                .to_vec();
+        answer.extend_from_slice(&geotiff(grid, values));
+        answer.extend_from_slice(b"\n--wcs--\n");
+        answer
+    }
+
+    /// A Float32 GeoTIFF on `grid` with ModelPixelScale and ModelTiepoint tags (no world file),
+    /// like the LVermGeo WCS answers and the LGV height model tiles.
+    pub fn geotiff(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
         use tiff::tags::Tag;
         let mut tiff = std::io::Cursor::new(Vec::new());
         {
@@ -1143,12 +1215,7 @@ pub(crate) mod test_support {
                 .unwrap();
             image.write_data(values).unwrap();
         }
-        let mut answer =
-            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
-                .to_vec();
-        answer.extend_from_slice(tiff.get_ref());
-        answer.extend_from_slice(b"\n--wcs--\n");
-        answer
+        tiff.into_inner()
     }
 
     /// Serves everything a Saxony-Anhalt project in `bbox` (EPSG:25832) fetches: DGM1 and DOM1
@@ -2036,6 +2103,53 @@ mod tests {
         assert!(matches!(err, FetchError::CurrencyCsv(_)), "{err:?}");
         let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
         assert_eq!(offline[0].currency.published.to_string(), "2026-01-26");
+    }
+
+    #[test]
+    fn ignored_range_is_an_error() {
+        // A server that answers every request with the whole file (200, not 206).
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.zip", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().take(2).flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let body = vec![b'x'; 10_000];
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(&body);
+            }
+        });
+        let fetcher = HttpFetcher::new();
+        let err = fetcher
+            .get_range(
+                &url,
+                ByteRange::From {
+                    start: 100,
+                    len: 10,
+                },
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("byte range"), "{err}");
+    }
+
+    #[test]
+    fn default_range_slices_the_answer() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        let url = "https://example.org/f";
+        assert_eq!(
+            fetcher
+                .get_range(url, ByteRange::From { start: 2, len: 3 })
+                .unwrap(),
+            b"234"
+        );
+        assert_eq!(fetcher.get_range(url, ByteRange::Last(4)).unwrap(), b"6789");
     }
 
     #[test]
