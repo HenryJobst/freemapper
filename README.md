@@ -36,7 +36,8 @@ freemapper run clara-zetkin-schule
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
 - `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
-  Kartengebiet plus Puffer in den Zwischenspeicher, dazu die ALKIS-Gebäude. Kacheln werden nur neu
+  Kartengebiet plus Puffer in den Zwischenspeicher, dazu die ALKIS-Gebäude und den OSM-Auszug für
+  Brandenburg von Geofabrik (beim ersten Mal etwa 300 MB, danach nur, wenn er mehr als 7 Tage alt ist). Kacheln werden nur neu
   geladen, wenn das LGB sie neu veröffentlicht hat; `--offline` nutzt nur bereits geladene Daten.
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung und Hangneigung als Vorlagen.
 - `freemapper export <ordner>` – schreibt die OOM-Karte mit den Gebäuden als fertigen Kartenobjekten
@@ -52,10 +53,13 @@ Ergebnis im Projektordner:
 - `clara-zetkin-schule.omap` – georeferenzierte OOM-Karte (EPSG:25833, 1:1000, IOF-Schulsymbolsatz 2019)
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png` – Vorlagen hinter der Karte, jeweils mit
   Weltdatei (`.jgw`/`.pgw`); Schummerung und Hangneigung lassen sich in OOM einblenden
-- `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets
+- `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets und Kandidaten aus
+  OpenStreetMap zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
+  Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`)
 - Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
   darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
   Namensnennung der Datenquellen und der Hinweis auf freemapper
+- `data/osm-candidates.geojson` – die OSM-Objekte des Kartengebiets, aus denen die Kandidaten entstehen
 - `data/alkis-buildings.geojson` – die geladenen ALKIS-Gebäude (für `--offline` und spätere Abgleiche)
 - `ATTRIBUTION.txt` – Namensnennung der Datenquellen
 

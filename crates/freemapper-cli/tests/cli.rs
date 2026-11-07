@@ -244,6 +244,11 @@ fn live_run_school() {
     assert!(map.contains(r#"<templates count="4" first_front_template="3">"#));
     let buildings = map.matches(r#"<t k="freemapper:source">alkis</t>"#).count();
     assert!(buildings >= 5, "{buildings} ALKIS buildings");
+    let candidates = std::fs::read_to_string(project.join("templates/candidates.omap")).unwrap();
+    assert!(
+        candidates.contains("way/1028507308"),
+        "OSM tartan pitch as a candidate"
+    );
 }
 
 #[test]

@@ -8,6 +8,9 @@ use crate::area::GeoBox;
 use crate::crs::LatLon;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher};
 
+/// Read buffer for the extract.
+const READ_BUFFER_BYTES: usize = 4 * 1024 * 1024;
+
 /// OSM tags as key/value pairs, sorted by key.
 pub type Tags = Vec<(String, String)>;
 
@@ -93,7 +96,9 @@ pub fn read_extract(
 
     let mut ways: Vec<(i64, Tags, Vec<i64>)> = Vec::new();
     let mut coords = std::collections::HashMap::new();
-    osmpbf::IndexedReader::from_path(path)
+    // Buffered: the indexed reader seeks and reads many small blobs.
+    let file = std::fs::File::open(path).map_err(osm_error)?;
+    osmpbf::IndexedReader::new(std::io::BufReader::with_capacity(READ_BUFFER_BYTES, file))
         .map_err(osm_error)?
         .read_ways_and_deps(
             |way| {
@@ -467,6 +472,22 @@ mod tests {
         let features = read_school(&candidates_wanted);
         let back = features_from_geojson(&features_to_geojson(&features)).unwrap();
         assert_eq!(back, features);
+    }
+
+    #[test]
+    #[ignore = "network; downloads about 300 MB unless cached"]
+    fn live_osm_extract() {
+        let cache = Cache::default_location().unwrap();
+        let fetcher = crate::fetch::HttpFetcher::new();
+        let extract = fetch_extract(&fetcher, &cache, FetchMode::Online, &mut |m| {
+            eprintln!("{m}")
+        })
+        .unwrap();
+        let features = read_extract(&extract.path, &school_box(), &candidates_wanted).unwrap();
+        assert!(
+            features.iter().any(|f| f.id == "way/1028507308"),
+            "school pitch"
+        );
     }
 
     #[test]

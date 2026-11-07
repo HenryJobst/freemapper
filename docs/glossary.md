@@ -95,6 +95,7 @@ Orienteering Maps 2019 (IOF).
 | Laserscan / ALS | airborne laser scanning (ALS) | Flugzeuggestützte LiDAR-Vermessung. | `Als` |
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |
 | Digitales Orthophoto (DOP) | orthophoto | Entzerrtes, georeferenziertes Luftbild (DOP20 = 0,2 m). | `Orthophoto` |
+| OSM-Auszug | OSM extract | Regionaler Abzug der OSM-Daten als PBF-Datei (Geofabrik, z. B. Brandenburg). | `Extract` |
 | Weltdatei | world file | Textdatei mit Pixelgröße und Lage eines Rasterbilds (`.jgw`, `.pgw`, `.tfw`). | `GridSpec::from_world_file` |
 | Mosaik | mosaic | Zusammengesetzte Kacheln, auf Kartengebiet plus Puffer zugeschnitten. | `mosaic_dtm` |
 | Rasterzelle | cell | Ein Pixel eines georeferenzierten Rasters. | `Cell` |

@@ -130,6 +130,7 @@ clara-zetkin-schule/
                              school furniture …), symbolized with the same symbol set
   data/
     alkis-buildings.geojson  ALKIS buildings as fetched (GeoJSON, EPSG:25833), input of the export
+    osm-candidates.geojson   OSM features matching the candidate rules (GeoJSON, EPSG:4326)
   ATTRIBUTION.txt
 ```
 
