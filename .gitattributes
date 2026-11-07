@@ -1,0 +1,6 @@
+# LF everywhere: golden files and embedded symbol sets must be byte-identical on all platforms.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.zip binary
+*.tif binary
