@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::{Rule, building_objects, classify};
-use crate::build::candidates::{Rules, candidate_objects};
+use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
@@ -918,9 +918,10 @@ fn stored_building_objects(
     )?)
 }
 
-/// Candidate objects for the stored OSM features; none when no features were stored. Fails when
-/// the recorded read does not cover the current map area plus buffer.
-fn stored_candidate_objects(
+/// Objects for the stored OSM features whose rule has `target`; none when no features were stored.
+/// Fails when the recorded read does not cover the current map area plus buffer.
+fn stored_osm_objects(
+    target: Target,
     dir: &Path,
     project: &ProjectFile,
     area: &MapArea,
@@ -939,9 +940,10 @@ fn stored_candidate_objects(
         path: path.clone(),
         message: e.to_string(),
     })?;
-    Ok(candidate_objects(
+    Ok(osm_objects(
         &features,
         &Rules::embedded(),
+        target,
         project.map_kind,
         &area.projected_polygon(),
         project.buffer_m,
@@ -1107,7 +1109,8 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(stored_candidate_objects(
+                .chain(stored_osm_objects(
+                    Target::Candidates,
                     dir,
                     &project,
                     &area,
@@ -1163,9 +1166,18 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         opacity: 0.7,
         behind_map: false,
     });
+    let mut map_objects = building_objects;
+    map_objects.extend(stored_osm_objects(
+        Target::Map,
+        dir,
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
     let buildings_part = MapPart {
         name: "default part".to_string(),
-        objects: building_objects,
+        objects: map_objects,
     };
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
@@ -1902,6 +1914,65 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             .id_for_code("501.10")
             .unwrap();
         assert!(candidates.contains(&format!(r#"<object type="1" symbol="{pitch_symbol}""#)));
+    }
+
+    /// The fetched school project as a sprint map, with two stored OSM ways across the area:
+    /// way/1 an unpaved track (a map object), way/2 a path without surface (a candidate).
+    fn sprint_with_ways(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, cache_dir, _) = fetched_school(fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_kind = MapKind::Sprint;
+        project.scale_denominator = 4000;
+        project.save(dir.path()).unwrap();
+        let c = fixture_area().centroid();
+        let points = vec![
+            c,
+            LatLon {
+                lat: c.lat + 0.0003,
+                lon: c.lon + 0.0003,
+            },
+        ];
+        let way = |id: &str, tags: &[(&str, &str)]| crate::sources::osm::OsmFeature {
+            id: id.to_string(),
+            tags: tags
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            geometry: crate::sources::osm::OsmGeometry::Line(points.clone()),
+        };
+        let features = [
+            way("way/1", &[("highway", "track"), ("surface", "gravel")]),
+            way("way/2", &[("highway", "path")]),
+        ];
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+        (dir, cache_dir)
+    }
+
+    #[test]
+    fn export_puts_unpaved_paths_into_the_sprint_map() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        let track = MapKind::Sprint.symbol_set().id_for_code("505.2").unwrap();
+        assert!(map.contains(r#"<t k="freemapper:source_id">way/1</t>"#));
+        assert!(map.contains(&format!(r#"<object type="1" symbol="{track}""#)));
+        assert!(!map.contains("way/2"));
+    }
+
+    #[test]
+    fn export_puts_paths_without_surface_into_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains(r#"<t k="freemapper:source_id">way/2</t>"#));
+        assert!(!candidates.contains("way/1<"));
     }
 
     #[test]

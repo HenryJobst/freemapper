@@ -240,12 +240,13 @@ impl Rules {
     }
 }
 
-/// Candidate objects for the features within `buffer_m` of `map_area` (EPSG:25833), tagged with
-/// their provenance and the extract date as currency.
+/// Objects for the features within `buffer_m` of `map_area` (EPSG:25833) whose rule has `target`,
+/// tagged with their provenance and the extract date as currency.
 #[allow(clippy::too_many_arguments)]
-pub fn candidate_objects(
+pub fn osm_objects(
     features: &[OsmFeature],
     rules: &Rules,
+    target: Target,
     kind: MapKind,
     map_area: &geo_types::Polygon<f64>,
     buffer_m: f64,
@@ -262,7 +263,10 @@ pub fn candidate_objects(
     };
     let mut objects = Vec::new();
     for feature in features {
-        let Some(found) = rules.symbol_for(&feature.tags, &feature.geometry, kind) else {
+        let Some(found) = rules
+            .symbol_for(&feature.tags, &feature.geometry, kind)
+            .filter(|found| found.target == target)
+        else {
             continue;
         };
         let Some(symbol_id) = symbol_set.id_for_code(&found.code) else {
@@ -402,9 +406,10 @@ mod tests {
         let f = fixture();
         let set = kind.symbol_set();
         let currency = "2026-11-06".parse().unwrap();
-        let objects = candidate_objects(
+        let objects = osm_objects(
             features,
             &Rules::embedded(),
+            Target::Candidates,
             kind,
             &f.area,
             20.0,
