@@ -2,3 +2,14 @@
 *.omap.bak
 .DS_Store
 .worktrees/
+# Examples: the maps, PDF and OCAD files are kept; the fetched data and the large raster
+# templates are restored by `freemapper run --ocad --pdf examples/<name>`.
+/examples/*/data/
+/examples/*/templates/*.jpg
+/examples/*/templates/*.png
+/examples/*/templates/*.jgw
+/examples/*/templates/*.pgw
+/examples/*/ocad/*.jpg
+/examples/*/ocad/*.png
+/examples/*/ocad/*.jgw
+/examples/*/ocad/*.pgw

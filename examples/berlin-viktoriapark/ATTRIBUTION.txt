@@ -1,0 +1,5 @@
+© OpenStreetMap contributors, ODbL
+© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert
+© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert
+
+Created with freemapper – https://github.com/HenryJobst/freemapper

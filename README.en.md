@@ -17,6 +17,8 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt and Hamburg (open data from LGB, Geoportal
   Berlin, GeoSN, LVermGeo and LGV);
   schoolyard maps 1:1000 and sprint maps 1:4000.
+- Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
+  [`examples/`](examples/README.en.md).
 
 ## Status
 
@@ -162,7 +164,8 @@ freemapper run vorstadt
 
 At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the
-[user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas).
+[user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas). One example project per state is in
+[`examples/`](examples/README.en.md).
 
 ## Quick training map (PDF)
 

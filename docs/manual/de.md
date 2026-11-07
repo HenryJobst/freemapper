@@ -193,6 +193,9 @@ Karten haben dieselbe Georeferenz.
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste, Nordlinien
 und die Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15).
 
+Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Land:
+[`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte.
+
 ## 8. Was die Vorlagen zeigen
 
 Die Beispiele zeigen das Kreuzgymnasium Dresden. Luftbild, Gelände- und Oberflächenmodell:
