@@ -163,6 +163,11 @@ pub fn parse_currency_csv(text: &str) -> Result<HashMap<TileId, TileCurrency>, C
     Ok(table)
 }
 
+/// URL of the nDSM point cloud of `t` (LAS 1.2, compressed; no zip, no currency CSV).
+pub fn ndsm_tile_url(t: TileId) -> String {
+    format!("{DATA_URL}/ndom/NDOM_{}_LAS12.laz", t.name())
+}
+
 /// Attribution line required by dl-de/by-2-0.
 pub fn attribution(year: i32) -> String {
     format!("© GeoBasis-DE/LGB {year}, dl-de/by-2-0, Daten geändert")
@@ -244,6 +249,14 @@ mod tests {
     fn currency_csv_rejects_other_documents() {
         let err = parse_currency_csv("<html>captive portal</html>").unwrap_err();
         assert_eq!(err.line, 1);
+    }
+
+    #[test]
+    fn ndsm_url_matches_lgb_layout() {
+        assert_eq!(
+            ndsm_tile_url(TILE),
+            "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33421-5821_LAS12.laz"
+        );
     }
 
     #[test]

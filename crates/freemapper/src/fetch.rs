@@ -7,6 +7,7 @@ use std::time::Duration;
 use chrono::NaiveDate;
 
 use crate::sources::alkis::AlkisError;
+use crate::sources::lgb::ndsm_tile_url;
 use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
 use crate::tiles::TileId;
 
@@ -38,6 +39,8 @@ pub enum FetchError {
     Alkis(#[from] AlkisError),
     #[error("no OSM extract cached; run `freemapper fetch` online")]
     OsmExtractMissing,
+    #[error("{0} not found on the server")]
+    NotFound(String),
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -67,6 +70,11 @@ const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 pub trait Fetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
 
+    /// The `Last-Modified` date of `url`, if the server sends one.
+    fn last_modified(&self, _url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        Ok(None)
+    }
+
     /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
     /// being held in memory.
     fn download_to(
@@ -82,6 +90,17 @@ pub trait Fetcher {
         std::fs::write(path, &bytes).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
         progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
         Ok(())
+    }
+}
+
+/// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
+fn status_error(url: &str, e: ureq::Error) -> FetchError {
+    match e {
+        ureq::Error::StatusCode(404) => FetchError::NotFound(url.to_string()),
+        e => FetchError::Http {
+            url: url.to_string(),
+            message: e.to_string(),
+        },
     }
 }
 
@@ -193,11 +212,26 @@ impl Fetcher for HttpFetcher {
         Ok(())
     }
 
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        let response = self
+            .agent
+            .head(url)
+            .header(
+                "User-Agent",
+                concat!("freemapper/", env!("CARGO_PKG_VERSION")),
+            )
+            .call()
+            .map_err(|e| status_error(url, e))?;
+        Ok(response
+            .headers()
+            .get("last-modified")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| chrono::DateTime::parse_from_rfc2822(v).ok())
+            .map(|time| time.date_naive()))
+    }
+
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-        let http_error = |e: ureq::Error| FetchError::Http {
-            url: url.to_string(),
-            message: e.to_string(),
-        };
+        let http_error = |e: ureq::Error| status_error(url, e);
         let mut response = self
             .agent
             .get(url)
@@ -244,6 +278,11 @@ impl Cache {
     pub fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
         self.product_dir(product)
             .join(format!("{}_{published}.zip", tile.name()))
+    }
+
+    /// Folder of the cached nDSM point clouds.
+    pub fn ndsm_dir(&self) -> PathBuf {
+        self.root.join("lgb").join("ndom")
     }
 
     /// Folder of the cached OSM extracts.
@@ -361,6 +400,108 @@ pub fn fetch_tiles(
     Ok(fetched)
 }
 
+/// A cached nDSM point cloud of one tile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NdsmTile {
+    pub tile: TileId,
+    pub url: String,
+    /// The server's `Last-Modified` date, if it sends one.
+    pub published: Option<NaiveDate>,
+    pub path: PathBuf,
+}
+
+/// Makes the nDSM point clouds of `tiles` available in `cache`. A tile is downloaded when the
+/// server's `Last-Modified` date has no cached file yet; tiles the server does not have are
+/// skipped with a warning. Offline, the newest cached file per tile is used.
+pub fn fetch_ndsm_tiles(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Vec<NdsmTile>, FetchError> {
+    let dir = cache.ndsm_dir();
+    let mut fetched = Vec::new();
+    for &tile in tiles {
+        let url = ndsm_tile_url(tile);
+        let cached = cached_ndsm(&dir, tile);
+        if mode == FetchMode::Offline {
+            match cached.into_iter().next() {
+                Some((published, path)) => fetched.push(NdsmTile {
+                    tile,
+                    url,
+                    published,
+                    path,
+                }),
+                None => progress(&format!("warning: no cached nDSM for tile {}", tile.name())),
+            }
+            continue;
+        }
+        let published = match fetcher.last_modified(&url) {
+            Ok(date) => date,
+            Err(FetchError::NotFound(_)) => {
+                progress(&format!(
+                    "warning: no nDSM published for tile {}",
+                    tile.name()
+                ));
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
+        let path = dir.join(match published {
+            Some(date) => format!("{}_{date}.laz", tile.name()),
+            None => format!("{}.laz", tile.name()),
+        });
+        if path.exists() {
+            progress(&format!("cached nDSM {}", tile.name()));
+        } else {
+            progress(&format!("downloading {url}"));
+            let bytes = fetcher.get(&url)?;
+            if !bytes.starts_with(b"LASF") {
+                return Err(FetchError::CorruptArchive {
+                    url,
+                    message: "not a LAS point cloud".to_string(),
+                });
+            }
+            write_atomically(&path, &bytes)?;
+            for (_, older) in cached_ndsm(&dir, tile)
+                .into_iter()
+                .filter(|(_, p)| *p != path)
+            {
+                let _ = std::fs::remove_file(older);
+            }
+        }
+        fetched.push(NdsmTile {
+            tile,
+            url,
+            published,
+            path,
+        });
+    }
+    Ok(fetched)
+}
+
+/// Cached nDSM files of `tile`, newest first (undated ones last).
+fn cached_ndsm(dir: &Path, tile: TileId) -> Vec<(Option<NaiveDate>, PathBuf)> {
+    let name = tile.name();
+    let mut files: Vec<(Option<NaiveDate>, PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let file = entry.file_name().to_string_lossy().into_owned();
+            let stem = file.strip_prefix(&name)?.strip_suffix(".laz")?;
+            let date = match stem {
+                "" => None,
+                dated => Some(dated.strip_prefix('_')?.parse().ok()?),
+            };
+            Some((date, entry.path()))
+        })
+        .collect();
+    files.sort_by_key(|(date, _)| std::cmp::Reverse(*date));
+    files
+}
+
 /// Checks that `bytes` is a zip archive with the tile's raster and world file, reading both
 /// members to the end so their checksums are verified.
 fn check_archive(bytes: &[u8], product: Product, tile: TileId) -> Result<(), String> {
@@ -440,6 +581,8 @@ pub(crate) mod test_support {
         pub responses: RefCell<HashMap<String, Vec<u8>>>,
         /// Answers for URLs starting with the key, when no exact response matches.
         pub prefixes: RefCell<HashMap<String, Vec<u8>>>,
+        /// `Last-Modified` dates by URL.
+        pub modified: RefCell<HashMap<String, chrono::NaiveDate>>,
         pub calls: Cell<usize>,
     }
 
@@ -450,6 +593,10 @@ pub(crate) mod test_support {
 
         pub fn insert_prefix(&self, prefix: &str, bytes: Vec<u8>) {
             self.prefixes.borrow_mut().insert(prefix.to_string(), bytes);
+        }
+
+        pub fn set_modified(&self, url: &str, date: chrono::NaiveDate) {
+            self.modified.borrow_mut().insert(url.to_string(), date);
         }
     }
 
@@ -469,10 +616,15 @@ pub(crate) mod test_support {
                 .get(url)
                 .cloned()
                 .or_else(by_prefix)
-                .ok_or_else(|| FetchError::Http {
-                    url: url.to_string(),
-                    message: "404 Not Found".to_string(),
-                })
+                .ok_or_else(|| FetchError::NotFound(url.to_string()))
+        }
+
+        fn last_modified(&self, url: &str) -> Result<Option<chrono::NaiveDate>, FetchError> {
+            self.calls.set(self.calls.get() + 1);
+            if !self.responses.borrow().contains_key(url) {
+                return Err(FetchError::NotFound(url.to_string()));
+            }
+            Ok(self.modified.borrow().get(url).copied())
         }
     }
 
@@ -862,6 +1014,129 @@ mod tests {
         let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
         assert_eq!(offline, online);
         assert_eq!(fetcher.calls.get(), calls);
+    }
+
+    fn las_bytes() -> Vec<u8> {
+        let mut bytes = b"LASF".to_vec();
+        bytes.extend_from_slice(&[0; 200]);
+        bytes
+    }
+
+    fn ndsm(fetcher: &MapFetcher, cache: &Cache, mode: FetchMode) -> (Vec<NdsmTile>, Vec<String>) {
+        let mut messages = Vec::new();
+        let tiles = fetch_ndsm_tiles(fetcher, cache, &[TILE, NORTH], mode, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        (tiles, messages)
+    }
+
+    #[test]
+    #[ignore = "network"]
+    fn live_ndsm_last_modified() {
+        let date = HttpFetcher::new()
+            .last_modified(&ndsm_tile_url(TILE))
+            .unwrap();
+        assert!(
+            date.is_some_and(|d| d.to_string().as_str() >= "2025-01-01"),
+            "{date:?}"
+        );
+        let missing = TileId {
+            east_km: 999,
+            north_km: 5999,
+        };
+        let err = HttpFetcher::new()
+            .last_modified(&ndsm_tile_url(missing))
+            .unwrap_err();
+        assert!(matches!(err, FetchError::NotFound(_)), "{err:?}");
+    }
+
+    #[test]
+    fn ndsm_downloaded_then_reused() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        for tile in [TILE, NORTH] {
+            let url = ndsm_tile_url(tile);
+            fetcher.insert(&url, las_bytes());
+            fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+        }
+        let (first, _) = ndsm(&fetcher, &cache, FetchMode::Online);
+        assert_eq!(first.len(), 2);
+        assert_eq!(first[0].published, "2025-03-03".parse().ok());
+        assert!(
+            first[0].path.ends_with("33421-5821_2025-03-03.laz"),
+            "{:?}",
+            first[0].path
+        );
+        let calls = fetcher.calls.get();
+        let (again, _) = ndsm(&fetcher, &cache, FetchMode::Online);
+        assert_eq!(again, first);
+        assert_eq!(fetcher.calls.get(), calls + 2, "only the two date checks");
+    }
+
+    #[test]
+    fn ndsm_republished_replaces_old() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let url = ndsm_tile_url(TILE);
+        fetcher.insert(&url, las_bytes());
+        fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+        fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {}).unwrap();
+        fetcher.set_modified(&url, "2026-09-01".parse().unwrap());
+        let tiles =
+            fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {}).unwrap();
+        let names: Vec<String> = std::fs::read_dir(tiles[0].path.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["33421-5821_2026-09-01.laz"]);
+    }
+
+    #[test]
+    fn missing_ndsm_tile_is_skipped_with_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&ndsm_tile_url(TILE), las_bytes());
+        let (tiles, messages) = ndsm(&fetcher, &cache, FetchMode::Online);
+        assert_eq!(tiles.len(), 1);
+        assert_eq!(tiles[0].published, None, "no Last-Modified");
+        assert!(
+            messages.contains(&"warning: no nDSM published for tile 33421-5822".to_string()),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn offline_uses_cached_ndsm() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&ndsm_tile_url(TILE), las_bytes());
+        fetcher.set_modified(&ndsm_tile_url(TILE), "2025-03-03".parse().unwrap());
+        ndsm(&fetcher, &cache, FetchMode::Online);
+        let calls = fetcher.calls.get();
+        let (tiles, messages) = ndsm(&fetcher, &cache, FetchMode::Offline);
+        assert_eq!(fetcher.calls.get(), calls);
+        assert_eq!(tiles.len(), 1);
+        assert!(
+            messages.contains(&"warning: no cached nDSM for tile 33421-5822".to_string()),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn not_a_las_file_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&ndsm_tile_url(TILE), b"<html>maintenance</html>".to_vec());
+        let err = fetch_ndsm_tiles(&fetcher, &cache, &[TILE], FetchMode::Online, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, FetchError::CorruptArchive { .. }), "{err:?}");
     }
 
     #[test]
