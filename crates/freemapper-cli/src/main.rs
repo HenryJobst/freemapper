@@ -149,7 +149,7 @@ fn main() -> anyhow::Result<()> {
         } => {
             let project = fetch_project(
                 &dir,
-                &HttpFetcher,
+                &HttpFetcher::new(),
                 &cache.cache()?,
                 mode(offline),
                 &mut report,
@@ -168,7 +168,13 @@ fn main() -> anyhow::Result<()> {
             cache,
         } => {
             let cache = cache.cache()?;
-            fetch_project(&dir, &HttpFetcher, &cache, mode(offline), &mut report)?;
+            fetch_project(
+                &dir,
+                &HttpFetcher::new(),
+                &cache,
+                mode(offline),
+                &mut report,
+            )?;
             derive_project(&dir, &cache, &mut report)?;
             let map = export_starter_project(&dir, force)?;
             println!("Wrote {}", map.display());

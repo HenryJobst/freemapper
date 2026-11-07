@@ -2,6 +2,7 @@
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use chrono::NaiveDate;
 
@@ -40,8 +41,44 @@ pub trait Fetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
 }
 
-/// Downloads over HTTPS.
-pub struct HttpFetcher;
+/// Time to open a connection and to wait for the response headers.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
+/// Time to receive a whole body; an 8 MB tile at 128 kbit/s takes about 9 minutes.
+const BODY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+
+/// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
+pub struct HttpFetcher {
+    agent: ureq::Agent,
+}
+
+impl HttpFetcher {
+    pub fn new() -> Self {
+        Self::with_timeouts(CONNECT_TIMEOUT, RESPONSE_TIMEOUT, BODY_TIMEOUT)
+    }
+
+    /// The same timeout for connecting, the response headers and the body.
+    pub fn with_timeout(timeout: Duration) -> Self {
+        Self::with_timeouts(timeout, timeout, timeout)
+    }
+
+    fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
+        let config = ureq::Agent::config_builder()
+            .timeout_connect(Some(connect))
+            .timeout_recv_response(Some(response))
+            .timeout_recv_body(Some(body))
+            .build();
+        Self {
+            agent: config.into(),
+        }
+    }
+}
+
+impl Default for HttpFetcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Fetcher for HttpFetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
@@ -49,7 +86,9 @@ impl Fetcher for HttpFetcher {
             url: url.to_string(),
             message: e.to_string(),
         };
-        let mut response = ureq::get(url)
+        let mut response = self
+            .agent
+            .get(url)
             .header(
                 "User-Agent",
                 concat!("freemapper/", env!("CARGO_PKG_VERSION")),
@@ -492,9 +531,27 @@ mod tests {
     }
 
     #[test]
+    fn stalled_server_times_out() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/tile.zip", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            // Accept and hold connections without ever answering.
+            let _held: Vec<_> = listener.incoming().take(4).collect();
+            std::thread::sleep(std::time::Duration::from_secs(30));
+        });
+        let fetcher = HttpFetcher::with_timeout(std::time::Duration::from_millis(300));
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || sender.send(fetcher.get(&url)));
+        let result = receiver
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .expect("fetch did not time out");
+        assert!(matches!(result, Err(FetchError::Http { .. })), "{result:?}");
+    }
+
+    #[test]
     #[ignore = "network"]
     fn live_school_tile_currency() {
-        let text = HttpFetcher
+        let text = HttpFetcher::new()
             .get(Product::Orthophoto.currency_csv_url())
             .unwrap();
         let table = parse_currency_csv(&String::from_utf8(text).unwrap()).unwrap();
