@@ -142,7 +142,7 @@ pub fn write_gray_png(r: &Raster<Option<u8>>, out_png: &Path) -> Result<(), Deri
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fetch::test_support::tile_zip;
+    use crate::fetch::test_support::{dtm_tiff, tile_zip};
     use crate::sources::lgb::{Product, TileCurrency};
     use crate::tiles::TileId;
 
@@ -239,16 +239,6 @@ mod tests {
             slope_shade(&slope).data,
             vec![Some(255), Some(127), Some(0), None]
         );
-    }
-
-    fn dtm_tiff(width: u32, height: u32, values: &[f32]) -> Vec<u8> {
-        let mut bytes = std::io::Cursor::new(Vec::new());
-        tiff::encoder::TiffEncoder::new(&mut bytes)
-            .unwrap()
-            .with_compression(tiff::encoder::Compression::Lzw)
-            .write_image::<tiff::encoder::colortype::Gray32Float>(width, height, values)
-            .unwrap();
-        bytes.into_inner()
     }
 
     #[test]

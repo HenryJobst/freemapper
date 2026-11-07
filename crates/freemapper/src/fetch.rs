@@ -269,6 +269,52 @@ pub(crate) mod test_support {
         zip.finish().unwrap().into_inner()
     }
 
+    /// A uniformly red JPEG.
+    pub fn red_jpeg(width: u32, height: u32) -> Vec<u8> {
+        let img = image::RgbImage::from_pixel(width, height, image::Rgb([255, 0, 0]));
+        let mut bytes = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 95)
+            .encode_image(&img)
+            .unwrap();
+        bytes
+    }
+
+    /// A 32-bit float LZW GeoTIFF body like DGM1 (without GeoKeys; the world file locates it).
+    pub fn dtm_tiff(width: u32, height: u32, values: &[f32]) -> Vec<u8> {
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        tiff::encoder::TiffEncoder::new(&mut bytes)
+            .unwrap()
+            .with_compression(tiff::encoder::Compression::Lzw)
+            .write_image::<tiff::encoder::colortype::Gray32Float>(width, height, values)
+            .unwrap();
+        bytes.into_inner()
+    }
+
+    /// Serves the currency CSVs and coarse synthetic orthophoto and DTM archives (100 × 100
+    /// pixels of 10 m) for `tile`, published on `published`. The DTM rises 1 m per 10 m east.
+    pub fn serve_synthetic_tile(fetcher: &MapFetcher, tile: TileId, published: &str) {
+        let bounds = tile.bounds();
+        let world = format!(
+            "10\n0\n0\n-10\n{}\n{}\n",
+            bounds.min_e + 5.0,
+            bounds.max_n - 5.0
+        );
+        let heights: Vec<f32> = (0..100 * 100).map(|i| (i % 100) as f32).collect();
+        for (product, raster) in [
+            (Product::Orthophoto, red_jpeg(100, 100)),
+            (Product::Dtm, dtm_tiff(100, 100, &heights)),
+        ] {
+            fetcher.insert(
+                product.currency_csv_url(),
+                currency_csv(&[(tile, published)]),
+            );
+            fetcher.insert(
+                &product.tile_url(tile),
+                tile_zip(product, tile, &raster, &world),
+            );
+        }
+    }
+
     /// A currency CSV with one row per tile and the given publication date.
     pub fn currency_csv(rows: &[(TileId, &str)]) -> Vec<u8> {
         let mut csv = String::from(

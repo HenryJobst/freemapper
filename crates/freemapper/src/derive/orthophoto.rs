@@ -60,7 +60,7 @@ pub fn build_orthophoto(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fetch::test_support::tile_zip;
+    use crate::fetch::test_support::{red_jpeg, tile_zip};
     use crate::sources::lgb::{Product, TileCurrency};
     use crate::tiles::TileId;
 
@@ -69,15 +69,6 @@ mod tests {
         north_km: 5821,
     };
 
-    fn red_jpeg(size: u32) -> Vec<u8> {
-        let img = image::RgbImage::from_pixel(size, size, image::Rgb([255, 0, 0]));
-        let mut bytes = Vec::new();
-        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 95)
-            .encode_image(&img)
-            .unwrap();
-        bytes
-    }
-
     #[test]
     fn orthophoto_from_synthetic_tile() {
         let dir = tempfile::tempdir().unwrap();
@@ -85,7 +76,7 @@ mod tests {
         let world = "1\n0\n0\n-1\n421000.5\n5821999.5\n";
         std::fs::write(
             &zip,
-            tile_zip(Product::Orthophoto, TILE, &red_jpeg(50), world),
+            tile_zip(Product::Orthophoto, TILE, &red_jpeg(50, 50), world),
         )
         .unwrap();
         let date = "2026-10-09".parse().unwrap();
