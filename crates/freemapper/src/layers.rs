@@ -87,6 +87,7 @@ fn estimate_area(
     let mut items = match raster_region(bbox).map(Region::provider) {
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
         Some(Provider::LvermGeo) => lvermgeo_items(bbox),
+        Some(Provider::Lgv) => lgv_items(bbox),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -160,6 +161,23 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
         ),
         item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
         item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
+    ]
+}
+
+/// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide
+/// archives (≈2 MB DGM1 and ≈4 MB bDOM per km²).
+fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::lgv::Model;
+    let km2 = bbox.width() * bbox.height() / 1e6;
+    let item = |what: String, mb_per_km2: f64| EstimateItem {
+        what,
+        megabytes: (km2 * mb_per_km2).max(0.1),
+        cached: false,
+    };
+    vec![
+        item("orthophoto (LGV WMS)".to_string(), GEOSN_WMS_MB_PER_KM2),
+        item(Model::Dgm1.label().to_string(), 2.0),
+        item(Model::Bdom.label().to_string(), 4.0),
     ]
 }
 
@@ -540,6 +558,27 @@ mod tests {
         );
         let max = crate::project::MAX_AREA_SIDE_M;
         assert!(preview.width_m > max || preview.height_m > max);
+    }
+
+    #[test]
+    fn hamburg_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let eppendorf = square(9.9820, 53.5880, 0.002);
+        let preview = preview_area(&eppendorf, 20.0, &cache, today());
+        let what: Vec<&str> = preview
+            .estimate
+            .items
+            .iter()
+            .map(|i| i.what.as_str())
+            .collect();
+        assert!(what.contains(&"orthophoto (LGV WMS)"), "{what:?}");
+        assert!(what.contains(&"terrain model (LGV DGM1 2022)"), "{what:?}");
+        assert!(what.contains(&"surface model (LGV bDOM 2022)"), "{what:?}");
+        assert!(
+            what.contains(&"OSM extract Hamburg (shared by all projects)"),
+            "{what:?}"
+        );
     }
 
     #[test]

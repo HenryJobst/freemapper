@@ -1282,6 +1282,91 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
+    /// bDOM zips with the 1 km tiles of `bbox` (terrain 5 m rising 0.01 m per metre east, surface
+    /// 12 m above), a WMS orthophoto of the right size, the DOP metadata, the Hamburg ALKIS
+    /// fixtures and the Hamburg OSM extract.
+    pub fn serve_synthetic_hamburg(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::lgv;
+        let zip_of = |members: Vec<(String, Vec<u8>)>| {
+            let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+            for (name, bytes) in members {
+                zip.start_file(name, zip::write::SimpleFileOptions::default())
+                    .unwrap();
+                zip.write_all(&bytes).unwrap();
+            }
+            zip.finish().unwrap().into_inner()
+        };
+        let tiles = crate::tiles::tiles_covering(bbox);
+        for (model, prefix, lift) in [
+            (lgv::Model::Dgm1, "dgm1", 5.0),
+            (lgv::Model::Bdom, "dom1", 17.0),
+        ] {
+            let members = tiles
+                .iter()
+                .map(|t| {
+                    let grid = crate::raster::GridSpec {
+                        west: f64::from(t.east_km) * 1000.0,
+                        north: f64::from(t.north_km + 1) * 1000.0,
+                        pixel_size: 1.0,
+                        width: 1000,
+                        height: 1000,
+                    };
+                    let values: Vec<f32> = (0..1000 * 1000)
+                        .map(|i| (i % 1000) as f32 * 0.01 + lift)
+                        .collect();
+                    (
+                        format!(
+                            "s32_{}/{prefix}_32_{}_{}_1_hh_2022.tif",
+                            t.east_km, t.east_km, t.north_km
+                        ),
+                        geotiff(&grid, &values),
+                    )
+                })
+                .collect();
+            fetcher.insert(model.archive_url(), zip_of(members));
+        }
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!("{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap", lgv::WMS.url),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        let centre = (
+            ((bbox.min_e + bbox.max_e) / 2000.0).floor(),
+            ((bbox.min_n + bbox.max_n) / 2000.0).floor(),
+        );
+        let csv = format!(
+            "Kachelname;Aktualitaet;Erfassungsmethode\ndop20rgbi_32_{:03}_{:04}_1_hh_2026.tif;19.03.2026;0\n",
+            centre.0, centre.1
+        );
+        fetcher.insert(
+            lgv::METADATA_URL,
+            zip_of(vec![(
+                "DOP_unbelaubt_AdV-Metadaten_Hamburg/AdV-Metadaten_DOP_2026_unbelaubt_hh.csv"
+                    .to_string(),
+                csv.into_bytes(),
+            )]),
+        );
+        fetcher.insert_prefix(
+            lgv::BUILDINGS_ENDPOINT,
+            lgv::test_support::BUILDINGS.as_bytes().to_vec(),
+        );
+        fetcher.insert_prefix(
+            lgv::LAND_USE_ENDPOINT,
+            lgv::test_support::LAND_USE.as_bytes().to_vec(),
+        );
+        let extract = crate::sources::osm::ExtractSource::Hamburg;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();

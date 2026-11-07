@@ -103,7 +103,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -579,8 +579,9 @@ pub fn fetch_project(
         Some(Provider::LvermGeo) => {
             fetch_lvermgeo_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
         }
-        // Hamburg rasters follow with the LGV sources.
-        Some(Provider::Lgv) => {}
+        Some(Provider::Lgv) => {
+            fetch_lgv_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
         Some(Provider::GeoSn) => {
             fetch_geosn_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -921,6 +922,73 @@ fn fetch_lvermgeo_rasters(
                 );
             }
         }
+    }
+    project.save(dir)?;
+    Ok(())
+}
+
+/// The LGV rasters of `bbox` (EPSG:25832): the orthophoto from the WMS (2026), DGM1 and bDOM
+/// (2022) read out of the statewide archives. The bDOM is only a template: an unavailable one
+/// costs a warning.
+fn fetch_lgv_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::lgv::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    if regions_for(&project.region_bbox()?)
+        .iter()
+        .any(|r| r.provider() != Provider::Lgv)
+    {
+        progress(
+            "the map area reaches beyond the state border; no LGV data on the other side, the templates stay empty there",
+        );
+    }
+    let flight = || lgv::flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (&lgv::WMS, "LGV", &flight),
+        progress,
+    )?;
+    let record = |date: &str| WcsRecord {
+        fetched: chrono::Local::now().date_naive(),
+        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        date: Some(date.to_string()),
+    };
+    progress(&format!("reading the {}", Model::Dgm1.label()));
+    lgv::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Dgm1,
+        bbox,
+        &dir.join(TERRAIN_RELPATH),
+    )?;
+    project.terrain = Some(record("2022-03"));
+    progress(&format!("reading the {}", Model::Bdom.label()));
+    match lgv::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Bdom,
+        bbox,
+        &dir.join(SURFACE_RELPATH),
+    ) {
+        Ok(()) => project.surface = Some(record("2022")),
+        Err(e) => progress(&format!(
+            "warning: {} unavailable ({e}); no nDSM template",
+            Model::Bdom.label()
+        )),
     }
     project.save(dir)?;
     Ok(())
@@ -2095,6 +2163,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(berlin_attribution(&project));
     attribution.extend(geosn_attribution(&project));
     attribution.extend(lvermgeo_attribution(&project));
+    attribution.extend(lgv_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2150,6 +2219,7 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines.extend(berlin_attribution(project));
     lines.extend(geosn_attribution(project));
     lines.extend(lvermgeo_attribution(project));
+    lines.extend(lgv_attribution(project));
     lines
 }
 
@@ -2198,6 +2268,36 @@ fn lvermgeo_attribution(project: &ProjectFile) -> Option<String> {
     let year = years.max()?;
     Some(format!(
         "© GeoBasis-DE / LVermGeo ST {year}, dl-de/by-2-0, Daten geändert"
+    ))
+}
+
+/// The LGV line, once its rasters or Hamburg ALKIS objects were fetched; the year is that of the
+/// newest fetch.
+fn lgv_attribution(project: &ProjectFile) -> Option<String> {
+    let raster = raster_provider(project) == Some(Provider::Lgv);
+    let year = [
+        project
+            .terrain
+            .as_ref()
+            .filter(|_| raster)
+            .map(|r| r.fetched),
+        project
+            .orthophoto
+            .as_ref()
+            .filter(|_| raster)
+            .map(|r| r.fetched),
+    ]
+    .into_iter()
+    .flatten()
+    .chain(
+        alkis_records(project)
+            .filter(|r| r.regions.contains(&Region::Hamburg))
+            .map(|r| r.fetched),
+    )
+    .map(|d| d.year())
+    .max()?;
+    Some(format!(
+        "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) {year}, dl-de/by-2-0, Daten geändert"
     ))
 }
 
@@ -2672,6 +2772,91 @@ mod tests {
             ring.join(",")
         ))
         .unwrap()
+    }
+
+    /// A schoolyard project at the Gymnasium Eppendorf, served with synthetic LGV data.
+    fn eppendorf_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let project = init_project(
+            dir.path(),
+            &eppendorf_area(),
+            MapKind::Schoolyard,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        crate::fetch::test_support::serve_synthetic_hamburg(fetcher, &project.bbox().unwrap());
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn hamburg_project_fetches_lgv_products() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert!(project.tiles.is_empty());
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("19.03.2026")
+        );
+        assert!(project.terrain.is_some() && project.surface.is_some());
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(project.buildings.unwrap().regions, [Region::Hamburg]);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Hamburg from 2026-11-06"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn hamburg_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn hamburg_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(
+            attribution.contains(
+                "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+            ),
+            "{attribution}"
+        );
+        assert!(
+            !attribution.contains("LVermGeo") && !attribution.contains("GeoBasis-DE/LGB"),
+            "{attribution}"
+        );
     }
 
     #[test]

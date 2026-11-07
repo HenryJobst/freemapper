@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -58,6 +58,7 @@ const TEXTS = {
     aerial: "Luftbild Brandenburg/Berlin (LGB)",
     aerialSaxony: "Luftbild Sachsen (GeoSN)",
     aerialSaxonyAnhalt: "Luftbild Sachsen-Anhalt (LVermGeo)",
+    aerialHamburg: "Luftbild Hamburg (LGV)",
   },
   en: {
     heading: "Choose the map area",
@@ -89,7 +90,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -115,6 +116,7 @@ const TEXTS = {
     aerial: "Aerial photo Brandenburg/Berlin (LGB)",
     aerialSaxony: "Aerial photo Saxony (GeoSN)",
     aerialSaxonyAnhalt: "Aerial photo Saxony-Anhalt (LVermGeo)",
+    aerialHamburg: "Aerial photo Hamburg (LGV)",
   },
 };
 
@@ -168,12 +170,21 @@ const aerialSaxonyAnhalt = L.tileLayer.wms(
     attribution: "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0",
   },
 );
+const aerialHamburg = L.tileLayer.wms("https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt", {
+  layers: "dop_zeitreihe_unbelaubt",
+  format: "image/jpeg",
+  maxZoom: 20,
+  // The open 2026 vintage; 2023 is a closed-licence satellite image.
+  time: "2026",
+  attribution: "Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0",
+});
 L.control
   .layers({
     [T.osm]: osm,
     [T.aerial]: aerial,
     [T.aerialSaxony]: aerialSaxony,
     [T.aerialSaxonyAnhalt]: aerialSaxonyAnhalt,
+    [T.aerialHamburg]: aerialHamburg,
   })
   .addTo(map);
 map.attributionControl.addAttribution(
