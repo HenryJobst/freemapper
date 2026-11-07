@@ -42,10 +42,19 @@ pub struct Building {
     pub footprint: geo_types::MultiPolygon<f64>,
 }
 
+/// Land use per parcel part (`nutzung_flurstueck`).
+pub const LAND_USE_ENDPOINT: &str =
+    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items";
+
 /// URL of the first page of buildings in `bbox` (EPSG:25833), rounded outward to whole metres.
 pub fn buildings_url(bbox: &BoundingBox) -> String {
+    collection_url(BUILDINGS_ENDPOINT, bbox)
+}
+
+/// URL of the first page of the features of a collection endpoint in `bbox`, rounded outward.
+pub fn collection_url(endpoint: &str, bbox: &BoundingBox) -> String {
     format!(
-        "{BUILDINGS_ENDPOINT}?f=json&bbox={},{},{},{}&bbox-crs={CRS_25833}&crs={CRS_25833}&limit={PAGE_LIMIT}",
+        "{endpoint}?f=json&bbox={},{},{},{}&bbox-crs={CRS_25833}&crs={CRS_25833}&limit={PAGE_LIMIT}",
         bbox.min_e.floor(),
         bbox.min_n.floor(),
         bbox.max_e.ceil(),
@@ -54,13 +63,22 @@ pub fn buildings_url(bbox: &BoundingBox) -> String {
 }
 
 /// Downloads all pages of buildings in `bbox` and returns them as one GeoJSON FeatureCollection.
+pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
+    fetch_collection(fetcher, BUILDINGS_ENDPOINT, bbox)
+}
+
+/// Downloads all pages of a collection endpoint in `bbox` as one GeoJSON FeatureCollection.
 /// Paging stops at an empty page or a `next` link seen before; a feature repeated on a later page
 /// (same `oid`) is kept once.
-pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
+pub fn fetch_collection(
+    fetcher: &dyn Fetcher,
+    endpoint: &str,
+    bbox: &BoundingBox,
+) -> Result<String, FetchError> {
     let mut features: Vec<Value> = Vec::new();
     let mut seen_oids = std::collections::HashSet::new();
     let mut visited = Vec::new();
-    let mut next = Some(buildings_url(bbox));
+    let mut next = Some(collection_url(endpoint, bbox));
     while let Some(url) = next.take() {
         let bytes = fetcher.get(&url)?;
         let page: Value =
@@ -123,10 +141,12 @@ pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
     Ok(parsed)
 }
 
-fn parse_feature(feature: &Value) -> Result<Building, AlkisError> {
+/// The oid, polygon footprint and `aktualit` date every ALKIS feature has.
+fn feature_basics(
+    feature: &Value,
+) -> Result<(String, geo_types::MultiPolygon<f64>, Option<NaiveDate>), AlkisError> {
     let properties = &feature["properties"];
-    let text = |key: &str| properties[key].as_str().unwrap_or_default().to_string();
-    let oid = text("oid");
+    let oid = properties["oid"].as_str().unwrap_or_default().to_string();
     if oid.is_empty() {
         return Err(invalid("feature without oid"));
     }
@@ -139,17 +159,64 @@ fn parse_feature(feature: &Value) -> Result<Building, AlkisError> {
         geo_types::Geometry::MultiPolygon(mp) => mp,
         other => return Err(invalid(format!("{oid}: unexpected geometry {other:?}"))),
     };
+    let updated = properties["aktualit"]
+        .as_str()
+        .and_then(|t| t.get(..10))
+        .and_then(|d| d.parse().ok());
+    Ok((oid, footprint, updated))
+}
+
+fn parse_feature(feature: &Value) -> Result<Building, AlkisError> {
+    let properties = &feature["properties"];
+    let text = |key: &str| properties[key].as_str().unwrap_or_default().to_string();
+    let (oid, footprint, updated) = feature_basics(feature)?;
     Ok(Building {
         kind: text("gebnutzbez"),
         function: text("funktion"),
         underground: properties["rellage"] == UNDERGROUND,
-        updated: properties["aktualit"]
-            .as_str()
-            .and_then(|t| t.get(..10))
-            .and_then(|d| d.parse().ok()),
+        updated,
         footprint,
         oid,
     })
+}
+
+/// One part of a parcel with its actual land use (`nutzung_flurstueck`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LandUse {
+    pub oid: String,
+    /// `nutzart`, e.g. `Wohnbaufläche`.
+    pub nutzart: String,
+    /// `bez`, a refinement such as `Bildung und Wissenschaft`.
+    pub bez: Option<String>,
+    pub updated: Option<NaiveDate>,
+    /// Footprint in EPSG:25833.
+    pub footprint: geo_types::MultiPolygon<f64>,
+}
+
+/// Reads the land use features of a FeatureCollection as returned by [`fetch_collection`];
+/// features without oid or with an unusable geometry are skipped.
+pub fn parse_land_use(geojson: &str) -> Result<Vec<LandUse>, AlkisError> {
+    let collection: Value = serde_json::from_str(geojson).map_err(|e| invalid(e.to_string()))?;
+    let features = collection["features"]
+        .as_array()
+        .ok_or_else(|| invalid("no features"))?;
+    Ok(features
+        .iter()
+        .filter_map(|feature| {
+            let (oid, footprint, updated) = feature_basics(feature).ok()?;
+            let properties = &feature["properties"];
+            Some(LandUse {
+                oid,
+                nutzart: properties["nutzart"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                bez: properties["bez"].as_str().map(str::to_string),
+                updated,
+                footprint,
+            })
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -159,6 +226,22 @@ pub(crate) mod test_support {
         let [e, n, side] = square;
         format!(
             r#"{{"type":"Feature","id":"{oid}","geometry":{{"type":"MultiPolygon","coordinates":[[[[{e},{n}],[{e2},{n}],[{e2},{n2}],[{e},{n2}],[{e},{n}]]]]}},"properties":{{"oid":"{oid}","aktualit":"2023-05-04T10:27:03Z","gebnutzbez":"{kind}","funktion":"{function}","gmdschl":"12064472"}}}}"#,
+            e2 = e + side,
+            n2 = n + side
+        )
+    }
+
+    /// A land use feature (`nutzung_flurstueck`) with a square footprint.
+    pub fn land_use_feature(
+        oid: &str,
+        nutzart: &str,
+        bez: Option<&str>,
+        square: [f64; 3],
+    ) -> String {
+        let [e, n, side] = square;
+        let bez = bez.map(|b| format!(r#","bez":"{b}""#)).unwrap_or_default();
+        format!(
+            r#"{{"type":"Feature","id":"{oid}","geometry":{{"type":"Polygon","coordinates":[[[{e},{n}],[{e2},{n}],[{e2},{n2}],[{e},{n2}],[{e},{n}]]]}},"properties":{{"oid":"{oid}","aktualit":"2025-09-30T06:47:45Z","nutzart":"{nutzart}"{bez},"flstkennz":"12454800900602______"}}}}"#,
             e2 = e + side,
             n2 = n + side
         )
@@ -328,6 +411,44 @@ mod tests {
             max_n: 5_821_896.9,
         };
         assert!(buildings_url(&fractional).contains("bbox=421490,5821580,421737,5821897"));
+    }
+
+    #[test]
+    fn land_use_url_uses_its_collection() {
+        let url = collection_url(LAND_USE_ENDPOINT, &BBOX);
+        assert!(url.starts_with(
+            "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items?"
+        ));
+        assert!(url.contains("bbox=421490,5821580,421736,5821896"));
+    }
+
+    #[test]
+    fn parse_land_use_features() {
+        let school = land_use_feature(
+            "DEBBAL0100000010",
+            "Fläche besonderer funktionaler Prägung",
+            Some("Bildung und Wissenschaft"),
+            [421_600.0, 5_821_700.0, 50.0],
+        );
+        let homes = land_use_feature(
+            "DEBBAL0100000011",
+            "Wohnbaufläche",
+            None,
+            [421_700.0, 5_821_700.0, 30.0],
+        );
+        let broken =
+            r#"{"type":"Feature","geometry":null,"properties":{"oid":"X","nutzart":"Wald"}}"#;
+        let text = String::from_utf8(page(&[school, homes, broken.to_string()], None)).unwrap();
+        let land_use = parse_land_use(&text).unwrap();
+        assert_eq!(land_use.len(), 2, "the feature without geometry is skipped");
+        assert_eq!(
+            land_use[0].nutzart,
+            "Fläche besonderer funktionaler Prägung"
+        );
+        assert_eq!(land_use[0].bez.as_deref(), Some("Bildung und Wissenschaft"));
+        assert_eq!(land_use[1].bez, None);
+        assert_eq!(land_use[1].updated, "2025-09-30".parse().ok());
+        assert_eq!(land_use[1].footprint.0.len(), 1);
     }
 
     #[test]
