@@ -4,6 +4,7 @@
 
 pub mod area;
 pub mod crs;
+pub mod fetch;
 pub mod georef;
 pub mod omap;
 pub mod project;

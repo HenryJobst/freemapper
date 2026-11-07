@@ -8,6 +8,7 @@ rust-version.workspace = true
 
 [dependencies]
 chrono.workspace = true
+dirs.workspace = true
 geo.workspace = true
 geo-types.workspace = true
 geojson.workspace = true
@@ -16,7 +17,9 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+ureq.workspace = true
 world_magnetic_model.workspace = true
+zip.workspace = true
 
 [lints]
 workspace = true
