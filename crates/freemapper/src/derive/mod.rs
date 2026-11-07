@@ -20,7 +20,7 @@ pub enum DeriveError {
     #[error("no tiles to derive from")]
     NoTiles,
     #[error(
-        "map area too large for one template: {width} × {height} pixels (at most {MAX_RASTER_SIDE_PX} per side)"
+        "map area too large for one template: {width} × {height} pixels (at most {MAX_RASTER_SIDE_PX} per side); reduce the map area or buffer_m in freemapper.toml"
     )]
     AreaTooLarge { width: u32, height: u32 },
 }

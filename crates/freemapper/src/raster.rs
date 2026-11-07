@@ -110,7 +110,11 @@ impl GridSpec {
             if (pixels - pixels.round()).abs() < 0.01 {
                 Ok(pixels.round() as i64)
             } else {
-                Err(RasterError::Misaligned(format!("{self:?} vs {other:?}")))
+                Err(RasterError::Misaligned(format!(
+                    "offset by {:.3} of a pixel of {} m",
+                    (pixels - pixels.round()).abs(),
+                    self.pixel_size
+                )))
             }
         };
         Ok((
@@ -245,10 +249,9 @@ mod tests {
     fn misaligned_tiles_are_an_error() {
         let mut target = Raster::filled(grid(0.0, 10.0, 10, 10), 0u8);
         let shifted = Raster::filled(grid(0.5, 10.0, 10, 10), 1u8);
-        assert!(matches!(
-            target.paste(&shifted),
-            Err(RasterError::Misaligned(_))
-        ));
+        let err = target.paste(&shifted).unwrap_err();
+        assert!(matches!(err, RasterError::Misaligned(_)), "{err:?}");
+        assert!(!err.to_string().contains("GridSpec"), "{err}");
         let mut coarse_grid = grid(0.0, 10.0, 5, 5);
         coarse_grid.pixel_size = 2.0;
         let coarse = Raster::filled(coarse_grid, 1u8);

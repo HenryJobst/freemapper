@@ -21,23 +21,45 @@ pub enum FetchError {
     Io(PathBuf, std::io::Error),
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
-    #[error("tiles {} are not covered by LGB Brandenburg data", tile_names(.0))]
+    #[error(
+        "{} not covered by LGB Brandenburg data; reduce the map area or buffer_m in freemapper.toml",
+        tiles_are(.0)
+    )]
     TilesNotCovered(Vec<TileId>),
-    #[error("offline and not cached: {}", tile_names(.0))]
-    MissingOffline(Vec<TileId>),
+    #[error(
+        "offline and not cached: {product} {tiles}; run `freemapper fetch` online",
+        product = .0,
+        tiles = tile_list(.1)
+    )]
+    MissingOffline(Product, Vec<TileId>),
     #[error(transparent)]
     CurrencyCsv(#[from] CurrencyCsvError),
     #[error(transparent)]
     Alkis(#[from] AlkisError),
 }
 
-fn tile_names(tiles: &[TileId]) -> String {
+pub(crate) fn tile_names(tiles: &[TileId]) -> String {
     tiles
         .iter()
         .map(TileId::name)
         .collect::<Vec<_>>()
         .join(", ")
 }
+
+/// `tile X` or `tiles X, Y`.
+fn tile_list(tiles: &[TileId]) -> String {
+    let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
+    format!("{noun} {}", tile_names(tiles))
+}
+
+/// `tile X is` or `tiles X, Y are`.
+fn tiles_are(tiles: &[TileId]) -> String {
+    let verb = if tiles.len() == 1 { "is" } else { "are" };
+    format!("{} {verb}", tile_list(tiles))
+}
+
+/// Partial files older than this are left over from interrupted runs.
+const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 
 /// Source of downloads; HTTP in production, in-memory in tests.
 pub trait Fetcher {
@@ -180,7 +202,7 @@ pub fn fetch_tiles(
         }
         FetchMode::Offline => match std::fs::read(&csv_path) {
             Ok(bytes) => bytes,
-            Err(_) => return Err(FetchError::MissingOffline(tiles.to_vec())),
+            Err(_) => return Err(FetchError::MissingOffline(product, tiles.to_vec())),
         },
     };
     let table = parse_currency_csv(&String::from_utf8_lossy(&csv))?;
@@ -210,7 +232,7 @@ pub fn fetch_tiles(
             match newest_cached_version(&zip, tile) {
                 Some((published, older)) => {
                     progress(&format!(
-                        "warning: using cached {} from {published} (newer {} not downloaded)",
+                        "warning: using cached {product} tile {} from {published} (newer {} not downloaded)",
                         tile.name(),
                         currency.published
                     ));
@@ -231,6 +253,7 @@ pub fn fetch_tiles(
             })?;
             write_atomically(&zip, &bytes)?;
             remove_older_versions(&zip, tile)?;
+            crate::fsutil::remove_stale_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
         }
         fetched.push(FetchedTile {
             product,
@@ -241,7 +264,7 @@ pub fn fetch_tiles(
         });
     }
     if !missing.is_empty() {
-        return Err(FetchError::MissingOffline(missing));
+        return Err(FetchError::MissingOffline(product, missing));
     }
     Ok(fetched)
 }
@@ -291,8 +314,7 @@ pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchErr
     crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
 }
 
-/// Deletes the other cached publications of `tile` next to `current`, and partial downloads of
-/// it left by interrupted runs.
+/// Deletes the other cached publications of `tile` next to `current`.
 fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError> {
     let dir = current.parent().expect("cache paths have a parent");
     let prefix = format!("{}_", tile.name());
@@ -301,8 +323,7 @@ fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError>
         let path = entry.path();
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        let stale = name.ends_with(".zip") || name.ends_with(".part");
-        if path != current && name.starts_with(&prefix) && stale {
+        if path != current && name.starts_with(&prefix) && name.ends_with(".zip") {
             std::fs::remove_file(&path).map_err(|e| FetchError::Io(path.clone(), e))?;
         }
     }
@@ -560,7 +581,7 @@ mod tests {
             north_km: 5999,
         };
         let err = fetch(&fetcher, &cache, &[outside], FetchMode::Online).unwrap_err();
-        assert!(err.to_string().contains("33999-5999"), "{err}");
+        assert!(err.to_string().contains("tile 33999-5999 is not"), "{err}");
     }
 
     #[test]
@@ -583,7 +604,7 @@ mod tests {
         let err = fetch(&fetcher, &cache, &[TILE, north], FetchMode::Offline).unwrap_err();
         assert_eq!(fetcher.calls.get(), 0);
         assert!(
-            matches!(&err, FetchError::MissingOffline(tiles) if tiles.len() == 2),
+            matches!(&err, FetchError::MissingOffline(_, tiles) if tiles.len() == 2),
             "{err:?}"
         );
         let message = err.to_string();
@@ -591,6 +612,7 @@ mod tests {
             message.contains("33421-5821") && message.contains("33421-5822"),
             "{message}"
         );
+        assert!(message.contains("terrain model (DGM1)"), "{message}");
     }
 
     const NORTH: TileId = TileId {
@@ -618,6 +640,11 @@ mod tests {
             message.contains("33421-5822") && message.contains("33422-5821"),
             "{message}"
         );
+        assert!(
+            message.contains("tiles 33421-5822, 33422-5821 are"),
+            "{message}"
+        );
+        assert!(message.contains("buffer_m"), "{message}");
         assert_eq!(fetcher.calls.get(), 1, "only the currency CSV");
     }
 
@@ -650,7 +677,7 @@ mod tests {
             cache.tile_path(PRODUCT, TILE, "2026-01-26".parse().unwrap())
         );
         assert!(
-            messages.contains(&"warning: using cached 33421-5821 from 2026-01-26 (newer 2026-06-01 not downloaded)".to_string()),
+            messages.contains(&"warning: using cached terrain model (DGM1) tile 33421-5821 from 2026-01-26 (newer 2026-06-01 not downloaded)".to_string()),
             "{messages:?}"
         );
     }
@@ -691,18 +718,30 @@ mod tests {
             .unwrap()
             .to_path_buf();
         std::fs::create_dir_all(&product_dir).unwrap();
+        let two_hours_ago = std::time::SystemTime::now() - Duration::from_secs(2 * 3600);
         for stale in [
             "33421-5821_2026-01-26.zip.part",
             "33421-5821_2025-01-01.zip.999999.part",
+            "currency.csv.999999.part",
         ] {
-            std::fs::write(product_dir.join(stale), b"partial").unwrap();
+            let path = product_dir.join(stale);
+            std::fs::write(&path, b"partial").unwrap();
+            let file = std::fs::File::options().write(true).open(&path).unwrap();
+            file.set_modified(two_hours_ago).unwrap();
         }
+        // Another process is still writing this one.
+        let running = "33421-5821_2026-01-26.zip.888888.part";
+        std::fs::write(product_dir.join(running), b"partial").unwrap();
         let fetcher = MapFetcher::default();
         serve(&fetcher, "2026-01-26");
         fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
         assert_eq!(
             cached_files(&cache),
-            ["33421-5821_2026-01-26.zip", "currency.csv"]
+            [
+                "33421-5821_2026-01-26.zip",
+                "33421-5821_2026-01-26.zip.888888.part",
+                "currency.csv"
+            ]
         );
     }
 

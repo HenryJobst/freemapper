@@ -248,13 +248,10 @@ pub fn init_project(
     Ok(project)
 }
 
-fn tile_names(tiles: &[TileId]) -> String {
-    tiles
-        .iter()
-        .map(TileId::name)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
+use crate::fetch::tile_names;
+
+/// Partial template files older than this are left over from interrupted runs.
+const STALE_TEMPLATE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// Largest side of map area plus buffer: [`MAX_RASTER_SIDE_PX`] orthophoto pixels of 0.2 m.
 const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
@@ -267,6 +264,8 @@ const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
 const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 const SLOPE_RELPATH: &str = "templates/slope.png";
+/// Skipped ALKIS features listed in a progress message.
+const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
 const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
@@ -337,6 +336,11 @@ fn fetch_buildings_into(
 ) -> Result<Option<BuildingsRecord>, ProjectError> {
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
+        if previous.is_none() && path.exists() {
+            progress(
+                "warning: ALKIS buildings coverage unknown; run `freemapper fetch` online to record it",
+            );
+        }
         let covered = previous.is_none_or(|record| record.covers(bbox));
         return if path.exists() && covered {
             Ok(None)
@@ -351,21 +355,16 @@ fn fetch_buildings_into(
     let count = parsed.buildings.len();
     progress(&format!("{count} ALKIS buildings"));
     if !parsed.skipped.is_empty() {
+        let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
+        let more = parsed.skipped.len() > SKIPPED_SHOWN;
         progress(&format!(
-            "skipped {} ALKIS features: {}",
+            "skipped {} ALKIS features: {}{}",
             parsed.skipped.len(),
-            parsed.skipped.join("; ")
+            shown.collect::<Vec<_>>().join("; "),
+            if more { "; …" } else { "" }
         ));
     }
-    let latest_update = parsed.buildings.iter().filter_map(|b| b.updated).max();
-    if let Some(old) = previous.and_then(|p| p.latest_update)
-        && let Some(new) = latest_update.filter(|new| *new != old)
-    {
-        progress(&format!(
-            "warning: ALKIS buildings changed upstream ({old} → {new})"
-        ));
-    }
-    Ok(Some(BuildingsRecord {
+    let record = BuildingsRecord {
         bbox: [
             bbox.min_e.floor(),
             bbox.min_n.floor(),
@@ -373,9 +372,28 @@ fn fetch_buildings_into(
             bbox.max_n.ceil(),
         ],
         fetched: chrono::Local::now().date_naive(),
-        latest_update,
+        latest_update: parsed.buildings.iter().filter_map(|b| b.updated).max(),
         count,
-    }))
+    };
+    // Compare only the same area: a grown area brings in other buildings, not changed ones.
+    if let Some(old) = previous.filter(|old| old.bbox == record.bbox) {
+        let mut changes = Vec::new();
+        if old.latest_update != record.latest_update
+            && let (Some(a), Some(b)) = (old.latest_update, record.latest_update)
+        {
+            changes.push(format!("{a} → {b}"));
+        }
+        if old.count != record.count {
+            changes.push(format!("{} → {} buildings", old.count, record.count));
+        }
+        if !changes.is_empty() {
+            progress(&format!(
+                "warning: ALKIS buildings changed upstream ({})",
+                changes.join(", ")
+            ));
+        }
+    }
+    Ok(Some(record))
 }
 
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
@@ -430,11 +448,12 @@ pub fn derive_project(
             });
         }
         if !missing.is_empty() {
-            return Err(FetchError::MissingOffline(missing).into());
+            return Err(FetchError::MissingOffline(product, missing).into());
         }
         Ok(fetched)
     };
 
+    crate::fsutil::remove_stale_parts(&dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?;
@@ -459,8 +478,12 @@ pub fn map_path(dir: &Path) -> PathBuf {
 
 /// Name of the folder `dir`, also for paths like `.` that have no file name of their own.
 fn folder_name(dir: &Path) -> Option<String> {
-    let resolved = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
-    resolved.file_name()?.to_str().map(str::to_string)
+    let name = match dir.file_name() {
+        Some(name) => name.to_owned(),
+        // `.` or `x/..`: resolve the path, but only then, so a symlinked folder keeps its name.
+        None => std::fs::canonicalize(dir).ok()?.file_name()?.to_owned(),
+    };
+    name.to_str().map(str::to_string)
 }
 
 /// Title for the peripheral information when neither title nor folder name gives one.
@@ -633,7 +656,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     };
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
-    attribution.extend(attribution_lines(&project).into_iter().skip(1));
+    attribution.extend(lgb_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -691,10 +714,14 @@ const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CA
 /// Attribution of every source the project uses: OSM, and LGB once tiles were fetched.
 fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
-    if let Some(year) = project.tiles.iter().map(|t| t.published.year()).max() {
-        lines.push(attribution(year));
-    }
+    lines.extend(lgb_attribution(project));
     lines
+}
+
+/// The LGB attribution line, once tiles were fetched.
+fn lgb_attribution(project: &ProjectFile) -> Option<String> {
+    let year = project.tiles.iter().map(|t| t.published.year()).max()?;
+    Some(attribution(year))
 }
 /// Line symbol used for the map area outline in the candidates template map.
 const OUTLINE_SYMBOL_CODE: &str = "501.1";
@@ -1235,6 +1262,36 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             "{messages:?}"
         );
 
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(
+                &[
+                    crate::sources::alkis::test_support::building_feature(
+                        "DEBBAL0100000001",
+                        "Gebäude",
+                        "Allgemein bildende Schule",
+                        crate::fetch::test_support::SCHOOL_BUILDING,
+                    )
+                    .replace("2023-05-04", "2024-01-01"),
+                    crate::sources::alkis::test_support::building_feature(
+                        "DEBBAL0100000002",
+                        "Gebäude",
+                        "Schuppen",
+                        [421_620.0, 5_821_740.0, 3.0],
+                    )
+                    .replace("2023-05-04", "2024-01-01"),
+                ],
+                None,
+            ),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.contains(
+                &"warning: ALKIS buildings changed upstream (1 → 2 buildings)".to_string()
+            ),
+            "{messages:?}"
+        );
+
         let mut grown = ProjectFile::load(dir.path()).unwrap();
         grown.buffer_m += 100.0;
         grown.save(dir.path()).unwrap();
@@ -1247,6 +1304,33 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         )
         .unwrap_err();
         assert!(matches!(err, ProjectError::BuildingsNotFetched), "{err:?}");
+
+        // A grown area changes the newest date only because more buildings come into range.
+        let (_, after_growth) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !after_growth.iter().any(|m| m.contains("changed upstream")),
+            "{after_growth:?}"
+        );
+    }
+
+    #[test]
+    fn offline_without_buildings_record_warns() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buildings = None;
+        project.save(dir.path()).unwrap();
+        let mut messages = Vec::new();
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Offline, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: ALKIS buildings coverage unknown")),
+            "{messages:?}"
+        );
     }
 
     #[test]
@@ -1319,6 +1403,22 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let mut titled = project.clone();
         titled.title = Some("Schule\u{7} Nord".to_string());
         assert_eq!(titled.display_title(Path::new("/maps/x")), "Schule Nord");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_project_keeps_its_own_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("abc123");
+        school_project(&real);
+        let link = dir.path().join("clara-zetkin-schule");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let project = ProjectFile::load(&link).unwrap();
+        assert_eq!(project.display_title(&link), "Clara-Zetkin-Schule");
+        assert_eq!(
+            map_path(&link).file_name().unwrap(),
+            "clara-zetkin-schule.omap"
+        );
     }
 
     #[test]

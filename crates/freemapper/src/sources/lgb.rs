@@ -64,6 +64,14 @@ impl Product {
         format!("{}_{}.{ext}", self.file_prefix(), t.name())
     }
 
+    /// Human-readable name for messages.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Orthophoto => "orthophoto (DOP20)",
+            Self::Dtm => "terrain model (DGM1)",
+        }
+    }
+
     /// Folder of this product in the cache.
     pub fn cache_dir_name(self) -> &'static str {
         match self {
@@ -75,6 +83,12 @@ impl Product {
 
 /// First columns of an LGB currency CSV.
 const CURRENCY_CSV_HEADER: &str = "sheetnr;sheetname;creationdate;revisiondate;publicationdate";
+
+impl std::fmt::Display for Product {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
 
 /// Data currency of one tile from the LGB currency CSV.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
