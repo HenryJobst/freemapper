@@ -1,4 +1,4 @@
-//! Orthophoto template: DOP20 tiles mosaicked and clipped to the map area.
+//! Orthophoto template: DOP20 tiles (or one WMS image) mosaicked and clipped to the map area.
 
 use std::path::Path;
 
@@ -12,24 +12,66 @@ const JPEG_QUALITY: u8 = 90;
 /// Background where no tile covers the map area.
 const WHITE: [u8; 3] = [255, 255, 255];
 
+/// The orthophoto template over `bbox` from one georeferenced JPEG (`.jpg` + `.jgw`), such as
+/// the stitched GeoSN WMS image.
+pub fn build_orthophoto_from_image(
+    jpg: &Path,
+    bbox: &BoundingBox,
+    out_jpg: &Path,
+) -> Result<(), DeriveError> {
+    let read =
+        |path: &Path| std::fs::read(path).map_err(|e| DeriveError::Io(path.to_path_buf(), e));
+    let jpeg = read(jpg)?;
+    let world = read(&jpg.with_extension("jgw"))?;
+    // Fetched on the template grid already (the GeoSN WMS image): copied, not decoded and
+    // encoded again.
+    let (width, height) =
+        image::ImageReader::with_format(std::io::Cursor::new(&jpeg), image::ImageFormat::Jpeg)
+            .into_dimensions()
+            .map_err(|e| DeriveError::Image(e.to_string()))?;
+    let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
+    if template_grid(bbox, grid.pixel_size)? == grid {
+        return write_image_with_world_file(out_jpg, &jpeg, "jgw", &grid.world_file());
+    }
+    write_mosaic(std::iter::once(decode(&jpeg, &world)), bbox, out_jpg)
+}
+
 /// Mosaics the orthophoto tiles over `bbox` and writes `out_jpg` plus its world file (`.jgw`).
 pub fn build_orthophoto(
     tiles: &[FetchedTile],
     bbox: &BoundingBox,
     out_jpg: &Path,
 ) -> Result<(), DeriveError> {
-    let mut mosaic: Option<Raster<[u8; 3]>> = None;
-    for tile in tiles {
+    let images = tiles.iter().map(|tile| {
         let jpeg = read_member(&tile.zip, &tile.product.raster_member(tile.tile))?;
         let world = read_member(&tile.zip, &tile.product.world_file_member(tile.tile))?;
-        let image = image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
-            .map_err(|e| DeriveError::Image(e.to_string()))?
-            .into_rgb8();
-        let grid = GridSpec::from_world_file(
-            &String::from_utf8_lossy(&world),
-            image.width(),
-            image.height(),
-        )?;
+        decode(&jpeg, &world)
+    });
+    write_mosaic(images, bbox, out_jpg)
+}
+
+/// A JPEG and the grid its world file gives it.
+fn decode(jpeg: &[u8], world: &[u8]) -> Result<(image::RgbImage, GridSpec), DeriveError> {
+    let image = image::load_from_memory_with_format(jpeg, image::ImageFormat::Jpeg)
+        .map_err(|e| DeriveError::Image(e.to_string()))?
+        .into_rgb8();
+    let grid = GridSpec::from_world_file(
+        &String::from_utf8_lossy(world),
+        image.width(),
+        image.height(),
+    )?;
+    Ok((image, grid))
+}
+
+/// Pastes the images into the template grid over `bbox` (white where none lies) and writes it.
+fn write_mosaic(
+    images: impl Iterator<Item = Result<(image::RgbImage, GridSpec), DeriveError>>,
+    bbox: &BoundingBox,
+    out_jpg: &Path,
+) -> Result<(), DeriveError> {
+    let mut mosaic: Option<Raster<[u8; 3]>> = None;
+    for image in images {
+        let (image, grid) = image?;
         let mosaic = match &mut mosaic {
             Some(m) => m,
             None => mosaic.insert(Raster::filled(template_grid(bbox, grid.pixel_size)?, WHITE)),
@@ -103,6 +145,53 @@ mod tests {
         let world = std::fs::read_to_string(dir.path().join("orthophoto.jgw")).unwrap();
         let grid = GridSpec::from_world_file(&world, 20, 30).unwrap();
         assert!(grid.bounds().intersection(&bbox) == Some(bbox), "{grid:?}");
+    }
+
+    #[test]
+    fn wms_image_becomes_the_template() {
+        let dir = tempfile::tempdir().unwrap();
+        let wms = dir.path().join("orthophoto-wms.jpg");
+        std::fs::write(&wms, red_jpeg(50, 50)).unwrap();
+        std::fs::write(
+            wms.with_extension("jgw"),
+            "1\n0\n0\n-1\n421000.5\n5821999.5\n",
+        )
+        .unwrap();
+        let bbox = BoundingBox {
+            min_e: 421_010.0,
+            min_n: 5_821_960.0,
+            max_e: 421_030.0,
+            max_n: 5_821_990.0,
+        };
+        let out = dir.path().join("orthophoto.jpg");
+        build_orthophoto_from_image(&wms, &bbox, &out).unwrap();
+        let img = image::open(&out).unwrap().to_rgb8();
+        assert_eq!(img.dimensions(), (20, 30));
+        assert!(img.get_pixel(10, 15).0[0] > 245);
+        assert!(dir.path().join("orthophoto.jgw").exists());
+    }
+
+    #[test]
+    fn wms_image_on_the_template_grid_is_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let bbox = BoundingBox {
+            min_e: 421_010.0,
+            min_n: 5_821_960.0,
+            max_e: 421_030.0,
+            max_n: 5_821_990.0,
+        };
+        let grid = GridSpec::covering(&bbox, 1.0);
+        let wms = dir.path().join("orthophoto-wms.jpg");
+        let jpeg = red_jpeg(grid.width, grid.height);
+        std::fs::write(&wms, &jpeg).unwrap();
+        std::fs::write(wms.with_extension("jgw"), grid.world_file()).unwrap();
+        let out = dir.path().join("orthophoto.jpg");
+        build_orthophoto_from_image(&wms, &bbox, &out).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), jpeg, "copied, not re-encoded");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("orthophoto.jgw")).unwrap(),
+            grid.world_file()
+        );
     }
 
     fn fetched(

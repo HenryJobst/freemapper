@@ -139,7 +139,9 @@ Orienteering Maps 2019 (IOF).
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
-| Region | region | Land mit eigenem ALKIS-Dienst (Brandenburg, Berlin); ein Kartengebiet an der Landesgrenze gehört zu beiden. | `Region`, `regions_for` |
+| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
+| Rasterregion | raster region | Die Region, in der die Mitte des Kartengebiets liegt; aus ihr kommen Luftbild, Geländemodell und nDOM. | `raster_region` |
+| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin) oder GeoSN (Sachsen). | `Provider` |
 | Landesgrenze (Berlin) | Berlin boundary | Umriss Berlins aus ALKIS (`alkis:land`), 25 m vereinfacht; entscheidet über die Region. | `BERLIN_BOUNDARY` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
 | Ebene | layer | Ein Ergebnis (Objekte, Kandidaten oder Vorlage) mit einheitlichem Inhalt. | `Layer` |

@@ -14,12 +14,12 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- First: Brandenburg and Berlin (LGB and Geoportal Berlin open data), schoolyard maps 1:1000 and
-  sprint maps 1:4000.
+- Regions: Brandenburg, Berlin and Saxony (open data from LGB, Geoportal Berlin and GeoSN);
+  schoolyard maps 1:1000 and sprint maps 1:4000.
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg and Berlin, OCAD starting point, PDF training map; Saxony follows, then Saxony-Anhalt, Mecklenburg-Vorpommern, Thuringia and Hesse. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, Berlin and Saxony, OCAD starting point, PDF training map. Next come Saxony-Anhalt, Mecklenburg-Vorpommern, Thuringia and Hesse, then Poland and Czechia for maps near the border. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -86,9 +86,10 @@ one (an existing map stays as it is), "Done" ends the page. The page runs on thi
 
 - `freemapper fetch <dir>` – downloads the LGB orthophoto (DOP20) and terrain model (DGM1) tiles for
   map area plus buffer into the cache, the nDSM (about 15 MB per tile; refreshed when the server reports
-  a newer modification date), the ALKIS buildings and Geofabrik's OSM extract for Brandenburg
-  (about 300 MB the first time, afterwards only when it is more than 7 days old). A tile is downloaded again only when
-  LGB republished it; `--offline` uses data fetched before.
+  a newer modification date), the ALKIS buildings and Geofabrik's OSM extract of the state
+  (Brandenburg with Berlin about 300 MB, Saxony about 270 MB; the first time, afterwards only when it is
+  more than 7 days old). A tile is downloaded again only when it was republished; `--offline` uses data
+  fetched before. In Saxony the data comes from GeoSN, see [Saxony](#saxony).
 - `freemapper derive <dir>` – computes orthophoto, hillshade, slope and nDSM (height above ground:
   hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
   1 m, sprint 2 m; every fifth an index contour) as candidates.
@@ -165,6 +166,24 @@ Differences from Brandenburg:
   only become candidates, not finished map objects.
 - The Geoportal service occasionally drops connections; freemapper tries every request up to three
   times.
+
+## Saxony
+
+In Saxony all official data comes from GeoSN (Landesamt für Geobasisinformation Sachsen), free and
+without a login. Differences from Brandenburg:
+
+- **Orthophoto** from GeoSN's map service (WMS), cut to the map area and loaded in seconds; GeoSN's
+  tiles would be 230–270 MB each. The flight date is in `freemapper.toml`.
+- **Terrain model (DGM1) and surface model (DOM1)** in 2 km tiles (about 15 MB each).
+- **nDSM**: Saxony does not publish one openly yet. freemapper computes the nDSM template as DOM1 minus
+  DGM1 at 1 m, coarser than in Brandenburg (0.2 m): hedges and narrow walls often only show faintly.
+- **ALKIS** in Saxony records no position below ground and no building parts, so underground structures
+  such as car parks cannot be filtered out if GeoSN delivers them.
+- **Squares** are not refined in Saxony; they only become candidates. Street areas include the grass
+  and tree strips at their edges (as in Berlin).
+- At the border with Brandenburg freemapper queries both ALKIS services and reads both OSM extracts.
+  Orthophoto and terrain come from the state holding the centre of the map area; across the border
+  the templates may stay empty.
 
 ## Quick training map (PDF)
 
@@ -249,3 +268,4 @@ sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
 `© OpenStreetMap contributors, ODbL`. In Berlin the LGB line reads, as LGB requires,
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
 Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added.
+In Saxony the line is `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

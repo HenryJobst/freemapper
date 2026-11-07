@@ -10,6 +10,7 @@ use chrono::NaiveDate;
 use crate::sources::alkis::AlkisError;
 use crate::sources::lgb::ndsm_tile_url;
 use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
+use crate::sources::region::Provider;
 use crate::tiles::TileId;
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
@@ -24,7 +25,7 @@ pub enum FetchError {
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
     #[error(
-        "{} not covered by LGB Brandenburg data; reduce the map area or buffer_m in freemapper.toml",
+        "{} not covered by the published tiles; reduce the map area or buffer_m in freemapper.toml",
         tiles_are(.0)
     )]
     TilesNotCovered(Vec<TileId>),
@@ -42,6 +43,9 @@ pub enum FetchError {
     OsmExtractMissing,
     #[error("{0} not found on the server")]
     NotFound(String),
+    /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
+    #[error("{url}: the server refused the request (HTTP {status})")]
+    Refused { url: String, status: u16 },
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -98,6 +102,10 @@ pub trait Fetcher {
 fn status_error(url: &str, e: ureq::Error) -> FetchError {
     match e {
         ureq::Error::StatusCode(404) => FetchError::NotFound(url.to_string()),
+        ureq::Error::StatusCode(status) if (400..500).contains(&status) => FetchError::Refused {
+            url: url.to_string(),
+            status,
+        },
         e => FetchError::Http {
             url: url.to_string(),
             message: e.to_string(),
@@ -273,7 +281,9 @@ impl Cache {
     }
 
     fn product_dir(&self, product: Product) -> PathBuf {
-        self.root.join("lgb").join(product.cache_dir_name())
+        self.root
+            .join(product.provider_dir_name())
+            .join(product.cache_dir_name())
     }
 
     pub fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
@@ -313,6 +323,11 @@ impl Cache {
     pub fn currency_csv_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.csv")
     }
+
+    /// The collected GeoSN tile index rows of `product`.
+    pub fn currency_index_path(&self, product: Product) -> PathBuf {
+        self.product_dir(product).join("currency.json")
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -351,12 +366,20 @@ pub fn fetch_tiles(
         .filter(|tile| !table.contains_key(tile))
         .collect();
     if !uncovered.is_empty() {
-        return Err(FetchError::TilesNotCovered(uncovered));
+        return Err(not_in_table(product, mode, uncovered));
     }
     let mut fetched = Vec::new();
     let mut missing = Vec::new();
     for &tile in tiles {
-        match fetch_tile(fetcher, cache, product, tile, table[&tile], mode, progress)? {
+        match fetch_tile(
+            fetcher,
+            cache,
+            product,
+            tile,
+            table[&tile].clone(),
+            mode,
+            progress,
+        )? {
             Some(tile) => fetched.push(tile),
             None => missing.push(tile),
         }
@@ -385,19 +408,35 @@ pub fn fetch_tiles_each(
         .iter()
         .map(|&tile| {
             let result = match table.get(&tile) {
-                None => Err(FetchError::TilesNotCovered(vec![tile])),
-                Some(&currency) => fetch_tile(
-                    fetcher, cache, product, tile, currency, mode, progress,
-                )
-                .and_then(|fetched| fetched.ok_or(FetchError::MissingOffline(product, vec![tile]))),
+                None => Err(not_in_table(product, mode, vec![tile])),
+                Some(entry) => {
+                    fetch_tile(fetcher, cache, product, tile, entry.clone(), mode, progress)
+                        .and_then(|fetched| {
+                            fetched.ok_or(FetchError::MissingOffline(product, vec![tile]))
+                        })
+                }
             };
             (tile, result)
         })
         .collect())
 }
 
-/// The currency table of `product`: downloaded online (replacing the cached CSV once it
-/// parses), the cached CSV offline.
+/// Tiles missing from the currency table: not published, or (GeoSN offline, whose cached index
+/// only holds the areas asked for before) not fetched yet.
+fn not_in_table(product: Product, mode: FetchMode, tiles: Vec<TileId>) -> FetchError {
+    if mode == FetchMode::Offline && product.provider() == Provider::GeoSn {
+        FetchError::MissingOffline(product, tiles)
+    } else {
+        FetchError::TilesNotCovered(tiles)
+    }
+}
+
+/// Currency and download URL of each tile a provider publishes.
+type CurrencyTable = HashMap<TileId, (TileCurrency, String)>;
+
+/// The currency table of `product`, from its provider: the LGB currency CSV or the GeoSN tile
+/// index. Online the answer replaces (CSV) or extends (index) the cached copy once it parses;
+/// offline the cached copy is used.
 fn currency_table(
     fetcher: &dyn Fetcher,
     cache: &Cache,
@@ -405,7 +444,21 @@ fn currency_table(
     tiles: &[TileId],
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
-) -> Result<HashMap<TileId, TileCurrency>, FetchError> {
+) -> Result<CurrencyTable, FetchError> {
+    match product.provider() {
+        Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
+        Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
+    }
+}
+
+fn lgb_currency_table(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<CurrencyTable, FetchError> {
     let csv_path = cache.currency_csv_path(product);
     let csv = match mode {
         FetchMode::Online => {
@@ -423,7 +476,58 @@ fn currency_table(
         // Only a CSV that parsed replaces the cached one, so `--offline` keeps working.
         write_atomically(&csv_path, &csv)?;
     }
-    Ok(table)
+    Ok(table
+        .into_iter()
+        .map(|(tile, currency)| (tile, (currency, product.tile_url(tile))))
+        .collect())
+}
+
+/// The GeoSN index rows of `tiles`. The index is queried per area, so the cached copy collects
+/// the rows of every query (`{"33414-5654": ["2024-11-30", "https://…"], …}`).
+fn geosn_currency_table(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    product: Product,
+    tiles: &[TileId],
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Result<CurrencyTable, FetchError> {
+    let path = cache.currency_index_path(product);
+    let mut cached: std::collections::BTreeMap<String, (NaiveDate, String)> = std::fs::read(&path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default();
+    if mode == FetchMode::Online {
+        let url = crate::sources::geosn::index_url(product, tiles);
+        progress(&format!("downloading the {product} tile index"));
+        let rows = get_with_retries(fetcher, &url, |answer| {
+            crate::sources::geosn::parse_index(&String::from_utf8_lossy(answer)).map_err(
+                |message| FetchError::Http {
+                    url: url.clone(),
+                    message,
+                },
+            )
+        })?;
+        for row in rows {
+            let download = row.url.unwrap_or_else(|| product.tile_url(row.tile));
+            cached.insert(row.tile.name(), (row.currency, download));
+        }
+        let json = serde_json::to_vec(&cached).expect("index table serialises");
+        write_atomically(&path, &json)?;
+    } else if cached.is_empty() {
+        return Err(FetchError::MissingOffline(product, tiles.to_vec()));
+    }
+    Ok(cached
+        .into_iter()
+        .filter_map(|(name, (date, url))| {
+            let currency = TileCurrency {
+                created: date,
+                revised: None,
+                published: date,
+            };
+            Some((TileId::parse(&name)?, (currency, url)))
+        })
+        .collect())
 }
 
 /// One tile of `product` in the cache; `None` offline when no version of it is cached.
@@ -432,12 +536,11 @@ fn fetch_tile(
     cache: &Cache,
     product: Product,
     tile: TileId,
-    mut currency: TileCurrency,
+    (mut currency, url): (TileCurrency, String),
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Option<FetchedTile>, FetchError> {
     let mut zip = cache.tile_path(product, tile, currency.published);
-    let url = product.tile_url(tile);
     if zip.exists() {
         progress(&format!("cached {}", tile.name()));
     } else if mode == FetchMode::Offline {
@@ -663,6 +766,35 @@ fn newest_cached_version(path: &Path, tile: TileId) -> Option<(NaiveDate, PathBu
     cached_versions(path, tile).into_iter().next()
 }
 
+/// Attempts per request to a server that drops connections now and then (gdi.berlin.de, GeoSN).
+pub(crate) const ATTEMPTS: u32 = 3;
+#[cfg(not(test))]
+const RETRY_DELAY: Duration = Duration::from_secs(2);
+#[cfg(test)]
+const RETRY_DELAY: Duration = Duration::ZERO;
+
+/// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
+/// and answers `check` refuses (an error page with status 200) are retried; a missing URL or a
+/// refused request is not.
+pub(crate) fn get_with_retries<T>(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    check: impl Fn(&[u8]) -> Result<T, FetchError>,
+) -> Result<T, FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.get(url).and_then(|bytes| check(&bytes));
+        match result {
+            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
 /// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`].
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
@@ -707,6 +839,12 @@ pub(crate) mod test_support {
         pub calls: Cell<usize>,
         /// URLs that fail with a server error.
         pub failing: RefCell<Vec<String>>,
+        /// URL prefixes the server refuses with HTTP 400.
+        pub refusing: RefCell<Vec<String>>,
+        /// URL prefixes that fail with a reset this many more times before they answer.
+        pub flaky: RefCell<HashMap<String, u32>>,
+        /// Every URL requested with `get`, in order.
+        pub log: RefCell<Vec<String>>,
     }
 
     impl MapFetcher {
@@ -719,6 +857,30 @@ pub(crate) mod test_support {
         }
 
         fn fail_if_failing(&self, url: &str) -> Result<(), FetchError> {
+            if self
+                .refusing
+                .borrow()
+                .iter()
+                .any(|p| url.starts_with(p.as_str()))
+            {
+                return Err(FetchError::Refused {
+                    url: url.to_string(),
+                    status: 400,
+                });
+            }
+            if let Some(left) = self
+                .flaky
+                .borrow_mut()
+                .iter_mut()
+                .find(|(p, left)| url.starts_with(p.as_str()) && **left > 0)
+                .map(|(_, left)| left)
+            {
+                *left -= 1;
+                return Err(FetchError::Http {
+                    url: url.to_string(),
+                    message: "Connection reset by peer".to_string(),
+                });
+            }
             if self.failing.borrow().iter().any(|u| u == url) {
                 return Err(FetchError::Http {
                     url: url.to_string(),
@@ -736,6 +898,7 @@ pub(crate) mod test_support {
     impl Fetcher for MapFetcher {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
             self.calls.set(self.calls.get() + 1);
+            self.log.borrow_mut().push(url.to_string());
             self.fail_if_failing(url)?;
             let by_prefix = || {
                 let prefixes = self.prefixes.borrow();
@@ -871,6 +1034,84 @@ pub(crate) mod test_support {
         fetcher.insert(
             &product.tile_url(tile),
             tile_zip(product, tile, &dtm_tiff(100, 100, &heights), &world),
+        );
+    }
+
+    /// Serves everything a Saxony project in `bbox` fetches: the GeoSN index rows and coarse
+    /// synthetic DGM1/DOM1 archives (200 × 200 pixels of 10 m; the DTM rises 1 m per 10 m east,
+    /// the surface lies 12 m above it) for the 2 km tiles of `bbox`, a WMS orthophoto of the
+    /// right size, the Saxon ALKIS fixtures and the Saxony OSM extract.
+    pub fn serve_synthetic_saxony(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::{geosn, geosn_alkis};
+        let tiles = crate::tiles::tiles_covering_grid(&bbox.buffered(0.0), 2);
+        for (product, layer, lift) in [(Product::SaxonyDtm, 6, 0.0), (Product::SaxonyDsm, 4, 12.0)]
+        {
+            let rows: Vec<String> = tiles
+                .iter()
+                .map(|t| {
+                    format!(
+                        r#"{{"attributes":{{"Kachel":"{:03}{:04}","Download":"{}","Stand":"2024-11-30"}}}}"#,
+                        t.east_km,
+                        t.north_km,
+                        product.tile_url(*t)
+                    )
+                })
+                .collect();
+            fetcher.insert_prefix(
+                &format!("{}/{layer}/query?", geosn::INDEX_URL),
+                format!(r#"{{"features":[{}]}}"#, rows.join(",")).into_bytes(),
+            );
+            for &tile in &tiles {
+                let b = tile.bounds_km(2);
+                let world = format!("10\n0\n0\n-10\n{}\n{}\n", b.min_e + 5.0, b.max_n - 5.0);
+                let heights: Vec<f32> = (0..200 * 200).map(|i| (i % 200) as f32 + lift).collect();
+                fetcher.insert(
+                    &product.tile_url(tile),
+                    tile_zip(product, tile, &dtm_tiff(200, 200, &heights), &world),
+                );
+            }
+        }
+        let grid = crate::raster::GridSpec::covering(bbox, geosn::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap",
+                geosn::WMS_URL
+            ),
+            solid_jpeg(grid.width, grid.height, [0, 200, 0]),
+        );
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                geosn::WMS_URL
+            ),
+            b"Gebiet: Dresden | Datum: 19.03. + 07.04.2024 | ROHDOP: DOP".to_vec(),
+        );
+        for (type_name, body) in [
+            (
+                geosn_alkis::BUILDINGS_TYPE,
+                geosn_alkis::test_support::BUILDINGS,
+            ),
+            (
+                geosn_alkis::LAND_USE_TYPE,
+                geosn_alkis::test_support::LAND_USE,
+            ),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    geosn_alkis::WFS_URL
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        fetcher.insert(
+            saxony.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            saxony.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
 
@@ -1082,6 +1323,208 @@ mod tests {
         east_km: 422,
         north_km: 5821,
     };
+
+    /// Serves the GeoSN DGM1 index fixture and archives for its first two tiles.
+    fn serve_geosn(fetcher: &MapFetcher) -> [TileId; 2] {
+        let tiles = [
+            TileId::parse("33414-5654").unwrap(),
+            TileId::parse("33416-5654").unwrap(),
+        ];
+        let product = Product::SaxonyDtm;
+        fetcher.insert_prefix(
+            &format!("{}/6/query?", crate::sources::geosn::INDEX_URL),
+            crate::sources::geosn::test_support::DGM1_INDEX
+                .as_bytes()
+                .to_vec(),
+        );
+        for tile in tiles {
+            let world = format!(
+                "1\n0\n0\n-1\n{}.5\n{}.5\n",
+                tile.east_km * 1000,
+                tile.north_km * 1000 + 1999
+            );
+            fetcher.insert(
+                &product.tile_url(tile),
+                tile_zip(product, tile, &dtm_tiff(2, 2, &[100.0; 4]), &world),
+            );
+        }
+        tiles
+    }
+
+    #[test]
+    fn refused_requests_are_not_retried() {
+        let fetcher = MapFetcher::default();
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push("https://example.org/".to_string());
+        let err =
+            get_with_retries(&fetcher, "https://example.org/x", |b| Ok(b.to_vec())).unwrap_err();
+        assert!(
+            matches!(err, FetchError::Refused { status: 400, .. }),
+            "{err:?}"
+        );
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn index_query_is_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(format!("{}/6/query?", crate::sources::geosn::INDEX_URL), 1);
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched.len(), 2);
+    }
+
+    #[test]
+    fn index_row_without_download_uses_the_share() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        fetcher.insert_prefix(
+            &format!("{}/6/query?", crate::sources::geosn::INDEX_URL),
+            br#"{"features":[{"attributes":{"Kachel":"4145654","Download":null,"Stand":"2024-11-30"}}]}"#.to_vec(),
+        );
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &tiles[..1],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched[0].url, Product::SaxonyDtm.tile_url(tiles[0]));
+    }
+
+    #[test]
+    fn offline_tile_missing_from_the_cached_index_is_missing_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        let product = Product::SaxonyDtm;
+        fetch_tiles(
+            &fetcher,
+            &cache,
+            product,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        let elsewhere = TileId::parse("33440-5660").unwrap();
+        let err = fetch_tiles(
+            &MapFetcher::default(),
+            &cache,
+            product,
+            &[elsewhere],
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, FetchError::MissingOffline(_, t) if t == &[elsewhere]),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn geosn_tiles_fetch_and_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched.len(), 2);
+        assert_eq!(fetched[0].url, Product::SaxonyDtm.tile_url(tiles[0]));
+        assert_eq!(fetched[0].currency.published, "2024-11-30".parse().unwrap());
+        assert_eq!(fetched[1].currency.published, "2020-11-30".parse().unwrap());
+        assert!(
+            fetched[0]
+                .zip
+                .starts_with(dir.path().join("geosn").join("dgm1")),
+            "{:?}",
+            fetched[0].zip
+        );
+        assert!(fetched[0].zip.exists());
+    }
+
+    #[test]
+    fn offline_uses_cached_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let online = MapFetcher::default();
+        let tiles = serve_geosn(&online);
+        let product = Product::SaxonyDtm;
+        fetch_tiles(
+            &online,
+            &cache,
+            product,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        let offline = MapFetcher::default();
+        let fetched = fetch_tiles(
+            &offline,
+            &cache,
+            product,
+            &tiles,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched.len(), 2);
+        assert_eq!(offline.calls.get(), 0);
+        assert_eq!(fetched[1].currency.published, "2020-11-30".parse().unwrap());
+    }
+
+    #[test]
+    fn geosn_tile_missing_from_the_index_is_not_covered() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve_geosn(&fetcher);
+        let far = TileId::parse("33500-5600").unwrap();
+        let err = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &[far],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, FetchError::TilesNotCovered(t) if t == &[far]),
+            "{err:?}"
+        );
+        assert!(!err.to_string().contains("LGB"), "{err}");
+    }
 
     #[test]
     fn each_tile_succeeds_or_fails_alone() {

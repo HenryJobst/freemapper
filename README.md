@@ -16,12 +16,12 @@ in OOM oder OCAD.
     [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
-- Zuerst: Brandenburg und Berlin (LGB- und Geoportal-Berlin-Open-Data), Schulhofkarten 1:1000 und
-  Sprintkarten 1:4000.
+- Regionen: Brandenburg, Berlin und Sachsen (Open Data von LGB, Geoportal Berlin und GeoSN);
+  Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg und Berlin, OCAD-Ausgangsstand, PDF-Trainingskarte; Sachsen folgt, danach Sachsen-Anhalt, Mecklenburg-Vorpommern, Thüringen und Hessen. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin und Sachsen, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Sachsen-Anhalt, Mecklenburg-Vorpommern, Thüringen und Hessen, danach Polen und Tschechien für Karten im Grenzgebiet. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -90,9 +90,11 @@ beendet die Seite. Die Seite läuft nur auf diesem Rechner (127.0.0.1, zufällig
 
 - `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
   Kartengebiet plus Puffer in den Zwischenspeicher, dazu das nDOM (etwa 15 MB je Kachel; erneuert,
-  wenn der Server ein neueres Änderungsdatum meldet), die ALKIS-Gebäude und den OSM-Auszug für
-  Brandenburg von Geofabrik (beim ersten Mal etwa 300 MB, danach nur, wenn er mehr als 7 Tage alt ist). Kacheln werden nur neu
-  geladen, wenn das LGB sie neu veröffentlicht hat; `--offline` nutzt nur bereits geladene Daten.
+  wenn der Server ein neueres Änderungsdatum meldet), die ALKIS-Gebäude und den OSM-Auszug des Landes
+  von Geofabrik (Brandenburg mit Berlin etwa 300 MB, Sachsen etwa 270 MB; beim ersten Mal, danach nur,
+  wenn er mehr als 7 Tage alt ist). Kacheln werden nur neu geladen, wenn sie neu veröffentlicht wurden;
+  `--offline` nutzt nur bereits geladene Daten. In Sachsen kommen die Daten vom GeoSN, siehe
+  [Sachsen](#sachsen).
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung und das nDOM
   (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
   (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve) als Kandidaten.
@@ -172,6 +174,25 @@ Unterschiede zu Brandenburg:
   Kandidaten, keine fertigen Kartenobjekte.
 - Der Geoportal-Dienst bricht gelegentlich Verbindungen ab; freemapper versucht jede Anfrage bis zu
   dreimal.
+
+## Sachsen
+
+In Sachsen kommen alle amtlichen Daten vom GeoSN (Landesamt für Geobasisinformation Sachsen), frei
+und ohne Anmeldung. Unterschiede zu Brandenburg:
+
+- **Luftbild** über den Kartendienst (WMS) des GeoSN, passgenau für das Kartengebiet und in Sekunden
+  geladen; die GeoSN-Kacheln wären je 230–270 MB groß. Das Flugdatum steht in `freemapper.toml`.
+- **Geländemodell (DGM1) und Oberflächenmodell (DOM1)** in 2-km-Kacheln (je etwa 15 MB).
+- **nDOM** gibt es in Sachsen noch nicht frei. freemapper berechnet die nDOM-Vorlage aus DOM1 minus DGM1
+  mit 1 m Auflösung, also gröber als in Brandenburg (0,2 m): Hecken und schmale Mauern sind oft nur
+  angedeutet.
+- **ALKIS** kennt in Sachsen keine Lage unter der Erdoberfläche und keine Bauteile. Unterirdische
+  Bauwerke wie Tiefgaragen lassen sich daher nicht ausfiltern, falls das GeoSN sie liefert.
+- **Plätze** sind in Sachsen nicht genauer bestimmt; sie werden nur Kandidaten. Straßenflächen
+  enthalten Grün- und Baumstreifen am Rand (wie in Berlin).
+- An der Grenze zu Brandenburg fragt freemapper beide ALKIS-Dienste ab und liest beide OSM-Auszüge.
+  Luftbild und Geländemodell kommen aus dem Land, in dem die Mitte des Kartengebiets liegt; auf der
+  anderen Seite der Grenze können die Vorlagen leer bleiben.
 
 ## Schnelle Trainingskarte (PDF)
 
@@ -258,3 +279,4 @@ Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` u
 `© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
 `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
 Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu.
+In Sachsen lautet der Vermerk `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

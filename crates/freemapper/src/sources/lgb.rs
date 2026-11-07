@@ -1,10 +1,12 @@
-//! LGB Brandenburg open data (dl-de/by-2-0): products, tile URLs and data currency.
+//! Raster products of all providers (LGB Brandenburg, GeoSN Saxony; dl-de/by-2-0), tile URLs,
+//! and the LGB data currency.
 
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
+use crate::sources::region::Provider;
 use crate::tiles::TileId;
 
 const DATA_URL: &str = "https://data.geobasis-bb.de/geobasis/daten";
@@ -12,6 +14,11 @@ const DOP_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv";
 const DGM_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv";
+/// GeoSN GeoCloud link shares (Nextcloud); the tokens change now and then (§2.1 of the Saxony
+/// reference), so the tile index is asked first.
+const GEOSN_SHARES: &str = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files";
+const GEOSN_DGM1_SHARE: &str = "JCcXyifaNdLDnxZ";
+const GEOSN_DOM1_SHARE: &str = "S6wwnFwX7882sZm";
 const BDOM_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv";
 
@@ -26,31 +33,78 @@ pub enum Product {
     /// bDOM image-matched surface model, GeoTIFF f32 + world file, 0.2 m; the nDSM source
     /// where no nDOM point cloud is published (Berlin).
     ImageDsm,
+    /// GeoSN DGM1 terrain model, 2 km tiles, GeoTIFF f32 + world file, 1 m.
+    SaxonyDtm,
+    /// GeoSN DOM1 laser surface model, 2 km tiles, GeoTIFF f32 + world file, 1 m; the nDSM
+    /// source in Saxony, where no nDOM is published.
+    SaxonyDsm,
 }
 
 impl Product {
+    /// Who serves the product.
+    pub fn provider(self) -> Provider {
+        match self {
+            Self::Orthophoto | Self::Dtm | Self::ImageDsm => Provider::Lgb,
+            Self::SaxonyDtm | Self::SaxonyDsm => Provider::GeoSn,
+        }
+    }
+
+    /// Edge length of the product's tiles in km.
+    pub fn grid_km(self) -> u32 {
+        match self.provider() {
+            Provider::Lgb => 1,
+            Provider::GeoSn => 2,
+        }
+    }
+
     fn file_prefix(self) -> &'static str {
         match self {
             Self::Orthophoto => "dop",
             Self::Dtm => "dgm",
             Self::ImageDsm => "bdom",
+            Self::SaxonyDtm => "dgm1",
+            Self::SaxonyDsm => "dom1",
         }
     }
 
-    pub fn tile_url(self, t: TileId) -> String {
-        let dir = match self {
-            Self::Orthophoto => "dop/rgb_jpg",
-            Self::Dtm => "dgm/tif",
-            Self::ImageDsm => "bdom/tif",
-        };
-        format!("{DATA_URL}/{dir}/{}_{}.zip", self.file_prefix(), t.name())
+    /// File stem of a tile: `dgm_33421-5821` (LGB), `dgm1_33414_5654_2_sn` (GeoSN).
+    fn stem(self, t: TileId) -> String {
+        match self.provider() {
+            Provider::Lgb => format!("{}_{}", self.file_prefix(), t.name()),
+            Provider::GeoSn => format!(
+                "{}_33{:03}_{:04}_2_sn",
+                self.file_prefix(),
+                t.east_km,
+                t.north_km
+            ),
+        }
     }
 
+    /// Download URL of a tile. GeoSN rotates its share tokens, so its tiles are downloaded from
+    /// the URL in the tile index; this one is the fallback.
+    pub fn tile_url(self, t: TileId) -> String {
+        match self {
+            Self::Orthophoto => format!("{DATA_URL}/dop/rgb_jpg/{}.zip", self.stem(t)),
+            Self::Dtm => format!("{DATA_URL}/dgm/tif/{}.zip", self.stem(t)),
+            Self::ImageDsm => format!("{DATA_URL}/bdom/tif/{}.zip", self.stem(t)),
+            Self::SaxonyDtm => format!(
+                "{GEOSN_SHARES}/{GEOSN_DGM1_SHARE}/{}_tiff.zip",
+                self.stem(t)
+            ),
+            Self::SaxonyDsm => format!(
+                "{GEOSN_SHARES}/{GEOSN_DOM1_SHARE}/{}_tiff.zip",
+                self.stem(t)
+            ),
+        }
+    }
+
+    /// The LGB currency CSV; GeoSN products take their currency from the tile index instead.
     pub fn currency_csv_url(self) -> &'static str {
         match self {
             Self::Orthophoto => DOP_CURRENCY_CSV,
             Self::Dtm => DGM_CURRENCY_CSV,
             Self::ImageDsm => BDOM_CURRENCY_CSV,
+            Self::SaxonyDtm | Self::SaxonyDsm => crate::sources::geosn::INDEX_URL,
         }
     }
 
@@ -58,18 +112,18 @@ impl Product {
     pub fn raster_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jpg",
-            Self::Dtm | Self::ImageDsm => "tif",
+            _ => "tif",
         };
-        format!("{}_{}.{ext}", self.file_prefix(), t.name())
+        format!("{}.{ext}", self.stem(t))
     }
 
     /// Name of the world file inside the tile archive.
     pub fn world_file_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jgw",
-            Self::Dtm | Self::ImageDsm => "tfw",
+            _ => "tfw",
         };
-        format!("{}_{}.{ext}", self.file_prefix(), t.name())
+        format!("{}.{ext}", self.stem(t))
     }
 
     /// Human-readable name for messages.
@@ -78,15 +132,26 @@ impl Product {
             Self::Orthophoto => "orthophoto (DOP20)",
             Self::Dtm => "terrain model (DGM1)",
             Self::ImageDsm => "surface model (bDOM)",
+            Self::SaxonyDtm => "terrain model (GeoSN DGM1)",
+            Self::SaxonyDsm => "surface model (GeoSN DOM1)",
         }
     }
 
-    /// Folder of this product in the cache.
+    /// Folder of the product's provider in the cache.
+    pub fn provider_dir_name(self) -> &'static str {
+        match self.provider() {
+            Provider::Lgb => "lgb",
+            Provider::GeoSn => "geosn",
+        }
+    }
+
+    /// Folder of this product in its provider's cache folder.
     pub fn cache_dir_name(self) -> &'static str {
         match self {
             Self::Orthophoto => "dop20rgb",
-            Self::Dtm => "dgm1",
+            Self::Dtm | Self::SaxonyDtm => "dgm1",
             Self::ImageDsm => "bdom",
+            Self::SaxonyDsm => "dom1",
         }
     }
 }

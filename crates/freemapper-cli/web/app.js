@@ -24,7 +24,7 @@ const TEXTS = {
     sourceOsm: "Aus OpenStreetMap: ",
     sourceDrawn: "Selbst gezeichnet",
     size: (w, h) => `Größe mit Puffer: ${w} × ${h} m`,
-    tiles: (n, names) => `${n} LGB-Kachel${n === 1 ? "" : "n"} (1 km): ${names}`,
+    tiles: (n, names) => `${n} Kachel${n === 1 ? "" : "n"}: ${names}`,
     download: (mb) => `Download: etwa ${mb} MB`,
     downloadNone: "Download: alles schon im Zwischenspeicher",
     downloadDetails: "Was geladen wird",
@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der LGB-Daten (Brandenburg und Berlin); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -53,7 +53,8 @@ const TEXTS = {
     nothingSaved: "Es wurde nichts gespeichert.",
     failed: "Fehler: ",
     osm: "OpenStreetMap",
-    aerial: "Luftbild (LGB)",
+    aerial: "Luftbild Brandenburg/Berlin (LGB)",
+    aerialSaxony: "Luftbild Sachsen (GeoSN)",
   },
   en: {
     heading: "Choose the map area",
@@ -77,7 +78,7 @@ const TEXTS = {
     sourceOsm: "From OpenStreetMap: ",
     sourceDrawn: "Drawn by hand",
     size: (w, h) => `Size with buffer: ${w} × ${h} m`,
-    tiles: (n, names) => `${n} LGB tile${n === 1 ? "" : "s"} (1 km): ${names}`,
+    tiles: (n, names) => `${n} tile${n === 1 ? "" : "s"}: ${names}`,
     download: (mb) => `Download: about ${mb} MB`,
     downloadNone: "Download: everything is cached already",
     downloadDetails: "What is downloaded",
@@ -85,7 +86,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the LGB data (Brandenburg and Berlin); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -106,7 +107,8 @@ const TEXTS = {
     nothingSaved: "Nothing was saved.",
     failed: "Error: ",
     osm: "OpenStreetMap",
-    aerial: "Aerial photo (LGB)",
+    aerial: "Aerial photo Brandenburg/Berlin (LGB)",
+    aerialSaxony: "Aerial photo Saxony (GeoSN)",
   },
 };
 
@@ -145,7 +147,13 @@ const aerial = L.tileLayer.wms("https://isk.geobasis-bb.de/mapproxy/dop20c/servi
   maxZoom: 20,
   attribution: "© GeoBasis-DE/LGB, dl-de/by-2-0",
 });
-L.control.layers({ [T.osm]: osm, [T.aerial]: aerial }).addTo(map);
+const aerialSaxony = L.tileLayer.wms("https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest", {
+  layers: "sn_dop_020",
+  format: "image/jpeg",
+  maxZoom: 20,
+  attribution: "Quelle: GeoSN, dl-de/by-2-0",
+});
+L.control.layers({ [T.osm]: osm, [T.aerial]: aerial, [T.aerialSaxony]: aerialSaxony }).addTo(map);
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
 );
