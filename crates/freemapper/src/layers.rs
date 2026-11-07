@@ -10,7 +10,8 @@ use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, map_path,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, check_size, map_crs,
+    map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
@@ -27,6 +28,8 @@ const BDOM_TILE_MB: f64 = 30.0;
 const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
 const GEOSN_WMS_MB_PER_KM2: f64 = 8.0;
+/// A 1 m Float32 height model from the LVermGeo WCS per km².
+const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
 
 /// One download of a project.
@@ -53,7 +56,8 @@ pub fn estimate_download(
     today: NaiveDate,
 ) -> Result<DownloadEstimate, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let bbox = project.bbox()?;
+    // Regions and sizes are judged in EPSG:25833, where the boundaries are.
+    let bbox = project.region_bbox()?;
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     Ok(estimate_area(&bbox, cache, today, alkis_cached))
@@ -61,12 +65,16 @@ pub fn estimate_download(
 
 /// The tiles a map of `bbox` uses, on its raster provider's grid, and the grid size in km.
 fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
-    let km = match raster_region(bbox).map(Region::provider) {
-        Some(Provider::GeoSn) => Product::SaxonyDtm.grid_km(),
-        _ => 1,
-    };
     let provider = raster_region(bbox).map_or(Provider::Lgb, Region::provider);
-    (provider_tiles(bbox, provider, km), km)
+    match provider {
+        Provider::Lgb => (provider_tiles(bbox, provider, 1), 1),
+        Provider::GeoSn => {
+            let km = Product::SaxonyDtm.grid_km();
+            (provider_tiles(bbox, provider, km), km)
+        }
+        // LVermGeo rasters are fetched per area (WMS, WCS).
+        Provider::LvermGeo => (Vec::new(), 1),
+    }
 }
 
 fn estimate_area(
@@ -78,6 +86,7 @@ fn estimate_area(
     let (tiles, _) = area_tiles(bbox);
     let mut items = match raster_region(bbox).map(Region::provider) {
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
+        Some(Provider::LvermGeo) => lvermgeo_items(bbox),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -133,6 +142,25 @@ fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<Estim
         cached: false,
     });
     items
+}
+
+/// LVermGeo: the WMS orthophoto and the WCS height models of the area, fetched for every project.
+fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::lvermgeo::Model;
+    let km2 = bbox.width() * bbox.height() / 1e6;
+    let item = |what: String, mb_per_km2: f64| EstimateItem {
+        what,
+        megabytes: (km2 * mb_per_km2).max(0.1),
+        cached: false,
+    };
+    vec![
+        item(
+            "orthophoto (LVermGeo WMS)".to_string(),
+            GEOSN_WMS_MB_PER_KM2,
+        ),
+        item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
+        item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
+    ]
 }
 
 /// LGB: orthophoto, DTM and nDSM (or bDOM inside Berlin) per 1 km tile.
@@ -194,7 +222,9 @@ pub struct AreaPreview {
 /// The preview of `area` with `buffer_m` around it; ALKIS data counts as not downloaded yet.
 pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDate) -> AreaPreview {
     let bbox = area.projected_bbox().buffered(buffer_m);
-    let check = check_area(&bbox);
+    // The size counts in the map's CRS, where the templates are built.
+    let map_bbox = area.projected_bbox_in(map_crs(&bbox)).buffered(buffer_m);
+    let check = check_area(&bbox).and_then(|()| check_size(&map_bbox));
     let outside_coverage = matches!(check, Err(ProjectError::OutsideCoverage));
     let too_large = matches!(check, Err(ProjectError::AreaTooLarge { .. }));
     let usable = check.is_ok();
@@ -230,8 +260,8 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
     };
     AreaPreview {
         tiles: outlines,
-        width_m: bbox.width(),
-        height_m: bbox.height(),
+        width_m: map_bbox.width(),
+        height_m: map_bbox.height(),
         too_large,
         outside_coverage,
         estimate,
@@ -449,6 +479,67 @@ mod tests {
             (ne.easting - sw.easting - 2000.0).abs() < 1.0,
             "{sw:?} {ne:?}"
         );
+    }
+
+    #[test]
+    fn saxony_anhalt_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Latina, Halle.
+        let halle = square(11.9716, 51.4783, 0.002);
+        let preview = preview_area(&halle, 20.0, &cache, today());
+        assert!(!preview.outside_coverage);
+        let what: Vec<&str> = preview
+            .estimate
+            .items
+            .iter()
+            .map(|i| i.what.as_str())
+            .collect();
+        assert!(what.contains(&"orthophoto (LVermGeo WMS)"), "{what:?}");
+        assert!(what.contains(&"terrain model (LVermGeo DGM1)"), "{what:?}");
+        assert!(what.contains(&"surface model (LVermGeo DOM1)"), "{what:?}");
+        assert!(
+            what.contains(&"OSM extract Saxony-Anhalt (shared by all projects)"),
+            "{what:?}"
+        );
+        assert!(preview.tiles.is_empty(), "no data tiles in Saxony-Anhalt");
+    }
+
+    #[test]
+    fn preview_checks_the_size_in_the_map_crs() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // 3950 m along the zone-33 axes at Halle: with its buffer it fits in 25833, not in 25832.
+        let corner = |de: f64, dn: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 289_795.0 + de,
+                northing: 5_707_067.0 + dn,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let h = 1975.0;
+        let ring = [
+            corner(-h, -h),
+            corner(h, -h),
+            corner(h, h),
+            corner(-h, h),
+            corner(-h, -h),
+        ];
+        let area = crate::area::MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        assert!(area.projected_bbox().buffered(20.0).width() <= crate::project::MAX_AREA_SIDE_M);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        assert!(
+            preview.too_large,
+            "{} × {}",
+            preview.width_m, preview.height_m
+        );
+        let max = crate::project::MAX_AREA_SIDE_M;
+        assert!(preview.width_m > max || preview.height_m > max);
     }
 
     #[test]

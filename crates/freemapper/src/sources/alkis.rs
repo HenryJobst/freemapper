@@ -4,10 +4,10 @@
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 use crate::sources::region::{Region, regions_for};
-use crate::sources::{berlin, geosn_alkis};
+use crate::sources::{alkis_wfs, berlin};
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
@@ -65,37 +65,193 @@ pub fn collection_url(endpoint: &str, bbox: &BoundingBox) -> String {
     )
 }
 
-/// Downloads the buildings in `bbox` from every state service covering it (Brandenburg, Berlin)
-/// and returns them as one GeoJSON FeatureCollection in the LGB schema.
+/// The area ALKIS is fetched for: its EPSG:25833 box, which decides the regions, and the map's
+/// CRS with the box in it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FetchArea {
+    pub region_bbox: BoundingBox,
+    pub crs: Crs,
+    /// The area in `crs`.
+    pub bbox: BoundingBox,
+}
+
+impl FetchArea {
+    pub fn new(region_bbox: BoundingBox, crs: Crs) -> Self {
+        Self {
+            region_bbox,
+            crs,
+            bbox: bbox_in(&region_bbox, Crs::Utm33, crs),
+        }
+    }
+
+    /// The area in `crs`: exact for the map's CRS and EPSG:25833, else the envelope of the
+    /// region box's outline in `crs`.
+    fn bbox_for(&self, crs: Crs) -> BoundingBox {
+        if crs == self.crs {
+            self.bbox
+        } else {
+            bbox_in(&self.region_bbox, Crs::Utm33, crs)
+        }
+    }
+}
+
+/// The envelope of `bbox` (in `from`) in `to`, from points along its outline, grown by 1 m.
+fn bbox_in(bbox: &BoundingBox, from: Crs, to: Crs) -> BoundingBox {
+    if from == to {
+        return *bbox;
+    }
+    const STEPS: u32 = 8;
+    let mut out: Option<BoundingBox> = None;
+    for i in 0..=STEPS {
+        let t = f64::from(i) / f64::from(STEPS);
+        let e = bbox.min_e + t * (bbox.max_e - bbox.min_e);
+        let n = bbox.min_n + t * (bbox.max_n - bbox.min_n);
+        for (pe, pn) in [
+            (e, bbox.min_n),
+            (e, bbox.max_n),
+            (bbox.min_e, n),
+            (bbox.max_e, n),
+        ] {
+            let Some(p) = to.reproject(
+                from,
+                ProjectedPoint {
+                    easting: pe,
+                    northing: pn,
+                },
+            ) else {
+                continue;
+            };
+            let b = out.get_or_insert(BoundingBox {
+                min_e: p.easting,
+                min_n: p.northing,
+                max_e: p.easting,
+                max_n: p.northing,
+            });
+            b.min_e = b.min_e.min(p.easting);
+            b.min_n = b.min_n.min(p.northing);
+            b.max_e = b.max_e.max(p.easting);
+            b.max_n = b.max_n.max(p.northing);
+        }
+    }
+    out.map_or(*bbox, |b| b.buffered(1.0))
+}
+
+/// Downloads the buildings in `bbox` (EPSG:25833) from every state service covering it, like
+/// [`fetch_buildings_in`] for a map in EPSG:25833.
 pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    merged(bbox, |region| match region {
-        Region::Brandenburg => collection_features(fetcher, BUILDINGS_ENDPOINT, bbox),
-        Region::Berlin => berlin::fetch_buildings(fetcher, bbox),
-        Region::Saxony => geosn_alkis::fetch_buildings(fetcher, bbox),
-    })
+    fetch_buildings_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
 }
 
-/// Downloads the land use in `bbox` from every state service covering it, like
-/// [`fetch_buildings`].
+/// Downloads the land use in `bbox` (EPSG:25833), like [`fetch_land_use_in`].
 pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    merged(bbox, |region| match region {
-        Region::Brandenburg => collection_features(fetcher, LAND_USE_ENDPOINT, bbox),
-        Region::Berlin => berlin::fetch_land_use(fetcher, bbox),
-        Region::Saxony => geosn_alkis::fetch_land_use(fetcher, bbox),
+    fetch_land_use_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
+}
+
+/// Downloads the buildings of `area` from every state service covering it and returns them as
+/// one GeoJSON FeatureCollection in the LGB schema and the map's CRS.
+pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
+    merged(area, |region| {
+        let in_crs = |crs: Crs| area.bbox_for(crs);
+        Ok(match region {
+            Region::Brandenburg => (
+                collection_features(fetcher, BUILDINGS_ENDPOINT, &in_crs(Crs::Utm33))?,
+                Crs::Utm33,
+            ),
+            Region::Berlin => (
+                berlin::fetch_buildings(fetcher, &in_crs(Crs::Utm33))?,
+                Crs::Utm33,
+            ),
+            Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
+            Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+        })
     })
 }
 
-/// The features of every region covering `bbox` as one FeatureCollection; object ids of the
-/// states never collide (`DEBBAL…`, `DEBE…`).
+/// Downloads the land use of `area`, like [`fetch_buildings_in`].
+pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
+    merged(area, |region| {
+        let in_crs = |crs: Crs| area.bbox_for(crs);
+        Ok(match region {
+            Region::Brandenburg => (
+                collection_features(fetcher, LAND_USE_ENDPOINT, &in_crs(Crs::Utm33))?,
+                Crs::Utm33,
+            ),
+            Region::Berlin => (
+                berlin::fetch_land_use(fetcher, &in_crs(Crs::Utm33))?,
+                Crs::Utm33,
+            ),
+            Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
+            Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
+        })
+    })
+}
+
+type Features = (Vec<Value>, Crs);
+
+fn wfs_buildings(
+    fetcher: &dyn Fetcher,
+    service: &alkis_wfs::WfsService,
+    in_crs: &dyn Fn(Crs) -> BoundingBox,
+) -> Result<Features, FetchError> {
+    let features = alkis_wfs::fetch_buildings(fetcher, service, &in_crs(service.crs))?;
+    Ok((features, service.crs))
+}
+
+fn wfs_land_use(
+    fetcher: &dyn Fetcher,
+    service: &alkis_wfs::WfsService,
+    in_crs: &dyn Fn(Crs) -> BoundingBox,
+) -> Result<Features, FetchError> {
+    let features = alkis_wfs::fetch_land_use(fetcher, service, &in_crs(service.crs))?;
+    Ok((features, service.crs))
+}
+
+/// The features of every region covering `area` as one FeatureCollection in the map's CRS;
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`).
 fn merged(
-    bbox: &BoundingBox,
-    mut fetch: impl FnMut(Region) -> Result<Vec<Value>, FetchError>,
+    area: &FetchArea,
+    mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
 ) -> Result<String, FetchError> {
     let mut features = Vec::new();
-    for region in regions_for(bbox) {
-        features.extend(fetch(region)?);
+    for region in regions_for(&area.region_bbox) {
+        let (part, crs) = fetch(region)?;
+        features.extend(
+            part.into_iter()
+                .map(|f| reproject_feature(f, crs, area.crs)),
+        );
     }
     Ok(feature_collection(features))
+}
+
+/// `feature` with its geometry's coordinates moved from `from` into `to`.
+fn reproject_feature(mut feature: Value, from: Crs, to: Crs) -> Value {
+    fn walk(v: &mut Value, from: Crs, to: Crs) {
+        let Some(items) = v.as_array_mut() else {
+            return;
+        };
+        if let [Value::Number(e), Value::Number(n), ..] = items.as_slice()
+            && let (Some(e), Some(n)) = (e.as_f64(), n.as_f64())
+        {
+            if let Some(p) = to.reproject(
+                from,
+                ProjectedPoint {
+                    easting: e,
+                    northing: n,
+                },
+            ) {
+                items[0] = Value::from(p.easting);
+                items[1] = Value::from(p.northing);
+            }
+            return;
+        }
+        for item in items {
+            walk(item, from, to);
+        }
+    }
+    if from != to {
+        walk(&mut feature["geometry"]["coordinates"], from, to);
+    }
+    feature
 }
 
 fn feature_collection(features: Vec<Value>) -> String {
@@ -592,8 +748,8 @@ mod tests {
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
-            geosn_alkis::WFS_URL,
-            geosn_alkis::test_support::BUILDINGS.as_bytes().to_vec(),
+            alkis_wfs::GEOSN.url,
+            alkis_wfs::test_support::BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings(&fetcher, &lausitz).unwrap()).unwrap();
         let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
@@ -602,6 +758,64 @@ mod tests {
         assert!(
             oids[1..].iter().all(|oid| oid.starts_with("DESN")),
             "{oids:?}"
+        );
+    }
+
+    #[test]
+    fn border_features_are_reprojected_into_the_project_crs() {
+        // A vertex shared by the Brandenburg and Saxony-Anhalt boundaries (Altmark/Prignitz),
+        // mapped in zone 32 like Saxony-Anhalt.
+        let region_bbox = BoundingBox {
+            min_e: 271_597.0,
+            min_n: 5_881_373.0,
+            max_e: 272_197.0,
+            max_n: 5_881_973.0,
+        };
+        let area = FetchArea::new(region_bbox, crate::crs::Crs::Utm32);
+        assert!(
+            (area.bbox.min_e - 700_000.0).abs() < 50_000.0,
+            "{:?}",
+            area.bbox
+        );
+        let fetcher = MapFetcher::default();
+        let lgb = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Wohnhaus",
+            [271_800.0, 5_881_600.0, 10.0],
+        );
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
+        fetcher.insert_prefix(
+            alkis_wfs::LVERMGEO.url,
+            alkis_wfs::test_support::ST_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert_eq!(oids.len(), 4, "{oids:?}");
+        // The LGB corner (25833) now lies in zone 32; the LVermGeo ones are unchanged.
+        let corner = parsed.buildings[0].footprint.0[0].exterior().0[0];
+        let want = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: 271_800.0,
+                    northing: 5_881_600.0,
+                },
+            )
+            .unwrap();
+        assert!(
+            (corner.x - want.easting).abs() < 0.001 && (corner.y - want.northing).abs() < 0.001,
+            "{corner:?} vs {want:?}"
+        );
+        let latina = parsed.buildings[1].footprint.0[0].exterior().0[0];
+        assert!((700_000.0..710_000.0).contains(&latina.x), "{latina:?}");
+        // The zone-32 service was asked in zone 32.
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.starts_with(alkis_wfs::LVERMGEO.url) && u.contains("EPSG::25832"))
         );
     }
 

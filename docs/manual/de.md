@@ -51,7 +51,7 @@ Auf Wunsch erzeugt freemapper zusätzlich eine **druckfertige Trainingskarte als
   - Beim ersten Mal lädt freemapper den OSM-Auszug des Landes, für Brandenburg und Berlin etwa 300 MB,
     für Sachsen etwa 270 MB. Er wird für alle Projekte wiederverwendet.
   - Dazu kommen je Karte meist 10–100 MB.
-- Ein Gebiet in **Brandenburg, Berlin oder Sachsen**. Weitere Länder folgen.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen oder Sachsen-Anhalt**. Weitere Länder folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -260,6 +260,11 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Brandenburg | LGB | Luftbild, Gelände und nDOM in 1-km-Kacheln; das nDOM ist ein Laser-nDOM mit 20 cm Auflösung |
 | Berlin | LGB (Raster), Geoportal Berlin (ALKIS) | das nDOM wird aus dem Luftbild-Oberflächenmodell berechnet: etwas weicher, ohne dünne Objekte wie Laternen, dafür mit parkenden Autos |
 | Sachsen | GeoSN | Luftbild aus dem Kartendienst; das nDOM hat nur 1 m Auflösung, Hecken und schmale Mauern sind oft nur angedeutet; unterirdische Bauwerke sind nicht ausfilterbar |
+| Sachsen-Anhalt | LVermGeo | Die Karte liegt in UTM-Zone 32 (EPSG:25832), wie alle Daten des Landes; Luftbild aus dem Kartendienst, Gelände- und Oberflächenmodell mit 1 m; das nDOM ist wie in Sachsen grob |
+
+**Koordinatensystem:** Brandenburg, Berlin und Sachsen liefern in UTM-Zone 33, Sachsen-Anhalt in Zone 32.
+Jede Karte bekommt die Zone des Landes, in dem ihre Mitte liegt; OOM und OCAD zeigen sie in der
+Georeferenz an. Verschieben Sie ein Kartengebiet über die Zonengrenze, lädt freemapper alles neu.
 
 **An einer Landesgrenze** fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge.
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Reicht das Gebiet
@@ -282,7 +287,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
-| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin oder Sachsen. | Ein anderes Gebiet wählen; weitere Länder folgen. |
+| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen oder Sachsen-Anhalt. | Ein anderes Gebiet wählen; weitere Länder folgen. |
 | `map area plus buffer is … more than 4000 m per side` | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
 | `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, oder das Gebiet im Browser zeichnen. |
 | `MultiPolygon with … parts` | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |

@@ -34,7 +34,7 @@ struct Assets;
 /// Hosts can only be reached from this machine; the page tells the user so.
 const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \
      style-src 'self' 'unsafe-inline'; connect-src 'self'; \
-     img-src 'self' data: https://tile.openstreetmap.org https://isk.geobasis-bb.de https://geodienste.sachsen.de; \
+     img-src 'self' data: https://tile.openstreetmap.org https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de; \
      frame-ancestors 'none'";
 
 /// Settings for a project the page creates (an existing project keeps its own).
@@ -412,6 +412,7 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
         let area = area_of(&body)?;
         let dir = &state.dir;
         let created = !dir.join("freemapper.toml").exists();
+        let mut zone_changed = false;
         if created {
             let kind = match body["kind"].as_str() {
                 Some(kind) => parse_kind(kind)?,
@@ -429,11 +430,15 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
             let today = chrono::Local::now().date_naive();
             init_project(dir, &area, kind, scale, today, title).map_err(|e| e.to_string())?;
         } else {
-            set_map_area(dir, &area).map_err(|e| e.to_string())?;
+            let before = ProjectFile::load(dir).map_err(|e| e.to_string())?.crs();
+            let after = set_map_area(dir, &area).map_err(|e| e.to_string())?.crs();
+            zone_changed = before != after;
         }
         Ok(json!({
             "saved": true,
             "created": created,
+            // Everything fetched for the old area was in the other UTM zone and is dropped.
+            "zone_changed": zone_changed,
             "dir": dir,
             "has_map": map_path(dir).exists(),
         }))

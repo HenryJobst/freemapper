@@ -48,6 +48,33 @@ pub fn mosaic_dtm(tiles: &[FetchedTile], bbox: &BoundingBox) -> Result<Raster<f3
     mosaic.ok_or(DeriveError::NoTiles)
 }
 
+/// A Float32 GeoTIFF with its world file (`.tfw`) as a raster, `NaN` where it holds no data, like
+/// the LVermGeo height models freemapper stores per map area.
+pub fn read_float_raster(path: &Path) -> Result<Raster<f32>, DeriveError> {
+    let read = |p: &Path| std::fs::read(p).map_err(|e| DeriveError::Io(p.to_path_buf(), e));
+    let tiff_bytes = read(path)?;
+    let world = read(&path.with_extension("tfw"))?;
+    let tiff_error = |e: tiff::TiffError| DeriveError::Image(format!("{}: {e}", path.display()));
+    let mut decoder =
+        tiff::decoder::Decoder::new(std::io::Cursor::new(tiff_bytes)).map_err(tiff_error)?;
+    let (width, height) = decoder.dimensions().map_err(tiff_error)?;
+    let tiff::decoder::DecodingResult::F32(values) = decoder.read_image().map_err(tiff_error)?
+    else {
+        return Err(DeriveError::Image(format!(
+            "{}: not 32-bit float",
+            path.display()
+        )));
+    };
+    let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
+    Ok(Raster {
+        grid,
+        data: values
+            .into_iter()
+            .map(|z| if z < NODATA_BELOW { f32::NAN } else { z })
+            .collect(),
+    })
+}
+
 /// Height gradient (dz/de, dz/dn) at a cell after Horn, with edge cells replicated and the
 /// spacing reduced accordingly; `None` if a height in the 3 × 3 window is missing.
 fn gradient(dtm: &Raster<f32>, x: u32, y: u32) -> Option<(f64, f64)> {

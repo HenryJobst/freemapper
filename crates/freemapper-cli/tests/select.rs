@@ -247,6 +247,18 @@ fn save_changes_an_existing_area() {
     let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(text.contains("13.846") && text.contains("Schule"), "{text}");
     assert!(!text.contains("way/992423119"), "{text}");
+    assert_eq!(saved["zone_changed"], false);
+    // Halle, Saxony-Anhalt: the map moves to UTM zone 32.
+    let (status, saved) =
+        selector.post("api/save", json!({ "area": rectangle_at(11.971, 51.478) }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(saved["zone_changed"], true, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("crs = 25832"), "{text}");
+}
+
+fn rectangle_at(lon: f64, lat: f64) -> Value {
+    rectangle(lon, lat)
 }
 
 #[test]

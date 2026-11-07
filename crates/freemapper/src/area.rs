@@ -1,6 +1,6 @@
 //! Map area: the polygon a map is generated for.
 
-use crate::crs::{BoundingBox, LatLon, utm33_forward};
+use crate::crs::{BoundingBox, Crs, LatLon};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AreaError {
@@ -121,9 +121,14 @@ impl MapArea {
 
     /// The polygon in EPSG:25833.
     pub fn projected_polygon(&self) -> geo_types::Polygon<f64> {
+        self.projected_polygon_in(Crs::Utm33)
+    }
+
+    /// The polygon in `crs`.
+    pub fn projected_polygon_in(&self, crs: Crs) -> geo_types::Polygon<f64> {
         use geo::MapCoords as _;
         self.polygon.map_coords(|c| {
-            let p = utm33_forward(LatLon { lat: c.y, lon: c.x });
+            let p = crs.forward(LatLon { lat: c.y, lon: c.x });
             geo_types::coord! { x: p.easting, y: p.northing }
         })
     }
@@ -148,11 +153,16 @@ impl MapArea {
 
     /// Bounding box of the exterior ring in EPSG:25833.
     pub fn projected_bbox(&self) -> BoundingBox {
+        self.projected_bbox_in(Crs::Utm33)
+    }
+
+    /// Bounds of the polygon in `crs`.
+    pub fn projected_bbox_in(&self, crs: Crs) -> BoundingBox {
         let mut points = self
             .polygon
             .exterior()
             .coords()
-            .map(|c| utm33_forward(LatLon { lat: c.y, lon: c.x }));
+            .map(|c| crs.forward(LatLon { lat: c.y, lon: c.x }));
         let first = points.next().expect("map area polygon is not empty");
         points.fold(
             BoundingBox {

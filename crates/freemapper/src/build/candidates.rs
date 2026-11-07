@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
 
-use crate::crs::{LatLon, ProjectedPoint, utm33_forward};
+use crate::crs::{LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
@@ -270,12 +270,10 @@ pub fn osm_objects(
     currency: NaiveDate,
 ) -> Result<Vec<MapObject>, GeorefError> {
     let projected = |p: &LatLon| {
-        let q = utm33_forward(*p);
+        let q = georef.crs().forward(*p);
         geo_types::coord! { x: q.easting, y: q.northing }
     };
-    let to_map = |p: &LatLon| -> Result<MapCoord, GeorefError> {
-        georef.projected_to_map(utm33_forward(*p))
-    };
+    let to_map = |p: &LatLon| -> Result<MapCoord, GeorefError> { georef.geographic_to_map(*p) };
     // Lines are clipped to the map area's bounding box plus buffer, like the land use objects, so
     // they never reach into the peripheral information.
     let clip = map_area.bounding_rect().map(|r| {

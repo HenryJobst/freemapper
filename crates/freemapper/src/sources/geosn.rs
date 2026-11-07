@@ -7,21 +7,24 @@ use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, Fetcher, get_with_retries, write_atomically};
+use crate::crs::Crs;
+use crate::fetch::{FetchError, Fetcher};
 use crate::raster::GridSpec;
 use crate::sources::lgb::Product;
+use crate::sources::wms::{self, WmsService};
 use crate::tiles::TileId;
 
 /// The orthophoto WMS (DOP20 RGB, released flights), and its layers.
 pub const WMS_URL: &str = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest";
 const WMS_LAYER: &str = "sn_dop_020";
+/// The orthophoto WMS of GeoSN (EPSG:25833).
+pub const WMS: WmsService = WmsService {
+    url: WMS_URL,
+    layer: WMS_LAYER,
+    crs: Crs::Utm33,
+};
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";
-/// Pixel size of the orthophoto template, as DOP20.
-pub const ORTHOPHOTO_PIXEL_M: f64 = 0.2;
-/// Largest side of one WMS request; the server allows 4096.
-const WMS_MAX_PX: u32 = 4000;
-/// JPEG quality of the stitched orthophoto.
-const JPEG_QUALITY: u8 = 90;
+pub use crate::sources::wms::ORTHOPHOTO_PIXEL_M;
 
 /// The ArcGIS tile index with one layer per product (`Kachel`, `Download`, `Stand`).
 pub const INDEX_URL: &str = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer";
@@ -96,95 +99,23 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexRow>, String> {
         .collect())
 }
 
-/// The GetMap requests covering `grid`: pieces of at most [`WMS_MAX_PX`] per side, each with its
-/// own grid inside `grid`.
+/// The GetMap requests covering `grid`; see [`wms::pieces`].
 pub fn wms_requests(grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    let starts = |len: u32| (0..len.div_ceil(WMS_MAX_PX)).map(|i| i * WMS_MAX_PX);
-    let mut pieces = Vec::new();
-    for x0 in starts(grid.width) {
-        for y0 in starts(grid.height) {
-            let piece = GridSpec {
-                west: mm(grid.west + f64::from(x0) * grid.pixel_size),
-                north: mm(grid.north - f64::from(y0) * grid.pixel_size),
-                pixel_size: grid.pixel_size,
-                width: WMS_MAX_PX.min(grid.width - x0),
-                height: WMS_MAX_PX.min(grid.height - y0),
-            };
-            let b = piece.bounds();
-            let url = format!(
-                "{WMS_URL}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={WMS_LAYER}&STYLES=\
-                 &CRS=EPSG:25833&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg",
-                mm(b.min_e),
-                mm(b.min_n),
-                mm(b.max_e),
-                mm(b.max_n),
-                piece.width,
-                piece.height
-            );
-            pieces.push((piece, url));
-        }
-    }
-    pieces
+    wms::pieces(&WMS, grid)
 }
 
-/// `v` rounded to millimetres, so that sums of 0.2 m pixels print without float noise.
-fn mm(v: f64) -> f64 {
-    (v * 1000.0).round() / 1000.0
-}
-
-/// Downloads the orthophoto over `bbox` at 0.2 m from the WMS, stitched, as `out` (JPEG) with its
-/// world file (`.jgw`), on the template grid of `bbox`.
+/// Downloads the orthophoto over `bbox` from the GeoSN WMS; see [`wms::fetch_orthophoto`].
 pub fn fetch_orthophoto(
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     out: &Path,
 ) -> Result<(), FetchError> {
-    let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
-    let mut mosaic = image::RgbImage::new(grid.width, grid.height);
-    for (piece, url) in wms_requests(&grid) {
-        let image = get_with_retries(fetcher, &url, |bytes| {
-            let refused = |message: String| FetchError::Http {
-                url: url.clone(),
-                message,
-            };
-            let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
-                .map_err(|e| {
-                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
-                    refused(format!("not a JPEG ({e}): {start}"))
-                })?
-                .into_rgb8();
-            if (image.width(), image.height()) != (piece.width, piece.height) {
-                return Err(refused(format!(
-                    "{} × {} pixels instead of {} × {}",
-                    image.width(),
-                    image.height(),
-                    piece.width,
-                    piece.height
-                )));
-            }
-            Ok(image)
-        })?;
-        let (x0, y0) = (
-            ((piece.west - grid.west) / grid.pixel_size).round() as i64,
-            ((grid.north - piece.north) / grid.pixel_size).round() as i64,
-        );
-        image::imageops::replace(&mut mosaic, &image, x0, y0);
-    }
-    let mut jpeg = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, JPEG_QUALITY)
-        .encode(
-            mosaic.as_raw(),
-            mosaic.width(),
-            mosaic.height(),
-            image::ExtendedColorType::Rgb8,
-        )
-        .map_err(|e| FetchError::Http {
-            url: WMS_URL.to_string(),
-            message: e.to_string(),
-        })?;
-    write_atomically(out, &jpeg)?;
-    write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
-    Ok(())
+    wms::fetch_orthophoto(fetcher, &WMS, bbox, out)
+}
+
+/// `v` rounded to millimetres.
+fn mm(v: f64) -> f64 {
+    wms::mm(v)
 }
 
 /// The flight date at the centre of `bbox` from the info layer; `None` when the server does not

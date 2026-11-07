@@ -238,3 +238,15 @@ fn text_object_escapes_content() {
     );
     parses(&xml);
 }
+
+#[test]
+fn georef_writes_the_project_epsg() {
+    let mut zone32 = doc("", Vec::new());
+    zone32.georef.epsg = 25832;
+    let xml = render(&zone32, XmlFormat::Pretty);
+    assert!(
+        xml.contains("<parameter>25832</parameter>") && xml.contains("+init=epsg:25832"),
+        "{xml}"
+    );
+    parses(&xml);
+}

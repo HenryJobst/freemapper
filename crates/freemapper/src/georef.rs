@@ -5,9 +5,7 @@ use chrono::NaiveDate;
 
 use chrono::Datelike;
 
-use crate::crs::{
-    EPSG_UTM33, LatLon, ProjectedPoint, grid_convergence_deg, point_scale_factor, utm33_forward,
-};
+use crate::crs::{Crs, LatLon, ProjectedPoint};
 use crate::omap::MapCoord;
 
 #[derive(Debug, thiserror::Error)]
@@ -70,15 +68,35 @@ impl Georeferencing {
         scale_denominator: u32,
         declination_date: NaiveDate,
     ) -> Result<Self, GeorefError> {
+        Self::new_in(Crs::Utm33, ref_point, scale_denominator, declination_date)
+    }
+
+    /// Georeferencing in `crs` with the map reference point at `ref_point`.
+    pub fn new_in(
+        crs: Crs,
+        ref_point: LatLon,
+        scale_denominator: u32,
+        declination_date: NaiveDate,
+    ) -> Result<Self, GeorefError> {
         Ok(Self {
             scale_denominator,
-            epsg: EPSG_UTM33,
+            epsg: crs.epsg(),
             ref_geographic: ref_point,
-            ref_projected: utm33_forward(ref_point),
+            ref_projected: crs.forward(ref_point),
             declination_deg: round_angle(magnetic_declination_deg(ref_point, declination_date)?),
-            convergence_deg: grid_convergence_deg(ref_point),
-            grid_scale_factor: round_scale_factor(point_scale_factor(ref_point)),
+            convergence_deg: crs.convergence_deg(ref_point),
+            grid_scale_factor: round_scale_factor(crs.scale_factor(ref_point)),
         })
+    }
+
+    /// The projected CRS of the map (EPSG:25833 for an unknown code).
+    pub fn crs(&self) -> Crs {
+        Crs::from_epsg(self.epsg).unwrap_or(Crs::Utm33)
+    }
+
+    /// Map coordinates of a geographic position.
+    pub fn geographic_to_map(&self, p: LatLon) -> Result<MapCoord, GeorefError> {
+        self.projected_to_map(self.crs().forward(p))
     }
 
     /// Angle from grid north to magnetic north in degrees.
@@ -139,6 +157,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn georef_in_zone_32() {
+        let halle = LatLon {
+            lat: 51.4795,
+            lon: 11.9733,
+        };
+        let g = Georeferencing::new_in(Crs::Utm32, halle, 1000, date()).unwrap();
+        assert_eq!(g.epsg, 25832);
+        assert_eq!(g.crs(), Crs::Utm32);
+        assert!(
+            (g.convergence_deg - 2.33).abs() < 0.02,
+            "{}",
+            g.convergence_deg
+        );
+        assert_eq!(g.ref_projected, Crs::Utm32.forward(halle));
+        let corner = g.geographic_to_map(halle).unwrap();
+        assert_eq!((corner.x, corner.y), (0, 0));
+        assert_eq!(
+            Georeferencing::new(halle, 1000, date()).unwrap().crs(),
+            Crs::Utm33
+        );
+    }
+
     fn manual(
         declination_deg: f64,
         convergence_deg: f64,
@@ -146,7 +187,7 @@ mod tests {
     ) -> Georeferencing {
         Georeferencing {
             scale_denominator: 1000,
-            epsg: EPSG_UTM33,
+            epsg: crate::crs::EPSG_UTM33,
             ref_geographic: school(),
             ref_projected: ProjectedPoint {
                 easting: 421_600.0,
@@ -174,7 +215,7 @@ mod tests {
     #[test]
     fn new_computes_consistent_values() {
         let g = Georeferencing::new(school(), 1000, date()).unwrap();
-        assert_eq!(g.epsg, EPSG_UTM33);
+        assert_eq!(g.epsg, crate::crs::EPSG_UTM33);
         assert!(
             (g.convergence_deg + 0.9175).abs() < 0.001,
             "{}",

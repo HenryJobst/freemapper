@@ -1,0 +1,3 @@
+{"type":"FeatureCollection","crs":{"type":"name","properties":{"name":"EPSG:4326"}},"features":[
+{"type":"Feature","geometry":{"type":"MultiPolygon","coordinates":[[[[11.96594921,51.46761437],[11.99470275,51.46688294],[11.99588003,51.48484188],[11.96711522,51.48557377],[11.96594921,51.46761437]]]]},"properties":{"GmlID":"truedop_kacheln.5000","OBJECTID":5000,"NAME":"327065706","LOSNR":8226,"BFLOS":"Halle","BFDATUM":"29.04.2026"}}
+]}

@@ -4,7 +4,7 @@ use geo::Intersects as _;
 use geo_types::LineString;
 
 use crate::build::out_of_bounds::{LandClip, clipped_part_objects};
-use crate::crs::{BoundingBox, utm33_forward};
+use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::sources::alkis::LandUse;
@@ -42,8 +42,8 @@ const UNPAVED: [&str; 10] = [
     "woodchips",
 ];
 
-/// The unpaved OSM streets among `features`, in EPSG:25833.
-pub fn unpaved_streets(features: &[OsmFeature]) -> Vec<LineString<f64>> {
+/// The unpaved OSM streets among `features`, in `crs`.
+pub fn unpaved_streets(features: &[OsmFeature], crs: Crs) -> Vec<LineString<f64>> {
     let tag = |f: &OsmFeature, key: &str| {
         f.tags
             .iter()
@@ -61,7 +61,7 @@ pub fn unpaved_streets(features: &[OsmFeature]) -> Vec<LineString<f64>> {
                 points
                     .iter()
                     .map(|p| {
-                        let q = utm33_forward(*p);
+                        let q = crs.forward(*p);
                         (q.easting, q.northing)
                     })
                     .collect::<Vec<_>>(),
@@ -81,7 +81,7 @@ pub struct PavedObjects {
 }
 
 /// 501.5 objects for the traffic areas of `land_use`, clipped to `clip` (map area plus buffer,
-/// EPSG:25833). A street parcel crossed by one of `unpaved_streets` (EPSG:25833) is a candidate.
+/// the map's CRS). A street parcel crossed by one of `unpaved_streets` (same CRS) is a candidate.
 pub fn paved_area_objects(
     land_use: &[LandUse],
     unpaved_streets: &[LineString<f64>],
@@ -298,13 +298,16 @@ mod tests {
             ],
             geometry: OsmGeometry::Line(vec![point(52.538, 13.844), point(52.539, 13.845)]),
         };
-        let streets = unpaved_streets(&[
-            way("way/1", "residential", "sand"),
-            way("way/2", "residential", "asphalt"),
-            way("way/3", "path", "sand"),
-        ]);
+        let streets = unpaved_streets(
+            &[
+                way("way/1", "residential", "sand"),
+                way("way/2", "residential", "asphalt"),
+                way("way/3", "path", "sand"),
+            ],
+            Crs::Utm33,
+        );
         assert_eq!(streets.len(), 1);
-        let start = utm33_forward(point(52.538, 13.844));
+        let start = Crs::Utm33.forward(point(52.538, 13.844));
         assert_eq!(streets[0].0[0].x, start.easting);
     }
 

@@ -396,6 +396,15 @@ fn background_string(
     }
 }
 
+/// OCAD's grid and zone code (`grid × 1000 + zone`, grid 8 = ETRS89/UTM, Germany), as in OOM's
+/// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008.
+fn ocad_grid_code(crs: crate::crs::Crs) -> u32 {
+    match crs {
+        crate::crs::Crs::Utm32 => 8007,
+        crate::crs::Crs::Utm33 => 8008,
+    }
+}
+
 /// The OCAD 12 file of `doc`, with `backgrounds` next to it.
 pub fn map_to_ocd(
     doc: &MapDocument,
@@ -413,10 +422,11 @@ pub fn map_to_ocd(
     builder.add_string(
         1039,
         &format!(
-            "\tm{scale:.0}\tg{:.4}\tr1\tx{:.0}\ty{:.0}\ta{grivation:.8}\td{GRID_M:.6}\ti8008\tb0.00\tc0.00",
+            "\tm{scale:.0}\tg{:.4}\tr1\tx{:.0}\ty{:.0}\ta{grivation:.8}\td{GRID_M:.6}\ti{}\tb0.00\tc0.00",
             GRID_M * 1000.0 / scale,
             ocad.x0,
-            ocad.y0
+            ocad.y0,
+            ocad_grid_code(georef.crs())
         ),
     );
     for colour in colours(&doc.symbol_set) {
@@ -584,6 +594,12 @@ mod tests {
             "{scale_par}"
         );
         assert!(scale_par.contains("\ti8008\t"), "{scale_par}");
+    }
+
+    #[test]
+    fn ocad_grid_code_follows_the_zone() {
+        assert_eq!(ocad_grid_code(crate::crs::Crs::Utm33), 8008);
+        assert_eq!(ocad_grid_code(crate::crs::Crs::Utm32), 8007);
     }
 
     #[test]
