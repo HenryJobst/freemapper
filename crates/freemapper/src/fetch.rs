@@ -707,6 +707,37 @@ pub(crate) mod test_support {
         );
     }
 
+    /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
+    pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ndsm.laz");
+        let mut builder = las::Builder::from((1, 2));
+        let transform = |offset| las::Transform {
+            scale: 0.01,
+            offset,
+        };
+        builder.transforms = las::Vector {
+            x: transform(400_000.0),
+            y: transform(5_800_000.0),
+            z: transform(0.0),
+        };
+        let mut writer = las::Writer::from_path(&path, builder.into_header().unwrap()).unwrap();
+        for i in 0..500 {
+            writer
+                .write_point(las::Point {
+                    x: 421_610.1,
+                    y: 5_821_650.1 + f64::from(i) * 0.2,
+                    z: 2.0,
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        writer.close().unwrap();
+        let url = crate::sources::lgb::ndsm_tile_url(tile);
+        fetcher.insert(&url, std::fs::read(&path).unwrap());
+        fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+    }
+
     /// The OSM extract fixture cut around the school.
     pub const OSM_FIXTURE: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
