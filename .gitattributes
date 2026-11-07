@@ -4,3 +4,4 @@
 *.jpg binary
 *.zip binary
 *.tif binary
+crates/freemapper-cli/web/vendor/** -diff linguist-vendored

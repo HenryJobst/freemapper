@@ -14,7 +14,14 @@ pub enum AreaError {
     OutOfRange { lat: f64, lon: f64 },
     #[error("{0}")]
     Place(String),
+    #[error("not a usable map area: {0}")]
+    NotAnArea(String),
 }
+
+/// Most corners of a map area outline that is checked for crossing edges.
+pub const MAX_CORNERS: usize = 5000;
+/// Smallest area / perimeter² of a usable map area.
+const MIN_ROUNDNESS: f64 = 1e-4;
 
 /// Metres per degree of latitude (and of longitude on the equator), close enough for a filter box.
 const METRES_PER_DEGREE: f64 = 111_320.0;
@@ -85,6 +92,31 @@ impl MapArea {
             }
         }
         Ok(Self { polygon, source_id })
+    }
+
+    /// Checks that a drawn polygon encloses an area: at least three corners, no crossing edges,
+    /// at most [`MAX_CORNERS`] corners (the crossing check takes quadratic time).
+    pub fn validate(&self) -> Result<(), AreaError> {
+        use geo::{Area as _, Euclidean, Length as _, Validation as _};
+        let corners = self.polygon.exterior().0.len().saturating_sub(1);
+        if corners > MAX_CORNERS {
+            return Err(AreaError::NotAnArea(format!(
+                "{corners} corners, at most {MAX_CORNERS}; simplify the outline"
+            )));
+        }
+        let polygon = self.projected_polygon();
+        // Corners on one line enclose (almost) nothing: area against perimeter², 1/(4π) for a
+        // circle, 1/16 for a square, still 0.0025 for a 10 m × 1 km corridor.
+        let perimeter = Euclidean.length(polygon.exterior());
+        if polygon.unsigned_area() <= MIN_ROUNDNESS * perimeter * perimeter {
+            return Err(AreaError::NotAnArea(
+                "it has no area: draw at least three corners, with edges that do not cross"
+                    .to_string(),
+            ));
+        }
+        polygon
+            .check_validation()
+            .map_err(|e| AreaError::NotAnArea(format!("{e}; edges must not cross")))
     }
 
     /// The polygon in EPSG:25833.
@@ -167,6 +199,58 @@ mod tests {
     use super::*;
 
     const FIXTURE: &str = include_str!("../../../tests/fixtures/clara-zetkin-schule.geojson");
+
+    #[test]
+    fn validate_refuses_too_many_corners_quickly() {
+        let corners: Vec<String> = (0..=MAX_CORNERS + 1)
+            .map(|i| {
+                let a = i as f64 / (MAX_CORNERS + 1) as f64 * std::f64::consts::TAU;
+                format!("[{},{}]", 13.84 + 0.002 * a.cos(), 52.54 + 0.001 * a.sin())
+            })
+            .collect();
+        let text = format!(
+            r#"{{"type":"Polygon","coordinates":[[{},{}]]}}"#,
+            corners.join(","),
+            corners[0]
+        );
+        let start = std::time::Instant::now();
+        let err = MapArea::from_geojson(&text)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+        assert!(err.to_string().contains("corners"), "{err}");
+        assert!(start.elapsed() < std::time::Duration::from_secs(1));
+    }
+
+    #[test]
+    fn crossing_edges_are_named() {
+        let bowtie = r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]]}"#;
+        let err = MapArea::from_geojson(bowtie)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+        assert!(err.to_string().contains("cross"), "{err}");
+    }
+
+    #[test]
+    fn validate_rejects_degenerate_and_crossing() {
+        assert!(MapArea::from_geojson(FIXTURE).unwrap().validate().is_ok());
+        for coordinates in [
+            "[[13.84,52.53],[13.85,52.54],[13.84,52.53]]",
+            "[[13.84,52.53],[13.85,52.54],[13.86,52.55],[13.84,52.53]]",
+            "[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]",
+        ] {
+            let text = format!(r#"{{"type":"Polygon","coordinates":[{coordinates}]}}"#);
+            let err = MapArea::from_geojson(&text)
+                .unwrap()
+                .validate()
+                .unwrap_err();
+            assert!(
+                matches!(err, AreaError::NotAnArea(_)),
+                "{coordinates}: {err:?}"
+            );
+        }
+    }
 
     fn geometry(json: &str) -> Result<MapArea, AreaError> {
         MapArea::from_geojson(json)

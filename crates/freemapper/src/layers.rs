@@ -5,14 +5,16 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 
+use crate::area::MapArea;
+use crate::crs::{LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area_size, map_path,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date};
-use crate::tiles::tiles_covering;
+use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
 const DOP_TILE_MB: f64 = 8.0;
@@ -46,10 +48,24 @@ pub fn estimate_download(
 ) -> Result<DownloadEstimate, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let bbox = project.bbox()?;
-    check_area_size(&bbox)?;
-    let tiles = tiles_covering(&bbox);
+    check_area(&bbox)?;
+    let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
+    Ok(estimate_tiles(
+        &tiles_covering(&bbox),
+        cache,
+        today,
+        alkis_cached,
+    ))
+}
+
+fn estimate_tiles(
+    tiles: &[TileId],
+    cache: &Cache,
+    today: NaiveDate,
+    alkis_cached: bool,
+) -> DownloadEstimate {
     let mut items = Vec::new();
-    for &tile in &tiles {
+    for &tile in tiles {
         for (product, mb) in [
             (Product::Orthophoto, DOP_TILE_MB),
             (Product::Dtm, DGM_TILE_MB),
@@ -75,18 +91,87 @@ pub fn estimate_download(
     items.push(EstimateItem {
         what: "ALKIS buildings and land use".to_string(),
         megabytes: ALKIS_MB,
-        cached: dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists(),
+        cached: alkis_cached,
     });
     let total_megabytes = items
         .iter()
         .filter(|i| !i.cached)
         .map(|i| i.megabytes)
         .sum();
-    Ok(DownloadEstimate {
+    DownloadEstimate {
         tiles: tiles.iter().map(|t| t.name()).collect(),
         items,
         total_megabytes,
-    })
+    }
+}
+
+/// An LGB tile as drawn on a web map: corners south-west, south-east, north-east, north-west.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TileOutline {
+    pub name: String,
+    pub corners: [LatLon; 4],
+}
+
+/// What an area that is not saved yet would mean: its tiles, size and download.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AreaPreview {
+    /// Tiles covering the area plus buffer; empty when the area is too large or outside.
+    pub tiles: Vec<TileOutline>,
+    /// Size of the area plus buffer in metres.
+    pub width_m: f64,
+    pub height_m: f64,
+    pub too_large: bool,
+    /// The area lies outside the LGB data (Brandenburg and Berlin).
+    pub outside_coverage: bool,
+    /// Empty when the area is too large or outside the LGB data.
+    pub estimate: DownloadEstimate,
+}
+
+/// The preview of `area` with `buffer_m` around it; ALKIS data counts as not downloaded yet.
+pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDate) -> AreaPreview {
+    let bbox = area.projected_bbox().buffered(buffer_m);
+    let check = check_area(&bbox);
+    let outside_coverage = matches!(check, Err(ProjectError::OutsideCoverage));
+    let too_large = matches!(check, Err(ProjectError::AreaTooLarge { .. }));
+    let usable = check.is_ok();
+    let tiles = if usable {
+        tiles_covering(&bbox)
+    } else {
+        Vec::new()
+    };
+    let outlines = tiles
+        .iter()
+        .filter_map(|tile| {
+            let b = tile.bounds();
+            let corner = |easting, northing| utm33_inverse(ProjectedPoint { easting, northing });
+            Some(TileOutline {
+                name: tile.name(),
+                corners: [
+                    corner(b.min_e, b.min_n)?,
+                    corner(b.max_e, b.min_n)?,
+                    corner(b.max_e, b.max_n)?,
+                    corner(b.min_e, b.max_n)?,
+                ],
+            })
+        })
+        .collect();
+    let estimate = if !usable {
+        DownloadEstimate {
+            tiles: Vec::new(),
+            items: Vec::new(),
+            total_megabytes: 0.0,
+        }
+    } else {
+        estimate_tiles(&tiles, cache, today, false)
+    };
+    AreaPreview {
+        tiles: outlines,
+        width_m: bbox.width(),
+        height_m: bbox.height(),
+        too_large,
+        outside_coverage,
+        estimate,
+    }
 }
 
 /// What a layer is for the mapper.
@@ -235,6 +320,71 @@ mod tests {
 
     fn today() -> NaiveDate {
         "2026-11-07".parse().unwrap()
+    }
+
+    fn fixture_area(name: &str) -> crate::area::MapArea {
+        let path = format!("{}/../../tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+        crate::area::MapArea::from_geojson(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn preview_lists_tile_outlines() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let area = fixture_area("clara-zetkin-schule.geojson");
+        let preview = preview_area(&area, 20.0, &cache, today());
+        assert!(!preview.too_large);
+        assert_eq!(preview.estimate.tiles, ["33421-5821"]);
+        assert_eq!(preview.tiles.len(), 1);
+        assert_eq!(preview.tiles[0].name, "33421-5821");
+        let sw = crate::crs::utm33_forward(preview.tiles[0].corners[0]);
+        assert!(
+            (sw.easting - 421_000.0).abs() < 0.01 && (sw.northing - 5_821_000.0).abs() < 0.01,
+            "{sw:?}"
+        );
+        let ne = crate::crs::utm33_forward(preview.tiles[0].corners[2]);
+        assert!((ne.easting - 422_000.0).abs() < 0.01, "{ne:?}");
+        assert!(
+            preview.width_m > 100.0 && preview.width_m < 400.0,
+            "{}",
+            preview.width_m
+        );
+        assert!(preview.estimate.total_megabytes > 300.0);
+    }
+
+    #[test]
+    fn preview_flags_outside_coverage() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        for (lon, lat) in [(11.57, 48.13), (151.2, -33.87), (-170.0, 52.5), (3.0, 52.5)] {
+            let text = format!(
+                r#"{{"type":"Polygon","coordinates":[[[{lon},{lat}],[{},{lat}],[{},{}],[{lon},{}],[{lon},{lat}]]]}}"#,
+                lon + 0.005,
+                lon + 0.005,
+                lat + 0.005,
+                lat + 0.005
+            );
+            let area = crate::area::MapArea::from_geojson(&text).unwrap();
+            let preview = preview_area(&area, 20.0, &cache, today());
+            assert!(preview.outside_coverage, "{lon} {lat}");
+            assert!(preview.tiles.is_empty() && preview.estimate.items.is_empty());
+        }
+        let school = fixture_area("clara-zetkin-schule.geojson");
+        assert!(!preview_area(&school, 20.0, &cache, today()).outside_coverage);
+    }
+
+    #[test]
+    fn preview_flags_too_large() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let area = crate::area::MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.7,52.5],[13.9,52.5],[13.9,52.6],[13.7,52.6],[13.7,52.5]]]}"#,
+        )
+        .unwrap();
+        let preview = preview_area(&area, 50.0, &cache, today());
+        assert!(preview.too_large);
+        assert!(preview.tiles.is_empty() && preview.estimate.items.is_empty());
+        assert!(preview.width_m > 10_000.0);
     }
 
     #[test]

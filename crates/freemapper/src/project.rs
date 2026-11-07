@@ -88,6 +88,10 @@ pub enum ProjectError {
         "map area plus buffer is {width_m:.0} × {height_m:.0} m, more than {MAX_AREA_SIDE_M:.0} m per side; reduce the map area or buffer_m in freemapper.toml"
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
+    #[error(
+        "the map area lies outside the LGB data (Brandenburg and Berlin); freemapper has data sources for that region only so far"
+    )]
+    OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
 }
@@ -285,7 +289,7 @@ impl ProjectFile {
     pub fn save(&self, dir: &Path) -> Result<(), ProjectError> {
         let path = dir.join(PROJECT_FILE_NAME);
         let text = toml::to_string(self).map_err(|e| ProjectError::Toml(e.to_string()))?;
-        std::fs::write(&path, text).map_err(|e| ProjectError::Io(path, e))
+        Ok(write_atomically(&path, text.as_bytes())?)
     }
 }
 
@@ -307,6 +311,7 @@ pub fn init_project(
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
     }
+    check_area(&area.projected_bbox().buffered(map_kind.default_buffer_m()))?;
     std::fs::create_dir_all(dir).map_err(|e| ProjectError::Io(dir.to_path_buf(), e))?;
     let project = ProjectFile {
         map_kind,
@@ -332,7 +337,7 @@ use crate::fetch::tile_names;
 const STALE_TEMPLATE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// Largest side of map area plus buffer: [`MAX_RASTER_SIDE_PX`] orthophoto pixels of 0.2 m.
-const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
+pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
 
 /// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
@@ -354,8 +359,35 @@ const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
-/// Refuses a map area plus buffer larger than the templates can cover.
-pub(crate) fn check_area_size(bbox: &BoundingBox) -> Result<(), ProjectError> {
+/// Sets the map area of the project in `dir` (from the area selection page), keeping every other
+/// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
+pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
+    let mut project = ProjectFile::load(dir)?;
+    project.map_area = area.to_geojson_value();
+    project.map_area_source_id = area.source_id.clone();
+    check_area(&project.bbox()?)?;
+    project.save(dir)?;
+    Ok(project)
+}
+
+/// The LGB tile range in EPSG:25833 (Brandenburg and Berlin with a margin).
+const LGB_COVERAGE: BoundingBox = BoundingBox {
+    min_e: 250_000.0,
+    min_n: 5_650_000.0,
+    max_e: 500_000.0,
+    max_n: 6_000_000.0,
+};
+
+/// Refuses a map area plus buffer outside the LGB data or larger than the templates can cover.
+pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
+    // Written so that NaN coordinates count as outside.
+    let inside = bbox.min_e >= LGB_COVERAGE.min_e
+        && bbox.min_n >= LGB_COVERAGE.min_n
+        && bbox.max_e <= LGB_COVERAGE.max_e
+        && bbox.max_n <= LGB_COVERAGE.max_n;
+    if !inside {
+        return Err(ProjectError::OutsideCoverage);
+    }
     if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
         return Err(ProjectError::AreaTooLarge {
             width_m: bbox.width(),
@@ -376,7 +408,7 @@ pub fn fetch_project(
 ) -> Result<ProjectFile, ProjectError> {
     let mut project = ProjectFile::load(dir)?;
     let bbox = project.bbox()?;
-    check_area_size(&bbox)?;
+    check_area(&bbox)?;
     let tiles = tiles_covering(&bbox);
     let mut records = Vec::new();
     for product in PRODUCTS {
@@ -849,7 +881,7 @@ fn clean_title(title: &str) -> Option<String> {
 pub enum MapOutcome {
     Written(PathBuf),
     /// The map existed and `force` was not set, so it was left alone; the templates it
-    /// references by path were refreshed.
+    /// references by path (images and candidates) were refreshed.
     Kept {
         map: PathBuf,
         references_images: bool,
@@ -880,6 +912,7 @@ pub fn run_project(
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
+        write_starter_project(dir, None)?;
         MapOutcome::Kept {
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
@@ -1128,6 +1161,13 @@ const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"#;
 /// An existing map file may already contain the mapper's work: it is only replaced when
 /// `force` is set, and then kept as `<name>.omap.bak`.
 pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, ProjectError> {
+    write_starter_project(dir, Some(force))
+}
+
+/// Writes the candidates template map and the attribution, and the map unless `map_force` is
+/// `None` (the map is kept: it may contain the mapper's work). Candidates are a template that
+/// always follows the current map area.
+fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
     let georef = Georeferencing::new(
@@ -1252,7 +1292,9 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     };
 
     let map_path = map_path(dir);
-    if map_path.exists() {
+    if let Some(force) = map_force
+        && map_path.exists()
+    {
         if !force {
             return Err(ProjectError::MapExists(map_path));
         }
@@ -1260,7 +1302,9 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
         std::fs::copy(&map_path, &backup).map_err(|e| ProjectError::Io(backup, e))?;
     }
     write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
-    write_document(&map, &map_path)?;
+    if map_force.is_some() {
+        write_document(&map, &map_path)?;
+    }
     let attribution = dir.join("ATTRIBUTION.txt");
     std::fs::write(
         &attribution,
@@ -1343,6 +1387,86 @@ fn write_document(doc: &MapDocument, path: &Path) -> Result<(), ProjectError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn set_map_area_keeps_the_rest() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            date,
+            Some("Vorstadt".into()),
+        )
+        .unwrap();
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/strausberg-vorstadt-sprint.geojson"
+        ))
+        .unwrap();
+        let area = MapArea::from_geojson(&text).unwrap();
+        let project = set_map_area(dir.path(), &area).unwrap();
+        let loaded = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project, loaded);
+        assert_eq!(loaded.map_area, area.to_geojson_value());
+        assert_eq!(loaded.map_area_source_id, None);
+        assert_eq!(loaded.title.as_deref(), Some("Vorstadt"));
+        assert_eq!(loaded.map_kind, MapKind::Sprint);
+        assert_eq!(loaded.declination_date, date);
+    }
+
+    #[test]
+    fn init_refuses_too_large_area() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("huge");
+        let huge = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.7,52.5],[13.9,52.5],[13.9,52.6],[13.7,52.6],[13.7,52.5]]]}"#,
+        )
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let err = init_project(&project, &huge, MapKind::Sprint, None, date, None).unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+        assert!(!project.exists());
+    }
+
+    #[test]
+    fn init_refuses_area_outside_lgb_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("munich");
+        let munich = MapArea::from_geojson(r#"{"type":"Polygon","coordinates":[[[11.57,48.13],[11.58,48.13],[11.58,48.14],[11.57,48.14],[11.57,48.13]]]}"#).unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let err = init_project(&project, &munich, MapKind::Sprint, None, date, None).unwrap_err();
+        assert!(matches!(err, ProjectError::OutsideCoverage), "{err:?}");
+        assert!(err.to_string().contains("Brandenburg"), "{err}");
+        assert!(!project.exists());
+    }
+
+    #[test]
+    fn set_map_area_refuses_too_large() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        let before = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let huge = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.7,52.5],[13.9,52.5],[13.9,52.6],[13.7,52.6],[13.7,52.5]]]}"#,
+        )
+        .unwrap();
+        let err = set_map_area(dir.path(), &huge).unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+        let after = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert_eq!(before, after);
+        assert!(set_map_area(tempfile::tempdir().unwrap().path(), &fixture_area()).is_err());
+    }
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_tile};
 
     #[test]
@@ -1619,6 +1743,28 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(outcome.templates.len(), 4, "three images and the contours");
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
+    }
+
+    #[test]
+    fn run_keeps_the_map_but_rewrites_the_candidates() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let map = export_starter_project(dir.path(), false).unwrap();
+        std::fs::write(&map, "edited in OOM").unwrap();
+        let candidates = dir.path().join(CANDIDATES_RELPATH);
+        std::fs::write(&candidates, "candidates of the old area").unwrap();
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+        let text = std::fs::read_to_string(&candidates).unwrap();
+        assert!(
+            text.contains("way/992423119"),
+            "outline of the current area"
+        );
+        assert!(text.contains("way/1028507308"), "OSM candidates");
     }
 
     #[test]

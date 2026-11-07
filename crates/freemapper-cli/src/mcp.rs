@@ -4,7 +4,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::time::{Duration, Instant};
 
 use base64::Engine;
 use freemapper::area::MapArea;
@@ -18,14 +17,14 @@ use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
+
+use crate::select::{Busy, Defaults, Selector, open_browser};
 use serde_json::{Value, json};
 
 /// Progress lines kept per job.
 const JOB_LINES: usize = 50;
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
-/// Nominatim allows one request per second.
-const NOMINATIM_INTERVAL: Duration = Duration::from_secs(1);
 
 const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
 orienteering maps (schoolyard 1:1000, sprint 1:4000) from official Brandenburg geodata and OSM. \
@@ -34,7 +33,10 @@ create_project (a new folder, absolute path, with the osm_id) → estimate_downl
 how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
 project_status (poll every few seconds until the state is finished or failed) → list_layers and \
 preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering \
-Mapper. Paths must be absolute or start with ~. One pipeline runs at a time.";
+Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page \
+in the browser where the user draws or picks the area and saves it (this creates the project); \
+continue with estimate_download once the user says it is saved. Paths must be absolute or start \
+with ~. One pipeline runs at a time.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum JobState {
@@ -99,6 +101,13 @@ impl Jobs {
             },
         );
         Ok(id)
+    }
+
+    /// Whether a job runs for the folder `key` (see [`folder_key`]).
+    fn running_for(&self, key: &Path) -> bool {
+        self.jobs
+            .values()
+            .any(|job| job.state == JobState::Running && folder_key(&job.dir) == key)
     }
 
     fn progress(&mut self, id: &str, line: &str) {
@@ -189,6 +198,20 @@ struct ProjectStatus {
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
+struct OpenAreaSelector {
+    /// Project folder (absolute path or starting with ~); created when the user saves.
+    dir: String,
+    /// Map kind of a new project: "schoolyard" (default, 1:1000) or "sprint" (1:4000).
+    kind: Option<String>,
+    /// Scale denominator of a new project.
+    scale: Option<u32>,
+    /// Map title of a new project.
+    title: Option<String>,
+    /// Also open the page in the default browser of this computer. Default true.
+    open_browser: Option<bool>,
+}
+
+#[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct PreviewLayer {
     /// Project folder (absolute path or starting with ~).
     dir: String,
@@ -201,7 +224,8 @@ pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
     jobs: Arc<Mutex<Jobs>>,
-    last_nominatim: Arc<Mutex<Option<Instant>>>,
+    /// Area selection pages by [`folder_key`], one per folder.
+    selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
 }
 
 /// The job table; a panic elsewhere never makes it unusable.
@@ -278,6 +302,18 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
         ));
     }
     Ok(resolved)
+}
+
+/// One spelling per folder (`..`, symlinks and letter case resolved as far as the folder or its
+/// nearest existing parent exists), to find the page or job of a folder.
+fn folder_key(dir: &Path) -> PathBuf {
+    for ancestor in dir.ancestors() {
+        if let Ok(canonical) = std::fs::canonicalize(ancestor) {
+            let rest = dir.strip_prefix(ancestor).unwrap_or(Path::new(""));
+            return canonical.join(rest);
+        }
+    }
+    dir.to_path_buf()
 }
 
 /// The folder of an existing project.
@@ -362,22 +398,8 @@ impl FreemapperServer {
             tool_router: Self::tool_router(),
             cache,
             jobs: Arc::default(),
-            last_nominatim: Arc::default(),
+            selectors: Arc::default(),
         }
-    }
-
-    /// Waits until a Nominatim request is allowed again, then claims the slot.
-    fn nominatim_slot(&self) -> Duration {
-        let mut last = self
-            .last_nominatim
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        let now = Instant::now();
-        let wait = last
-            .map(|t| NOMINATIM_INTERVAL.saturating_sub(now - t))
-            .unwrap_or_default();
-        *last = Some(now + wait);
-        wait
     }
 
     #[tool(
@@ -389,7 +411,7 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<FindPlace>,
     ) -> Result<CallToolResult, McpError> {
-        tokio::time::sleep(self.nominatim_slot()).await;
+        crate::nominatim::wait_turn().await;
         let places = blocking(move || {
             find_places(&HttpFetcher::new(), &req.query).map_err(|e| describe(&e))
         })
@@ -433,7 +455,7 @@ impl FreemapperServer {
         };
         let area = match (req.osm_id, req.geojson) {
             (Some(osm_id), None) => {
-                tokio::time::sleep(self.nominatim_slot()).await;
+                crate::nominatim::wait_turn().await;
                 blocking(move || place_area(&HttpFetcher::new(), &osm_id).map_err(|e| describe(&e)))
                     .await
             }
@@ -518,6 +540,18 @@ impl FreemapperServer {
         if let Err(e) = ProjectFile::load(&dir) {
             return failure(describe(&e));
         }
+        let page_open = self
+            .selectors
+            .lock()
+            .await
+            .get(&folder_key(&dir))
+            .is_some_and(Selector::is_running);
+        if page_open {
+            return failure(
+                "the area selection page for this project is still open; ask the user to save \
+                 the area and press Done on the page, then start the pipeline",
+            );
+        }
         let id = match lock(&self.jobs).start(&dir) {
             Ok(id) => id,
             Err(e) => return failure(e),
@@ -585,6 +619,71 @@ impl FreemapperServer {
             })
             .collect();
         text(Value::from(layers).to_string())
+    }
+
+    #[tool(
+        description = "Open a page in the browser where the user draws the map area (rectangle \
+                       or polygon) or picks a place, sees the tiles and the download size, and \
+                       saves it; saving creates the project folder or changes its area. Returns \
+                       the URL to give the user. The page runs until the user presses Done; \
+                       calling again for the same folder returns the same URL."
+    )]
+    async fn open_area_selector(
+        &self,
+        Parameters(req): Parameters<OpenAreaSelector>,
+    ) -> Result<CallToolResult, McpError> {
+        let dir = match resolve(&req.dir) {
+            Ok(dir) => dir,
+            Err(e) => return failure(e),
+        };
+        let kind = match map_kind(req.kind.as_deref()) {
+            Ok(kind) => kind,
+            Err(e) => return failure(e),
+        };
+        let key = folder_key(&dir);
+        let mut selectors = self.selectors.lock().await;
+        selectors.retain(|_, selector| selector.is_running());
+        let (url, note) = match selectors.get(&key) {
+            Some(selector) => (
+                selector.url.clone(),
+                Some(
+                    "The page for this folder is already open; it keeps the settings it was \
+                     opened with.",
+                ),
+            ),
+            None => {
+                let defaults = Defaults {
+                    kind,
+                    scale: req.scale,
+                    title: req.title,
+                    from_agent: true,
+                };
+                let jobs = Arc::clone(&self.jobs);
+                let busy: Busy =
+                    Arc::new(move |dir: &Path| lock(&jobs).running_for(&folder_key(dir)));
+                let started =
+                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(busy)).await;
+                let selector = match started {
+                    Ok(selector) => selector,
+                    Err(e) => return failure(format!("cannot start the page: {e}")),
+                };
+                let url = selector.url.clone();
+                selectors.insert(key, selector);
+                (url, None)
+            }
+        };
+        drop(selectors);
+        let opened = req.open_browser.unwrap_or(true) && open_browser(&url).is_ok();
+        text(
+            json!({
+                "url": url,
+                "dir": dir,
+                "opened_browser": opened,
+                "note": note,
+                "next": "Ask the user to choose the area on the page, press Save and then Done.",
+            })
+            .to_string(),
+        )
     }
 
     #[tool(

@@ -13,7 +13,7 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestones M0–M7; area selection in the browser, OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development (milestones M0–M8; OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Build
 
@@ -36,6 +36,19 @@ freemapper run clara-zetkin-schule
 Instead of a GeoJSON file, give the OSM object (`--osm way/992423119`) or the name
 (`--place "Clara-Zetkin-Schule Strausberg"`; the best match with an area is used, searched with
 OpenStreetMap's Nominatim).
+
+Or choose the area in the browser:
+
+```sh
+freemapper select clara-zetkin-schule --kind schoolyard
+```
+
+The page opens in the default browser (`--no-browser` only prints the address). Search a place there, or
+draw a rectangle (click two corners) or a polygon (click the corners, double-click closes). The
+background is OpenStreetMap or the LGB aerial photo. The page shows the LGB 1 km tiles, the size with
+buffer and the estimated download; "Save" creates the project or changes the map area of an existing
+one (an existing map stays as it is), "Done" ends the page. The page runs on this computer only
+(127.0.0.1, random address).
 
 `run` performs three steps that are also available on their own:
 
@@ -133,6 +146,9 @@ The workflow the agent follows:
 4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id.
 5. `project_status` – polls the progress until the job has finished or failed.
 6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
+
+When no search result fits or the user wants to draw the area, `open_area_selector` opens the area
+selection in the browser and returns its address; after saving, continue with step 3.
 
 Then open the `.omap` file in the project folder with OpenOrienteering Mapper.
 
