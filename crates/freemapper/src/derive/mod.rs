@@ -1,6 +1,7 @@
 //! Derived templates: orthophoto mosaic, hillshade, slope.
 
 pub mod orthophoto;
+pub mod terrain;
 
 use std::path::PathBuf;
 

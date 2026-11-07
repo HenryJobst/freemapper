@@ -24,6 +24,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.154"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
+tiff = "0.11.3"
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
