@@ -97,6 +97,15 @@ impl MapKind {
         }
     }
 
+    /// Slope at which the slope template turns black: school grounds are flat, so their ramp is
+    /// steeper to show small banks and ramps.
+    pub fn slope_black_deg(self) -> f32 {
+        match self {
+            Self::Schoolyard => 15.0,
+            Self::Sprint => 30.0,
+        }
+    }
+
     /// Contour interval in metres (spec §4.4).
     pub fn contour_interval_m(self) -> u32 {
         match self {
@@ -361,7 +370,8 @@ pub fn derive_project(
     write_gray_png(&hillshade(&dtm), &hillshade_path)?;
     let slope_path = dir.join(SLOPE_RELPATH);
     progress(&format!("writing {SLOPE_RELPATH}"));
-    write_gray_png(&slope_shade(&slope_deg(&dtm)), &slope_path)?;
+    let black_deg = project.map_kind.slope_black_deg();
+    write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), &slope_path)?;
 
     Ok(vec![orthophoto, hillshade_path, slope_path])
 }
@@ -608,6 +618,12 @@ mod tests {
         assert_eq!(MapKind::Sprint.default_buffer_m(), 50.0);
         assert_eq!(MapKind::Schoolyard.symbol_set().symbol_count(), 195);
         assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 189);
+    }
+
+    #[test]
+    fn slope_black_threshold_per_map_kind() {
+        assert_eq!(MapKind::Schoolyard.slope_black_deg(), 15.0);
+        assert_eq!(MapKind::Sprint.slope_black_deg(), 30.0);
     }
 
     #[test]

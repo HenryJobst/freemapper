@@ -12,8 +12,6 @@ const NODATA_BELOW: f32 = -9998.0;
 /// Sun position for the hillshade, in degrees.
 const SUN_AZIMUTH_DEG: f64 = 315.0;
 const SUN_ALTITUDE_DEG: f64 = 45.0;
-/// Slope at which the slope template is black.
-const SLOPE_BLACK_DEG: f32 = 30.0;
 
 /// Mosaics the DTM tiles over `bbox`; cells without data are `NaN`.
 pub fn mosaic_dtm(tiles: &[FetchedTile], bbox: &BoundingBox) -> Result<Raster<f32>, DeriveError> {
@@ -107,16 +105,14 @@ pub fn slope_deg(dtm: &Raster<f32>) -> Raster<Option<f32>> {
     })
 }
 
-/// Slope as grey: flat white, 30° and steeper black.
-pub fn slope_shade(slope: &Raster<Option<f32>>) -> Raster<Option<u8>> {
+/// Slope as grey: flat white, `black_deg` and steeper black.
+pub fn slope_shade(slope: &Raster<Option<f32>>, black_deg: f32) -> Raster<Option<u8>> {
     Raster {
         grid: slope.grid,
         data: slope
             .data
             .iter()
-            .map(|s| {
-                s.map(|s| 255 - (s.min(SLOPE_BLACK_DEG) / SLOPE_BLACK_DEG * 255.0).round() as u8)
-            })
+            .map(|s| s.map(|s| 255 - (s.min(black_deg) / black_deg * 255.0).round() as u8))
             .collect(),
     }
 }
@@ -226,6 +222,21 @@ mod tests {
     }
 
     #[test]
+    fn slope_shade_flat_ground_ramp() {
+        let slope = Raster::filled(
+            GridSpec {
+                west: 0.0,
+                north: 1.0,
+                pixel_size: 1.0,
+                width: 1,
+                height: 1,
+            },
+            Some(7.5f32),
+        );
+        assert_eq!(slope_shade(&slope, 15.0).data, vec![Some(127)]);
+    }
+
+    #[test]
     fn slope_shade_ramp() {
         let mut slope = Raster::filled(
             GridSpec {
@@ -241,7 +252,7 @@ mod tests {
         slope.set(2, 0, Some(45.0));
         slope.set(3, 0, None);
         assert_eq!(
-            slope_shade(&slope).data,
+            slope_shade(&slope, 30.0).data,
             vec![Some(255), Some(127), Some(0), None]
         );
     }
