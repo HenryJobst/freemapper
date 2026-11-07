@@ -88,13 +88,11 @@ beendet die Seite. Die Seite läuft nur auf diesem Rechner (127.0.0.1, zufällig
 
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
-- `freemapper fetch <ordner>` – lädt Luftbild- (DOP20) und Geländemodell-Kacheln (DGM1) des LGB für
-  Kartengebiet plus Puffer in den Zwischenspeicher, dazu das nDOM (etwa 15 MB je Kachel; erneuert,
-  wenn der Server ein neueres Änderungsdatum meldet), die ALKIS-Gebäude und den OSM-Auszug des Landes
-  von Geofabrik (Brandenburg mit Berlin etwa 300 MB, Sachsen etwa 270 MB; beim ersten Mal, danach nur,
-  wenn er mehr als 7 Tage alt ist). Kacheln werden nur neu geladen, wenn sie neu veröffentlicht wurden;
-  `--offline` nutzt nur bereits geladene Daten. In Sachsen kommen die Daten vom GeoSN, siehe
-  [Sachsen](#sachsen).
+- `freemapper fetch <ordner>` – lädt für Kartengebiet plus Puffer Luftbild, Geländemodell und nDOM des
+  zuständigen Landes, die ALKIS-Gebäude und -Nutzung sowie den OSM-Auszug des Landes von Geofabrik
+  (beim ersten Mal 180–300 MB, danach nur, wenn er mehr als 7 Tage alt ist) in den Zwischenspeicher.
+  Neu geladen wird nur, was neu veröffentlicht wurde; `--offline` nutzt nur bereits geladene Daten.
+  Woher die Daten je Land kommen, steht unter [Regionen](#regionen).
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung und das nDOM
   (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
   (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve) als Kandidaten.
@@ -156,43 +154,17 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
-## Berlin und das Grenzgebiet
+## Regionen
 
-Luftbild, Geländemodell und Oberflächenmodell liefert das LGB auch für Berlin. Die ALKIS-Gebäude und
-die tatsächliche Nutzung kommen in Berlin vom Geoportal Berlin (WFS, dl-de/zero-2-0); freemapper
-erkennt am Kartengebiet, welches Land zuständig ist, und fragt an der Landesgrenze beide Dienste ab.
-Unterschiede zu Brandenburg:
+| Land | Daten | nDOM-Vorlage | Hinweise |
+|---|---|---|---|
+| Brandenburg | LGB | Laser-nDOM, 0,2 m | |
+| Berlin | LGB, ALKIS vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
+| Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
 
-- Ein nDOM veröffentlicht das LGB in Berlin nicht. Die nDOM-Vorlage wird dort aus dem bildbasierten
-  Oberflächenmodell (bDOM, 0,2 m, etwa 30 MB je Kachel) minus Geländemodell berechnet. Sie ist etwas
-  weicher als das Laser-nDOM: dünne Objekte wie Laternen oder Zäune fehlen oft, parkende Autos sind
-  enthalten.
-- Berliner ALKIS-Flächen sind nicht nach Flurstücken geteilt, und Straßenflächen enthalten Grün- und
-  Baumstreifen am Rand. Diese erscheinen in der Karte als befestigte Fläche und müssen im Gelände
-  korrigiert werden.
-- Plätze sind in Berlin nie genauer bestimmt (kein „Parkplatz“ oder „Marktplatz“). Sie werden daher nur
-  Kandidaten, keine fertigen Kartenobjekte.
-- Der Geoportal-Dienst bricht gelegentlich Verbindungen ab; freemapper versucht jede Anfrage bis zu
-  dreimal.
-
-## Sachsen
-
-In Sachsen kommen alle amtlichen Daten vom GeoSN (Landesamt für Geobasisinformation Sachsen), frei
-und ohne Anmeldung. Unterschiede zu Brandenburg:
-
-- **Luftbild** über den Kartendienst (WMS) des GeoSN, passgenau für das Kartengebiet und in Sekunden
-  geladen; die GeoSN-Kacheln wären je 230–270 MB groß. Das Flugdatum steht in `freemapper.toml`.
-- **Geländemodell (DGM1) und Oberflächenmodell (DOM1)** in 2-km-Kacheln (je etwa 15 MB).
-- **nDOM** gibt es in Sachsen noch nicht frei. freemapper berechnet die nDOM-Vorlage aus DOM1 minus DGM1
-  mit 1 m Auflösung, also gröber als in Brandenburg (0,2 m): Hecken und schmale Mauern sind oft nur
-  angedeutet.
-- **ALKIS** kennt in Sachsen keine Lage unter der Erdoberfläche und keine Bauteile. Unterirdische
-  Bauwerke wie Tiefgaragen lassen sich daher nicht ausfiltern, falls das GeoSN sie liefert.
-- **Plätze** sind in Sachsen nicht genauer bestimmt; sie werden nur Kandidaten. Straßenflächen
-  enthalten Grün- und Baumstreifen am Rand (wie in Berlin).
-- An der Grenze zu Brandenburg fragt freemapper beide ALKIS-Dienste ab und liest beide OSM-Auszüge.
-  Luftbild und Geländemodell kommen aus dem Land, in dem die Mitte des Kartengebiets liegt; auf der
-  anderen Seite der Grenze können die Vorlagen leer bleiben.
+An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
+Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
+[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete).
 
 ## Schnelle Trainingskarte (PDF)
 
