@@ -1,0 +1,30 @@
+{
+ "searchresult": {
+  "packages": [
+   {
+    "name": "Alle Dateien zu Kreisfreie Stadt Frankfurt am Main herunterladen",
+    "downloadType": "Package",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Frankfurt am Main/PKT_Kreisfreie Stadt Frankfurt am Main.zip"
+    }
+   }
+  ],
+  "product": {
+   "name": "Kreisfreie Stadt Frankfurt am Main"
+  },
+  "downloads": [
+   {
+    "name": "Frankfurt_am_Main-DGM1",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Frankfurt am Main/Frankfurt_am_Main-DGM1.zip"
+    }
+   }
+  ],
+  "paging": {
+   "total": 1,
+   "pageSize": 20,
+   "page": 1
+  }
+ }
+}

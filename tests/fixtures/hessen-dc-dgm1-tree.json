@@ -1,0 +1,65 @@
+{
+ "navigation": [
+  {
+   "name": "Hochtaunuskreis",
+   "id": "DC0100058",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Kreisfreie Stadt Frankfurt am Main",
+   "id": "DC0101853",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Kreisfreie Stadt Kassel",
+   "id": "DC0101855",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Kreisfreie Stadt Wiesbaden",
+   "id": "DC0101857",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Landkreis Kassel",
+   "id": "DC0100066",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Landkreis Marburg-Biedenkopf",
+   "id": "DC0100068",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Main-Taunus-Kreis",
+   "id": "DC0100072",
+   "level": 3,
+   "parentId": "DC0100057"
+  },
+  {
+   "name": "Rheingau-Taunus-Kreis",
+   "id": "DC0100074",
+   "level": 3,
+   "parentId": "DC0100057"
+  }
+ ],
+ "searchresult": {
+  "product": {
+   "name": "Digitales Geländemodell (DGM1)",
+   "id": "DC0100057",
+   "description": "<b>Digitales Geländemodell (DGM1)</b><br><br>Höhenmäßige Beschreibung des Geländereliefs durch räumliche Repräsentanten in Rasterform (Pixel) mit der quadratischen Fläche von 1 m * 1 m (1 Quadratmeter). Der originäre Höhenbezug ist die Rastermitte. Weitere Informationen zum DGM1 finden Sie <a href=\"https://hvbg.hessen.de/landesvermessung/geotopographie/3d-daten/digitale-gelaendemodelle\" target=\"_blank\">hier</a>.<ul><i><b>Downloads:</b></i><li><a href=\"/INTERSHOP/static/WFS/HLBG-Geodaten-Site/-/HLBG-Geodaten/de_DE/Downloadcenter/Daten/3D-Daten/Aktualitätsübersicht DGM1 und DOM1_August-2026.pdf\" target=\"_blank\">Aktualitätsübersicht DGM1 und DOM1</a></b></i><li><a href=\"/INTERSHOP/static/WFS/HLBG-Geodaten-Site/-/HLBG-Geodaten/de_DE/Downloadcenter/Daten/3D-Daten/Metadaten_DGM-DOM_August-2026.xlsx\" target=\"_blank\">metadatenliste</a></li></ul>"
+  },
+  "downloads": [],
+  "paging": {
+   "total": 0,
+   "pageSize": 20,
+   "page": 1
+  }
+ }
+}

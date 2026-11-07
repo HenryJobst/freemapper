@@ -167,22 +167,7 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
             }
             Event::CData(t) => text_buf.push_str(&t.into_inner()),
             Event::Text(t) => text_buf.push_str(t.as_ref()),
-            Event::GeneralRef(r) => {
-                let name: &str = r.as_ref();
-                let resolved = match name {
-                    "amp" => Some('&'),
-                    "lt" => Some('<'),
-                    "gt" => Some('>'),
-                    "quot" => Some('"'),
-                    "apos" => Some('\''),
-                    _ => name
-                        .strip_prefix("#x")
-                        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
-                        .or_else(|| name.strip_prefix('#').and_then(|dec| dec.parse().ok()))
-                        .and_then(char::from_u32),
-                };
-                text_buf.extend(resolved);
-            }
+            Event::GeneralRef(r) => text_buf.extend(resolve_entity(r.as_ref())),
             Event::End(_) => {
                 let Some(name) = path.pop() else { continue };
                 if let Some(f) = feature.as_mut() {
@@ -265,6 +250,22 @@ impl GmlFeature {
             "geometry": geometry,
             "properties": self.properties,
         })
+    }
+}
+
+/// The character an XML entity reference (`amp`, `#228`, `#xE4`) stands for.
+pub(crate) fn resolve_entity(name: &str) -> Option<char> {
+    match name {
+        "amp" => Some('&'),
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        _ => name
+            .strip_prefix("#x")
+            .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+            .or_else(|| name.strip_prefix('#').and_then(|dec| dec.parse().ok()))
+            .and_then(char::from_u32),
     }
 }
 

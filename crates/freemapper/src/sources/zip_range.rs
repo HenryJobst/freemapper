@@ -86,8 +86,8 @@ pub(crate) fn parse_directory(directory: &[u8], count: u16) -> Result<Vec<Member
 }
 
 /// The members of the archive at `url`, read by two byte ranges.
-// Used by the Hessian provider (next task); lgv reads the raw directory for its cache.
-#[cfg_attr(not(test), allow(dead_code))]
+// lgv and hvbg read the raw directory to cache it; only the tests parse it right away.
+#[cfg(test)]
 pub(crate) fn read_directory(fetcher: &dyn Fetcher, url: &str) -> Result<Vec<Member>, FetchError> {
     let (directory, count) = read_directory_bytes(fetcher, url)?;
     parse_directory(&directory, count).map_err(|message| refused(url, message))

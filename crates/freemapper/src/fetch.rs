@@ -392,6 +392,11 @@ impl Cache {
         self.root.join("lgv")
     }
 
+    /// Folder of the HVBG Hesse tiles, zip directories and metadata list.
+    pub fn hvbg_dir(&self) -> PathBuf {
+        self.root.join("hvbg")
+    }
+
     /// The collected GeoSN tile index rows of `product`.
     pub fn currency_index_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.json")
@@ -1415,6 +1420,53 @@ pub(crate) mod test_support {
             extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
+    }
+
+    /// Serves the HVBG height models of a Hesse project in `bbox` (EPSG:25832): the DGM1 and
+    /// DOM1 product trees, the Frankfurt listings, the metadata list (every tile of `bbox` in
+    /// Frankfurt am Main, flown 2023-02-28) and the municipal zips with the 1 km tiles (terrain
+    /// 100 m rising 0.01 m per metre east, surface 12 m above).
+    pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::hvbg::{self, test_support as he};
+        const DISTRICT: &str = "Kreisfreie Stadt Frankfurt am Main";
+        let tiles = crate::tiles::tiles_covering(bbox);
+        let rows: Vec<(TileId, u32, &str, &str)> = tiles
+            .iter()
+            .map(|&t| (t, 44985, "Frankfurt am Main", DISTRICT))
+            .collect();
+        fetcher.insert(he::METADATA_URL, he::metadata_xlsx(&rows));
+        for (model, code, lift) in [
+            (hvbg::Model::Dgm1, "DGM1", 100.0),
+            (hvbg::Model::Dom1, "DOM1", 112.0),
+        ] {
+            fetcher.insert(&hvbg::tree_url(model), he::tree_answer(&[DISTRICT]));
+            let uri = format!(
+                "/downloadcenter/20261108/{}/{DISTRICT}/Frankfurt_am_Main-{code}.zip",
+                model.product()
+            );
+            fetcher.insert(
+                &hvbg::listing_url(model.product(), DISTRICT, 1),
+                he::listing_answer(&[(&format!("Frankfurt_am_Main-{code}"), &uri)]),
+            );
+            let members: Vec<(String, Vec<u8>, bool)> = tiles
+                .iter()
+                .map(|&t| {
+                    (
+                        format!("{code}_32_{}_{}_1_he.tif", t.east_km, t.north_km),
+                        he::tile_tiff(t, lift, 0.01),
+                        true,
+                    )
+                })
+                .collect();
+            let members: Vec<(&str, Vec<u8>, bool)> = members
+                .iter()
+                .map(|(name, bytes, deflate)| (name.as_str(), bytes.clone(), *deflate))
+                .collect();
+            fetcher.insert(
+                &hvbg::file_url(&uri).expect("a server path"),
+                crate::sources::zip_range::test_support::archive(&members),
+            );
+        }
     }
 
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
