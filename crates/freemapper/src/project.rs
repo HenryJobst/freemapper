@@ -272,7 +272,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     )?;
     let symbol_set = project.map_kind.symbol_set();
     let attribution_text = attribution_lines(&project).join("\n");
-    let notes = format!("{attribution_text}\nfreemapper starter project");
+    let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
 
     let candidates = MapDocument {
         notes: notes.clone(),
@@ -331,13 +331,18 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     write_document(&candidates, &dir.join(CANDIDATES_RELPATH))?;
     write_document(&map, &map_path)?;
     let attribution = dir.join("ATTRIBUTION.txt");
-    std::fs::write(&attribution, format!("{attribution_text}\n"))
-        .map_err(|e| ProjectError::Io(attribution, e))?;
+    std::fs::write(
+        &attribution,
+        format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n"),
+    )
+    .map_err(|e| ProjectError::Io(attribution, e))?;
     Ok(map_path)
 }
 
 const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 const OSM_ATTRIBUTION: &str = "Map area: © OpenStreetMap contributors, ODbL";
+/// Names the tool and where to get it, in every generated project.
+const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
 /// Attribution of every source the project uses: OSM, and LGB once tiles were fetched.
 fn attribution_lines(project: &ProjectFile) -> Vec<String> {
@@ -610,6 +615,21 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             attribution.contains(lgb) && attribution.contains("OpenStreetMap"),
             "{attribution}"
         );
+    }
+
+    #[test]
+    fn export_names_freemapper_and_its_repository() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let map_path = export_starter_project(dir.path(), false).unwrap();
+        let map = std::fs::read_to_string(map_path).unwrap();
+        let credit = "Created with freemapper – https://github.com/HenryJobst/freemapper";
+        assert!(map.contains(credit), "map notes");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains(credit), "candidates notes");
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(attribution.contains(credit), "{attribution}");
     }
 
     #[test]

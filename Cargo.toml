@@ -6,8 +6,8 @@ members = ["crates/*"]
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
+repository = "https://github.com/HenryJobst/freemapper"
 rust-version = "1.88"
-repository = "https://github.com/freemapper/freemapper"
 
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
