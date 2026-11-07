@@ -1,0 +1,5 @@
+# The same toolchain locally and in CI, so a newer stable's lints never surprise the pipeline.
+# Moved by hand, together with fixing what the newer clippy reports.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]

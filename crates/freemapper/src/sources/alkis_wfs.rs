@@ -195,7 +195,9 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                                 .filter_map(|v| v.parse().ok())
                                 .collect();
                             if let Some(ring) = f.polygons.last_mut().and_then(|p| p.last_mut()) {
-                                ring.extend(numbers.chunks_exact(2).map(|c| vec![c[0], c[1]]));
+                                ring.extend(
+                                    numbers.as_chunks::<2>().0.iter().map(|&[e, n]| vec![e, n]),
+                                );
                             }
                         }
                         _ => {}
