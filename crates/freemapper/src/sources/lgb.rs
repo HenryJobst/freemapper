@@ -25,7 +25,7 @@ pub enum Product {
     Dtm,
     /// bDOM image-matched surface model, GeoTIFF f32 + world file, 0.2 m; the nDSM source
     /// where no nDOM point cloud is published (Berlin).
-    Dsm,
+    ImageDsm,
 }
 
 impl Product {
@@ -33,7 +33,7 @@ impl Product {
         match self {
             Self::Orthophoto => "dop",
             Self::Dtm => "dgm",
-            Self::Dsm => "bdom",
+            Self::ImageDsm => "bdom",
         }
     }
 
@@ -41,7 +41,7 @@ impl Product {
         let dir = match self {
             Self::Orthophoto => "dop/rgb_jpg",
             Self::Dtm => "dgm/tif",
-            Self::Dsm => "bdom/tif",
+            Self::ImageDsm => "bdom/tif",
         };
         format!("{DATA_URL}/{dir}/{}_{}.zip", self.file_prefix(), t.name())
     }
@@ -50,7 +50,7 @@ impl Product {
         match self {
             Self::Orthophoto => DOP_CURRENCY_CSV,
             Self::Dtm => DGM_CURRENCY_CSV,
-            Self::Dsm => BDOM_CURRENCY_CSV,
+            Self::ImageDsm => BDOM_CURRENCY_CSV,
         }
     }
 
@@ -58,7 +58,7 @@ impl Product {
     pub fn raster_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jpg",
-            Self::Dtm | Self::Dsm => "tif",
+            Self::Dtm | Self::ImageDsm => "tif",
         };
         format!("{}_{}.{ext}", self.file_prefix(), t.name())
     }
@@ -67,7 +67,7 @@ impl Product {
     pub fn world_file_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jgw",
-            Self::Dtm | Self::Dsm => "tfw",
+            Self::Dtm | Self::ImageDsm => "tfw",
         };
         format!("{}_{}.{ext}", self.file_prefix(), t.name())
     }
@@ -77,7 +77,7 @@ impl Product {
         match self {
             Self::Orthophoto => "orthophoto (DOP20)",
             Self::Dtm => "terrain model (DGM1)",
-            Self::Dsm => "surface model (bDOM)",
+            Self::ImageDsm => "surface model (bDOM)",
         }
     }
 
@@ -86,7 +86,7 @@ impl Product {
         match self {
             Self::Orthophoto => "dop20rgb",
             Self::Dtm => "dgm1",
-            Self::Dsm => "bdom",
+            Self::ImageDsm => "bdom",
         }
     }
 }
@@ -203,16 +203,16 @@ mod tests {
             north_km: 5820,
         };
         assert_eq!(
-            Product::Dsm.tile_url(tile),
+            Product::ImageDsm.tile_url(tile),
             "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33392-5820.zip"
         );
         assert_eq!(
-            Product::Dsm.currency_csv_url(),
+            Product::ImageDsm.currency_csv_url(),
             "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv"
         );
-        assert_eq!(Product::Dsm.raster_member(tile), "bdom_33392-5820.tif");
-        assert_eq!(Product::Dsm.world_file_member(tile), "bdom_33392-5820.tfw");
-        assert_eq!(Product::Dsm.cache_dir_name(), "bdom");
+        assert_eq!(Product::ImageDsm.raster_member(tile), "bdom_33392-5820.tif");
+        assert_eq!(Product::ImageDsm.world_file_member(tile), "bdom_33392-5820.tfw");
+        assert_eq!(Product::ImageDsm.cache_dir_name(), "bdom");
     }
 
     #[test]

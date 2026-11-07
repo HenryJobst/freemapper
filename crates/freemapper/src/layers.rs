@@ -83,9 +83,9 @@ fn estimate_tiles(
         let inside_berlin = regions_for(&tile.bounds()) == [Region::Berlin];
         items.push(if inside_berlin {
             EstimateItem {
-                what: format!("nDSM tile {} ({})", tile.name(), Product::Dsm),
+                what: format!("nDSM tile {} ({})", tile.name(), Product::ImageDsm),
                 megabytes: BDOM_TILE_MB,
-                cached: cache.has_tile(Product::Dsm, tile),
+                cached: cache.has_tile(Product::ImageDsm, tile),
             }
         } else {
             EstimateItem {
@@ -283,7 +283,7 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
     let project = ProjectFile::load(dir)?;
     let path = dir.join(relpath);
     if !path.exists() {
-        let no_dsm = !project.tiles.iter().any(|r| r.product == Product::Dsm);
+        let no_dsm = !project.tiles.iter().any(|r| r.product == Product::ImageDsm);
         if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() && no_dsm {
             return Err(ProjectError::Layer(
                 "no nDSM is published for the tiles of this map area, so there is no ndsm template"

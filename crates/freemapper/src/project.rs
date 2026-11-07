@@ -469,7 +469,7 @@ pub fn fetch_project(
         .collect();
     project.ndsm_tiles = ndsm_tiles;
     if !without_ndsm.is_empty() {
-        match fetch_tiles(fetcher, cache, Product::Dsm, &without_ndsm, mode, progress) {
+        match fetch_tiles(fetcher, cache, Product::ImageDsm, &without_ndsm, mode, progress) {
             Ok(fetched) => {
                 for fetched in fetched {
                     progress(&format!(
@@ -477,7 +477,7 @@ pub fn fetch_project(
                         fetched.tile.name()
                     ));
                     project.tiles.push(TileRecord {
-                        product: Product::Dsm,
+                        product: Product::ImageDsm,
                         tile: fetched.tile.name(),
                         url: fetched.url,
                         currency: fetched.currency.currency(),
@@ -837,7 +837,7 @@ pub fn derive_project(
     write_atomically(&contours_path, contours_to_geojson(&lines).as_bytes())?;
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
-    let dsm_recorded = project.tiles.iter().any(|r| r.product == Product::Dsm);
+    let dsm_recorded = project.tiles.iter().any(|r| r.product == Product::ImageDsm);
     if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
     }
@@ -875,7 +875,7 @@ pub fn derive_project(
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
     let dsm = if dsm_recorded {
-        match tiles(Product::Dsm).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?)) {
+        match tiles(Product::ImageDsm).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?)) {
             Ok(dsm) => Some(dsm),
             Err(e) => {
                 progress(&format!(
@@ -2396,7 +2396,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             project
                 .tiles
                 .iter()
-                .any(|r| r.product == Product::Dsm && r.tile == "33392-5820")
+                .any(|r| r.product == Product::ImageDsm && r.tile == "33392-5820")
         );
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         let png = image::open(dir.path().join(NDSM_RELPATH))
@@ -2417,7 +2417,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .any(|m| m.starts_with("warning: surface model (bDOM) unavailable")),
             "{messages:?}"
         );
-        assert!(!project.tiles.iter().any(|r| r.product == Product::Dsm));
+        assert!(!project.tiles.iter().any(|r| r.product == Product::ImageDsm));
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         assert!(!dir.path().join(NDSM_RELPATH).exists());
     }

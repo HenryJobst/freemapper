@@ -809,7 +809,7 @@ pub(crate) mod test_support {
             bounds.max_n - 5.0
         );
         let heights: Vec<f32> = (0..100 * 100).map(|i| (i % 100) as f32 + 12.0).collect();
-        let product = Product::Dsm;
+        let product = Product::ImageDsm;
         fetcher.insert(
             product.currency_csv_url(),
             currency_csv(&[(tile, "2026-09-10")]),

@@ -108,6 +108,17 @@ Tiles are 1×1 km in EPSG:25833, named `<prod>_33EEE-NNNN`, where EEE/NNNN give 
 
 ALS LAZ (≈100 MB/tile, flown 2018), bDOM and DOP RGBI are not needed for the MVP.
 
+**Berlin (verified live 2026-11-07, details `docs/regions/berlin-reference.md`):** LGB serves DOP20, DGM1 and
+bDOM for all of Berlin in the same tile scheme; the nDOM LAZ is 404 inside Berlin, so there the nDSM template is
+bDOM (0.2 m GeoTIFF, `bdom/tif/bdom_33EEE-NNNN.zip`, currency `bb_bdom_aktualitaet.csv`) minus DGM1 (bilinear),
+clamped at 0. The LGB ALKIS service returns nothing inside Berlin and the Berlin WFS nothing outside, so ALKIS
+is per region (`sources/region.rs`, boundary `assets/regions/berlin.geojson`, 100 m margin; a border area
+queries both): buildings `https://gdi.berlin.de/services/wfs/alkis_gebaeude` (`alkis_gebaeude:gebaeude`), land
+use `https://gdi.berlin.de/services/wfs/alkis` (`alkis:tatsaechlichenutzungflaechen`), GeoJSON, normalised to
+the LGB property schema; up to 3 attempts per page (the server drops about 1 request in 20). Berlin squares
+(`AX_Platz`, never refined) get `bez = "ohne Unterart (Berlin)"` and stay candidates. Attribution adds
+`© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert`.
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -305,7 +316,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (ATOM/WFS, 2 km tiles, dl-de/zero-2-0), then a Saxony adapter (GeoSN open data; user, 2026-11-07), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), then adapters for Saxony (GeoSN open data), Saxony-Anhalt, Mecklenburg-Vorpommern, Thuringia and Hesse (user, 2026-11-07); possibly Polish and Czech data for border maps, forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 
