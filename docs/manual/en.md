@@ -47,7 +47,7 @@ On request freemapper also writes a **print-ready training map as a PDF** (chapt
   - The first time, freemapper downloads the OSM extract of the state: about 300 MB for Brandenburg
     and Berlin, about 270 MB for Saxony. It is reused by all projects.
   - On top of that, each map usually needs 10–100 MB.
-- An area in **Brandenburg, Berlin or Saxony**. More states will follow.
+- An area in **Brandenburg, Berlin, Saxony or Saxony-Anhalt**. More states will follow.
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -255,6 +255,11 @@ version yet; feedback is welcome (chapter 16).
 | Brandenburg | LGB | orthophoto, terrain and nDSM in 1 km tiles; the nDSM is a laser nDSM at 20 cm |
 | Berlin | LGB (rasters), Geoportal Berlin (ALKIS) | the nDSM is computed from the image-based surface model: a bit softer, without thin objects such as lamp posts, but with parked cars |
 | Saxony | GeoSN | orthophoto from the map service; the nDSM has only 1 m resolution, so hedges and narrow walls often show faintly; underground structures cannot be filtered out |
+| Saxony-Anhalt | LVermGeo | the map is in UTM zone 32 (EPSG:25832), like all of the state's data; orthophoto from the map service, terrain and surface model at 1 m; the nDSM is as coarse as in Saxony |
+
+**Coordinate system:** Brandenburg, Berlin and Saxony deliver in UTM zone 33, Saxony-Anhalt in zone
+32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
+georeferencing. If you move a map area across the zone line, freemapper fetches everything again.
 
 **At a state border** freemapper queries the cadastre of both states and reads both OSM extracts. The
 orthophoto and terrain come from the state holding the centre of the map area. If the area reaches far
@@ -275,7 +280,7 @@ across the border, the templates stay empty on the other side. freemapper tells 
 
 | Message (start) | Meaning | What to do |
 |---|---|---|
-| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin or Saxony. | Choose another area; more states will follow. |
+| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony or Saxony-Anhalt. | Choose another area; more states will follow. |
 | `map area plus buffer is … more than 4000 m per side` | The area is too large. | Draw it smaller or split it into several maps. |
 | `no area found for …` | The place was not found, or its grounds are several parts in OSM. | Spell it differently, or draw the area in the browser. |
 | `MultiPolygon with … parts` | The chosen grounds consist of several parts. | Draw one connected area in the browser. |
