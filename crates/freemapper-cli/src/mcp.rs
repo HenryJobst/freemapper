@@ -17,6 +17,8 @@ use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
+
+use crate::select::{Defaults, Selector, open_browser};
 use serde_json::{Value, json};
 
 /// Progress lines kept per job.
@@ -31,7 +33,10 @@ create_project (a new folder, absolute path, with the osm_id) → estimate_downl
 how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
 project_status (poll every few seconds until the state is finished or failed) → list_layers and \
 preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering \
-Mapper. Paths must be absolute or start with ~. One pipeline runs at a time.";
+Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page \
+in the browser where the user draws or picks the area and saves it (this creates the project); \
+continue with estimate_download once the user says it is saved. Paths must be absolute or start \
+with ~. One pipeline runs at a time.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum JobState {
@@ -186,6 +191,20 @@ struct ProjectStatus {
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
+struct OpenAreaSelector {
+    /// Project folder (absolute path or starting with ~); created when the user saves.
+    dir: String,
+    /// Map kind of a new project: "schoolyard" (default, 1:1000) or "sprint" (1:4000).
+    kind: Option<String>,
+    /// Scale denominator of a new project.
+    scale: Option<u32>,
+    /// Map title of a new project.
+    title: Option<String>,
+    /// Also open the page in the default browser of this computer. Default true.
+    open_browser: Option<bool>,
+}
+
+#[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct PreviewLayer {
     /// Project folder (absolute path or starting with ~).
     dir: String,
@@ -198,6 +217,8 @@ pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
     jobs: Arc<Mutex<Jobs>>,
+    /// Area selection pages by project folder, one per folder.
+    selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
 }
 
 /// The job table; a panic elsewhere never makes it unusable.
@@ -358,6 +379,7 @@ impl FreemapperServer {
             tool_router: Self::tool_router(),
             cache,
             jobs: Arc::default(),
+            selectors: Arc::default(),
         }
     }
 
@@ -566,6 +588,58 @@ impl FreemapperServer {
             })
             .collect();
         text(Value::from(layers).to_string())
+    }
+
+    #[tool(
+        description = "Open a page in the browser where the user draws the map area (rectangle \
+                       or polygon) or picks a place, sees the tiles and the download size, and \
+                       saves it; saving creates the project folder or changes its area. Returns \
+                       the URL to give the user. The page runs until the user presses Done; \
+                       calling again for the same folder returns the same URL."
+    )]
+    async fn open_area_selector(
+        &self,
+        Parameters(req): Parameters<OpenAreaSelector>,
+    ) -> Result<CallToolResult, McpError> {
+        let dir = match resolve(&req.dir) {
+            Ok(dir) => dir,
+            Err(e) => return failure(e),
+        };
+        let kind = match map_kind(req.kind.as_deref()) {
+            Ok(kind) => kind,
+            Err(e) => return failure(e),
+        };
+        let mut selectors = self.selectors.lock().await;
+        selectors.retain(|_, selector| selector.is_running());
+        let url = match selectors.get(&dir) {
+            Some(selector) => selector.url.clone(),
+            None => {
+                let defaults = Defaults {
+                    kind,
+                    scale: req.scale,
+                    title: req.title,
+                };
+                let selector =
+                    match Selector::start(dir.clone(), defaults, self.cache.clone(), 0).await {
+                        Ok(selector) => selector,
+                        Err(e) => return failure(format!("cannot start the page: {e}")),
+                    };
+                let url = selector.url.clone();
+                selectors.insert(dir.clone(), selector);
+                url
+            }
+        };
+        drop(selectors);
+        let opened = req.open_browser.unwrap_or(true) && open_browser(&url).is_ok();
+        text(
+            json!({
+                "url": url,
+                "dir": dir,
+                "opened_browser": opened,
+                "next": "Ask the user to choose the area on the page, press Save and then Done.",
+            })
+            .to_string(),
+        )
     }
 
     #[tool(

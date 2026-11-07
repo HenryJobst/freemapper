@@ -13,7 +13,7 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilensteine M0–M7; Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M8; OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
@@ -36,6 +36,19 @@ freemapper run clara-zetkin-schule
 Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`) oder der Name
 (`--place "Clara-Zetkin-Schule Strausberg"`; genommen wird der beste Treffer mit Fläche, gesucht über
 Nominatim von OpenStreetMap).
+
+Oder das Gebiet im Browser wählen:
+
+```sh
+freemapper select clara-zetkin-schule --kind schoolyard
+```
+
+Die Seite öffnet sich im Standardbrowser (`--no-browser` gibt nur die Adresse aus). Dort sucht man einen
+Ort oder zeichnet ein Rechteck (zwei Ecken anklicken) oder ein Polygon (Ecken anklicken, Doppelklick
+schließt). Hintergrund wahlweise OpenStreetMap oder das Luftbild des LGB. Die Seite zeigt die
+1-km-Kacheln des LGB, die Größe mit Puffer und den geschätzten Download; „Speichern“ legt das Projekt an
+oder ändert das Kartengebiet eines vorhandenen (eine vorhandene Karte bleibt unverändert), „Fertig“
+beendet die Seite. Die Seite läuft nur auf diesem Rechner (127.0.0.1, zufällige Adresse).
 
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
@@ -136,6 +149,9 @@ Ablauf, wie der Agent ihn geht:
 4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück.
 5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
 6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Vorlagen.
+
+Passt kein Suchtreffer oder will man das Gebiet selbst zeichnen, öffnet `open_area_selector` die
+Gebietsauswahl im Browser und gibt die Adresse zurück; nach dem Speichern geht es mit Schritt 3 weiter.
 
 Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mapper.
 

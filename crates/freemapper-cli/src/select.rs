@@ -91,6 +91,11 @@ impl Selector {
         })
     }
 
+    /// Whether the page still serves (the user has not pressed "done").
+    pub fn is_running(&self) -> bool {
+        !self.server.is_finished()
+    }
+
     /// Waits until the user presses "done" on the page.
     pub async fn finished(self) -> anyhow::Result<()> {
         self.server.await??;

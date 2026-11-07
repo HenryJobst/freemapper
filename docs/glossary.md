@@ -135,7 +135,7 @@ Orienteering Maps 2019 (IOF).
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
-| Gebietsauswahl | area selection | Kartengebiet auf einer Browserkarte zeichnen. | `select` |
+| Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
 | Ebene | layer | Ein Ergebnis (Objekte, Kandidaten oder Vorlage) mit einheitlichem Inhalt. | `Layer` |
 | Werkzeug (MCP) | tool (MCP) | Vom MCP-Server angebotene Funktion für Agenten. | `#[tool]` |

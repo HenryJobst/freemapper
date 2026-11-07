@@ -251,6 +251,10 @@ don't depend on them, so client timeouts on long downloads don't matter.
 Area selection page: axum serves a single embedded page (Leaflet + OSM tiles, assets embedded with
 `rust-embed`). The user draws a rectangle or polygon or picks an OSM polygon. The page shows the LGB 1 km
 tile grid and an estimated download size, and saving writes the map area to `freemapper.toml`.
+As built in M8: 127.0.0.1 only, a random 128-bit token in every path, a Host check against DNS
+rebinding, CSP; backgrounds OSM tiles and the LGB DOP20 WMS (`bebb_dop20c`); the page is vanilla JS
+(Leaflet 1.9.4 vendored), German or English by browser language; saving an existing project changes
+only its map area (an existing map keeps its georeferencing).
 
 Distribution: GitHub Releases with unsigned binaries. The README explains the Gatekeeper/SmartScreen
 prompts and how to register the MCP server in Claude Code (`claude mcp add freemapper -- freemapper mcp`)

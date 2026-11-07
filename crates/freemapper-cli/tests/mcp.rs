@@ -116,6 +116,7 @@ fn mcp_lists_the_tools() {
             "estimate_download",
             "find_place",
             "list_layers",
+            "open_area_selector",
             "preview_layer",
             "project_status",
             "start_pipeline"
@@ -217,4 +218,35 @@ fn mcp_failed_job_is_reported() {
     assert!(!error, "{text}");
     let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
     assert!(!error, "{text}");
+}
+
+#[test]
+fn mcp_open_area_selector_returns_one_url_per_folder() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("new-school");
+    let mut session = Session::start(cache.path());
+    let arguments = json!({ "dir": project, "kind": "sprint", "open_browser": false });
+    let (error, text) = session.call("open_area_selector", arguments.clone());
+    assert!(!error, "{text}");
+    let first: Value = serde_json::from_str(&text).unwrap();
+    let url = first["url"].as_str().unwrap().to_string();
+    assert!(url.starts_with("http://127.0.0.1:"), "{url}");
+    let (error, text) = session.call("open_area_selector", arguments);
+    assert!(!error, "{text}");
+    let second: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(second["url"], url.as_str());
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .into();
+    let mut response = agent.get(&format!("{url}api/project")).call().unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let state: Value =
+        serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+    assert_eq!(state["kind"], "sprint");
+    assert_eq!(state["exists"], false);
+    let (error, text) = session.call("open_area_selector", json!({ "dir": "relative/path" }));
+    assert!(error);
+    assert!(text.contains("relative"), "{text}");
 }
