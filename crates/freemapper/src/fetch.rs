@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use chrono::NaiveDate;
 
+use crate::sources::alkis::AlkisError;
 use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
 use crate::tiles::TileId;
 
@@ -26,6 +27,8 @@ pub enum FetchError {
     MissingOffline(Vec<TileId>),
     #[error(transparent)]
     CurrencyCsv(#[from] CurrencyCsvError),
+    #[error(transparent)]
+    Alkis(#[from] AlkisError),
 }
 
 fn tile_names(tiles: &[TileId]) -> String {
@@ -274,6 +277,8 @@ pub(crate) mod test_support {
     #[derive(Default)]
     pub(crate) struct MapFetcher {
         pub responses: RefCell<HashMap<String, Vec<u8>>>,
+        /// Answers for URLs starting with the key, when no exact response matches.
+        pub prefixes: RefCell<HashMap<String, Vec<u8>>>,
         pub calls: Cell<usize>,
     }
 
@@ -281,15 +286,28 @@ pub(crate) mod test_support {
         pub fn insert(&self, url: &str, bytes: Vec<u8>) {
             self.responses.borrow_mut().insert(url.to_string(), bytes);
         }
+
+        pub fn insert_prefix(&self, prefix: &str, bytes: Vec<u8>) {
+            self.prefixes.borrow_mut().insert(prefix.to_string(), bytes);
+        }
     }
 
     impl Fetcher for MapFetcher {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
             self.calls.set(self.calls.get() + 1);
+            let by_prefix = || {
+                let prefixes = self.prefixes.borrow();
+                prefixes
+                    .iter()
+                    .filter(|(prefix, _)| url.starts_with(prefix.as_str()))
+                    .max_by_key(|(prefix, _)| prefix.len())
+                    .map(|(_, bytes)| bytes.clone())
+            };
             self.responses
                 .borrow()
                 .get(url)
                 .cloned()
+                .or_else(by_prefix)
                 .ok_or_else(|| FetchError::Http {
                     url: url.to_string(),
                     message: "404 Not Found".to_string(),
@@ -510,6 +528,18 @@ mod tests {
             message.contains("33421-5821") && message.contains("33421-5822"),
             "{message}"
         );
+    }
+
+    #[test]
+    fn test_fetcher_prefers_exact_then_longest_prefix() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://a.example/", b"short".to_vec());
+        fetcher.insert_prefix("https://a.example/items", b"long".to_vec());
+        fetcher.insert("https://a.example/items?x=1", b"exact".to_vec());
+        assert_eq!(fetcher.get("https://a.example/items?x=1").unwrap(), b"exact");
+        assert_eq!(fetcher.get("https://a.example/items?x=2").unwrap(), b"long");
+        assert_eq!(fetcher.get("https://a.example/other").unwrap(), b"short");
+        assert!(fetcher.get("https://b.example/").is_err());
     }
 
     #[test]
