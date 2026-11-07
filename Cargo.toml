@@ -25,7 +25,8 @@ osmpbf = "0.3.8"
 las = { version = "=0.11.1", features = ["laz"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 quick-xml = "0.42.0"
-# Pinned: newer releases are younger than two weeks.
+# Pinned: newer releases are younger than two weeks. rmcp-macros is held at 3.6.0 in
+# Cargo.lock only (rmcp asks for ^3.6.0), so build with --locked.
 rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }

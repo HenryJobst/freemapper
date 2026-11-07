@@ -18,7 +18,7 @@ In Entwicklung (Meilensteine M0–M6; Sprint-Feinschliff, Gebietsauswahl im Brow
 ## Bauen
 
 ```sh
-cargo build --release
+cargo build --release --locked
 ./target/release/freemapper --version
 ```
 

@@ -3,13 +3,15 @@
 
 use std::path::Path;
 
+use chrono::NaiveDate;
+
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, map_path,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area_size, map_path,
 };
 use crate::sources::lgb::Product;
-use crate::sources::osm::has_cached_extract;
+use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date};
 use crate::tiles::tiles_covering;
 
 /// Typical download sizes in MB.
@@ -36,9 +38,16 @@ pub struct DownloadEstimate {
     pub total_megabytes: f64,
 }
 
-pub fn estimate_download(dir: &Path, cache: &Cache) -> Result<DownloadEstimate, ProjectError> {
+/// `today` decides whether the cached OSM extract is old enough to be downloaded again.
+pub fn estimate_download(
+    dir: &Path,
+    cache: &Cache,
+    today: NaiveDate,
+) -> Result<DownloadEstimate, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let tiles = tiles_covering(&project.bbox()?);
+    let bbox = project.bbox()?;
+    check_area_size(&bbox)?;
+    let tiles = tiles_covering(&bbox);
     let mut items = Vec::new();
     for &tile in &tiles {
         for (product, mb) in [
@@ -60,7 +69,8 @@ pub fn estimate_download(dir: &Path, cache: &Cache) -> Result<DownloadEstimate, 
     items.push(EstimateItem {
         what: "OSM extract Brandenburg (shared by all projects)".to_string(),
         megabytes: OSM_EXTRACT_MB,
-        cached: has_cached_extract(cache),
+        cached: cached_extract_date(cache)
+            .is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS),
     });
     items.push(EstimateItem {
         what: "ALKIS buildings and land use".to_string(),
@@ -102,6 +112,10 @@ pub struct Layer {
     pub description: &'static str,
 }
 
+/// The steps that make the layers, for CLI and MCP users.
+const EXPORT_STEP: &str = "freemapper export or run (MCP: start_pipeline)";
+const DERIVE_STEP: &str = "freemapper derive or run (MCP: start_pipeline)";
+
 /// Raster templates that have previews.
 const RASTER_LAYERS: [(&str, &str, &str); 4] = [
     (
@@ -134,7 +148,7 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             file: map.display().to_string(),
             role: LayerRole::Map,
             ready: map.exists(),
-            made_by: "freemapper export",
+            made_by: EXPORT_STEP,
             description: "the OOM map: buildings and peripheral information",
         },
         Layer {
@@ -142,7 +156,7 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             file: dir.join(CANDIDATES_RELPATH).display().to_string(),
             role: LayerRole::Candidates,
             ready: dir.join(CANDIDATES_RELPATH).exists(),
-            made_by: "freemapper export",
+            made_by: EXPORT_STEP,
             description: "candidates to check: OSM features, contours, out-of-bounds areas",
         },
     ];
@@ -152,7 +166,7 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             file: dir.join(relpath).display().to_string(),
             role: LayerRole::Template,
             ready: dir.join(relpath).exists(),
-            made_by: "freemapper derive",
+            made_by: DERIVE_STEP,
             description,
         });
     }
@@ -168,10 +182,17 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
             names.join(", ")
         )));
     };
+    let project = ProjectFile::load(dir)?;
     let path = dir.join(relpath);
     if !path.exists() {
+        if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() {
+            return Err(ProjectError::Layer(
+                "no nDSM is published for the tiles of this map area, so there is no ndsm template"
+                    .to_string(),
+            ));
+        }
         return Err(ProjectError::Layer(format!(
-            "{layer} is not made yet; run `freemapper derive` (or start the pipeline)"
+            "{layer} is not made yet; run {DERIVE_STEP}"
         )));
     }
     let image =
@@ -191,6 +212,7 @@ mod tests {
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};
     use crate::tiles::TileId;
+    use chrono::NaiveDate;
 
     fn school_project(dir: &Path) {
         let text = std::fs::read_to_string(concat!(
@@ -211,13 +233,80 @@ mod tests {
         fetch_project(dir, &fetcher, cache, FetchMode::Online, &mut |_| {}).unwrap();
     }
 
+    fn today() -> NaiveDate {
+        "2026-11-07".parse().unwrap()
+    }
+
+    #[test]
+    fn estimate_counts_an_old_extract_as_download() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        fetched(dir.path(), &cache);
+        let later = "2026-11-20".parse().unwrap();
+        let estimate = estimate_download(dir.path(), &cache, later).unwrap();
+        let osm = estimate
+            .items
+            .iter()
+            .find(|i| i.what.contains("OSM"))
+            .unwrap();
+        assert!(!osm.cached, "{osm:?}");
+        assert_eq!(estimate.total_megabytes, OSM_EXTRACT_MB);
+    }
+
+    #[test]
+    fn estimate_refuses_an_area_too_large() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m = 10_000.0;
+        project.save(dir.path()).unwrap();
+        let err = estimate_download(dir.path(), &cache, today()).unwrap_err();
+        assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn layers_name_the_pipeline_step() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        for layer in list_layers(dir.path()) {
+            assert!(layer.made_by.contains("start_pipeline"), "{layer:?}");
+        }
+        let err = preview_png(dir.path(), "orthophoto", 800).unwrap_err();
+        assert!(err.to_string().contains("start_pipeline"), "{err}");
+    }
+
+    #[test]
+    fn preview_of_a_folder_without_project_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = preview_png(dir.path(), "orthophoto", 800).unwrap_err();
+        assert!(!matches!(err, ProjectError::Layer(_)), "{err:?}");
+    }
+
+    #[test]
+    fn preview_explains_a_missing_ndsm() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, TileId::parse("33421-5821").unwrap(), "2026-01-26");
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {}).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let err = preview_png(dir.path(), "ndsm", 800).unwrap_err();
+        assert!(err.to_string().contains("no nDSM"), "{err}");
+    }
+
     #[test]
     fn estimate_before_and_after_fetch() {
         let dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         school_project(dir.path());
-        let before = estimate_download(dir.path(), &cache).unwrap();
+        let before = estimate_download(dir.path(), &cache, today()).unwrap();
         assert_eq!(before.tiles, ["33421-5821"]);
         assert!(before.items.iter().all(|i| !i.cached));
         assert!(
@@ -226,7 +315,7 @@ mod tests {
             before.total_megabytes
         );
         fetched(dir.path(), &cache);
-        let after = estimate_download(dir.path(), &cache).unwrap();
+        let after = estimate_download(dir.path(), &cache, today()).unwrap();
         assert!(after.items.iter().all(|i| i.cached), "{:?}", after.items);
         assert_eq!(after.total_megabytes, 0.0);
     }
@@ -266,8 +355,6 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         school_project(dir.path());
-        let err = preview_png(dir.path(), "orthophoto", 800).unwrap_err();
-        assert!(err.to_string().contains("freemapper derive"), "{err}");
         assert!(
             preview_png(dir.path(), "street view", 800)
                 .unwrap_err()

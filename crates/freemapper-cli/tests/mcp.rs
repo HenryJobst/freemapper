@@ -153,7 +153,7 @@ fn mcp_creates_a_project_and_lists_layers() {
         json!({ "dir": project, "layer": "orthophoto" }),
     );
     assert!(error);
-    assert!(text.contains("freemapper derive"), "{text}");
+    assert!(text.contains("start_pipeline"), "{text}");
 }
 
 #[test]
@@ -170,6 +170,15 @@ fn mcp_reports_tool_errors() {
     let (error, text) = session.call("project_status", json!({ "job_id": "job-99" }));
     assert!(error);
     assert!(text.contains("job-99"), "{text}");
+    let (error, text) = session.call("start_pipeline", json!({ "dir": "projects/school" }));
+    assert!(error);
+    assert!(text.contains("relative"), "{text}");
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({ "dir": dir.path().join("missing") }),
+    );
+    assert!(error);
+    assert!(text.contains("create_project"), "{text}");
 }
 
 #[test]
@@ -187,7 +196,9 @@ fn mcp_failed_job_is_reported() {
     assert!(!error, "{text}");
     let job: Value = serde_json::from_str(&text).unwrap();
     let job_id = job["job_id"].as_str().unwrap().to_string();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     let status = loop {
+        assert!(std::time::Instant::now() < deadline, "job still running");
         let (error, text) = session.call("project_status", json!({ "job_id": job_id }));
         assert!(!error, "{text}");
         let status: Value = serde_json::from_str(&text).unwrap();
@@ -201,4 +212,9 @@ fn mcp_failed_job_is_reported() {
         status["error"].as_str().unwrap().contains("33421-5821"),
         "{status}"
     );
+    // The server keeps serving after a failed job, and the project can be started again.
+    let (error, text) = session.call("list_layers", json!({ "dir": project }));
+    assert!(!error, "{text}");
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
 }

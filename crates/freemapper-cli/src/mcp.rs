@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -34,7 +34,7 @@ create_project (a new folder, absolute path, with the osm_id) → estimate_downl
 how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
 project_status (poll every few seconds until the state is finished or failed) → list_layers and \
 preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering \
-Mapper. Paths must be absolute or start with ~.";
+Mapper. Paths must be absolute or start with ~. One pipeline runs at a time.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum JobState {
@@ -71,16 +71,18 @@ struct Jobs {
 }
 
 impl Jobs {
-    /// Registers a running job for `dir`; refused while another job for `dir` runs.
+    /// Registers a running job for `dir`; refused while any job runs, because all projects
+    /// share the download cache.
     fn start(&mut self, dir: &Path) -> Result<String, String> {
-        if let Some((id, _)) = self
+        if let Some((id, job)) = self
             .jobs
             .iter()
-            .find(|(_, job)| job.dir == dir && job.state == JobState::Running)
+            .find(|(_, job)| job.state == JobState::Running)
         {
             return Err(format!(
-                "{id} is still running for {}; wait until project_status reports finished or failed",
-                dir.display()
+                "{id} is still running for {}; one pipeline runs at a time (projects share the \
+                 download cache): start this one when project_status reports finished or failed",
+                job.dir.display()
             ));
         }
         self.next += 1;
@@ -202,6 +204,31 @@ pub struct FreemapperServer {
     last_nominatim: Arc<Mutex<Option<Instant>>>,
 }
 
+/// The job table; a panic elsewhere never makes it unusable.
+fn lock(jobs: &Mutex<Jobs>) -> MutexGuard<'_, Jobs> {
+    jobs.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+/// Runs a job to its end and records the outcome; a panic is recorded as a failure, so the
+/// job never stays running.
+fn run_job(
+    jobs: &Mutex<Jobs>,
+    id: &str,
+    job: impl FnOnce(&mut dyn FnMut(&str)) -> Result<String, String>,
+) {
+    let mut progress = |line: &str| lock(jobs).progress(id, line);
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut progress)))
+        .unwrap_or_else(|panic| {
+            let message = panic
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_default();
+            Err(format!("internal error: {message}"))
+        });
+    lock(jobs).finish(id, outcome);
+}
+
 /// A tool result with one text block.
 fn text(text: impl Into<String>) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
@@ -226,13 +253,17 @@ fn describe(error: &dyn std::error::Error) -> String {
     message
 }
 
-/// Resolves a path from the agent: absolute, or `~` / `~/…` for the home folder. Relative
-/// paths are refused because the server's working folder is unknown to the agent.
+/// Resolves a path from the agent: absolute, or `~/…` (`~\…`) inside the home folder.
+/// Relative paths are refused because the server's working folder is unknown to the agent; the
+/// home folder itself is refused because a project would litter it.
 fn resolve(path: &str) -> Result<PathBuf, String> {
     let path = path.trim();
-    let resolved = if path == "~" || path.starts_with("~/") {
-        let home = dirs::home_dir().ok_or("no home folder on this system; use an absolute path")?;
-        home.join(path.trim_start_matches('~').trim_start_matches('/'))
+    let home = dirs::home_dir();
+    let resolved = if path == "~" || path.starts_with("~/") || path.starts_with("~\\") {
+        let home = home
+            .clone()
+            .ok_or("no home folder on this system; use an absolute path")?;
+        home.join(path[1..].trim_start_matches(['/', '\\']))
     } else {
         PathBuf::from(path)
     };
@@ -241,7 +272,24 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
             "{path:?} is a relative path; use an absolute path or one starting with ~"
         ));
     }
+    if home.is_some_and(|home| home == resolved) {
+        return Err(format!(
+            "{path:?} is the home folder itself; use a folder inside it, e.g. ~/maps/school"
+        ));
+    }
     Ok(resolved)
+}
+
+/// The folder of an existing project.
+fn project_dir(path: &str) -> Result<PathBuf, String> {
+    let dir = resolve(path)?;
+    if !dir.join("freemapper.toml").is_file() {
+        return Err(format!(
+            "no freemapper project in {}; use create_project first",
+            dir.display()
+        ));
+    }
+    Ok(dir)
 }
 
 fn map_kind(kind: Option<&str>) -> Result<MapKind, String> {
@@ -320,7 +368,10 @@ impl FreemapperServer {
 
     /// Waits until a Nominatim request is allowed again, then claims the slot.
     fn nominatim_slot(&self) -> Duration {
-        let mut last = self.last_nominatim.lock().unwrap();
+        let mut last = self
+            .last_nominatim
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         let now = Instant::now();
         let wait = last
             .map(|t| NOMINATIM_INTERVAL.saturating_sub(now - t))
@@ -421,8 +472,13 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<ProjectDir>,
     ) -> Result<CallToolResult, McpError> {
-        let estimate = resolve(&req.dir)
-            .and_then(|dir| estimate_download(&dir, &self.cache).map_err(|e| describe(&e)));
+        let cache = self.cache.clone();
+        let estimate = blocking(move || {
+            let dir = project_dir(&req.dir)?;
+            let today = chrono::Local::now().date_naive();
+            estimate_download(&dir, &cache, today).map_err(|e| describe(&e))
+        })
+        .await;
         match estimate {
             Ok(estimate) => {
                 let items: Vec<Value> = estimate
@@ -448,20 +504,21 @@ impl FreemapperServer {
     #[tool(
         description = "Download the data, compute the templates and write the starter project \
                        (fetch, derive, export). Runs in the background and returns a job_id; poll \
-                       project_status. An existing map is kept unless force is true."
+                       project_status. One pipeline runs at a time. An existing map is kept unless force \
+                       is true."
     )]
     async fn start_pipeline(
         &self,
         Parameters(req): Parameters<StartPipeline>,
     ) -> Result<CallToolResult, McpError> {
-        let dir = match resolve(&req.dir) {
+        let dir = match project_dir(&req.dir) {
             Ok(dir) => dir,
             Err(e) => return failure(e),
         };
         if let Err(e) = ProjectFile::load(&dir) {
             return failure(describe(&e));
         }
-        let id = match self.jobs.lock().unwrap().start(&dir) {
+        let id = match lock(&self.jobs).start(&dir) {
             Ok(id) => id,
             Err(e) => return failure(e),
         };
@@ -476,19 +533,11 @@ impl FreemapperServer {
         let job_id = id.clone();
         let job_dir = dir.clone();
         tokio::task::spawn_blocking(move || {
-            let mut progress = |line: &str| jobs.lock().unwrap().progress(&job_id, line);
-            let outcome = run_project(
-                &job_dir,
-                &HttpFetcher::new(),
-                &cache,
-                mode,
-                force,
-                &mut progress,
-            );
-            let outcome = outcome
-                .map(|outcome| summary(&outcome))
-                .map_err(|e| describe(&e));
-            jobs.lock().unwrap().finish(&job_id, outcome);
+            run_job(&jobs, &job_id, |progress| {
+                run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
+                    .map(|outcome| summary(&outcome))
+                    .map_err(|e| describe(&e))
+            });
         });
         text(json!({ "job_id": id, "dir": dir, "state": "running" }).to_string())
     }
@@ -501,7 +550,7 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<ProjectStatus>,
     ) -> Result<CallToolResult, McpError> {
-        match self.jobs.lock().unwrap().status(&req.job_id) {
+        match lock(&self.jobs).status(&req.job_id) {
             Some(status) => text(status.to_string()),
             None => failure(format!(
                 "no job {:?}; start_pipeline returns the job ids of this session",
@@ -518,13 +567,10 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<ProjectDir>,
     ) -> Result<CallToolResult, McpError> {
-        let dir = match resolve(&req.dir) {
+        let dir = match project_dir(&req.dir) {
             Ok(dir) => dir,
             Err(e) => return failure(e),
         };
-        if let Err(e) = ProjectFile::load(&dir) {
-            return failure(describe(&e));
-        }
         let layers: Vec<Value> = list_layers(&dir)
             .iter()
             .map(|l| {
@@ -549,11 +595,15 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<PreviewLayer>,
     ) -> Result<CallToolResult, McpError> {
-        let png = resolve(&req.dir)
-            .and_then(|dir| preview_png(&dir, &req.layer, PREVIEW_PX).map_err(|e| describe(&e)));
+        let layer = req.layer.clone();
+        let png = blocking(move || {
+            let dir = project_dir(&req.dir)?;
+            preview_png(&dir, &req.layer, PREVIEW_PX).map_err(|e| describe(&e))
+        })
+        .await;
         match png {
             Ok(png) => Ok(CallToolResult::success(vec![
-                ContentBlock::text(format!("Preview of {}", req.layer)),
+                ContentBlock::text(format!("Preview of {layer}")),
                 ContentBlock::image(
                     base64::engine::general_purpose::STANDARD.encode(png),
                     "image/png",
@@ -587,16 +637,54 @@ mod tests {
     use super::*;
 
     #[test]
-    fn second_job_for_the_same_project_is_refused_while_running() {
+    fn only_one_pipeline_runs_at_a_time() {
+        // Jobs share the download cache, so a second one waits even for another project.
         let mut jobs = Jobs::default();
-        let dir = Path::new("/projects/school");
-        let first = jobs.start(dir).unwrap();
+        let first = jobs.start(Path::new("/projects/school")).unwrap();
         assert_eq!(first, "job-1");
-        let refused = jobs.start(dir).unwrap_err();
-        assert!(refused.contains("job-1"), "{refused}");
-        assert_eq!(jobs.start(Path::new("/projects/other")).unwrap(), "job-2");
+        for dir in ["/projects/school", "/projects/other"] {
+            let refused = jobs.start(Path::new(dir)).unwrap_err();
+            assert!(refused.contains("job-1"), "{refused}");
+        }
         jobs.finish(&first, Err("offline".into()));
-        assert_eq!(jobs.start(dir).unwrap(), "job-3");
+        assert_eq!(jobs.start(Path::new("/projects/other")).unwrap(), "job-2");
+    }
+
+    #[test]
+    fn panicking_job_is_reported_as_failed() {
+        let jobs = Arc::new(Mutex::new(Jobs::default()));
+        let id = lock(&jobs).start(Path::new("/p")).unwrap();
+        run_job(&jobs, &id, |_| panic!("bad tile data"));
+        let status = lock(&jobs).status(&id).unwrap();
+        assert_eq!(status["state"], "failed");
+        assert!(
+            status["error"].as_str().unwrap().contains("bad tile data"),
+            "{status}"
+        );
+    }
+
+    #[test]
+    fn job_progress_and_outcome_are_recorded() {
+        let jobs = Arc::new(Mutex::new(Jobs::default()));
+        let id = lock(&jobs).start(Path::new("/p")).unwrap();
+        run_job(&jobs, &id, |progress| {
+            progress("warning: no nDSM for tile 33421-5821");
+            Ok("Wrote the map".into())
+        });
+        let status = lock(&jobs).status(&id).unwrap();
+        assert_eq!(status["state"], "finished");
+        assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn project_dir_needs_a_project() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("school");
+        let err = project_dir(project.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("create_project"), "{err}");
+        std::fs::create_dir(&project).unwrap();
+        std::fs::write(project.join("freemapper.toml"), "").unwrap();
+        assert_eq!(project_dir(project.to_str().unwrap()).unwrap(), project);
     }
 
     #[test]
@@ -623,7 +711,8 @@ mod tests {
         assert!(resolve("projects/school").unwrap_err().contains("relative"));
         let home = dirs::home_dir().unwrap();
         assert_eq!(resolve("~/maps/x").unwrap(), home.join("maps/x"));
-        assert_eq!(resolve("~").unwrap(), home);
+        assert_eq!(resolve("~\\maps").unwrap(), home.join("maps"));
+        assert!(resolve("~").unwrap_err().contains("home folder itself"));
         let absolute = std::env::temp_dir().join("x");
         assert_eq!(resolve(absolute.to_str().unwrap()).unwrap(), absolute);
     }

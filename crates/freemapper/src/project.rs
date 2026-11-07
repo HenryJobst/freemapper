@@ -353,6 +353,17 @@ const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
+/// Refuses a map area plus buffer larger than the templates can cover.
+pub(crate) fn check_area_size(bbox: &BoundingBox) -> Result<(), ProjectError> {
+    if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
+        return Err(ProjectError::AreaTooLarge {
+            width_m: bbox.width(),
+            height_m: bbox.height(),
+        });
+    }
+    Ok(())
+}
+
 /// Fetches the tiles covering the map area plus buffer into `cache` and records them in the
 /// project file. Warns through `progress` when a tile was republished since the last fetch.
 pub fn fetch_project(
@@ -364,12 +375,7 @@ pub fn fetch_project(
 ) -> Result<ProjectFile, ProjectError> {
     let mut project = ProjectFile::load(dir)?;
     let bbox = project.bbox()?;
-    if bbox.width() > MAX_AREA_SIDE_M || bbox.height() > MAX_AREA_SIDE_M {
-        return Err(ProjectError::AreaTooLarge {
-            width_m: bbox.width(),
-            height_m: bbox.height(),
-        });
-    }
+    check_area_size(&bbox)?;
     let tiles = tiles_covering(&bbox);
     let mut records = Vec::new();
     for product in PRODUCTS {

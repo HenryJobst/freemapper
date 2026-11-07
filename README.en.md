@@ -18,7 +18,7 @@ Under development (milestones M0–M6; sprint polish, area selection in the brow
 ## Build
 
 ```sh
-cargo build --release
+cargo build --release --locked
 ./target/release/freemapper --version
 ```
 

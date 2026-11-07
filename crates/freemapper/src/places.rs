@@ -30,8 +30,6 @@ pub enum PlaceError {
     Fetch(#[from] FetchError),
     #[error(transparent)]
     Area(#[from] AreaError),
-    #[error("invalid answer from the place search: {0}")]
-    Answer(String),
 }
 
 /// Percent-encodes a query string value (RFC 3986 unreserved characters stay).
@@ -73,14 +71,19 @@ pub fn lookup_url(osm_id: &str) -> Result<String, AreaError> {
 }
 
 fn results(json: &str) -> Result<Vec<Value>, AreaError> {
-    serde_json::from_str::<Vec<Value>>(json).map_err(|e| AreaError::Place(e.to_string()))
+    serde_json::from_str::<Vec<Value>>(json)
+        .map_err(|e| AreaError::Place(format!("invalid answer from the place search: {e}")))
 }
 
+/// Whether the result has a polygon a map area can be made from (one part only).
 fn has_polygon(result: &Value) -> bool {
-    matches!(
-        result["geojson"]["type"].as_str(),
-        Some("Polygon" | "MultiPolygon")
-    )
+    match result["geojson"]["type"].as_str() {
+        Some("Polygon") => true,
+        Some("MultiPolygon") => result["geojson"]["coordinates"]
+            .as_array()
+            .is_some_and(|parts| parts.len() == 1),
+        _ => false,
+    }
 }
 
 /// Search results, places with an area first, otherwise in Nominatim's order.
@@ -108,7 +111,11 @@ pub fn area_from_lookup(json: &str, osm_id: &str) -> Result<MapArea, AreaError> 
     let place = found
         .first()
         .ok_or_else(|| AreaError::Place(format!("{osm_id} not found")))?;
-    if !has_polygon(place) {
+    // A multi-part area is not a point: from_geojson explains why it cannot be a map area.
+    if !matches!(
+        place["geojson"]["type"].as_str(),
+        Some("Polygon" | "MultiPolygon")
+    ) {
         return Err(AreaError::Place(format!(
             "{osm_id} is a point, not an area; pick its grounds (a way or relation)"
         )));
@@ -135,6 +142,30 @@ mod tests {
 
     const SEARCH: &str = include_str!("../../../tests/fixtures/nominatim-search.json");
     const LOOKUP: &str = include_str!("../../../tests/fixtures/nominatim-lookup.json");
+
+    #[test]
+    fn multi_part_multipolygon_has_no_area() {
+        let json = r#"[
+            {"osm_type":"relation","osm_id":1,"name":"Split","geojson":{"type":"MultiPolygon",
+             "coordinates":[[[[0,0],[1,0],[1,1],[0,0]]],[[[2,2],[3,2],[3,3],[2,2]]]]}},
+            {"osm_type":"relation","osm_id":2,"name":"One","geojson":{"type":"MultiPolygon",
+             "coordinates":[[[[0,0],[1,0],[1,1],[0,0]]]]}}
+        ]"#;
+        let places = parse_search(json).unwrap();
+        assert_eq!(places[0].osm_id, "relation/2");
+        assert!(places[0].has_area);
+        assert!(!places[1].has_area);
+    }
+
+    #[test]
+    fn invalid_answer_is_named() {
+        let err = parse_search("<html>busy</html>").unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("invalid answer from the place search"),
+            "{err}"
+        );
+    }
 
     #[test]
     fn search_url_encodes_query() {

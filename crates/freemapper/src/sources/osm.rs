@@ -245,7 +245,7 @@ pub const EXTRACT_URL: &str =
 pub const STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
-const MAX_EXTRACT_AGE_DAYS: i64 = 7;
+pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_PREFIX: &str = "brandenburg_";
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
 /// Partial downloads older than this are left over from interrupted runs.
@@ -269,9 +269,9 @@ pub fn parse_state_date(text: &str) -> Option<NaiveDate> {
     value.get(..10)?.parse().ok()
 }
 
-/// Whether an OSM extract is cached.
-pub fn has_cached_extract(cache: &Cache) -> bool {
-    !cached_extracts(cache).is_empty()
+/// Date of the newest cached OSM extract (Geofabrik's state when downloaded).
+pub fn cached_extract_date(cache: &Cache) -> Option<NaiveDate> {
+    cached_extracts(cache).first().map(|e| e.date)
 }
 
 /// Cached extracts, newest first.
