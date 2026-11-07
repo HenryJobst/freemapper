@@ -6,8 +6,10 @@ use std::path::{Path, PathBuf};
 use chrono::{Datelike as _, NaiveDate};
 use serde::{Deserialize, Serialize};
 
+use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::building_objects;
+use crate::build::candidates::{Rules, candidate_objects};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
 use crate::derive::orthophoto::build_orthophoto;
@@ -24,6 +26,9 @@ use crate::omap::{
 use crate::raster::GridSpec;
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
+use crate::sources::osm::{
+    features_from_geojson, features_to_geojson, fetch_extract, read_extract,
+};
 use crate::tiles::{TileId, tiles_covering};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -61,6 +66,10 @@ pub enum ProjectError {
     TilesOutdated(Vec<TileId>),
     #[error("no ALKIS buildings stored for this map area; run `freemapper fetch` online first")]
     BuildingsNotFetched,
+    #[error("the stored OSM candidates do not cover the map area; run `freemapper fetch`")]
+    CandidatesOutdated,
+    #[error(transparent)]
+    Osm(#[from] crate::sources::osm::OsmError),
     #[error(
         "map area plus buffer is {width_m:.0} × {height_m:.0} m, more than {MAX_AREA_SIDE_M:.0} m per side; reduce the map area or buffer_m in freemapper.toml"
     )]
@@ -147,6 +156,29 @@ pub struct ProjectFile {
     /// The ALKIS buildings of the last online `fetch`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub buildings: Option<BuildingsRecord>,
+    /// The OSM extract the candidates were read from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub osm: Option<OsmRecord>,
+}
+
+/// Which OSM extract the stored candidates come from and the area they cover.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OsmRecord {
+    /// Date of the Geofabrik extract.
+    pub extract: NaiveDate,
+    /// Geographic box read: min latitude, min longitude, max latitude, max longitude.
+    pub area: [f64; 4],
+    pub count: usize,
+}
+
+impl OsmRecord {
+    fn covers(&self, area: &GeoBox) -> bool {
+        let [min_lat, min_lon, max_lat, max_lon] = self.area;
+        min_lat <= area.min_lat
+            && min_lon <= area.min_lon
+            && max_lat >= area.max_lat
+            && max_lon >= area.max_lon
+    }
 }
 
 /// Which ALKIS buildings were fetched and how current they are.
@@ -249,6 +281,7 @@ pub fn init_project(
         title: title.as_deref().and_then(clean_title),
         tiles: Vec::new(),
         buildings: None,
+        osm: None,
     };
     project.save(dir)?;
     Ok(project)
@@ -270,6 +303,8 @@ const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
 const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 const SLOPE_RELPATH: &str = "templates/slope.png";
+/// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
+const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
 /// Skipped ALKIS features listed in a progress message.
 const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
@@ -326,7 +361,36 @@ pub fn fetch_project(
         project.buildings = Some(record);
         project.save(dir)?;
     }
+    project.osm = Some(fetch_osm_into(
+        dir, fetcher, cache, mode, &project, progress,
+    )?);
+    project.save(dir)?;
     Ok(project)
+}
+
+/// Reads the candidate features of the map area plus buffer from the OSM extract into
+/// [`OSM_CANDIDATES_RELPATH`]; offline from the cached extract.
+fn fetch_osm_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &ProjectFile,
+    progress: &mut dyn FnMut(&str),
+) -> Result<OsmRecord, ProjectError> {
+    let extract = fetch_extract(fetcher, cache, mode, progress)?;
+    let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
+    progress(&format!("reading OSM extract from {}", extract.date));
+    let rules = Rules::embedded();
+    let features = read_extract(&extract.path, &area, &|tags| rules.wants(tags))?;
+    let path = dir.join(OSM_CANDIDATES_RELPATH);
+    write_atomically(&path, features_to_geojson(&features).as_bytes())?;
+    progress(&format!("{} OSM candidate features", features.len()));
+    Ok(OsmRecord {
+        extract: extract.date,
+        area: [area.min_lat, area.min_lon, area.max_lat, area.max_lon],
+        count: features.len(),
+    })
 }
 
 /// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`] and returns the new record;
@@ -603,6 +667,36 @@ fn stored_building_objects(
     )?)
 }
 
+/// Candidate objects for the stored OSM features; none when no features were stored. Fails when
+/// the recorded read does not cover the current map area plus buffer.
+fn stored_candidate_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let path = dir.join(OSM_CANDIDATES_RELPATH);
+    let Some(record) = project.osm.as_ref().filter(|_| path.exists()) else {
+        return Ok(Vec::new());
+    };
+    if !record.covers(&area.geo_box(project.buffer_m)) {
+        return Err(ProjectError::CandidatesOutdated);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let features = features_from_geojson(&text)?;
+    Ok(candidate_objects(
+        &features,
+        &Rules::embedded(),
+        project.map_kind,
+        &area.projected_polygon(),
+        project.buffer_m,
+        georef,
+        symbol_set,
+        record.extract,
+    )?)
+}
+
 /// Whether the stored buildings give map objects that the map at `map_text` lacks.
 fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
     if map_text.contains(ALKIS_SOURCE_TAG) {
@@ -639,13 +733,23 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     let attribution_text = attribution_lines(&project).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
 
+    // Buildings first: they are the map's own objects, candidates only a template.
+    let building_objects = stored_building_objects(dir, &project, &area, &georef, &symbol_set)?;
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
         symbol_set: symbol_set.clone(),
         parts: vec![MapPart {
             name: "candidates".to_string(),
-            objects: vec![map_area_outline(&area, &georef, &symbol_set, &project)?],
+            objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
+                .chain(stored_candidate_objects(
+                    dir,
+                    &project,
+                    &area,
+                    &georef,
+                    &symbol_set,
+                )?)
+                .collect(),
         }],
         templates: Vec::new(),
     };
@@ -681,7 +785,7 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
     });
     let buildings_part = MapPart {
         name: "default part".to_string(),
-        objects: stored_building_objects(dir, &project, &area, &georef, &symbol_set)?,
+        objects: building_objects,
     };
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
@@ -731,9 +835,9 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
 }
 
 const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
-const OSM_ATTRIBUTION: &str = "Map area: © OpenStreetMap contributors, ODbL";
+const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
-const OSM_ATTRIBUTION_DE: &str = "Kartengebiet: © OpenStreetMap-Mitwirkende, ODbL";
+const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
 const FREEMAPPER_CREDIT_DE: &str =
     concat!("Erstellt mit freemapper – ", env!("CARGO_PKG_REPOSITORY"));
@@ -860,6 +964,11 @@ mod tests {
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
                 count: 18,
+            }),
+            osm: Some(OsmRecord {
+                extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
+                area: [52.5385, 13.8418, 52.5418, 13.8457],
+                count: 7,
             }),
         };
         file.save(dir.path()).unwrap();
@@ -1363,6 +1472,90 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn fetch_stores_osm_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let features = crate::sources::osm::features_from_geojson(&text).unwrap();
+        assert!(
+            features.iter().any(|f| f.id == "node/9669755236"),
+            "school hydrant"
+        );
+        let record = ProjectFile::load(dir.path())
+            .unwrap()
+            .osm
+            .expect("OSM recorded");
+        assert_eq!(record.extract.to_string(), "2026-11-06");
+        assert_eq!(record.count, features.len());
+    }
+
+    #[test]
+    fn export_adds_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        // The tartan pitch lies on the school grounds; the hydrant stands 63 m away in the street,
+        // beyond the 20 m buffer.
+        assert!(candidates.contains(r#"<t k="freemapper:source_id">way/1028507308</t>"#));
+        assert!(!candidates.contains("node/9669755236"));
+        assert!(candidates.contains(r#"<t k="freemapper:currency">2026-11-06</t>"#));
+        let pitch_symbol = MapKind::Schoolyard
+            .symbol_set()
+            .id_for_code("501.10")
+            .unwrap();
+        assert!(candidates.contains(&format!(r#"<object type="1" symbol="{pitch_symbol}""#)));
+    }
+
+    #[test]
+    fn export_without_osm_candidates_still_works() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        std::fs::remove_file(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(
+            !candidates
+                .contains(r#"<t k="freemapper:source">osm</t><t k="freemapper:source_id">node/"#)
+        );
+        assert!(candidates.contains("way/992423119"), "outline stays");
+    }
+
+    #[test]
+    fn offline_fetch_reads_cached_extract() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        std::fs::remove_file(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let calls = fetcher.calls.get();
+        fetch_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetcher.calls.get(), calls);
+        assert!(dir.path().join(OSM_CANDIDATES_RELPATH).exists());
+    }
+
+    #[test]
+    fn export_refuses_candidates_not_covering_the_area() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.buffer_m += 10.0;
+        project.buildings = None;
+        project.save(dir.path()).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let err = export_starter_project(dir.path(), false).unwrap_err();
+        assert!(matches!(err, ProjectError::CandidatesOutdated), "{err:?}");
+        assert!(err.to_string().contains("freemapper fetch"), "{err}");
+    }
+
+    #[test]
     fn export_includes_buildings() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
@@ -1506,7 +1699,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(map.contains(
             "<text>Erstellt mit freemapper – https://github.com/HenryJobst/freemapper</text>"
         ));
-        assert!(map.contains("<text>Kartengebiet: © OpenStreetMap-Mitwirkende, ODbL</text>"));
+        assert!(map.contains("<text>© OpenStreetMap-Mitwirkende, ODbL</text>"));
         assert!(
             map.contains(FREEMAPPER_CREDIT),
             "notes keep the English credit"

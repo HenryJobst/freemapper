@@ -501,7 +501,21 @@ pub(crate) mod test_support {
             SCHOOL_BUILDING,
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[school], None));
+        fetcher.insert(
+            crate::sources::osm::STATE_URL,
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            crate::sources::osm::EXTRACT_URL,
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
     }
+
+    /// The OSM extract fixture cut around the school.
+    pub const OSM_FIXTURE: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/strausberg-school.osm.pbf"
+    );
 
     /// A 10 m square near the centroid of the fixture school area (EPSG:25833 corner + side).
     pub const SCHOOL_BUILDING: [f64; 3] = [421_605.0, 5_821_730.0, 10.0];

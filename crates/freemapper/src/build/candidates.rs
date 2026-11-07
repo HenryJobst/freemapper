@@ -414,7 +414,11 @@ mod tests {
     #[test]
     fn school_only_rules_skip_sprint() {
         let hydrant = point("node/1", &[("emergency", "fire_hydrant")]);
-        assert!(objects(std::slice::from_ref(&hydrant), MapKind::Sprint).0.is_empty());
+        assert!(
+            objects(std::slice::from_ref(&hydrant), MapKind::Sprint)
+                .0
+                .is_empty()
+        );
         assert_eq!(objects(&[hydrant], MapKind::Schoolyard).0.len(), 1);
     }
 
