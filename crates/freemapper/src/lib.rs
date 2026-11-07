@@ -7,3 +7,5 @@ pub mod crs;
 pub mod georef;
 pub mod omap;
 pub mod project;
+pub mod sources;
+pub mod tiles;
