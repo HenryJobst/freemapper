@@ -85,12 +85,11 @@ one (an existing map stays as it is), "Done" ends the page. The page runs on thi
 
 `run` performs three steps that are also available on their own:
 
-- `freemapper fetch <dir>` – downloads the LGB orthophoto (DOP20) and terrain model (DGM1) tiles for
-  map area plus buffer into the cache, the nDSM (about 15 MB per tile; refreshed when the server reports
-  a newer modification date), the ALKIS buildings and Geofabrik's OSM extract of the state
-  (Brandenburg with Berlin about 300 MB, Saxony about 270 MB; the first time, afterwards only when it is
-  more than 7 days old). A tile is downloaded again only when it was republished; `--offline` uses data
-  fetched before. In Saxony the data comes from GeoSN, see [Saxony](#saxony).
+- `freemapper fetch <dir>` – downloads, for map area plus buffer, the orthophoto, terrain model and nDSM
+  of the responsible state, the ALKIS buildings and land use, and Geofabrik's OSM extract of the state
+  (180–300 MB the first time, afterwards only when it is more than 7 days old) into the cache. Only
+  what was republished is downloaded again; `--offline` uses data fetched before. Where each state's
+  data comes from is listed under [Regions](#regions).
 - `freemapper derive <dir>` – computes orthophoto, hillshade, slope and nDSM (height above ground:
   hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
   1 m, sprint 2 m; every fifth an index contour) as candidates.
@@ -150,41 +149,17 @@ freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geo
 freemapper run vorstadt
 ```
 
-## Berlin and the border area
+## Regions
 
-LGB provides orthophoto, terrain model and surface model for Berlin as well. Inside Berlin the ALKIS
-buildings and actual land use come from the Geoportal Berlin (WFS, dl-de/zero-2-0); freemapper tells
-from the map area which state is responsible and queries both services at the state border.
-Differences from Brandenburg:
+| State | Data | nDSM template | Notes |
+|---|---|---|---|
+| Brandenburg | LGB | laser nDSM, 0.2 m | |
+| Berlin | LGB, ALKIS from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; street areas include verges |
+| Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 
-- LGB publishes no nDSM point cloud for Berlin. There the nDSM template is computed from the
-  image-based surface model (bDOM, 0.2 m, about 30 MB per tile) minus the terrain model. It is a bit
-  softer than the laser nDSM: thin objects such as lamp posts or fences are often missing, parked cars
-  are included.
-- Berlin ALKIS areas are not split by parcel, and street areas include the grass and tree strips at
-  their edges. These appear as paved area on the map and need correcting in the field.
-- Berlin never records what a square is used for (no "car park" or "market square"). Squares therefore
-  only become candidates, not finished map objects.
-- The Geoportal service occasionally drops connections; freemapper tries every request up to three
-  times.
-
-## Saxony
-
-In Saxony all official data comes from GeoSN (Landesamt für Geobasisinformation Sachsen), free and
-without a login. Differences from Brandenburg:
-
-- **Orthophoto** from GeoSN's map service (WMS), cut to the map area and loaded in seconds; GeoSN's
-  tiles would be 230–270 MB each. The flight date is in `freemapper.toml`.
-- **Terrain model (DGM1) and surface model (DOM1)** in 2 km tiles (about 15 MB each).
-- **nDSM**: Saxony does not publish one openly yet. freemapper computes the nDSM template as DOM1 minus
-  DGM1 at 1 m, coarser than in Brandenburg (0.2 m): hedges and narrow walls often only show faintly.
-- **ALKIS** in Saxony records no position below ground and no building parts, so underground structures
-  such as car parks cannot be filtered out if GeoSN delivers them.
-- **Squares** are not refined in Saxony; they only become candidates. Street areas include the grass
-  and tree strips at their edges (as in Berlin).
-- At the border with Brandenburg freemapper queries both ALKIS services and reads both OSM extracts.
-  Orthophoto and terrain come from the state holding the centre of the map area; across the border
-  the templates may stay empty.
+At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
+orthophoto and terrain come from the state holding the centre of the map area. More in the
+[user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas).
 
 ## Quick training map (PDF)
 
