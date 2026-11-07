@@ -1767,8 +1767,15 @@ mod tests {
                 lat + 0.002
             ))
             .unwrap();
-            init_project(&dir.path().join(name), &area, MapKind::Sprint, None, date, None)
-                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            init_project(
+                &dir.path().join(name),
+                &area,
+                MapKind::Sprint,
+                None,
+                date,
+                None,
+            )
+            .unwrap_or_else(|e| panic!("{name}: {e}"));
         }
     }
 
