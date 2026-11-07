@@ -181,7 +181,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 .collect(),
                 Crs::Utm32,
             ),
-            Region::Hessen => (Vec::new(), Crs::Utm32), // Task 6: HVBG ALKIS
+            Region::Hessen => wfs_buildings(fetcher, &alkis_wfs::HVBG, &in_crs)?,
         })
     })
 }
@@ -213,7 +213,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 .collect(),
                 Crs::Utm32,
             ),
-            Region::Hessen => (Vec::new(), Crs::Utm32), // Task 6: HVBG ALKIS
+            Region::Hessen => wfs_land_use(fetcher, &alkis_wfs::HVBG, &in_crs)?,
         })
     })
 }
@@ -239,7 +239,7 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`).
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`).
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -858,6 +858,33 @@ mod tests {
                 .borrow()
                 .iter()
                 .any(|u| u.starts_with(alkis_wfs::LVERMGEO.url) && u.contains("EPSG::25832"))
+        );
+    }
+
+    #[test]
+    fn hessen_alkis_is_fetched_from_the_hvbg_wfs() {
+        // Lessing-Gymnasium Frankfurt (25833).
+        let region_bbox = BoundingBox {
+            min_e: 47_638.0,
+            min_n: 5_571_540.0,
+            max_e: 48_038.0,
+            max_n: 5_571_940.0,
+        };
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            alkis_wfs::HVBG.url,
+            alkis_wfs::test_support::HE_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DEHE")));
+        assert!(parsed.buildings.iter().any(|b| b.underground));
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .all(|u| u.starts_with(alkis_wfs::HVBG.url) && u.contains("EPSG::25832"))
         );
     }
 
