@@ -26,11 +26,21 @@ pub enum Draw {
     Area,
 }
 
+/// Where a matched feature goes: the candidates template map or the map itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Target {
+    #[default]
+    Candidates,
+    Map,
+}
+
 /// The symbol a feature becomes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
     pub code: String,
     pub draw: Draw,
+    pub target: Target,
     /// The tags the rule matched, `k=v; k=v`.
     pub matched: String,
 }
@@ -54,15 +64,24 @@ struct RuleEntry {
     when: Vec<String>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    #[serde(default)]
+    target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
 }
 
 #[derive(Debug, Clone)]
+enum Test {
+    /// `key=a|b`; `None` for `*`.
+    Values(Option<Vec<String>>),
+    /// `key<number`: the value is a number below this.
+    Below(f64),
+}
+
+#[derive(Debug, Clone)]
 struct Condition {
     key: String,
-    /// `None` for `*`.
-    values: Option<Vec<String>>,
+    test: Test,
     /// `key!=value`: holds when the tag is absent or has none of the values.
     negated: bool,
 }
@@ -72,6 +91,7 @@ struct Rule {
     when: Vec<Condition>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
 }
@@ -84,11 +104,19 @@ fn value<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {
     tags.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
 }
 
+/// A tag value as a number: `1.2`, `1,2`, `1.2 m`.
+fn number(value: &str) -> Option<f64> {
+    let value = value.trim();
+    let value = value.strip_suffix('m').unwrap_or(value).trim_end();
+    value.replace(',', ".").parse().ok()
+}
+
 impl Condition {
     fn holds(&self, tags: &Tags) -> bool {
-        let matches = match (value(tags, &self.key), &self.values) {
-            (Some(_), None) => true,
-            (Some(v), Some(values)) => values.iter().any(|allowed| allowed == v),
+        let matches = match (value(tags, &self.key), &self.test) {
+            (Some(_), Test::Values(None)) => true,
+            (Some(v), Test::Values(Some(values))) => values.iter().any(|allowed| allowed == v),
+            (Some(v), Test::Below(limit)) => number(v).is_some_and(|n| n < *limit),
             (None, _) => false,
         };
         matches != self.negated
@@ -110,8 +138,22 @@ impl Rules {
                     .when
                     .iter()
                     .map(|condition| {
+                        if !condition.contains('=')
+                            && let Some((key, limit)) = condition.split_once('<')
+                        {
+                            let limit = number(limit).ok_or_else(|| {
+                                RulesError(format!(
+                                    "condition {condition:?}: {limit:?} is no number"
+                                ))
+                            })?;
+                            return Ok(Condition {
+                                key: key.to_string(),
+                                test: Test::Below(limit),
+                                negated: false,
+                            });
+                        }
                         let (key, values) = condition.split_once('=').ok_or_else(|| {
-                            RulesError(format!("condition {condition:?} lacks `=`"))
+                            RulesError(format!("condition {condition:?} lacks `=` or `<`"))
                         })?;
                         let (key, negated) = match key.strip_suffix('!') {
                             Some(key) => (key, true),
@@ -119,8 +161,10 @@ impl Rules {
                         };
                         Ok(Condition {
                             key: key.to_string(),
-                            values: (values != "*")
-                                .then(|| values.split('|').map(str::to_string).collect()),
+                            test: Test::Values(
+                                (values != "*")
+                                    .then(|| values.split('|').map(str::to_string).collect()),
+                            ),
                             negated,
                         })
                     })
@@ -141,6 +185,7 @@ impl Rules {
                     when,
                     draw: entry.draw,
                     point_as_short_line_mm: entry.point_as_short_line_mm,
+                    target: entry.target,
                     schoolyard: entry.schoolyard,
                     sprint: entry.sprint,
                 })
@@ -189,6 +234,7 @@ impl Rules {
         Some(Match {
             code,
             draw,
+            target: rule.target,
             matched,
         })
     }
@@ -414,6 +460,98 @@ mod tests {
         assert!(Rules::from_toml("[[rule]]\nwhen = [\"amenity\"]\ndraw = \"point\"").is_err());
         assert!(Rules::embedded().wants(&tags(&[("barrier", "fence")])));
         assert!(!Rules::embedded().wants(&tags(&[("building", "yes")])));
+    }
+
+    fn way() -> OsmGeometry {
+        OsmGeometry::Line(vec![at(0.0, 0.0), at(0.0005, 0.0005)])
+    }
+
+    /// Code and layer of the sprint symbol for a way with these tags.
+    fn sprint_way(t: &[(&str, &str)]) -> Option<(String, Target)> {
+        Rules::embedded()
+            .symbol_for(&tags(t), &way(), MapKind::Sprint)
+            .map(|m| (m.code, m.target))
+    }
+
+    #[test]
+    fn width_below_is_numeric() {
+        let rules = Rules::from_toml(
+            "[[rule]]\nwhen = [\"highway=path\", \"width<1.5\"]\ndraw = \"line\"\nsprint = \"506\"",
+        )
+        .unwrap();
+        for (width, holds) in [
+            ("1.2", true),
+            ("1,2 m", true),
+            ("1.2m", true),
+            ("2", false),
+            ("1.5", false),
+            ("narrow", false),
+        ] {
+            let found = rules.symbol_for(
+                &tags(&[("highway", "path"), ("width", width)]),
+                &way(),
+                MapKind::Sprint,
+            );
+            assert_eq!(found.is_some(), holds, "width={width}");
+        }
+        let found = rules.symbol_for(&tags(&[("highway", "path")]), &way(), MapKind::Sprint);
+        assert!(found.is_none(), "no width tag");
+        assert!(
+            Rules::from_toml("[[rule]]\nwhen = [\"width<x\"]\ndraw = \"line\"\nsprint = \"506\"")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn unpaved_track_is_a_map_object() {
+        let track = sprint_way(&[("highway", "track"), ("surface", "gravel")]);
+        assert_eq!(track, Some(("505.2".to_string(), Target::Map)));
+        let path = sprint_way(&[("highway", "footway"), ("surface", "dirt")]);
+        assert_eq!(path, Some(("505.1".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn narrow_or_faint_path_is_506() {
+        let narrow = sprint_way(&[("highway", "track"), ("surface", "ground"), ("width", "1")]);
+        assert_eq!(narrow, Some(("506".to_string(), Target::Map)));
+        let faint = sprint_way(&[
+            ("highway", "path"),
+            ("surface", "earth"),
+            ("trail_visibility", "bad"),
+        ]);
+        assert_eq!(faint, Some(("506".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn paved_and_sidewalk_ways_are_dropped() {
+        let asphalt = sprint_way(&[("highway", "path"), ("surface", "asphalt"), ("width", "1")]);
+        assert_eq!(asphalt, None);
+        let sidewalk = sprint_way(&[
+            ("highway", "footway"),
+            ("footway", "sidewalk"),
+            ("surface", "gravel"),
+        ]);
+        assert_eq!(sidewalk, None);
+        let crossing = sprint_way(&[("highway", "footway"), ("footway", "crossing")]);
+        assert_eq!(crossing, None);
+    }
+
+    #[test]
+    fn path_without_surface_is_a_candidate() {
+        let path = sprint_way(&[("highway", "path")]);
+        assert_eq!(path, Some(("505.1".to_string(), Target::Candidates)));
+        assert!(Rules::embedded().wants(&tags(&[("highway", "track")])));
+    }
+
+    #[test]
+    fn schoolyard_has_no_path_rules() {
+        for t in [
+            vec![("highway", "track"), ("surface", "gravel")],
+            vec![("highway", "path")],
+        ] {
+            let found = Rules::embedded().symbol_for(&tags(&t), &way(), MapKind::Schoolyard);
+            assert_eq!(found, None, "{t:?}");
+        }
     }
 
     #[test]

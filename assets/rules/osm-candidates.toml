@@ -1,9 +1,14 @@
-# OSM tags → candidate symbols for templates/candidates.omap (spec §4.5).
+# OSM tags → symbols for templates/candidates.omap and the map itself (spec §4.5).
 #
 # The first rule whose conditions and geometry match a feature decides; a map kind without a
 # symbol code skips the feature. Conditions in `when` must all hold: `key=value`, `key=a|b`
 # (alternatives), `key=*` (any value) or `key!=value` (absent or another value); at least one
 # condition must not be negated.
+#
+# A condition `key<number` holds when the value is a number below it (`1,2 m` reads as 1.2).
+#
+# `target`: `candidates` (default; templates/candidates.omap) or `map` (reliable enough to be a map
+# object, "Sicheres fertig, Rest Vorlage").
 #
 # `draw`: `point` (nodes), `line` (ways; with `point_as_short_line_mm` also nodes, drawn as a
 # short horizontal line of that length on paper for the mapper to rotate), `area` (closed ways).
@@ -94,3 +99,35 @@ when = ["leisure=pitch", "surface=grass"]
 draw = "area"
 schoolyard = "401"
 sprint = "401"
+
+# Unpaved ways (sprint only). Paved ways and sidewalks have no rule: the ALKIS traffic areas and the
+# orthophoto cover them.
+[[rule]]
+when = ["highway=track|path|footway|bridleway", "footway!=sidewalk|crossing", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips", "width<1.5"]
+draw = "line"
+target = "map"
+sprint = "506"
+
+[[rule]]
+when = ["highway=path", "footway!=sidewalk|crossing", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips", "trail_visibility=intermediate|bad|horrible|no"]
+draw = "line"
+target = "map"
+sprint = "506"
+
+[[rule]]
+when = ["highway=track", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips"]
+draw = "line"
+target = "map"
+sprint = "505.2"
+
+[[rule]]
+when = ["highway=path|footway|bridleway", "footway!=sidewalk|crossing", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips"]
+draw = "line"
+target = "map"
+sprint = "505.1"
+
+# Without a surface tag the way may be paved: a candidate to check against the orthophoto.
+[[rule]]
+when = ["highway=track|path|footway|bridleway", "footway!=sidewalk|crossing", "surface!=*"]
+draw = "line"
+sprint = "505.1"
