@@ -23,6 +23,16 @@ pub fn build_orthophoto_from_image(
         |path: &Path| std::fs::read(path).map_err(|e| DeriveError::Io(path.to_path_buf(), e));
     let jpeg = read(jpg)?;
     let world = read(&jpg.with_extension("jgw"))?;
+    // Fetched on the template grid already (the GeoSN WMS image): copied, not decoded and
+    // encoded again.
+    let (width, height) =
+        image::ImageReader::with_format(std::io::Cursor::new(&jpeg), image::ImageFormat::Jpeg)
+            .into_dimensions()
+            .map_err(|e| DeriveError::Image(e.to_string()))?;
+    let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
+    if template_grid(bbox, grid.pixel_size)? == grid {
+        return write_image_with_world_file(out_jpg, &jpeg, "jgw", &grid.world_file());
+    }
     write_mosaic(std::iter::once(decode(&jpeg, &world)), bbox, out_jpg)
 }
 
@@ -159,6 +169,29 @@ mod tests {
         assert_eq!(img.dimensions(), (20, 30));
         assert!(img.get_pixel(10, 15).0[0] > 245);
         assert!(dir.path().join("orthophoto.jgw").exists());
+    }
+
+    #[test]
+    fn wms_image_on_the_template_grid_is_copied() {
+        let dir = tempfile::tempdir().unwrap();
+        let bbox = BoundingBox {
+            min_e: 421_010.0,
+            min_n: 5_821_960.0,
+            max_e: 421_030.0,
+            max_n: 5_821_990.0,
+        };
+        let grid = GridSpec::covering(&bbox, 1.0);
+        let wms = dir.path().join("orthophoto-wms.jpg");
+        let jpeg = red_jpeg(grid.width, grid.height);
+        std::fs::write(&wms, &jpeg).unwrap();
+        std::fs::write(wms.with_extension("jgw"), grid.world_file()).unwrap();
+        let out = dir.path().join("orthophoto.jpg");
+        build_orthophoto_from_image(&wms, &bbox, &out).unwrap();
+        assert_eq!(std::fs::read(&out).unwrap(), jpeg, "copied, not re-encoded");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("orthophoto.jgw")).unwrap(),
+            grid.world_file()
+        );
     }
 
     fn fetched(

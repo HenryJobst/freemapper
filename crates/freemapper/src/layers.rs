@@ -14,8 +14,8 @@ use crate::project::{
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
-use crate::sources::region::{Provider, Region, raster_region, regions_for};
-use crate::tiles::{TileId, tiles_covering_grid};
+use crate::sources::region::{Provider, Region, provider_tiles, raster_region, regions_for};
+use crate::tiles::TileId;
 
 /// Typical download sizes in MB.
 const DOP_TILE_MB: f64 = 8.0;
@@ -65,7 +65,8 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         Some(Provider::GeoSn) => Product::SaxonyDtm.grid_km(),
         _ => 1,
     };
-    (tiles_covering_grid(bbox, km), km)
+    let provider = raster_region(bbox).map_or(Provider::Lgb, Region::provider);
+    (provider_tiles(bbox, provider, km), km)
 }
 
 fn estimate_area(

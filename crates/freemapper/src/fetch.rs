@@ -43,6 +43,9 @@ pub enum FetchError {
     OsmExtractMissing,
     #[error("{0} not found on the server")]
     NotFound(String),
+    /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
+    #[error("{url}: the server refused the request (HTTP {status})")]
+    Refused { url: String, status: u16 },
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -99,6 +102,10 @@ pub trait Fetcher {
 fn status_error(url: &str, e: ureq::Error) -> FetchError {
     match e {
         ureq::Error::StatusCode(404) => FetchError::NotFound(url.to_string()),
+        ureq::Error::StatusCode(status) if (400..500).contains(&status) => FetchError::Refused {
+            url: url.to_string(),
+            status,
+        },
         e => FetchError::Http {
             url: url.to_string(),
             message: e.to_string(),
@@ -359,7 +366,7 @@ pub fn fetch_tiles(
         .filter(|tile| !table.contains_key(tile))
         .collect();
     if !uncovered.is_empty() {
-        return Err(FetchError::TilesNotCovered(uncovered));
+        return Err(not_in_table(product, mode, uncovered));
     }
     let mut fetched = Vec::new();
     let mut missing = Vec::new();
@@ -401,7 +408,7 @@ pub fn fetch_tiles_each(
         .iter()
         .map(|&tile| {
             let result = match table.get(&tile) {
-                None => Err(FetchError::TilesNotCovered(vec![tile])),
+                None => Err(not_in_table(product, mode, vec![tile])),
                 Some(entry) => {
                     fetch_tile(fetcher, cache, product, tile, entry.clone(), mode, progress)
                         .and_then(|fetched| {
@@ -412,6 +419,16 @@ pub fn fetch_tiles_each(
             (tile, result)
         })
         .collect())
+}
+
+/// Tiles missing from the currency table: not published, or (GeoSN offline, whose cached index
+/// only holds the areas asked for before) not fetched yet.
+fn not_in_table(product: Product, mode: FetchMode, tiles: Vec<TileId>) -> FetchError {
+    if mode == FetchMode::Offline && product.provider() == Provider::GeoSn {
+        FetchError::MissingOffline(product, tiles)
+    } else {
+        FetchError::TilesNotCovered(tiles)
+    }
 }
 
 /// Currency and download URL of each tile a provider publishes.
@@ -483,11 +500,17 @@ fn geosn_currency_table(
     if mode == FetchMode::Online {
         let url = crate::sources::geosn::index_url(product, tiles);
         progress(&format!("downloading the {product} tile index"));
-        let answer = fetcher.get(&url)?;
-        let rows = crate::sources::geosn::parse_index(&String::from_utf8_lossy(&answer))
-            .map_err(|message| FetchError::Http { url, message })?;
+        let rows = get_with_retries(fetcher, &url, |answer| {
+            crate::sources::geosn::parse_index(&String::from_utf8_lossy(answer)).map_err(
+                |message| FetchError::Http {
+                    url: url.clone(),
+                    message,
+                },
+            )
+        })?;
         for row in rows {
-            cached.insert(row.tile.name(), (row.currency, row.url));
+            let download = row.url.unwrap_or_else(|| product.tile_url(row.tile));
+            cached.insert(row.tile.name(), (row.currency, download));
         }
         let json = serde_json::to_vec(&cached).expect("index table serialises");
         write_atomically(&path, &json)?;
@@ -751,7 +774,8 @@ const RETRY_DELAY: Duration = Duration::from_secs(2);
 const RETRY_DELAY: Duration = Duration::ZERO;
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
-/// and answers `check` refuses (an error page with status 200) are retried, a missing URL is not.
+/// and answers `check` refuses (an error page with status 200) are retried; a missing URL or a
+/// refused request is not.
 pub(crate) fn get_with_retries<T>(
     fetcher: &dyn Fetcher,
     url: &str,
@@ -761,7 +785,7 @@ pub(crate) fn get_with_retries<T>(
     loop {
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
-            Err(FetchError::NotFound(_)) => return result,
+            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -815,6 +839,12 @@ pub(crate) mod test_support {
         pub calls: Cell<usize>,
         /// URLs that fail with a server error.
         pub failing: RefCell<Vec<String>>,
+        /// URL prefixes the server refuses with HTTP 400.
+        pub refusing: RefCell<Vec<String>>,
+        /// URL prefixes that fail with a reset this many more times before they answer.
+        pub flaky: RefCell<HashMap<String, u32>>,
+        /// Every URL requested with `get`, in order.
+        pub log: RefCell<Vec<String>>,
     }
 
     impl MapFetcher {
@@ -827,6 +857,30 @@ pub(crate) mod test_support {
         }
 
         fn fail_if_failing(&self, url: &str) -> Result<(), FetchError> {
+            if self
+                .refusing
+                .borrow()
+                .iter()
+                .any(|p| url.starts_with(p.as_str()))
+            {
+                return Err(FetchError::Refused {
+                    url: url.to_string(),
+                    status: 400,
+                });
+            }
+            if let Some(left) = self
+                .flaky
+                .borrow_mut()
+                .iter_mut()
+                .find(|(p, left)| url.starts_with(p.as_str()) && **left > 0)
+                .map(|(_, left)| left)
+            {
+                *left -= 1;
+                return Err(FetchError::Http {
+                    url: url.to_string(),
+                    message: "Connection reset by peer".to_string(),
+                });
+            }
             if self.failing.borrow().iter().any(|u| u == url) {
                 return Err(FetchError::Http {
                     url: url.to_string(),
@@ -844,6 +898,7 @@ pub(crate) mod test_support {
     impl Fetcher for MapFetcher {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
             self.calls.set(self.calls.get() + 1);
+            self.log.borrow_mut().push(url.to_string());
             self.fail_if_failing(url)?;
             let by_prefix = || {
                 let prefixes = self.prefixes.borrow();
@@ -1294,6 +1349,98 @@ mod tests {
             );
         }
         tiles
+    }
+
+    #[test]
+    fn refused_requests_are_not_retried() {
+        let fetcher = MapFetcher::default();
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push("https://example.org/".to_string());
+        let err =
+            get_with_retries(&fetcher, "https://example.org/x", |b| Ok(b.to_vec())).unwrap_err();
+        assert!(
+            matches!(err, FetchError::Refused { status: 400, .. }),
+            "{err:?}"
+        );
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn index_query_is_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(format!("{}/6/query?", crate::sources::geosn::INDEX_URL), 1);
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched.len(), 2);
+    }
+
+    #[test]
+    fn index_row_without_download_uses_the_share() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        fetcher.insert_prefix(
+            &format!("{}/6/query?", crate::sources::geosn::INDEX_URL),
+            br#"{"features":[{"attributes":{"Kachel":"4145654","Download":null,"Stand":"2024-11-30"}}]}"#.to_vec(),
+        );
+        let fetched = fetch_tiles(
+            &fetcher,
+            &cache,
+            Product::SaxonyDtm,
+            &tiles[..1],
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(fetched[0].url, Product::SaxonyDtm.tile_url(tiles[0]));
+    }
+
+    #[test]
+    fn offline_tile_missing_from_the_cached_index_is_missing_offline() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let tiles = serve_geosn(&fetcher);
+        let product = Product::SaxonyDtm;
+        fetch_tiles(
+            &fetcher,
+            &cache,
+            product,
+            &tiles,
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        let elsewhere = TileId::parse("33440-5660").unwrap();
+        let err = fetch_tiles(
+            &MapFetcher::default(),
+            &cache,
+            product,
+            &[elsewhere],
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err, FetchError::MissingOffline(_, t) if t == &[elsewhere]),
+            "{err:?}"
+        );
     }
 
     #[test]

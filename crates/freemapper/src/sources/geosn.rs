@@ -32,7 +32,8 @@ pub struct IndexRow {
     pub tile: TileId,
     /// The latest date of `Stand`.
     pub currency: NaiveDate,
-    pub url: String,
+    /// The `Download` link, if the row has one.
+    pub url: Option<String>,
 }
 
 /// Query of the index layer of `product` for the rows of `tiles` (2 km tiles).
@@ -89,7 +90,7 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexRow>, String> {
                     north_km: kachel[3..].parse().ok()?,
                 },
                 currency: latest_date(attributes["Stand"].as_str()?)?,
-                url: attributes["Download"].as_str()?.to_string(),
+                url: attributes["Download"].as_str().map(str::to_string),
             })
         })
         .collect())
@@ -132,12 +133,12 @@ fn mm(v: f64) -> f64 {
 }
 
 /// Downloads the orthophoto over `bbox` at 0.2 m from the WMS, stitched, as `out` (JPEG) with its
-/// world file (`.jgw`). Returns the flight date text of the area's centre, if the server tells it.
+/// world file (`.jgw`), on the template grid of `bbox`.
 pub fn fetch_orthophoto(
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     out: &Path,
-) -> Result<Option<String>, FetchError> {
+) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
     let mut mosaic = image::RgbImage::new(grid.width, grid.height);
     for (piece, url) in wms_requests(&grid) {
@@ -183,12 +184,12 @@ pub fn fetch_orthophoto(
         })?;
     write_atomically(out, &jpeg)?;
     write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
-    Ok(flight_date(fetcher, bbox))
+    Ok(())
 }
 
 /// The flight date at the centre of `bbox` from the info layer; `None` when the server does not
-/// tell it (it is only shown to the user).
-fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+/// tell it.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         mm((bbox.min_e + bbox.max_e) / 2.0),
         mm((bbox.min_n + bbox.max_n) / 2.0),
@@ -295,7 +296,13 @@ mod tests {
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0].tile, KREUZGYMNASIUM);
         assert_eq!(rows[0].currency, "2024-11-30".parse::<NaiveDate>().unwrap());
-        assert!(rows[0].url.ends_with("/dgm1_33414_5654_2_sn_tiff.zip"));
+        assert!(
+            rows[0]
+                .url
+                .as_deref()
+                .unwrap()
+                .ends_with("/dgm1_33414_5654_2_sn_tiff.zip")
+        );
         assert_eq!(rows[1].tile, EAST);
         assert_eq!(rows[2].currency, "2024-12-28".parse::<NaiveDate>().unwrap());
         assert!(parse_index(r#"{"error":{"code":400,"message":"Invalid query"}}"#).is_err());
@@ -385,8 +392,11 @@ mod tests {
         let fetcher = Wms {
             calls: std::cell::Cell::new(0),
         };
-        let flight = fetch_orthophoto(&fetcher, &bbox, &out).unwrap();
-        assert_eq!(flight.as_deref(), Some("19.03. + 07.04.2024"));
+        fetch_orthophoto(&fetcher, &bbox, &out).unwrap();
+        assert_eq!(
+            flight_date(&fetcher, &bbox).as_deref(),
+            Some("19.03. + 07.04.2024")
+        );
         let image = image::open(&out).unwrap().to_rgb8();
         assert_eq!((image.width(), image.height()), (5000, 2500));
         assert!(image.get_pixel(100, 100).0[0] > 200, "west piece is red");

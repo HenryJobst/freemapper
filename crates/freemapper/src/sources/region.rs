@@ -10,6 +10,7 @@ use geo::{Contains, Intersects};
 use geo_types::{MultiPolygon, Point, Polygon, Rect, coord};
 
 use crate::crs::BoundingBox;
+use crate::tiles::TileId;
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
 const BRANDENBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/brandenburg.geojson");
@@ -94,6 +95,32 @@ pub fn raster_region(bbox: &BoundingBox) -> Option<Region> {
     Region::ALL
         .into_iter()
         .find(|region| region.boundary().contains(&centre))
+        // The boundaries are simplified separately, so a few metres along a border belong to no
+        // region: take a region within the margin.
+        .or_else(|| {
+            let point = BoundingBox {
+                min_e: centre.x(),
+                min_n: centre.y(),
+                max_e: centre.x(),
+                max_n: centre.y(),
+            };
+            regions_for(&point).into_iter().next()
+        })
+}
+
+/// The tiles of a `km` grid over `bbox` that touch a region of `provider`; providers publish only
+/// those.
+pub fn provider_tiles(bbox: &BoundingBox, provider: Provider, km: u32) -> Vec<TileId> {
+    crate::tiles::tiles_covering_grid(bbox, km)
+        .into_iter()
+        .filter(|tile| {
+            let rect = rectangle(&tile.bounds_km(km));
+            Region::ALL
+                .into_iter()
+                .filter(|region| region.provider() == provider)
+                .any(|region| region.boundary().intersects(&rect))
+        })
+        .collect()
 }
 
 /// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
@@ -224,6 +251,27 @@ mod tests {
         assert!(regions_for(&elsewhere).is_empty());
         let nan = around(f64::NAN, 5_800_000.0, 300.0);
         assert_eq!(raster_region(&nan), None);
+    }
+
+    #[test]
+    fn centre_in_a_boundary_sliver_has_a_region() {
+        // Points that the separately simplified boundaries leave in no region.
+        for (e, n) in [(391_595.0, 5_834_335.0), (418_969.0, 5_692_390.0)] {
+            assert!(raster_region(&around(e, n, 100.0)).is_some(), "{e} {n}");
+        }
+    }
+
+    #[test]
+    fn provider_tiles_skip_tiles_outside_its_regions() {
+        // Centre in Brandenburg 150 m north of the 1 km line; the tile south of it lies in Saxony.
+        let border = around(410_500.0, 5_691_150.0, 300.0);
+        let at = |east_km, north_km| crate::tiles::TileId { east_km, north_km };
+        assert_eq!(
+            crate::tiles::tiles_covering(&border),
+            [at(410, 5690), at(410, 5691)]
+        );
+        assert_eq!(provider_tiles(&border, Provider::Lgb, 1), [at(410, 5691)]);
+        assert_eq!(provider_tiles(&border, Provider::GeoSn, 2), [at(410, 5690)]);
     }
 
     #[test]

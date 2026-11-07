@@ -41,8 +41,10 @@ use crate::sources::osm::{
     ExtractSource, OsmFeature, features_from_geojson, features_to_geojson, fetch_extract,
     read_extract,
 };
-use crate::sources::region::{Provider, Region, raster_region, regions_for, touches_berlin};
-use crate::tiles::{TileId, tiles_covering, tiles_covering_grid};
+use crate::sources::region::{
+    Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
+};
+use crate::tiles::{TileId, tiles_covering_grid};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
 
@@ -473,7 +475,7 @@ fn fetch_lgb_rasters(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
-    let tiles = tiles_covering(bbox);
+    let tiles = raster_tiles(bbox, Provider::Lgb, 1, progress);
     let mut records = Vec::new();
     for product in PRODUCTS {
         for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, progress)? {
@@ -587,7 +589,12 @@ fn fetch_lgb_rasters(
             )),
         }
     }
+    // A GeoSN orthophoto of an earlier map area is no longer used.
     project.orthophoto = None;
+    let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
+    for stale in [wms.clone(), wms.with_extension("jgw")] {
+        let _ = std::fs::remove_file(stale);
+    }
     project.save(dir)?;
     Ok(())
 }
@@ -603,7 +610,12 @@ fn fetch_geosn_rasters(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
-    let tiles = tiles_covering_grid(bbox, Product::SaxonyDtm.grid_km());
+    let tiles = raster_tiles(
+        bbox,
+        Provider::GeoSn,
+        Product::SaxonyDtm.grid_km(),
+        progress,
+    );
     let previous = std::mem::take(&mut project.tiles);
     let mut records = Vec::new();
     for fetched in fetch_tiles(fetcher, cache, Product::SaxonyDtm, &tiles, mode, progress)? {
@@ -635,13 +647,27 @@ fn fetch_geosn_rasters(
     let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
     match mode {
         FetchMode::Online => {
-            progress("downloading the orthophoto from the GeoSN WMS");
-            let flight = crate::sources::geosn::fetch_orthophoto(fetcher, bbox, &path)?;
-            project.orthophoto = Some(WmsRecord {
-                flight,
-                fetched: chrono::Local::now().date_naive(),
-                bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
-            });
+            let flight = crate::sources::geosn::flight_date(fetcher, bbox);
+            // The flight date tells whether GeoSN flew the area again since the last fetch.
+            let unchanged = project
+                .orthophoto
+                .as_ref()
+                .is_some_and(|r| r.covers(bbox) && r.flight.is_some() && r.flight == flight)
+                && path.exists();
+            if unchanged {
+                progress(&format!(
+                    "orthophoto unchanged (flight {})",
+                    flight.as_deref().unwrap_or_default()
+                ));
+            } else {
+                progress("downloading the orthophoto from the GeoSN WMS");
+                crate::sources::geosn::fetch_orthophoto(fetcher, bbox, &path)?;
+                project.orthophoto = Some(WmsRecord {
+                    flight,
+                    fetched: chrono::Local::now().date_naive(),
+                    bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+                });
+            }
         }
         FetchMode::Offline => {
             let covered = project.orthophoto.as_ref().is_some_and(|r| r.covers(bbox));
@@ -652,6 +678,32 @@ fn fetch_geosn_rasters(
     }
     project.save(dir)?;
     Ok(())
+}
+
+/// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
+/// published, and the templates stay empty there (reported once).
+fn raster_tiles(
+    bbox: &BoundingBox,
+    provider: Provider,
+    km: u32,
+    progress: &mut dyn FnMut(&str),
+) -> Vec<TileId> {
+    let tiles = provider_tiles(bbox, provider, km);
+    let outside: Vec<TileId> = tiles_covering_grid(bbox, km)
+        .into_iter()
+        .filter(|t| !tiles.contains(t))
+        .collect();
+    if !outside.is_empty() {
+        progress(&format!(
+            "the map area reaches beyond the state border; no {} data for {}, the templates stay empty there",
+            match provider {
+                Provider::Lgb => "LGB",
+                Provider::GeoSn => "GeoSN",
+            },
+            crate::fetch::tile_names(&outside)
+        ));
+    }
+    tiles
 }
 
 /// The record of a fetched tile; warns when the tile was republished since `previous`.
@@ -984,7 +1036,7 @@ pub fn derive_project(
             Product::SaxonyDsm,
         ),
     };
-    let needed = tiles_covering_grid(&bbox, dtm_product.grid_km());
+    let needed = provider_tiles(&bbox, provider, dtm_product.grid_km());
     let outdated: Vec<TileId> = needed
         .iter()
         .copied()
@@ -2748,7 +2800,26 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     #[test]
     fn brandenburg_project_is_unchanged() {
         let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let (dir, cache_dir, cache) = fetched_school(&fetcher);
+        let foreign = fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|url| url.contains("sachsen") || url.contains("berlin.de"))
+            .cloned()
+            .collect::<Vec<_>>();
+        assert!(foreign.is_empty(), "{foreign:?}");
+        assert!(
+            cache
+                .tile_path(Product::Dtm, school_tile(), "2026-01-26".parse().unwrap())
+                .starts_with(cache_dir.path().join("lgb"))
+        );
+        assert!(
+            cache
+                .osm_dir()
+                .join("brandenburg_2026-11-06.osm.pbf")
+                .exists()
+        );
         let project = ProjectFile::load(dir.path()).unwrap();
         assert!(project.orthophoto.is_none());
         assert!(
@@ -2762,6 +2833,102 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .iter()
                 .any(|l| l.contains("GeoSN"))
         );
+    }
+
+    #[test]
+    fn unchanged_wms_orthophoto_is_reused() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = dresden_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        fetcher.log.borrow_mut().clear();
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|url| url.contains("REQUEST=GetMap")),
+            "{:?}",
+            fetcher.log.borrow()
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("orthophoto unchanged")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn moving_to_brandenburg_removes_the_wms_orthophoto() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = dresden_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+        set_map_area(dir.path(), &fixture_area()).unwrap();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetch(dir.path(), &fetcher, &cache);
+        assert!(!dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+        assert!(
+            !dir.path()
+                .join(WMS_ORTHOPHOTO_RELPATH)
+                .with_extension("jgw")
+                .exists()
+        );
+        assert!(ProjectFile::load(dir.path()).unwrap().orthophoto.is_none());
+    }
+
+    #[test]
+    fn border_area_skips_tiles_outside_the_raster_region() {
+        // Centre in Brandenburg; the 1 km tile south of it lies in Saxony and LGB does not
+        // publish it.
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(410_400.0, 5_691_020.0),
+            corner(410_600.0, 5_691_020.0),
+            corner(410_600.0, 5_691_250.0),
+            corner(410_400.0, 5_691_250.0),
+            corner(410_400.0, 5_691_020.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let project = init_project(dir.path(), &area, MapKind::Sprint, None, date, None).unwrap();
+        assert!(crate::tiles::tiles_covering(&project.bbox().unwrap()).len() > 1);
+        let fetcher = MapFetcher::default();
+        let tile = crate::tiles::TileId::parse("33410-5691").unwrap();
+        serve_synthetic_tile(&fetcher, tile, "2026-01-26");
+        // Saxon ALKIS and the Saxony extract (empty answers are fine here).
+        fetcher.insert_prefix(
+            crate::sources::geosn_alkis::WFS_URL,
+            include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
+        );
+        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        fetcher.insert(
+            saxony.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            saxony.url(),
+            std::fs::read(crate::fetch::test_support::OSM_FIXTURE).unwrap(),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        let tiles: Vec<&str> = project.tiles.iter().map(|r| r.tile.as_str()).collect();
+        assert_eq!(tiles, ["33410-5691", "33410-5691"], "{messages:?}");
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
     }
 
     #[test]

@@ -22,14 +22,27 @@ pub const SQUARE_WITHOUT_FUNCTION: &str = "ohne Unterart (Sachsen)";
 /// URL of the page of `type_name` features in `bbox` starting at feature `start`.
 pub fn wfs_url(type_name: &str, bbox: &BoundingBox, start: usize) -> String {
     format!(
+        "{}&SORTBY=oid&COUNT={PAGE_COUNT}&STARTINDEX={start}",
+        query_url(type_name, bbox)
+    )
+}
+
+/// The query of `type_name` features in `bbox`, without paging.
+fn query_url(type_name: &str, bbox: &BoundingBox) -> String {
+    format!(
         "{WFS_URL}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
-         &SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25833\
-         &COUNT={PAGE_COUNT}&STARTINDEX={start}",
+         &SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25833",
         bbox.min_e.floor(),
         bbox.min_n.floor(),
         bbox.max_e.ceil(),
         bbox.max_n.ceil()
     )
+}
+
+/// `numberMatched` of a WFS answer; `None` when the server does not know it ("unknown").
+pub fn number_matched(text: &str) -> Option<usize> {
+    let start = text.find("numberMatched=\"")? + "numberMatched=\"".len();
+    text[start..].split('"').next()?.parse().ok()
 }
 
 /// The features of a WFS answer as GeoJSON features; an answer that is not a
@@ -64,7 +77,19 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                 // wfs:member / <FeatureType> / property …; wfs:boundedBy holds no feature.
                 if path.len() == 1 && path[0] == "member" && feature.is_none() {
                     feature = Some(GmlFeature::default());
-                } else if let Some(f) = feature.as_mut() {
+                } else if let Some(f) = feature.as_mut()
+                    && f.in_geometry(&path)
+                {
+                    let dimension = e
+                        .try_get_attribute("srsDimension")
+                        .ok()
+                        .flatten()
+                        .map(|a| a.value.to_string());
+                    if dimension.is_some_and(|d| d != "2")
+                        || !GEOMETRY_ELEMENTS.contains(&name.as_str())
+                    {
+                        f.unsupported = true;
+                    }
                     match name.as_str() {
                         "Polygon" => f.polygons.push(Vec::new()),
                         "LinearRing" => {
@@ -79,11 +104,22 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                 path.push(name);
             }
             Event::Empty(e) => {
+                let name = local(e.name().as_ref());
                 if !root_seen {
-                    return Err(refused());
+                    // An empty answer is a self-closing collection.
+                    return if name == "FeatureCollection" {
+                        Ok(Vec::new())
+                    } else {
+                        Err(refused())
+                    };
                 }
-                let _ = e;
+                if let Some(f) = feature.as_mut()
+                    && f.in_geometry(&path)
+                {
+                    f.unsupported = true;
+                }
             }
+            Event::CData(t) => text_buf.push_str(&t.into_inner()),
             Event::Text(t) => text_buf.push_str(t.as_ref()),
             Event::GeneralRef(r) => {
                 let name: &str = r.as_ref();
@@ -142,19 +178,43 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
     Ok(features)
 }
 
+/// The GML elements of the 2D polygon geometries GeoSN sends; anything else (curves, arcs,
+/// patches, `gml:pos`) is not read, and the feature is listed as skipped instead.
+const GEOMETRY_ELEMENTS: [&str; 7] = [
+    "MultiSurface",
+    "surfaceMember",
+    "Polygon",
+    "exterior",
+    "interior",
+    "LinearRing",
+    "posList",
+];
+
 /// One feature while it is read: its attributes and its polygons (rings of E, N pairs).
 #[derive(Default)]
 struct GmlFeature {
     properties: serde_json::Map<String, Value>,
     polygons: Vec<Vec<Vec<Vec<f64>>>>,
+    /// The geometry holds something [`GEOMETRY_ELEMENTS`] do not cover.
+    unsupported: bool,
 }
 
 impl GmlFeature {
+    /// Whether the element opened at `path` lies inside the feature's `geometrie`.
+    fn in_geometry(&self, path: &[String]) -> bool {
+        path.len() >= 3 && path[2] == "geometrie"
+    }
+
     fn into_geojson(self) -> Value {
+        let geometry = if self.unsupported || self.polygons.is_empty() {
+            Value::Null
+        } else {
+            serde_json::json!({ "type": "MultiPolygon", "coordinates": self.polygons })
+        };
         serde_json::json!({
             "type": "Feature",
             "id": self.properties.get("oid").cloned().unwrap_or(Value::Null),
-            "geometry": { "type": "MultiPolygon", "coordinates": self.polygons },
+            "geometry": geometry,
             "properties": self.properties,
         })
     }
@@ -172,15 +232,31 @@ pub fn fetch_wfs(
     type_name: &str,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
+    let get = |url: &str| -> Result<String, FetchError> {
+        get_with_retries(fetcher, url, |bytes| {
+            let text = String::from_utf8_lossy(bytes).into_owned();
+            parse_gml(&text)
+                .map(|_| text)
+                .map_err(|e| FetchError::Alkis(invalid(format!("{url}: {}", e.message))))
+        })
+        .map_err(|e| match e {
+            FetchError::Refused { status, .. } => FetchError::Alkis(invalid(format!(
+                "GeoSN ALKIS service refused the request (HTTP {status}): {url}"
+            ))),
+            e => e,
+        })
+    };
+    // The number of matches first, so that a page cap below PAGE_COUNT cannot cut the result.
+    let matched = number_matched(&get(&format!(
+        "{}&RESULTTYPE=hits",
+        query_url(type_name, bbox)
+    ))?);
     let mut features = Vec::new();
     let mut seen = std::collections::HashSet::new();
     let mut start = 0;
     loop {
         let url = wfs_url(type_name, bbox, start);
-        let page = get_with_retries(fetcher, &url, |bytes| {
-            parse_gml(&String::from_utf8_lossy(bytes))
-                .map_err(|e| FetchError::Alkis(invalid(format!("{url}: {}", e.message))))
-        })?;
+        let page = parse_gml(&get(&url)?).map_err(FetchError::Alkis)?;
         let full = page.len() >= PAGE_COUNT;
         let mut new = false;
         for feature in page {
@@ -193,11 +269,19 @@ pub fn fetch_wfs(
                 features.push(feature);
             }
         }
-        if !full || !new {
-            return Ok(features);
+        let all = matched.is_some_and(|m| features.len() >= m);
+        if all || !new || !full {
+            break;
         }
         start += PAGE_COUNT;
     }
+    if let Some(matched) = matched.filter(|&m| features.len() < m) {
+        return Err(FetchError::Alkis(invalid(format!(
+            "GeoSN ALKIS returned {} of {matched} features in the area; run `freemapper fetch` again",
+            features.len()
+        ))));
+    }
+    Ok(features)
 }
 
 /// The Saxon buildings in `bbox`.
@@ -255,7 +339,8 @@ mod tests {
             wfs_url(BUILDINGS_TYPE, &SCHOOL, 20),
             "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0\
              &REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833\
-             &BBOX=415800,5655600,416150,5655900,urn:ogc:def:crs:EPSG::25833&COUNT=2&STARTINDEX=20"
+             &BBOX=415800,5655600,416150,5655900,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=2\
+             &STARTINDEX=20"
         );
     }
 
@@ -334,7 +419,7 @@ mod tests {
             err.to_string().contains("not a WFS FeatureCollection"),
             "{err}"
         );
-        assert_eq!(fetcher.calls.get(), 3);
+        assert_eq!(fetcher.calls.get(), 3, "the hits query, retried");
         let report = br#"<?xml version="1.0"?><ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1"><ows:Exception exceptionCode="InvalidParameterValue"/></ows:ExceptionReport>"#;
         assert!(parse_gml(&String::from_utf8_lossy(report)).is_err());
     }
@@ -361,6 +446,70 @@ mod tests {
     }
 
     #[test]
+    fn live_empty_answer_has_no_features() {
+        // An empty answer is a self-closing root.
+        let empty = include_str!("../../../../tests/fixtures/saxony-empty.gml");
+        assert_eq!(parse_gml(empty).unwrap(), Vec::<Value>::new());
+        let hits = include_str!("../../../../tests/fixtures/saxony-hits.gml");
+        assert_eq!(number_matched(hits), Some(123));
+        assert_eq!(number_matched(BUILDINGS), None, "numberMatched=unknown");
+    }
+
+    #[test]
+    fn refused_request_names_the_service() {
+        let fetcher = MapFetcher::default();
+        fetcher.refusing.borrow_mut().push(WFS_URL.to_string());
+        let err = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("GeoSN ALKIS service refused the request (HTTP 400)"),
+            "{err}"
+        );
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    fn with_geometry(geometry: &str) -> String {
+        format!(
+            r#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2"><wfs:member><GebaeudeBauwerk><oid>DESN1</oid><gebnutzbez>Gebäude</gebnutzbez><geometrie>{geometry}</geometrie></GebaeudeBauwerk></wfs:member></wfs:FeatureCollection>"#
+        )
+    }
+
+    #[test]
+    fn unsupported_geometry_skips_the_feature() {
+        let curve = with_geometry(
+            r#"<gml:MultiSurface srsDimension="2"><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList>0 0 10 0 10 10 0 10 0 0</gml:posList></gml:LinearRing></gml:exterior><gml:interior><gml:Ring><gml:curveMember><gml:Curve><gml:segments><gml:Arc><gml:posList>2 2 4 4 2 6</gml:posList></gml:Arc></gml:segments></gml:Curve></gml:curveMember></gml:Ring></gml:interior></gml:Polygon></gml:surfaceMember></gml:MultiSurface>"#,
+        );
+        let three_d = with_geometry(
+            r#"<gml:MultiSurface srsDimension="3"><gml:surfaceMember><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList srsDimension="3">0 0 1 10 0 1 10 10 1 0 0 1</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></gml:surfaceMember></gml:MultiSurface>"#,
+        );
+        for gml in [curve, three_d] {
+            let features = parse_gml(&gml).unwrap();
+            assert_eq!(features[0]["geometry"], Value::Null, "{gml}");
+            let parsed = parse_buildings(&collection(&features)).unwrap();
+            assert!(parsed.buildings.is_empty());
+            assert_eq!(parsed.skipped.len(), 1);
+        }
+    }
+
+    #[test]
+    fn cdata_text_is_read() {
+        let gml = r#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"><wfs:member><GebaeudeBauwerk><oid>DESN1</oid><name><![CDATA[Haus <A>]]></name></GebaeudeBauwerk></wfs:member></wfs:FeatureCollection>"#;
+        assert_eq!(parse_gml(gml).unwrap()[0]["properties"]["name"], "Haus <A>");
+    }
+
+    #[test]
+    fn fewer_features_than_matched_is_an_error() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(WFS_URL, BUILDINGS.as_bytes().to_vec());
+        fetcher.insert_prefix(
+            &format!("{}&RESULTTYPE=hits", wfs_url(BUILDINGS_TYPE, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
+            br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberReturned="0" numberMatched="5"/>"#.to_vec(),
+        );
+        let err = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap_err();
+        assert!(err.to_string().contains("3 of 5"), "{err}");
+    }
+
+    #[test]
     fn empty_collection_has_no_features() {
         let empty = r#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"></wfs:FeatureCollection>"#;
         assert_eq!(parse_gml(empty).unwrap(), Vec::<Value>::new());
@@ -373,6 +522,9 @@ mod tests {
 
     impl Fetcher for Paged {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            if url.contains("RESULTTYPE=hits") {
+                return Ok(br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberReturned="0" numberMatched="3"/>"#.to_vec());
+            }
             let start: usize = url.rsplit("STARTINDEX=").next().unwrap().parse().unwrap();
             self.calls.borrow_mut().push(start);
             let head = &BUILDINGS[..BUILDINGS.find("<wfs:member>").unwrap()];
@@ -408,6 +560,6 @@ mod tests {
         fetcher.insert_prefix(WFS_URL, BUILDINGS.as_bytes().to_vec());
         let features = fetch_wfs(&fetcher, BUILDINGS_TYPE, &SCHOOL).unwrap();
         assert_eq!(features.len(), 3);
-        assert_eq!(fetcher.calls.get(), 2);
+        assert_eq!(fetcher.calls.get(), 3, "hits and two pages");
     }
 }
