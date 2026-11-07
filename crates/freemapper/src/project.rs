@@ -10,6 +10,7 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, candidate_objects};
+use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, LatLon, utm33_forward};
@@ -31,6 +32,7 @@ use crate::omap::{
     TemplateRef, XmlFormat, closed_ring, write_map,
 };
 use crate::raster::GridSpec;
+use crate::sources::alkis::{LAND_USE_ENDPOINT, fetch_collection, parse_land_use};
 use crate::sources::alkis::{fetch_buildings, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution};
 use crate::sources::osm::{
@@ -172,7 +174,10 @@ pub struct ProjectFile {
     pub tiles: Vec<TileRecord>,
     /// The ALKIS buildings of the last online `fetch`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub buildings: Option<BuildingsRecord>,
+    pub buildings: Option<AlkisRecord>,
+    /// The ALKIS land use of the last online `fetch`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub land_use: Option<AlkisRecord>,
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
@@ -212,7 +217,7 @@ impl OsmRecord {
 
 /// Which ALKIS buildings were fetched and how current they are.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BuildingsRecord {
+pub struct AlkisRecord {
     /// Queried area in EPSG:25833: min easting, min northing, max easting, max northing.
     pub bbox: [f64; 4],
     pub fetched: NaiveDate,
@@ -221,7 +226,7 @@ pub struct BuildingsRecord {
     pub count: usize,
 }
 
-impl BuildingsRecord {
+impl AlkisRecord {
     fn covers(&self, bbox: &BoundingBox) -> bool {
         let [min_e, min_n, max_e, max_n] = self.bbox;
         min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
@@ -310,6 +315,7 @@ pub fn init_project(
         title: title.as_deref().and_then(clean_title),
         tiles: Vec::new(),
         buildings: None,
+        land_use: None,
         osm: None,
         ndsm_tiles: Vec::new(),
     };
@@ -338,6 +344,8 @@ const NDSM_RELPATH: &str = "templates/ndsm.png";
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
 const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
+/// ALKIS land use per parcel part around the map area (GeoJSON, EPSG:25833), input of the export.
+const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 /// Skipped ALKIS features listed in a progress message.
 const SKIPPED_SHOWN: usize = 5;
 /// ALKIS buildings around the map area, as fetched (GeoJSON, EPSG:25833).
@@ -415,6 +423,10 @@ pub fn fetch_project(
         project.buildings = Some(record);
         project.save(dir)?;
     }
+    if let Some(record) = fetch_land_use_into(dir, fetcher, &bbox, mode, progress) {
+        project.land_use = Some(record);
+        project.save(dir)?;
+    }
     project.osm = Some(fetch_osm_into(
         dir, fetcher, cache, mode, &project, progress,
     )?);
@@ -469,9 +481,9 @@ fn fetch_buildings_into(
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     mode: FetchMode,
-    previous: Option<&BuildingsRecord>,
+    previous: Option<&AlkisRecord>,
     progress: &mut dyn FnMut(&str),
-) -> Result<Option<BuildingsRecord>, ProjectError> {
+) -> Result<Option<AlkisRecord>, ProjectError> {
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
@@ -502,7 +514,7 @@ fn fetch_buildings_into(
             if more { "; …" } else { "" }
         ));
     }
-    let record = BuildingsRecord {
+    let record = AlkisRecord {
         bbox: [
             bbox.min_e.floor(),
             bbox.min_n.floor(),
@@ -532,6 +544,80 @@ fn fetch_buildings_into(
         }
     }
     Ok(Some(record))
+}
+
+/// Downloads the ALKIS land use in `bbox` to [`LAND_USE_RELPATH`] and returns the new record.
+/// Land use only gives candidates: when the download fails, the stored file stays and a warning
+/// is reported; offline, nothing is downloaded.
+fn fetch_land_use_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+) -> Option<AlkisRecord> {
+    if mode == FetchMode::Offline {
+        return None;
+    }
+    progress("downloading ALKIS land use");
+    let downloaded = fetch_collection(fetcher, LAND_USE_ENDPOINT, bbox).and_then(|text| {
+        let land_use = parse_land_use(&text).map_err(FetchError::from)?;
+        write_atomically(&dir.join(LAND_USE_RELPATH), text.as_bytes())?;
+        Ok(land_use)
+    });
+    match downloaded {
+        Ok(land_use) => {
+            progress(&format!("{} ALKIS land use parts", land_use.len()));
+            Some(AlkisRecord {
+                bbox: [
+                    bbox.min_e.floor(),
+                    bbox.min_n.floor(),
+                    bbox.max_e.ceil(),
+                    bbox.max_n.ceil(),
+                ],
+                fetched: chrono::Local::now().date_naive(),
+                latest_update: land_use.iter().filter_map(|l| l.updated).max(),
+                count: land_use.len(),
+            })
+        }
+        Err(e) => {
+            progress(&format!(
+                "warning: ALKIS land use unavailable ({e}); keeping the stored land use"
+            ));
+            None
+        }
+    }
+}
+
+/// 520 candidates for the private land around the map area; none without stored land use.
+fn stored_out_of_bounds_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let path = dir.join(LAND_USE_RELPATH);
+    let Some(record) = project.land_use.as_ref().filter(|_| path.exists()) else {
+        return Ok(Vec::new());
+    };
+    let bbox = project.bbox()?;
+    if !record.covers(&bbox) {
+        return Err(ProjectError::CandidatesOutdated);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let land_use = parse_land_use(&text).map_err(|e| ProjectError::StoredCandidates {
+        path: path.clone(),
+        message: e.to_string(),
+    })?;
+    Ok(out_of_bounds_objects(
+        &land_use,
+        &area.projected_polygon(),
+        &bbox,
+        project.map_kind,
+        georef,
+        symbol_set,
+    )?)
 }
 
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
@@ -996,6 +1082,13 @@ pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, Projec
                     &georef,
                     &symbol_set,
                 )?)
+                .chain(stored_out_of_bounds_objects(
+                    dir,
+                    &project,
+                    &area,
+                    &georef,
+                    &symbol_set,
+                )?)
                 .collect(),
         }],
         templates: Vec::new(),
@@ -1207,11 +1300,17 @@ mod tests {
                 currency: NaiveDate::from_ymd_opt(2023, 5, 4).unwrap(),
                 published: NaiveDate::from_ymd_opt(2026, 1, 26).unwrap(),
             }],
-            buildings: Some(BuildingsRecord {
+            buildings: Some(AlkisRecord {
                 bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
                 count: 18,
+            }),
+            land_use: Some(AlkisRecord {
+                bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
+                fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
+                latest_update: NaiveDate::from_ymd_opt(2025, 9, 30),
+                count: 24,
             }),
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
@@ -1846,6 +1945,80 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let err = export_starter_project(dir.path(), false).unwrap_err();
         assert!(matches!(err, ProjectError::CandidatesOutdated), "{err:?}");
         assert!(err.to_string().contains("freemapper fetch"), "{err}");
+    }
+
+    #[test]
+    fn fetch_stores_land_use() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let text = std::fs::read_to_string(dir.path().join(LAND_USE_RELPATH)).unwrap();
+        assert_eq!(
+            crate::sources::alkis::parse_land_use(&text).unwrap().len(),
+            2
+        );
+        let record = ProjectFile::load(dir.path())
+            .unwrap()
+            .land_use
+            .expect("recorded");
+        assert_eq!(record.count, 2);
+    }
+
+    #[test]
+    fn export_adds_out_of_bounds_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000011</t>"#));
+        assert!(
+            !candidates.contains("DEBBAL0100000010"),
+            "the school's own land"
+        );
+        let id = MapKind::Schoolyard.symbol_set().id_for_code("520").unwrap();
+        assert!(candidates.contains(&format!(r#"<object type="1" symbol="{id}">"#)));
+        let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
+        assert!(
+            !map.contains("alkis-nutzung"),
+            "private land stays a template"
+        );
+    }
+
+    #[test]
+    fn export_without_land_use_still_works() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        std::fs::remove_file(dir.path().join(LAND_USE_RELPATH)).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(!candidates.contains("alkis-nutzung"));
+    }
+
+    #[test]
+    fn failed_land_use_fetch_keeps_stored_file() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let stored = std::fs::read(dir.path().join(LAND_USE_RELPATH)).unwrap();
+        fetcher.insert_prefix(
+            crate::sources::alkis::LAND_USE_ENDPOINT,
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let mut messages = Vec::new();
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join(LAND_USE_RELPATH)).unwrap(),
+            stored
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: ALKIS land use unavailable")),
+            "{messages:?}"
+        );
     }
 
     #[test]

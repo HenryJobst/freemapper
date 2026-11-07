@@ -626,8 +626,8 @@ pub(crate) mod test_support {
     use std::io::Write as _;
 
     use super::{FetchError, Fetcher};
-    use crate::sources::alkis::BUILDINGS_ENDPOINT;
-    use crate::sources::alkis::test_support::{building_feature, page};
+    use crate::sources::alkis::test_support::{building_feature, land_use_feature, page};
+    use crate::sources::alkis::{BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT};
     use crate::sources::lgb::Product;
     use crate::tiles::TileId;
 
@@ -767,6 +767,17 @@ pub(crate) mod test_support {
             SCHOOL_BUILDING,
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[school], None));
+        // The school's own parcel and residential land south-east of it.
+        let land_use = [
+            land_use_feature(
+                "DEBBAL0100000010",
+                "Fläche besonderer funktionaler Prägung",
+                Some("Bildung und Wissenschaft"),
+                [421_560.0, 5_821_660.0, 100.0],
+            ),
+            land_use_feature("DEBBAL0100000011", "Wohnbaufläche", None, SCHOOL_NEIGHBOUR),
+        ];
+        fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&land_use, None));
         fetcher.insert(
             crate::sources::osm::STATE_URL,
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
@@ -813,6 +824,9 @@ pub(crate) mod test_support {
         env!("CARGO_MANIFEST_DIR"),
         "/../../tests/fixtures/strausberg-school.osm.pbf"
     );
+
+    /// Residential land south-east of the fixture school area (EPSG:25833 corner + side).
+    pub const SCHOOL_NEIGHBOUR: [f64; 3] = [421_690.0, 5_821_600.0, 20.0];
 
     /// A 10 m square near the centroid of the fixture school area (EPSG:25833 corner + side).
     pub const SCHOOL_BUILDING: [f64; 3] = [421_605.0, 5_821_730.0, 10.0];
