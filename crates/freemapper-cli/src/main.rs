@@ -6,6 +6,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand, ValueEnum};
 use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
+use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, derive_project, export_starter_project, fetch_project, init_project,
     run_project,
@@ -29,9 +30,8 @@ enum Commands {
     Init {
         /// Project folder to create.
         dir: PathBuf,
-        /// GeoJSON file with the map area polygon (EPSG:4326).
-        #[arg(long)]
-        geojson: PathBuf,
+        #[command(flatten)]
+        area: AreaArgs,
         /// Map kind.
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
@@ -80,6 +80,45 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
+}
+
+/// Where the map area comes from: exactly one of these.
+#[derive(clap::Args)]
+#[group(required = true, multiple = false)]
+struct AreaArgs {
+    /// GeoJSON file with the map area polygon (EPSG:4326).
+    #[arg(long)]
+    geojson: Option<PathBuf>,
+    /// OSM object of the map area, e.g. way/992423119.
+    #[arg(long)]
+    osm: Option<String>,
+    /// Name of the place, e.g. "Clara-Zetkin-Schule Strausberg"; the best match with an area is used.
+    #[arg(long)]
+    place: Option<String>,
+}
+
+impl AreaArgs {
+    fn area(self) -> anyhow::Result<MapArea> {
+        if let Some(geojson) = self.geojson {
+            let text = std::fs::read_to_string(&geojson)
+                .with_context(|| format!("reading {}", geojson.display()))?;
+            return Ok(MapArea::from_geojson(&text)?);
+        }
+        let fetcher = HttpFetcher::new();
+        if let Some(osm) = self.osm {
+            return Ok(place_area(&fetcher, &osm)?);
+        }
+        let query = self.place.expect("clap requires one area source");
+        let places = find_places(&fetcher, &query)?;
+        let place = places
+            .iter()
+            .find(|p| p.has_area)
+            .with_context(|| format!("no area found for {query:?}"))?;
+        eprintln!("Using {} ({})", place.display_name, place.osm_id);
+        // Nominatim allows one request per second.
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        Ok(place_area(&fetcher, &place.osm_id)?)
+    }
 }
 
 #[derive(clap::Args)]
@@ -131,14 +170,12 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Init {
             dir,
-            geojson,
+            area,
             kind,
             scale,
             title,
         } => {
-            let text = std::fs::read_to_string(&geojson)
-                .with_context(|| format!("reading {}", geojson.display()))?;
-            let area = MapArea::from_geojson(&text)?;
+            let area = area.area()?;
             let today = chrono::Local::now().date_naive();
             init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());

@@ -293,3 +293,64 @@ fn init_with_title() {
     let map = std::fs::read_to_string(project.join("p.omap")).unwrap();
     assert!(map.contains("<text>Clara-Zetkin-Schule Strausberg</text>"));
 }
+
+#[test]
+fn init_requires_exactly_one_area_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let none = freemapper()
+        .args(["init", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!none.status.success());
+    let both = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--geojson",
+            FIXTURE,
+            "--osm",
+            "way/1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!both.status.success());
+    assert!(String::from_utf8_lossy(&both.stderr).contains("cannot be used with"));
+}
+
+#[test]
+fn init_with_a_bad_osm_id_fails_cleanly() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let output = freemapper()
+        .args(["init", project.to_str().unwrap(), "--osm", "992423119"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("is not an OSM id"), "{stderr}");
+    assert!(!project.join("freemapper.toml").exists());
+}
+
+#[test]
+#[ignore = "network"]
+fn live_init_by_place() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let output = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--place",
+            "Clara-Zetkin-Schule Strausberg",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let toml = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(toml.contains("way/992423119"), "{toml}");
+}
