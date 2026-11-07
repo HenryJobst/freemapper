@@ -13,14 +13,40 @@ Drawing and field checking stay in OOM.
 
 ## Status
 
-Under development (milestones M0–M8; OCAD and PDF follow). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, OCAD starting point, PDF training map; Berlin follows. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-## Build
+## Installation
+
+freemapper is a single program without an installer. You do not need to build it yourself:
+
+1. Download the archive for your system from the
+   [release page](https://github.com/HenryJobst/freemapper/releases/latest):
+   - Windows: `freemapper-…-windows-x86_64.zip`
+   - macOS with Apple chip (M1 and newer): `freemapper-…-macos-arm64.tar.gz`
+   - macOS with Intel processor: `freemapper-…-macos-x86_64.tar.gz`
+   - Linux: `freemapper-…-linux-x86_64.tar.gz` (ARM computers: `linux-arm64`)
+2. Unpack the archive (double-click). The folder contains `freemapper` or `freemapper.exe`.
+3. On the first start the system warns because the program is not signed:
+   - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
+   - **macOS:** "cannot be opened because the developer cannot be verified" → *System Settings ›
+     Privacy & Security* → *Open Anyway*; or in Terminal in the unpacked folder
+     `xattr -d com.apple.quarantine freemapper`.
+   - **Linux:** no warning; if needed `chmod +x freemapper`.
+4. Check in a terminal (Windows: PowerShell) in the unpacked folder: `./freemapper --version`
+   (Windows: `.\freemapper.exe --version`).
+
+It is more convenient with an AI assistant (see [With an AI agent](#with-an-ai-agent-mcp)): register
+freemapper once with its full path, and the assistant does the rest.
+
+## Build it yourself (for developers)
 
 ```sh
 cargo build --release --locked
 ./target/release/freemapper --version
 ```
+
+A tag `v<version>` (matching the version in `Cargo.toml`) builds the archives for all systems and
+the GitHub release through `.github/workflows/release.yml`.
 
 Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git hooks: `lefthook install`.
@@ -160,10 +186,10 @@ files ("Straußberg" → "Straussberg").
 `freemapper mcp` is an MCP server on stdin/stdout. An AI agent can use it to make the map for someone
 who would rather not use a command line: tell the agent the school, it does the rest.
 
-Register it in Claude Code:
+Register it in Claude Code (with the path where you unpacked freemapper):
 
 ```sh
-claude mcp add freemapper -- freemapper mcp
+claude mcp add freemapper -- /path/to/freemapper mcp
 ```
 
 Other MCP clients (generic configuration; `--cache-dir <folder>` is optional):
@@ -171,7 +197,7 @@ Other MCP clients (generic configuration; `--cache-dir <folder>` is optional):
 ```json
 {
   "mcpServers": {
-    "freemapper": { "command": "freemapper", "args": ["mcp"] }
+    "freemapper": { "command": "/path/to/freemapper", "args": ["mcp"] }
   }
 }
 ```
