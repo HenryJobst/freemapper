@@ -17,6 +17,7 @@ geojson.workspace = true
 image.workspace = true
 las.workspace = true
 osmpbf.workspace = true
+crc32fast.workspace = true
 miniz_oxide.workspace = true
 pdf-writer.workspace = true
 quick-xml.workspace = true

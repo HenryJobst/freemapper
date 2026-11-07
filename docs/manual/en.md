@@ -45,7 +45,8 @@ On request freemapper also writes a **print-ready training map as a PDF** (chapt
 - An internet connection for the first download.
 - Free disk space:
   - The first time, freemapper downloads the OSM extract of the state: about 300 MB for Brandenburg
-    and Berlin, about 270 MB for Saxony. It is reused by all projects.
+    and Berlin, about 270 MB for Saxony, about 180 MB for Saxony-Anhalt, about 55 MB for Hamburg. It
+    is reused by all projects.
   - On top of that, each map usually needs 10–100 MB.
 - An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt or Hamburg**. More states will follow.
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
@@ -260,7 +261,8 @@ version yet; feedback is welcome (chapter 16).
 
 **Coordinate system:** Brandenburg, Berlin and Saxony deliver in UTM zone 33, Saxony-Anhalt and
 Hamburg in zone 32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
-georeferencing. If you move a map area across the zone line, freemapper fetches everything again.
+georeferencing. If you move a map area across the zone line or into another state, freemapper fetches
+everything again.
 
 **At a state border** freemapper queries the cadastre of both states and reads both OSM extracts. The
 orthophoto and terrain come from the state holding the centre of the map area. If the area reaches far
@@ -289,6 +291,10 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. | The templates stay empty there. |
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
+| `… ignored the byte range` | The server (Hamburg height models) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
+| `no tile of the … covers the map area` | The Hamburg archive has no tile for the area; it was probably renamed. | Report a bug. |
+| `warning: the … has no tile(s) … inside Hamburg` | Single tiles are missing from the archive. | The templates stay empty there. |
+| `warning: the map area now lies in another state's data` | The area now lies with another provider. | Nothing; freemapper fetches everything again. |
 | `offline and not cached` / `no OSM extract cached` | Data is missing for `--offline`. | Fetch once with internet. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Nothing was fetched yet, or the area changed. | Run `run` or `fetch`. |
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |

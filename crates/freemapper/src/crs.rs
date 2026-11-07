@@ -80,7 +80,7 @@ const UTM_FALSE_EASTING: f64 = 500_000.0;
 /// A projected CRS freemapper works in: ETRS89 / UTM zone 32N or 33N.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Crs {
-    /// EPSG:25832, Saxony-Anhalt, Thuringia, Hesse.
+    /// EPSG:25832, Saxony-Anhalt, Hamburg, Thuringia, Hesse.
     Utm32,
     /// EPSG:25833, Brandenburg, Berlin, Saxony.
     Utm33,

@@ -491,6 +491,14 @@ pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 /// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
 pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
     let mut project = ProjectFile::load(dir)?;
+    // Projects saved before the provider was recorded: that of the old area.
+    let old_provider = project.provider.or_else(|| {
+        project
+            .region_bbox()
+            .ok()
+            .and_then(|b| raster_region(&b))
+            .map(Region::provider)
+    });
     project.map_area = area.to_geojson_value();
     project.map_area_source_id = area.source_id.clone();
     let region_bbox = project.region_bbox()?;
@@ -500,7 +508,7 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectEr
     check_size(&area.projected_bbox_in(crs).buffered(project.buffer_m))?;
     // Another provider (in the same zone) serves other rasters: fetch them again too.
     let provider = raster_region(&region_bbox).map(Region::provider);
-    let provider_changed = project.provider.is_some() && project.provider != provider;
+    let provider_changed = old_provider.is_some() && old_provider != provider;
     if crs != project.crs() || provider_changed {
         project.crs = crs.epsg();
         project.drop_fetched(dir);
@@ -571,6 +579,8 @@ pub fn fetch_project(
             "warning: the map area now lies in another state's data; everything is fetched again",
         );
         project.drop_fetched(dir);
+        project.provider = provider;
+        project.save(dir)?;
     }
     project.provider = provider;
     let bbox = project.bbox()?;
@@ -960,13 +970,26 @@ fn fetch_lgv_rasters(
         (&lgv::WMS, "LGV", &flight),
         progress,
     )?;
-    let record = |date: &str| WcsRecord {
-        fetched: chrono::Local::now().date_naive(),
+    // Offline the tiles come from the cache: they were fetched when the record says.
+    let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
+        fetched: match (mode, old) {
+            (FetchMode::Offline, Some(old)) => old.fetched,
+            _ => chrono::Local::now().date_naive(),
+        },
         bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
-        date: Some(date.to_string()),
+        date: Some(model.date().to_string()),
+    };
+    let warn_missing = |progress: &mut dyn FnMut(&str), model: Model, missing: Vec<_>| {
+        if !missing.is_empty() {
+            progress(&format!(
+                "warning: the {} has no {} inside Hamburg; the templates stay empty there",
+                model.label(),
+                lgv::tile_names(&missing)
+            ));
+        }
     };
     progress(&format!("reading the {}", Model::Dgm1.label()));
-    lgv::fetch_model(
+    let missing = lgv::fetch_model(
         fetcher,
         cache,
         mode,
@@ -974,7 +997,8 @@ fn fetch_lgv_rasters(
         bbox,
         &dir.join(TERRAIN_RELPATH),
     )?;
-    project.terrain = Some(record("2022-03"));
+    warn_missing(progress, Model::Dgm1, missing);
+    project.terrain = Some(record(Model::Dgm1, &project.terrain));
     progress(&format!("reading the {}", Model::Bdom.label()));
     match lgv::fetch_model(
         fetcher,
@@ -984,7 +1008,10 @@ fn fetch_lgv_rasters(
         bbox,
         &dir.join(SURFACE_RELPATH),
     ) {
-        Ok(()) => project.surface = Some(record("2022")),
+        Ok(missing) => {
+            warn_missing(progress, Model::Bdom, missing);
+            project.surface = Some(record(Model::Bdom, &project.surface));
+        }
         Err(e) => progress(&format!(
             "warning: {} unavailable ({e}); no nDSM template",
             Model::Bdom.label()
@@ -2873,6 +2900,67 @@ mod tests {
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
+    }
+
+    #[test]
+    fn older_saxony_anhalt_project_moved_to_hamburg_drops_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = halle_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        // Saved before projects recorded their provider.
+        let mut older = ProjectFile::load(dir.path()).unwrap();
+        older.provider = None;
+        older.save(dir.path()).unwrap();
+        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        assert!(project.terrain.is_none() && project.surface.is_none());
+        assert!(!dir.path().join(SURFACE_RELPATH).exists());
+    }
+
+    #[test]
+    fn provider_drop_is_saved_before_the_fetch() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = halle_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        // The map area edited by hand into Hamburg.
+        let mut moved = ProjectFile::load(dir.path()).unwrap();
+        moved.map_area = eppendorf_area().to_geojson_value();
+        moved.save(dir.path()).unwrap();
+        // Offline nothing of Hamburg is cached: the fetch fails after the drop.
+        assert!(
+            fetch_project(
+                dir.path(),
+                &MapFetcher::default(),
+                &cache,
+                FetchMode::Offline,
+                &mut |_| {}
+            )
+            .is_err()
+        );
+        let after = ProjectFile::load(dir.path()).unwrap();
+        assert!(after.terrain.is_none() && after.orthophoto.is_none());
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_lgv_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let earlier = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+        for record in [project.terrain.as_mut(), project.surface.as_mut()] {
+            record.unwrap().fetched = earlier;
+        }
+        project.save(dir.path()).unwrap();
+        let project = fetch_project(
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.unwrap().fetched, earlier);
+        assert_eq!(project.surface.unwrap().fetched, earlier);
     }
 
     #[test]

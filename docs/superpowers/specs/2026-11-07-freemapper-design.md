@@ -144,7 +144,8 @@ Attribution `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert`
 provider; a provider change inside a zone drops the records like a zone change). Orthophoto from the WMS
 `dop_zeitreihe_unbelaubt` pinned to `TIME=2026` (2023 is a closed-licence satellite vintage), flight date from the AdV
 metadata CSV. DGM1 and bDOM (2022, 1 m) read per 1 km tile by HTTP range out of the statewide zips (central directory
-from the archive's end, deflated members, cached per tile; a server ignoring `Range` is refused). ALKIS from the OGC API
+from the archive's end, deflated members checked against their CRC, cached per tile and archive release; a
+server ignoring `Range` is refused, a clamped range is an error). ALKIS from the OGC API
 `alkis_vereinfacht` (`GebaeudeBauwerk`, `NutzungFlurstueck`, 25832) with the ASCII spellings normalised to the LGB ones.
 Attribution `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten
 geändert`.

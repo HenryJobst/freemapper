@@ -6,12 +6,15 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{ByteRange, Cache, FetchError, FetchMode, Fetcher, write_atomically};
+use crate::crs::{BoundingBox, Crs, ProjectedPoint};
+use crate::fetch::{
+    ByteRange, Cache, FetchError, FetchMode, Fetcher, get_range_with_retries, write_atomically,
+};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
+use crate::sources::region::{Region, regions_for};
 use crate::sources::wms::WmsService;
-use crate::tiles::tiles_covering;
+use crate::tiles::{TileId, tiles_covering};
 
 /// The orthophoto WMS: the leaf-off True-DOP time series, pinned to the open 2026 vintage (a
 /// missing `TIME` would follow the newest, and 2023 is a closed-licence satellite image).
@@ -77,6 +80,21 @@ impl Model {
         }
     }
 
+    /// The archive's file stem; the cache keeps each release apart, so a newer archive is
+    /// never mixed with tiles of an older one.
+    pub fn release(self) -> &'static str {
+        let file = self.archive_url().rsplit('/').next().unwrap_or_default();
+        file.strip_suffix(".zip").unwrap_or(file)
+    }
+
+    /// When the release was surveyed, as recorded in the project.
+    pub fn date(self) -> &'static str {
+        match self {
+            Self::Dgm1 => "2022-03",
+            Self::Bdom => "2022",
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Dgm1 => "terrain model (LGV DGM1 2022)",
@@ -100,17 +118,24 @@ impl Model {
     }
 }
 
+/// Largest central directory read (LGV's are about 100 KB).
+const MAX_DIRECTORY_BYTES: u64 = 16 << 20;
+/// Largest member read or inflated (a 1 km tile is 4 MB).
+const MAX_MEMBER_BYTES: u64 = 64 << 20;
+
 /// One member of a zip archive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Member {
     pub name: String,
     method: u16,
     compressed: u64,
+    crc: u32,
     local_header: u64,
 }
 
-/// Where the central directory lies (offset, size), from the end of a zip archive.
-pub fn directory_location(tail: &[u8]) -> Result<(u64, u64), String> {
+/// Where the central directory lies (offset, size) and how many members it lists, from the end
+/// of a zip archive.
+pub fn directory_location(tail: &[u8]) -> Result<(u64, u64, u16), String> {
     const END: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
     let at = tail
         .windows(4)
@@ -119,7 +144,11 @@ pub fn directory_location(tail: &[u8]) -> Result<(u64, u64), String> {
     let record = tail
         .get(at..at + 22)
         .ok_or("truncated end of central directory")?;
-    Ok((u64::from(u32_at(record, 16)), u64::from(u32_at(record, 12))))
+    let (count, size, offset) = (u16_at(record, 10), u32_at(record, 12), u32_at(record, 16));
+    if count == u16::MAX || size == u32::MAX || offset == u32::MAX {
+        return Err("zip64 archives are not supported".to_string());
+    }
+    Ok((u64::from(offset), u64::from(size), count))
 }
 
 fn u16_at(b: &[u8], at: usize) -> u16 {
@@ -130,12 +159,15 @@ fn u32_at(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([b[at], b[at + 1], b[at + 2], b[at + 3]])
 }
 
-/// The members listed in a central directory.
-pub fn parse_directory(directory: &[u8]) -> Result<Vec<Member>, String> {
+/// The `count` members listed in a central directory; fewer is a truncated directory.
+pub fn parse_directory(directory: &[u8], count: u16) -> Result<Vec<Member>, String> {
     const ENTRY: u32 = 0x0201_4b50;
     let mut members = Vec::new();
     let mut at = 0;
-    while at + 46 <= directory.len() {
+    while at < directory.len() {
+        if at + 46 > directory.len() {
+            return Err("truncated central directory".to_string());
+        }
         if u32_at(directory, at) != ENTRY {
             return Err(format!("broken central directory at byte {at}"));
         }
@@ -145,27 +177,47 @@ pub fn parse_directory(directory: &[u8]) -> Result<Vec<Member>, String> {
         let name = directory
             .get(at + 46..at + 46 + name_len)
             .ok_or("truncated central directory")?;
+        let name = String::from_utf8_lossy(name).into_owned();
+        if u16_at(directory, at + 8) & 1 != 0 {
+            return Err(format!("{name}: encrypted members are not supported"));
+        }
         members.push(Member {
-            name: String::from_utf8_lossy(name).into_owned(),
+            name,
             method: u16_at(directory, at + 10),
+            crc: u32_at(directory, at + 16),
             compressed: u64::from(u32_at(directory, at + 20)),
             local_header: u64::from(u32_at(directory, at + 42)),
         });
         at += 46 + name_len + extra_len + comment_len;
+    }
+    if members.len() != usize::from(count) {
+        return Err(format!(
+            "the central directory lists {} of {count} members",
+            members.len()
+        ));
     }
     Ok(members)
 }
 
 /// The members of the archive at `url`, read by two byte ranges.
 pub fn read_directory(fetcher: &dyn Fetcher, url: &str) -> Result<Vec<Member>, FetchError> {
-    parse_directory(&read_directory_bytes(fetcher, url)?).map_err(|message| refused(url, message))
+    let (directory, count) = read_directory_bytes(fetcher, url)?;
+    parse_directory(&directory, count).map_err(|message| refused(url, message))
 }
 
-/// The central directory of the archive at `url` (the end record lies in its last 64 KiB).
-fn read_directory_bytes(fetcher: &dyn Fetcher, url: &str) -> Result<Vec<u8>, FetchError> {
-    let tail = fetcher.get_range(url, ByteRange::Last(65_558))?;
-    let (start, len) = directory_location(&tail).map_err(|message| refused(url, message))?;
-    fetcher.get_range(url, ByteRange::From { start, len })
+/// The central directory of the archive at `url` and its member count (the end record lies in
+/// the archive's last 64 KiB).
+fn read_directory_bytes(fetcher: &dyn Fetcher, url: &str) -> Result<(Vec<u8>, u16), FetchError> {
+    let tail = get_range_with_retries(fetcher, url, ByteRange::Last(65_558))?;
+    let (start, len, count) = directory_location(&tail).map_err(|message| refused(url, message))?;
+    if len > MAX_DIRECTORY_BYTES {
+        return Err(refused(
+            url,
+            format!("central directory too large ({len} bytes)"),
+        ));
+    }
+    let directory = get_range_with_retries(fetcher, url, ByteRange::From { start, len })?;
+    Ok((directory, count))
 }
 
 fn refused(url: &str, message: impl Into<String>) -> FetchError {
@@ -175,45 +227,92 @@ fn refused(url: &str, message: impl Into<String>) -> FetchError {
     }
 }
 
-/// The uncompressed content of `member`, read by two byte ranges.
+/// The uncompressed content of `member`, read by two byte ranges and checked against its CRC.
 pub fn read_member(
     fetcher: &dyn Fetcher,
     url: &str,
     member: &Member,
 ) -> Result<Vec<u8>, FetchError> {
-    let header = fetcher.get_range(
+    let too_large = || refused(url, format!("{}: member too large", member.name));
+    if member.compressed > MAX_MEMBER_BYTES {
+        return Err(too_large());
+    }
+    let header = get_range_with_retries(
+        fetcher,
         url,
         ByteRange::From {
             start: member.local_header,
             len: 30,
         },
     )?;
-    if header.len() < 30 || u32_at(&header, 0) != 0x0403_4b50 {
+    if u32_at(&header, 0) != 0x0403_4b50 {
         return Err(refused(url, format!("{}: no local header", member.name)));
     }
     let data_start =
         member.local_header + 30 + u64::from(u16_at(&header, 26)) + u64::from(u16_at(&header, 28));
-    let data = fetcher.get_range(
+    let data = get_range_with_retries(
+        fetcher,
         url,
         ByteRange::From {
             start: data_start,
             len: member.compressed,
         },
     )?;
-    match member.method {
-        0 => Ok(data),
-        8 => miniz_oxide::inflate::decompress_to_vec(&data)
-            .map_err(|e| refused(url, format!("{}: {e:?}", member.name))),
-        method => Err(refused(
+    let bytes = match member.method {
+        0 => data,
+        8 => miniz_oxide::inflate::decompress_to_vec_with_limit(&data, MAX_MEMBER_BYTES as usize)
+            .map_err(|e| match e.status {
+            miniz_oxide::inflate::TINFLStatus::HasMoreOutput => too_large(),
+            status => refused(url, format!("{}: {status:?}", member.name)),
+        })?,
+        method => {
+            return Err(refused(
+                url,
+                format!("{}: unsupported compression {method}", member.name),
+            ));
+        }
+    };
+    if crc32fast::hash(&bytes) != member.crc {
+        return Err(refused(
             url,
-            format!("{}: unsupported compression {method}", member.name),
-        )),
+            format!("{}: CRC mismatch, the download is damaged", member.name),
+        ));
     }
+    Ok(bytes)
+}
+
+/// `tile 32_566_5937` or `tiles 32_566_5937, 32_567_5937`, as LGV names its 1 km tiles.
+pub fn tile_names(tiles: &[TileId]) -> String {
+    let names: Vec<String> = tiles
+        .iter()
+        .map(|t| format!("32_{:03}_{:04}", t.east_km, t.north_km))
+        .collect();
+    let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
+    format!("{noun} {}", names.join(", "))
+}
+
+/// Whether the centre of the 1 km tile (EPSG:25832) lies in or near Hamburg, so the archive
+/// must have it.
+fn inside_hamburg(tile: TileId) -> bool {
+    let centre = ProjectedPoint {
+        easting: f64::from(tile.east_km) * 1000.0 + 500.0,
+        northing: f64::from(tile.north_km) * 1000.0 + 500.0,
+    };
+    Crs::Utm33.reproject(Crs::Utm32, centre).is_some_and(|p| {
+        regions_for(&BoundingBox {
+            min_e: p.easting,
+            min_n: p.northing,
+            max_e: p.easting,
+            max_n: p.northing,
+        })
+        .contains(&Region::Hamburg)
+    })
 }
 
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), read out of the statewide archive and
 /// cached, mosaicked into a Float32 GeoTIFF `out` with its world file. Tiles outside Hamburg
-/// are missing from the archive and stay empty.
+/// are missing from the archive and stay empty; returned are the missing tiles inside Hamburg.
+/// No tile at all is an error (the archive was renamed or restructured).
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &Cache,
@@ -221,29 +320,45 @@ pub fn fetch_model(
     model: Model,
     bbox: &BoundingBox,
     out: &Path,
-) -> Result<(), FetchError> {
+) -> Result<Vec<TileId>, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
-    let dir = cache.lgv_dir().join(model.cache_name());
+    let dir = cache
+        .lgv_dir()
+        .join(model.cache_name())
+        .join(model.release());
+    // The member count (u16, little-endian), then the central directory.
     let directory_file = dir.join("directory.bin");
     let url = model.archive_url();
-    let directory = match mode {
-        FetchMode::Online => {
-            let bytes = read_directory_bytes(fetcher, url)?;
-            write_atomically(&directory_file, &bytes)?;
-            bytes
-        }
-        FetchMode::Offline => std::fs::read(&directory_file).map_err(|_| {
-            refused(
-                url,
-                format!(
-                    "offline and not cached: {}; run `freemapper fetch` online",
-                    model.label()
-                ),
-            )
-        })?,
+    let offline_hint = |what: &str| {
+        refused(
+            url,
+            format!("offline and not cached: {what}; run `freemapper fetch` online"),
+        )
     };
-    let members = parse_directory(&directory).map_err(|message| refused(url, message))?;
+    let members = match mode {
+        FetchMode::Online => {
+            let (directory, count) = read_directory_bytes(fetcher, url)?;
+            let members =
+                parse_directory(&directory, count).map_err(|message| refused(url, message))?;
+            // Kept only once it parsed, so a broken answer never replaces a good copy.
+            write_atomically(
+                &directory_file,
+                &[&count.to_le_bytes()[..], &directory].concat(),
+            )?;
+            members
+        }
+        FetchMode::Offline => {
+            let cached = std::fs::read(&directory_file).map_err(|_| offline_hint(model.label()))?;
+            let (count, directory) = cached
+                .split_at_checked(2)
+                .ok_or_else(|| offline_hint(model.label()))?;
+            parse_directory(directory, u16::from_le_bytes([count[0], count[1]]))
+                .map_err(|message| refused(url, message))?
+        }
+    };
+    let mut found = 0;
+    let mut missing = Vec::new();
     for tile in tiles_covering(bbox) {
         let prefix = format!(
             "{}_32_{:03}_{:04}_",
@@ -255,35 +370,40 @@ pub fn fetch_model(
             let file = m.name.rsplit(['/', '\\']).next().unwrap_or_default();
             file.starts_with(&prefix) && file.ends_with(".tif")
         }) else {
-            // Outside Hamburg: no tile.
+            if inside_hamburg(tile) {
+                missing.push(tile);
+            }
             continue;
         };
+        found += 1;
         // Named after the tile, never after the archive's member name (which comes from the
         // server and could hold `..` or `\`).
         let file = dir.join(format!("{prefix}.tif"));
         let bytes = match std::fs::read(&file) {
-            Ok(bytes) => bytes,
-            Err(_) if mode == FetchMode::Online => {
+            Ok(bytes) if crc32fast::hash(&bytes) == member.crc => bytes,
+            _ if mode == FetchMode::Online => {
                 let bytes = read_member(fetcher, url, member)?;
                 write_atomically(&file, &bytes)?;
                 bytes
             }
-            Err(_) => {
-                return Err(refused(
-                    url,
-                    format!(
-                        "offline and not cached: {}; run `freemapper fetch` online",
-                        member.name
-                    ),
-                ));
-            }
+            _ => return Err(offline_hint(&member.name)),
         };
         let part = decode_float_tiff(&bytes).map_err(|message| refused(url, message))?;
         raster
             .paste_with(&part.grid, |x, y| part.get(x, y))
             .map_err(|e| refused(url, e.to_string()))?;
     }
-    write_float_raster(&raster, out, url)
+    if found == 0 {
+        return Err(refused(
+            url,
+            format!(
+                "no tile of the {} covers the map area; the archive may have been renamed",
+                model.label()
+            ),
+        ));
+    }
+    write_float_raster(&raster, out, url)?;
+    Ok(missing)
 }
 
 /// The ALKIS-vereinfacht OGC API collections (LGB-like JSON, `next` links, EPSG:25832).
@@ -337,7 +457,12 @@ pub fn normalise_land_use(feature: Value) -> Value {
 
 /// `feature` with `property` replaced by the entry of `names` it spells in ASCII.
 fn normalise(mut feature: Value, property: &str, names: &[&str]) -> Value {
-    let value = &mut feature["properties"][property];
+    let Some(value) = feature
+        .get_mut("properties")
+        .and_then(|p| p.get_mut(property))
+    else {
+        return feature;
+    };
     if let Some(text) = value.as_str() {
         let key = spelling_key(text);
         if let Some(name) = names.iter().find(|name| spelling_key(name) == key) {
@@ -465,6 +590,7 @@ mod tests {
     use crate::fetch::test_support::{MapFetcher, geotiff};
     use crate::fetch::{Cache, FetchMode};
     use crate::raster::GridSpec;
+    use crate::tiles::TileId;
 
     /// A zip like LGV's: deflated GeoTIFF members in folders, and a stored CSV.
     fn archive(members: &[(&str, Vec<u8>, bool)]) -> Vec<u8> {
@@ -515,8 +641,10 @@ mod tests {
                 false,
             ),
         ]);
-        let (offset, size) = directory_location(&zip[zip.len().saturating_sub(70_000)..]).unwrap();
-        let members = parse_directory(&zip[offset as usize..(offset + size) as usize]).unwrap();
+        let (offset, size, count) =
+            directory_location(&zip[zip.len().saturating_sub(70_000)..]).unwrap();
+        let members =
+            parse_directory(&zip[offset as usize..(offset + size) as usize], count).unwrap();
         let names: Vec<&str> = members.iter().map(|m| m.name.as_str()).collect();
         assert_eq!(
             names,
@@ -630,7 +758,11 @@ mod tests {
             &dir.path().join("o.tif"),
         )
         .unwrap();
-        assert!(cache.lgv_dir().join("dgm1/dgm1_32_565_5937_.tif").exists());
+        assert!(
+            release_dir(&cache, Model::Dgm1)
+                .join("dgm1_32_565_5937_.tif")
+                .exists()
+        );
         assert!(!dir.path().join("escape").exists());
     }
 
@@ -665,6 +797,323 @@ mod tests {
         let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
         assert!(raster.get(0, 0).is_nan() && raster.get(1, 0).is_nan());
         assert_eq!(raster.get(2, 0), 6.0);
+    }
+
+    fn release_dir(cache: &Cache, model: Model) -> std::path::PathBuf {
+        cache
+            .lgv_dir()
+            .join(model.cache_name())
+            .join(model.release())
+    }
+
+    /// The tile 565/5937 (Gymnasium Eppendorf) and, with `both`, its eastern neighbour.
+    fn eppendorf(both: bool) -> BoundingBox {
+        BoundingBox {
+            min_e: 565_900.0,
+            min_n: 5_937_500.0,
+            max_e: if both { 566_100.0 } else { 565_990.0 },
+            max_n: 5_937_600.0,
+        }
+    }
+
+    fn fetch_dgm(
+        fetcher: &dyn Fetcher,
+        cache: &Cache,
+        mode: FetchMode,
+        bbox: &BoundingBox,
+        out: &Path,
+    ) -> Result<Vec<TileId>, FetchError> {
+        fetch_model(fetcher, cache, mode, Model::Dgm1, bbox, out)
+    }
+
+    /// Answers byte ranges with only their first half, like a proxy clamping them.
+    struct Clamping<'a>(&'a MapFetcher);
+
+    impl Fetcher for Clamping<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.0.get(url)
+        }
+
+        fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+            let mut bytes = self.0.get_range(url, range)?;
+            if let ByteRange::From { len, .. } = range {
+                bytes.truncate((len / 2) as usize);
+            }
+            Ok(bytes)
+        }
+    }
+
+    #[test]
+    fn clamped_ranges_are_an_error() {
+        let csv = b"Kachelname;Aktualitaet\n".repeat(50);
+        let zip = archive(&[("b.csv", csv, false)]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/dgm.zip", zip);
+        let members = read_directory(&fetcher, "https://example.org/dgm.zip").unwrap();
+        let err = read_member(
+            &Clamping(&fetcher),
+            "https://example.org/dgm.zip",
+            &members[0],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("bytes"), "{err}");
+    }
+
+    #[test]
+    fn truncated_directory_is_an_error() {
+        let zip = archive(&[
+            ("a.csv", b"a".to_vec(), false),
+            ("b.csv", b"b".to_vec(), false),
+        ]);
+        let (offset, size, count) = directory_location(&zip).unwrap();
+        assert_eq!(count, 2);
+        let first = 46 + "a.csv".len();
+        let directory = &zip[offset as usize..(offset + size) as usize];
+        let err = parse_directory(&directory[..first], count).unwrap_err();
+        assert!(err.contains("1 of 2"), "{err}");
+    }
+
+    #[test]
+    fn failed_directory_read_keeps_the_cached_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let out = dir.path().join("dgm1.tif");
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            Model::Dgm1.archive_url(),
+            archive(&[(
+                "s32_565/dgm1_32_565_5937_1_hh_2022.tif",
+                tile(565, 5937, 6.0),
+                true,
+            )]),
+        );
+        fetch_dgm(&fetcher, &cache, FetchMode::Online, &eppendorf(false), &out).unwrap();
+        // A broken directory: 100 bytes of junk, then an end record pointing at them.
+        let mut broken = vec![b'x'; 100];
+        broken.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 1, 0, 1, 0]);
+        broken.extend_from_slice(&100u32.to_le_bytes());
+        broken.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+        let bad = MapFetcher::default();
+        bad.insert(Model::Dgm1.archive_url(), broken);
+        assert!(fetch_dgm(&bad, &cache, FetchMode::Online, &eppendorf(false), &out).is_err());
+        fetch_dgm(
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &eppendorf(false),
+            &out,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn renamed_tiles_are_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            Model::Dgm1.archive_url(),
+            archive(&[(
+                "S32_565/DGM1_32_565_5937_1_HH_2022.TIF",
+                tile(565, 5937, 6.0),
+                true,
+            )]),
+        );
+        let err = fetch_dgm(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            &eppendorf(false),
+            &dir.path().join("o.tif"),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("no tile"), "{err}");
+    }
+
+    #[test]
+    fn missing_tiles_inside_hamburg_are_reported() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            Model::Dgm1.archive_url(),
+            archive(&[(
+                "s32_565/dgm1_32_565_5937_1_hh_2022.tif",
+                tile(565, 5937, 6.0),
+                true,
+            )]),
+        );
+        let missing = fetch_dgm(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            &eppendorf(true),
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert_eq!(
+            missing,
+            [TileId {
+                east_km: 566,
+                north_km: 5937
+            }]
+        );
+    }
+
+    #[test]
+    fn archive_reads_are_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            Model::Dgm1.archive_url(),
+            archive(&[(
+                "s32_565/dgm1_32_565_5937_1_hh_2022.tif",
+                tile(565, 5937, 6.0),
+                true,
+            )]),
+        );
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(Model::Dgm1.archive_url().to_string(), 2);
+        fetch_dgm(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            &eppendorf(false),
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn tile_names_are_in_zone_32() {
+        let tiles = [
+            TileId {
+                east_km: 566,
+                north_km: 5937,
+            },
+            TileId {
+                east_km: 567,
+                north_km: 5937,
+            },
+        ];
+        assert_eq!(tile_names(&tiles), "tiles 32_566_5937, 32_567_5937");
+        assert_eq!(tile_names(&tiles[..1]), "tile 32_566_5937");
+    }
+
+    #[test]
+    fn cache_is_kept_per_release() {
+        assert_eq!(Model::Dgm1.release(), "dgm1_hh_2022-04-30_258334_snap_1");
+        assert_eq!(Model::Bdom.release(), "dom1_hh_2022-11-21");
+    }
+
+    #[test]
+    fn damaged_cached_tile_is_read_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let out = dir.path().join("dgm1.tif");
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            Model::Dgm1.archive_url(),
+            archive(&[(
+                "s32_565/dgm1_32_565_5937_1_hh_2022.tif",
+                tile(565, 5937, 6.0),
+                true,
+            )]),
+        );
+        fetch_dgm(&fetcher, &cache, FetchMode::Online, &eppendorf(false), &out).unwrap();
+        let cached = release_dir(&cache, Model::Dgm1).join("dgm1_32_565_5937_.tif");
+        std::fs::write(&cached, b"damaged").unwrap();
+        let err = fetch_dgm(
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &eppendorf(false),
+            &out,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("online"), "{err}");
+        fetch_dgm(&fetcher, &cache, FetchMode::Online, &eppendorf(false), &out).unwrap();
+        let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
+        assert_eq!(raster.get(10, 50), 6.0);
+    }
+
+    #[test]
+    fn damaged_member_is_refused() {
+        let csv = b"Kachelname;Aktualitaet\n".repeat(50);
+        let mut zip = archive(&[("b.csv", csv, false)]);
+        let at = zip.windows(10).position(|w| w == b"Kachelname").unwrap();
+        zip[at] = b'X';
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/dgm.zip", zip);
+        let members = read_directory(&fetcher, "https://example.org/dgm.zip").unwrap();
+        let err = read_member(&fetcher, "https://example.org/dgm.zip", &members[0]).unwrap_err();
+        assert!(err.to_string().contains("CRC"), "{err}");
+    }
+
+    #[test]
+    fn oversized_member_is_refused() {
+        let fetcher = MapFetcher::default();
+        let member = Member {
+            name: "huge.tif".to_string(),
+            method: 8,
+            compressed: 1 << 30,
+            crc: 0,
+            local_header: 0,
+        };
+        let err = read_member(&fetcher, "https://example.org/dgm.zip", &member).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+        assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    #[test]
+    fn member_inflating_too_far_is_refused() {
+        let zip = archive(&[("zeros.tif", vec![0; (MAX_MEMBER_BYTES + 1) as usize], true)]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/dgm.zip", zip);
+        let members = read_directory(&fetcher, "https://example.org/dgm.zip").unwrap();
+        let err = read_member(&fetcher, "https://example.org/dgm.zip", &members[0]).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+    }
+
+    #[test]
+    fn oversized_directory_is_refused() {
+        let mut end = vec![0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 1, 0, 1, 0];
+        end.extend_from_slice(&(100u32 << 20).to_le_bytes());
+        end.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/dgm.zip", end);
+        let err = read_directory(&fetcher, "https://example.org/dgm.zip").unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+    }
+
+    #[test]
+    fn zip64_archive_is_refused() {
+        let mut end = vec![0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0];
+        end.extend_from_slice(&u32::MAX.to_le_bytes());
+        end.extend_from_slice(&[0, 0]);
+        let err = directory_location(&end).unwrap_err();
+        assert!(err.contains("zip64"), "{err}");
+    }
+
+    #[test]
+    fn encrypted_member_is_refused() {
+        let zip = archive(&[("a.csv", b"a".to_vec(), false)]);
+        let (offset, size, count) = directory_location(&zip).unwrap();
+        let mut directory = zip[offset as usize..(offset + size) as usize].to_vec();
+        directory[8] |= 1;
+        let err = parse_directory(&directory, count).unwrap_err();
+        assert!(err.contains("encrypted"), "{err}");
+    }
+
+    #[test]
+    fn feature_without_object_properties_is_kept() {
+        let feature = serde_json::json!({"type": "Feature", "properties": "broken"});
+        assert_eq!(normalise_land_use(feature.clone()), feature);
+        let feature = serde_json::json!({"type": "Feature"});
+        assert_eq!(normalise_building(feature.clone()), feature);
     }
 
     #[test]

@@ -46,6 +46,13 @@ pub enum FetchError {
     /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
     #[error("{url}: the server refused the request (HTTP {status})")]
     Refused { url: String, status: u16 },
+    /// The server answered a byte range with the whole file; asking again does not help.
+    #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
+    RangeIgnored {
+        url: String,
+        range: String,
+        status: u16,
+    },
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -200,9 +207,10 @@ impl Fetcher for HttpFetcher {
     /// Asks for `range` only; a server that answers with the whole file (not 206) is refused
     /// before its body is read, so a 1 GB archive is never downloaded by accident.
     fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
-        let header = match range {
-            ByteRange::From { start, len } => format!("bytes={start}-{}", start + len.max(1) - 1),
-            ByteRange::Last(n) => format!("bytes=-{n}"),
+        let (header, limit) = match range {
+            ByteRange::From { len: 0, .. } | ByteRange::Last(0) => return Ok(Vec::new()),
+            ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
+            ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
         let mut response = self
             .agent
@@ -212,19 +220,18 @@ impl Fetcher for HttpFetcher {
             .call()
             .map_err(|e| status_error(url, e))?;
         if response.status() != 206 {
-            return Err(FetchError::Http {
+            return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
-                message: format!(
-                    "the server ignored the byte range {header} (HTTP {})",
-                    response.status().as_u16()
-                ),
+                range: header,
+                status: response.status().as_u16(),
             });
         }
+        // One byte more than asked, so an oversized answer shows.
         let mut bytes = Vec::new();
         response
             .body_mut()
             .as_reader()
-            .take(MAX_DOWNLOAD_BYTES)
+            .take(limit + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| FetchError::Http {
                 url: url.to_string(),
@@ -849,6 +856,47 @@ pub(crate) fn get_with_retries<T>(
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
             Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
+/// Bytes `range` of `url`, asked for up to three times like [`get_with_retries`]; an answer
+/// of another length than asked for (a clamped or cut range) is an error.
+pub(crate) fn get_range_with_retries(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    range: ByteRange,
+) -> Result<Vec<u8>, FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.get_range(url, range).and_then(|bytes| {
+            let fits = match range {
+                ByteRange::From { len, .. } => bytes.len() as u64 == len,
+                ByteRange::Last(n) => bytes.len() as u64 <= n,
+            };
+            if fits {
+                return Ok(bytes);
+            }
+            let asked = match range {
+                ByteRange::From { start, len } => format!("{len} bytes from byte {start}"),
+                ByteRange::Last(n) => format!("the last {n} bytes"),
+            };
+            Err(FetchError::Http {
+                url: url.to_string(),
+                message: format!("asked for {asked}, got {} bytes", bytes.len()),
+            })
+        });
+        match result {
+            Err(
+                FetchError::NotFound(_)
+                | FetchError::Refused { .. }
+                | FetchError::RangeIgnored { .. },
+            ) => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -2221,6 +2269,103 @@ mod tests {
             )
             .unwrap_err();
         assert!(err.to_string().contains("byte range"), "{err}");
+    }
+
+    /// A server answering every request with `status` and `body`; counts the connections.
+    fn answering(
+        status: &'static str,
+        body: Vec<u8>,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.zip", listener.local_addr().unwrap());
+        let connections = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(&body);
+            }
+        });
+        (url, connections)
+    }
+
+    #[test]
+    fn ignored_range_is_not_retried() {
+        let (url, connections) = answering("200 OK", vec![b'x'; 10_000]);
+        let err = get_range_with_retries(
+            &HttpFetcher::new(),
+            &url,
+            ByteRange::From {
+                start: 100,
+                len: 10,
+            },
+        )
+        .unwrap_err();
+        assert!(matches!(err, FetchError::RangeIgnored { .. }), "{err}");
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn partial_answer_of_the_wrong_length_is_an_error() {
+        let (url, _) = answering("206 Partial Content", vec![b'x'; 20]);
+        let err = get_range_with_retries(
+            &HttpFetcher::new(),
+            &url,
+            ByteRange::From {
+                start: 100,
+                len: 10,
+            },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("got 11 bytes"), "{err}");
+    }
+
+    #[test]
+    fn range_reads_are_retried() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert("https://example.org/f".to_string(), 2);
+        let bytes = get_range_with_retries(
+            &fetcher,
+            "https://example.org/f",
+            ByteRange::From { start: 2, len: 3 },
+        )
+        .unwrap();
+        assert_eq!(bytes, b"234");
+    }
+
+    #[test]
+    fn short_range_is_an_error() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/f", b"0123456789".to_vec());
+        let err = get_range_with_retries(
+            &fetcher,
+            "https://example.org/f",
+            ByteRange::From { start: 8, len: 5 },
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("got 2 bytes"), "{err}");
+    }
+
+    #[test]
+    fn empty_range_needs_no_request() {
+        // Nothing listens on port 9 (discard): a request would fail.
+        let bytes = HttpFetcher::new()
+            .get_range("http://127.0.0.1:9/f", ByteRange::From { start: 5, len: 0 })
+            .unwrap();
+        assert!(bytes.is_empty());
     }
 
     #[test]
