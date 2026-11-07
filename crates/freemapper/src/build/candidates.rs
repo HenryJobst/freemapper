@@ -1,16 +1,18 @@
 //! OSM features → candidate objects for the candidates template map (spec §4.5).
 
 use chrono::NaiveDate;
-use geo::{Distance as _, Euclidean};
+use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
 
-use crate::crs::{LatLon, utm33_forward};
+use crate::crs::{LatLon, ProjectedPoint, utm33_forward};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
+/// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
+const MIN_LINE_MM: f64 = 1.0;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid candidate rules: {0}")]
@@ -26,11 +28,21 @@ pub enum Draw {
     Area,
 }
 
+/// Where a matched feature goes: the candidates template map or the map itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Target {
+    #[default]
+    Candidates,
+    Map,
+}
+
 /// The symbol a feature becomes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
     pub code: String,
     pub draw: Draw,
+    pub target: Target,
     /// The tags the rule matched, `k=v; k=v`.
     pub matched: String,
 }
@@ -54,15 +66,24 @@ struct RuleEntry {
     when: Vec<String>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    #[serde(default)]
+    target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
 }
 
 #[derive(Debug, Clone)]
+enum Test {
+    /// `key=a|b`; `None` for `*`.
+    Values(Option<Vec<String>>),
+    /// `key<number`: the value is a number below this.
+    Below(f64),
+}
+
+#[derive(Debug, Clone)]
 struct Condition {
     key: String,
-    /// `None` for `*`.
-    values: Option<Vec<String>>,
+    test: Test,
     /// `key!=value`: holds when the tag is absent or has none of the values.
     negated: bool,
 }
@@ -72,6 +93,7 @@ struct Rule {
     when: Vec<Condition>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
 }
@@ -84,11 +106,20 @@ fn value<'a>(tags: &'a Tags, key: &str) -> Option<&'a str> {
     tags.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
 }
 
+/// A tag value as a positive number: `1.2`, `1,2`, `1.2 m`.
+fn number(value: &str) -> Option<f64> {
+    let value = value.trim();
+    let value = value.strip_suffix('m').unwrap_or(value).trim_end();
+    let n: f64 = value.replace(',', ".").parse().ok()?;
+    (n.is_finite() && n > 0.0).then_some(n)
+}
+
 impl Condition {
     fn holds(&self, tags: &Tags) -> bool {
-        let matches = match (value(tags, &self.key), &self.values) {
-            (Some(_), None) => true,
-            (Some(v), Some(values)) => values.iter().any(|allowed| allowed == v),
+        let matches = match (value(tags, &self.key), &self.test) {
+            (Some(_), Test::Values(None)) => true,
+            (Some(v), Test::Values(Some(values))) => values.iter().any(|allowed| allowed == v),
+            (Some(v), Test::Below(limit)) => number(v).is_some_and(|n| n < *limit),
             (None, _) => false,
         };
         matches != self.negated
@@ -110,17 +141,38 @@ impl Rules {
                     .when
                     .iter()
                     .map(|condition| {
+                        if !condition.contains('=')
+                            && let Some((key, limit)) = condition.split_once('<')
+                        {
+                            let limit = number(limit).ok_or_else(|| {
+                                RulesError(format!(
+                                    "condition {condition:?}: {limit:?} is no number"
+                                ))
+                            })?;
+                            return Ok(Condition {
+                                key: key.to_string(),
+                                test: Test::Below(limit),
+                                negated: false,
+                            });
+                        }
                         let (key, values) = condition.split_once('=').ok_or_else(|| {
-                            RulesError(format!("condition {condition:?} lacks `=`"))
+                            RulesError(format!("condition {condition:?} lacks `=` or `<`"))
                         })?;
                         let (key, negated) = match key.strip_suffix('!') {
                             Some(key) => (key, true),
                             None => (key, false),
                         };
+                        if key.contains(['<', '>']) {
+                            return Err(RulesError(format!(
+                                "condition {condition:?}: only `key<number` compares"
+                            )));
+                        }
                         Ok(Condition {
                             key: key.to_string(),
-                            values: (values != "*")
-                                .then(|| values.split('|').map(str::to_string).collect()),
+                            test: Test::Values(
+                                (values != "*")
+                                    .then(|| values.split('|').map(str::to_string).collect()),
+                            ),
                             negated,
                         })
                     })
@@ -141,6 +193,7 @@ impl Rules {
                     when,
                     draw: entry.draw,
                     point_as_short_line_mm: entry.point_as_short_line_mm,
+                    target: entry.target,
                     schoolyard: entry.schoolyard,
                     sprint: entry.sprint,
                 })
@@ -150,9 +203,16 @@ impl Rules {
     }
 
     /// Whether any rule's conditions hold for `tags` (used to filter the extract).
-    pub fn wants(&self, tags: &[(String, String)]) -> bool {
+    /// Whether a rule with a symbol for `kind` holds for `tags` (used to filter the extract).
+    pub fn wants(&self, tags: &[(String, String)], kind: MapKind) -> bool {
         let tags = tags.to_vec();
-        self.0.iter().any(|r| r.when.iter().all(|c| c.holds(&tags)))
+        self.0
+            .iter()
+            .filter(|r| match kind {
+                MapKind::Schoolyard => r.schoolyard.is_some(),
+                MapKind::Sprint => r.sprint.is_some(),
+            })
+            .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
 
     /// The symbol of the first rule whose conditions and geometry match; `None` when no rule
@@ -189,17 +249,19 @@ impl Rules {
         Some(Match {
             code,
             draw,
+            target: rule.target,
             matched,
         })
     }
 }
 
-/// Candidate objects for the features within `buffer_m` of `map_area` (EPSG:25833), tagged with
-/// their provenance and the extract date as currency.
+/// Objects for the features within `buffer_m` of `map_area` (EPSG:25833) whose rule has `target`,
+/// tagged with their provenance and the extract date as currency.
 #[allow(clippy::too_many_arguments)]
-pub fn candidate_objects(
+pub fn osm_objects(
     features: &[OsmFeature],
     rules: &Rules,
+    target: Target,
     kind: MapKind,
     map_area: &geo_types::Polygon<f64>,
     buffer_m: f64,
@@ -214,9 +276,21 @@ pub fn candidate_objects(
     let to_map = |p: &LatLon| -> Result<MapCoord, GeorefError> {
         georef.projected_to_map(utm33_forward(*p))
     };
+    // Lines are clipped to the map area's bounding box plus buffer, like the land use objects, so
+    // they never reach into the peripheral information.
+    let clip = map_area.bounding_rect().map(|r| {
+        geo_types::Rect::new(
+            geo_types::coord! { x: r.min().x - buffer_m, y: r.min().y - buffer_m },
+            geo_types::coord! { x: r.max().x + buffer_m, y: r.max().y + buffer_m },
+        )
+    });
+    let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
     let mut objects = Vec::new();
     for feature in features {
-        let Some(found) = rules.symbol_for(&feature.tags, &feature.geometry, kind) else {
+        let Some(found) = rules
+            .symbol_for(&feature.tags, &feature.geometry, kind)
+            .filter(|found| found.target == target)
+        else {
             continue;
         };
         let Some(symbol_id) = symbol_set.id_for_code(&found.code) else {
@@ -232,20 +306,50 @@ pub fn candidate_objects(
         if distance > buffer_m {
             continue;
         }
-        let (kind, coords) = match (&feature.geometry, found.draw) {
+        let pieces = match (&feature.geometry, found.draw) {
+            (OsmGeometry::Line(points), Draw::Line)
+                if clip.is_some_and(|clip| {
+                    points.iter().map(projected).any(|c| {
+                        c.x < clip.min().x
+                            || c.x > clip.max().x
+                            || c.y < clip.min().y
+                            || c.y > clip.max().y
+                    })
+                }) =>
+            {
+                let clip = clip.expect("checked in the guard").to_polygon();
+                let line = geo_types::LineString(points.iter().map(projected).collect());
+                let mut pieces = Vec::new();
+                for piece in clip.clip(&geo_types::MultiLineString(vec![line]), false) {
+                    if Euclidean.length(&piece) < min_length {
+                        continue;
+                    }
+                    let coords = piece
+                        .coords()
+                        .map(|c| {
+                            georef.projected_to_map(ProjectedPoint {
+                                easting: c.x,
+                                northing: c.y,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    pieces.push((MapObjectKind::Path, coords));
+                }
+                pieces
+            }
             (OsmGeometry::Point(p), Draw::Point) => {
-                (MapObjectKind::Point { rotation_rad: 0.0 }, vec![to_map(p)?])
+                vec![(MapObjectKind::Point { rotation_rad: 0.0 }, vec![to_map(p)?])]
             }
             (OsmGeometry::Point(p), Draw::ShortLine(mm)) => {
                 let c = to_map(p)?;
                 let half = (mm * 500.0).round() as i32;
-                (
+                vec![(
                     MapObjectKind::Path,
                     vec![
                         MapCoord::new(c.x - half, c.y),
                         MapCoord::new(c.x + half, c.y),
                     ],
-                )
+                )]
             }
             (OsmGeometry::Line(points), Draw::Line) => {
                 let coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
@@ -256,28 +360,31 @@ pub fn candidate_objects(
                 } else {
                     coords
                 };
-                (MapObjectKind::Path, coords)
+                vec![(MapObjectKind::Path, coords)]
             }
             (OsmGeometry::Line(points), Draw::Area) => {
                 let ring = points
                     .iter()
                     .map(|p| to_map(p).map(|c| (c.x, c.y)))
                     .collect::<Result<Vec<_>, _>>()?;
-                (MapObjectKind::Path, closed_ring(&ring))
+                vec![(MapObjectKind::Path, closed_ring(&ring))]
             }
             _ => continue,
         };
-        objects.push(MapObject {
-            symbol_id,
-            kind,
-            coords,
-            tags: vec![
-                ("freemapper:source".to_string(), "osm".to_string()),
-                ("freemapper:source_id".to_string(), feature.id.clone()),
-                ("freemapper:osm".to_string(), found.matched),
-                ("freemapper:currency".to_string(), currency.to_string()),
-            ],
-        });
+        let tags = vec![
+            ("freemapper:source".to_string(), "osm".to_string()),
+            ("freemapper:source_id".to_string(), feature.id.clone()),
+            ("freemapper:osm".to_string(), found.matched),
+            ("freemapper:currency".to_string(), currency.to_string()),
+        ];
+        for (kind, coords) in pieces {
+            objects.push(MapObject {
+                symbol_id,
+                kind,
+                coords,
+                tags: tags.clone(),
+            });
+        }
     }
     Ok(objects)
 }
@@ -356,9 +463,10 @@ mod tests {
         let f = fixture();
         let set = kind.symbol_set();
         let currency = "2026-11-06".parse().unwrap();
-        let objects = candidate_objects(
+        let objects = osm_objects(
             features,
             &Rules::embedded(),
+            Target::Candidates,
             kind,
             &f.area,
             20.0,
@@ -412,8 +520,204 @@ mod tests {
         );
         assert_eq!(other.map(|m| m.code), Some("531".to_string()));
         assert!(Rules::from_toml("[[rule]]\nwhen = [\"amenity\"]\ndraw = \"point\"").is_err());
-        assert!(Rules::embedded().wants(&tags(&[("barrier", "fence")])));
-        assert!(!Rules::embedded().wants(&tags(&[("building", "yes")])));
+        assert!(Rules::embedded().wants(&tags(&[("barrier", "fence")]), MapKind::Schoolyard));
+        assert!(!Rules::embedded().wants(&tags(&[("building", "yes")]), MapKind::Sprint));
+    }
+
+    fn way() -> OsmGeometry {
+        OsmGeometry::Line(vec![at(0.0, 0.0), at(0.0005, 0.0005)])
+    }
+
+    /// Code and layer of the sprint symbol for a way with these tags.
+    fn sprint_way(t: &[(&str, &str)]) -> Option<(String, Target)> {
+        Rules::embedded()
+            .symbol_for(&tags(t), &way(), MapKind::Sprint)
+            .map(|m| (m.code, m.target))
+    }
+
+    #[test]
+    fn width_below_is_numeric() {
+        let rules = Rules::from_toml(
+            "[[rule]]\nwhen = [\"highway=path\", \"width<1.5\"]\ndraw = \"line\"\nsprint = \"506\"",
+        )
+        .unwrap();
+        for (width, holds) in [
+            ("1.2", true),
+            ("1,2 m", true),
+            ("1.2m", true),
+            ("2", false),
+            ("1.5", false),
+            ("narrow", false),
+        ] {
+            let found = rules.symbol_for(
+                &tags(&[("highway", "path"), ("width", width)]),
+                &way(),
+                MapKind::Sprint,
+            );
+            assert_eq!(found.is_some(), holds, "width={width}");
+        }
+        let found = rules.symbol_for(&tags(&[("highway", "path")]), &way(), MapKind::Sprint);
+        assert!(found.is_none(), "no width tag");
+        assert!(
+            Rules::from_toml("[[rule]]\nwhen = [\"width<x\"]\ndraw = \"line\"\nsprint = \"506\"")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn unpaved_track_is_a_map_object() {
+        let track = sprint_way(&[("highway", "track"), ("surface", "gravel")]);
+        assert_eq!(track, Some(("505.2".to_string(), Target::Map)));
+        let path = sprint_way(&[("highway", "footway"), ("surface", "dirt")]);
+        assert_eq!(path, Some(("505.1".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn narrow_or_faint_path_is_506() {
+        let narrow = sprint_way(&[("highway", "track"), ("surface", "ground"), ("width", "1")]);
+        assert_eq!(narrow, Some(("506".to_string(), Target::Map)));
+        let faint = sprint_way(&[
+            ("highway", "path"),
+            ("surface", "earth"),
+            ("trail_visibility", "bad"),
+        ]);
+        assert_eq!(faint, Some(("506".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn paved_and_sidewalk_ways_are_dropped() {
+        let asphalt = sprint_way(&[("highway", "path"), ("surface", "asphalt"), ("width", "1")]);
+        assert_eq!(asphalt, None);
+        let sidewalk = sprint_way(&[
+            ("highway", "footway"),
+            ("footway", "sidewalk"),
+            ("surface", "gravel"),
+        ]);
+        assert_eq!(sidewalk, None);
+        let crossing = sprint_way(&[("highway", "footway"), ("footway", "crossing")]);
+        assert_eq!(crossing, None);
+    }
+
+    #[test]
+    fn path_without_surface_is_a_candidate() {
+        let path = sprint_way(&[("highway", "path")]);
+        assert_eq!(path, Some(("505.1".to_string(), Target::Candidates)));
+        assert!(Rules::embedded().wants(&tags(&[("highway", "track")]), MapKind::Sprint));
+    }
+
+    #[test]
+    fn schoolyard_does_not_want_highways() {
+        let track = tags(&[("highway", "track"), ("surface", "gravel")]);
+        assert!(!Rules::embedded().wants(&track, MapKind::Schoolyard));
+        assert!(Rules::embedded().wants(&track, MapKind::Sprint));
+    }
+
+    #[test]
+    fn building_passages_and_area_ways_are_candidates() {
+        for extra in [
+            ("tunnel", "building_passage"),
+            ("covered", "yes"),
+            ("indoor", "yes"),
+            ("area", "yes"),
+        ] {
+            let found = sprint_way(&[("highway", "footway"), ("surface", "fine_gravel"), extra]);
+            assert_eq!(
+                found,
+                Some(("505.1".to_string(), Target::Candidates)),
+                "{extra:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_unpaved_surface_is_a_candidate() {
+        let found = sprint_way(&[("highway", "path"), ("surface", "pebblestone")]);
+        assert_eq!(found, Some(("505.1".to_string(), Target::Candidates)));
+        let paved = sprint_way(&[("highway", "path"), ("surface", "paving_stones")]);
+        assert_eq!(paved, None);
+    }
+
+    #[test]
+    fn unpaved_street_is_a_candidate() {
+        let found = sprint_way(&[("highway", "residential"), ("surface", "sand")]);
+        assert_eq!(found, Some(("505.2".to_string(), Target::Candidates)));
+        assert_eq!(
+            sprint_way(&[("highway", "residential"), ("surface", "asphalt")]),
+            None
+        );
+    }
+
+    #[test]
+    fn nonsense_widths_do_not_count() {
+        for width in ["-1", "0", "-inf", "inf", "NaN"] {
+            let found = sprint_way(&[("highway", "path"), ("surface", "dirt"), ("width", width)]);
+            assert_eq!(
+                found,
+                Some(("505.1".to_string(), Target::Map)),
+                "width={width}"
+            );
+        }
+    }
+
+    #[test]
+    fn comparison_keys_are_rejected() {
+        for condition in ["width<=1.5", "width>2", "width>=2"] {
+            let toml =
+                format!("[[rule]]\nwhen = [\"{condition}\"]\ndraw = \"line\"\nsprint = \"506\"");
+            assert!(Rules::from_toml(&toml).is_err(), "{condition}");
+        }
+    }
+
+    #[test]
+    fn lines_are_clipped_to_the_map_area_and_buffer() {
+        let f = fixture();
+        // From the centre 500 m east: clipped at 60 m (area) + 20 m (buffer).
+        let track = line(
+            "way/9",
+            &[("highway", "track"), ("surface", "gravel")],
+            vec![SCHOOL, at(0.0, 0.0074)],
+        );
+        let set = MapKind::Sprint.symbol_set();
+        let currency = "2026-11-06".parse().unwrap();
+        let objects = osm_objects(
+            &[track],
+            &Rules::embedded(),
+            Target::Map,
+            MapKind::Sprint,
+            &f.area,
+            20.0,
+            &f.georef,
+            &set,
+            currency,
+        )
+        .unwrap();
+        assert_eq!(objects.len(), 1);
+        let (e, n) = (
+            f.georef.ref_projected.easting,
+            f.georef.ref_projected.northing,
+        );
+        for c in &objects[0].coords {
+            let p = f.georef.map_to_projected(*c);
+            assert!(
+                (p.easting - e).abs() <= 80.1 && (p.northing - n).abs() <= 80.1,
+                "{p:?}"
+            );
+        }
+        let last = f
+            .georef
+            .map_to_projected(*objects[0].coords.last().unwrap());
+        assert!((last.easting - e - 80.0).abs() < 0.5, "{last:?}");
+    }
+
+    #[test]
+    fn schoolyard_has_no_path_rules() {
+        for t in [
+            vec![("highway", "track"), ("surface", "gravel")],
+            vec![("highway", "path")],
+        ] {
+            let found = Rules::embedded().symbol_for(&tags(&t), &way(), MapKind::Schoolyard);
+            assert_eq!(found, None, "{t:?}");
+        }
     }
 
     #[test]

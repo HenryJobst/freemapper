@@ -209,7 +209,12 @@ reliability policy below**. It is not taken over literally.
 - Verify the exact attribute values against live data for tile `33421-5821` and list them in the rule file.
 
 **Paths and areas (sprint only in the MVP):**
-- *object 501 paved area:* ALKIS `nutzung` traffic classes (the exact `nutzart` values are verified live).
+- *object 501 paved area:* ALKIS `nutzung` traffic classes. Verified live 2026-11-07 (Strausberg
+  Vorstadt): object 501.5 for `Straßenverkehr` without `bez = Begleitfläche Straßenverkehr` and for
+  `Platz` (with or without `bez = Parkplatz`); candidate 501.5 for `Weg` (sidewalks and lanes in town,
+  tracks in the woods); verges not drawn. 501.5 has no border (a parcel boundary is no visible edge);
+  heavy-traffic symbols are not used (ALKIS has no traffic volume). Unpaved OSM ways: track 505.2,
+  path/footway/bridleway 505.1 (OOM's ISSprOM set splits 505 by footprint).
 - *object 505:* OSM `highway=track|path|footway|bridleway` with an explicit unpaved `surface`
   (`unpaved, dirt, earth, ground, grass, gravel, fine_gravel, compacted, sand, woodchips`). Object 506 when
   additionally `width < 1.5` or `highway=path` with `trail_visibility` below good. 507 is not used.

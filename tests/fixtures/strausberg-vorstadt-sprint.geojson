@@ -1,0 +1,18 @@
+{
+ "type": "Feature",
+ "properties": {
+  "name": "Strausberg Vorstadt (sprint test area)"
+ },
+ "geometry": {
+  "type": "Polygon",
+  "coordinates": [
+   [
+    [13.8390, 52.5355],
+    [13.8490, 52.5355],
+    [13.8490, 52.5415],
+    [13.8390, 52.5415],
+    [13.8390, 52.5355]
+   ]
+  ]
+ }
+}

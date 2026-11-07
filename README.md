@@ -13,7 +13,7 @@ selbst beurteilen muss. Gezeichnet und im Gelände geprüft wird weiterhin in OO
 
 ## Status
 
-In Entwicklung (Meilensteine M0–M6; Sprint-Feinschliff, Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung (Meilensteine M0–M7; Gebietsauswahl im Browser, OCAD und PDF folgen). Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Bauen
 
@@ -81,6 +81,29 @@ Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/
 `--cache-dir` wählt einen anderen Ordner.
 
 Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
+
+Die Sprintkarte enthält zusätzlich, als fertige Kartenobjekte:
+
+- befestigte Flächen (501.5) aus der ALKIS-Nutzung: Fahrbahnen mit Gehwegen und Parkstreifen
+  (`Straßenverkehr`) sowie Plätze, Parkplätze, Marktplätze und Fußgängerzonen (`Platz`). Begleitflächen
+  (Grünstreifen, Baumreihen) werden nicht gezeichnet. Nur als Kandidat kommen: ALKIS-`Weg` (in der Stadt
+  Gehwege und Gassen, im Wald unbefestigte Wege), andere Plätze (z. B. Festplätze) und Straßenflurstücke,
+  auf denen OSM eine unbefestigte Straße kennt (Sandstraßen). Straßenflächen unter Baumkronen am
+  Luftbild prüfen.
+- unbefestigte Wege aus OSM mit Angabe zur Oberfläche (`surface=dirt`, `gravel`, `compacted` …):
+  Wirtschaftswege 505.2, Fußwege und Pfade 505.1, schmale (`width` unter 1,5 m) oder schwer
+  erkennbare Pfade 506. Kandidaten (505.1) sind Wege ohne `surface` oder mit ungewöhnlicher Oberfläche
+  sowie Durchgänge durch Gebäude, überdachte Wege und Fußgängerflächen; unbefestigte Straßen sind
+  Kandidaten 505.2. Befestigte Wege und Gehwege an Straßen übernimmt freemapper nicht, die zeigen
+  ALKIS-Flächen und Luftbild. Alle Linien enden am Puffer um das Kartengebiet.
+
+Beispiel Strausberg Vorstadt:
+
+```sh
+freemapper init vorstadt --geojson tests/fixtures/strausberg-vorstadt-sprint.geojson --kind sprint \
+  --title "Strausberg Vorstadt"
+freemapper run vorstadt
+```
 
 ## Mit einem KI-Agenten (MCP)
 
