@@ -14,13 +14,13 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony and Saxony-Anhalt (open data from LGB, Geoportal Berlin,
-  GeoSN and LVermGeo);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt and Hamburg (open data from LGB, Geoportal
+  Berlin, GeoSN, LVermGeo and LGV);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony and Saxony-Anhalt, OCAD starting point, PDF training map. Next come Hamburg and the remaining German states, then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt and Hamburg, OCAD starting point, PDF training map. Next come the remaining German states, then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -158,6 +158,7 @@ freemapper run vorstadt
 | Berlin | LGB, ALKIS from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; street areas include verges |
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
+| Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |
 
 At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the

@@ -51,7 +51,7 @@ Auf Wunsch erzeugt freemapper zusätzlich eine **druckfertige Trainingskarte als
   - Beim ersten Mal lädt freemapper den OSM-Auszug des Landes, für Brandenburg und Berlin etwa 300 MB,
     für Sachsen etwa 270 MB. Er wird für alle Projekte wiederverwendet.
   - Dazu kommen je Karte meist 10–100 MB.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen oder Sachsen-Anhalt**. Weitere Länder folgen.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt oder Hamburg**. Weitere Länder folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -261,8 +261,9 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Berlin | LGB (Raster), Geoportal Berlin (ALKIS) | das nDOM wird aus dem Luftbild-Oberflächenmodell berechnet: etwas weicher, ohne dünne Objekte wie Laternen, dafür mit parkenden Autos |
 | Sachsen | GeoSN | Luftbild aus dem Kartendienst; das nDOM hat nur 1 m Auflösung, Hecken und schmale Mauern sind oft nur angedeutet; unterirdische Bauwerke sind nicht ausfilterbar |
 | Sachsen-Anhalt | LVermGeo | Die Karte liegt in UTM-Zone 32 (EPSG:25832), wie alle Daten des Landes; Luftbild aus dem Kartendienst, Gelände- und Oberflächenmodell mit 1 m; das nDOM ist wie in Sachsen grob |
+| Hamburg | LGV | Zone 32 wie Sachsen-Anhalt; Luftbild von 2026, Gelände- und Oberflächenmodell aber von 2022: Neubauten der letzten Jahre fehlen im nDOM |
 
-**Koordinatensystem:** Brandenburg, Berlin und Sachsen liefern in UTM-Zone 33, Sachsen-Anhalt in Zone 32.
+**Koordinatensystem:** Brandenburg, Berlin und Sachsen liefern in UTM-Zone 33, Sachsen-Anhalt und Hamburg in Zone 32.
 Jede Karte bekommt die Zone des Landes, in dem ihre Mitte liegt; OOM und OCAD zeigen sie in der
 Georeferenz an. Verschieben Sie ein Kartengebiet über die Zonengrenze, lädt freemapper alles neu.
 
@@ -287,7 +288,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
-| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen oder Sachsen-Anhalt. | Ein anderes Gebiet wählen; weitere Länder folgen. |
+| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt oder Hamburg. | Ein anderes Gebiet wählen; weitere Länder folgen. |
 | `map area plus buffer is … more than 4000 m per side` | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
 | `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, oder das Gebiet im Browser zeichnen. |
 | `MultiPolygon with … parts` | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |
@@ -309,6 +310,8 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 - `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` (Brandenburg; in Berlin mit dem Zusatz
   `© Geoportal Berlin, dl-de/zero-2-0`)
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Sachsen)
+- `© GeoBasis-DE / LVermGeo ST <Jahr>, dl-de/by-2-0, Daten geändert` (Sachsen-Anhalt)
+- `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <Jahr>, dl-de/by-2-0, Daten geändert` (Hamburg)
 - `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper`
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.
