@@ -6,11 +6,55 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{ByteRange, Cache, FetchError, FetchMode, Fetcher, write_atomically};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
+use crate::sources::wms::WmsService;
 use crate::tiles::tiles_covering;
+
+/// The orthophoto WMS: the leaf-off True-DOP time series, pinned to the open 2026 vintage (a
+/// missing `TIME` would follow the newest, and 2023 is a closed-licence satellite image).
+pub const WMS: WmsService = WmsService {
+    url: "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt",
+    layer: "dop_zeitreihe_unbelaubt",
+    crs: Crs::Utm32,
+    extra: "&TIME=2026",
+};
+/// The flight dates of the DOP tiles, per vintage.
+pub const METADATA_URL: &str = "https://www.daten-hamburg.de/opendata/fernerkundung_luftbilder/dop_unbelaubt/DOP_unbelaubt_AdV-Metadaten_Hamburg.zip";
+const VINTAGE: &str = "2026";
+
+/// The flight date (`DD.MM.YYYY`) of the orthophoto tile at the centre of `bbox`
+/// (EPSG:25832); `None` when the metadata does not tell it.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    use std::io::Read as _;
+    let bytes = crate::fetch::get_with_retries(fetcher, METADATA_URL, |b| Ok(b.to_vec())).ok()?;
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).ok()?;
+    let wanted = format!("AdV-Metadaten_DOP_{VINTAGE}_unbelaubt_hh.csv");
+    let index = (0..archive.len()).find(|&i| {
+        archive.by_index(i).is_ok_and(|f| {
+            f.name()
+                .is_ok_and(|n| n.rsplit('/').next() == Some(wanted.as_str()))
+        })
+    })?;
+    let mut raw = Vec::new();
+    archive.by_index(index).ok()?.read_to_end(&mut raw).ok()?;
+    // UTF-8 with BOM in the newer vintages, Latin-1 in the older ones.
+    let text = String::from_utf8(raw.clone())
+        .unwrap_or_else(|_| raw.iter().map(|&b| char::from(b)).collect());
+    let (e, n) = (
+        ((bbox.min_e + bbox.max_e) / 2000.0).floor(),
+        ((bbox.min_n + bbox.max_n) / 2000.0).floor(),
+    );
+    let tile = format!("dop20rgbi_32_{e:03}_{n:04}_1_hh_{VINTAGE}.tif");
+    text.lines().find_map(|line| {
+        let mut fields = line.split(';');
+        (fields.next()? == tile)
+            .then(|| fields.next().map(str::to_string))
+            .flatten()
+    })
+}
 
 /// A statewide height model archive (1 km Float32 GeoTIFF tiles, 2022).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,13 +252,15 @@ pub fn fetch_model(
             tile.north_km
         );
         let Some(member) = members.iter().find(|m| {
-            let file = m.name.rsplit('/').next().unwrap_or_default();
+            let file = m.name.rsplit(['/', '\\']).next().unwrap_or_default();
             file.starts_with(&prefix) && file.ends_with(".tif")
         }) else {
             // Outside Hamburg: no tile.
             continue;
         };
-        let file = dir.join(member.name.rsplit('/').next().unwrap_or_default());
+        // Named after the tile, never after the archive's member name (which comes from the
+        // server and could hold `..` or `\`).
+        let file = dir.join(format!("{prefix}.tif"));
         let bytes = match std::fs::read(&file) {
             Ok(bytes) => bytes,
             Err(_) if mode == FetchMode::Online => {
@@ -559,6 +605,36 @@ mod tests {
     }
 
     #[test]
+    fn member_names_never_name_cache_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let zip = archive(&[(
+            "..\\..\\escape\\dgm1_32_565_5937_1_hh_2022.tif",
+            tile(565, 5937, 6.0),
+            true,
+        )]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert(Model::Dgm1.archive_url(), zip);
+        let bbox = BoundingBox {
+            min_e: 565_000.0,
+            min_n: 5_937_000.0,
+            max_e: 565_010.0,
+            max_n: 5_937_010.0,
+        };
+        fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert!(cache.lgv_dir().join("dgm1/dgm1_32_565_5937_.tif").exists());
+        assert!(!dir.path().join("escape").exists());
+    }
+
+    #[test]
     fn nodata_values_become_nan() {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().join("cache"));
@@ -589,5 +665,57 @@ mod tests {
         let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
         assert!(raster.get(0, 0).is_nan() && raster.get(1, 0).is_nan());
         assert_eq!(raster.get(2, 0), 6.0);
+    }
+
+    #[test]
+    fn wms_asks_for_the_2026_vintage() {
+        let grid = GridSpec::covering(
+            &BoundingBox {
+                min_e: 564_950.0,
+                min_n: 5_937_650.0,
+                max_e: 565_350.0,
+                max_n: 5_937_950.0,
+            },
+            0.2,
+        );
+        let (_, url) = &crate::sources::wms::pieces(&WMS, &grid)[0];
+        assert!(
+            url.starts_with("https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt?"),
+            "{url}"
+        );
+        assert!(url.contains("LAYERS=dop_zeitreihe_unbelaubt&"), "{url}");
+        assert!(
+            url.contains("&CRS=EPSG:25832&") && url.ends_with("&TIME=2026"),
+            "{url}"
+        );
+    }
+
+    #[test]
+    fn flight_date_from_the_metadata_csv() {
+        let csv = "\u{feff}Kachelinformation der DOP20 für die Datenabgabe;;\nLand;Hamburg ;;\nEigentuemer;LGV;;\nAktualitaet_Kachelinformation;10.08.2026;;\nVersion_Standard;4.1;;\nKachelname;Aktualitaet;Erfassungsmethode\ndop20rgbi_32_564_5937_1_hh_2026.tif;18.03.2026;0\ndop20rgbi_32_565_5937_1_hh_2026.tif;19.03.2026;0\n";
+        let zip = archive(&[(
+            "DOP_unbelaubt_AdV-Metadaten_Hamburg/AdV-Metadaten_DOP_2026_unbelaubt_hh.csv",
+            csv.as_bytes().to_vec(),
+            true,
+        )]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert(METADATA_URL, zip);
+        let school = BoundingBox {
+            min_e: 564_950.0,
+            min_n: 5_937_650.0,
+            max_e: 565_350.0,
+            max_n: 5_937_950.0,
+        };
+        assert_eq!(
+            flight_date(&fetcher, &school).as_deref(),
+            Some("19.03.2026")
+        );
+        let elsewhere = BoundingBox {
+            min_e: 500_000.0,
+            min_n: 5_900_000.0,
+            max_e: 500_100.0,
+            max_n: 5_900_100.0,
+        };
+        assert_eq!(flight_date(&fetcher, &elsewhere), None);
     }
 }

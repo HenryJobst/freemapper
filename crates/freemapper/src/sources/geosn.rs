@@ -22,6 +22,7 @@ pub const WMS: WmsService = WmsService {
     url: WMS_URL,
     layer: WMS_LAYER,
     crs: Crs::Utm33,
+    extra: "",
 };
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";
 pub use crate::sources::wms::ORTHOPHOTO_PIXEL_M;
