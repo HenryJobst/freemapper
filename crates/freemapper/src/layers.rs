@@ -39,6 +39,9 @@ const SH_BDOM_TILE_MB: f64 = 105.0;
 /// A Geobasis NRW DGM1 tile (Float32, LZW) and a DOM1 tile.
 const NRW_DGM1_TILE_MB: f64 = 2.2;
 const NRW_DOM1_TILE_MB: f64 = 3.0;
+/// An LVermGeo RP DGM1 tile (Float32, LZW, 1.3-1.8 MB) and a DOM1 tile (2-3.5 MB).
+const RP_DGM1_TILE_MB: f64 = 1.5;
+const RP_DOM1_TILE_MB: f64 = 3.0;
 
 /// One download of a project.
 #[derive(Debug, Clone, PartialEq)]
@@ -109,8 +112,7 @@ fn estimate_area(
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
         Some(Provider::Lgln) => lgln_items(bbox),
-        // Task 3: the LVermGeo RP download items (WMS orthophoto, DGM1/DOM1 tiles).
-        Some(Provider::LvermGeoRp) => Vec::new(),
+        Some(Provider::LvermGeoRp) => rp_items(bbox, cache),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.
@@ -298,6 +300,42 @@ fn nrw_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         model_item(Model::Dgm1, NRW_DGM1_TILE_MB),
         model_item(Model::Dom1, NRW_DOM1_TILE_MB),
     ]
+}
+
+/// LVermGeo RP: the WMS orthophoto, and the DGM1 (≈1.5 MB) and DOM1 (≈3 MB) per whole 1 km tile
+/// that touches the state, those already cached left out, and the Metalink of a model (11 MB)
+/// when the kept tile list gives one of the tiles no year.
+fn rp_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
+    use crate::sources::lvermgeo_rp::{METALINK_MB, Model, cached_tiles, metalink_to_fetch};
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, Region::RheinlandPfalz))
+        .collect();
+    let mut items = vec![per_km2_item(
+        bbox,
+        "orthophoto (LVermGeo RP WMS)",
+        ORTHOPHOTO_MB_PER_KM2,
+    )];
+    for (model, mb_per_tile) in [
+        (Model::Dgm1, RP_DGM1_TILE_MB),
+        (Model::Dom1, RP_DOM1_TILE_MB),
+    ] {
+        let cached = cached_tiles(cache, model, &tiles);
+        let open = tiles.iter().filter(|t| !cached.contains(t)).count();
+        items.push(EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        });
+        if metalink_to_fetch(cache, model, &tiles) {
+            items.push(EstimateItem {
+                what: format!("Metalink of the {}", model.label()),
+                megabytes: METALINK_MB,
+                cached: false,
+            });
+        }
+    }
+    items
 }
 
 /// LVermGeo SH: the WMS orthophoto, the DGM1 (a 1.5 MB GeoTIFF) and the bDOM (a 105 MB full-tile
@@ -1073,6 +1111,81 @@ mod tests {
             .unwrap();
         let p = crate::crs::utm33_inverse(p).unwrap();
         square(p.lon, p.lat, size)
+    }
+
+    #[test]
+    fn rp_estimate() {
+        use crate::fetch::test_support::rp_tile_list;
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Görres-Gymnasium, Koblenz: inside the tile 400/5579, with negative 25833 eastings.
+        let area = utm32_area(400_300.0, 5_579_500.0);
+        assert!(area.projected_bbox().max_e < 0.0);
+        let item = |cache: &Cache| {
+            let preview = preview_area(&area, 20.0, cache, today());
+            assert!(
+                !preview.too_large && !preview.outside_coverage,
+                "{preview:?}"
+            );
+            assert!(preview.estimate.tiles.is_empty());
+            preview.estimate.items
+        };
+        let items = item(&cache);
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        assert!(near(
+            find_item(&items, "orthophoto (LVermGeo RP WMS)").megabytes,
+            km2 * 8.0
+        ));
+        // Whole 1 km tiles, however small the area: the school yard lies in one.
+        let dgm1 = find_item(&items, "terrain model (LVermGeo RP DGM1)");
+        assert!(near(dgm1.megabytes, 1.5) && !dgm1.cached, "{dgm1:?}");
+        let dom1 = find_item(&items, "surface model (LVermGeo RP DOM1)");
+        assert!(near(dom1.megabytes, 3.0) && !dom1.cached, "{dom1:?}");
+        assert!(near(
+            find_item(
+                &items,
+                "OSM extract Rhineland-Palatinate (shared by all projects)"
+            )
+            .megabytes,
+            275.0
+        ));
+        assert!(
+            !items.iter().any(|i| i.what.contains("Metalink")),
+            "{items:?}"
+        );
+        assert!(!items.iter().any(|i| i.what.contains("LGB")));
+
+        // The DGM1 tile in the cache, under the name its year gives.
+        let dir = cache.lvermgeo_rp_dir();
+        std::fs::create_dir_all(dir.join("dgm1")).unwrap();
+        std::fs::write(dir.join("dgm1/dgm1_32_400_5579_1_rp_2024.tif"), b"II*\0").unwrap();
+        let items = item(&cache);
+        let dgm1 = find_item(&items, "terrain model (LVermGeo RP DGM1)");
+        assert!(dgm1.megabytes == 0.0 && dgm1.cached, "{dgm1:?}");
+        assert!(!find_item(&items, "surface model (LVermGeo RP DOM1)").cached);
+
+        // A kept tile list that gives the tile no year: the Metalink names its files (11 MB a
+        // model), and the DOM1 tile is no download of its own.
+        std::fs::create_dir_all(dir.join("tile_list")).unwrap();
+        let tile = TileId {
+            east_km: 400,
+            north_km: 5579,
+        };
+        std::fs::write(
+            dir.join("tile_list/400000_5579000_401000_5580000.gml"),
+            rp_tile_list(&[(tile, "", "")]),
+        )
+        .unwrap();
+        let items = item(&cache);
+        let metalink = find_item(&items, "Metalink of the surface model (LVermGeo RP DOM1)");
+        assert!(
+            near(metalink.megabytes, 11.0) && !metalink.cached,
+            "{metalink:?}"
+        );
+        let dom1 = find_item(&items, "surface model (LVermGeo RP DOM1)");
+        assert!(dom1.megabytes == 0.0, "{dom1:?}");
     }
 
     #[test]

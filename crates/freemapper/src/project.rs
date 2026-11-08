@@ -230,6 +230,10 @@ pub struct WmsRecord {
     /// The flight date text the server gives, e.g. `19.03. + 07.04.2024`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flight: Option<String>,
+    /// What the service calls the date in `flight` when it is no flight date as such
+    /// (LVermGeo RP: `Aktualität (Erstellung)`, the date taken as the flight date).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flight_label: Option<String>,
     pub fetched: NaiveDate,
     /// Area in the map's CRS: min easting, min northing, max easting, max northing.
     pub bbox: [f64; 4],
@@ -614,8 +618,9 @@ pub fn fetch_project(
         Some(Provider::Lgln) => {
             fetch_lgln_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
         }
-        // Task 4: the LVermGeo RP rasters (WMS orthophoto, DGM1/DOM1 tiles) are not fetched yet.
-        Some(Provider::LvermGeoRp) => {}
+        Some(Provider::LvermGeoRp) => {
+            fetch_rp_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -893,6 +898,7 @@ fn fetch_wms_orthophoto(
                 crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, &path)?;
                 project.orthophoto = Some(WmsRecord {
                     flight,
+                    flight_label: None,
                     fetched: chrono::Local::now().date_naive(),
                     bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
                 });
@@ -1059,7 +1065,8 @@ fn fetch_lgv_rasters(
 
 /// Reports once that the map area reaches into a state other than `provider`'s. Whether the `name`
 /// rasters end at the border depends on the service (the LGLN WMS and WCS cover the Hamburg corner
-/// but the WMS is white in Bremen; tiles may reach slightly past), so the line promises no empty
+/// but the WMS is white in Bremen; the LVermGeo RP WMS is white across the Rhine at Mainz while
+/// its tiles cover Wiesbaden; tiles may reach slightly past), so the line promises no empty
 /// templates. ALKIS and OSM are read from both states.
 fn warn_beyond_state(
     project: &ProjectFile,
@@ -1241,6 +1248,66 @@ fn fetch_nrw_rasters(
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
             geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, out)
+        },
+        &mut |_, found, _, progress| {
+            for warning in &found.warnings {
+                progress(&format!("warning: {warning}"));
+            }
+        },
+        progress,
+    )?;
+    project.save(dir)?;
+    Ok(())
+}
+
+/// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
+/// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
+/// names. The DOM1 is only a template: an unavailable one costs a warning.
+fn fetch_rp_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::lvermgeo_rp::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    // The WMS is white beyond the state border, while the tiles reach across it.
+    warn_beyond_state(project, Provider::LvermGeoRp, "LVermGeo RP", progress)?;
+    let flight = || lvermgeo_rp::flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (
+            &OrthophotoSource::Wms(lvermgeo_rp::WMS),
+            "LVermGeo RP",
+            &flight,
+        ),
+        progress,
+    )?;
+    // The date is the block's creation date, taken as the flight date; the record names it so.
+    if let Some(record) = project.orthophoto.as_mut() {
+        record.flight_label = record
+            .flight
+            .as_ref()
+            .map(|_| lvermgeo_rp::FLIGHT_LABEL.to_string());
+    }
+    fetch_area_heights(
+        dir,
+        mode,
+        project,
+        bbox,
+        "Rhineland-Palatinate",
+        (Model::Dgm1.label(), Model::Dom1.label()),
+        &mut |surface, out, _| {
+            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
+            lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1910,8 +1977,8 @@ pub fn derive_project(
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW) store their height
-    // models per area and have none.
+    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP)
+    // store their height models per area and have none.
     let tile_products: Option<(&[Product], Product, Product)> = match provider {
         Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
         Provider::GeoSn => Some((
@@ -2765,6 +2832,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(mv_attribution(&project));
     attribution.extend(nrw_attribution(&project));
     attribution.extend(lgln_attribution(&project));
+    attribution.extend(rp_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2823,6 +2891,10 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines.extend(lgv_attribution(project));
     lines.extend(hvbg_attribution(project));
     lines.extend(nrw_attribution(project));
+    if let Some(line) = rp_attribution(project) {
+        lines.push(line);
+        lines.push(RP_LICENCE_NOTE.to_string());
+    }
     // The CC BY credits refer to the same licence text, which is given once.
     let cc_by = [
         sh_attribution(project),
@@ -2891,6 +2963,20 @@ fn nrw_attribution(project: &ProjectFile) -> Option<String> {
         "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0"
     ))
 }
+
+/// The LVermGeo RP line, once its rasters or Rhineland-Palatinate ALKIS objects were fetched: the
+/// form the open-data page prescribes (no blank before the year of the newest fetch), with the
+/// note of changes, since freemapper derives map objects.
+fn rp_attribution(project: &ProjectFile) -> Option<String> {
+    let year = per_area_attribution_year(project, Provider::LvermGeoRp, Region::RheinlandPfalz)?;
+    Some(format!(
+        "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ))
+}
+
+/// The licence the LVermGeo RP line refers to (added to the project notes only).
+const RP_LICENCE_NOTE: &str =
+    "Datenlizenz Deutschland Namensnennung 2.0 (dl-de/by-2-0): https://www.govdata.de/dl-de/by-2-0";
 
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
 /// Niedersachsen) refer to (added to the project notes only).
@@ -4986,6 +5072,7 @@ mod tests {
             }),
             orthophoto: Some(WmsRecord {
                 flight: Some("19.03. + 07.04.2024".to_string()),
+                flight_label: None,
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 bbox: [415_858.0, 5_655_635.0, 416_089.0, 5_655_854.0],
             }),
@@ -6715,6 +6802,330 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
             Some("06.03.2025")
+        );
+        assert_eq!(offline.calls.get(), 0);
+    }
+
+    /// A schoolyard project of `area`, served with synthetic LVermGeo RP data: the rasters, the
+    /// RP ALKIS fixtures (and the Hesse ones) and every OSM extract the area needs.
+    fn rp_project_of(
+        fetcher: &MapFetcher,
+        area: &MapArea,
+    ) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
+        crate::fetch::test_support::serve_synthetic_rp(fetcher, &project.bbox().unwrap());
+        use crate::sources::alkis_wfs::{self, test_support as fixtures};
+        for (service, buildings, land_use) in [
+            (
+                alkis_wfs::LVERMGEO_RP,
+                fixtures::RP_BUILDINGS,
+                fixtures::RP_LAND_USE,
+            ),
+            (
+                alkis_wfs::HVBG,
+                fixtures::HE_BUILDINGS,
+                fixtures::HE_LAND_USE,
+            ),
+        ] {
+            for (type_name, body) in [
+                (service.buildings_type, buildings),
+                (service.land_use_type, land_use),
+            ] {
+                fetcher.insert_prefix(
+                    &format!(
+                        "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                        service.url
+                    ),
+                    body.as_bytes().to_vec(),
+                );
+            }
+        }
+        for extract in
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
+        {
+            fetcher.insert(
+                extract.state_url(),
+                b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+            );
+            fetcher.insert(
+                extract.url(),
+                std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
+            );
+        }
+        (dir, cache_dir, cache)
+    }
+
+    /// The Görres-Gymnasium, Koblenz (25832 E 400360 / N 5579556, 25833 E -26154), 200 m square.
+    fn koblenz_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        rp_project_of(fetcher, &utm32_area_at(400_360.0, 5_579_556.0, 100.0))
+    }
+
+    #[test]
+    fn rp_project_fetches_products() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        // Koblenz lies west of the 25833 false easting: the region box is negative.
+        assert!(project.region_bbox().unwrap().max_e < 0.0);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
+        let orthophoto = project.orthophoto.unwrap();
+        assert_eq!(orthophoto.flight.as_deref(), Some("25.08.2025"));
+        // The date is the block's `erstellung`, and the record says so.
+        assert_eq!(
+            orthophoto.flight_label.as_deref(),
+            Some("Aktualität (Erstellung)")
+        );
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2024-04-06"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2024-04-06"));
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(project.buildings.unwrap().regions, [Region::RheinlandPfalz]);
+        {
+            let log = fetcher.log.borrow();
+            // The orthophoto and the tiles come from the origin hosts, never the registry proxy.
+            assert!(
+                log.iter().any(|u| u.starts_with(
+                    "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+                )),
+                "{log:?}"
+            );
+            assert!(
+                log.iter()
+                    .any(|u| u.starts_with("https://geobasis-rlp.de/data/dom1/current/tif/")),
+                "{log:?}"
+            );
+            assert!(
+                !log.iter().any(|u| u.contains("geoportal.rlp.de")),
+                "{log:?}"
+            );
+        }
+        // The record keeps the label in freemapper.toml.
+        let toml = std::fs::read_to_string(dir.path().join("freemapper.toml")).unwrap();
+        assert!(
+            toml.contains("flight_label = \"Aktualität (Erstellung)\""),
+            "{toml}"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Rhineland-Palatinate from 2026-11-06"),
+            "{messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+    }
+
+    fn rp_getmap_requests(fetcher: &MapFetcher) -> usize {
+        fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.contains("rp_dop20.fcgi") && u.contains("REQUEST=GetMap"))
+            .count()
+    }
+
+    #[test]
+    fn rp_orthophoto_is_reused_while_the_flight_is_unchanged() {
+        use crate::sources::lvermgeo_rp::WMS;
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(rp_getmap_requests(&fetcher), 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(rp_getmap_requests(&fetcher), 1);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (flight 25.08.2025)"),
+            "{messages:?}"
+        );
+        // A new flight is downloaded again.
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            b"Layer 'metadaten'\n    erstellung = '12.06.2027'\n".to_vec(),
+        );
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(rp_getmap_requests(&fetcher), 2);
+        let orthophoto = project.orthophoto.unwrap();
+        assert_eq!(orthophoto.flight.as_deref(), Some("12.06.2027"));
+        assert_eq!(
+            orthophoto.flight_label.as_deref(),
+            Some("Aktualität (Erstellung)")
+        );
+        // Without a date the label goes as well (the recent image is kept with its date, the
+        // old one is downloaded again without one).
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            b"<ServiceExceptionReport/>".to_vec(),
+        );
+        let mut stored = ProjectFile::load(dir.path()).unwrap();
+        stored.orthophoto.as_mut().unwrap().fetched = chrono::Local::now().date_naive()
+            - chrono::Duration::days(UNDATED_ORTHOPHOTO_MAX_AGE_DAYS);
+        stored.save(dir.path()).unwrap();
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(rp_getmap_requests(&fetcher), 3);
+        let orthophoto = project.orthophoto.unwrap();
+        assert_eq!((orthophoto.flight, orthophoto.flight_label), (None, None));
+    }
+
+    #[test]
+    fn rp_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+            CONTOURS_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn rp_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        let year = chrono::Local::now().year();
+        // The open-data page's form: no blank before the year.
+        let line = format!(
+            "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+        );
+        assert!(
+            attribution.lines().any(|l| l.trim() == line),
+            "{attribution}"
+        );
+        assert!(
+            attribution.contains("https://www.govdata.de/dl-de/by-2-0"),
+            "{attribution}"
+        );
+        for other in [
+            "HVBG",
+            "LVermGeo ST",
+            "LVermGeo SH",
+            "Geobasis NRW",
+            "LGLN",
+            "CC BY",
+            "Hamburg",
+        ] {
+            assert!(!attribution.contains(other), "{other} in {attribution}");
+        }
+        // The map's credits name LVermGeo RP too.
+        let lines = attribution_lines(&project);
+        assert!(lines.contains(&line), "{lines:?}");
+        let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
+        assert!(map.contains(&line), "the map credits lack {line}");
+    }
+
+    #[test]
+    fn rp_project_at_the_hesse_border_takes_rasters_from_the_centre() {
+        use crate::sources::region::regions_for;
+        // The Hesse border probe (tile 32 447 5540, 43 % RP, Mainz-Neustadt / Rhine /
+        // Wiesbaden-Amöneburg): walk west from the tile centre to the first 600 m area whose
+        // centre lies in Rhineland-Palatinate while it still reaches into Hesse.
+        let (e, n) = (0..40)
+            .map(|step| (447_500.0 - f64::from(step) * 50.0, 5_540_500.0))
+            .find(|&(e, n)| {
+                let bbox = utm32_area_at(e, n, 300.0).projected_bbox();
+                raster_region(&bbox) == Some(Region::RheinlandPfalz)
+                    && regions_for(&bbox).contains(&Region::Hessen)
+            })
+            .expect("a border area at Mainz");
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rp_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert!(project.surface.is_some());
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::Hessen, Region::RheinlandPfalz]
+        );
+        {
+            let log = fetcher.log.borrow();
+            for service in [
+                crate::sources::alkis_wfs::HVBG.url,
+                crate::sources::alkis_wfs::LVERMGEO_RP.url,
+            ] {
+                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+            }
+            // The rasters come from Rhineland-Palatinate alone. Neither the orthophoto WMS nor
+            // the Downloadcenter of Hesse is asked (its ALKIS WFS, on www.gds.hessen.de, is).
+            for host in ["https://www.gds-srv.hessen.de", "https://gds.hessen.de"] {
+                assert!(!log.iter().any(|u| u.starts_with(host)), "{host}");
+            }
+        }
+        // The RP WMS is white across the Rhine while the DGM1/DOM1 tiles reach over it: the line
+        // promises empty templates only where each product ends.
+        assert!(
+            messages.iter().any(|m| m
+                == "the map area reaches beyond the state border; beyond it the templates are empty wherever the LVermGeo RP orthophoto and height models end. ALKIS and OSM come from both states"),
+            "{messages:?}"
+        );
+        // Both sides are supported states: nothing lies outside them.
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
+            "{messages:?}"
+        );
+        for label in ["Hesse", "Rhineland-Palatinate"] {
+            let reading = messages
+                .iter()
+                .filter(|m| m.starts_with(&format!("reading OSM extract {label} ")))
+                .count();
+            assert_eq!(reading, 1, "{label}: {messages:?}");
+        }
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_rp_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let offline = MapFetcher::default();
+        let project = fetch_project(
+            dir.path(),
+            &offline,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2024-04-06"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2024-04-06"));
+        let orthophoto = project.orthophoto.unwrap();
+        assert_eq!(orthophoto.flight.as_deref(), Some("25.08.2025"));
+        assert_eq!(
+            orthophoto.flight_label.as_deref(),
+            Some("Aktualität (Erstellung)")
         );
         assert_eq!(offline.calls.get(), 0);
     }

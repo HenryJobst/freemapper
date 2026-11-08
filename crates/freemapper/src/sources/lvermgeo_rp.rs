@@ -13,16 +13,69 @@ use std::time::Duration;
 
 use chrono::{Datelike, NaiveDate};
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_limited_with_retries, one_line, write_atomically,
+    Cache, FetchError, FetchMode, Fetcher, get_limited_with_retries, get_with_retries, one_line,
+    write_atomically,
 };
 use crate::sources::alkis_wfs::{number_matched, parse_gml};
 use crate::sources::height_model::{
     AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
 };
 use crate::sources::region::{Region, tile_centre_in};
+use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
+
+/// The orthophoto WMS (the tiles are lossless JPEG 2000 of 105-155 MB). It allows 10000 px a
+/// side, and a larger request is an HTTP 200 XML exception. It is white outside the state, also
+/// where the DGM1 and DOM1 tiles reach across the border.
+pub const WMS: WmsService = WmsService {
+    url: "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi",
+    layer: "rp_dop20",
+    crs: Crs::Utm32,
+    extra: "",
+    max_px: 4000,
+};
+/// The queryable layer with the date of each 2 km block.
+const WMS_INFO_LAYER: &str = "rp_dop20_info";
+/// What the service calls the date taken as the flight date: the block's `erstellung`. Every
+/// block is dated in May to September, so the date is the flight's, but no field says so.
+pub const FLIGHT_LABEL: &str = "Aktualität (Erstellung)";
+
+/// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832): the
+/// `erstellung` of its block, by a GetFeatureInfo on the metadata layer; `None` outside the
+/// state or when the answer has none.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let url = format!(
+        "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
+         &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
+        WMS.url,
+        WMS.crs.epsg(),
+        crate::sources::wms::mm(e - 100.0),
+        crate::sources::wms::mm(n - 100.0),
+        crate::sources::wms::mm(e + 100.0),
+        crate::sources::wms::mm(n + 100.0),
+    );
+    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec())).ok()?;
+    parse_flight_date(&String::from_utf8_lossy(&bytes))
+}
+
+/// The line `erstellung = 'DD.MM.YYYY'` of a GetFeatureInfo text answer.
+fn parse_flight_date(text: &str) -> Option<String> {
+    let value = text.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("erstellung = '")?
+            .strip_suffix('\'')
+    })?;
+    let parts: Vec<&str> = value.split('.').collect();
+    let [d, m, y] = parts[..] else { return None };
+    (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
+}
 
 /// The Blattschnitt WFS (MapServer) with the tile list.
 pub const TILE_LIST_URL: &str = "https://geo5.service24.rlp.de/wfs/blattschnitt_rp.fcgi";
@@ -1469,6 +1522,55 @@ mod tests {
             .expect("a SampleFormat tag");
         bytes[entry + 8..entry + 10].copy_from_slice(&3u16.to_le_bytes());
         bytes
+    }
+
+    #[test]
+    fn flight_date_from_get_feature_info() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            crate::fetch::test_support::RP_FLIGHT_INFO
+                .as_bytes()
+                .to_vec(),
+        );
+        assert_eq!(flight_date(&fetcher, &BBOX).as_deref(), Some("25.08.2025"));
+        let log = fetcher.log.borrow();
+        assert_eq!(log.len(), 1, "{log:?}");
+        for part in [
+            "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi?",
+            "LAYERS=rp_dop20_info",
+            "QUERY_LAYERS=rp_dop20_info",
+            "CRS=EPSG:25832",
+            "BBOX=399900,5579400,400100,5579600",
+            "WIDTH=100&HEIGHT=100&I=50&J=50",
+            "INFO_FORMAT=text/plain",
+        ] {
+            assert!(log[0].contains(part), "{part} in {}", log[0]);
+        }
+    }
+
+    #[test]
+    fn flight_date_is_none_without_a_date() {
+        for answer in [
+            // Outside the state.
+            "GetFeatureInfo results:\n\nLayer 'rp_dop20_info'\n\nLayer 'metadaten'\n",
+            "    erstellung = '2025-08-25'\n",
+            "    erstellung = '5.8.2025'\n",
+            "    erstellung = ''\n",
+            "    erstellung = 'n/a'\n",
+            // Only the other dates of a block.
+            "    publikation = '2026-01-11 02:15:10.166'\n    aktualisierung = 'n/a'\n",
+            "<ServiceExceptionReport/>",
+        ] {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(WMS.url, answer.as_bytes().to_vec());
+            assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
+        }
+        // No answer at all.
+        assert_eq!(flight_date(&MapFetcher::default(), &BBOX), None);
     }
 
     /// Needs the network: the Görres-Gymnasium, Koblenz, tile 400/5579, 200 m box.
