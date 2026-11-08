@@ -35,6 +35,11 @@ const SCHLESWIG_HOLSTEIN_BOUNDARY: &str =
 /// its southern border with Brandenburg, and stays in UTM zone 33 like it.
 const MECKLENBURG_VORPOMMERN_BOUNDARY: &str =
     include_str!("../../../../assets/regions/mecklenburg-vorpommern.geojson");
+/// North Rhine-Westphalia from Geobasis NRW ALKIS vereinfacht `VerwaltungsEinheit` DE05
+/// (simplified 25 m, EPSG:25833; dl-de/zero-2-0), with the five Vennbahn exclaves. In EPSG:25833 it
+/// has negative eastings (from about -140 km to 119 km).
+const NORDRHEIN_WESTFALEN_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/nordrhein-westfalen.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -51,6 +56,7 @@ pub enum Region {
     Hessen,
     SchleswigHolstein,
     MecklenburgVorpommern,
+    NordrheinWestfalen,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -71,6 +77,8 @@ pub enum Provider {
     LvermGeoSh,
     /// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833, the first per-area provider in zone 33).
     LaivMv,
+    /// Geobasis NRW (Bezirksregierung Köln), North Rhine-Westphalia (EPSG:25832).
+    GeobasisNrw,
 }
 
 impl Provider {
@@ -79,14 +87,19 @@ impl Provider {
     pub fn per_area(self) -> bool {
         matches!(
             self,
-            Self::LvermGeo | Self::Lgv | Self::Hvbg | Self::LvermGeoSh | Self::LaivMv
+            Self::LvermGeo
+                | Self::Lgv
+                | Self::Hvbg
+                | Self::LvermGeoSh
+                | Self::LaivMv
+                | Self::GeobasisNrw
         )
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -95,6 +108,7 @@ impl Region {
         Self::Hessen,
         Self::SchleswigHolstein,
         Self::MecklenburgVorpommern,
+        Self::NordrheinWestfalen,
     ];
 
     /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`, `DEHE…`).
@@ -108,6 +122,7 @@ impl Region {
             Some("DEHE") => Some(Self::Hessen),
             Some("DESH") => Some(Self::SchleswigHolstein),
             Some("DEMV") => Some(Self::MecklenburgVorpommern),
+            Some("DENW") => Some(Self::NordrheinWestfalen),
             _ => None,
         }
     }
@@ -121,22 +136,26 @@ impl Region {
             Self::Hessen => Provider::Hvbg,
             Self::SchleswigHolstein => Provider::LvermGeoSh,
             Self::MecklenburgVorpommern => Provider::LaivMv,
+            Self::NordrheinWestfalen => Provider::GeobasisNrw,
         }
     }
 
     /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
     pub fn crs(self) -> crate::crs::Crs {
         match self {
-            Self::SaxonyAnhalt | Self::Hamburg | Self::Hessen | Self::SchleswigHolstein => {
-                crate::crs::Crs::Utm32
-            }
+            Self::SaxonyAnhalt
+            | Self::Hamburg
+            | Self::Hessen
+            | Self::SchleswigHolstein
+            | Self::NordrheinWestfalen => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 8] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 9] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -155,6 +174,7 @@ impl Region {
             Self::Hessen => (5, HESSEN_BOUNDARY),
             Self::SchleswigHolstein => (6, SCHLESWIG_HOLSTEIN_BOUNDARY),
             Self::MecklenburgVorpommern => (7, MECKLENBURG_VORPOMMERN_BOUNDARY),
+            Self::NordrheinWestfalen => (8, NORDRHEIN_WESTFALEN_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -162,11 +182,16 @@ impl Region {
 
 /// The regions whose ALKIS data covers `bbox` (EPSG:25833), in [`Region::ALL`] order.
 pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
-    let rect = rectangle(&bbox.buffered(MARGIN_M));
     Region::ALL
         .into_iter()
-        .filter(|region| region.boundary().intersects(&rect))
+        .filter(|region| within_margin(region.boundary(), bbox))
         .collect()
+}
+
+/// Whether `boundary` (EPSG:25833) lies within [`MARGIN_M`] of `bbox`: the rule by which an area
+/// needs a region, and an OSM extract.
+pub(crate) fn within_margin(boundary: &MultiPolygon<f64>, bbox: &BoundingBox) -> bool {
+    boundary.intersects(&rectangle(&bbox.buffered(MARGIN_M)))
 }
 
 /// Whether the point (EPSG:25833) lies inside `region`'s boundary itself (no margin).
@@ -276,7 +301,8 @@ fn rectangle(bbox: &BoundingBox) -> Polygon<f64> {
     .to_polygon()
 }
 
-fn parse_boundary(text: &str) -> MultiPolygon<f64> {
+/// The MultiPolygon of the first feature of an embedded GeoJSON boundary asset.
+pub(crate) fn parse_boundary(text: &str) -> MultiPolygon<f64> {
     let collection: geojson::FeatureCollection =
         text.parse().expect("embedded boundary is GeoJSON");
     let geometry = collection.features[0]
@@ -632,6 +658,72 @@ mod tests {
         assert_eq!(
             Region::of_object_id("DEBB0000AbCdEfGh"),
             Some(Region::Brandenburg)
+        );
+    }
+
+    #[test]
+    fn koeln_school_is_nrw_in_zone_32() {
+        // Hildegard-von-Bingen-Gymnasium Koeln-Suelz (OSM way/56752699), 25833 E -66680 /
+        // N 5671681, 25832 E 354704 / N 5642657 (tile 32 354 5642).
+        let school = around(-66_680.0, 5_671_681.0, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::NordrheinWestfalen]);
+        assert_eq!(raster_region(&school), Some(Region::NordrheinWestfalen));
+        assert_eq!(Region::NordrheinWestfalen.provider(), Provider::GeobasisNrw);
+        assert!(Provider::GeobasisNrw.per_area());
+        assert_eq!(Region::NordrheinWestfalen.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm32);
+        assert!(provider_tiles(&school, Provider::GeobasisNrw, 1).is_empty());
+        let p = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: -66_680.0,
+                    northing: 5_671_681.0,
+                },
+            )
+            .unwrap();
+        assert!((p.easting - 354_704.0).abs() < 2.0 && (p.northing - 5_642_657.0).abs() < 2.0);
+        assert_eq!(
+            serde_json::to_string(&Region::NordrheinWestfalen).unwrap(),
+            r#""nordrheinwestfalen""#
+        );
+        assert_eq!(
+            serde_json::to_string(&Provider::GeobasisNrw).unwrap(),
+            r#""geobasisnrw""#
+        );
+    }
+
+    #[test]
+    fn aachen_negative_eastings_is_nrw() {
+        // Aachen cathedral (50.7753 N, 6.0839 E), 25833 E -128141 / N 5662838: far west of the
+        // zone-33 origin.
+        let aachen = around(-128_141.0, 5_662_838.0, 300.0);
+        assert_eq!(regions_for(&aachen), vec![Region::NordrheinWestfalen]);
+        assert_eq!(raster_region(&aachen), Some(Region::NordrheinWestfalen));
+        assert!(contains_point(
+            Region::NordrheinWestfalen,
+            -128_141.0,
+            5_662_838.0
+        ));
+        assert!(!touches_berlin(&aachen));
+        assert_eq!(crate::project::map_crs(&aachen), crate::crs::Crs::Utm32);
+        assert!(provider_tiles(&aachen, Provider::GeobasisNrw, 1).is_empty());
+        assert!(provider_tiles(&aachen, Provider::GeobasisNrw, 2).is_empty());
+        // Belgium, 7 km further west (E -135521): no region.
+        let belgium = around(-135_521.0, 5_663_143.0, 300.0);
+        assert!(regions_for(&belgium).is_empty());
+        assert_eq!(raster_region(&belgium), None);
+    }
+
+    #[test]
+    fn nrw_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DENW37AL0000AbCd"),
+            Some(Region::NordrheinWestfalen)
+        );
+        assert_eq!(
+            Region::of_object_id("DEHE0000AbCdEfGh"),
+            Some(Region::Hessen)
         );
     }
 

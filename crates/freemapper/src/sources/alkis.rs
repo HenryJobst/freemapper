@@ -202,6 +202,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 )?,
                 Crs::Utm33,
             ),
+            Region::NordrheinWestfalen => (Vec::new(), Crs::Utm32), // Task 2: Geobasis NRW ALKIS
         })
     })
 }
@@ -245,6 +246,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 )?,
                 Crs::Utm33,
             ),
+            Region::NordrheinWestfalen => (Vec::new(), Crs::Utm32), // Task 2: Geobasis NRW ALKIS
         })
     })
 }

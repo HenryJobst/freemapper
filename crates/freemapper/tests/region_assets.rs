@@ -1,13 +1,13 @@
-//! The state boundaries in `assets/regions/` are valid geometries: a ring that crosses itself
-//! can put a point near the crossing into the wrong state.
+//! The state boundaries in `assets/regions/` and the OSM extract boundaries in
+//! `assets/regions/osm/` are valid geometries: a ring that crosses itself can put a point near the
+//! crossing into the wrong state or extract.
 
 use geo::{MultiPolygon, Validation};
 
-#[test]
-fn region_boundaries_are_valid() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/regions");
+/// Checks every GeoJSON boundary in `dir` (not recursing) and returns how many there were.
+fn check_boundaries(dir: &std::path::Path) -> usize {
     let mut checked = 0;
-    for entry in std::fs::read_dir(&dir).unwrap() {
+    for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
         if path.extension().is_none_or(|e| e != "geojson") {
             continue;
@@ -28,5 +28,22 @@ fn region_boundaries_are_valid() {
         }
         checked += 1;
     }
-    assert!(checked >= 6, "{checked} assets");
+    checked
+}
+
+fn assets() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/regions")
+}
+
+#[test]
+fn region_boundaries_are_valid() {
+    let checked = check_boundaries(&assets());
+    assert!(checked >= 9, "{checked} assets");
+}
+
+#[test]
+fn osm_extract_boundaries_are_valid() {
+    // The five North Rhine-Westphalia government district extracts.
+    let checked = check_boundaries(&assets().join("osm"));
+    assert!(checked >= 5, "{checked} assets");
 }

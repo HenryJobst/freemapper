@@ -14,7 +14,7 @@ use crate::project::{
     map_path,
 };
 use crate::sources::lgb::Product;
-use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
+use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, tile_touches,
 };
@@ -83,7 +83,8 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => (Vec::new(), 1),
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => (Vec::new(), 1),
     }
 }
 
@@ -101,16 +102,11 @@ fn estimate_area(
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
+        // Task 4: the Geobasis NRW download items (WMS orthophoto, DGM1/DOM1 tiles).
+        Some(Provider::GeobasisNrw) => Vec::new(),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
-    let mut sources: Vec<ExtractSource> = Vec::new();
-    for region in regions_for(bbox) {
-        let source = ExtractSource::for_region(region);
-        if !sources.contains(&source) {
-            sources.push(source);
-        }
-    }
-    for source in sources {
+    for source in extracts_for(bbox) {
         items.push(EstimateItem {
             what: format!("OSM extract {} (shared by all projects)", source.label()),
             megabytes: source.megabytes(),
@@ -1350,7 +1346,7 @@ mod tests {
         assert!(!osm.cached, "{osm:?}");
         assert_eq!(
             estimate.total_megabytes,
-            ExtractSource::Brandenburg.megabytes()
+            crate::sources::osm::ExtractSource::Brandenburg.megabytes()
         );
     }
 

@@ -40,7 +40,7 @@ use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_us
 use crate::sources::alkis::{fetch_buildings_in, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
-    ExtractSource, OsmFeature, features_from_geojson, features_to_geojson, fetch_extract,
+    OsmFeature, extracts_for, features_from_geojson, features_to_geojson, fetch_extract,
     read_extract,
 };
 use crate::sources::region::{
@@ -604,6 +604,9 @@ pub fn fetch_project(
         Some(Provider::LaivMv) => {
             fetch_mv_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
+        // Tasks 3 and 4: the Geobasis NRW rasters (WMS orthophoto, DGM1/DOM1 tiles) are not
+        // fetched yet.
+        Some(Provider::GeobasisNrw) => {}
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -1404,6 +1407,7 @@ fn raster_tiles(
                 Provider::Hvbg => "HVBG",
                 Provider::LvermGeoSh => "LVermGeo SH",
                 Provider::LaivMv => "LAiV M-V",
+                Provider::GeobasisNrw => "Geobasis NRW",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1435,9 +1439,10 @@ fn tile_record(
     record
 }
 
-/// Reads the candidate features of the map area plus buffer from the OSM extract of every region
-/// the area touches (Brandenburg with Berlin, Saxony) into [`OSM_CANDIDATES_RELPATH`]; a feature
-/// in two extracts is kept once. Offline from the cached extracts.
+/// Reads the candidate features of the map area plus buffer from every OSM extract the area needs
+/// ([`extracts_for`]: one per state, one per North Rhine-Westphalia government district) into
+/// [`OSM_CANDIDATES_RELPATH`]; a feature in two extracts is kept once. Offline from the cached
+/// extracts.
 fn fetch_osm_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
@@ -1447,15 +1452,8 @@ fn fetch_osm_into(
     progress: &mut dyn FnMut(&str),
 ) -> Result<OsmRecord, ProjectError> {
     let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
-    let mut sources: Vec<ExtractSource> = Vec::new();
-    for region in regions_for(&project.region_bbox()?) {
-        let source = ExtractSource::for_region(region);
-        if !sources.contains(&source) {
-            sources.push(source);
-        }
-    }
     let mut extracts = Vec::new();
-    for source in sources {
+    for source in extracts_for(&project.region_bbox()?) {
         match fetch_extract(fetcher, cache, source, mode, progress) {
             Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
@@ -1736,7 +1734,8 @@ pub fn derive_project(
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V) store their height models per area and have none.
+    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW) store their height
+    // models per area and have none.
     let tile_products: Option<(&[Product], Product, Product)> = match provider {
         Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
         Provider::GeoSn => Some((
@@ -1748,7 +1747,8 @@ pub fn derive_project(
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => None,
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1808,7 +1808,8 @@ pub fn derive_project(
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => {
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -5570,6 +5571,106 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(project.orthophoto.is_some());
         assert_eq!(offline.calls.get(), 0);
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+    }
+
+    #[test]
+    fn regbez_border_reads_two_extracts() {
+        use crate::sources::osm::{ExtractSource, GovernmentDistrict};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Koeln-Worringen on the Koeln / Duesseldorf (Dormagen) district border, 25833
+        // E -70550 / N 5689830: the centre lies in the Koeln extract only, the 1 km box reaches
+        // into Duesseldorf's.
+        let (ce, cn) = (-70_550.0, 5_689_830.0);
+        let at = |e: f64, n: f64| {
+            crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: ce + e,
+                northing: cn + n,
+            })
+            .unwrap()
+        };
+        let corner = |e: f64, n: f64| {
+            let p = at(e, n);
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-480.0, -480.0),
+            corner(480.0, -480.0),
+            corner(480.0, 480.0),
+            corner(-480.0, 480.0),
+            corner(-480.0, -480.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        assert_eq!(project.crs(), Crs::Utm32);
+        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
+        let duesseldorf = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Duesseldorf);
+        let centre = BoundingBox {
+            min_e: ce,
+            min_n: cn,
+            max_e: ce,
+            max_n: cn,
+        };
+        assert_eq!(crate::sources::osm::extracts_for(&centre), [koeln]);
+        assert_eq!(
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap()),
+            [duesseldorf, koeln]
+        );
+        // Geofabrik's district extracts overlap at the border: both hold the same two hydrants.
+        let (south, north) = (at(0.0, -300.0), at(0.0, 300.0));
+        let hydrant: &[(&str, &str)] = &[("emergency", "fire_hydrant")];
+        let pbf = crate::fetch::test_support::osm_pbf(&[
+            (201, south.lat, south.lon, hydrant),
+            (202, north.lat, north.lon, hydrant),
+        ]);
+        for extract in [koeln, duesseldorf] {
+            fetcher.insert(
+                extract.state_url(),
+                b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+            );
+            fetcher.insert(extract.url(), pbf.clone());
+        }
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        for extract in ["Düsseldorf", "Köln"] {
+            let line =
+                format!("reading OSM extract North Rhine-Westphalia ({extract}) from 2026-11-06");
+            assert_eq!(
+                messages.iter().filter(|m| **m == line).count(),
+                1,
+                "{messages:?}"
+            );
+        }
+        let mut cached: Vec<String> = std::fs::read_dir(cache.osm_dir())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        cached.sort();
+        assert_eq!(
+            cached,
+            [
+                "nrw-duesseldorf_2026-11-06.osm.pbf",
+                "nrw-koeln_2026-11-06.osm.pbf"
+            ]
+        );
+        // Each OSM candidate once, although both extracts hold it.
+        let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let ids: Vec<String> = crate::sources::osm::features_from_geojson(&text)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, ["node/201", "node/202"]);
+        assert_eq!(project.osm.unwrap().count, 2);
     }
 
     #[test]
