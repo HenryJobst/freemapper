@@ -14,15 +14,15 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein and Mecklenburg-Vorpommern (open data from LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH and LAiV M-V);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V and Geobasis NRW);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
   [Examples](#examples).
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein and Mecklenburg-Vorpommern, OCAD starting point, PDF training map. Next come North Rhine-Westphalia, Lower Saxony and the remaining German states; Thuringia as soon as its height-data server is back; then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia, OCAD starting point, PDF training map. Next come Lower Saxony, Rhineland-Palatinate and the remaining German states; Thuringia as soon as its height-data server is back; then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## User manual
 
@@ -196,6 +196,7 @@ freemapper run vorstadt
 | Hesse | HVBG | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (image-based) | map in UTM zone 32 (EPSG:25832); orthophoto leaf-off or leaf-on depending on the area; surface model in whole tiles (105 MB per km²) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | orthophoto as a colour palette (256 colours); height models only inside the state tiles |
+| North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |
 
 At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the

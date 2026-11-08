@@ -175,6 +175,15 @@ watermark), the flight date from `overview.php`. DGM1 and DOM1 from the WCS (pla
 2 km tiles (the models carry no NoData); the `WcsService` is shared with Saxony-Anhalt. nDSM = DOM1 − DGM1. ALKIS from the
 LGB's OGC API with a WFS fallback. Attribution `©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)` plus the licence link.
 
+**Nordrhein-Westfalen (verified live 2026-11-08, details `docs/regions/nordrhein-westfalen-reference.md`):** Geobasis NRW
+(Bezirksregierung Köln), EPSG:25832 for the whole state (the map never uses zone 33). Orthophoto from the WMS (the tiles are
+JPEG 2000 only), the flight date per tile. DGM1 and DOM1 as 1 km laser tiles of the same flight; file names and dates only
+from the per-product meta list (the directory listing carries stale duplicates, and the name carries the year); nDSM =
+DOM1 − DGM1. ALKIS from the WFS with the LGB spellings and a detailed `funktion`. OSM from the five Regierungsbezirk extracts
+instead of the 917 MB statewide one (ADR 0028). At the Hesse border both ALKIS services are read and the rasters come from
+the state of the centre. Licence dl-de/zero-2-0; attribution `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <year>,
+dl-de/zero-2-0`.
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -372,7 +381,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein and Mecklenburg-Vorpommern (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next North Rhine-Westphalia (reference in `docs/regions/nordrhein-westfalen-reference.md`), Lower Saxony, then the states of `docs/regions/states-survey.md`; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next Lower Saxony, Rhineland-Palatinate, then the states of `docs/regions/states-survey.md`; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 
