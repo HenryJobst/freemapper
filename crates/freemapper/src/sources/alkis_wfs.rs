@@ -19,8 +19,9 @@ pub struct WfsService {
     /// The CRS asked for and answered in.
     pub crs: Crs,
     /// `bez` given to squares without one: the state never records what a square is used for,
-    /// so it stays a candidate instead of becoming a paved map object.
-    pub square_bez: &'static str,
+    /// so it stays a candidate instead of becoming a paved map object. `None` where the
+    /// state's OGC API keeps squares without `bez` as they are (the WFS then does the same).
+    pub square_bez: Option<&'static str>,
 }
 
 /// GeoSN, Saxony (EPSG:25833; land use per parcel part).
@@ -30,7 +31,7 @@ pub const GEOSN: WfsService = WfsService {
     buildings_type: "ave:GebaeudeBauwerk",
     land_use_type: "ave:NutzungFlurstueck",
     crs: Crs::Utm33,
-    square_bez: "ohne Unterart (Sachsen)",
+    square_bez: Some("ohne Unterart (Sachsen)"),
 };
 
 /// LVermGeo, Saxony-Anhalt (EPSG:25832; land use objects, not split by parcel).
@@ -40,7 +41,7 @@ pub const LVERMGEO: WfsService = WfsService {
     buildings_type: "ave:GebaeudeBauwerk",
     land_use_type: "ave:Nutzung",
     crs: Crs::Utm32,
-    square_bez: "ohne Unterart (Sachsen-Anhalt)",
+    square_bez: Some("ohne Unterart (Sachsen-Anhalt)"),
 };
 
 /// HVBG, Hesse (EPSG:25832; land use per parcel part). `ave:Nutzung` carries no `nutzart` in
@@ -51,7 +52,7 @@ pub const HVBG: WfsService = WfsService {
     buildings_type: "ave:GebaeudeBauwerk",
     land_use_type: "ave:NutzungFlurstueck",
     crs: Crs::Utm32,
-    square_bez: "ohne Unterart (Hessen)",
+    square_bez: Some("ohne Unterart (Hessen)"),
 };
 
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
@@ -63,19 +64,31 @@ pub const LVERMGEO_SH: WfsService = WfsService {
     buildings_type: "ave:GebaeudeBauwerk",
     land_use_type: "ave:NutzungFlurstueck",
     crs: Crs::Utm32,
-    square_bez: "ohne Unterart (Schleswig-Holstein)",
+    square_bez: Some("ohne Unterart (Schleswig-Holstein)"),
 };
 
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
 /// the OGC API fails; its land use keeps squares without `bez` as they are (the OGC API path
-/// has no `square_bez` either), so `fetch_wfs` is called directly.
+/// has no `square_bez` either), so `square_bez` is `None`.
 pub const LGV: WfsService = WfsService {
     name: "LGV ALKIS (WFS)",
     url: "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht",
     buildings_type: "ave:GebaeudeBauwerk",
     land_use_type: "ave:NutzungFlurstueck",
     crs: Crs::Utm32,
-    square_bez: "ohne Unterart (Hamburg)",
+    square_bez: None,
+};
+
+/// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833; land use per parcel part): the classic WFS beside
+/// the OGC API, with the same data and the LGB spellings. Used when the OGC API fails. Only
+/// 25833 is accepted (25832 gives HTTP 400).
+pub const LAIV_MV: WfsService = WfsService {
+    name: "LAiV M-V ALKIS (WFS)",
+    url: "https://www.geodaten-mv.de/dienste/alkis_wfs_einfach",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm33,
+    square_bez: None,
 };
 
 /// Features per page; GeoSN returns at most 20 000 per request.
@@ -315,8 +328,9 @@ pub fn fetch_wfs(
                 .map_err(|e| FetchError::Alkis(invalid(format!("{url}: {}", e.message))))
         })
         .map_err(|e| match e {
-            FetchError::Refused { status, .. } => FetchError::Alkis(invalid(format!(
-                "{name} service refused the request (HTTP {status}): {url}"
+            FetchError::Refused { status, detail, .. } => FetchError::Alkis(invalid(format!(
+                "{name} service refused the request (HTTP {status}){}: {url}",
+                detail.map(|d| format!(": {d}")).unwrap_or_default()
             ))),
             e => e,
         })
@@ -368,7 +382,7 @@ pub fn fetch_buildings(
     fetch_wfs(fetcher, service, service.buildings_type, bbox)
 }
 
-/// The land use of `service` in `bbox`; squares without `bez` get the service's `square_bez`.
+/// The land use of `service` in `bbox`; squares without `bez` get the service's `square_bez`, if it has one.
 pub fn fetch_land_use(
     fetcher: &dyn Fetcher,
     service: &WfsService,
@@ -380,9 +394,12 @@ pub fn fetch_land_use(
         .collect())
 }
 
-fn normalise_land_use(mut feature: Value, square_bez: &str) -> Value {
+fn normalise_land_use(mut feature: Value, square_bez: Option<&str>) -> Value {
     let properties = &mut feature["properties"];
-    if properties["nutzart"] == "Platz" && properties.get("bez").is_none() {
+    if let Some(square_bez) = square_bez
+        && properties["nutzart"] == "Platz"
+        && properties.get("bez").is_none()
+    {
         properties["bez"] = Value::from(square_bez);
     }
     feature
@@ -473,7 +490,7 @@ mod tests {
             classes,
             [
                 ("Fläche besonderer funktionaler Prägung", None),
-                ("Platz", Some(GEOSN.square_bez)),
+                ("Platz", GEOSN.square_bez),
                 ("Straßenverkehr", None),
                 (
                     "Industrie- und Gewerbefläche",
@@ -493,7 +510,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             normalise_land_use(square, GEOSN.square_bez)["properties"]["bez"],
-            GEOSN.square_bez
+            GEOSN.square_bez.unwrap()
         );
     }
 
@@ -556,6 +573,28 @@ mod tests {
             "{err}"
         );
         assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn refusal_keeps_the_exception_text() {
+        // XtraServer answers errors with 400 and an OWS report (LAiV M-V).
+        let fetcher = MapFetcher::default();
+        fetcher.refusing.borrow_mut().push(GEOSN.url.to_string());
+        fetcher.refusal_bodies.borrow_mut().insert(
+            GEOSN.url.to_string(),
+            br#"<ows:ExceptionReport><ows:Exception exceptionCode="InvalidParameterValue"><ows:ExceptionText>COUNT exceeds 30000</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#.to_vec(),
+        );
+        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("GeoSN ALKIS service refused the request (HTTP 400)"),
+            "{err}"
+        );
+        assert!(
+            err.contains("InvalidParameterValue: COUNT exceeds 30000"),
+            "{err}"
+        );
     }
 
     fn with_geometry(geometry: &str) -> String {

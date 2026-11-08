@@ -1,0 +1,5 @@
+© OpenStreetMap contributors, ODbL
+©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)
+Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/
+
+Created with freemapper – https://github.com/HenryJobst/freemapper

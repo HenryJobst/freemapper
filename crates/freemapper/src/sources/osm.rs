@@ -266,6 +266,10 @@ const SCHLESWIG_HOLSTEIN_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf";
 const SCHLESWIG_HOLSTEIN_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt";
+const MECKLENBURG_VORPOMMERN_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf";
+const MECKLENBURG_VORPOMMERN_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -280,6 +284,7 @@ pub enum ExtractSource {
     Hamburg,
     Hessen,
     SchleswigHolstein,
+    MecklenburgVorpommern,
 }
 
 impl ExtractSource {
@@ -292,6 +297,7 @@ impl ExtractSource {
             Region::Hamburg => Self::Hamburg,
             Region::Hessen => Self::Hessen,
             Region::SchleswigHolstein => Self::SchleswigHolstein,
+            Region::MecklenburgVorpommern => Self::MecklenburgVorpommern,
         }
     }
 
@@ -303,6 +309,7 @@ impl ExtractSource {
             Self::Hamburg => HAMBURG_EXTRACT_URL,
             Self::Hessen => HESSEN_EXTRACT_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
+            Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_EXTRACT_URL,
         }
     }
 
@@ -314,6 +321,7 @@ impl ExtractSource {
             Self::Hamburg => HAMBURG_STATE_URL,
             Self::Hessen => HESSEN_STATE_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
+            Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_STATE_URL,
         }
     }
 
@@ -326,6 +334,7 @@ impl ExtractSource {
             Self::Hamburg => "hamburg_",
             Self::Hessen => "hessen_",
             Self::SchleswigHolstein => "schleswig-holstein_",
+            Self::MecklenburgVorpommern => "mecklenburg-vorpommern_",
         }
     }
 
@@ -338,6 +347,7 @@ impl ExtractSource {
             Self::Hamburg => 54.0,
             Self::Hessen => 348.0,
             Self::SchleswigHolstein => 159.0,
+            Self::MecklenburgVorpommern => 128.8,
         }
     }
 
@@ -349,6 +359,7 @@ impl ExtractSource {
             Self::Hamburg => "Hamburg",
             Self::Hessen => "Hesse",
             Self::SchleswigHolstein => "Schleswig-Holstein",
+            Self::MecklenburgVorpommern => "Mecklenburg-Vorpommern",
         }
     }
 }
@@ -633,6 +644,21 @@ mod tests {
         );
         assert_eq!(sh.label(), "Schleswig-Holstein");
         assert_eq!(sh.megabytes(), 159.0);
+    }
+
+    #[test]
+    fn mv_extract_urls() {
+        let mv = ExtractSource::for_region(crate::sources::region::Region::MecklenburgVorpommern);
+        assert_eq!(
+            mv.url(),
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf"
+        );
+        assert_eq!(
+            mv.state_url(),
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt"
+        );
+        assert_eq!(mv.label(), "Mecklenburg-Vorpommern");
+        assert_eq!(mv.megabytes(), 128.8);
     }
 
     fn extracts(cache: &Cache) -> Vec<String> {

@@ -11,6 +11,11 @@ use crate::sources::{alkis_wfs, berlin, lgv};
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
+/// LAiV M-V's OGC API (the same LGB schema and spellings, EPSG:25833).
+pub const MV_BUILDINGS_ENDPOINT: &str =
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items";
+pub const MV_LAND_USE_ENDPOINT: &str =
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items";
 /// Features per page; a 1 km tile holds about 800 buildings.
 const PAGE_LIMIT: u32 = 10_000;
 /// `rellage` value of building parts below ground.
@@ -170,9 +175,13 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
             Region::Hamburg => (
-                lgv_features(
+                ogc_api_or_wfs(
                     fetcher,
-                    (lgv::BUILDINGS_ENDPOINT, alkis_wfs::LGV.buildings_type),
+                    (
+                        lgv::BUILDINGS_ENDPOINT,
+                        &alkis_wfs::LGV,
+                        AlkisLayer::Buildings,
+                    ),
                     &in_crs(Crs::Utm32),
                     lgv::normalise_building,
                 )?,
@@ -180,6 +189,19 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             ),
             Region::Hessen => wfs_buildings(fetcher, &alkis_wfs::HVBG, &in_crs)?,
             Region::SchleswigHolstein => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
+            Region::MecklenburgVorpommern => (
+                ogc_api_or_wfs(
+                    fetcher,
+                    (
+                        MV_BUILDINGS_ENDPOINT,
+                        &alkis_wfs::LAIV_MV,
+                        AlkisLayer::Buildings,
+                    ),
+                    &in_crs(Crs::Utm33),
+                    std::convert::identity,
+                )?,
+                Crs::Utm33,
+            ),
         })
     })
 }
@@ -200,9 +222,9 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
             Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
             Region::Hamburg => (
-                lgv_features(
+                ogc_api_or_wfs(
                     fetcher,
-                    (lgv::LAND_USE_ENDPOINT, alkis_wfs::LGV.land_use_type),
+                    (lgv::LAND_USE_ENDPOINT, &alkis_wfs::LGV, AlkisLayer::LandUse),
                     &in_crs(Crs::Utm32),
                     lgv::normalise_land_use,
                 )?,
@@ -210,23 +232,48 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             ),
             Region::Hessen => wfs_land_use(fetcher, &alkis_wfs::HVBG, &in_crs)?,
             Region::SchleswigHolstein => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
+            Region::MecklenburgVorpommern => (
+                ogc_api_or_wfs(
+                    fetcher,
+                    (
+                        MV_LAND_USE_ENDPOINT,
+                        &alkis_wfs::LAIV_MV,
+                        AlkisLayer::LandUse,
+                    ),
+                    &in_crs(Crs::Utm33),
+                    std::convert::identity,
+                )?,
+                Crs::Utm33,
+            ),
         })
     })
 }
 
 type Features = (Vec<Value>, Crs);
 
-/// Hamburg's features of one collection in `bbox` (EPSG:25832), normalised to the LGB spellings:
-/// from the OGC API, or from the classic WFS (the same data) when the OGC API fails. When both
-/// fail, the OGC API's error is reported.
-fn lgv_features(
+/// Which ALKIS layer the WFS fallback of [`ogc_api_or_wfs`] reads.
+#[derive(Clone, Copy)]
+enum AlkisLayer {
+    Buildings,
+    LandUse,
+}
+
+/// The features of one collection in `bbox` (in the WFS service's CRS), normalised to the LGB
+/// spellings: from the OGC API `endpoint`, or from the classic WFS (the same data) when the OGC
+/// API fails. When both fail, the OGC API's error is reported. `layer` says which
+/// of the service's feature types the WFS fallback reads; land use gets the service's `square_bez` rule, if it has one.
+fn ogc_api_or_wfs(
     fetcher: &dyn Fetcher,
-    (endpoint, wfs_type): (&str, &str),
+    (endpoint, wfs, layer): (&str, &alkis_wfs::WfsService, AlkisLayer),
     bbox: &BoundingBox,
     normalise: fn(Value) -> Value,
 ) -> Result<Vec<Value>, FetchError> {
-    let features = collection_features_in(fetcher, endpoint, bbox, Crs::Utm32).or_else(|e| {
-        alkis_wfs::fetch_wfs(fetcher, &alkis_wfs::LGV, wfs_type, bbox).map_err(|_| e)
+    let features = collection_features_in(fetcher, endpoint, bbox, wfs.crs).or_else(|e| {
+        match layer {
+            AlkisLayer::LandUse => alkis_wfs::fetch_land_use(fetcher, wfs, bbox),
+            AlkisLayer::Buildings => alkis_wfs::fetch_buildings(fetcher, wfs, bbox),
+        }
+        .map_err(|_| e)
     })?;
     Ok(features.into_iter().map(normalise).collect())
 }
@@ -250,16 +297,23 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`).
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`).
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
 ) -> Result<String, FetchError> {
     let mut features = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for region in regions_for(&area.region_bbox) {
         let (part, crs) = fetch(region)?;
+        // An object on a state border may come from both services: keep it once.
         features.extend(
             part.into_iter()
+                .filter(|f| {
+                    f["properties"]["oid"]
+                        .as_str()
+                        .is_none_or(|oid| seen.insert(oid.to_string()))
+                })
                 .map(|f| reproject_feature(f, crs, area.crs)),
         );
     }
@@ -638,6 +692,39 @@ mod tests {
         fetcher.insert("https://x/p2", page(&[wohnhaus("A"), wohnhaus("B")], None));
         let text = fetch_buildings(&fetcher, &BBOX).unwrap();
         assert_eq!(oids(&text), ["A", "B"]);
+    }
+
+    #[test]
+    fn first_state_wins_for_an_object_in_both_services() {
+        // Brüssow: Brandenburg and Mecklenburg-Vorpommern.
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 436_900.0,
+                min_n: 5_917_900.0,
+                max_e: 437_100.0,
+                max_n: 5_918_900.0,
+            },
+            Crs::Utm33,
+        );
+        let regions = regions_for(&area.region_bbox);
+        assert!(regions.len() >= 2, "{regions:?}");
+        let first = regions[0];
+        let copy = |from: &str| -> Features {
+            let feature = serde_json::json!({
+                "type": "Feature", "id": from,
+                "geometry": {"type": "Point", "coordinates": [437_000.0, 5_918_000.0]},
+                "properties": {"oid": "SAME", "from": from}
+            });
+            (vec![feature], Crs::Utm33)
+        };
+        let text = merged(&area, |region| {
+            Ok(copy(if region == first { "first" } else { "later" }))
+        })
+        .unwrap();
+        let json: Value = serde_json::from_str(&text).unwrap();
+        let features = json["features"].as_array().unwrap();
+        assert_eq!(features.len(), 1);
+        assert_eq!(features[0]["properties"]["from"], "first");
     }
 
     #[test]
@@ -1155,5 +1242,181 @@ mod tests {
         let parsed = parse_buildings(&fetch_buildings(&fetcher, &school).unwrap()).unwrap();
         assert_eq!(parsed.buildings.len(), 4);
         assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    const MV_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-buildings.json");
+    const MV_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-land-use.json");
+
+    /// The Innerstaedtisches Gymnasium Rostock (25833).
+    fn rostock_area() -> FetchArea {
+        FetchArea::new(
+            BoundingBox {
+                min_e: 311_957.0,
+                min_n: 5_996_167.0,
+                max_e: 312_357.0,
+                max_n: 5_996_467.0,
+            },
+            Crs::Utm33,
+        )
+    }
+
+    #[test]
+    fn mv_buildings_parse() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(MV_BUILDINGS_ENDPOINT, MV_BUILDINGS.as_bytes().to_vec());
+        let parsed =
+            parse_buildings(&fetch_buildings_in(&fetcher, &rostock_area()).unwrap()).unwrap();
+        assert_eq!(parsed.buildings.len(), 30);
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DEMV")));
+        assert!(parsed.buildings.iter().any(|b| b.kind == "Bauteil"));
+        assert!(parsed.buildings.iter().any(|b| b.underground), "rellage");
+        let log = fetcher.log.borrow();
+        assert!(log[0].starts_with(MV_BUILDINGS_ENDPOINT), "{log:?}");
+        assert!(log[0].contains("/25833&"), "{log:?}");
+        assert!(log.iter().all(|u| !u.contains("geobasis-bb")), "{log:?}");
+    }
+
+    #[test]
+    fn mv_land_use_parses() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(MV_LAND_USE_ENDPOINT, MV_LAND_USE.as_bytes().to_vec());
+        let land = parse_land_use(&fetch_land_use_in(&fetcher, &rostock_area()).unwrap()).unwrap();
+        assert_eq!(land.len(), 30);
+        assert!(land.iter().any(|l| {
+            l.nutzart == "Fläche besonderer funktionaler Prägung"
+                && l.bez.as_deref() == Some("Bildung und Wissenschaft")
+        }));
+        assert!(land.iter().any(|l| l.nutzart == "Straßenverkehr"));
+    }
+
+    #[test]
+    fn mv_alkis_falls_back_to_the_wfs() {
+        let fetcher = MapFetcher::default();
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(MV_BUILDINGS_ENDPOINT.to_string(), 100);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={}&",
+                alkis_wfs::LAIV_MV.url,
+                alkis_wfs::LAIV_MV.buildings_type
+            ),
+            include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-wfs-buildings.gml")
+                .as_bytes()
+                .to_vec(),
+        );
+        let parsed =
+            parse_buildings(&fetch_buildings_in(&fetcher, &rostock_area()).unwrap()).unwrap();
+        assert_eq!(parsed.buildings.len(), 25);
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DEMV")));
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.starts_with(alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
+        );
+    }
+
+    #[test]
+    fn brussow_border_reads_brandenburg_and_mv() {
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 436_007.0,
+                min_n: 5_917_677.0,
+                max_e: 438_007.0,
+                max_n: 5_919_677.0,
+            },
+            Crs::Utm33,
+        );
+        let fetcher = MapFetcher::default();
+        let lgb = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Wohnhaus",
+            [437_000.0, 5_917_800.0, 10.0],
+        );
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
+        fetcher.insert_prefix(MV_BUILDINGS_ENDPOINT, MV_BUILDINGS.as_bytes().to_vec());
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEBB")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DEMV")), "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+    }
+
+    #[test]
+    fn mv_land_use_falls_back_to_the_wfs() {
+        let fetcher = MapFetcher::default();
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(MV_LAND_USE_ENDPOINT.to_string(), 100);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={}&",
+                alkis_wfs::LAIV_MV.url,
+                alkis_wfs::LAIV_MV.land_use_type
+            ),
+            include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-wfs-land-use.gml")
+                .as_bytes()
+                .to_vec(),
+        );
+        let land = parse_land_use(&fetch_land_use_in(&fetcher, &rostock_area()).unwrap()).unwrap();
+        assert_eq!(land.len(), 30);
+        let has = |nutzart: &str, bez: Option<&str>| {
+            land.iter()
+                .any(|l| l.nutzart == nutzart && l.bez.as_deref() == bez)
+        };
+        assert!(has("Platz", Some("Parkplatz")));
+        assert!(has("Straßenverkehr", Some("Begleitfläche Straßenverkehr")));
+        assert!(has(
+            "Fläche besonderer funktionaler Prägung",
+            Some("Bildung und Wissenschaft")
+        ));
+        // Squares without `bez` stay as they are (the OGC API does the same).
+        assert!(land.iter().all(|l| l.nutzart != "Platz"
+            || l.bez.as_deref() != Some("ohne Unterart (Mecklenburg-Vorpommern)")));
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.starts_with(alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
+        );
+    }
+
+    #[test]
+    fn border_object_returned_by_both_states_is_kept_once() {
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 436_007.0,
+                min_n: 5_917_677.0,
+                max_e: 438_007.0,
+                max_n: 5_919_677.0,
+            },
+            Crs::Utm33,
+        );
+        let fetcher = MapFetcher::default();
+        let mv: Value = serde_json::from_str(MV_BUILDINGS).unwrap();
+        let shared = mv["features"][0].to_string();
+        let own = building_feature(
+            "DEBBAL0100000001",
+            "Gebäude",
+            "Wohnhaus",
+            [437_000.0, 5_917_800.0, 10.0],
+        );
+        // Brandenburg's service also returns the object on the border.
+        fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[own, shared], None));
+        fetcher.insert_prefix(MV_BUILDINGS_ENDPOINT, MV_BUILDINGS.as_bytes().to_vec());
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert_eq!(oids.len(), 31, "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "{oids:?}");
     }
 }

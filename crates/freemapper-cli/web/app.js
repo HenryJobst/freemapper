@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -61,6 +61,7 @@ const TEXTS = {
     aerialHamburg: "Luftbild Hamburg (LGV)",
     aerialHessen: "Luftbild Hessen (HVBG)",
     aerialSchleswigHolstein: "Luftbild Schleswig-Holstein (LVermGeo SH)",
+    aerialMecklenburgVorpommern: "Luftbild Mecklenburg-Vorpommern (LAiV M-V)",
   },
   en: {
     heading: "Choose the map area",
@@ -92,7 +93,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -121,6 +122,7 @@ const TEXTS = {
     aerialHamburg: "Aerial photo Hamburg (LGV)",
     aerialHessen: "Aerial photo Hesse (HVBG)",
     aerialSchleswigHolstein: "Aerial photo Schleswig-Holstein (LVermGeo SH)",
+    aerialMecklenburgVorpommern: "Aerial photo Mecklenburg-Vorpommern (LAiV M-V)",
   },
 };
 
@@ -202,6 +204,16 @@ const aerialSchleswigHolstein = L.tileLayer.wms(
     attribution: "© GeoBasis-DE/LVermGeo SH/CC BY 4.0",
   },
 );
+// The ADV DOP20 mosaic (EPSG:3857 is offered); the WMS stamps a watermark, fine for a preview.
+const aerialMecklenburgVorpommern = L.tileLayer.wms(
+  "https://www.geodaten-mv.de/dienste/adv_dop",
+  {
+    layers: "mv_dop",
+    format: "image/jpeg",
+    maxZoom: 20,
+    attribution: "©GeoBasis-DE/MV/CC BY 4.0",
+  },
+);
 L.control
   .layers({
     [T.osm]: osm,
@@ -211,6 +223,7 @@ L.control
     [T.aerialHamburg]: aerialHamburg,
     [T.aerialHessen]: aerialHessen,
     [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
+    [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
   })
   .addTo(map);
 map.attributionControl.addAttribution(

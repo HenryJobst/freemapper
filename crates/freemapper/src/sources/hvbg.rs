@@ -11,8 +11,8 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
+use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::height_model::HeightModel;
-use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::sources::xlsx::{excel_date, xlsx_rows};
@@ -662,9 +662,14 @@ fn again(e: &FetchError) -> FetchError {
             message: message.clone(),
         },
         FetchError::NotFound(url) => FetchError::NotFound(url.clone()),
-        FetchError::Refused { url, status } => FetchError::Refused {
+        FetchError::Refused {
+            url,
+            status,
+            detail,
+        } => FetchError::Refused {
             url: url.clone(),
             status: *status,
+            detail: detail.clone(),
         },
         FetchError::TooLarge { url, limit_mb } => FetchError::TooLarge {
             url: url.clone(),
@@ -1405,7 +1410,7 @@ mod tests {
         );
         let sample_format = tags[&339] + 8;
         bytes[sample_format..sample_format + 2].copy_from_slice(&3u16.to_le_bytes());
-        let raster = crate::sources::lvermgeo::decode_float_tiff(&bytes).unwrap();
+        let raster = crate::sources::float_tiff::decode_float_tiff(&bytes).unwrap();
         assert_eq!(
             raster.grid,
             crate::raster::GridSpec {
@@ -2351,6 +2356,7 @@ mod tests {
             FetchError::Refused {
                 url: "https://gds.hessen.de/a.zip".to_string(),
                 status: 403,
+                detail: Some("NoApplicableCode: forbidden".to_string()),
             },
         ] {
             assert_eq!(again(&e).to_string(), e.to_string());
