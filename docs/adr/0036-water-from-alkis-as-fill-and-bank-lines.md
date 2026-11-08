@@ -28,5 +28,8 @@ multipolygon rivers are lost. ALKIS-vereinfacht `GebaeudeBauwerk` has no bridges
 - Sea missing from ALKIS stays white. Existing maps get the water only with `run --force`.
 - Cost if wrong: crossable ponds drawn as uncrossable; parcels that do not quite meet draw a bank line across a river.
 
+Addendum (2026-11-08): the contour candidates (101/102) stop at the drawn ALKIS water, and OSM 311 points inside
+that water or inside a kept OSM 301 area (mostly fountain jets in a basin) are dropped (commits 3593992, f3f37fb).
+
 Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
 71e3937, ee73610, 3a99a31, 599c414, 0cbbe35 and 19fe4c1 on branch `water`.

@@ -196,7 +196,8 @@ Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (
 Uferlinie (301.6). Ein Fluss liegt im Kataster oft in vielen einzelnen Flächen. freemapper löst sie zu einer
 Fläche auf, damit keine Linien quer über das Wasser laufen. Wo das Wasser über Kartengebiet und Puffer
 hinausreicht, bekommt es an dieser Kante keine Uferlinie; Inseln behalten ihre. Gewässer, die im Mittel
-schmaler als 2 m sind, kommen nur in die Kandidaten.
+schmaler als 2 m sind, kommen nur in die Kandidaten. Die Höhenlinien enden am Ufer dieses Gewässers, in den
+Kandidaten wie auf der Trainingskarte.
 
 Aus OSM kommen weitere Kandidaten:
 
@@ -204,7 +205,8 @@ Aus OSM kommen weitere Kandidaten:
   Hälfte im Gewässer aus dem Kataster, lässt freemapper sie weg.
 - Bäche und Gräben als Linie: 305, wenn sie ganzjährig Wasser führen, sonst 306. Verrohrte Abschnitte
   fehlen.
-- Brunnen (311) und Quellen (312) als Punkt, auf Schulhofkarten auch Trinkbrunnen (313).
+- Brunnen (311) und Quellen (312) als Punkt, auf Schulhofkarten auch Trinkbrunnen (313). Brunnenpunkte, die
+  im Wasser stehen, lässt freemapper weg, denn meist sind es die Fontänen in einem Becken.
 - Brücken als befestigte Fläche (501.5), nur auf Sprintkarten. Sie liegen über dem Wasser.
 
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.

@@ -189,7 +189,8 @@ freemapper draws **water** on both map kinds. Rivers, canals, lakes, ponds, harb
 the cadastre become uncrossable bodies of water: a blue area (301.1) with a black bank line (301.6). The
 cadastre often splits a river into many separate areas. freemapper dissolves them into one, so no lines
 run across the water. Where the water reaches beyond the map area and buffer, it gets no bank line on
-that edge; islands keep theirs. Water with a mean width under 2 m goes into the candidates only.
+that edge; islands keep theirs. Water with a mean width under 2 m goes into the candidates only. The
+contours stop at the shore of this water, in the candidates and on the training map.
 
 OSM adds more candidates:
 
@@ -198,7 +199,8 @@ OSM adds more candidates:
 - Streams and ditches as lines: 305 if they carry water all year, otherwise 306. Culverted sections are
   left out.
 - Fountains and wells (311) and springs (312) as points, and on schoolyard maps also drinking fountains
-  (313).
+  (313). freemapper leaves out fountain points that stand in water, because they are mostly the jets in a
+  basin.
 - Bridges as paved areas (501.5), on sprint maps only. They lie over the water.
 
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
