@@ -18,6 +18,8 @@ use crate::sources::alkis::LandUse;
 const FILL_CODE: &str = "301.1";
 /// ISSprOM 301.6 bank line of uncrossable water.
 const BANK_CODE: &str = "301.6";
+/// ISSprOM 301 uncrossable body of water, the combined symbol the OSM rules use for areas.
+const OSM_AREA_CODE: &str = "301";
 /// Land uses that are open water, with any `bez`. ALKIS has no depth: all of it is 301, never 302.
 pub const WATER_LAND_USES: [&str; 4] =
     ["Fließgewässer", "Stehendes Gewässer", "Hafenbecken", "Meer"];
@@ -287,6 +289,61 @@ fn bank_lines(ring: &LineString<f64>, bbox: &BoundingBox) -> Vec<(Vec<Coord<f64>
         }
     }
     lines
+}
+
+/// An OSM 301 area with at least this share of its area (inside the clip window) lying in ALKIS
+/// water is a duplicate of it.
+pub const OSM_WATER_COVERED: f64 = 0.5;
+
+/// `objects` without the OSM 301 areas that ALKIS water already covers.
+///
+/// `union` is the drawn ALKIS water ([`WaterObjects::union`]), clipped to `clip`; the OSM area is
+/// clipped to the same window first, so a lake reaching beyond it counts by its visible part.
+/// Everything else (other symbols, areas that are not from OSM, areas outside the window) stays.
+pub fn drop_covered_water(
+    objects: Vec<MapObject>,
+    union: &MultiPolygon<f64>,
+    clip: &BoundingBox,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
+    let Some(water_id) = symbol_set.id_for_code(OSM_AREA_CODE) else {
+        return objects;
+    };
+    if union.0.is_empty() {
+        return objects;
+    }
+    let window = LandClip::new(clip, georef).polygon;
+    objects
+        .into_iter()
+        .filter(|object| {
+            let from_osm = object
+                .tags
+                .iter()
+                .any(|(k, v)| k == "freemapper:source" && v == "osm");
+            if object.symbol_id != water_id || !from_osm || object.coords.len() < 4 {
+                return true;
+            }
+            let ring: Vec<Coord<f64>> = object
+                .coords
+                .iter()
+                .map(|&c| {
+                    let p = georef.map_to_projected(c);
+                    Coord {
+                        x: p.easting,
+                        y: p.northing,
+                    }
+                })
+                .collect();
+            let area = Polygon::new(LineString(ring), vec![]);
+            let visible = area.intersection(&window);
+            let visible_area = visible.unsigned_area();
+            if visible_area <= 0.0 {
+                return true;
+            }
+            visible.intersection(union).unsigned_area() / visible_area < OSM_WATER_COVERED
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -828,5 +885,80 @@ mod tests {
         assert_eq!(banks.len(), 2);
         assert!(banks.iter().all(|b| is_closed(b)));
         assert!(objects.candidates.is_empty());
+    }
+
+    /// A rectangle of OSM water (301) with its south-west corner at `(e, n)`.
+    fn osm_water(g: &Georeferencing, set: &SymbolSet, e: f64, n: f64, w: f64, h: f64) -> MapObject {
+        let pts: Vec<(i32, i32)> = ring(e, n, w, h)
+            .coords()
+            .map(|c| {
+                let m = g
+                    .projected_to_map(ProjectedPoint {
+                        easting: c.x,
+                        northing: c.y,
+                    })
+                    .unwrap();
+                (m.x, m.y)
+            })
+            .collect();
+        MapObject {
+            symbol_id: set.id_for_code("301").unwrap(),
+            kind: MapObjectKind::Path,
+            coords: closed_ring(&pts),
+            tags: vec![("freemapper:source".into(), "osm".into())],
+        }
+    }
+
+    #[test]
+    fn osm_water_inside_alkis_water_is_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        // ALKIS lake: 100 x 100 m, x and y from -50 to 50 m around the centre.
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n - 50.0, 100.0, 100.0),
+            vec![],
+        )]);
+        let inside = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        // Three fifths in: a duplicate.
+        let half = osm_water(&f.georef, &set, e + 38.0, n - 10.0, 20.0, 20.0);
+        // Only a quarter in.
+        let quarter = osm_water(&f.georef, &set, e + 40.0, n + 40.0, 20.0, 20.0);
+        let far = osm_water(&f.georef, &set, e - 120.0, n - 120.0, 20.0, 20.0);
+        let mut bridge = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        bridge.symbol_id = set.id_for_code("501.5").unwrap();
+        let mut alkis = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        alkis.tags = vec![("freemapper:source".into(), "alkis-nutzung".into())];
+        let kept = drop_covered_water(
+            vec![
+                inside,
+                half,
+                quarter.clone(),
+                far.clone(),
+                bridge.clone(),
+                alkis.clone(),
+            ],
+            &union,
+            &f.clip,
+            &f.georef,
+            &set,
+        );
+        assert_eq!(kept, vec![quarter, far, bridge, alkis]);
+    }
+
+    #[test]
+    fn osm_water_is_measured_inside_the_clip_window() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        // The OSM lake lies mostly outside the clip (x from 100 to 300 m); the window ends at
+        // 150 m, where the drawn ALKIS water (clipped to it) covers the whole visible part.
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 100.0, n - 50.0, 50.0, 100.0),
+            vec![],
+        )]);
+        let lake = osm_water(&f.georef, &set, e + 100.0, n - 20.0, 200.0, 40.0);
+        let kept = drop_covered_water(vec![lake], &union, &f.clip, &f.georef, &set);
+        assert!(kept.is_empty());
     }
 }

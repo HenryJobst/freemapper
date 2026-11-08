@@ -140,3 +140,88 @@ sprint = "505.1"
 when = ["highway=residential|unclassified|service|living_street|tertiary|secondary|primary|road", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips"]
 draw = "line"
 sprint = "505.2"
+
+# Water (spec §4.5). The combined 301 is used for areas: OSM shapes are not clipped like ALKIS water,
+# so the bank line is part of the symbol. Areas inside ALKIS water are dropped by
+# `water::drop_covered_water`. Rivers and canals have no rule: their area comes from ALKIS or
+# `natural=water`, and a centre line would be the wrong symbol. Culverts and other tunnels are not
+# on the surface.
+[[rule]]
+when = ["natural=water", "covered!=yes", "tunnel!=*"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+[[rule]]
+when = ["waterway=riverbank"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+[[rule]]
+when = ["landuse=reservoir"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+# Retention basins are dry most of the time.
+[[rule]]
+when = ["landuse=basin", "basin!=retention|infiltration|detention"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+[[rule]]
+when = ["leisure=swimming_pool", "indoor!=yes", "covered!=yes", "location!=indoor|underground|roof"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+# The basin of a fountain drawn as an area; a fountain node falls through to the point rule.
+[[rule]]
+when = ["amenity=fountain"]
+draw = "area"
+schoolyard = "301"
+sprint = "301"
+
+[[rule]]
+when = ["amenity=fountain"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+[[rule]]
+when = ["man_made=water_well"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+[[rule]]
+when = ["natural=spring"]
+draw = "point"
+schoolyard = "312"
+sprint = "312"
+
+[[rule]]
+when = ["amenity=drinking_water"]
+draw = "point"
+schoolyard = "313"
+
+# Streams are crossable (305); a stream that falls dry and every ditch is 306.
+[[rule]]
+when = ["waterway=stream|drain", "intermittent!=yes", "tunnel!=*"]
+draw = "line"
+schoolyard = "305"
+sprint = "305"
+
+[[rule]]
+when = ["waterway=stream|drain|ditch", "tunnel!=*"]
+draw = "line"
+schoolyard = "306"
+sprint = "306"
+
+# Bridges: ALKIS has none. The deck is paved ground; the bank line across it is a mapper fix.
+[[rule]]
+when = ["man_made=bridge"]
+draw = "area"
+sprint = "501.5"
