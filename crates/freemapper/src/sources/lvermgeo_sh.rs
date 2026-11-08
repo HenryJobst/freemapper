@@ -526,35 +526,30 @@ fn tile_list(
     }
 }
 
-/// The cache file of every tile named by the tile lists kept from earlier runs, the newest list
-/// deciding (the file name carries the vintage). Used to tell what a fetch would download.
+/// The cache file of every tile named by the newest tile list kept from an earlier run (the
+/// file name carries the vintage); tiles only older lists name are not current. Used to tell
+/// what a fetch would download.
 pub fn cached_tile_files(
     cache: &Cache,
     model: Model,
 ) -> std::collections::HashMap<TileId, PathBuf> {
     let dir = cache.lvermgeo_sh_dir();
     let prefix = format!("{}_", model.overview_type());
-    let mut lists: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir.join("overview"))
+    let newest = std::fs::read_dir(dir.join("overview"))
         .into_iter()
         .flatten()
         .flatten()
         .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
-        .collect();
-    lists.sort();
-    let mut files = std::collections::HashMap::new();
-    for (_, path) in lists {
-        let Some(tiles) = std::fs::read(&path)
-            .ok()
-            .and_then(|bytes| parse_overview("", &bytes, model).ok())
-        else {
-            continue;
-        };
-        for entry in tiles {
-            files.insert(entry.tile, cache_path(&dir, model, &entry));
-        }
-    }
-    files
+        .max();
+    let tiles = newest
+        .and_then(|(_, path)| std::fs::read(path).ok())
+        .and_then(|bytes| parse_overview("", &bytes, model).ok())
+        .unwrap_or_default();
+    tiles
+        .into_iter()
+        .map(|entry| (entry.tile, cache_path(&dir, model, &entry)))
+        .collect()
 }
 
 /// Where the 1 m tile of `entry` is cached; named after the portal's (checked) name.

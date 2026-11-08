@@ -826,7 +826,10 @@ mod tests {
             all.contains(&at(565, 5948)) && all.contains(&at(565, 5949)),
             "{all:?}"
         );
-        let touching = all.iter().filter(|t| t.north_km <= 5948).count();
+        let touching = all
+            .iter()
+            .filter(|t| tile_touches(**t, Region::Hamburg))
+            .count();
         assert!(touching < all.len());
         let preview = preview_area(&area, 20.0, &cache, today());
         let find = |what: &str| {
@@ -887,6 +890,42 @@ mod tests {
             find("surface model").megabytes,
             105.0 * touching as f64
         ));
+    }
+
+    #[test]
+    fn schleswig_holstein_estimate_ignores_tiles_of_older_tile_lists() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 169_108.0,
+            northing: 5_960_473.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let root = cache.lvermgeo_sh_dir();
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        std::fs::create_dir_all(root.join("dgm1")).unwrap();
+        // The current tile 565/5949 is cached, but only an older list (of another area) names it;
+        // the newest list names other tiles.
+        let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
+        std::fs::write(root.join("overview").join("dgm1_old.json"), list).unwrap();
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2022.tif"),
+            b"x",
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let newest = list
+            .replace("565_5949", "570_5949")
+            .replace("325655949", "325705949");
+        std::fs::write(root.join("overview").join("dgm1_new.json"), newest).unwrap();
+        let dgm1 = preview_area(&area, 20.0, &cache, today())
+            .estimate
+            .items
+            .into_iter()
+            .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+            .unwrap();
+        assert!(!dgm1.cached && dgm1.megabytes == 1.5, "{dgm1:?}");
     }
 
     #[test]

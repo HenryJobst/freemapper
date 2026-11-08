@@ -508,6 +508,25 @@ mod tests {
     }
 
     #[test]
+    fn tile_touches_inside_on_the_border_and_outside() {
+        let at = |east_km, north_km| TileId { east_km, north_km };
+        // Hamburg-Langenhorn, well inside; Norderstedt, well inside Schleswig-Holstein.
+        assert!(tile_touches(at(567, 5944), Region::Hamburg));
+        assert!(!tile_touches(at(567, 5944), Region::SchleswigHolstein));
+        assert!(tile_touches(at(565, 5951), Region::SchleswigHolstein));
+        assert!(!tile_touches(at(565, 5951), Region::Hamburg));
+        // On the border: 565/5948 is mostly Norderstedt but touches Hamburg; 566/5947 is mostly
+        // Hamburg but 566/5948 reaches into Schleswig-Holstein.
+        assert!(tile_touches(at(565, 5948), Region::Hamburg));
+        assert!(tile_touches(at(565, 5948), Region::SchleswigHolstein));
+        assert!(tile_touches(at(566, 5948), Region::SchleswigHolstein));
+        // Just outside: a tile off the coast of either state touches neither.
+        assert!(!tile_touches(at(566, 5947), Region::SchleswigHolstein));
+        assert!(!tile_touches(at(400, 5000), Region::Hamburg));
+        assert!(!tile_touches(at(400, 5000), Region::SchleswigHolstein));
+    }
+
+    #[test]
     fn langenhorn_stays_hamburg() {
         // A point in Hamburg-Langenhorn, 25832 E 566000 / N 5946500, about 2 km south of the border.
         let p = crate::crs::Crs::Utm33

@@ -3507,7 +3507,9 @@ mod tests {
     }
 
     #[test]
-    fn schleswig_holstein_ndsm_is_clamped_at_zero() {
+    fn schleswig_holstein_ndsm_pipeline_handles_bdom_below_dgm1() {
+        // A smoke test: the nDSM is transparent below 0.3 m, so the PNG cannot show the clamp at
+        // 0 itself; that is pinned by `derive::ndsm::ndsm_from_bdom_minus_dtm`.
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
