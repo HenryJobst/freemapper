@@ -15,7 +15,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Die Nordlinien liegen im Kartenteil „default part“ bei den übrigen Kartenobjekten, mit dem Tag `freemapper:source=north-lines`. In OOM lassen sie sich an kleinen Objekten unterbrechen, und in der Trainingskarte liegen Mauern und Zäune darüber. Titel, Maßstab und Namensnennung bleiben im Teil „peripheral information“. Eine vorhandene Karte ändert sich erst mit `run --force`.
-- Die Farben folgen den IOF-Druck- und Farbdefinitionen Rev. 4 (September 2024, gültig ab 1.12.2024) statt der älteren Werte aus dem OOM-Symbolsatz: Braun ist 25/75/100/0 statt 0/56/100/18, Grün 80/0/100/0 statt 76/0/91/0, Braun 50 % 10/35/50/0. Das gilt für OOM-Karte, OCAD-Datei und Trainings-PDF. Namen, Reihenfolge und Symbole bleiben gleich.
+- Die Farben folgen den IOF-Druck- und Farbdefinitionen Rev. 4 (September 2024, gültig ab 1.12.2024) statt der älteren Werte aus dem OOM-Symbolsatz: Braun ist 25/75/100/0 statt 0/56/100/18, Grün 80/0/100/0 statt 76/0/91/0, Braun 50 % 10/35/50/0. Gebäude sind wie in ISSprOM 2019-2 mit 50 % Schwarz gefüllt statt 60 %. Das gilt für OOM-Karte, OCAD-Datei und Trainings-PDF. Namen und Reihenfolge der Farben bleiben gleich.
 - Längere Meldungen sind klarer formuliert.
 - Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
 

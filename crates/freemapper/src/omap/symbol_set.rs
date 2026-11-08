@@ -515,6 +515,20 @@ mod tests {
     }
 
     #[test]
+    fn buildings_are_black_50() {
+        // ISSprOM 2019-2 (02.01.2022): 521 Building, change of colour 60 % to 50 %.
+        for set in [SymbolSet::issprom_2019(), SymbolSet::school_2019()] {
+            let table = colour_table(&set.colors_xml);
+            let black_50 = table.iter().position(|c| c.name == "Black 50%").unwrap();
+            for code in ["521.1", "521.3"] {
+                let from = set.symbols_xml.find(&format!(r#" code="{code}""#)).unwrap();
+                let fill = first_attr(&set.symbols_xml[from..], "<area_symbol ", "inner_color");
+                assert_eq!(fill, black_50.to_string(), "{code}");
+            }
+        }
+    }
+
+    #[test]
     fn colour_table_is_what_oom_computes() {
         let table = colour_table(&SymbolSet::issprom_2019().colors_xml);
         for c in &table {

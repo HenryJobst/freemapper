@@ -10,7 +10,8 @@ symbol set 2019 as well as the "Printing and Colour Definitions".
 
 ## Changes to `ISSprOM 2019_4000.omap`
 
-freemapper changed only the CMYK and RGB values of the colour table (ADR 0044). The values follow the IOF
+freemapper changed the CMYK and RGB values of the colour table and the colour of the building fill (ADR 0044).
+The colour values follow the IOF
 "Printing and Colour Definitions", Revision 4 (September 2024, valid from 1 December 2024), chapter 6:
 
 - The six spot colours: Brown 100% is 25/75/100/0 (was 0/56/100/18), Green 100% is 80/0/100/0 (was 76/0/91/0).
@@ -22,9 +23,11 @@ freemapper changed only the CMYK and RGB values of the colour table (ADR 0044). 
   colours, for example Green 60% 48/0/60/0.
 - RGB is computed from CMYK as OOM does it (`<rgb method="cmyk"/>`: r = (1 − c)(1 − k)), or from the spot
   colours where the colour keeps `<rgb method="spotcolor"/>`.
-- Names, priorities, `<spotcolors>` entries and the symbols are unchanged. Black 30% for bare rock stays 30 %,
-  as ISSprOM 2019-2 symbol 214 says, although Rev. 4 lists a black 35% row.
+- The fills of 521.3 Building and 521.1 Building, minimum size use colour 10 "Black 50%" instead of 9
+  "Black 60%", after the ISSprOM 2019-2 change of 02.01.2022.
+- Names, priorities, `<spotcolors>` entries and the other symbols are unchanged. Black 30% for bare rock stays
+  30 %, as ISSprOM 2019-2 symbol 214 says, although Rev. 4 lists a black 35% row.
 
 SHA-256 of the OOM original: `c278c36545e22114b7dd1146d311687ea9677eda63b8c10f8604d754679ea225`
 
-SHA-256 of the changed file: `e78e517f4dd3537fc63287046ba6a1e92881212eee18bfad2689a865b95efd5e`
+SHA-256 of the changed file: `77d01a34bcc2b9ab30e6a9c96a6b050e03d1c9003e670ea9432acee57d6cc69d`

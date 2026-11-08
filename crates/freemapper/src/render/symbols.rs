@@ -498,7 +498,7 @@ mod tests {
         assert!(
             matches!(&paved[1], Part::Inline(p) if matches!(**p, Symbol::Line(ref l) if l.color == 15))
         );
-        assert!(matches!(s.0.symbols[&143], Symbol::Area { color: 9 }));
+        assert!(matches!(s.0.symbols[&143], Symbol::Area { color: 10 }));
     }
 
     #[test]

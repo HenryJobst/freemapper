@@ -5338,9 +5338,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let file = std::fs::read(&pdf_path).unwrap();
         assert!(file.starts_with(b"%PDF-"));
         let pdf = crate::render::pdf::content_of(&file);
-        // Building fill (black 60 %), tartan pitch candidate (lower brown 50 %), contours (brown),
-        // in the CMYK of IOF Printing and Colour Definitions Rev. 4.
-        assert!(contains(&pdf, b"0 0 0 0.6 k"), "building");
+        // Building fill (black 50 %, ISSprOM 2019-2), tartan pitch candidate (lower brown 50 %),
+        // contours (brown), in the CMYK of IOF Printing and Colour Definitions Rev. 4.
+        assert!(contains(&pdf, b"0 0 0 0.5 k"), "building");
         assert!(contains(&pdf, b"0.1 0.35 0.5 0 k"), "pitch");
         assert!(contains(&pdf, b"0.25 0.75 1 0 K"), "contours");
         // Texts are WinAnsi hex strings in the content stream.
