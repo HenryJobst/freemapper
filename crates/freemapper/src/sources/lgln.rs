@@ -12,7 +12,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, one_line};
 use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::{stored_grid, write_float_raster};
+use crate::sources::float_tiff::{require_stored, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::wcs::WcsService;
 
@@ -98,30 +98,30 @@ pub struct StacItem {
 }
 
 /// The STAC search of `host` at the centre of `bbox` (EPSG:25832): a box of ±10 m around it in
-/// lon/lat, which the search wants.
-pub fn stac_search_url(host: &str, bbox: &BoundingBox) -> String {
+/// lon/lat, which the search wants; `None` when a corner has no lon/lat.
+pub fn stac_search_url(host: &str, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         (bbox.min_e + bbox.max_e) / 2.0,
         (bbox.min_n + bbox.max_n) / 2.0,
     );
     let corners: Vec<_> = [(-10.0, -10.0), (10.0, -10.0), (-10.0, 10.0), (10.0, 10.0)]
         .into_iter()
-        .filter_map(|(de, dn)| {
+        .map(|(de, dn)| {
             Crs::Utm32.inverse(ProjectedPoint {
                 easting: e + de,
                 northing: n + dn,
             })
         })
-        .collect();
+        .collect::<Option<Vec<LatLon>>>()?;
     let min = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MAX, f64::min);
     let max = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MIN, f64::max);
-    format!(
+    Some(format!(
         "{host}/search?bbox={:.6},{:.6},{:.6},{:.6}&limit={STAC_LIMIT}",
         min(|p| p.lon),
         min(|p| p.lat),
         max(|p| p.lon),
         max(|p| p.lat)
-    )
+    ))
 }
 
 /// The newest item (by `datetime`) of the STAC search at the centre of `bbox`, following the
@@ -135,7 +135,11 @@ pub fn newest_item(
 ) -> Result<Option<StacItem>, FetchError> {
     let mut newest: Option<StacItem> = None;
     let mut visited: Vec<String> = Vec::new();
-    let mut next = Some(stac_search_url(host, bbox));
+    let first = stac_search_url(host, bbox).ok_or_else(|| FetchError::Http {
+        url: format!("{host}/search"),
+        message: "the centre of the map area has no lon/lat".to_string(),
+    })?;
+    let mut next = Some(first);
     while let Some(url) = next.take() {
         if visited.len() == STAC_MAX_PAGES {
             return Err(FetchError::Http {
@@ -200,14 +204,14 @@ fn stac_item(feature: &Value) -> Option<StacItem> {
     })
 }
 
-/// The flight date (`DD.MM.YYYY`) of the newest orthophoto at the centre of `bbox`; `None` when
-/// the STAC does not tell it. [`newest_item`] of [`DOP_STAC`] gives the date itself (for the
-/// leaf state by month).
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
-    newest_item(fetcher, DOP_STAC, bbox)
-        .ok()
-        .flatten()
-        .map(|item| item.date.format("%d.%m.%Y").to_string())
+/// The date of the newest orthophoto at the centre of `bbox`, from one DOP STAC search: the
+/// flight date (written `DD.MM.YYYY` like the other states') and, by its month, the leaf state.
+/// `Ok(None)` when the STAC lists no item there; an error when the search failed.
+pub fn orthophoto_date(
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+) -> Result<Option<NaiveDate>, FetchError> {
+    Ok(newest_item(fetcher, DOP_STAC, bbox)?.map(|item| item.date))
 }
 
 /// DGM1 or DOM1 over `bbox` (EPSG:25832) from the WCS, in pieces of at most 2 km, written as a
@@ -230,22 +234,7 @@ pub fn fetch_model(
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
     if mode == FetchMode::Offline {
-        let covers = stored_grid(out).is_some_and(|stored| {
-            let s = stored.bounds();
-            s.min_e <= area.min_e
-                && s.min_n <= area.min_n
-                && s.max_e >= area.max_e
-                && s.max_n >= area.max_n
-        });
-        if !covers {
-            return Err(FetchError::Http {
-                url: out.display().to_string(),
-                message: format!(
-                    "no {} stored for this map area; run `freemapper fetch` online first",
-                    model.label()
-                ),
-            });
-        }
+        require_stored(out, &area, model.label())?;
         return Ok(HeightModel::default());
     }
     let wcs = model.wcs();
@@ -335,7 +324,7 @@ mod tests {
     #[test]
     fn stac_picks_the_newest_item() {
         // The search box: ±10 m around the centre, in lon/lat (the school at 9.762 E, 52.378 N).
-        let url = stac_search_url(DOP_STAC, &SAMPLE);
+        let url = stac_search_url(DOP_STAC, &SAMPLE).unwrap();
         let query = url
             .strip_prefix("https://dop.stac.lgln.niedersachsen.de/search?bbox=")
             .unwrap_or_else(|| panic!("{url}"));
@@ -362,9 +351,10 @@ mod tests {
         let newest = newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap().unwrap();
         assert_eq!(newest.date, date("2025-03-06"));
         assert!(newest.id.ends_with("_2025-03-06"), "{}", newest.id);
+        // One DOP search gives the date for the flight date and the leaf state.
         assert_eq!(
-            flight_date(&fetcher, &SAMPLE).as_deref(),
-            Some("06.03.2025")
+            orthophoto_date(&fetcher, &SAMPLE).unwrap(),
+            Some(date("2025-03-06"))
         );
         let mut answer: Value = serde_json::from_str(STAC_DOP).unwrap();
         answer["features"].as_array_mut().unwrap().reverse();
@@ -390,7 +380,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DOP_STAC, empty);
         assert_eq!(newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap(), None);
-        assert_eq!(flight_date(&fetcher, &SAMPLE), None);
+        assert_eq!(orthophoto_date(&fetcher, &SAMPLE).unwrap(), None);
         // Not a search answer: an error naming it.
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DOP_STAC, b"<html>\x1b[2JBad Gateway</html>".to_vec());
@@ -399,12 +389,73 @@ mod tests {
             .to_string();
         assert!(err.contains("not a STAC search answer"), "{err}");
         assert!(!err.contains('\x1b'), "{err:?}");
-        assert_eq!(flight_date(&fetcher, &SAMPLE), None);
+        // The caller tells a failed search from one without an item.
+        assert!(orthophoto_date(&fetcher, &SAMPLE).is_err());
+    }
+
+    #[test]
+    fn stac_search_needs_a_lon_lat_centre() {
+        // A centre no lon/lat projects to gives no search box, so nothing is asked.
+        let nowhere = BoundingBox {
+            min_e: f64::NAN,
+            ..SAMPLE
+        };
+        assert_eq!(stac_search_url(DGM_STAC, &nowhere), None);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
+        let err = newest_item(&fetcher, DGM_STAC, &nowhere)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("no lon/lat"), "{err}");
+        assert!(!err.contains("1797693"), "{err}");
+        assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    #[test]
+    fn lgln_wcs_pieces_are_2_km() {
+        // A 4 x 4 km area is asked for in four GetCoverages of 2 x 2 km, for both models.
+        let area = BoundingBox {
+            min_e: 550_000.0,
+            min_n: 5_800_000.0,
+            max_e: 554_000.0,
+            max_n: 5_804_000.0,
+        };
+        let grid = crate::raster::GridSpec::covering(&area, 1.0);
+        for wcs in [DGM1_WCS, DOM1_WCS] {
+            let fetcher = MapFetcher::default();
+            let mut expected = Vec::new();
+            for (min_e, max_e) in [(550_000.0, 552_000.0), (552_000.0, 554_000.0)] {
+                for (min_n, max_n) in [(5_800_000.0, 5_802_000.0), (5_802_000.0, 5_804_000.0)] {
+                    let piece = BoundingBox {
+                        min_e,
+                        min_n,
+                        max_e,
+                        max_n,
+                    };
+                    let url = wcs.get_coverage_url(&piece);
+                    // A one-pixel answer at the piece's north-west corner is enough here.
+                    let corner = crate::raster::GridSpec {
+                        west: min_e,
+                        north: max_n,
+                        pixel_size: 1.0,
+                        width: 1,
+                        height: 1,
+                    };
+                    fetcher.insert(&url, crate::fetch::test_support::geotiff(&corner, &[50.0]));
+                    expected.push(url);
+                }
+            }
+            let mut raster = crate::raster::Raster::filled(grid, f32::NAN);
+            wcs.fill(&fetcher, &mut raster, &area).unwrap();
+            assert_eq!(*fetcher.log.borrow(), expected, "{}", wcs.url);
+            assert_eq!(raster.get(0, 0), 50.0);
+            assert_eq!(raster.get(2000, 2000), 50.0);
+        }
     }
 
     #[test]
     fn stac_pages_are_followed() {
-        let first = stac_search_url(DGM_STAC, &SAMPLE);
+        let first = stac_search_url(DGM_STAC, &SAMPLE).unwrap();
         let second = format!("{DGM_STAC}/search?bbox=1,2,3,4&limit=100&token=next:dgm1:a");
         let third = format!("{DGM_STAC}/search?bbox=1,2,3,4&limit=100&token=next:dgm1:b");
         let fetcher = MapFetcher::default();
@@ -546,7 +597,7 @@ mod tests {
         );
         assert!(fetcher.log.borrow()[1].starts_with(&format!("{DGM_STAC}/search?bbox=")));
         // Written with its world file, as for the other per-area providers.
-        let grid = stored_grid(&out).unwrap();
+        let grid = crate::sources::float_tiff::stored_grid(&out).unwrap();
         assert_eq!((grid.width, grid.height), (200, 50));
         assert_eq!((grid.west, grid.north), (551_800.0, 5_803_400.0));
         let file = std::fs::File::open(&out).unwrap();

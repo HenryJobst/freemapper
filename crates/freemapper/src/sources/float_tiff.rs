@@ -3,6 +3,7 @@
 
 use std::path::Path;
 
+use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, write_atomically};
 use crate::raster::{GridSpec, Raster};
 
@@ -308,6 +309,31 @@ pub(crate) fn stored_grid(out: &Path) -> Option<GridSpec> {
     GridSpec::from_world_file(&world, width, height).ok()
 }
 
+/// Offline: the model `label` stored at `out` must cover `area`, else the error asks for an
+/// online fetch.
+pub(crate) fn require_stored(
+    out: &Path,
+    area: &BoundingBox,
+    label: &str,
+) -> Result<(), FetchError> {
+    let covers = stored_grid(out).is_some_and(|stored| {
+        let s = stored.bounds();
+        s.min_e <= area.min_e
+            && s.min_n <= area.min_n
+            && s.max_e >= area.max_e
+            && s.max_n >= area.max_n
+    });
+    if covers {
+        return Ok(());
+    }
+    Err(FetchError::Http {
+        url: out.display().to_string(),
+        message: format!(
+            "no {label} stored for this map area; run `freemapper fetch` online first"
+        ),
+    })
+}
+
 /// `raster` as an LZW Float32 GeoTIFF with ModelPixelScale and ModelTiepoint, which
 /// [`decode_float_tiff`] reads back (for caching; no world file).
 pub(crate) fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
@@ -341,6 +367,44 @@ pub(crate) fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn require_stored_needs_a_covering_model() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("dgm1.tif");
+        let grid = GridSpec {
+            west: 1000.0,
+            north: 2000.0,
+            pixel_size: 1.0,
+            width: 10,
+            height: 10,
+        };
+        let inside = BoundingBox {
+            min_e: 1002.0,
+            min_n: 1992.0,
+            max_e: 1010.0,
+            max_n: 2000.0,
+        };
+        let message = |e: FetchError| e.to_string();
+        // Nothing stored yet.
+        let err = message(require_stored(&out, &inside, "terrain model (X)").unwrap_err());
+        assert!(
+            err.contains(
+                "no terrain model (X) stored for this map area; run `freemapper fetch` online first"
+            ),
+            "{err}"
+        );
+        write_float_raster(&Raster::filled(grid, 1.0), &out, "x").unwrap();
+        require_stored(&out, &inside, "terrain model (X)").unwrap();
+        require_stored(&out, &grid.bounds(), "terrain model (X)").unwrap();
+        // One metre beyond an edge is not covered.
+        let beyond = BoundingBox {
+            max_e: 1011.0,
+            ..inside
+        };
+        let err = message(require_stored(&out, &beyond, "surface model (X)").unwrap_err());
+        assert!(err.contains("no surface model (X) stored"), "{err}");
+    }
 
     /// The north-east 488 x 300 m of the LVermGeo SH DGM1 tile 611/5970 (Lübeck), its 2 x 2
     /// LZW tiles of 256 px copied byte for byte. The `tiff` crate (0.11.3) refuses the upper

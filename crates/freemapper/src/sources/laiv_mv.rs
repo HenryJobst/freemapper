@@ -17,7 +17,7 @@ use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::{stored_grid, write_float_raster};
+use crate::sources::float_tiff::{require_stored, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::region::{Region, contains_point};
 use crate::sources::wcs::{WcsOrthophoto, WcsService};
@@ -355,22 +355,7 @@ pub fn fetch_model(
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
     if mode == FetchMode::Offline {
-        let covers = stored_grid(out).is_some_and(|stored| {
-            let s = stored.bounds();
-            s.min_e <= area.min_e
-                && s.min_n <= area.min_n
-                && s.max_e >= area.max_e
-                && s.max_n >= area.max_n
-        });
-        if !covers {
-            return Err(FetchError::Http {
-                url: out.display().to_string(),
-                message: format!(
-                    "no {} stored for this map area; run `freemapper fetch` online first",
-                    model.label()
-                ),
-            });
-        }
+        require_stored(out, &area, model.label())?;
         let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
             Ok(listed) => tile_set(listed, &area),
             Err(e) => {
