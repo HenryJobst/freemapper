@@ -447,11 +447,13 @@ mod tests {
 
     #[test]
     fn boundary_has_all_parts() {
-        assert_eq!(Region::Berlin.boundary().0.len(), 4);
-        assert_eq!(Region::Berlin.boundary().0[0].exterior().0.len(), 664);
+        // After the validity repair (tests/region_assets.rs): an overlapping fragment merged into
+        // the main polygon, slivers under 100 m² dropped.
+        assert_eq!(Region::Berlin.boundary().0.len(), 2);
+        assert_eq!(Region::Berlin.boundary().0[0].exterior().0.len(), 684);
         assert_eq!(
             Region::Brandenburg.boundary().0[0].interiors().len(),
-            4,
+            3,
             "Berlin and small enclaves"
         );
     }
