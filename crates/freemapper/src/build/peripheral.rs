@@ -1,4 +1,4 @@
-//! Peripheral information: magnetic north lines and the info block below the map content.
+//! Magnetic north lines across the map content and the peripheral information below it.
 
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
@@ -66,7 +66,11 @@ pub struct PeripheralInfo {
 }
 
 fn sheet_tags() -> Vec<(String, String)> {
-    vec![("freemapper:source".to_string(), "sheet".to_string())]
+    source_tags("sheet")
+}
+
+fn source_tags(source: &str) -> Vec<(String, String)> {
+    vec![("freemapper:source".to_string(), source.to_string())]
 }
 
 fn symbol(symbol_set: &SymbolSet, code: &str) -> u32 {
@@ -102,6 +106,8 @@ fn mm(v: f64) -> i32 {
 }
 
 /// Vertical magnetic north lines `spacing_mm` apart across `content`, one through x = 0.
+/// They are map content, tagged `freemapper:source=north-lines`: the mapper breaks them at
+/// small objects.
 pub fn north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet) -> Vec<MapObject> {
     let id = symbol(symbol_set, NORTH_LINE_CODE);
     let spacing = spacing_mm * 1000.0;
@@ -110,7 +116,10 @@ pub fn north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet)
     (first..=last)
         .map(|k| {
             let x = (k as f64 * spacing).round() as i32;
-            line(id, (x, content.min_y), (x, content.max_y))
+            MapObject {
+                tags: source_tags("north-lines"),
+                ..line(id, (x, content.min_y), (x, content.max_y))
+            }
         })
         .collect()
 }
@@ -249,6 +258,7 @@ mod tests {
                 (content.min_y, content.max_y)
             );
             assert_eq!(line.coords[0].x, line.coords[1].x);
+            assert_eq!(line.tags, source_tags("north-lines"));
         }
     }
 

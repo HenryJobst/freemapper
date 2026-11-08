@@ -2663,7 +2663,8 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
     })
 }
 
-/// The map part with the peripheral information (north lines, title, scale bar, credits).
+/// The map part with the peripheral information (title, scale bar, credits); the north lines
+/// are map content in the default part.
 const SHEET_PART: &str = "peripheral information";
 
 /// The objects of the training map: everything of the map and every candidate except the map
@@ -2830,7 +2831,11 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         opacity: 0.7,
         behind_map: false,
     });
-    let mut map_objects = building_objects;
+    let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
+    // North lines first: within their black they lie under walls and fences.
+    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
+    let mut map_objects = north_lines(&content, spacing_mm, &symbol_set);
+    map_objects.extend(building_objects);
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(osm_objects(Target::Map)?);
@@ -2838,7 +2843,6 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         name: "default part".to_string(),
         objects: map_objects,
     };
-    let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(lgb_attribution(&project));
     attribution.extend(berlin_attribution(&project));
@@ -2858,14 +2862,11 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         contour_interval_m: project.map_kind.contour_interval_m(),
         attribution,
     };
-    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
-    let mut sheet_objects = north_lines(&content, spacing_mm, &symbol_set);
-    sheet_objects.extend(info_block(&content, &info, &symbol_set));
     let parts = vec![
         buildings_part,
         MapPart {
             name: SHEET_PART.to_string(),
-            objects: sheet_objects,
+            objects: info_block(&content, &info, &symbol_set),
         },
     ];
     let map = MapDocument {
@@ -8393,6 +8394,62 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let default = map.find(r#"<part name="default part">"#).unwrap();
         let sheet = map.find(r#"<part name="peripheral information">"#).unwrap();
         assert!(default < sheet, "buildings part first");
+    }
+
+    #[test]
+    fn north_lines_are_in_the_map_part() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let documents = starter_documents(dir.path()).unwrap();
+        let north_line = documents.map.symbol_set.id_for_code("601");
+        let is_north_line = |o: &MapObject| Some(o.symbol_id) == north_line;
+        let part = |name: &str| documents.map.parts.iter().find(|p| p.name == name).unwrap();
+        let lines: Vec<&MapObject> = part("default part")
+            .objects
+            .iter()
+            .filter(|o| is_north_line(o))
+            .collect();
+        assert!(!lines.is_empty());
+        for line in lines {
+            assert_eq!(
+                line.tags,
+                [("freemapper:source".to_string(), "north-lines".to_string())]
+            );
+        }
+        assert!(!part(SHEET_PART).objects.iter().any(is_north_line));
+        // The training map clips them to the content and paints them first within their colour,
+        // so walls and fences of the same black lie on top.
+        let (map, sheet) = training_objects(&documents);
+        let first_other = map.iter().position(|o| !is_north_line(o));
+        let last_line = map.iter().rposition(|o| is_north_line(o)).unwrap();
+        assert!(first_other.is_none_or(|i| last_line < i), "{first_other:?}");
+        assert!(!sheet.iter().any(|o| is_north_line(o)));
+    }
+
+    #[test]
+    fn info_block_stays_on_the_sheet() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let sheet_ids: Vec<Option<u32>> = ["991", "992", "993", "994"]
+            .iter()
+            .map(|code| set.id_for_code(code))
+            .collect();
+        let sheet = documents
+            .map
+            .parts
+            .iter()
+            .find(|p| p.name == SHEET_PART)
+            .unwrap();
+        assert!(!sheet.objects.is_empty());
+        for o in &sheet.objects {
+            assert!(sheet_ids.contains(&Some(o.symbol_id)), "{o:?}");
+            assert_eq!(
+                o.tags,
+                [("freemapper:source".to_string(), "sheet".to_string())]
+            );
+        }
     }
 
     #[test]

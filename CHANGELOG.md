@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Nordlinien liegen im Kartenteil „default part“ bei den übrigen Kartenobjekten, mit dem Tag `freemapper:source=north-lines`. In OOM lassen sie sich an kleinen Objekten unterbrechen, und in der Trainingskarte liegen Mauern und Zäune darüber. Titel, Maßstab und Namensnennung bleiben im Teil „peripheral information“. Eine vorhandene Karte ändert sich erst mit `run --force`.
 - Längere Meldungen sind klarer formuliert.
 - Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
 

@@ -80,8 +80,8 @@ Orienteering Maps 2019 (IOF).
 | Mast | pole | Fahnenmast, Schild, Basketballkorb (Schulsatz 544). | `Pole` |
 | Laterne | lamppost | Straßenlaterne oder Ampel (Schulsatz 545). | `Lamppost` |
 | Tartanbahn | tartan track | Kunststoffbelag von Laufbahn/Sportfeld, im Schulsatz 501 mit 50 % Braun. | `TartanTrack` |
-| Randangaben | peripheral information | Maßstab, Äquidistanz, Titel, Maßstabsleiste, Copyright (später Nordbalken, Legende) außerhalb des Kartenbilds. | `PeripheralInfo` |
-| Nordlinien | magnetic north lines | Linien nach magnetisch Nord über dem Kartenbild (ISSprOM 601, Abstand 30 mm × Symbolvergrößerung). | `north_lines` |
+| Randangaben | peripheral information | Maßstab, Äquidistanz, Titel, Maßstabsleiste, Copyright (später Nordbalken, Legende) außerhalb des Kartenbilds, im Kartenteil „peripheral information“. | `PeripheralInfo` |
+| Nordlinien | magnetic north lines | Linien nach magnetisch Nord über dem Kartenbild (ISSprOM 601, Abstand 30 mm × Symbolvergrößerung). Kartenobjekte im Kartenteil „default part“, nicht Teil der Randangaben (ADR 0043). | `north_lines` |
 | Maßstabsleiste | bar scale | Strecke mit Teilstrichen und Metern im Gelände, Teil der Randangaben. | `bar_scale` |
 | Baumkrone | tree crown | Vom Laserscan erfasstes Blätterdach eines Baumes. | `TreeCrown` |
 

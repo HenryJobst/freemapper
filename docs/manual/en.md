@@ -205,8 +205,10 @@ OSM adds more candidates:
 
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
-Below the map is the **peripheral information**: title, scale, contour interval, scale bar, north
-lines and the attribution. Keep the attribution on printed maps (chapter 15).
+Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
+attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
+in the map part "default part". Break them in OOM where they hide small objects, such as boulders, path ends
+or wall corners.
 
 The example projects in the repository show what the result looks like, one per state:
 [`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF training map.

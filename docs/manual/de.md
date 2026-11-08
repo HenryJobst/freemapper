@@ -211,8 +211,10 @@ Aus OSM kommen weitere Kandidaten:
 
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
-Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste, Nordlinien
-und die Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15).
+Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
+Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
+gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie sie in OOM, wo sie kleine Objekte
+verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Land:
 [`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte.
