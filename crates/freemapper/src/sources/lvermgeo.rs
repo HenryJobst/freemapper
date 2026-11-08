@@ -7,6 +7,7 @@ use std::path::Path;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
+use crate::sources::wcs::{WcsService, exception_text};
 use crate::sources::wms::WmsService;
 
 /// The orthophoto WMS (TrueDOP20, newest flight).
@@ -37,6 +38,18 @@ impl Model {
         }
     }
 
+    /// The WCS of `self`: `Coverage1`, a `multipart/related` answer, cut to [`COVERAGE`].
+    pub fn wcs(self) -> WcsService {
+        WcsService {
+            url: self.wcs_endpoint(),
+            coverage: "Coverage1",
+            extra: "",
+            multipart: true,
+            envelope: COVERAGE,
+            max_m: WCS_MAX_M,
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Self::Dgm1 => "terrain model (LVermGeo DGM1)",
@@ -47,75 +60,7 @@ impl Model {
 
 /// GetCoverage of `model` over `bbox` (EPSG:25832), rounded outward to whole metres.
 pub fn wcs_url(model: Model, bbox: &BoundingBox) -> String {
-    format!(
-        "{}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Coverage1&FORMAT=image/tiff\
-         &SUBSET=x({},{})&SUBSET=y({},{})",
-        model.wcs_endpoint(),
-        bbox.min_e.floor(),
-        bbox.max_e.ceil(),
-        bbox.min_n.floor(),
-        bbox.max_n.ceil()
-    )
-}
-
-/// The TIFF part of a WCS `multipart/related` answer.
-pub fn multipart_tiff(bytes: &[u8]) -> Result<&[u8], String> {
-    let refused = || format!("no TIFF in the WCS answer: {}", exception_text(bytes));
-    // The first line is the delimiter, e.g. `--wcs`.
-    let first_line_end = bytes.iter().position(|&b| b == b'\n').ok_or_else(refused)?;
-    let delimiter = bytes[..first_line_end]
-        .strip_suffix(b"\r")
-        .unwrap_or(&bytes[..first_line_end]);
-    if !delimiter.starts_with(b"--") {
-        return Err(refused());
-    }
-    let mut rest = &bytes[first_line_end + 1..];
-    loop {
-        // Headers end at an empty line.
-        let (header_end, body_start) = find(rest, b"\r\n\r\n")
-            .map(|i| (i, i + 4))
-            .or_else(|| find(rest, b"\n\n").map(|i| (i, i + 2)))
-            .ok_or_else(refused)?;
-        let headers = String::from_utf8_lossy(&rest[..header_end]).to_ascii_lowercase();
-        let body = &rest[body_start..];
-        let mut marker = b"\n".to_vec();
-        marker.extend_from_slice(delimiter);
-        let body_end = find(body, &marker).ok_or_else(refused)?;
-        let part = body[..body_end]
-            .strip_suffix(b"\r")
-            .unwrap_or(&body[..body_end]);
-        if headers.contains("content-type: image/tiff") {
-            return Ok(part);
-        }
-        rest = &body[body_end + marker.len()..];
-        if rest.starts_with(b"--") {
-            return Err(refused());
-        }
-        rest = rest
-            .strip_prefix(b"\r\n")
-            .or_else(|| rest.strip_prefix(b"\n"))
-            .unwrap_or(rest);
-    }
-}
-
-/// What an error answer says: an OWS exception's code and text, else its start.
-fn exception_text(bytes: &[u8]) -> String {
-    let text = String::from_utf8_lossy(bytes);
-    let between = |open: &str, close: char| {
-        let start = text.find(open)? + open.len();
-        text[start..].split(close).next().map(str::to_string)
-    };
-    let code = between("exceptionCode=\"", '"');
-    let message = between("ExceptionText>", '<');
-    match (code, message) {
-        (Some(code), Some(message)) => format!("{code}: {message}"),
-        (Some(one), None) | (None, Some(one)) => one,
-        (None, None) => text.chars().take(80).collect(),
-    }
-}
-
-fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
+    model.wcs().get_coverage_url(bbox)
 }
 
 /// A Float32 GeoTIFF from the WCS as a raster; its grid comes from ModelTiepoint and
@@ -402,44 +347,7 @@ pub fn fetch_model(
 ) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
-    let Some(b) = grid.bounds().intersection(&COVERAGE) else {
-        // Nothing of the area lies in the coverage: an empty model.
-        return write_float_raster(&raster, out, model.wcs_endpoint());
-    };
-    let starts = |min: f64, max: f64| {
-        let n = ((max - min) / WCS_MAX_M).ceil().max(1.0) as u32;
-        (0..n).map(move |i| {
-            (
-                min + f64::from(i) * WCS_MAX_M,
-                (min + f64::from(i + 1) * WCS_MAX_M).min(max),
-            )
-        })
-    };
-    for (min_e, max_e) in starts(b.min_e, b.max_e) {
-        for (min_n, max_n) in starts(b.min_n, b.max_n) {
-            let piece = BoundingBox {
-                min_e,
-                min_n,
-                max_e,
-                max_n,
-            };
-            let url = wcs_url(model, &piece);
-            let part = get_with_retries(fetcher, &url, |bytes| {
-                multipart_tiff(bytes)
-                    .and_then(decode_float_tiff)
-                    .map_err(|message| FetchError::Http {
-                        url: url.clone(),
-                        message,
-                    })
-            })?;
-            raster
-                .paste_with(&part.grid, |x, y| part.get(x, y))
-                .map_err(|e| FetchError::Http {
-                    url: url.clone(),
-                    message: e.to_string(),
-                })?;
-        }
-    }
+    model.wcs().fill(fetcher, &mut raster, &grid.bounds())?;
     write_float_raster(&raster, out, model.wcs_endpoint())
 }
 
@@ -564,6 +472,7 @@ mod tests {
     use super::test_support::*;
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    use crate::sources::wcs::multipart_tiff;
 
     /// The live sample: 20 × 16 m at the Latina, Halle.
     const SAMPLE: BoundingBox = BoundingBox {
@@ -588,6 +497,63 @@ mod tests {
              &SUBSET=x(706440,706460)&SUBSET=y(5706899,5706916)"
         );
         assert!(wcs_url(Model::Dom1, &bbox).starts_with(Model::Dom1.wcs_endpoint()));
+    }
+
+    #[test]
+    fn st_wcs_unchanged() {
+        // The generalised WCS asks LVermGeo exactly what it asked before.
+        let bbox = BoundingBox {
+            min_e: 706_440.4,
+            min_n: 5_706_899.6,
+            max_e: 706_459.2,
+            max_n: 5_706_915.1,
+        };
+        for (model, endpoint) in [
+            (
+                Model::Dgm1,
+                "https://www.geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DGM1",
+            ),
+            (
+                Model::Dom1,
+                "https://geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DOM1",
+            ),
+        ] {
+            let wcs = model.wcs();
+            assert_eq!(
+                wcs,
+                WcsService {
+                    url: endpoint,
+                    coverage: "Coverage1",
+                    extra: "",
+                    multipart: true,
+                    envelope: COVERAGE,
+                    max_m: 4000.0,
+                }
+            );
+            let url = format!(
+                "{endpoint}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Coverage1\
+                 &FORMAT=image/tiff&SUBSET=x(706440,706460)&SUBSET=y(5706899,5706916)"
+            );
+            assert_eq!(wcs.get_coverage_url(&bbox), url);
+            assert_eq!(wcs_url(model, &bbox), url);
+        }
+        // The answer must be multipart: a bare TIFF is refused, the multipart one decodes.
+        let wcs = Model::Dgm1.wcs();
+        let bare = multipart_tiff(WCS_DGM1).unwrap();
+        assert!(wcs.tiff(bare).unwrap_err().contains("no TIFF"));
+        assert_eq!(wcs.tiff(WCS_DGM1).unwrap(), bare);
+        // NoData (−9999) still becomes NaN.
+        let grid = GridSpec::covering(&SAMPLE, 1.0);
+        let mut values = vec![50.0; (grid.width * grid.height) as usize];
+        values[3] = -9999.0;
+        let answer = crate::fetch::test_support::wcs_answer(&grid, &values);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(Model::Dgm1.wcs_endpoint(), answer);
+        let mut raster = Raster::filled(grid, f32::NAN);
+        wcs.fill(&fetcher, &mut raster, &grid.bounds()).unwrap();
+        assert!(raster.data[3].is_nan());
+        assert_eq!(raster.data[4], 50.0);
+        assert_eq!(fetcher.calls.get(), 1);
     }
 
     #[test]

@@ -662,9 +662,14 @@ fn again(e: &FetchError) -> FetchError {
             message: message.clone(),
         },
         FetchError::NotFound(url) => FetchError::NotFound(url.clone()),
-        FetchError::Refused { url, status } => FetchError::Refused {
+        FetchError::Refused {
+            url,
+            status,
+            detail,
+        } => FetchError::Refused {
             url: url.clone(),
             status: *status,
+            detail: detail.clone(),
         },
         FetchError::TooLarge { url, limit_mb } => FetchError::TooLarge {
             url: url.clone(),
@@ -2351,6 +2356,7 @@ mod tests {
             FetchError::Refused {
                 url: "https://gds.hessen.de/a.zip".to_string(),
                 status: 403,
+                detail: Some("NoApplicableCode: forbidden".to_string()),
             },
         ] {
             assert_eq!(again(&e).to_string(), e.to_string());

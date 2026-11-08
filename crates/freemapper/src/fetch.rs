@@ -44,8 +44,16 @@ pub enum FetchError {
     #[error("{0} not found on the server")]
     NotFound(String),
     /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
-    #[error("{url}: the server refused the request (HTTP {status})")]
-    Refused { url: String, status: u16 },
+    /// `detail` is what an OGC exception report in the answer says.
+    #[error(
+        "{url}: the server refused the request (HTTP {status}){}",
+        detail.as_deref().map(|d| format!(": {d}")).unwrap_or_default()
+    )]
+    Refused {
+        url: String,
+        status: u16,
+        detail: Option<String>,
+    },
     /// A streamed download grew past its limit (a misbehaving server); asking again does not
     /// help.
     #[error("download of {url} is larger than {limit_mb} MB; stopped")]
@@ -175,17 +183,71 @@ fn too_large(url: &str, max_bytes: u64) -> FetchError {
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
 fn status_error(url: &str, e: ureq::Error) -> FetchError {
     match e {
-        ureq::Error::StatusCode(404) => FetchError::NotFound(url.to_string()),
-        ureq::Error::StatusCode(status) if (400..500).contains(&status) => FetchError::Refused {
-            url: url.to_string(),
-            status,
-        },
+        ureq::Error::StatusCode(status) => status_answer_error(url, status, b""),
         e => FetchError::Http {
             url: url.to_string(),
             message: e.to_string(),
         },
     }
 }
+
+/// An answer of HTTP `status` (400 or more) with `body` as [`FetchError`]: 404 is
+/// [`FetchError::NotFound`], another 4xx [`FetchError::Refused`] with the text of an OGC
+/// exception report in `body` (MapServer answers a WCS request outside its coverage with a 400
+/// `ows:ExceptionReport`), a 5xx a (retried) [`FetchError::Http`].
+pub(crate) fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchError {
+    match status {
+        404 => FetchError::NotFound(url.to_string()),
+        400..500 => FetchError::Refused {
+            url: url.to_string(),
+            status,
+            detail: ogc_exception(body),
+        },
+        _ => FetchError::Http {
+            url: url.to_string(),
+            message: ureq::Error::StatusCode(status).to_string(),
+        },
+    }
+}
+
+/// The code and text of an OGC (OWS or WMS service) exception report, on one line and without
+/// control characters; `None` for any other body.
+fn ogc_exception(body: &[u8]) -> Option<String> {
+    let text = String::from_utf8_lossy(body);
+    if !text.contains("ExceptionReport") {
+        return None;
+    }
+    let between = |open: &str, close: char| {
+        let start = text.find(open)? + open.len();
+        text[start..].split(close).next().map(str::trim)
+    };
+    let code = between("exceptionCode=\"", '"').or_else(|| between(" code=\"", '"'));
+    // OWS `<ows:ExceptionText>…<`, WMS `<ServiceException code="…">…<`.
+    let message = between("ExceptionText>", '<').or_else(|| {
+        // Past the `<ServiceExceptionReport` element.
+        let from = text.find("<ServiceExceptionReport").map_or(0, |at| at + 1);
+        let rest = &text[from..];
+        let rest = &rest[rest.find("<ServiceException")?..];
+        let body = &rest[rest.find('>')? + 1..];
+        body.split('<').next().map(str::trim)
+    });
+    let line = |s: &str| {
+        let clean: String = s
+            .chars()
+            .map(|c| if c.is_control() { ' ' } else { c })
+            .take(300)
+            .collect();
+        clean.split_whitespace().collect::<Vec<_>>().join(" ")
+    };
+    match (code, message) {
+        (Some(code), Some(message)) => Some(format!("{}: {}", line(code), line(message))),
+        (Some(one), None) | (None, Some(one)) => Some(line(one)),
+        (None, None) => Some("an exception report".to_string()),
+    }
+}
+
+/// Largest error answer read for its exception report.
+const MAX_ERROR_BODY_BYTES: u64 = 64 * 1024;
 
 /// Identifies freemapper to the servers (Nominatim requires it).
 const USER_AGENT: &str = concat!(
@@ -457,9 +519,24 @@ impl Fetcher for HttpFetcher {
             .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
+            // An error answer is read for its exception report.
+            .config()
+            .http_status_as_error(false)
+            .build()
             .call()
             .map_err(http_error)?;
         refuse_redirect(url, &response)?;
+        let status = response.status().as_u16();
+        if status >= 400 {
+            let mut body = Vec::new();
+            // The report is a courtesy; a body that does not arrive leaves it out.
+            let _ = response
+                .body_mut()
+                .as_reader()
+                .take(MAX_ERROR_BODY_BYTES)
+                .read_to_end(&mut body);
+            return Err(status_answer_error(url, status, &body));
+        }
         let mut bytes = Vec::new();
         response
             .body_mut()
@@ -547,6 +624,11 @@ impl Cache {
     /// Folder of the LVermGeo SH tiles (DGM1, the bDOM reduced to 1 m) and tile lists.
     pub fn lvermgeo_sh_dir(&self) -> PathBuf {
         self.root.join("lvermgeo_sh")
+    }
+
+    /// Folder of the LAiV M-V tile lists and WCS height models, per area.
+    pub fn laiv_mv_dir(&self) -> PathBuf {
+        self.root.join("laiv_mv")
     }
 
     /// The collected GeoSN tile index rows of `product`.
@@ -1012,12 +1094,22 @@ pub(crate) fn get_with_retries<T>(
     url: &str,
     check: impl Fn(&[u8]) -> Result<T, FetchError>,
 ) -> Result<T, FetchError> {
+    get_with_attempts(fetcher, url, ATTEMPTS, check)
+}
+
+/// [`get_with_retries`] with up to `attempts` tries.
+pub(crate) fn get_with_attempts<T>(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    attempts: u32,
+    check: impl Fn(&[u8]) -> Result<T, FetchError>,
+) -> Result<T, FetchError> {
     let mut attempt = 1;
     loop {
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
             Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
-            Err(_) if attempt < ATTEMPTS => {
+            Err(_) if attempt < attempts => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
             }
@@ -1139,6 +1231,8 @@ pub(crate) mod test_support {
         pub failing: RefCell<Vec<String>>,
         /// URL prefixes the server refuses with HTTP 400.
         pub refusing: RefCell<Vec<String>>,
+        /// The bodies of the refusals, by URL prefix (none: an empty body).
+        pub refusal_bodies: RefCell<HashMap<String, Vec<u8>>>,
         /// URL prefixes that fail with a reset this many more times before they answer.
         pub flaky: RefCell<HashMap<String, u32>>,
         /// Every URL requested with `get`, in order.
@@ -1161,10 +1255,14 @@ pub(crate) mod test_support {
                 .iter()
                 .any(|p| url.starts_with(p.as_str()))
             {
-                return Err(FetchError::Refused {
-                    url: url.to_string(),
-                    status: 400,
-                });
+                let body = self
+                    .refusal_bodies
+                    .borrow()
+                    .iter()
+                    .find(|(p, _)| url.starts_with(p.as_str()))
+                    .map(|(_, body)| body.clone())
+                    .unwrap_or_default();
+                return Err(super::status_answer_error(url, 400, &body));
             }
             if let Some(left) = self
                 .flaky
@@ -1515,6 +1613,57 @@ pub(crate) mod test_support {
             extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
+    }
+
+    /// Serves the LAiV M-V height models of `bbox` (EPSG:25833, at most 4000 m a side): the
+    /// overview lists the 2 km tiles that touch Mecklenburg-Vorpommern (DGM1 dated 2024-03-01,
+    /// DOM1 2024-08-01), and the WCS answers with a plain TIFF of the area inside the coverage
+    /// (one answer for any subset). In the listed tiles the terrain rises 0.01 m per metre east
+    /// from 5 m and the surface lies 12 m above it; elsewhere both are 0.0, as the real WCS fills
+    /// areas without a tile.
+    pub fn serve_synthetic_mv(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::laiv_mv::{self, Model};
+        use crate::sources::region::{Region, regions_for};
+        let tiles: Vec<TileId> = crate::tiles::tiles_covering_grid(bbox, 2)
+            .into_iter()
+            // `regions_for` adds 100 m around the box: the tile itself.
+            .filter(|tile| {
+                regions_for(&tile.bounds_km(2).buffered(-100.0))
+                    .contains(&Region::MecklenburgVorpommern)
+            })
+            .collect();
+        for (model, date, lift) in [
+            (Model::Dgm1, "2024-03-01", 5.0),
+            (Model::Dom1, "2024-08-01", 17.0),
+        ] {
+            fetcher.insert_prefix(
+                &laiv_mv::overview_prefix(model),
+                laiv_mv::test_support::overview_answer(model, &tiles, date),
+            );
+            let Some(inside) = bbox.intersection(&laiv_mv::ENVELOPE) else {
+                continue;
+            };
+            let grid = crate::raster::GridSpec::covering(&inside, 1.0);
+            let values: Vec<f32> = (0..grid.height)
+                .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
+                .map(|(x, y)| {
+                    let (e, n) = (
+                        grid.west + f64::from(x) + 0.5,
+                        grid.north - f64::from(y) - 0.5,
+                    );
+                    let tile = TileId {
+                        east_km: (e / 2000.0).floor() as u32 * 2,
+                        north_km: (n / 2000.0).floor() as u32 * 2,
+                    };
+                    if tiles.contains(&tile) {
+                        lift + x as f32 * 0.01
+                    } else {
+                        0.0
+                    }
+                })
+                .collect();
+            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+        }
     }
 
     /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
@@ -2778,6 +2927,56 @@ mod tests {
             }
         });
         (url, connections)
+    }
+
+    #[test]
+    fn http_refusal_carries_the_exception_report() {
+        let report = br#"<?xml version="1.0" encoding="UTF-8"?>
+<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1">
+  <ows:Exception exceptionCode="ExtentError" locator="mapserv">
+    <ows:ExceptionText>msWCSGetCoverage20(): WCS server error. Image extent
+      does not intersect with desired region.</ows:ExceptionText>
+  </ows:Exception>
+</ows:ExceptionReport>"#;
+        let fetcher = HttpFetcher::new();
+        let (url, _) = answering("400 Bad Request", report.to_vec());
+        let err = fetcher.get(&url).unwrap_err();
+        let FetchError::Refused { status, detail, .. } = &err else {
+            panic!("{err:?}")
+        };
+        assert_eq!(*status, 400);
+        assert_eq!(
+            detail.as_deref(),
+            Some(
+                "ExtentError: msWCSGetCoverage20(): WCS server error. Image extent does not \
+                 intersect with desired region."
+            )
+        );
+        assert!(err.to_string().ends_with("(HTTP 400): ExtentError: msWCSGetCoverage20(): WCS server error. Image extent does not intersect with desired region."), "{err}");
+        // Any other body adds nothing; 404 and 5xx stay what they were.
+        let (url, _) = answering("403 Forbidden", b"<html>\x1b[31mno</html>".to_vec());
+        let err = fetcher.get(&url).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("{url}: the server refused the request (HTTP 403)")
+        );
+        let (url, _) = answering("404 Not Found", b"missing".to_vec());
+        assert!(matches!(fetcher.get(&url), Err(FetchError::NotFound(_))));
+        let (url, _) = answering("503 Service Unavailable", report.to_vec());
+        let err = fetcher.get(&url).unwrap_err();
+        assert!(
+            matches!(&err, FetchError::Http { message, .. } if message == "http status: 503"),
+            "{err:?}"
+        );
+        // A WMS report.
+        assert_eq!(
+            ogc_exception(
+                br#"<ServiceExceptionReport version="1.3.0"><ServiceException code="InvalidDimensionValue">
+                  Image size out of range</ServiceException></ServiceExceptionReport>"#
+            )
+            .as_deref(),
+            Some("InvalidDimensionValue: Image size out of range")
+        );
     }
 
     #[test]
