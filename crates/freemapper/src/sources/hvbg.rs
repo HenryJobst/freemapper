@@ -666,6 +666,10 @@ fn again(e: &FetchError) -> FetchError {
             url: url.clone(),
             status: *status,
         },
+        FetchError::TooLarge { url, limit_mb } => FetchError::TooLarge {
+            url: url.clone(),
+            limit_mb: *limit_mb,
+        },
         FetchError::RangeIgnored { url, range, status } => FetchError::RangeIgnored {
             url: url.clone(),
             range: range.clone(),

@@ -46,6 +46,10 @@ pub enum FetchError {
     /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
     #[error("{url}: the server refused the request (HTTP {status})")]
     Refused { url: String, status: u16 },
+    /// A streamed download grew past its limit (a misbehaving server); asking again does not
+    /// help.
+    #[error("download of {url} is larger than {limit_mb} MB; stopped")]
+    TooLarge { url: String, limit_mb: u64 },
     /// The server answered a byte range with the whole file; asking again does not help.
     #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
     RangeIgnored {
@@ -99,14 +103,20 @@ pub trait Fetcher {
     }
 
     /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
-    /// being held in memory.
+    /// being held in memory. More than `max_bytes` is [`FetchError::TooLarge`], and `path` is
+    /// removed.
     fn download_to(
         &self,
         url: &str,
         path: &Path,
+        max_bytes: u64,
         progress: &mut dyn FnMut(&str),
     ) -> Result<(), FetchError> {
         let bytes = self.get(url)?;
+        if bytes.len() as u64 > max_bytes {
+            let _ = std::fs::remove_file(path);
+            return Err(too_large(url, max_bytes));
+        }
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -123,6 +133,14 @@ pub enum ByteRange {
     From { start: u64, len: u64 },
     /// The last `n` bytes.
     Last(u64),
+}
+
+/// [`FetchError::TooLarge`] for `url` over `max_bytes`.
+fn too_large(url: &str, max_bytes: u64) -> FetchError {
+    FetchError::TooLarge {
+        url: url.to_string(),
+        limit_mb: max_bytes.div_ceil(1024 * 1024),
+    }
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -323,6 +341,7 @@ impl Fetcher for HttpFetcher {
         &self,
         url: &str,
         path: &Path,
+        max_bytes: u64,
         progress: &mut dyn FnMut(&str),
     ) -> Result<(), FetchError> {
         let http_error = |message: String| FetchError::Http {
@@ -344,6 +363,10 @@ impl Fetcher for HttpFetcher {
             .get("content-length")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok());
+        if total.is_some_and(|total| total > max_bytes) {
+            let _ = std::fs::remove_file(path);
+            return Err(too_large(url, max_bytes));
+        }
         let mut file =
             std::fs::File::create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
         let mut reader = response.body_mut().as_reader();
@@ -354,6 +377,11 @@ impl Fetcher for HttpFetcher {
                 .map_err(|e| http_error(e.to_string()))?;
             if n == 0 {
                 break;
+            }
+            if done + n as u64 > max_bytes {
+                drop(file);
+                let _ = std::fs::remove_file(path);
+                return Err(too_large(url, max_bytes));
             }
             std::io::Write::write_all(&mut file, &buffer[..n])
                 .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
@@ -959,20 +987,23 @@ pub(crate) fn get_with_retries<T>(
     }
 }
 
-/// [`Fetcher::download_to`] of `url` into `path`, tried up to [`ATTEMPTS`] times like
-/// [`get_with_retries`]; only the transfer is retried, what was downloaded is the caller's to
-/// check.
+/// [`Fetcher::download_to`] of `url` into `path` (at most `max_bytes`), tried up to
+/// [`ATTEMPTS`] times like [`get_with_retries`]; only the transfer is retried, what was
+/// downloaded is the caller's to check. A download over the limit is not retried.
 pub(crate) fn download_with_retries(
     fetcher: &dyn Fetcher,
     url: &str,
     path: &Path,
+    max_bytes: u64,
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), FetchError> {
     let mut attempt = 1;
     loop {
-        let result = fetcher.download_to(url, path, progress);
+        let result = fetcher.download_to(url, path, max_bytes, progress);
         match result {
-            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(
+                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+            ) => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -2630,6 +2661,63 @@ mod tests {
                     "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 );
+                let _ = stream.write_all(&body);
+            }
+        });
+        (url, connections)
+    }
+
+    #[test]
+    fn download_over_the_limit_is_an_error_and_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("downloads/tile.part");
+        // In-memory (the trait's default), then streamed over HTTP.
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.test/tile", vec![b'x'; 10_000]);
+        fetcher
+            .download_to("https://example.test/tile", &path, 10_000, &mut |_| {})
+            .unwrap();
+        assert_eq!(std::fs::read(&path).unwrap().len(), 10_000);
+        let err = fetcher
+            .download_to("https://example.test/tile", &path, 9_999, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+        assert!(!path.exists());
+        for length in [true, false] {
+            let (url, connections) = if length {
+                answering("200 OK", vec![b'x'; 300_000])
+            } else {
+                streaming_without_length(vec![b'x'; 300_000])
+            };
+            let mut messages = Vec::new();
+            let err = download_with_retries(&HttpFetcher::new(), &url, &path, 200_000, &mut |m| {
+                messages.push(m.to_string())
+            })
+            .unwrap_err();
+            assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+            assert!(err.to_string().contains("larger than"), "{err}");
+            assert!(!path.exists(), "length {length}");
+            // Asking again does not make it smaller.
+            assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+        }
+    }
+
+    /// A server answering every request with `body` without a Content-Length.
+    fn streaming_without_length(
+        body: Vec<u8>,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.tif", listener.local_addr().unwrap());
+        let connections = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(stream, "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n");
                 let _ = stream.write_all(&body);
             }
         });

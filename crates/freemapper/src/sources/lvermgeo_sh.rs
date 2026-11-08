@@ -336,6 +336,13 @@ const XYZ_CELLS: u32 = 1000;
 const BDOM_MB: u32 = 105;
 /// The size of a DGM1 XYZ download.
 const XYZ_MB: u32 = 28;
+/// Largest bDOM download accepted (a tile is 105 MB); a portal streaming without end stops here.
+const BDOM_MAX_BYTES: u64 = 150 * 1024 * 1024;
+/// Largest DGM1 XYZ download accepted (a tile is 28 MB).
+const XYZ_MAX_BYTES: u64 = 64 * 1024 * 1024;
+// The limits leave room above the sizes the portal sends.
+const _: () = assert!(BDOM_MAX_BYTES > BDOM_MB as u64 * 1024 * 1024);
+const _: () = assert!(XYZ_MAX_BYTES > XYZ_MB as u64 * 1024 * 1024);
 
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), mosaicked into a Float32 GeoTIFF `out`
 /// with its world file.
@@ -648,9 +655,15 @@ fn dgm1_tile(
     progress(&format!(
         "{tile} {atom_failed}; downloading its XYZ ({XYZ_MB} MB)"
     ));
-    let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
-        parse_xyz(reader, entry.tile, xyz_cells)
-    })
+    let raster = download_checked(
+        fetcher,
+        dir,
+        entry,
+        &what,
+        XYZ_MAX_BYTES,
+        progress,
+        |reader| parse_xyz(reader, entry.tile, xyz_cells),
+    )
     .map_err(|e| FetchError::Http {
         url: entry.link.clone(),
         message: format!("{what} {atom_failed}, and its XYZ does not read either: {e}"),
@@ -672,16 +685,24 @@ fn bdom_tile(
     progress: &mut dyn FnMut(&str),
 ) -> Result<Raster<f32>, FetchError> {
     let what = format!("{} tile {}", Model::Bdom.label(), entry.name);
-    let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
-        let start = reader.fill_buf().map_err(|e| e.to_string())?;
-        if !(start.starts_with(b"II*\0") || start.starts_with(b"MM\0*")) {
-            return Err(error_page(start));
-        }
-        // The 0.2 m pixels (100 MB) live only until they are reduced.
-        let full =
-            decode_float_tiff_from(reader).and_then(|r| whole_tile(r, entry.tile, BDOM_PIXELS))?;
-        reduce_to_metre(&full)
-    })?;
+    let raster = download_checked(
+        fetcher,
+        dir,
+        entry,
+        &what,
+        BDOM_MAX_BYTES,
+        progress,
+        |reader| {
+            let start = reader.fill_buf().map_err(|e| e.to_string())?;
+            if !(start.starts_with(b"II*\0") || start.starts_with(b"MM\0*")) {
+                return Err(error_page(start));
+            }
+            // The 0.2 m pixels (100 MB) live only until they are reduced.
+            let full = decode_float_tiff_from(reader)
+                .and_then(|r| whole_tile(r, entry.tile, BDOM_PIXELS))?;
+            reduce_to_metre(&full)
+        },
+    )?;
     cache_raster(&cache_path(dir, Model::Bdom, entry), &raster, &what)?;
     Ok(raster)
 }
@@ -720,14 +741,15 @@ fn error_page(start: &[u8]) -> String {
 /// so a body that ends early but cleanly only shows when it is read.
 const DOWNLOADS: u32 = 2;
 
-/// Downloads `entry.link` into a temporary file in `dir` (removed afterwards, also on error)
-/// and reads it with `read`, downloading it once more if it does not read; an error names
-/// `what`.
+/// Downloads `entry.link` (at most `max_bytes`) into a temporary file in `dir` (removed
+/// afterwards, also on error) and reads it with `read`, downloading it once more if it does not
+/// read; an error names `what`.
 fn download_checked<T>(
     fetcher: &dyn Fetcher,
     dir: &Path,
     entry: &PortalTile,
     what: &str,
+    max_bytes: u64,
     progress: &mut dyn FnMut(&str),
     read: impl Fn(&mut BufReader<std::fs::File>) -> Result<T, String>,
 ) -> Result<T, FetchError> {
@@ -739,7 +761,7 @@ fn download_checked<T>(
     let tile = short_name(entry.tile);
     let mut attempt = 1;
     loop {
-        download_with_retries(fetcher, &entry.link, &temp.0, &mut |m| {
+        download_with_retries(fetcher, &entry.link, &temp.0, max_bytes, &mut |m| {
             progress(&format!("tile {tile}: {m}"))
         })?;
         let file = std::fs::File::open(&temp.0).map_err(|e| FetchError::Io(temp.0.clone(), e))?;
@@ -1989,6 +2011,32 @@ mod tests {
             assert!(
                 read_cached(&cache_file(&cache, &format!("dgm1/{DGM1_NAME}.tif")), TILE).is_none()
             );
+        }
+
+        #[test]
+        fn download_over_its_limit_is_refused_and_removed() {
+            let fetcher = serving("bdom", BDOM);
+            let entry = &parse_overview("fixture", BDOM.as_bytes(), Product::Bdom).unwrap()[0];
+            fetcher.insert(&entry.link, bdom_tile(TILE));
+            let dir = tempfile::tempdir().unwrap();
+            let err = download_checked(
+                &fetcher,
+                dir.path(),
+                entry,
+                "bDOM tile",
+                1000,
+                &mut |_| {},
+                |_| Ok(()),
+            )
+            .unwrap_err();
+            assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+            let left: Vec<_> = std::fs::read_dir(dir.path().join("downloads"))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.file_name())
+                .collect();
+            assert!(left.is_empty(), "{left:?}");
         }
 
         #[test]

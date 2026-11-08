@@ -352,6 +352,8 @@ impl ExtractSource {
         }
     }
 }
+/// Largest OSM extract downloaded: the largest state extract is about 350 MB.
+const MAX_EXTRACT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 /// Partial downloads older than this are left over from interrupted runs.
 const STALE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
@@ -467,7 +469,7 @@ fn refresh_extract(
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
     let result = fetcher
-        .download_to(source.url(), &part, progress)
+        .download_to(source.url(), &part, MAX_EXTRACT_BYTES, progress)
         .and_then(|()| check_pbf(&part));
     let header_date = match result {
         Ok(header_date) => header_date,
