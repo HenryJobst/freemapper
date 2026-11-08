@@ -349,7 +349,8 @@ fn marker_path(dir: &Path, model: Model, name: &str) -> PathBuf {
 }
 
 /// How long a 404 is believed online. The tile list has no release date that would tell when
-/// the server got new files, so a missing tile is asked for again after this.
+/// the server got new files, so a missing tile is asked for again after this. A kept Metalink
+/// is used online for as long.
 const RECHECK_AFTER: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 
 /// Whether the 404 note at `path` holds: offline always, online while it is recent.
@@ -426,9 +427,11 @@ fn kept_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
     parse_metalink(model, &String::from_utf8_lossy(&bytes)).ok()
 }
 
-/// The tile names of the Metalink of `model`, for tiles the tile list gives no year: downloaded
-/// (once per run and product, as only `fetch_model` asks) and kept; offline, or when the download
-/// fails, the kept one. `None`, with a warning, when there is none.
+/// The tile names of the Metalink of `model`, for tiles the tile list gives no year. A kept one
+/// younger than [`RECHECK_AFTER`] is used as it is; else it is downloaded (at most once per run
+/// and product, as only `fetch_model` asks) and kept. Offline, or when the download fails, the
+/// kept one of any age. `None`, with a warning, when there is none. DGM1 and DOM1 have a
+/// Metalink each.
 fn metalink_names(
     fetcher: &dyn Fetcher,
     dir: &Path,
@@ -440,6 +443,9 @@ fn metalink_names(
     let error = match mode {
         FetchMode::Offline => "offline and not kept from an earlier run".to_string(),
         FetchMode::Online => {
+            if let Some(names) = fresh_metalink(dir, model) {
+                return Some(names);
+            }
             let url = metalink_url(model);
             let part = path.with_extension("meta4.part");
             let answer =
@@ -486,9 +492,53 @@ fn metalink_names(
     }
 }
 
+/// The size of a Metalink download (the Land file, 11 MB), for the estimate.
+pub const METALINK_MB: f64 = 11.0;
+
+/// Whether a run over `tiles` would download the Metalink of `model` (an estimate before a run):
+/// the newest kept tile list gives one of them no year, and no Metalink kept within
+/// [`RECHECK_AFTER`] can stand in.
+pub fn metalink_to_fetch(cache: &Cache, model: Model, tiles: &[TileId]) -> bool {
+    let dir = cache.lvermgeo_rp_dir();
+    let Some(list) = newest_kept_list(&dir) else {
+        return false;
+    };
+    let unnamed = tiles.iter().any(|tile| {
+        list.tiles
+            .get(tile)
+            .is_some_and(|entry| entry.name(model).is_none())
+    });
+    unnamed && fresh_metalink(&dir, model).is_none()
+}
+
+/// The newest tile list kept from an earlier run, of any area.
+fn newest_kept_list(dir: &Path) -> Option<TileList> {
+    let newest = std::fs::read_dir(dir.join("tile_list"))
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".gml"))
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .max()?;
+    let bytes = std::fs::read(newest.1).ok()?;
+    parse_tile_list(&String::from_utf8_lossy(&bytes)).ok()
+}
+
+/// The kept Metalink of `model` if it was downloaded within [`RECHECK_AFTER`].
+fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
+    let age = std::fs::metadata(metalink_path(dir, model))
+        .ok()?
+        .modified()
+        .ok()?
+        .elapsed()
+        .ok()?;
+    (age < RECHECK_AFTER)
+        .then(|| kept_metalink(dir, model))
+        .flatten()
+}
+
 /// The tiles among `tiles` that need no download (an estimate before a run): a file of some
-/// year is cached, the server answered 404 lately, or a kept tile list gives the tile no year
-/// and the kept Metalink (if any) names no file for it either.
+/// year is cached, the server answered 404 lately, or the newest kept tile list gives the tile
+/// no year and the kept Metalink (if any) names no file for it either.
 pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
     let dir = cache.lvermgeo_rp_dir();
     let files: Vec<(String, PathBuf)> = std::fs::read_dir(dir.join(model.slug()))
@@ -506,14 +556,8 @@ pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<Ti
                 || (name.ends_with(".missing") && known_missing(path, FetchMode::Online))
         })
         .collect();
-    let unnamed: HashSet<TileId> = std::fs::read_dir(dir.join("tile_list"))
+    let unnamed: HashSet<TileId> = newest_kept_list(&dir)
         .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| {
-            let bytes = std::fs::read(entry.path()).ok()?;
-            parse_tile_list(&String::from_utf8_lossy(&bytes)).ok()
-        })
         .flat_map(|list| list.tiles.into_values())
         .filter(|entry| entry.name(model).is_none())
         .map(|entry| entry.tile)
@@ -1212,6 +1256,93 @@ mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("larger than"), "{err}");
         assert_eq!(fetcher.0.calls.get(), 1);
+    }
+
+    /// Sets the modification time of `path` to `days` ago.
+    fn age(path: &Path, days: u64) {
+        let then = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86_400);
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(then)
+            .unwrap();
+    }
+
+    #[test]
+    fn a_kept_metalink_is_reused_for_a_month() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
+        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        for (model, slug) in [(Model::Dgm1, "dgm1"), (Model::Dom1, "dom1")] {
+            let name = format!("{slug}_32_400_5579_1_rp_2025");
+            fetcher.insert(&metalink_url(model), metalink(&[&format!("{name}.tif")]));
+            let grid = GridSpec {
+                west: 400_000.0,
+                north: 5_580_000.0,
+                pixel_size: 1.0,
+                width: 1000,
+                height: 1000,
+            };
+            fetcher.insert(
+                &tile_url(model, &name),
+                crate::fetch::test_support::geotiff(&grid, &vec![77.0; 1_000_000]),
+            );
+        }
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        let area = [WEST, EAST];
+        // Before any run nothing tells that a Metalink is needed.
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &area));
+        let asked = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
+        let dgm1 = metalink_url(Model::Dgm1);
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(asked(&dgm1), 1);
+        // The DOM1 has its own Metalink, still to be fetched; the DGM1 one is fresh.
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &area));
+        assert!(metalink_to_fetch(&cache, Model::Dom1, &area));
+        assert!(!metalink_to_fetch(&cache, Model::Dom1, &[WEST]));
+        // Online again: the kept one is used.
+        let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+        assert!(
+            found.warnings.iter().all(|w| !w.contains("Metalink")),
+            "{:?}",
+            found.warnings
+        );
+        assert_eq!(asked(&dgm1), 1);
+        let dom1 = run(&fetcher, &cache, FetchMode::Online, Model::Dom1, &tif).unwrap();
+        assert!(dom1.missing.is_empty(), "{:?}", dom1.missing);
+        assert_eq!(asked(&metalink_url(Model::Dom1)), 1);
+        assert!(!metalink_to_fetch(&cache, Model::Dom1, &area));
+        // A month later it is fetched again.
+        age(
+            &cache_dir.path().join("lvermgeo_rp/meta4/dgm1_tif_07.meta4"),
+            31,
+        );
+        assert!(metalink_to_fetch(&cache, Model::Dgm1, &area));
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(asked(&dgm1), 2);
+        const { assert!(METALINK_MB > 10.0) };
+    }
+
+    #[test]
+    fn the_estimate_reads_the_newest_kept_tile_list() {
+        let (cache_dir, cache) = temp_cache();
+        let lists = cache_dir.path().join("lvermgeo_rp/tile_list");
+        std::fs::create_dir_all(&lists).unwrap();
+        // An old list of another area gives the east tile no year; the newest one names it.
+        let old = lists.join("399000_5579000_401000_5580000.gml");
+        std::fs::write(&old, rp_tile_list(&[(EAST, "", "")])).unwrap();
+        age(&old, 90);
+        std::fs::write(
+            lists.join("399900_5579400_400100_5579600.gml"),
+            rp_tile_list(&[(EAST, "2024", "30.03.24, 06.04.24")]),
+        )
+        .unwrap();
+        assert!(cached_tiles(&cache, Model::Dgm1, &[EAST]).is_empty());
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &[EAST]));
     }
 
     #[test]

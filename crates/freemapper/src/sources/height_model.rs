@@ -230,3 +230,182 @@ pub(crate) fn centre_date(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fetch::test_support::{MapFetcher, geotiff};
+
+    /// Two tiles side by side (centre at the tile border 400 km).
+    const BBOX: BoundingBox = BoundingBox {
+        min_e: 399_900.0,
+        min_n: 5_579_400.0,
+        max_e: 400_100.0,
+        max_n: 5_579_600.0,
+    };
+    const WEST: TileId = TileId {
+        east_km: 399,
+        north_km: 5579,
+    };
+    const EAST: TileId = TileId {
+        east_km: 400,
+        north_km: 5579,
+    };
+
+    fn url(name: &str) -> String {
+        format!("https://tiles.example/{name}.tif")
+    }
+
+    /// A whole 1 km tile of height `z`.
+    fn tile_file(tile: TileId, z: f32) -> Vec<u8> {
+        let grid = GridSpec {
+            west: f64::from(tile.east_km) * 1000.0,
+            north: f64::from(tile.north_km + 1) * 1000.0,
+            pixel_size: 1.0,
+            width: 1000,
+            height: 1000,
+        };
+        geotiff(&grid, &vec![z; 1_000_000])
+    }
+
+    /// Mosaics `named` (and the `missing` given) with a store in `dir`; the error text, or
+    /// the missing tiles and the mosaic's values.
+    fn mosaic(
+        fetcher: &MapFetcher,
+        dir: &Path,
+        named: &[(TileId, &str)],
+        missing: &[(TileId, &str)],
+    ) -> Result<(Vec<TileId>, Vec<f32>), String> {
+        let store = TileStore {
+            label: "terrain model (test)",
+            list_url: "https://tiles.example/list",
+            source: "https://tiles.example",
+            url: &url,
+            cache_path: &|name| dir.join(format!("{name}.tif")),
+            marker_path: &|name| dir.join(format!("{name}.missing")),
+            known_missing: &|path| path.exists(),
+            precheck: &|_| Ok(()),
+            explain_empty: true,
+        };
+        let area = AreaTiles {
+            named: named.iter().map(|(t, n)| (*t, n.to_string())).collect(),
+            missing: missing.iter().map(|(t, w)| (*t, w.to_string())).collect(),
+        };
+        let out = dir.join("out.tif");
+        let mut warnings = Vec::new();
+        let missing = mosaic_tiles(
+            fetcher,
+            FetchMode::Online,
+            &BBOX,
+            &store,
+            area,
+            &out,
+            &mut warnings,
+        )
+        .map_err(|e| e.to_string())?;
+        let bytes = std::fs::read(&out).unwrap();
+        let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes)).unwrap();
+        let tiff::decoder::DecodingResult::F32(values) = decoder.read_image().unwrap() else {
+            panic!("not float")
+        };
+        Ok((missing, values))
+    }
+
+    #[test]
+    fn two_tiles_paste_into_the_grid() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&url("w"), tile_file(WEST, 10.0));
+        fetcher.insert(&url("e"), tile_file(EAST, 20.0));
+        let dir = tempfile::tempdir().unwrap();
+        let (missing, values) =
+            mosaic(&fetcher, dir.path(), &[(WEST, "w"), (EAST, "e")], &[]).unwrap();
+        assert!(missing.is_empty(), "{missing:?}");
+        assert_eq!(values.len(), 200 * 200);
+        assert_eq!(
+            (values[100 * 200 + 99], values[100 * 200 + 100]),
+            (10.0, 20.0)
+        );
+        assert!(values.iter().all(|z| z.is_finite()));
+        // Cached by name: a second run asks for nothing.
+        let silent = MapFetcher::default();
+        mosaic(&silent, dir.path(), &[(WEST, "w"), (EAST, "e")], &[]).unwrap();
+        assert_eq!(silent.calls.get(), 0);
+    }
+
+    #[test]
+    fn a_404_tile_lands_in_missing() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&url("w"), tile_file(WEST, 10.0));
+        let dir = tempfile::tempdir().unwrap();
+        let (missing, values) =
+            mosaic(&fetcher, dir.path(), &[(WEST, "w"), (EAST, "e")], &[]).unwrap();
+        assert_eq!(missing, vec![EAST]);
+        assert!(values[100 * 200 + 100].is_nan());
+        assert!(dir.path().join("e.missing").exists());
+        // The note holds: not asked again.
+        fetcher.log.borrow_mut().clear();
+        let (missing, _) = mosaic(&fetcher, dir.path(), &[(WEST, "w"), (EAST, "e")], &[]).unwrap();
+        assert_eq!(missing, vec![EAST]);
+        assert!(!fetcher.log.borrow().contains(&url("e")));
+    }
+
+    #[test]
+    fn no_tile_is_an_error_with_the_reasons() {
+        let dir = tempfile::tempdir().unwrap();
+        let err = mosaic(
+            &MapFetcher::default(),
+            dir.path(),
+            &[(WEST, "w")],
+            &[(EAST, "not in the tile list")],
+        )
+        .unwrap_err();
+        assert!(
+            err.contains(
+                "no tile of the terrain model (test) covers the map area: not in the tile list: \
+                 32_400_5579; not on the server (404): 32_399_5579"
+            ),
+            "{err}"
+        );
+        let reasons = [
+            (EAST, "b".to_string()),
+            (WEST, "a".to_string()),
+            (
+                TileId {
+                    east_km: 398,
+                    north_km: 5579,
+                },
+                "b".to_string(),
+            ),
+        ];
+        assert_eq!(
+            grouped(&reasons),
+            "b: 32_398_5579, 32_400_5579; a: 32_399_5579"
+        );
+    }
+
+    #[test]
+    fn the_centre_tile_gives_the_date() {
+        let mut warnings = Vec::new();
+        let dated = Some(Ok("2024-04-06".to_string()));
+        assert_eq!(centre_tile(&BBOX), EAST);
+        assert_eq!(
+            centre_date(&BBOX, "x", dated.clone(), &[], &mut warnings).as_deref(),
+            Some("2024-04-06")
+        );
+        assert!(warnings.is_empty());
+        assert_eq!(centre_date(&BBOX, "x", dated, &[EAST], &mut warnings), None);
+        assert_eq!(
+            centre_date(
+                &BBOX,
+                "x",
+                Some(Err("no date".to_string())),
+                &[],
+                &mut warnings
+            ),
+            None
+        );
+        assert_eq!(centre_date(&BBOX, "x", None, &[], &mut warnings), None);
+        assert_eq!(warnings.len(), 3, "{warnings:?}");
+        assert_eq!(warnings[1], "no date");
+    }
+}
