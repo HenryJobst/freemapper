@@ -23,7 +23,7 @@ use crate::sources::height_model::{
     AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
 };
 use crate::sources::region::{Region, tile_centre_in};
-use crate::sources::wms::WmsService;
+use crate::sources::wms::{DateLabel, WmsService};
 use crate::tiles::{TileId, tiles_covering};
 
 /// The orthophoto WMS (the tiles are lossless JPEG 2000 of 105-155 MB). It allows 10000 px a
@@ -38,9 +38,13 @@ pub const WMS: WmsService = WmsService {
 };
 /// The queryable layer with the date of each 2 km block.
 const WMS_INFO_LAYER: &str = "rp_dop20_info";
-/// What the service calls the date taken as the flight date: the block's `erstellung`. Every
-/// block is dated in May to September, so the date is the flight's, but no field says so.
-pub const FLIGHT_LABEL: &str = "Aktualität (Erstellung)";
+/// freemapper's name for the date taken as the flight date. The service calls it `erstellung`
+/// (creation) and has no field for the flight date; every block is dated in May to September,
+/// so the date is taken as the flight's.
+pub const FLIGHT_LABEL: DateLabel = DateLabel {
+    record: "Aktualität (Erstellung)",
+    shown: "date of creation",
+};
 
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832): the
 /// `erstellung` of its block, by a GetFeatureInfo on the metadata layer; `None` outside the

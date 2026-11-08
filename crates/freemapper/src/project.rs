@@ -47,7 +47,7 @@ use crate::sources::osm::{
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
-use crate::sources::wms::OrthophotoSource;
+use crate::sources::wms::{DateLabel, OrthophotoSource};
 use crate::tiles::{TileId, tiles_covering_grid};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -845,6 +845,7 @@ fn fetch_geosn_rasters(
             &OrthophotoSource::Wms(crate::sources::geosn::WMS),
             "GeoSN",
             &flight,
+            None,
         ),
         progress,
     )?;
@@ -854,14 +855,20 @@ fn fetch_geosn_rasters(
 
 /// The orthophoto of `bbox` from a WMS or WCS into [`WMS_ORTHOPHOTO_RELPATH`]: downloaded again only
 /// when the flight date changed (the date tells whether the state flew the area again);
-/// offline, the stored image must cover `bbox`.
+/// offline, the stored image must cover `bbox`. `label` names a date that is no flight date as
+/// such, in the record and in the log.
 fn fetch_wms_orthophoto(
     dir: &Path,
     fetcher: &dyn Fetcher,
     mode: FetchMode,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    (source, provider, flight_date): (&OrthophotoSource, &str, &dyn Fn() -> Option<String>),
+    (source, provider, flight_date, label): (
+        &OrthophotoSource,
+        &str,
+        &dyn Fn() -> Option<String>,
+        Option<&DateLabel>,
+    ),
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
     let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
@@ -886,8 +893,9 @@ fn fetch_wms_orthophoto(
                 let kept = flight
                     .as_deref()
                     .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
+                let shown = label.map_or("flight", |l| l.shown);
                 progress(&match kept {
-                    Some(date) => format!("orthophoto unchanged (flight {date})"),
+                    Some(date) => format!("orthophoto unchanged ({shown} {date})"),
                     None => "orthophoto unchanged".to_string(),
                 });
             } else {
@@ -896,9 +904,12 @@ fn fetch_wms_orthophoto(
                     source.kind()
                 ));
                 crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, &path)?;
+                let flight_label = label
+                    .filter(|_| flight.is_some())
+                    .map(|l| l.record.to_string());
                 project.orthophoto = Some(WmsRecord {
                     flight,
-                    flight_label: None,
+                    flight_label,
                     fetched: chrono::Local::now().date_naive(),
                     bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
                 });
@@ -946,7 +957,12 @@ fn fetch_lvermgeo_rasters(
         mode,
         project,
         bbox,
-        (&OrthophotoSource::Wms(lvermgeo::WMS), "LVermGeo", &flight),
+        (
+            &OrthophotoSource::Wms(lvermgeo::WMS),
+            "LVermGeo",
+            &flight,
+            None,
+        ),
         progress,
     )?;
     let record = |date: Option<String>| WcsRecord {
@@ -1009,7 +1025,7 @@ fn fetch_lgv_rasters(
         mode,
         project,
         bbox,
-        (&OrthophotoSource::Wms(lgv::WMS), "LGV", &flight),
+        (&OrthophotoSource::Wms(lgv::WMS), "LGV", &flight, None),
         progress,
     )?;
     // Offline the tiles come from the cache: they were fetched when the record says.
@@ -1147,7 +1163,7 @@ fn fetch_hvbg_rasters(
         mode,
         project,
         bbox,
-        (&OrthophotoSource::Wms(hvbg::WMS), "HVBG", &flight),
+        (&OrthophotoSource::Wms(hvbg::WMS), "HVBG", &flight, None),
         progress,
     )?;
     // What both models report alike is said once, after both: the places without a
@@ -1235,6 +1251,7 @@ fn fetch_nrw_rasters(
             &OrthophotoSource::Wms(geobasis_nrw::WMS),
             "Geobasis NRW",
             &flight,
+            None,
         ),
         progress,
     )?;
@@ -1288,16 +1305,11 @@ fn fetch_rp_rasters(
             &OrthophotoSource::Wms(lvermgeo_rp::WMS),
             "LVermGeo RP",
             &flight,
+            // The block's creation date, taken as the flight date: the record and the log say so.
+            Some(&lvermgeo_rp::FLIGHT_LABEL),
         ),
         progress,
     )?;
-    // The date is the block's creation date, taken as the flight date; the record names it so.
-    if let Some(record) = project.orthophoto.as_mut() {
-        record.flight_label = record
-            .flight
-            .as_ref()
-            .map(|_| lvermgeo_rp::FLIGHT_LABEL.to_string());
-    }
     fetch_area_heights(
         dir,
         mode,
@@ -1347,6 +1359,7 @@ fn fetch_sh_rasters(
             &OrthophotoSource::Wms(lvermgeo_sh::WMS),
             "LVermGeo SH",
             &flight,
+            None,
         ),
         progress,
     )?;
@@ -1419,7 +1432,12 @@ fn fetch_mv_rasters(
         mode,
         project,
         bbox,
-        (&OrthophotoSource::Wcs(laiv_mv::DOP), "LAiV M-V", &flight),
+        (
+            &OrthophotoSource::Wcs(laiv_mv::DOP),
+            "LAiV M-V",
+            &flight,
+            None,
+        ),
         progress,
     )?;
     fetch_area_heights(
@@ -1482,7 +1500,7 @@ fn fetch_lgln_rasters(
         mode,
         project,
         bbox,
-        (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight),
+        (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight, None),
         progress,
     )?;
     // Without a fresh date a recent stored orthophoto is kept with its own (see
@@ -2975,8 +2993,7 @@ fn rp_attribution(project: &ProjectFile) -> Option<String> {
 }
 
 /// The licence the LVermGeo RP line refers to (added to the project notes only).
-const RP_LICENCE_NOTE: &str =
-    "Datenlizenz Deutschland Namensnennung 2.0 (dl-de/by-2-0): https://www.govdata.de/dl-de/by-2-0";
+const RP_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
 /// Niedersachsen) refer to (added to the project notes only).
@@ -6946,7 +6963,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             messages
                 .iter()
-                .any(|m| m == "orthophoto unchanged (flight 25.08.2025)"),
+                .any(|m| m == "orthophoto unchanged (date of creation 25.08.2025)"),
             "{messages:?}"
         );
         // A new flight is downloaded again.
@@ -6965,8 +6982,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             orthophoto.flight_label.as_deref(),
             Some("Aktualität (Erstellung)")
         );
-        // Without a date the label goes as well (the recent image is kept with its date, the
-        // old one is downloaded again without one).
+        // The date query fails: the recent image is kept with its date and label.
         fetcher.insert_prefix(
             &format!(
                 "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
@@ -6974,6 +6990,21 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ),
             b"<ServiceExceptionReport/>".to_vec(),
         );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(rp_getmap_requests(&fetcher), 2, "{messages:?}");
+        let orthophoto = project.orthophoto.unwrap();
+        assert_eq!(orthophoto.flight.as_deref(), Some("12.06.2027"));
+        assert_eq!(
+            orthophoto.flight_label.as_deref(),
+            Some("Aktualität (Erstellung)")
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (date of creation 12.06.2027)"),
+            "{messages:?}"
+        );
+        // An old image is downloaded again without a date, and the label goes as well.
         let mut stored = ProjectFile::load(dir.path()).unwrap();
         stored.orthophoto.as_mut().unwrap().fetched = chrono::Local::now().date_naive()
             - chrono::Duration::days(UNDATED_ORTHOPHOTO_MAX_AGE_DAYS);
@@ -7023,8 +7054,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             attribution.lines().any(|l| l.trim() == line),
             "{attribution}"
         );
+        // The licence note, with the licence's proper name.
+        let licence = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
         assert!(
-            attribution.contains("https://www.govdata.de/dl-de/by-2-0"),
+            attribution.lines().any(|l| l.trim() == licence),
             "{attribution}"
         );
         for other in [
