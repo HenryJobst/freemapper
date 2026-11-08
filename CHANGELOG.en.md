@@ -19,6 +19,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Longer messages use plainer wording.
 - If a map area reaches beyond every supported state (abroad, out to sea or into a state freemapper does not support yet, such as Bremen or Thuringia), freemapper warns at fetch that the orthophoto and ALKIS can be missing there. This applies to all states.
 
+### Fixed
+
+- Where the water areas of two states did not quite meet at the border in mid-river (Mainz, Rhine), a bank line ran through the river. freemapper now closes gaps under 0.5 m between water areas before it draws the bank lines. This also applies to parcels of one state. Bridges and roads (0.8 m and wider) stay land, and islands keep their bank lines.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added

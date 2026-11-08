@@ -254,6 +254,9 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Oft führt das Kataster eine Straßenbrücke als Straßenfläche. Dann endet das Wasser an der Brücke, und
     eine Uferlinie läuft quer über den Fluss. Löschen Sie diese Linie in OOM und ziehen Sie die Fläche unter
     der Brücke durch.
+  - Stoßen zwei Gewässerflächen fast aneinander, etwa die zweier Länder an der Grenze mitten im Rhein,
+    schließt freemapper Lücken unter 0,5 m. Eine Uferlinie mitten im Fluss steht also für eine breitere
+    Lücke im Kataster. Prüfen Sie im Luftbild, ob dort Land ist.
   - Gewässer aus dem Kataster sind immer unpassierbar (301), denn das Kataster kennt keine Tiefe.
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben

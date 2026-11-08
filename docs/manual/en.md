@@ -248,6 +248,9 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - The bank line runs across bridges. Cut it there by hand.
   - The cadastre often records a road bridge as road area. The water then ends at the bridge, and a bank
     line runs across the river. Delete that line in OOM and extend the water area under the bridge.
+  - Where two water areas almost meet, such as those of two states at the border in mid-Rhine, freemapper
+    closes gaps under 0.5 m. A bank line in the middle of a river therefore stands for a wider gap in the
+    cadastre. Check in the orthophoto whether there is land.
   - Water from the cadastre is always uncrossable (301), because the cadastre has no depth. Shallow
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch

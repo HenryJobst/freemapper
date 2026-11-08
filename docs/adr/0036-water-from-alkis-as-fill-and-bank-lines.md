@@ -37,5 +37,15 @@ and before the union, so a huge `Meer` parcel costs what the map needs. The cut 
 cut parcel still meets its neighbour (066a3ff, 51e2bb1). The water rules skip only the tunnel
 values, so `tunnel=no` keeps a stream or pond (ee21c5d).
 
+Addendum (2026-11-08, Mainz): at the Rhine the Rhineland-Palatinate and Hesse parcels meet along the state border
+in mid-river without sharing their vertices, and the union kept the seam as a bank line through the river. The
+"parcels that do not quite meet" cost above came true. After the union freemapper now closes every gap, inlet and
+hole narrower than 0.5 m (`SEAM_TOLERANCE_M`), for parcels of one state as well. It takes the pieces that a
+morphological closing (grow by 0.25 m, shrink by 0.25 m, mitre joins) adds and joins only those, grown by 1 cm, to
+the union, so every other vertex stays where it was. The narrowest real gap, a bridge of 0.8 m, stays land, and so
+does an island. Where a closed gap meets the shore, the bank line can get a bump of 1 cm. Dropping bank segments near
+other water was the alternative; it would have left the white gap in the fill and in the water that contours and OSM
+duplicates are tested against (branch `sheet-colours`).
+
 Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
 71e3937, ee73610, 3a99a31, 599c414, 0cbbe35 and 19fe4c1 on branch `water`.

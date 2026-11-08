@@ -19,6 +19,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Längere Meldungen sind klarer formuliert.
 - Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
 
+### Behoben
+
+- Wo die Gewässerflächen zweier Länder an der Grenze mitten im Fluss nicht ganz aneinanderstoßen (Mainz, Rhein), lief eine Uferlinie durch den Fluss. freemapper schließt jetzt Lücken unter 0,5 m zwischen Gewässerflächen, bevor es die Uferlinien zeichnet. Das gilt auch für Flurstücke desselben Landes. Brücken und Straßen (ab 0,8 m) bleiben Land, Inseln behalten ihr Ufer.
+
 ## [0.3.0] - 2026-11-08
 
 ### Hinzugefügt
