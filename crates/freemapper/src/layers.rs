@@ -63,6 +63,9 @@ pub struct DownloadEstimate {
     pub items: Vec<EstimateItem>,
     /// Megabytes still to download (items not cached).
     pub total_megabytes: f64,
+    /// Parts whose files in the project folder (stored data, templates) already cover the area:
+    /// a fetch replaces them in place, so the files derived from them need no new room.
+    pub in_place: Vec<Part>,
 }
 
 /// `today` decides whether the cached OSM extract is old enough to be downloaded again.
@@ -76,13 +79,10 @@ pub fn estimate_download(
     let bbox = project.region_bbox()?;
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
-    Ok(estimate_area(
-        &bbox,
-        &project.bbox()?,
-        cache,
-        today,
-        alkis_cached,
-    ))
+    let map_bbox = project.bbox()?;
+    let mut estimate = estimate_area(&bbox, &map_bbox, cache, today, alkis_cached);
+    crate::project::mark_stored(&mut estimate, dir, &project, &map_bbox);
+    Ok(estimate)
 }
 
 /// The tiles a map of `bbox` uses, on its raster provider's grid, and the grid size in km.
@@ -161,6 +161,7 @@ pub(crate) fn estimate_area(
         tiles: tiles.iter().map(|t| t.name()).collect(),
         items,
         total_megabytes,
+        in_place: Vec::new(),
     }
 }
 
@@ -592,6 +593,7 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
             tiles: Vec::new(),
             items: Vec::new(),
             total_megabytes: 0.0,
+            in_place: Vec::new(),
         }
     } else {
         estimate_area(&bbox, &map_bbox, cache, today, false)

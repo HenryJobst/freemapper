@@ -34,8 +34,12 @@ const TEXTS = {
     cacheVolume: "Zwischenspeicher",
     projectVolume: "Projektordner",
     noRoom: "passt nicht auf den Datenträger",
-    noRoomHint: (reserve) =>
-      `Nicht alles passt auf den Datenträger (freemapper lässt ${reserve} frei). Schaffe Platz, bevor du lädst. Sonst lässt freemapper das Oberflächenmodell und die Aktualisierung des OSM-Auszugs aus, und ohne Platz für Kartendaten, Geländemodell oder Luftbild bricht es ab.`,
+    noRoomSkip: (reserve) =>
+      `Nicht alles passt auf den Datenträger (freemapper lässt ${reserve} frei). Das Laden lässt die markierten Teile aus. Schaffe vorher Platz, wenn du sie brauchst:`,
+    noRoomStop: (reserve) =>
+      `Zu wenig Speicherplatz (freemapper lässt ${reserve} frei). Ohne die markierten Teile entsteht keine Karte, deshalb bricht das Laden ab, bevor es etwas lädt. Schaffe vorher Platz:`,
+    diskUnknown: (error) =>
+      `Den freien Speicherplatz kann freemapper nicht lesen (${error}). Es lädt dann ohne Prüfung.`,
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
@@ -105,8 +109,12 @@ const TEXTS = {
     cacheVolume: "cache",
     projectVolume: "project folder",
     noRoom: "does not fit on the disk",
-    noRoomHint: (reserve) =>
-      `Not everything fits on the disk (freemapper keeps ${reserve} free). Free some space before you fetch. Otherwise freemapper leaves out the surface model and the OSM extract update, and it stops if the map data, terrain model or orthophoto do not fit.`,
+    noRoomSkip: (reserve) =>
+      `Not everything fits on the disk (freemapper keeps ${reserve} free). The fetch leaves out the marked parts. Free some space first if you need them:`,
+    noRoomStop: (reserve) =>
+      `Not enough disk space (freemapper keeps ${reserve} free). There is no map without the marked parts, so the fetch stops before it downloads anything. Free some space first:`,
+    diskUnknown: (error) =>
+      `freemapper cannot read the free disk space (${error}). It fetches without the check.`,
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
@@ -419,9 +427,24 @@ function showDisk(estimate) {
         })
         .join("; ")
     : "";
-  const short = estimate && estimate.items.some((i) => !i.cached && i.fits === false);
-  $("no-room").hidden = !short;
-  $("no-room").textContent = short ? T.noRoomHint(megabytes(disk.reserve_megabytes)) : "";
+  const messages = (disk && disk.messages) || [];
+  const notice = $("no-room");
+  notice.replaceChildren();
+  if (disk && disk.error) {
+    notice.textContent = T.diskUnknown(disk.error);
+  } else if (messages.length) {
+    const reserve = megabytes(disk.reserve_megabytes);
+    const list = document.createElement("ul");
+    list.replaceChildren(
+      ...messages.map((text) => {
+        const li = document.createElement("li");
+        li.textContent = text;
+        return li;
+      }),
+    );
+    notice.append(disk.stops ? T.noRoomStop(reserve) : T.noRoomSkip(reserve), list);
+  }
+  notice.hidden = !notice.textContent;
 }
 
 // --- Search ----------------------------------------------------------------------------------

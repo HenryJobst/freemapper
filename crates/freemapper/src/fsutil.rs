@@ -62,7 +62,8 @@ fn write_part_with(
     if let Err(e) = write(&part, bytes) {
         // Half a file is of no use; on a full disk it also takes the space others need.
         let _ = std::fs::remove_file(&part);
-        return Err((part, e));
+        // The error names the file the user knows, not the partial file just removed.
+        return Err((path.to_path_buf(), e));
     }
     Ok(part)
 }
@@ -151,9 +152,13 @@ mod tests {
         };
         let (path, e) = write_part_with(&target, b"a whole image", &full_disk).unwrap_err();
         assert!(crate::space::is_storage_full(&e), "{e:?}");
-        assert!(path.to_string_lossy().ends_with(".part"), "{path:?}");
-        assert!(!path.exists());
-        assert!(!target.exists());
+        // The error names the file the user knows; the partial file is gone.
+        assert_eq!(path, target);
+        let leftovers: Vec<_> = std::fs::read_dir(target.parent().unwrap())
+            .unwrap()
+            .flatten()
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
     }
 
     #[test]

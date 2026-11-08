@@ -125,14 +125,14 @@ fn volume_id(path: &Path) -> io::Result<String> {
         .unwrap_or_default())
 }
 
-/// Whether `e` says the volume is full (or the user's quota is used up).
+/// Whether `e` says the volume is full or the user's quota is used up. The standard library maps
+/// the systems' codes to these kinds: ENOSPC and EDQUOT on Linux and macOS, ERROR_DISK_FULL,
+/// ERROR_HANDLE_DISK_FULL and ERROR_DISK_QUOTA_EXCEEDED on Windows.
 pub fn is_storage_full(e: &io::Error) -> bool {
-    // ENOSPC and EDQUOT on Linux and macOS, ERROR_HANDLE_DISK_FULL and ERROR_DISK_FULL on Windows.
-    let raw = if cfg!(windows) { [39, 112] } else { [28, 69] };
     matches!(
         e.kind(),
         io::ErrorKind::StorageFull | io::ErrorKind::QuotaExceeded
-    ) || e.raw_os_error().is_some_and(|code| raw.contains(&code))
+    )
 }
 
 /// The text of an error writing or reading `path`: plain words when the disk is full, else the
@@ -188,7 +188,7 @@ impl std::fmt::Display for Shortfall {
             ". It needs {}, but {} has only {} free beyond the {} reserve. Free some space and run `freemapper fetch` again",
             size(self.needed),
             self.path.display(),
-            size(self.left),
+            size_down(self.left),
             size(RESERVE_BYTES)
         )
     }
@@ -263,7 +263,10 @@ pub fn plan(
             Store::Project => project_index,
         };
         need[stored] += bytes(item.megabytes);
-        need[project_index] += bytes(item.megabytes * item.part.derived_share());
+        // Files that replace stored ones of the area need no new room once written.
+        if !estimate.in_place.contains(&item.part) {
+            need[project_index] += bytes(item.megabytes * item.part.derived_share());
+        }
     }
     for (i, volume) in volumes.iter_mut().enumerate() {
         volume.needed = needs.values().map(|need| need[i]).sum();
@@ -299,6 +302,17 @@ pub fn size(bytes: u64) -> String {
         format!("{mb} MB")
     } else {
         format!("{:.1} GB", bytes as f64 / (1u64 << 30) as f64)
+    }
+}
+
+/// [`size`] rounded down: what is free must not read as more than it is.
+fn size_down(bytes: u64) -> String {
+    let mb = bytes >> 20;
+    if mb < 1024 {
+        format!("{mb} MB")
+    } else {
+        let tenths = (bytes as f64 / (1u64 << 30) as f64 * 10.0).floor();
+        format!("{:.1} GB", tenths / 10.0)
     }
 }
 
@@ -367,6 +381,7 @@ mod tests {
             tiles: Vec::new(),
             items,
             total_megabytes,
+            in_place: Vec::new(),
         }
     }
 
@@ -471,6 +486,19 @@ mod tests {
     }
 
     #[test]
+    fn parts_replaced_in_place_need_room_for_the_download_only() {
+        let mut estimate = estimate(vec![
+            item(Part::Terrain, Store::Project, 100.0, false),
+            item(Part::Surface, Store::Cache, 100.0, false),
+        ]);
+        estimate.in_place = vec![Part::Terrain];
+        let plan = plan_on(&one_volume(100 * GB), &estimate);
+        // The new terrain model lands beside the old one before it replaces it; its templates
+        // replace the old ones. The surface model is new to the project.
+        assert_eq!(plan.volumes[0].needed, (100 + 150) * MIB);
+    }
+
+    #[test]
     fn cached_downloads_need_no_space() {
         let mut estimate = typical();
         for item in &mut estimate.items {
@@ -531,6 +559,10 @@ mod tests {
         assert_eq!(size(350 * MIB), "350 MB");
         assert_eq!(size(GB), "1.0 GB");
         assert_eq!(size(GB + 3 * GB / 10), "1.3 GB");
+        // Free space rounds down, so a shortfall of one byte still reads as one.
+        assert_eq!(size(23 * MIB + 1), "24 MB");
+        assert_eq!(size_down(24 * MIB - 1), "23 MB");
+        assert_eq!(size_down(2 * GB - 1), "1.9 GB");
     }
 
     #[test]
@@ -541,8 +573,21 @@ mod tests {
         assert!(is_storage_full(&io::Error::from(
             io::ErrorKind::QuotaExceeded
         )));
+        // The system's own codes: ENOSPC, EDQUOT; ERROR_DISK_FULL, ERROR_HANDLE_DISK_FULL.
         #[cfg(unix)]
         assert!(is_storage_full(&io::Error::from_raw_os_error(28)));
+        #[cfg(target_os = "macos")]
+        assert!(is_storage_full(&io::Error::from_raw_os_error(69)));
+        #[cfg(target_os = "linux")]
+        {
+            assert!(is_storage_full(&io::Error::from_raw_os_error(122)));
+            // ESRMNT, not a full disk.
+            assert!(!is_storage_full(&io::Error::from_raw_os_error(69)));
+        }
+        #[cfg(windows)]
+        for code in [39, 112] {
+            assert!(is_storage_full(&io::Error::from_raw_os_error(code)));
+        }
         assert!(!is_storage_full(&io::Error::from(
             io::ErrorKind::PermissionDenied
         )));

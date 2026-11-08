@@ -598,7 +598,7 @@ pub fn fetch_project(
     }
     // Offline nothing is downloaded, so nothing needs room.
     let plan = match mode {
-        FetchMode::Online => check_space(dir, cache, &region_bbox, &bbox, progress)?,
+        FetchMode::Online => check_space(dir, cache, &project, &region_bbox, &bbox, progress)?,
         FetchMode::Offline => None,
     };
     let skips = |part: Part| plan.as_ref().is_some_and(|plan| !plan.fits(part));
@@ -672,19 +672,60 @@ pub fn fetch_project(
     Ok(project)
 }
 
+/// Marks in `estimate` what the project folder `dir` already holds for `bbox` (the map area plus
+/// buffer in the map's CRS): the stored orthophoto, terrain and surface models of a per-area
+/// provider are replaced in place ([`DownloadEstimate::in_place`](crate::layers::DownloadEstimate)),
+/// and the orthophoto counts as cached, as the fetch reuses it while the flight date stays.
+pub(crate) fn mark_stored(
+    estimate: &mut crate::layers::DownloadEstimate,
+    dir: &Path,
+    project: &ProjectFile,
+    bbox: &BoundingBox,
+) {
+    let wcs = |record: &Option<WcsRecord>, relpath: &str| {
+        record.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
+    };
+    let orthophoto = project.orthophoto.as_ref().is_some_and(|r| r.covers(bbox))
+        && dir.join(WMS_ORTHOPHOTO_RELPATH).exists();
+    for (part, stored) in [
+        (Part::Terrain, wcs(&project.terrain, TERRAIN_RELPATH)),
+        (Part::Orthophoto, orthophoto),
+        (Part::Surface, wcs(&project.surface, SURFACE_RELPATH)),
+    ] {
+        if stored && !estimate.in_place.contains(&part) {
+            estimate.in_place.push(part);
+        }
+    }
+    if orthophoto {
+        for item in &mut estimate.items {
+            if item.part == Part::Orthophoto && item.store == crate::space::Store::Project {
+                item.cached = true;
+            }
+        }
+        estimate.total_megabytes = estimate
+            .items
+            .iter()
+            .filter(|i| !i.cached)
+            .map(|i| i.megabytes)
+            .sum();
+    }
+}
+
 /// Checks the downloads of an online fetch against the free disk space ([`crate::space::plan`]):
 /// fails when a part the run needs does not fit, and warns for each part left out. `None` when
 /// the free space cannot be read; the fetch then goes on unchecked.
 fn check_space(
     dir: &Path,
     cache: &Cache,
+    project: &ProjectFile,
     region_bbox: &BoundingBox,
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Option<SpacePlan>, ProjectError> {
     let today = chrono::Local::now().date_naive();
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
-    let estimate = crate::layers::estimate_area(region_bbox, bbox, cache, today, alkis_cached);
+    let mut estimate = crate::layers::estimate_area(region_bbox, bbox, cache, today, alkis_cached);
+    mark_stored(&mut estimate, dir, project, bbox);
     let plan = match crate::space::plan(&estimate, cache.root(), dir, cache.disk_space()) {
         Ok(plan) => plan,
         Err((path, e)) => {
@@ -764,6 +805,19 @@ fn fetch_lgb_rasters(
                 .into_iter()
                 .filter(|r| cached(&r.tile, &|t| cache.tile_path(r.product, t, r.published))),
         );
+        let kept: Vec<&str> = project
+            .ndsm_tiles
+            .iter()
+            .map(|r| r.tile.as_str())
+            .chain(
+                project
+                    .tiles
+                    .iter()
+                    .filter(|r| r.product == Product::ImageDsm)
+                    .map(|r| r.tile.as_str()),
+            )
+            .collect();
+        say_kept_surface_tiles(&kept, progress);
         drop_wms_orthophoto(dir, project);
         project.save(dir)?;
         return Ok(());
@@ -899,6 +953,13 @@ fn fetch_geosn_rasters(
                 })
         });
         project.tiles.extend(cached.cloned());
+        let kept: Vec<&str> = project
+            .tiles
+            .iter()
+            .filter(|r| r.product == Product::SaxonyDsm)
+            .map(|r| r.tile.as_str())
+            .collect();
+        say_kept_surface_tiles(&kept, progress);
         Ok(Vec::new())
     } else {
         fetch_tiles_each(fetcher, cache, Product::SaxonyDsm, &tiles, mode, progress)
@@ -1066,7 +1127,7 @@ fn fetch_lvermgeo_rasters(
             lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, &dir.join(TERRAIN_RELPATH))?;
             project.terrain = Some(record(None));
             if skip_surface {
-                stored_surface_or_drop(dir, mode, project, bbox);
+                keep_stored_surface(dir, mode, project, bbox, progress);
                 project.save(dir)?;
                 return Ok(());
             }
@@ -1155,7 +1216,7 @@ fn fetch_lgv_rasters(
     warn_missing(progress, Model::Dgm1, missing);
     project.terrain = Some(record(Model::Dgm1, &project.terrain));
     if skip_surface {
-        stored_surface_or_drop(dir, mode, project, bbox);
+        keep_stored_surface(dir, mode, project, bbox, progress);
         project.save(dir)?;
         return Ok(());
     }
@@ -1705,7 +1766,7 @@ fn fetch_area_heights(
     after(false, &found, project, progress);
     project.terrain = Some(height_record(mode, bbox, &found, &project.terrain));
     if skip_surface {
-        stored_surface_or_drop(dir, mode, project, bbox);
+        keep_stored_surface(dir, mode, project, bbox, progress);
         project.save(dir)?;
         return Ok(());
     }
@@ -1741,6 +1802,33 @@ fn keep_surface(
         None => progress(&format!(
             "warning: {label} unavailable ({e}); no nDSM template"
         )),
+    }
+}
+
+/// The surface model of a per-area provider left out for lack of disk space: the stored one stays
+/// while it covers `bbox`, and the user hears so.
+fn keep_stored_surface(
+    dir: &Path,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) {
+    if let Some(fetched) = stored_surface_or_drop(dir, mode, project, bbox) {
+        progress(&format!(
+            "freemapper keeps the surface model fetched on {fetched} for the nDSM template"
+        ));
+    }
+}
+
+/// After the surface model of a tile provider was left out: the cached tiles that still serve.
+fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(&str)) {
+    if !tiles.is_empty() {
+        let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
+        progress(&format!(
+            "freemapper keeps the cached surface model of {noun} {} for the nDSM template",
+            tiles.join(", ")
+        ));
     }
 }
 
@@ -5894,8 +5982,114 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .any(|m| m.starts_with("warning: freemapper skips the surface model")),
             "{messages:?}"
         );
+        let kept = format!(
+            "freemapper keeps the surface model fetched on {} for the nDSM template",
+            stored.fetched
+        );
+        assert!(messages.contains(&kept), "{messages:?}");
         assert_eq!(project.surface, Some(stored));
         assert!(dir.path().join(SURFACE_RELPATH).exists());
+    }
+
+    #[test]
+    fn skipped_surface_model_keeps_the_cached_geosn_tiles() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = dresden_school(&fetcher);
+        let (before, _) = fetch(dir.path(), &fetcher, &cache);
+        let dsm: Vec<TileRecord> = before
+            .tiles
+            .iter()
+            .filter(|r| r.product == Product::SaxonyDsm)
+            .cloned()
+            .collect();
+        assert_eq!(dsm.len(), 2, "{:?}", before.tiles);
+        // One surface tile is gone from the cache; the other stays.
+        let path = |r: &TileRecord| {
+            cache.tile_path(
+                Product::SaxonyDsm,
+                TileId::parse(&r.tile).unwrap(),
+                r.published,
+            )
+        };
+        std::fs::remove_file(path(&dsm[0])).unwrap();
+        let cache = cache_short_of(dir.path(), &cache, 1);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+            "{messages:?}"
+        );
+        let kept = format!(
+            "freemapper keeps the cached surface model of tile {} for the nDSM template",
+            dsm[1].tile
+        );
+        assert!(messages.contains(&kept), "{messages:?}");
+        assert!(!path(&dsm[0]).exists());
+        let now: Vec<&TileRecord> = project
+            .tiles
+            .iter()
+            .filter(|r| r.product == Product::SaxonyDsm)
+            .collect();
+        assert_eq!(now, [&dsm[1]]);
+    }
+
+    #[test]
+    fn skipped_surface_model_of_hamburg_keeps_the_stored_one() {
+        use crate::sources::lgv::Model;
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        let (before, _) = fetch(dir.path(), &fetcher, &cache);
+        let stored = before.surface.clone().expect("a surface model");
+        // The bDOM tiles are no longer cached, so the next fetch would read them again.
+        let bdom = Model::Bdom.tile_cache_file(&cache, TileId::parse("33000-5000").unwrap());
+        let bdom_dir = bdom.parent().unwrap();
+        std::fs::remove_dir_all(bdom_dir).unwrap();
+        let cache = cache_short_of(dir.path(), &cache, 1);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+            "{messages:?}"
+        );
+        let kept = format!(
+            "freemapper keeps the surface model fetched on {} for the nDSM template",
+            stored.fetched
+        );
+        assert!(messages.contains(&kept), "{messages:?}");
+        assert!(!bdom_dir.exists());
+        assert_eq!(project.surface, Some(stored));
+        assert!(dir.path().join(SURFACE_RELPATH).exists());
+    }
+
+    #[test]
+    fn stored_files_of_the_area_count_in_place() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let today = chrono::Local::now().date_naive();
+        let before = crate::layers::estimate_download(dir.path(), &cache, today).unwrap();
+        assert!(before.in_place.is_empty(), "{:?}", before.in_place);
+        fetch(dir.path(), &fetcher, &cache);
+        let after = crate::layers::estimate_download(dir.path(), &cache, today).unwrap();
+        assert_eq!(
+            after.in_place,
+            [Part::Terrain, Part::Orthophoto, Part::Surface]
+        );
+        // The stored orthophoto is reused while its flight date stays; the height models are
+        // requested again.
+        let orthophoto = after
+            .items
+            .iter()
+            .find(|i| i.part == Part::Orthophoto)
+            .unwrap();
+        assert!(orthophoto.cached, "{orthophoto:?}");
+        let terrain = after
+            .items
+            .iter()
+            .find(|i| i.part == Part::Terrain)
+            .unwrap();
+        assert!(!terrain.cached, "{terrain:?}");
     }
 
     #[test]
@@ -5918,6 +6112,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .any(|m| m.starts_with("reading the") && m.contains("DOM")),
             "{messages:?}"
         );
+        let kept = format!(
+            "freemapper keeps the surface model fetched on {} for the nDSM template",
+            stored.fetched
+        );
+        assert!(messages.contains(&kept), "{messages:?}");
         assert_eq!(project.surface, Some(stored));
         assert!(dir.path().join(SURFACE_RELPATH).exists());
     }

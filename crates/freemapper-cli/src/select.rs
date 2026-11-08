@@ -289,8 +289,9 @@ fn area_of(body: &Value) -> Result<MapArea, String> {
 
 /// The download estimate as the page and the MCP tool show it: each download with its size,
 /// whether it is cached and whether it fits on the disk, and under `disk` the free space of the
-/// volumes of the cache and of the project folder `dir` with what the fetch needs there and the
-/// warnings for what does not fit.
+/// volumes of the cache and of the project folder `dir` with what the fetch needs there, the
+/// messages for what does not fit and whether the fetch stops; `error` when the free space
+/// cannot be read.
 pub(crate) fn estimate_json(estimate: &DownloadEstimate, cache: &Cache, dir: &Path) -> Value {
     let plan = freemapper::space::plan(estimate, cache.root(), dir, cache.disk_space());
     let items: Vec<Value> = estimate
@@ -318,6 +319,8 @@ pub(crate) fn estimate_json(estimate: &DownloadEstimate, cache: &Cache, dir: &Pa
                 })
             }).collect::<Vec<_>>(),
             "messages": plan.short.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            // A part the run needs does not fit: the fetch stops before it downloads anything.
+            "stops": plan.missing().is_some(),
         }),
         Err((path, e)) => json!({
             "error": format!("cannot read the free disk space of {} ({e})", path.display()),
@@ -557,6 +560,7 @@ mod tests {
                 item("terrain model", 10.0, true, Part::Terrain, Store::Cache),
             ],
             total_megabytes: 520.0,
+            in_place: Vec::new(),
         };
         let cache = Cache::new(PathBuf::from("/ssd/cache")).with_disk_space(Arc::new(TwoDisks {
             cache: PathBuf::from("/ssd"),
@@ -585,6 +589,46 @@ mod tests {
             json!([
                 "freemapper skips the surface model for the nDSM template for lack of disk space. It needs 200 MB, but /ssd/cache has only 100 MB free beyond the 1.0 GB reserve. Free some space and run `freemapper fetch` again"
             ])
+        );
+        // Leaving out the surface model lets the fetch go on.
+        assert_eq!(disk["stops"], false);
+        // Without room for the OSM extract it stops.
+        let full = Cache::new(PathBuf::from("/ssd/cache")).with_disk_space(Arc::new(TwoDisks {
+            cache: PathBuf::from("/ssd"),
+            cache_mb: 1024 + 100,
+            project_mb: 5000,
+        }));
+        let json = estimate_json(&estimate, &full, Path::new("/usb/school"));
+        assert_eq!(json["disk"]["stops"], true);
+        assert!(
+            json["disk"]["messages"][0]
+                .as_str()
+                .unwrap()
+                .starts_with("not enough disk space for the ALKIS and OSM map data."),
+            "{json}"
+        );
+    }
+
+    #[test]
+    fn estimate_says_when_free_space_cannot_be_read() {
+        #[derive(Debug)]
+        struct Unreadable;
+        impl DiskSpace for Unreadable {
+            fn volume(&self, _path: &Path) -> std::io::Result<Volume> {
+                Err(std::io::Error::other("not supported"))
+            }
+        }
+        let estimate = DownloadEstimate {
+            tiles: Vec::new(),
+            items: Vec::new(),
+            total_megabytes: 0.0,
+            in_place: Vec::new(),
+        };
+        let cache = Cache::new(PathBuf::from("/net/cache")).with_disk_space(Arc::new(Unreadable));
+        let json = estimate_json(&estimate, &cache, Path::new("/net/school"));
+        assert_eq!(
+            json["disk"]["error"],
+            "cannot read the free disk space of /net/cache (not supported)"
         );
     }
 
