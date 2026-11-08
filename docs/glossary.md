@@ -160,6 +160,8 @@ Orienteering Maps 2019 (IOF).
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
 | Trainingskarte | training map | Voll generierte, druckfertige PDF-Karte, in der alle Kandidaten als Kartenobjekte gezeichnet sind. | `export_training_pdf` |
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
+| Farbtabelle | colour table | Farben des Symbolsatzes mit Name, Priorität und CMYK; freemapper nutzt die Werte der IOF-Druck- und Farbdefinitionen Rev. 4 (ADR 0044). | `colors_xml`, `RenderColour`, `OcdColour` |
+| Volltonfarbe | spot colour | Benannte Druckfarbe (PURPLE, BLACK, GREEN, BLUE, BROWN, YELLOW), aus der OOM die Rasterfarben ableitet; maßgeblich für den Druck ist das CMYK. | `<spotcolors>` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
 | Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |

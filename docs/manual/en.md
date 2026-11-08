@@ -268,6 +268,10 @@ contributors.*
 Unlike the starting point, **every candidate becomes a map object** here, also the uncertain ones. The
 map is good for a quick training session. Still check it in the terrain first.
 
+The colours are CMYK values after the IOF Printing and Colour Definitions Rev. 4 (valid from 1 December
+2024), the same as in the OOM and OCAD files. If your printer prints brown or green clearly differently,
+compare with the IOF Print Test Sheet and adjust the colours.
+
 ## 11. OCAD
 
 With `--ocad` (or "with an OCAD file"), freemapper writes the folder `ocad/`:

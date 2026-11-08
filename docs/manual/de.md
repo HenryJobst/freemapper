@@ -273,6 +273,10 @@ gezeichnete Karte in A4 oder A3, druckfertig.
 Anders als im Ausgangsstand werden hier **alle Kandidaten zu Kartenobjekten**, auch die unsicheren.
 Die Karte ist gut für ein schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
 
+Die Farben sind CMYK-Werte nach den IOF-Druck- und Farbdefinitionen Rev. 4 (gültig ab 1.12.2024), dieselben
+wie in der OOM- und der OCAD-Datei. Druckt Ihr Drucker Braun oder Grün deutlich anders, vergleichen Sie mit dem
+IOF Print Test Sheet und passen Sie die Farben an.
+
 ## 11. OCAD
 
 Mit `--ocad` (oder „mit OCAD-Datei“) entsteht der Ordner `ocad/`:

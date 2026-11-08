@@ -411,7 +411,7 @@ mod tests {
         let (r, _) = symbols();
         assert_eq!(r.colours.len(), 32);
         assert_eq!(r.colour(2).unwrap().cmyk, [0.0, 0.0, 0.0, 1.0]);
-        assert_eq!(r.colour(8).unwrap().cmyk, [0.0, 0.56, 1.0, 0.18]);
+        assert_eq!(r.colour(8).unwrap().cmyk, [0.25, 0.75, 1.0, 0.0]);
     }
 
     #[test]
