@@ -104,7 +104,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -614,6 +614,8 @@ pub fn fetch_project(
         Some(Provider::Lgln) => {
             fetch_lgln_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
         }
+        // Task 4: the LVermGeo RP rasters (WMS orthophoto, DGM1/DOM1 tiles) are not fetched yet.
+        Some(Provider::LvermGeoRp) => {}
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -1581,6 +1583,7 @@ fn raster_tiles(
                 Provider::LaivMv => "LAiV M-V",
                 Provider::GeobasisNrw => "Geobasis NRW",
                 Provider::Lgln => "LGLN",
+                Provider::LvermGeoRp => "LVermGeo RP",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1922,7 +1925,8 @@ pub fn derive_project(
         | Provider::LvermGeoSh
         | Provider::LaivMv
         | Provider::GeobasisNrw
-        | Provider::Lgln => None,
+        | Provider::Lgln
+        | Provider::LvermGeoRp => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1984,7 +1988,8 @@ pub fn derive_project(
         | Provider::LvermGeoSh
         | Provider::LaivMv
         | Provider::GeobasisNrw
-        | Provider::Lgln => {
+        | Provider::Lgln
+        | Provider::LvermGeoRp => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);

@@ -844,7 +844,8 @@ fn currency_table(
         | Provider::LvermGeoSh
         | Provider::LaivMv
         | Provider::GeobasisNrw
-        | Provider::Lgln => Err(FetchError::TilesNotCovered(tiles.to_vec())),
+        | Provider::Lgln
+        | Provider::LvermGeoRp => Err(FetchError::TilesNotCovered(tiles.to_vec())),
     }
 }
 

@@ -44,6 +44,11 @@ const NORDRHEIN_WESTFALEN_BOUNDARY: &str =
 /// CC BY 4.0). Bremen and Bremerhaven are holes: they are not Niedersachsen.
 const NIEDERSACHSEN_BOUNDARY: &str =
     include_str!("../../../../assets/regions/niedersachsen.geojson");
+/// Rhineland-Palatinate from the LVermGeo RP WFS `Verwaltungsgrenzen` (simplified 25 m, EPSG:25833;
+/// dl-de/by-2-0). In EPSG:25833 it has negative eastings (84.5 % of the state). Wiesbaden and
+/// Mainz-Kastel are Hesse, not part of it.
+const RHEINLAND_PFALZ_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/rheinland-pfalz.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -62,6 +67,7 @@ pub enum Region {
     MecklenburgVorpommern,
     NordrheinWestfalen,
     Niedersachsen,
+    RheinlandPfalz,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -86,6 +92,8 @@ pub enum Provider {
     GeobasisNrw,
     /// LGLN, Niedersachsen (EPSG:25832).
     Lgln,
+    /// LVermGeo Rheinland-Pfalz (EPSG:25832).
+    LvermGeoRp,
 }
 
 impl Provider {
@@ -101,13 +109,14 @@ impl Provider {
                 | Self::LaivMv
                 | Self::GeobasisNrw
                 | Self::Lgln
+                | Self::LvermGeoRp
         )
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 10] = [
+    pub const ALL: [Self; 11] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -118,10 +127,11 @@ impl Region {
         Self::MecklenburgVorpommern,
         Self::NordrheinWestfalen,
         Self::Niedersachsen,
+        Self::RheinlandPfalz,
     ];
 
     /// The state an ALKIS object id belongs to, by its first four characters (`DEBB…`, `DEBE…`,
-    /// `DESN…`, `DEST…`, `DEHH…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`).
+    /// `DESN…`, `DEST…`, `DEHH…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`, `DENI…`, `DERP…`).
     pub fn of_object_id(oid: &str) -> Option<Self> {
         match oid.get(..4) {
             Some("DEBB") => Some(Self::Brandenburg),
@@ -134,6 +144,7 @@ impl Region {
             Some("DEMV") => Some(Self::MecklenburgVorpommern),
             Some("DENW") => Some(Self::NordrheinWestfalen),
             Some("DENI") => Some(Self::Niedersachsen),
+            Some("DERP") => Some(Self::RheinlandPfalz),
             _ => None,
         }
     }
@@ -149,6 +160,7 @@ impl Region {
             Self::MecklenburgVorpommern => Provider::LaivMv,
             Self::NordrheinWestfalen => Provider::GeobasisNrw,
             Self::Niedersachsen => Provider::Lgln,
+            Self::RheinlandPfalz => Provider::LvermGeoRp,
         }
     }
 
@@ -160,14 +172,16 @@ impl Region {
             | Self::Hessen
             | Self::SchleswigHolstein
             | Self::NordrheinWestfalen
-            | Self::Niedersachsen => crate::crs::Crs::Utm32,
+            | Self::Niedersachsen
+            | Self::RheinlandPfalz => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 10] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 11] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -190,6 +204,7 @@ impl Region {
             Self::MecklenburgVorpommern => (7, MECKLENBURG_VORPOMMERN_BOUNDARY),
             Self::NordrheinWestfalen => (8, NORDRHEIN_WESTFALEN_BOUNDARY),
             Self::Niedersachsen => (9, NIEDERSACHSEN_BOUNDARY),
+            Self::RheinlandPfalz => (10, RHEINLAND_PFALZ_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -922,6 +937,59 @@ mod tests {
         assert_eq!(
             Region::of_object_id("DENW37AL0000AbCd"),
             Some(Region::NordrheinWestfalen)
+        );
+    }
+
+    #[test]
+    fn mainz_school_is_rp_in_zone_32() {
+        // Frauenlob-Gymnasium Mainz-Neustadt (OSM way/60400704), 50.00908 N 8.26574 E.
+        let school = around_lonlat(50.00908, 8.26574, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::RheinlandPfalz]);
+        assert_eq!(raster_region(&school), Some(Region::RheinlandPfalz));
+        assert_eq!(Region::RheinlandPfalz.provider(), Provider::LvermGeoRp);
+        assert!(Provider::LvermGeoRp.per_area());
+        assert_eq!(Region::RheinlandPfalz.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm32);
+        assert!(provider_tiles(&school, Provider::LvermGeoRp, 1).is_empty());
+        assert_eq!(
+            serde_json::to_string(&Region::RheinlandPfalz).unwrap(),
+            r#""rheinlandpfalz""#
+        );
+        assert_eq!(
+            serde_json::to_string(&Provider::LvermGeoRp).unwrap(),
+            r#""lvermgeorp""#
+        );
+        // Koblenz, Goerres-Gymnasium: negative 25833 eastings.
+        let koblenz = around_lonlat(50.35964, 7.59917, 200.0);
+        assert_eq!(regions_for(&koblenz), vec![Region::RheinlandPfalz]);
+    }
+
+    #[test]
+    fn wiesbaden_stays_hessen() {
+        // Wiesbaden Hauptbahnhof and Mainz-Kastel (Hesse, east of the Rhine).
+        for (lat, lon) in [(50.0710, 8.2437), (50.0072, 8.2886)] {
+            let area = around_lonlat(lat, lon, 150.0);
+            assert_eq!(regions_for(&area), vec![Region::Hessen], "{lat} {lon}");
+            assert_eq!(raster_region(&area), Some(Region::Hessen));
+            let p = crate::crs::utm33_forward(crate::crs::LatLon { lat, lon });
+            assert!(contains_point(Region::Hessen, p.easting, p.northing));
+            assert!(!contains_point(
+                Region::RheinlandPfalz,
+                p.easting,
+                p.northing
+            ));
+        }
+    }
+
+    #[test]
+    fn rp_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DERPLP050000AR8IBL"),
+            Some(Region::RheinlandPfalz)
+        );
+        assert_eq!(
+            Region::of_object_id("DEHE0000AbCdEfGh"),
+            Some(Region::Hessen)
         );
     }
 

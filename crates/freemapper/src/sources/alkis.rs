@@ -206,6 +206,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
             }
             Region::Niedersachsen => wfs_buildings(fetcher, &alkis_wfs::LGLN, &in_crs)?,
+            Region::RheinlandPfalz => (Vec::new(), Crs::Utm32), // Task 5: LVermGeo RP ALKIS
         })
     })
 }
@@ -251,6 +252,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             ),
             Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
             Region::Niedersachsen => wfs_land_use(fetcher, &alkis_wfs::LGLN, &in_crs)?,
+            Region::RheinlandPfalz => (Vec::new(), Crs::Utm32), // Task 5: LVermGeo RP ALKIS
         })
     })
 }

@@ -88,7 +88,8 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         | Provider::LvermGeoSh
         | Provider::LaivMv
         | Provider::GeobasisNrw
-        | Provider::Lgln => (Vec::new(), 1),
+        | Provider::Lgln
+        | Provider::LvermGeoRp => (Vec::new(), 1),
     }
 }
 
@@ -108,6 +109,8 @@ fn estimate_area(
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
         Some(Provider::Lgln) => lgln_items(bbox),
+        // Task 3: the LVermGeo RP download items (WMS orthophoto, DGM1/DOM1 tiles).
+        Some(Provider::LvermGeoRp) => Vec::new(),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.
