@@ -17,4 +17,5 @@ pub mod project;
 pub mod raster;
 pub mod render;
 pub mod sources;
+pub mod space;
 pub mod tiles;

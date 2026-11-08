@@ -19,7 +19,7 @@ use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabiliti
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
 
-use crate::select::{Busy, Defaults, Selector, open_browser};
+use crate::select::{Busy, Defaults, Selector, estimate_json, open_browser};
 use serde_json::{Value, json};
 
 /// Progress lines kept per job.
@@ -524,7 +524,9 @@ impl FreemapperServer {
 
     #[tool(
         description = "What start_pipeline will download for a project: the tiles, each download \
-                       with its size in MB and whether it is cached, and the MB still to download."
+                       with its size in MB, whether it is cached and whether it fits on the disk, \
+                       the MB still to download, and under disk the free space of the cache and \
+                       project volumes with messages for what does not fit (tell the user)."
     )]
     async fn estimate_download(
         &self,
@@ -534,27 +536,12 @@ impl FreemapperServer {
         let estimate = blocking(move || {
             let dir = project_dir(&req.dir)?;
             let today = chrono::Local::now().date_naive();
-            estimate_download(&dir, &cache, today).map_err(|e| describe(&e))
+            let estimate = estimate_download(&dir, &cache, today).map_err(|e| describe(&e))?;
+            Ok(estimate_json(&estimate, &cache, &dir))
         })
         .await;
         match estimate {
-            Ok(estimate) => {
-                let items: Vec<Value> = estimate
-                    .items
-                    .iter()
-                    .map(
-                        |i| json!({ "what": i.what, "megabytes": i.megabytes, "cached": i.cached }),
-                    )
-                    .collect();
-                text(
-                    json!({
-                        "tiles": estimate.tiles,
-                        "items": items,
-                        "total_megabytes": estimate.total_megabytes,
-                    })
-                    .to_string(),
-                )
-            }
+            Ok(estimate) => text(estimate.to_string()),
             Err(e) => failure(e),
         }
     }

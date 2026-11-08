@@ -45,12 +45,26 @@ pub(crate) fn write_files_atomically(
 }
 
 fn write_part(path: &Path, bytes: &[u8]) -> Result<PathBuf, (PathBuf, std::io::Error)> {
+    write_part_with(path, bytes, &|part, bytes| std::fs::write(part, bytes))
+}
+
+/// [`write_part`] through `write`, which tests replace with a full disk.
+fn write_part_with(
+    path: &Path,
+    bytes: &[u8],
+    write: &dyn Fn(&Path, &[u8]) -> std::io::Result<()>,
+) -> Result<PathBuf, (PathBuf, std::io::Error)> {
     let dir = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(dir).map_err(|e| (dir.to_path_buf(), e))?;
     let mut part = path.as_os_str().to_owned();
     part.push(format!(".{}.part", std::process::id()));
     let part = PathBuf::from(part);
-    std::fs::write(&part, bytes).map_err(|e| (part.clone(), e))?;
+    if let Err(e) = write(&part, bytes) {
+        // Half a file is of no use; on a full disk it also takes the space others need.
+        let _ = std::fs::remove_file(&part);
+        // The error names the file the user knows, not the partial file just removed.
+        return Err((path.to_path_buf(), e));
+    }
     Ok(part)
 }
 
@@ -123,6 +137,26 @@ mod tests {
             .unwrap()
             .flatten()
             .filter(|e| e.file_name().to_string_lossy().ends_with(".part"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+
+    #[test]
+    fn storage_full_while_writing_removes_the_part_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("templates/hillshade.png");
+        // Half the file arrives, then the disk is full.
+        let full_disk = |part: &Path, bytes: &[u8]| -> std::io::Result<()> {
+            std::fs::write(part, &bytes[..bytes.len() / 2])?;
+            Err(std::io::Error::from(std::io::ErrorKind::StorageFull))
+        };
+        let (path, e) = write_part_with(&target, b"a whole image", &full_disk).unwrap_err();
+        assert!(crate::space::is_storage_full(&e), "{e:?}");
+        // The error names the file the user knows; the partial file is gone.
+        assert_eq!(path, target);
+        let leftovers: Vec<_> = std::fs::read_dir(target.parent().unwrap())
+            .unwrap()
+            .flatten()
             .collect();
         assert!(leftovers.is_empty(), "{leftovers:?}");
     }

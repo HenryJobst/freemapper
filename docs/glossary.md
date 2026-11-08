@@ -155,6 +155,13 @@ Orienteering Maps 2019 (IOF).
 | Projektdatei | project file | `freemapper.toml`: Gebiet, Kartenart, Parameter, Datenstände. | `ProjectFile` |
 | Anlegen | init | Projekt mit Kartengebiet und Kartenart erzeugen. | `init` |
 | Abrufen | fetch | Benötigte Kacheln laden (über den Zwischenspeicher). | `fetch` |
+| Download-Schätzung | download estimate | Was ein Abruf laden wird, je Download mit Größe in MB und ob er schon im Zwischenspeicher liegt. | `DownloadEstimate`, `estimate_download` |
+| Speicherplatz | disk space | Freier Platz auf den Datenträgern, auf die freemapper schreibt (Zwischenspeicher, Projektordner); vor jedem Abruf geprüft. | `DiskSpace`, `space::plan` |
+| Datenträger | volume | Laufwerk oder Partition. Zwischenspeicher und Projektordner können auf verschiedenen Datenträgern liegen; jeder wird für sich geprüft. | `Volume` |
+| Reserve | reserve | Platz, den freemapper auf jedem Datenträger frei lässt (1 GB), damit System und andere Programme weiterlaufen. | `RESERVE_BYTES` |
+| Teil (eines Abrufs) | part (of a fetch) | Downloads, die freemapper nur zusammen lädt oder auslässt: Kartendaten (ALKIS, OSM), Geländemodell, Luftbild, Oberflächenmodell, Aktualisierung des OSM-Auszugs. | `Part` |
+| Speicherplan | space plan | Welche Teile eines Abrufs auf die Datenträger passen; fehlt Platz, lässt freemapper die entbehrlichen aus und warnt. | `SpacePlan`, `Shortfall` |
+| Datenträger voll | disk full | Schreibfehler, weil der Datenträger voll ist (ENOSPC); freemapper löscht die halbe Datei und meldet es klar. | `is_storage_full` |
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
