@@ -94,7 +94,10 @@ Orienteering Maps 2019 (IOF).
 | Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert. | `SourceAdapter` |
 | Produkt | product | Einzelner Datensatztyp einer Quelle, z. B. DGM1, nDOM, DOP20. | `Product` |
 | Kachel | tile | Rechteckiges Teilstück eines Produkts (LGB: 1×1 km). | `Tile` |
-| Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt. | `meta_list` |
+| Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt, bei LVermGeo RP die WFS-Ebene `Laserbefliegung` (Flugtage je Kachel, daraus das Jahr im Dateinamen). | `meta_list`, `lvermgeo_rp::tile_list` |
+| Befliegungsübersicht (Laserbefliegung) | laser-scan flight index | WFS-Ebene `Laserbefliegung` des LVermGeo RP: je 1-km-Kachel Flugjahr und Flugtage des Laserscans. freemapper bildet daraus den Dateinamen der DGM1- und DOM1-Kachel und nimmt den letzten Flugtag als Datum. | `lvermgeo_rp::TILE_LIST_URL`, `ListedTile` |
+| Metalink | Metalink | XML-Datei (`.meta4`), die Namen, Größen und Prüfsummen der Dateien eines Servers nennt. LVermGeo RP veröffentlicht je Produkt eine für das ganze Land (etwa 11 MB); freemapper liest sie nur für Kacheln, denen die Befliegungsübersicht kein Flugjahr gibt. | `lvermgeo_rp::metalink_url`, `parse_metalink` |
+| 404-Vermerk | missing-tile note | Datei `<Name>.missing` im Cache: Der Server hat für eine Kachel der Kachelliste mit 404 geantwortet. Spätere Läufe fragen nicht erneut, bei Geobasis NRW bis zur nächsten Ausgabe der Liste, bei LVermGeo RP 30 Tage lang. | `TileStore::marker_path`, `lvermgeo_rp::RECHECK_AFTER` |
 | Kachelschema | tile scheme | Regel für Lage und Benennung der Kacheln. | `TileScheme` |
 | Kachelkennung | tile id | Name einer Kachel, z. B. `33421-5821` (SW-Ecke in km). | `TileId` |
 | Datenstand / Aktualität | data currency | Erfassungs- bzw. Veröffentlichungsdatum eines Datensatzes. | `currency` |
@@ -112,6 +115,7 @@ Orienteering Maps 2019 (IOF).
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |
 | Digitales Orthophoto (DOP) | orthophoto | Entzerrtes, georeferenziertes Luftbild (DOP20 = 0,2 m). | `Orthophoto` |
 | Flugdatum | flight date | Tag, an dem das Luftbild beflogen wurde. | `WmsRecord::flight` |
+| Erstellungsdatum | date of creation | Feld `erstellung` des Luftbild-Kartendienstes von LVermGeo RP, ein Datum je 2-km-Block. freemapper nimmt es als Flugdatum (ein Schluss aus den Daten, kein Feld heißt „Bildflugdatum“) und vermerkt im Projekteintrag „Aktualität (Erstellung)“. | `lvermgeo_rp::FLIGHT_LABEL`, `DateLabel`, `WmsRecord::flight_label` |
 | Belaubung (belaubt / unbelaubt) | leaf state (leaf-on / leaf-off) | Ob die Bäume beim Bildflug Laub trugen; in Niedersachsen nach dem Flugmonat bestimmt (Mai bis Oktober belaubt). | `lgln::leaf_state` |
 | Kartendienst (WMS) | map service (WMS) | OGC Web Map Service: liefert ein Bild für einen Ausschnitt; freemapper setzt das Luftbild aus Stücken von höchstens 4000 px zusammen. | `WmsService` |
 | WCS-Dienst | WCS service | OGC Web Coverage Service: liefert die Rasterwerte für einen Ausschnitt, z. B. DGM1 und DOM1 in Sachsen-Anhalt, Mecklenburg-Vorpommern und Niedersachsen. | `WcsService` |
@@ -158,11 +162,11 @@ Orienteering Maps 2019 (IOF).
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
-| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
+| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
 | Rasterregion | raster region | Die Region, in der die Mitte des Kartengebiets liegt; aus ihr kommen Luftbild, Geländemodell und nDOM. | `raster_region` |
 | Abdeckung | coverage | Die Fläche aller Regionen zusammen. Reicht ein Kartengebiet mehr als 50 m darüber hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden. | `reaches_beyond_coverage`, `BEYOND_COVERAGE_WARNING` |
 | Alterswarnung (DOM) | surface age warning | Warnung, wenn das DOM mehr als 24 Monate älter ist als das Luftbild (Niedersachsen); das nDOM kann dann Neubauten und junge Bäume nicht zeigen. | `lgln::surface_age_warning`, `SURFACE_AGE_WARNING_MONTHS` |
-| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein), LAiV M-V (Mecklenburg-Vorpommern), Geobasis NRW (Nordrhein-Westfalen) oder LGLN (Niedersachsen). | `Provider` |
+| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein), LAiV M-V (Mecklenburg-Vorpommern), Geobasis NRW (Nordrhein-Westfalen), LGLN (Niedersachsen) oder LVermGeo RP (Rheinland-Pfalz). | `Provider` |
 | Koordinatensystem (Zone) | CRS (zone) | ETRS89/UTM-Zone 32 (EPSG:25832) oder 33 (EPSG:25833); jede Karte bekommt die Zone ihrer Rasterregion. | `Crs`, `ProjectFile::crs` |
 | Landesgrenze (Berlin) | Berlin boundary | Umriss Berlins aus ALKIS (`alkis:land`), 25 m vereinfacht; entscheidet über die Region. | `BERLIN_BOUNDARY` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |

@@ -15,6 +15,15 @@ pub const ORTHOPHOTO_PIXEL_M: f64 = 0.2;
 /// JPEG quality of the stitched orthophoto.
 const JPEG_QUALITY: u8 = 90;
 
+/// How an orthophoto service's date is named when it is no flight date as such.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DateLabel {
+    /// freemapper's name for the date, kept in the project record (`flight_label`).
+    pub record: &'static str,
+    /// Shown before the date in the log, in place of "flight".
+    pub shown: &'static str,
+}
+
 /// A WMS layer with the orthophoto, asked for in `crs`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WmsService {

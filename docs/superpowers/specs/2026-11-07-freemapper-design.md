@@ -199,6 +199,23 @@ ALKIS services and both extracts are read. An area reaching more than 50 m beyon
 or a German state not supported yet such as Bremen or Thuringia) is warned for every provider (ADR 0034). Attribution `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` plus
 the licence link.
 
+**Rheinland-Pfalz (verified live 2026-11-08, details `docs/regions/rheinland-pfalz-reference.md`):** LVermGeo RP
+(`Provider::LvermGeoRp`, oids `DERP…`, ADR 0042), EPSG:25832 for the whole state; 84.5 % of it has negative 25833 eastings,
+so no zone-33 `TileId` is ever built there. Orthophoto from the WMS `rp_dop20` (`geo4.service24.rlp.de`) in pieces of at
+most 4000 px, because the tiles are lossless JPEG 2000 of 105 to 155 MB per 2 km block; the WMS is white beyond the state
+border. The date comes from one GetFeatureInfo on `rp_dop20_info` at the centre: `erstellung`, the block's date of
+creation, taken as the flight date and recorded with `flight_label = "Aktualität (Erstellung)"` (ADR 0038). DGM1 and DOM1
+as 1 km GeoTIFF tiles from `geobasis-rlp.de` (Float32, LZW with predictor 2; the 2022 to 2024 DOM1 have no TFW, so the
+GeoTIFF tags give the georeference). Their names carry the scan year and come from the `Laserbefliegung` layer of the
+Blattschnitt WFS, with the Land Metalink for the tiles it gives no year; no name is guessed (ADR 0039). The mosaic of these
+list-named tiles is shared with NRW. A listed tile that answers 404 is reported missing and asked for again after 30 days
+(ADR 0040). nDSM = DOM1 − DGM1, from the same flight. ALKIS from the origin WFS `geo5.service24.rlp.de/wfs/alkis_rp.fcgi`,
+not the GeoPortal.rlp registry proxy: `ave:GebaeudeBauwerk`, and `ave:Nutzung` as the land-use type; `parse_gml` reads
+`aktualit` inside `gml:timePosition` (ADR 0041). OSM from `rheinland-pfalz-latest` (275 MB), which leaves out Wiesbaden
+and Mainz-Kastel. At the Hesse border both ALKIS services and both extracts are read, and the rasters come from the state
+of the centre; the LVermGeo RP height tiles reach across the Rhine, its WMS does not. Attribution
+`©GeoBasis-DE / LVermGeoRP<year>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]` plus the dl-de/by-2-0 licence note (ADR 0042).
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -425,7 +442,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next Rhineland-Palatinate, then the states of `docs/regions/states-survey.md`; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next the remaining states of `docs/regions/states-survey.md`: Baden-Württemberg, Bremen, Bavaria, Saarland; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 

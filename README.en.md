@@ -14,8 +14,8 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony (open data from LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW and LGLN);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
   [Examples](#examples).
@@ -36,13 +36,14 @@ development:
 
 The current version is [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) of
 8 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
-sprint maps for ten states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
-Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony. Each map comes
-with an OCAD starting point and a PDF training map. Lower Saxony is on the main branch and ships with
-the next version.
+sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
+Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
+Rhineland-Palatinate. Each map comes with an OCAD starting point and a PDF training map. Lower
+Saxony, Rhineland-Palatinate and the water on the maps ship with the next version.
 
-freemapper is still under development. Rhineland-Palatinate is next, then the remaining states with
-open geodata. Thuringia follows once its height-data server is back.
+freemapper is still under development. The remaining states with open geodata come next:
+Baden-Württemberg, Bremen, Bavaria and Saarland. Thuringia follows once its height-data server is
+back.
 Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -76,6 +77,7 @@ objects each map has is in [`examples/README.en.md`](examples/README.en.md).
 | Mecklenburg-Vorpommern | [Wismar old town](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
 | North Rhine-Westphalia | [Monschau old town](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](examples/niedersachsen-herrenhausen/) | <a href="examples/niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="examples/niedersachsen-herrenhausen/preview.jpg" width="160" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="160" alt=""></a> |
 
 ## Choosing the area in the browser
 
@@ -222,6 +224,7 @@ freemapper run vorstadt
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | orthophoto as a colour palette (256 colours); height models only inside the state tiles |
 | North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |
 | Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; Bremen not included yet |
+| Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 
 At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the

@@ -78,6 +78,18 @@ pub const LGLN: WfsService = WfsService {
     square_bez: Some("ohne Unterart (Niedersachsen)"),
 };
 
+/// LVermGeo RP, Rheinland-Pfalz (EPSG:25832; MapServer). Land use is `ave:Nutzung` (per object, with
+/// `nutzart` and `bez`; there is no `NutzungFlurstueck`), and `aktualit` sits inside a
+/// `gml:timePosition`. Names of several objects are joined with `;` and kept as they are.
+pub const LVERMGEO_RP: WfsService = WfsService {
+    name: "LVermGeo RP ALKIS",
+    url: "https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:Nutzung",
+    crs: Crs::Utm32,
+    square_bez: Some("ohne Unterart (Rheinland-Pfalz)"),
+};
+
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
 /// (named for its administrative-boundary theme) serves every type with normal queries; the
 /// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
@@ -236,6 +248,13 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                         1 => {
                             if let Some(done) = feature.take() {
                                 features.push(done.into_geojson());
+                            }
+                        }
+                        // LVermGeo RP wraps the date: `<aktualit><gml:timePosition>…` (a `TimeInstant` may sit between).
+                        depth if depth >= 3 && name == "timePosition" && path[2] == "aktualit" => {
+                            let value = text_buf.trim();
+                            if !value.is_empty() {
+                                f.properties.insert(path[2].clone(), Value::from(value));
                             }
                         }
                         // A direct child of the feature element: an attribute.
@@ -450,6 +469,10 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/niedersachsen-buildings.gml");
     pub const NI_LAND_USE: &str =
         include_str!("../../../../tests/fixtures/niedersachsen-land-use.gml");
+    pub const RP_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/rheinland-pfalz-buildings.gml");
+    pub const RP_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/rheinland-pfalz-land-use.gml");
 }
 
 #[cfg(test)]
@@ -977,6 +1000,143 @@ mod tests {
             parsed.buildings.iter().filter(|b| !b.underground).count(),
             features.len() - 4
         );
+    }
+
+    #[test]
+    fn rp_buildings_parse() {
+        let features = parse_gml(RP_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        assert_eq!(parsed.buildings.len(), features.len());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DERP")));
+        // Native EPSG:25832 coordinates (Koblenz).
+        let school = parsed
+            .buildings
+            .iter()
+            .find(|b| b.function == "Allgemein bildende Schule")
+            .unwrap();
+        let corner = school.footprint.0[0].exterior().0[0];
+        assert!((390_000.0..410_000.0).contains(&corner.x), "{corner:?}");
+        // `aktualit` is read from inside `gml:timePosition`.
+        assert!(parsed.buildings.iter().all(|b| b.updated.is_some()));
+        assert_eq!(
+            school.updated,
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 20),
+            "{school:?}"
+        );
+        // Underground parts are marked by `rellage`.
+        assert!(parsed.buildings.iter().any(|b| b.underground));
+        assert!(
+            parsed
+                .buildings
+                .iter()
+                .any(|b| !b.underground && b.function == "Wohngebäude")
+        );
+    }
+
+    #[test]
+    fn rp_land_use_from_nutzung() {
+        assert_eq!(LVERMGEO_RP.land_use_type, "ave:Nutzung");
+        assert_eq!(LVERMGEO_RP.buildings_type, "ave:GebaeudeBauwerk");
+        assert_eq!(
+            LVERMGEO_RP.url,
+            "https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi"
+        );
+        assert_eq!(LVERMGEO_RP.crs, Crs::Utm32);
+        let features: Vec<Value> = parse_gml(RP_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, LVERMGEO_RP.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        assert_eq!(land.len(), features.len());
+        assert!(land.iter().all(|l| l.oid.starts_with("DERP")));
+        let nutzarten: Vec<&str> = land.iter().map(|l| l.nutzart.as_str()).collect();
+        for want in [
+            "Straßenverkehr",
+            "Platz",
+            "Wald",
+            "Fließgewässer",
+            "Stehendes Gewässer",
+            "Hafenbecken",
+            "Unland, Vegetationslose Fläche",
+        ] {
+            assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
+        }
+        assert!(land.iter().any(|l| l.nutzart == "Straßenverkehr"
+            && l.bez.as_deref() == Some("Begleitfläche Straßenverkehr")));
+        // `;`-terminated values are kept as they are.
+        assert!(
+            land.iter()
+                .any(|l| l.bez.as_deref() == Some("Begleitfläche Bahnverkehr;"))
+        );
+        let squares: Vec<Option<&str>> = land
+            .iter()
+            .filter(|l| l.nutzart == "Platz")
+            .map(|l| l.bez.as_deref())
+            .collect();
+        assert!(squares.contains(&Some("Parkplatz")), "{squares:?}");
+        assert!(
+            squares.contains(&Some("ohne Unterart (Rheinland-Pfalz)")),
+            "{squares:?}"
+        );
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
+        assert!(features.iter().all(|f| !f["geometry"].is_null()));
+        // Names are `;`-joined as the service sends them and otherwise untouched.
+        let names: Vec<String> = parse_gml(RP_BUILDINGS)
+            .unwrap()
+            .iter()
+            .filter_map(|f| f["properties"]["name"].as_str().map(str::to_string))
+            .collect();
+        assert!(
+            names.contains(&"Amtsgericht Koblenz;Landgericht Koblenz".to_string()),
+            "{names:?}"
+        );
+        assert!(names.iter().all(|n| n == n.trim()), "{names:?}");
+    }
+
+    #[test]
+    fn aktualit_in_time_position_is_read() {
+        let one = |inner: &str| {
+            format!(
+                r#"<?xml version="1.0"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ave="x"><wfs:member><ave:GebaeudeBauwerk gml:id="a"><ave:oid>DERPLP0000000001BL</ave:oid>{inner}<ave:gebnutzbez>Gebäude</ave:gebnutzbez></ave:GebaeudeBauwerk></wfs:member></wfs:FeatureCollection>"#
+            )
+        };
+        let date = |inner: &str| {
+            parse_gml(&one(inner)).unwrap()[0]["properties"]["aktualit"]
+                .as_str()
+                .map(str::to_string)
+        };
+        assert_eq!(
+            date(
+                r#"<ave:aktualit gml:id="a.aktualit"><gml:timePosition>2024-05-03</gml:timePosition></ave:aktualit>"#
+            ),
+            Some("2024-05-03".to_string())
+        );
+        // With a TimeInstant around it, too.
+        assert_eq!(
+            date(
+                r#"<ave:aktualit><gml:TimeInstant gml:id="t"><gml:timePosition>2024-05-03</gml:timePosition></gml:TimeInstant></ave:aktualit>"#
+            ),
+            Some("2024-05-03".to_string())
+        );
+        // A plain text value (the other states) is read as before, an empty one is absent.
+        assert_eq!(
+            date("<ave:aktualit>2013-02-18Z</ave:aktualit>"),
+            Some("2013-02-18Z".to_string())
+        );
+        assert_eq!(date("<ave:aktualit></ave:aktualit>"), None);
+        // A `timePosition` anywhere else is no attribute.
+        let other = parse_gml(&one(
+            "<ave:zeit><gml:timePosition>2020-01-01</gml:timePosition></ave:zeit>",
+        ))
+        .unwrap();
+        assert!(other[0]["properties"].get("aktualit").is_none());
+        // The other states' fixtures keep their dates.
+        for gml in [HE_BUILDINGS, NI_BUILDINGS, NRW_BUILDINGS] {
+            let parsed = parse_buildings(&collection(&parse_gml(gml).unwrap())).unwrap();
+            assert!(parsed.buildings.iter().any(|b| b.updated.is_some()));
+        }
     }
 
     #[test]

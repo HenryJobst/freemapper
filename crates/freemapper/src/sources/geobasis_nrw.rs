@@ -13,10 +13,10 @@ use chrono::NaiveDate;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
-use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
-use crate::sources::height_model::HeightModel;
-use crate::sources::lvermgeo_sh::{is_plain, paste_tile, read_cached, whole_tile};
+use crate::sources::height_model::{
+    AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
+};
+use crate::sources::lvermgeo_sh::is_plain;
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
@@ -396,11 +396,6 @@ fn clear_markers(dir: &Path, model: Model) {
     }
 }
 
-/// `32_354_5642`.
-fn short_name(tile: TileId) -> String {
-    format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
-}
-
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), mosaicked into a Float32 GeoTIFF `out`
 /// with its world file.
 ///
@@ -420,109 +415,41 @@ pub fn fetch_model(
     let mut warnings = Vec::new();
     let meta = meta_list(fetcher, &dir, mode, model, &mut warnings)?;
     warnings.extend(meta.warnings.iter().cloned());
-    let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
-    let (mut found, mut missing, mut pending) = (0, Vec::new(), Vec::new());
-    let mut paste = |raster: &mut Raster<f32>, entry: &MetaTile, part: &Raster<f32>| {
-        found += 1;
-        let empty = paste_tile(raster, part).map_err(|message| FetchError::Http {
-            url: tile_url(model, &entry.name),
-            message: format!("{} tile {}: {message}", model.label(), entry.name),
-        })?;
-        if empty > 0 {
-            warnings.push(format!(
-                "{} tile {}: {empty} cells of the map area have no height",
-                model.label(),
-                short_name(entry.tile)
-            ));
-        }
-        Ok::<(), FetchError>(())
-    };
+    let mut area = AreaTiles::default();
     for tile in tiles_covering(bbox) {
         match meta.tiles.get(&tile) {
-            None if tile_centre_in(tile, Region::NordrheinWestfalen) => missing.push(tile),
+            Some(entry) => area.named.push((tile, entry.name.clone())),
+            None if tile_centre_in(tile, Region::NordrheinWestfalen) => area
+                .missing
+                .push((tile, "not in the tile list".to_string())),
             None => {}
-            Some(entry) => match read_cached(&cache_path(&dir, model, &entry.name), tile) {
-                Some(part) => paste(&mut raster, entry, &part)?,
-                None if marker_path(&dir, model, &entry.name).exists() => missing.push(tile),
-                None => pending.push(entry),
-            },
         }
     }
-    if let (FetchMode::Offline, Some(entry)) = (mode, pending.first()) {
-        return Err(FetchError::Http {
-            url: tile_url(model, &entry.name),
-            message: format!(
-                "offline and not cached: {} tile {}; run `freemapper fetch` online",
-                model.label(),
-                entry.name
-            ),
-        });
-    }
-    for entry in pending {
-        let url = tile_url(model, &entry.name);
-        let downloaded = get_with_retries(fetcher, &url, |bytes| {
-            let part = decode_float_tiff(bytes)
-                .and_then(|r| whole_tile(r, entry.tile, &[1.0]))
-                .map_err(|message| FetchError::Http {
-                    url: url.clone(),
-                    message: format!("{} tile {}: {message}", model.label(), entry.name),
-                })?;
-            Ok((part, bytes.to_vec()))
-        });
-        match downloaded {
-            Ok((part, bytes)) => {
-                write_atomically(&cache_path(&dir, model, &entry.name), &bytes)?;
-                paste(&mut raster, entry, &part)?;
-            }
-            // Named by the list, not on the server. The note keeps later runs, online and
-            // offline, from asking again; a new release of the list clears it.
-            Err(FetchError::NotFound(_)) => {
-                write_atomically(&marker_path(&dir, model, &entry.name), b"")?;
-                missing.push(entry.tile);
-            }
-            Err(e) => return Err(e),
-        }
-    }
-    if found == 0 {
-        return Err(FetchError::Http {
-            url: meta_url(model),
-            message: format!("no tile of the {} covers the map area", model.label()),
-        });
-    }
-    write_float_raster(&raster, out, HM)?;
-    let centre = TileId {
-        east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
-        north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
+    let list_url = meta_url(model);
+    let store = TileStore {
+        label: model.label(),
+        list_url: &list_url,
+        source: HM,
+        url: &|name| tile_url(model, name),
+        cache_path: &|name| cache_path(&dir, model, name),
+        marker_path: &|name| marker_path(&dir, model, name),
+        // A new release of the list clears the notes.
+        known_missing: &|path| path.exists(),
+        precheck: &|_| Ok(()),
+        explain_empty: false,
     };
-    let date = match meta.tiles.get(&centre) {
-        Some(_) if missing.contains(&centre) => {
-            warnings.push(format!(
-                "the {} tile {} at the centre of the map area is missing, so there is no date",
-                model.label(),
-                short_name(centre)
-            ));
-            None
-        }
-        Some(entry) if entry.date.is_none() => {
-            warnings.push(format!(
+    let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, out, &mut warnings)?;
+    let centre = centre_tile(bbox);
+    let listed = meta.tiles.get(&centre).map(|entry| {
+        entry.date.clone().ok_or_else(|| {
+            format!(
                 "the tile list gives no date for the {} tile {}",
                 model.label(),
                 short_name(centre)
-            ));
-            None
-        }
-        Some(entry) => entry.date.clone(),
-        None => {
-            warnings.push(format!(
-                "the tile list names no {} tile {} at the centre of the map area, so there is no \
-                 date",
-                model.label(),
-                short_name(centre)
-            ));
-            None
-        }
-    };
-    missing.sort();
+            )
+        })
+    });
+    let date = centre_date(bbox, model.label(), listed, &missing, &mut warnings);
     Ok(HeightModel {
         missing,
         date,
@@ -535,6 +462,8 @@ pub fn fetch_model(
 mod tests {
     use super::*;
     use crate::fetch::test_support::{MapFetcher, nrw_meta_zip, serve_synthetic_nrw};
+    use crate::raster::GridSpec;
+    use crate::sources::float_tiff::decode_float_tiff;
 
     /// Two tiles side by side in Köln (centre at the tile border 355 km).
     const BBOX: BoundingBox = BoundingBox {

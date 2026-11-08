@@ -206,6 +206,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
             }
             Region::Niedersachsen => wfs_buildings(fetcher, &alkis_wfs::LGLN, &in_crs)?,
+            Region::RheinlandPfalz => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO_RP, &in_crs)?,
         })
     })
 }
@@ -251,6 +252,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             ),
             Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
             Region::Niedersachsen => wfs_land_use(fetcher, &alkis_wfs::LGLN, &in_crs)?,
+            Region::RheinlandPfalz => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO_RP, &in_crs)?,
         })
     })
 }
@@ -304,7 +306,7 @@ fn wfs_land_use(
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
 /// each state has its own object id prefix (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`,
-/// `DEMV…`, `DENW…`, `DENI…`), and a feature two states both return is kept once.
+/// `DEMV…`, `DENW…`, `DENI…`, `DERP…`), and a feature two states both return is kept once.
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -1309,6 +1311,83 @@ mod tests {
             land.iter().any(|l| l.nutzart == "Platz"
                 && l.bez.as_deref() == Some("ohne Unterart (Niedersachsen)"))
         );
+    }
+
+    #[test]
+    fn mainz_border_reads_both_states() {
+        // A box over the Rhine at Mainz-Amöneburg / Wiesbaden (25833 E 17821 / N 5561995).
+        let region_bbox = BoundingBox {
+            min_e: 17_821.0 - 250.0,
+            min_n: 5_561_995.0 - 250.0,
+            max_e: 17_821.0 + 250.0,
+            max_n: 5_561_995.0 + 250.0,
+        };
+        assert_eq!(
+            regions_for(&region_bbox),
+            vec![Region::Hessen, Region::RheinlandPfalz]
+        );
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            alkis_wfs::LVERMGEO_RP.url,
+            alkis_wfs::test_support::RP_BUILDINGS.as_bytes().to_vec(),
+        );
+        // A border object that both services deliver under the same oid.
+        let shared = "DERPLP050000AR8IBL";
+        assert!(alkis_wfs::test_support::RP_BUILDINGS.contains(&format!("<ave:oid>{shared}<")));
+        fetcher.insert_prefix(
+            alkis_wfs::HVBG.url,
+            with_first_oid(alkis_wfs::test_support::HE_BUILDINGS, shared).into_bytes(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEHE")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DERP")), "{oids:?}");
+        assert_eq!(oids.iter().filter(|o| **o == shared).count(), 1, "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+
+        fetcher.insert_prefix(
+            alkis_wfs::LVERMGEO_RP.url,
+            alkis_wfs::test_support::RP_LAND_USE.as_bytes().to_vec(),
+        );
+        let shared_land = first_ave_oid(alkis_wfs::test_support::RP_LAND_USE);
+        fetcher.insert_prefix(
+            alkis_wfs::HVBG.url,
+            with_first_oid(alkis_wfs::test_support::HE_LAND_USE, &shared_land).into_bytes(),
+        );
+        let raw: Value =
+            serde_json::from_str(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
+        let ids: Vec<&str> = raw["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["properties"]["oid"].as_str().unwrap())
+            .collect();
+        assert!(ids.iter().any(|o| o.starts_with("DEHE")), "{ids:?}");
+        assert!(ids.iter().any(|o| o.starts_with("DERP")), "{ids:?}");
+        assert_eq!(ids.iter().filter(|o| **o == shared_land).count(), 1);
+        let unique: std::collections::HashSet<&&str> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len(), "no duplicate land use: {ids:?}");
+        let log = fetcher.log.borrow();
+        for service in [alkis_wfs::HVBG.url, alkis_wfs::LVERMGEO_RP.url] {
+            assert!(
+                log.iter()
+                    .any(|u| u.starts_with(service) && u.contains("EPSG::25832")),
+                "{service}"
+            );
+        }
+        assert!(
+            log.iter().any(|u| u.starts_with(alkis_wfs::LVERMGEO_RP.url)
+                && u.contains("TYPENAMES=ave:Nutzung&")),
+            "{log:?}"
+        );
+    }
+
+    /// The text of the first `<ave:oid>` element.
+    fn first_ave_oid(gml: &str) -> String {
+        let start = gml.find("<ave:oid>").unwrap() + "<ave:oid>".len();
+        gml[start..start + gml[start..].find('<').unwrap()].to_string()
     }
 
     #[test]

@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -64,6 +64,7 @@ const TEXTS = {
     aerialMecklenburgVorpommern: "Luftbild Mecklenburg-Vorpommern (LAiV M-V)",
     aerialNordrheinWestfalen: "Luftbild Nordrhein-Westfalen (Geobasis NRW)",
     aerialNiedersachsen: "Luftbild Niedersachsen (LGLN)",
+    aerialRheinlandPfalz: "Luftbild Rheinland-Pfalz (LVermGeo RP)",
   },
   en: {
     heading: "Choose the map area",
@@ -95,7 +96,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -127,6 +128,7 @@ const TEXTS = {
     aerialMecklenburgVorpommern: "Aerial photo Mecklenburg-Vorpommern (LAiV M-V)",
     aerialNordrheinWestfalen: "Aerial photo North Rhine-Westphalia (Geobasis NRW)",
     aerialNiedersachsen: "Aerial photo Lower Saxony (LGLN)",
+    aerialRheinlandPfalz: "Aerial photo Rhineland-Palatinate (LVermGeo RP)",
   },
 };
 
@@ -235,6 +237,13 @@ const aerialNiedersachsen = L.tileLayer.wms(
     attribution: "© GeoBasis-DE/LGLN, CC BY 4.0",
   },
 );
+// The current DOP20 (EPSG:3857 is among the layer's CRS); white beyond the state border.
+const aerialRheinlandPfalz = L.tileLayer.wms("https://geo4.service24.rlp.de/wms/rp_dop20.fcgi", {
+  layers: "rp_dop20",
+  format: "image/jpeg",
+  maxZoom: 20,
+  attribution: `©GeoBasis-DE / LVermGeoRP${new Date().getFullYear()}, dl-de/by-2-0, www.lvermgeo.rlp.de`,
+});
 L.control
   .layers({
     [T.osm]: osm,
@@ -247,6 +256,7 @@ L.control
     [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
     [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
     [T.aerialNiedersachsen]: aerialNiedersachsen,
+    [T.aerialRheinlandPfalz]: aerialRheinlandPfalz,
   })
   .addTo(map);
 map.attributionControl.addAttribution(

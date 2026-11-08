@@ -277,6 +277,10 @@ const NIEDERSACHSEN_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf";
 const NIEDERSACHSEN_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt";
+const RHEINLAND_PFALZ_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf";
+const RHEINLAND_PFALZ_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -404,6 +408,8 @@ pub enum ExtractSource {
     MecklenburgVorpommern,
     /// Niedersachsen, with Bremen inside it.
     Niedersachsen,
+    /// Rheinland-Pfalz (without Wiesbaden and Mainz-Kastel, which are Hesse).
+    RheinlandPfalz,
     /// A North Rhine-Westphalia government district.
     NordrheinWestfalen(GovernmentDistrict),
 }
@@ -424,6 +430,7 @@ pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(&str)) -> Vec<E
             Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
             Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
             Region::Niedersachsen => vec![ExtractSource::Niedersachsen],
+            Region::RheinlandPfalz => vec![ExtractSource::RheinlandPfalz],
             Region::NordrheinWestfalen => nrw_districts_for(bbox, progress)
                 .into_iter()
                 .map(ExtractSource::NordrheinWestfalen)
@@ -490,6 +497,7 @@ impl ExtractSource {
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_EXTRACT_URL,
             Self::Niedersachsen => NIEDERSACHSEN_EXTRACT_URL,
+            Self::RheinlandPfalz => RHEINLAND_PFALZ_EXTRACT_URL,
             Self::NordrheinWestfalen(district) => district.extract().url,
         }
     }
@@ -504,6 +512,7 @@ impl ExtractSource {
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_STATE_URL,
             Self::Niedersachsen => NIEDERSACHSEN_STATE_URL,
+            Self::RheinlandPfalz => RHEINLAND_PFALZ_STATE_URL,
             Self::NordrheinWestfalen(district) => district.extract().state_url,
         }
     }
@@ -519,6 +528,7 @@ impl ExtractSource {
             Self::SchleswigHolstein => "schleswig-holstein_",
             Self::MecklenburgVorpommern => "mecklenburg-vorpommern_",
             Self::Niedersachsen => "niedersachsen_",
+            Self::RheinlandPfalz => "rheinland-pfalz_",
             Self::NordrheinWestfalen(district) => district.extract().prefix,
         }
     }
@@ -534,6 +544,7 @@ impl ExtractSource {
             Self::SchleswigHolstein => 159.0,
             Self::MecklenburgVorpommern => 128.8,
             Self::Niedersachsen => 510.0,
+            Self::RheinlandPfalz => 275.0,
             Self::NordrheinWestfalen(district) => district.extract().megabytes,
         }
     }
@@ -548,6 +559,7 @@ impl ExtractSource {
             Self::SchleswigHolstein => "Schleswig-Holstein",
             Self::MecklenburgVorpommern => "Mecklenburg-Vorpommern",
             Self::Niedersachsen => "Lower Saxony",
+            Self::RheinlandPfalz => "Rhineland-Palatinate",
             Self::NordrheinWestfalen(district) => district.extract().label,
         }
     }
@@ -888,6 +900,33 @@ mod tests {
     }
 
     #[test]
+    fn rp_extract_urls() {
+        let rp = ExtractSource::RheinlandPfalz;
+        assert_eq!(
+            rp.url(),
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf"
+        );
+        assert_eq!(
+            rp.state_url(),
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt"
+        );
+        assert_eq!(rp.label(), "Rhineland-Palatinate");
+        assert_eq!(rp.megabytes(), 275.0);
+        // Koblenz: the one state extract.
+        let p = crate::crs::utm33_forward(crate::crs::LatLon {
+            lat: 50.35964,
+            lon: 7.59917,
+        });
+        let koblenz = BoundingBox {
+            min_e: p.easting - 200.0,
+            min_n: p.northing - 200.0,
+            max_e: p.easting + 200.0,
+            max_n: p.northing + 200.0,
+        };
+        assert_eq!(extracts_for(&koblenz, &mut |_| {}), [rp]);
+    }
+
+    #[test]
     fn nrw_extracts_by_regierungsbezirk() {
         // Hildegard-von-Bingen-Gymnasium Koeln (25833 E -66680 / N 5671681): Koeln only.
         let school = BoundingBox {
@@ -999,7 +1038,11 @@ mod tests {
             max_e: -83_909.0,
             max_n: 5_619_611.0,
         };
-        assert_eq!(regions_for(&sliver), [Region::NordrheinWestfalen]);
+        // Rhineland-Palatinate lies on the other side of that border, so it is read too.
+        assert_eq!(
+            regions_for(&sliver),
+            [Region::NordrheinWestfalen, Region::RheinlandPfalz]
+        );
         assert!(
             GovernmentDistrict::ALL
                 .iter()
@@ -1008,7 +1051,10 @@ mod tests {
         let mut messages = Vec::new();
         assert_eq!(
             extracts_for(&sliver, &mut |m| messages.push(m.to_string())),
-            [ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln)]
+            [
+                ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln),
+                ExtractSource::RheinlandPfalz
+            ]
         );
         assert_eq!(
             messages,

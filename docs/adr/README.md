@@ -83,3 +83,8 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0035](0035-bremen-outside-until-its-own-region.md) | Bremen stays outside until it gets its own region | Accepted | 2026-11-08 |
 | [0036](0036-water-from-alkis-as-fill-and-bank-lines.md) | Water from ALKIS as fill and bank lines, water from OSM as candidates | Accepted | 2026-11-08 |
 | [0037](0037-ai-features-are-optional.md) | AI features inside the program are optional | Accepted | 2026-11-08 |
+| [0038](0038-rhineland-palatinate-orthophoto-from-the-wms-dated-by-its-creation-date.md) | Rhineland-Palatinate: orthophoto from the WMS, dated by its creation date | Accepted | 2026-11-08 |
+| [0039](0039-rhineland-palatinate-tile-names-from-the-laserbefliegung-index.md) | Rhineland-Palatinate: tile names from the Laserbefliegung index, the Metalink for unnamed tiles | Accepted | 2026-11-08 |
+| [0040](0040-rhineland-palatinate-missing-tiles-checked-again-after-30-days.md) | Rhineland-Palatinate: missing tiles are reported and checked again after 30 days | Accepted | 2026-11-08 |
+| [0041](0041-rhineland-palatinate-alkis-from-ave-nutzung-on-the-origin-host.md) | Rhineland-Palatinate: ALKIS from `ave:Nutzung` on the origin host, dates from `gml:timePosition` | Accepted | 2026-11-08 |
+| [0042](0042-rhineland-palatinate-provider-name-and-attribution.md) | Rhineland-Palatinate: provider `LvermGeoRp` and the attribution line | Accepted | 2026-11-08 |

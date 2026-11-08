@@ -38,7 +38,7 @@ fn assets() -> std::path::PathBuf {
 #[test]
 fn region_boundaries_are_valid() {
     let checked = check_boundaries(&assets());
-    assert!(checked >= 10, "{checked} assets");
+    assert!(checked >= 11, "{checked} assets");
 }
 
 #[test]
