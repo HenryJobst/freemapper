@@ -151,6 +151,13 @@ server ignoring `Range` is refused, a clamped range is an error). ALKIS from the
 Attribution `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten
 geändert`.
 
+**Hesse (verified live 2026-11-08, details `docs/regions/hessen-reference.md`):** HVBG, EPSG:25832. Orthophoto from the
+WMS (images ≤ 3000 px; flight date by GetFeatureInfo; summer flights). DGM1 and DOM1 (laser scan, 1 m) from the
+Downloadcenter's municipal zips by HTTP range: tile → municipality from the metadata xlsx (which also dates the
+tiles), file URLs resolved before each download, unresolvable places reported. ALKIS from the WFS
+(`ave:NutzungFlurstueck` etc.). Attribution `Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation
+(HVBG) <year>, dl-de/zero-2-0, verändert`.
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -348,7 +355,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt and Hamburg (done 2026-11-07: §4.1), then all other German states (user, 2026-11-07), then forest maps; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg and Hesse (done 2026-11-08: §4.1; next Schleswig-Holstein, Thuringia, Mecklenburg-Vorpommern, then the other states with open data; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 

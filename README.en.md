@@ -14,15 +14,15 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line or through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt and Hamburg (open data from LGB, Geoportal
-  Berlin, GeoSN, LVermGeo and LGV);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg and Hesse (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV and HVBG);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
   [`examples/`](examples/README.en.md).
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt and Hamburg, OCAD starting point, PDF training map. Next come the remaining German states, then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg and Hesse, OCAD starting point, PDF training map. Next come the remaining German states, then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -161,6 +161,7 @@ freemapper run vorstadt
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
 | Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |
+| Hesse | HVBG | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges |
 
 At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the
