@@ -328,11 +328,26 @@ pub fn drop_osm_trees_near_cadastre(
     }
     // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
     let limit = TREE_DEDUP_M * 1e6 / f64::from(scale_denominator);
+    // A grid of `limit`-sized cells: a tree within `limit` lies in the same or a neighbouring cell.
+    let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
+    let mut grid: std::collections::HashMap<(i64, i64), Vec<(f64, f64)>> =
+        std::collections::HashMap::new();
+    for tree in trees {
+        grid.entry(cell(tree)).or_default().push(tree);
+    }
     osm.into_iter()
         .filter(|o| {
             let osm_tree = has_tag(o, "freemapper:osm", &|v| v == "natural=tree");
-            let near = position(o)
-                .is_some_and(|(x, y)| trees.iter().any(|(tx, ty)| (x - tx).hypot(y - ty) <= limit));
+            let near = position(o).is_some_and(|p @ (x, y)| {
+                let (cx, cy) = cell(p);
+                (cx - 1..=cx + 1).any(|i| {
+                    (cy - 1..=cy + 1).any(|j| {
+                        grid.get(&(i, j)).is_some_and(|ts| {
+                            ts.iter().any(|(tx, ty)| (x - tx).hypot(y - ty) <= limit)
+                        })
+                    })
+                })
+            });
             !(osm_tree && near)
         })
         .collect()

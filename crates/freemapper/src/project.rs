@@ -1145,7 +1145,7 @@ fn fetch_wms_orthophoto(
 /// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
 /// plus buffer in the map's CRS. Optional like the Berlin layers: a failed request or a full disk
 /// (`skip`) leaves the template out with a warning, never fails the fetch. A stored template
-/// that covers the area at the right resolution is kept. Outside Berlin (`region_bbox`), and in
+/// that covers the area (same grid, see `check_template`) is kept. Outside Berlin (`region_bbox`), and in
 /// any CRS but UTM zone 33 that the service is asked for, nothing is requested and an earlier
 /// template is removed. Offline the stored template stays.
 #[allow(clippy::too_many_arguments)]
@@ -1178,22 +1178,9 @@ fn fetch_k5_into(
         remove(project);
         return;
     }
-    let pixel = match project.map_kind {
-        MapKind::Sprint => crate::sources::wms::K5_SPRINT_PIXEL_M,
-        MapKind::Schoolyard => crate::sources::wms::K5_SCHOOLYARD_PIXEL_M,
-    };
-    let stored_pixel = std::fs::read_to_string(path.with_extension("pgw"))
-        .ok()
-        .and_then(|world| {
-            image::image_dimensions(&path)
-                .ok()
-                .map(|(w, h)| (world, w, h))
-        })
-        .and_then(|(world, w, h)| GridSpec::from_world_file(&world, w, h).ok())
-        .map(|grid| grid.pixel_size);
-    let unchanged = project.k5.as_ref().is_some_and(|r| r.covers(bbox))
-        && stored_pixel.is_some_and(|p| (p - pixel).abs() < 1e-9)
-        && check_template(&path, bbox).is_ok();
+    let pixel = crate::sources::wms::K5_PIXEL_M;
+    let unchanged =
+        project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && check_template(&path, bbox).is_ok();
     if unchanged {
         progress("K5 template unchanged");
         return;
@@ -6662,6 +6649,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .as_bytes()
                 .to_vec(),
         );
+        serve_k5(fetcher, &ProjectFile::load(dir.path()).unwrap());
         (dir, cache_dir, cache)
     }
 
@@ -8426,18 +8414,16 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
-    /// Serves a K5 map for the template area of the Berlin school.
+    /// Serves a K5 map for the template area of a Berlin project (the pieces `fetch_k5` asks for).
     fn serve_k5(fetcher: &MapFetcher, project: &ProjectFile) {
-        let grid = GridSpec::covering(
-            &project.bbox().unwrap(),
-            crate::sources::wms::K5_SCHOOLYARD_PIXEL_M,
-        );
-        assert!(grid.width <= 4000 && grid.height <= 4000, "one piece");
-        let mut png = Vec::new();
-        image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([230, 220, 200]))
-            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
-            .unwrap();
-        fetcher.insert_prefix(crate::sources::wms::K5_WMS.url, png);
+        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
+        for (piece, url) in crate::sources::wms::k5_pieces(&grid) {
+            let mut png = Vec::new();
+            image::RgbImage::from_pixel(piece.width, piece.height, image::Rgb([230, 220, 200]))
+                .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                .unwrap();
+            fetcher.insert(&url, png);
+        }
     }
 
     #[test]
@@ -8502,7 +8488,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
         let project = ProjectFile::load(dir.path()).unwrap();
         serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
-        // No K5 answer: the fetch goes on, the template is left out.
+        // The K5 service fails: the fetch goes on, the template is left out.
+        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
+        for (_, url) in crate::sources::wms::k5_pieces(&grid) {
+            fetcher.failing.borrow_mut().push(url);
+        }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert!(project.k5.is_none());
         assert!(!dir.path().join(K5_RELPATH).exists());

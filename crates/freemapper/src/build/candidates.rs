@@ -153,7 +153,12 @@ impl Rules {
                     .when
                     .iter()
                     .map(|condition| {
-                        let compare = if let Some((key, limit)) = condition.split_once(">=") {
+                        // A comparison key is a plain tag name: `name=a>=b` is a value match and
+                        // `a|b>=c` (a value list as key) is rejected below.
+                        let compare = if let Some((key, limit)) = condition
+                            .split_once(">=")
+                            .filter(|(key, _)| !key.contains(['=', '|']))
+                        {
                             Some((key, limit, Test::AtLeast as fn(f64) -> Test))
                         } else if !condition.contains('=') {
                             condition
@@ -761,6 +766,37 @@ mod tests {
                 .symbol_for(&width("1.9"), &line, MapKind::Sprint)
                 .is_none()
         );
+    }
+
+    #[test]
+    fn value_lists_with_greater_equal_stay_string_matches() {
+        // `name=a>=b` is the value `a>=b`, not a comparison.
+        let toml = "[[rule]]\nwhen = [\"name=a>=b\"]\ndraw = \"line\"\nsprint = \"506\"";
+        let rules = Rules::from_toml(toml).unwrap();
+        let line = OsmGeometry::Line(vec![
+            LatLon {
+                lat: 52.5,
+                lon: 13.4,
+            },
+            LatLon {
+                lat: 52.5,
+                lon: 13.401,
+            },
+        ]);
+        let name = |v: &str| vec![("name".to_string(), v.to_string())];
+        assert!(
+            rules
+                .symbol_for(&name("a>=b"), &line, MapKind::Sprint)
+                .is_some()
+        );
+        assert!(
+            rules
+                .symbol_for(&name("9"), &line, MapKind::Sprint)
+                .is_none()
+        );
+        // A value list as the key of a comparison is an error.
+        let toml = "[[rule]]\nwhen = [\"a|b>=2\"]\ndraw = \"line\"\nsprint = \"506\"";
+        assert!(Rules::from_toml(toml).is_err());
     }
 
     #[test]

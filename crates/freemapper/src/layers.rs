@@ -9,9 +9,9 @@ use crate::area::MapArea;
 use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
-    BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, check_size, map_crs,
-    map_path,
+    BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH,
+    NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area,
+    check_size, map_crs, map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
@@ -651,9 +651,11 @@ pub struct Layer {
 /// The steps that make the layers, for CLI and MCP users.
 const EXPORT_STEP: &str = "freemapper export or run (MCP: start_pipeline)";
 const DERIVE_STEP: &str = "freemapper derive or run (MCP: start_pipeline)";
+/// The K5 template is downloaded by `fetch`, not derived.
+const FETCH_STEP: &str = "freemapper fetch or run (MCP: start_pipeline); Berlin only";
 
 /// Raster templates that have previews.
-const RASTER_LAYERS: [(&str, &str, &str); 4] = [
+const RASTER_LAYERS: [(&str, &str, &str); 5] = [
     (
         "orthophoto",
         ORTHOPHOTO_RELPATH,
@@ -673,6 +675,11 @@ const RASTER_LAYERS: [(&str, &str, &str); 4] = [
         "ndsm",
         NDSM_RELPATH,
         "height above ground: hedges, walls, trees, playground equipment",
+    ),
+    (
+        "k5",
+        K5_RELPATH,
+        "Berlin map 1:5000 (K5), to draw on or compare with",
     ),
 ];
 
@@ -702,7 +709,11 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             file: dir.join(relpath).display().to_string(),
             role: LayerRole::Template,
             ready: dir.join(relpath).exists(),
-            made_by: DERIVE_STEP,
+            made_by: if name == "k5" {
+                FETCH_STEP
+            } else {
+                DERIVE_STEP
+            },
             description,
         });
     }
@@ -728,8 +739,13 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
                     .to_string(),
             ));
         }
+        let step = if layer == "k5" {
+            FETCH_STEP
+        } else {
+            DERIVE_STEP
+        };
         return Err(ProjectError::Layer(format!(
-            "{layer} is not made yet; run {DERIVE_STEP}"
+            "{layer} is not made yet; run {step}"
         )));
     }
     let image =
@@ -2054,6 +2070,30 @@ mod tests {
     }
 
     #[test]
+    fn k5_template_has_a_layer_and_a_preview() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let k5 = |dir: &Path| {
+            list_layers(dir)
+                .into_iter()
+                .find(|l| l.name == "k5")
+                .unwrap()
+        };
+        assert!(!k5(dir.path()).ready);
+        assert!(k5(dir.path()).made_by.contains("fetch"));
+        let err = preview_png(dir.path(), "k5", 100).unwrap_err();
+        assert!(err.to_string().contains("freemapper fetch"), "{err}");
+        std::fs::create_dir_all(dir.path().join("templates")).unwrap();
+        image::RgbImage::new(400, 200)
+            .save(dir.path().join(K5_RELPATH))
+            .unwrap();
+        assert!(k5(dir.path()).ready);
+        let png = preview_png(dir.path(), "k5", 100).unwrap();
+        let small = image::load_from_memory(&png).unwrap();
+        assert_eq!((small.width(), small.height()), (100, 50));
+    }
+
+    #[test]
     fn layers_name_the_pipeline_step() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
@@ -2174,7 +2214,8 @@ mod tests {
                 "orthophoto",
                 "hillshade",
                 "slope",
-                "ndsm"
+                "ndsm",
+                "k5"
             ]
         );
         assert!(list_layers(dir.path()).iter().all(|l| !l.ready));

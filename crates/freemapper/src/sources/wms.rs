@@ -71,12 +71,16 @@ pub const K5_WMS: WmsService = WmsService {
     extra: "",
     max_px: 4000,
 };
-/// Pixel size of the K5 template on a sprint map (1:4000 prints the 1:5000 map at about this).
-pub const K5_SPRINT_PIXEL_M: f64 = 0.25;
-/// Pixel size of the K5 template on a schoolyard map (1:1000).
-pub const K5_SCHOOLYARD_PIXEL_M: f64 = 0.1;
-/// Longest side of the K5 image in pixels; a larger area gets coarser pixels.
-const K5_MAX_SIDE_PX: f64 = 10_000.0;
+/// Pixel size of the K5 template on both map kinds: a 1:5000 map is fully resolved at this.
+pub const K5_PIXEL_M: f64 = 0.25;
+/// Longest side of the K5 image in pixels (about 108 MB while stitching); a larger area gets
+/// coarser pixels.
+const K5_MAX_SIDE_PX: f64 = 6_000.0;
+
+/// The GetMap requests covering `grid` for the K5 map (PNG).
+pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    pieces_as(&K5_WMS, grid, "image/png")
+}
 
 /// Where the orthophoto comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -292,7 +296,7 @@ pub fn fetch_k5(
     let longest = bbox.width().max(bbox.height());
     let grid = GridSpec::covering(bbox, pixel_size.max(longest / K5_MAX_SIDE_PX));
     let mut mosaic = image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([255; 3]));
-    for (piece, url) in pieces_as(&K5_WMS, &grid, "image/png") {
+    for (piece, url) in k5_pieces(&grid) {
         // A WMS reports errors as HTTP 200 with an XML document; that would come again.
         let answer = get_with_retries(fetcher, &url, |bytes| {
             let refused = |message: String| FetchError::Http {
@@ -699,9 +703,9 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             max_e: 393_100.0,
             max_n: 5_820_300.0,
         };
-        let grid = GridSpec::covering(&bbox, K5_SPRINT_PIXEL_M);
+        let grid = GridSpec::covering(&bbox, K5_PIXEL_M);
         let fetcher = MapFetcher::default();
-        let pieces = pieces_as(&K5_WMS, &grid, "image/png");
+        let pieces = k5_pieces(&grid);
         assert_eq!(pieces.len(), 2);
         for (piece, url) in &pieces {
             assert!(
@@ -715,7 +719,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("k5.png");
-        fetch_k5(&fetcher, &bbox, K5_SPRINT_PIXEL_M, &out).unwrap();
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
         let png = image::open(&out).unwrap().into_rgb8();
         assert_eq!((png.width(), png.height()), (grid.width, grid.height));
         assert_eq!(png.get_pixel(grid.width - 1, 0).0, [200, 180, 160]);
@@ -731,9 +735,32 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 b"<ServiceExceptionReport>no layer</ServiceExceptionReport>".to_vec(),
             );
         }
-        let err =
-            fetch_k5(&broken, &bbox, K5_SPRINT_PIXEL_M, &dir.path().join("x.png")).unwrap_err();
+        let err = fetch_k5(&broken, &bbox, K5_PIXEL_M, &dir.path().join("x.png")).unwrap_err();
         assert!(err.to_string().contains("no layer"), "{err}");
+    }
+
+    #[test]
+    fn k5_image_is_capped_at_6000_px() {
+        // 3000 m at 0.25 m would be 12 000 px: the pixels grow to 0.5 m.
+        let bbox = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 395_000.0,
+            max_n: 5_820_100.0,
+        };
+        let grid = GridSpec::covering(&bbox, 0.5);
+        let fetcher = MapFetcher::default();
+        for (piece, url) in k5_pieces(&grid) {
+            fetcher.insert(&url, solid_png(piece.width, piece.height, [1, 2, 3]));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("k5.png");
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
+        let png = image::open(&out).unwrap();
+        assert_eq!(png.width(), 6000);
+        let world = std::fs::read_to_string(out.with_extension("pgw")).unwrap();
+        let stored = GridSpec::from_world_file(&world, png.width(), png.height()).unwrap();
+        assert!((stored.pixel_size - 0.5).abs() < 1e-12, "{stored:?}");
     }
 
     fn solid_png(width: u32, height: u32, rgb: [u8; 3]) -> Vec<u8> {
