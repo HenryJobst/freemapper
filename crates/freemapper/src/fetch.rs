@@ -1734,6 +1734,34 @@ pub(crate) mod test_support {
         }
     }
 
+    /// Serves everything a Mecklenburg-Vorpommern project in `bbox` (EPSG:25833) fetches: the
+    /// rasters of [`serve_synthetic_mv`], the MV ALKIS fixtures (OGC API) and the MV OSM extract.
+    pub fn serve_synthetic_mecklenburg_vorpommern(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+    ) {
+        use crate::sources::alkis;
+        serve_synthetic_mv(fetcher, bbox);
+        fetcher.insert_prefix(
+            alkis::MV_BUILDINGS_ENDPOINT,
+            include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-buildings.json")
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis::MV_LAND_USE_ENDPOINT,
+            include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-land-use.json").to_vec(),
+        );
+        let extract = crate::sources::osm::ExtractSource::MecklenburgVorpommern;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
     /// bDOM zips with the 1 km tiles of `bbox` (terrain 5 m rising 0.01 m per metre east, surface
     /// 12 m above), a WMS orthophoto of the right size, the DOP metadata, the Hamburg ALKIS

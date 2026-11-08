@@ -100,8 +100,7 @@ fn estimate_area(
         Some(Provider::Lgv) => lgv_items(bbox, cache),
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
-        // Task 5: the LAiV M-V download items (WCS, per km2; no tile grid to count).
-        Some(Provider::LaivMv) => Vec::new(),
+        Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -305,6 +304,17 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
             SH_BDOM_TILE_MB,
             "surface model (LVermGeo SH bDOM, full-tile download)".to_string(),
         ),
+    ]
+}
+
+/// LAiV M-V: the orthophoto, DGM1 and DOM1 all come from WCS requests for the area itself, so
+/// nothing is shared between projects or cached.
+fn laiv_mv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::laiv_mv::Model;
+    vec![
+        per_km2_item(bbox, "orthophoto (LAiV M-V WCS)", WMS_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
     ]
 }
 
@@ -1017,6 +1027,49 @@ mod tests {
         assert!(!dgm1(&cache).cached && dgm1(&cache).megabytes == 1.5);
         std::fs::write(root.join("dgm1").join(format!("{name}.tif")), b"x").unwrap();
         assert!(dgm1(&cache).cached);
+    }
+
+    #[test]
+    fn mv_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Innerstaedtisches Gymnasium in Rostock, 25833 E 312157 N 5996317.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 312_157.0,
+            northing: 5_996_317.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let items = &preview.estimate.items;
+        let find = |what: &str| {
+            items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap_or_else(|| panic!("{what} in {items:?}"))
+        };
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        assert!(near(find("orthophoto (LAiV M-V WCS)").megabytes, km2 * 8.0));
+        assert!(near(
+            find("terrain model (LAiV M-V DGM1)").megabytes,
+            km2 * 4.0
+        ));
+        assert!(near(
+            find("surface model (LAiV M-V DOM1)").megabytes,
+            km2 * 4.0
+        ));
+        assert!(near(
+            find("OSM extract Mecklenburg-Vorpommern (shared by all projects)").megabytes,
+            128.8
+        ));
+        assert!(
+            items
+                .iter()
+                .filter(|i| i.what.contains("LAiV M-V"))
+                .all(|i| !i.cached)
+        );
     }
 
     #[test]

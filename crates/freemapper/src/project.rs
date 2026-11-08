@@ -103,7 +103,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -601,8 +601,9 @@ pub fn fetch_project(
         Some(Provider::LvermGeoSh) => {
             fetch_sh_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
-        // Task 5: the LAiV M-V rasters (WCS orthophoto, DGM1, DOM1) are not fetched yet.
-        Some(Provider::LaivMv) => {}
+        Some(Provider::LaivMv) => {
+            fetch_mv_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -1269,6 +1270,71 @@ fn fetch_sh_rasters(
             project.surface = Some(record(&found, &project.surface));
         }
         Err(e) => keep_surface(dir, mode, project, bbox, Model::Bdom.label(), &e, progress),
+    }
+    project.save(dir)?;
+    Ok(())
+}
+
+/// The LAiV M-V rasters of `bbox` (EPSG:25833): the orthophoto from the DOP WCS, DGM1 and DOM1
+/// from the height WCS, masked to the MV tile set. The DOM1 is only a template: an unavailable
+/// one costs a warning.
+fn fetch_mv_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::height_model::HeightModel;
+    use crate::sources::laiv_mv::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    warn_beyond_state(project, Provider::LaivMv, "LAiV M-V", progress)?;
+    let flight = || laiv_mv::flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (&OrthophotoSource::Wcs(laiv_mv::DOP), "LAiV M-V", &flight),
+        progress,
+    )?;
+    let record =
+        |found: &HeightModel, old: &Option<WcsRecord>| height_record(mode, bbox, found, old);
+    let warn = |progress: &mut dyn FnMut(&str), model: Model, found: &HeightModel| {
+        warn_missing_tiles(progress, "Mecklenburg-Vorpommern", model.label(), found);
+        for warning in &found.warnings {
+            progress(&format!("warning: {warning}"));
+        }
+    };
+    progress(&format!("reading the {}", Model::Dgm1.label()));
+    let found = laiv_mv::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Dgm1,
+        bbox,
+        &dir.join(TERRAIN_RELPATH),
+    )?;
+    warn(progress, Model::Dgm1, &found);
+    project.terrain = Some(record(&found, &project.terrain));
+    progress(&format!("reading the {}", Model::Dom1.label()));
+    match laiv_mv::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Dom1,
+        bbox,
+        &dir.join(SURFACE_RELPATH),
+    ) {
+        Ok(found) => {
+            warn(progress, Model::Dom1, &found);
+            project.surface = Some(record(&found, &project.surface));
+        }
+        Err(e) => keep_surface(dir, mode, project, bbox, Model::Dom1.label(), &e, progress),
     }
     project.save(dir)?;
     Ok(())
@@ -2497,6 +2563,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(lgv_attribution(&project));
     attribution.extend(hvbg_attribution(&project));
     attribution.extend(sh_attribution(&project));
+    attribution.extend(mv_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2558,6 +2625,10 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
         lines.push(line);
         lines.push(SH_LICENCE_NOTE.to_string());
     }
+    if let Some(line) = mv_attribution(project) {
+        lines.push(line);
+        lines.push(CC_BY_LICENCE_NOTE.to_string());
+    }
     lines
 }
 
@@ -2615,6 +2686,17 @@ const SH_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International
 fn sh_attribution(project: &ProjectFile) -> Option<String> {
     per_area_attribution_year(project, Provider::LvermGeoSh, Region::SchleswigHolstein)?;
     Some(SH_ATTRIBUTION.to_string())
+}
+
+/// The LAiV M-V credit the licence prescribes for changed data.
+const MV_ATTRIBUTION: &str = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)";
+/// The licence text the LAiV M-V credit refers to (added to the project notes only).
+const CC_BY_LICENCE_NOTE: &str = SH_LICENCE_NOTE;
+
+/// The LAiV M-V line, once its rasters or Mecklenburg-Vorpommern ALKIS objects were fetched.
+fn mv_attribution(project: &ProjectFile) -> Option<String> {
+    per_area_attribution_year(project, Provider::LaivMv, Region::MecklenburgVorpommern)?;
+    Some(MV_ATTRIBUTION.to_string())
 }
 
 /// The year of the newest fetch of `provider`'s data in the project: its terrain model and
@@ -4139,6 +4221,228 @@ mod tests {
         // Moving within a zone keeps them (they are checked against the new area on fetch).
         let back = set_map_area(dir.path(), &fixture_area()).unwrap();
         assert_eq!(back.crs(), crate::crs::Crs::Utm33);
+    }
+
+    /// A schoolyard project at the Innerstaedtisches Gymnasium in Rostock, served with
+    /// synthetic MV data.
+    fn rostock_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project = init_project(
+            dir.path(),
+            &rostock_area(),
+            MapKind::Schoolyard,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        crate::fetch::test_support::serve_synthetic_mecklenburg_vorpommern(
+            fetcher,
+            &project.bbox().unwrap(),
+        );
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn mv_project_fetches_products() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm33);
+        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert!(project.tiles.is_empty());
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("14.08.2024")
+        );
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2024-03-01"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2024-08-01"));
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::MecklenburgVorpommern]
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Mecklenburg-Vorpommern from 2026-11-06"),
+            "{messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn mv_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        // DOM1 (terrain + 12 m) minus DGM1.
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn mv_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(
+            attribution.contains("©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"),
+            "{attribution}"
+        );
+        assert!(
+            attribution.contains("https://creativecommons.org/licenses/by/4.0/"),
+            "{attribution}"
+        );
+        assert!(
+            !attribution.contains("LVermGeo SH") && !attribution.contains("GeoBasis-DE/LGB"),
+            "{attribution}"
+        );
+    }
+
+    #[test]
+    fn mv_orthophoto_is_reused_while_the_flight_is_unchanged() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let getcoverages = |fetcher: &MapFetcher| {
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .filter(|u| u.contains("inspire_oi_dop_wcs") && u.contains("GetCoverage"))
+                .count()
+        };
+        fetch(dir.path(), &fetcher, &cache);
+        let first = getcoverages(&fetcher);
+        assert!(first >= 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(getcoverages(&fetcher), first);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (flight 14.08.2024)"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_mv_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let earlier = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+        for record in [project.terrain.as_mut(), project.surface.as_mut()] {
+            record.unwrap().fetched = earlier;
+        }
+        project.save(dir.path()).unwrap();
+        let project = fetch_project(
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.surface.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2024-03-01"));
+    }
+
+    #[test]
+    fn mv_border_map_masks_the_brandenburg_side() {
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Brüssow: the MV tile row N 5918 exists, the row N 5916 (Brandenburg) does not. The
+        // centre lies 100 m inside MV; the box reaches south into Brandenburg.
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 437_000.0 + e,
+                northing: 5_918_700.0 + n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-100.0, -800.0),
+            corner(100.0, -800.0),
+            corner(100.0, 800.0),
+            corner(-100.0, 800.0),
+            corner(-100.0, -800.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        let bbox = project.bbox().unwrap();
+        crate::fetch::test_support::serve_synthetic_mecklenburg_vorpommern(&fetcher, &bbox);
+        // The Brandenburg side: no buildings or land use, the Brandenburg OSM extract.
+        fetcher.insert_prefix(
+            crate::sources::alkis::BUILDINGS_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        fetcher.insert_prefix(
+            crate::sources::alkis::LAND_USE_ENDPOINT,
+            crate::sources::alkis::test_support::page(&[], None),
+        );
+        fetcher.insert(
+            crate::sources::osm::STATE_URL,
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            crate::sources::osm::EXTRACT_URL,
+            std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        // The rasters come from the centre's provider (MV).
+        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert!(
+            messages.iter().any(|m| m.starts_with(
+                "the map area reaches beyond the state border; no LAiV M-V data on the other side"
+            )),
+            "{messages:?}"
+        );
+        for relpath in [TERRAIN_RELPATH, SURFACE_RELPATH] {
+            let raster = read_float_raster(&dir.path().join(relpath)).unwrap();
+            let (w, h) = (raster.grid.width, raster.grid.height);
+            // North (MV) is a height, the Brandenburg side NaN: no cliff to zero.
+            assert!(raster.get(w / 2, 5).is_finite(), "{relpath} north");
+            assert!(raster.get(w / 2, h - 5).is_nan(), "{relpath} south");
+            assert!(
+                !(0..h).any(|y| raster.get(w / 2, y) == 0.0),
+                "{relpath}: no zero cells"
+            );
+        }
     }
 
     #[test]
