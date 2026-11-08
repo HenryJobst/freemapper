@@ -344,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn xml_instead_of_jpeg_is_retried_then_an_error() {
+    fn xml_instead_of_jpeg_is_an_error_asked_once() {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = crate::fetch::test_support::MapFetcher::default();
         fetcher.insert_prefix(
@@ -362,7 +362,7 @@ mod tests {
             err.to_string().contains("the WMS answered with an error"),
             "{err}"
         );
-        assert_eq!(fetcher.calls.get(), 3);
+        assert_eq!(fetcher.calls.get(), 1);
         assert!(!dir.path().join("o.jpg").exists());
     }
 

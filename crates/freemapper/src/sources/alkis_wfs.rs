@@ -1,5 +1,5 @@
-//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG; GML 3.2
-//! only), read into GeoJSON features with the LGB property schema (the attribute names are the
+//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG;
+//! GML 3.2 only), read into GeoJSON features with the LGB property schema (the attribute names are the
 //! same).
 
 use serde_json::Value;
