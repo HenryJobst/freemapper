@@ -17,7 +17,7 @@ use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::stairs::stair_objects;
+use crate::build::stairs::{StairInput, has_stairs, stair_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -43,7 +43,7 @@ use crate::omap::{
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
-use crate::sources::alkis::{fetch_buildings_in, parse_buildings};
+use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
 use crate::sources::berlin;
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
@@ -501,8 +501,8 @@ pub(crate) const WMS_ORTHOPHOTO_RELPATH: &str = "data/orthophoto-wms.jpg";
 /// The WCS terrain model (LVermGeo DGM1, 1 m) with its world file.
 pub(crate) const TERRAIN_RELPATH: &str = "data/dgm1.tif";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
-/// world file. `derive` writes it only for areas with extra Berlin layers: the export reads the
-/// walking direction of the stairs from it, offline and without the tile cache.
+/// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
+/// reads their walking direction from it, offline and without the tile cache.
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
 /// The WCS surface model (LVermGeo DOM1, 1 m) with its world file.
 pub(crate) const SURFACE_RELPATH: &str = "data/dom1.tif";
@@ -2327,9 +2327,9 @@ pub(crate) fn stored_berlin_layers(
 /// Candidates from the stored extra Berlin layers and the building parts of the stored buildings
 /// (passages), through the Berlin rules. None outside Berlin.
 fn stored_berlin_objects(
-    dir: &Path,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
+    buildings: Option<&StoredBuildings>,
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
@@ -2339,16 +2339,9 @@ fn stored_berlin_objects(
         .map(|l| (l.layer.file, l.features.as_slice(), l.fetched))
         .collect();
     // The building parts are in the buildings file (`bauart` is set by the Berlin source only).
-    let parts = match (&project.buildings, dir.join(BUILDINGS_RELPATH)) {
-        (Some(record), path) if path.exists() => {
-            let text =
-                std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-            let features =
-                berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
-                    path: path.clone(),
-                    message: e.to_string(),
-                })?;
-            Some((building_part_features(&features), record.fetched))
+    let parts = match (&project.buildings, buildings) {
+        (Some(record), Some(stored)) => {
+            Some((building_part_features(&stored.features), record.fetched))
         }
         _ => None,
     };
@@ -2384,6 +2377,7 @@ fn stored_berlin_structures(
     dir: &Path,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
+    footprints: &[geo_types::Polygon<f64>],
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
@@ -2396,15 +2390,10 @@ fn stored_berlin_structures(
         });
     };
     let map_area = area.projected_polygon_in(project.crs());
-    // A canopy inside a 521 footprint would double the building.
-    let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
-        .into_iter()
-        .filter(|b| classify(b) == Rule::Object)
-        .flat_map(|b| b.footprint.0)
-        .collect();
+    // Canopies are cut at the 521 footprints; flat entrance steps face them.
     let canopies = canopy_objects(
         &layer.features,
-        &footprints,
+        footprints,
         &map_area,
         project.buffer_m,
         georef,
@@ -2413,8 +2402,12 @@ fn stored_berlin_structures(
     )?;
     let terrain = stored_stair_terrain(dir, project)?;
     let stairs = stair_objects(
-        &layer.features,
-        terrain.as_ref(),
+        &StairInput {
+            features: &layer.features,
+            terrain: terrain.as_ref(),
+            buildings: footprints,
+        },
+        project.map_kind,
         &map_area,
         project.buffer_m,
         georef,
@@ -2623,9 +2616,14 @@ pub fn derive_project(
         dtm
     };
     // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
-    // the cache, so it is kept with the project where there are Berlin stairs.
+    // the cache, so it is kept with the project where the Berlin layers have stairs.
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
-    if tile_products.is_some() && !project.berlin_layers.is_empty() {
+    let stairs = tile_products.is_some()
+        && !project.berlin_layers.is_empty()
+        && stored_berlin_layers(dir, &project)?
+            .iter()
+            .any(|l| has_stairs(&l.features));
+    if stairs {
         progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
         crate::sources::float_tiff::write_float_raster(&dtm, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
     } else {
@@ -2829,33 +2827,61 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
     if matches { Ok(()) } else { Err(outdated()) }
 }
 
+/// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
+/// building parts are picked from these).
+struct StoredBuildings {
+    buildings: Vec<crate::sources::alkis::Building>,
+    features: Vec<serde_json::Value>,
+}
+
+impl StoredBuildings {
+    /// The 521 footprints (buildings that become map objects), in the map's CRS.
+    fn footprints(&self) -> Vec<geo_types::Polygon<f64>> {
+        self.buildings
+            .iter()
+            .filter(|b| classify(b) == Rule::Object)
+            .flat_map(|b| b.footprint.0.iter().cloned())
+            .collect()
+    }
+}
+
+/// The stored ALKIS buildings; none when no buildings were fetched.
+fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings>, ProjectError> {
+    let path = dir.join(BUILDINGS_RELPATH);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
+        path: path.clone(),
+        message: e.to_string(),
+    })?;
+    let buildings = parse_building_features(&features).buildings;
+    Ok(Some(StoredBuildings {
+        buildings,
+        features,
+    }))
+}
+
 /// 521 objects for the stored ALKIS buildings; none when no buildings were fetched. Fails when the
 /// recorded fetch does not cover the current map area plus buffer.
 fn stored_building_objects(
-    dir: &Path,
     project: &ProjectFile,
+    stored: Option<&StoredBuildings>,
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    let path = dir.join(BUILDINGS_RELPATH);
-    if !path.exists() {
+    let Some(stored) = stored else {
         return Ok(Vec::new());
-    }
+    };
     if let Some(record) = &project.buildings
         && !record.covers(&project.bbox()?)
     {
         return Err(ProjectError::BuildingsNotFetched);
     }
-    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let buildings = parse_buildings(&text)
-        .map_err(|e| ProjectError::StoredBuildings {
-            path: path.clone(),
-            message: e.to_string(),
-        })?
-        .buildings;
     Ok(building_objects(
-        &buildings,
+        &stored.buildings,
         &area.projected_polygon_in(project.crs()),
         project.buffer_m,
         georef,
@@ -2916,6 +2942,7 @@ fn stored_osm_objects(
 fn stored_contour_objects(
     dir: &Path,
     project: &ProjectFile,
+    footprints: &[geo_types::Polygon<f64>],
     area: &MapArea,
     water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
@@ -2948,11 +2975,6 @@ fn stored_contour_objects(
     // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
     // DGM1 is interpolated under buildings: closed rings there are artefacts.
-    let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
-        .into_iter()
-        .filter(|b| classify(b) == Rule::Object)
-        .flat_map(|b| b.footprint.0)
-        .collect();
     let on_a_building = |ring: &geo_types::LineString<f64>| {
         geo_types::Polygon::new(ring.clone(), vec![])
             .interior_point()
@@ -3017,18 +3039,9 @@ const CONTOUR_CODE: &str = "101";
 const INDEX_CONTOUR_CODE: &str = "102";
 
 /// The stored ALKIS buildings; none when no buildings were fetched.
+#[cfg(test)]
 fn stored_buildings(dir: &Path) -> Result<Vec<crate::sources::alkis::Building>, ProjectError> {
-    let path = dir.join(BUILDINGS_RELPATH);
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    Ok(parse_buildings(&text)
-        .map_err(|e| ProjectError::StoredBuildings {
-            path: path.clone(),
-            message: e.to_string(),
-        })?
-        .buildings)
+    Ok(read_stored_buildings(dir)?.map_or_else(Vec::new, |s| s.buildings))
 }
 
 /// Whether the stored buildings give map objects that the map at `map_text` lacks.
@@ -3045,7 +3058,11 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set();
-    Ok(!stored_building_objects(dir, &project, &area, &georef, &symbol_set)?.is_empty())
+    let stored = read_stored_buildings(dir)?;
+    Ok(
+        !stored_building_objects(&project, stored.as_ref(), &area, &georef, &symbol_set)?
+            .is_empty(),
+    )
 }
 
 /// How a building object's provenance appears in the map file.
@@ -3283,10 +3300,27 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
 
     // Buildings first: they are the map's own objects, candidates only a template.
-    let building_objects = stored_building_objects(dir, &project, &area, &georef, &symbol_set)?;
+    let stored_buildings = read_stored_buildings(dir)?;
+    let footprints = stored_buildings
+        .as_ref()
+        .map_or_else(Vec::new, StoredBuildings::footprints);
+    let building_objects = stored_building_objects(
+        &project,
+        stored_buildings.as_ref(),
+        &area,
+        &georef,
+        &symbol_set,
+    )?;
     let berlin_layers = stored_berlin_layers(dir, &project)?;
-    let structures =
-        stored_berlin_structures(dir, &project, &berlin_layers, &area, &georef, &symbol_set)?;
+    let structures = stored_berlin_structures(
+        dir,
+        &project,
+        &berlin_layers,
+        &footprints,
+        &area,
+        &georef,
+        &symbol_set,
+    )?;
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
@@ -3318,9 +3352,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
                 .chain(osm_objects(Target::Candidates)?)
                 .chain(stored_berlin_objects(
-                    dir,
                     &project,
                     &berlin_layers,
+                    stored_buildings.as_ref(),
                     &area,
                     &georef,
                     &symbol_set,
@@ -3329,6 +3363,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                 .chain(stored_contour_objects(
                     dir,
                     &project,
+                    &footprints,
                     &area,
                     &water.union,
                     &georef,
@@ -8289,7 +8324,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             documents.candidates.parts[0]
                 .objects
                 .iter()
-                .filter(|o| Some(o.symbol_id) == set.id_for_code("532.8"))
+                // 3 m wide at 1:1000 × 1.25: the widest footprint.
+                .filter(|o| Some(o.symbol_id) == set.id_for_code("532.9"))
                 .cloned()
                 .collect()
         };
@@ -8320,6 +8356,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             after[0].coords[1].x > after[0].coords[0].x,
             "uphill to the east"
         );
+
+        // Without stair areas `derive` keeps no terrain.
+        let roof_only = serde_json::json!({"type": "FeatureCollection", "features": [
+            area("DEBE00ROOF", "Überdachung", (392_760.0, 5_820_860.0), (6.0, 4.0))]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-flaechen.geojson"),
+            roof_only.to_string(),
+        )
+        .unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
     }
 
     #[test]

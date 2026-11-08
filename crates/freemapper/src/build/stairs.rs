@@ -4,8 +4,9 @@
 //! of the polygon gives two axes; the walking direction is the axis whose ends differ more in
 //! height in the terrain model (DGM1, sampled in the map's CRS), and the line runs uphill. If
 //! neither axis rises [`STAIR_MIN_RISE_M`], or no terrain model is stored, the long axis is used
-//! and the candidate is tagged `freemapper:direction=guessed`. The width across the walking
-//! direction, in metres on the ground, picks the footprint symbol.
+//! and the candidate is tagged `freemapper:direction=guessed`; a stair at a building façade
+//! (entrance steps) then faces the building instead. The width across the walking direction,
+//! as paper width at the map scale, picks the footprint symbol nearest to it.
 
 use chrono::NaiveDate;
 use geo::{Distance as _, Euclidean, MinimumRotatedRect as _};
@@ -17,6 +18,7 @@ use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+use crate::project::MapKind;
 use crate::raster::Raster;
 
 /// The layer the stair areas come from.
@@ -25,17 +27,42 @@ const STAIR_LAYER: &str = "bauwerke-flaechen";
 const STAIR_KINDS: [&str; 2] = ["Treppe", "Freitreppe"];
 /// An axis whose ends differ less than this in height does not decide the walking direction.
 pub const STAIR_MIN_RISE_M: f64 = 0.3;
-/// Upper width bounds (m, exclusive) of the footprint symbols; wider stairs get 532.9 (4 m).
-const FOOTPRINTS: [(f64, &str); 3] = [(1.8, "532.6"), (2.5, "532.7"), (3.5, "532.8")];
+/// The footprint symbols are 0.4, 0.5, 0.75 and 1 mm wide on paper (symbols at 100 %; at
+/// 1:4000 the 1.6 / 2 / 3 / 4 m of their names). Upper bounds (mm, exclusive) of each: the
+/// midpoints to the next one; wider stairs get 532.9.
+const FOOTPRINTS: [(f64, &str); 3] = [(0.45, "532.6"), (0.625, "532.7"), (0.875, "532.8")];
 const WIDEST_FOOTPRINT: &str = "532.9";
+/// A flat stair whose side lies this close to a building is taken for entrance steps.
+const FACADE_DISTANCE_M: f64 = 0.5;
 
-/// The ISSprOM footprint symbol (532.6 = 1.6 m … 532.9 = 4 m) for a stair `width_m` wide on the
-/// ground.
-pub fn footprint_code(width_m: f64) -> &'static str {
+/// The ISSprOM footprint symbol (532.6 … 532.9) nearest to a stair `paper_mm` wide on paper,
+/// measured at 100 % symbol size (the ground width over metres per mm and the enlargement).
+pub fn footprint_code(paper_mm: f64) -> &'static str {
     FOOTPRINTS
         .iter()
-        .find(|(below, _)| width_m < *below)
+        .find(|(below, _)| paper_mm < *below)
         .map_or(WIDEST_FOOTPRINT, |(_, code)| code)
+}
+
+fn is_stair(feature: &Value) -> bool {
+    feature["properties"]["bezbwf"]
+        .as_str()
+        .is_some_and(|kind| STAIR_KINDS.contains(&kind))
+}
+
+/// Whether any of the `features` of a layer is a stair area (`derive` keeps the terrain then).
+pub fn has_stairs(features: &[Value]) -> bool {
+    features.iter().any(is_stair)
+}
+
+/// What the stairs are built from.
+pub struct StairInput<'a> {
+    /// The `bauwerke-flaechen` features (EPSG:25833); only the stair areas are used.
+    pub features: &'a [Value],
+    /// The DGM1 in the map's CRS, if one is stored.
+    pub terrain: Option<&'a Raster<f32>>,
+    /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
+    pub buildings: &'a [Polygon<f64>],
 }
 
 /// One axis of a stair rectangle: the centre line from side to side, and the width across it.
@@ -96,9 +123,14 @@ fn axes(polygon: &Polygon<f64>) -> Option<[Axis; 2]> {
     })
 }
 
-/// The walking axis of a stair, uphill, and whether it is only the long axis (no terrain model,
-/// or flatter than [`STAIR_MIN_RISE_M`]).
-fn walking_axis([long, short]: [Axis; 2], terrain: Option<&Raster<f32>>) -> (Axis, bool) {
+/// The walking axis of a stair, uphill, and whether it is only guessed (no terrain model, or
+/// flatter than [`STAIR_MIN_RISE_M`]): then towards a building the stair lies at
+/// ([`FACADE_DISTANCE_M`]), else the long axis.
+fn walking_axis(
+    [long, short]: [Axis; 2],
+    terrain: Option<&Raster<f32>>,
+    buildings: &[Polygon<f64>],
+) -> (Axis, bool) {
     let rises = terrain.and_then(|t| Some((long.rise(t)?, short.rise(t)?)));
     match rises {
         Some((a, b)) if a.abs().max(b.abs()) >= STAIR_MIN_RISE_M => {
@@ -109,16 +141,52 @@ fn walking_axis([long, short]: [Axis; 2], terrain: Option<&Raster<f32>>) -> (Axi
             };
             (if rise < 0.0 { axis.reversed() } else { axis }, false)
         }
-        _ => (long, true),
+        _ => (facing_building([long, short], buildings), true),
     }
 }
 
-/// 532.6–532.9 candidates for the stair areas among the `bauwerke-flaechen` features within
-/// `buffer_m` of `map_area` (map CRS). `terrain` is the DGM1 in the map's CRS, if one is stored;
-/// `currency` is the fetch date of the layer.
+/// Of the four axis ends, the one nearest to a building within [`FACADE_DISTANCE_M`] gives the
+/// walking axis, towards the building; without one, the long (first) axis.
+fn facing_building([long, short]: [Axis; 2], buildings: &[Polygon<f64>]) -> Axis {
+    let ends = geo_types::MultiPoint::from(vec![long.from, long.to, short.from, short.to]);
+    let near: Vec<&Polygon<f64>> = buildings
+        .iter()
+        .filter(|b| Euclidean.distance(&ends, *b) <= FACADE_DISTANCE_M)
+        .collect();
+    let distance = |c: Coord<f64>| {
+        near.iter()
+            .map(|b| Euclidean.distance(&geo_types::Point(c), *b))
+            .fold(f64::INFINITY, f64::min)
+    };
+    let ends = [
+        (distance(long.to), 0, false),
+        (distance(long.from), 0, true),
+        (distance(short.to), 1, false),
+        (distance(short.from), 1, true),
+    ];
+    let nearest = ends
+        .into_iter()
+        .filter(|(d, _, _)| *d <= FACADE_DISTANCE_M)
+        .min_by(|a, b| a.0.total_cmp(&b.0));
+    match nearest {
+        Some((_, 1, reverse)) => {
+            if reverse {
+                short.reversed()
+            } else {
+                short
+            }
+        }
+        Some((_, _, true)) => long.reversed(),
+        _ => long,
+    }
+}
+
+/// 532.6–532.9 candidates for the stair areas of `input` within `buffer_m` of `map_area` (map
+/// CRS), with the footprints of the symbols of `kind`; `currency` is the fetch date of the
+/// layer.
 pub fn stair_objects(
-    features: &[Value],
-    terrain: Option<&Raster<f32>>,
+    input: &StairInput<'_>,
+    kind: MapKind,
     map_area: &Polygon<f64>,
     buffer_m: f64,
     georef: &Georeferencing,
@@ -132,12 +200,10 @@ pub fn stair_objects(
             northing: c.y,
         })
     };
+    // Ground metres per paper millimetre at 100 % symbol size.
+    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0 * kind.symbol_enlargement();
     let mut objects = Vec::new();
-    for feature in features.iter().filter(|f| {
-        f["properties"]["bezbwf"]
-            .as_str()
-            .is_some_and(|kind| STAIR_KINDS.contains(&kind))
-    }) {
+    for feature in input.features.iter().filter(|f| is_stair(f)) {
         for part in feature_polygons(feature, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
@@ -145,9 +211,9 @@ pub fn stair_objects(
             let Some(axes) = axes(&part) else {
                 continue;
             };
-            let (axis, guessed) = walking_axis(axes, terrain);
+            let (axis, guessed) = walking_axis(axes, input.terrain, input.buildings);
             let symbol_id = symbol_set
-                .id_for_code(footprint_code(axis.width))
+                .id_for_code(footprint_code(axis.width / metres_per_mm))
                 .expect("symbol set defines 532.6-532.9");
             let mut tags = provenance_tags(STAIR_LAYER, feature, currency);
             if guessed {
@@ -167,7 +233,6 @@ pub fn stair_objects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::MapKind;
     use crate::raster::GridSpec;
 
     const E: f64 = 392_400.0;
@@ -232,10 +297,23 @@ mod tests {
     }
 
     fn objects(kind: MapKind, features: &[Value], dgm: Option<&Raster<f32>>) -> Vec<MapObject> {
+        objects_beside(kind, features, dgm, &[])
+    }
+
+    fn objects_beside(
+        kind: MapKind,
+        features: &[Value],
+        terrain: Option<&Raster<f32>>,
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
         let (georef, area, set) = setup(kind);
         stair_objects(
-            features,
-            dgm,
+            &StairInput {
+                features,
+                terrain,
+                buildings,
+            },
+            kind,
             &area,
             20.0,
             &georef,
@@ -350,30 +428,84 @@ mod tests {
                 "{from:?} → {to:?}"
             );
             assert_eq!(direction(&found[0]), Some("guessed"));
-            assert_eq!(code(kind, &found[0]), "532.8");
+            // 3 m wide at 1:1000 × 1.25: wider than the widest footprint (1.25 m).
+            assert_eq!(code(kind, &found[0]), "532.9");
         }
     }
 
     #[test]
+    fn flat_stair_at_a_building_faces_it() {
+        let kind = MapKind::Schoolyard;
+        let flat = terrain(|_, _| 30.0);
+        // Entrance steps along a façade: 8 m east × 2 m north, the building north of them.
+        let rect = |e: f64, n: f64, w: f64, h: f64| -> Polygon<f64> {
+            let ring = vec![(e, n), (e + w, n), (e + w, n + h), (e, n + h), (e, n)];
+            Polygon::new(ring.into(), vec![])
+        };
+        let building = rect(E - 5.0, N + 2.0, 20.0, 10.0);
+        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&flat), &[building]);
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            close(from, (4.0, 0.0)) && close(to, (4.0, 2.0)),
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), Some("guessed"));
+        // A building 5 m away is no façade of the stair: the long axis.
+        let away = rect(E - 5.0, N + 7.0, 20.0, 10.0);
+        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&flat), &[away]);
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            ((to.0 - from.0).abs() - 8.0).abs() < 0.05,
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), Some("guessed"));
+        // A rising DGM still decides over the building.
+        let east = terrain(|e, _| 30.0 + 0.1 * e as f32);
+        let building = rect(E - 5.0, N + 2.0, 20.0, 10.0);
+        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&east), &[building]);
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            close(from, (0.0, 1.0)) && close(to, (8.0, 1.0)),
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), None);
+    }
+
+    #[test]
     fn stair_width_picks_footprint_symbol() {
-        for (width, expected) in [
-            (1.0, "532.6"),
-            (1.79, "532.6"),
-            (1.8, "532.7"),
-            (2.49, "532.7"),
-            (2.5, "532.8"),
-            (3.49, "532.8"),
-            (3.5, "532.9"),
-            (12.0, "532.9"),
+        // Paper widths of 532.6-532.9 at 100 %: 0.4, 0.5, 0.75 and 1 mm; the nearest one wins.
+        for (paper_mm, expected) in [
+            (0.3, "532.6"),
+            (0.449, "532.6"),
+            (0.45, "532.7"),
+            (0.62, "532.7"),
+            (0.625, "532.8"),
+            (0.87, "532.8"),
+            (0.875, "532.9"),
+            (3.0, "532.9"),
         ] {
-            assert_eq!(footprint_code(width), expected, "{width} m");
+            assert_eq!(footprint_code(paper_mm), expected, "{paper_mm} mm");
         }
-        // Metres on the ground on both map kinds, not millimetres on paper.
-        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-            let found = objects(kind, &[rect_stair(1.5, 8.0)], None);
-            assert_eq!(code(kind, &found[0]), "532.6", "{kind:?}");
-            let found = objects(kind, &[rect_stair(8.0, 2.0)], None);
-            assert_eq!(code(kind, &found[0]), "532.7", "{kind:?}");
+        // Sprint 1:4000: the names of the symbols (1.6 / 2 / 3 / 4 m on the ground).
+        for (width, expected) in [
+            (1.5, "532.6"),
+            (2.0, "532.7"),
+            (3.0, "532.8"),
+            (4.0, "532.9"),
+        ] {
+            let found = objects(MapKind::Sprint, &[rect_stair(width, 8.0)], None);
+            assert_eq!(code(MapKind::Sprint, &found[0]), expected, "{width} m");
+        }
+        // Schoolyard 1:1000 with symbols at 125 %: 1.25 m per (100 %) mm, so most stairs are
+        // drawn with the widest footprint, the one closest to their real width.
+        for (width, expected) in [
+            (0.5, "532.6"),
+            (0.7, "532.7"),
+            (1.5, "532.9"),
+            (3.0, "532.9"),
+        ] {
+            let found = objects(MapKind::Schoolyard, &[rect_stair(width, 8.0)], None);
+            assert_eq!(code(MapKind::Schoolyard, &found[0]), expected, "{width} m");
         }
         // Other areas are no stairs.
         let mut wall = rect_stair(8.0, 2.0);

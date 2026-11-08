@@ -49,7 +49,8 @@ impl Part {
     /// What the files derived from a download (mosaics in `data/`, templates) add in the project
     /// folder, as a share of the download. Generous on purpose: the templates of a raster are
     /// about as large as its download, the nDSM template is smaller than the surface model it
-    /// comes from, and the OSM candidates are a small cut of the extract.
+    /// comes from, and the OSM candidates are a small cut of the extract. The terrain share also
+    /// covers `data/terrain.tif`, the DGM mosaic `derive` keeps where Berlin layers have stairs.
     fn derived_share(self) -> f64 {
         match self {
             Part::MapData | Part::OsmUpdate => 0.0,

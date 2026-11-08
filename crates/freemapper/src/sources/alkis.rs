@@ -444,6 +444,11 @@ pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
     let features = collection["features"]
         .as_array()
         .ok_or_else(|| invalid("no features"))?;
+    Ok(parse_building_features(features))
+}
+
+/// Like [`parse_buildings`] for the features of an already parsed collection.
+pub fn parse_building_features(features: &[Value]) -> ParsedBuildings {
     let mut parsed = ParsedBuildings {
         buildings: Vec::new(),
         skipped: Vec::new(),
@@ -454,7 +459,7 @@ pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
             Err(e) => parsed.skipped.push(e.message),
         }
     }
-    Ok(parsed)
+    parsed
 }
 
 /// The oid, polygon footprint and `aktualit` date every ALKIS feature has.
