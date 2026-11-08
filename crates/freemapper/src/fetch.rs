@@ -636,7 +636,7 @@ impl Cache {
         self.root.join("lvermgeo_sh")
     }
 
-    /// Folder of the LAiV M-V tile lists and WCS height models, per area.
+    /// Folder of the LAiV M-V tile lists (`overview.php` answers), per area.
     pub fn laiv_mv_dir(&self) -> PathBuf {
         self.root.join("laiv_mv")
     }

@@ -169,6 +169,11 @@ pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
         .collect()
 }
 
+/// Whether the point (EPSG:25833) lies inside `region`'s boundary itself (no margin).
+pub fn contains_point(region: Region, easting: f64, northing: f64) -> bool {
+    region.boundary().contains(&Point::new(easting, northing))
+}
+
 /// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near `region`, so its
 /// provider must have the tile.
 pub fn tile_centre_in(tile: TileId, region: Region) -> bool {

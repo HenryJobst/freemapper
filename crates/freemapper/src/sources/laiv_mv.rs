@@ -7,7 +7,7 @@
 //! So the tile set decides: cells outside it become NaN, zeros inside it stay.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use chrono::NaiveDate;
 use serde_json::Value;
@@ -17,9 +17,9 @@ use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::{decode_float_tiff, encode_float_geotiff, write_float_raster};
+use crate::sources::float_tiff::write_float_raster;
 use crate::sources::height_model::HeightModel;
-use crate::sources::region::{Region, regions_for};
+use crate::sources::region::{Region, contains_point};
 use crate::sources::wcs::WcsService;
 use crate::tiles::{TileId, tiles_covering_grid};
 
@@ -272,43 +272,6 @@ fn tile_list(
     }
 }
 
-/// The unmasked heights of `model` on `grid` inside `within`: from the WCS online (and kept in
-/// `dir`), from what was kept offline.
-fn heights(
-    fetcher: &dyn Fetcher,
-    dir: &Path,
-    mode: FetchMode,
-    model: Model,
-    grid: GridSpec,
-    within: &BoundingBox,
-) -> Result<Raster<f32>, FetchError> {
-    let wcs = model.wcs();
-    let path: PathBuf =
-        dir.join("wcs")
-            .join(format!("{}_{}.tif", wcs.coverage, bbox_key(&grid.bounds())));
-    if mode == FetchMode::Offline {
-        return std::fs::read(&path)
-            .ok()
-            .and_then(|bytes| decode_float_tiff(&bytes).ok())
-            .filter(|raster| raster.grid == grid)
-            .ok_or_else(|| FetchError::Http {
-                url: wcs.get_coverage_url(within),
-                message: format!(
-                    "offline and not cached: the {} of this area; run `freemapper fetch` online",
-                    model.label()
-                ),
-            });
-    }
-    let mut raster = Raster::filled(grid, f32::NAN);
-    wcs.fill(fetcher, &mut raster, within)?;
-    let tiff = encode_float_geotiff(&raster).map_err(|message| FetchError::Http {
-        url: wcs.url.to_string(),
-        message,
-    })?;
-    write_atomically(&path, &tiff)?;
-    Ok(raster)
-}
-
 /// The 2 km tile holding the point.
 fn tile_at(e: f64, n: f64) -> TileId {
     let km = |v: f64| ((v / 1000.0).floor() as u32) / TILE_KM * TILE_KM;
@@ -318,15 +281,29 @@ fn tile_at(e: f64, n: f64) -> TileId {
     }
 }
 
+/// The grid of the model stored at `out` (its world file and TIFF size).
+fn stored_grid(out: &Path) -> Option<GridSpec> {
+    let world = std::fs::read_to_string(out.with_extension("tfw")).ok()?;
+    let file = std::fs::File::open(out).ok()?;
+    let (width, height) = tiff::decoder::Decoder::new(std::io::BufReader::new(file))
+        .ok()?
+        .dimensions()
+        .ok()?;
+    GridSpec::from_world_file(&world, width, height).ok()
+}
+
 /// DGM1 or DOM1 over `bbox` (EPSG:25833) from the WCS, masked to the MV tile set and written as
 /// a Float32 GeoTIFF `out` with its world file.
 ///
 /// The tile set and the dates come from `overview.php` (kept per area for offline runs, and as
 /// the fallback when the portal does not answer), the heights from one GetCoverage per piece of
-/// at most 4000 m, kept per area for offline runs. Cells whose 2 km tile is not in the set are
-/// NaN; zeros inside it (sea, Bodden) stay. Tiles whose centre lies in Mecklenburg-Vorpommern
-/// but that the portal does not list are returned as missing; the date is the centre tile's.
-/// No listed tile at all is an error.
+/// at most 4000 m. Cells whose 2 km tile is not in the set are NaN; zeros inside it (sea,
+/// Bodden) stay. Tiles whose centre lies in Mecklenburg-Vorpommern but that the portal does not
+/// list are returned as missing; the date is the centre tile's. No listed tile at all is an
+/// error.
+///
+/// Offline, the model stored at `out` is kept when it covers the area (the caller checks its
+/// record too, as for Saxony-Anhalt); the kept tile list gives the missing tiles and the date.
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &Cache,
@@ -337,14 +314,39 @@ pub fn fetch_model(
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.laiv_mv_dir();
     let mut warnings = Vec::new();
-    let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
-    let set: HashMap<TileId, Option<String>> = listed
-        .into_iter()
-        .filter(|t| t.tile.bounds_km(TILE_KM).intersection(&area).is_some())
-        .map(|t| (t.tile, t.date))
-        .collect();
+    if mode == FetchMode::Offline {
+        let covers = stored_grid(out).is_some_and(|stored| {
+            let s = stored.bounds();
+            s.min_e <= area.min_e
+                && s.min_n <= area.min_n
+                && s.max_e >= area.max_e
+                && s.max_n >= area.max_n
+        });
+        if !covers {
+            return Err(FetchError::Http {
+                url: out.display().to_string(),
+                message: format!(
+                    "no {} stored for this map area; run `freemapper fetch` online first",
+                    model.label()
+                ),
+            });
+        }
+        let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
+            Ok(listed) => tile_set(listed, &area),
+            Err(e) => {
+                warnings.push(format!("{e}; the stored model has no date"));
+                return Ok(HeightModel {
+                    warnings,
+                    ..HeightModel::default()
+                });
+            }
+        };
+        return Ok(summary(&set, &area, bbox, model, warnings));
+    }
+    let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
+    let set = tile_set(listed, &area);
     // The WCS is asked for the listed tiles' part of the area only.
     let Some(within) = set
         .keys()
@@ -364,7 +366,8 @@ pub fn fetch_model(
             ),
         });
     };
-    let mut raster = heights(fetcher, &dir, mode, model, grid, &within)?;
+    let mut raster = Raster::filled(grid, f32::NAN);
+    model.wcs().fill(fetcher, &mut raster, &within)?;
     let column_tiles: Vec<u32> = (0..grid.width)
         .map(|x| tile_at(grid.west + f64::from(x) + 0.5, area.min_n).east_km)
         .collect();
@@ -387,44 +390,56 @@ pub fn fetch_model(
         ));
     }
     write_float_raster(&raster, out, model.wcs().url)?;
-    let missing = tiles_covering_grid(&area, TILE_KM)
+    Ok(summary(&set, &area, bbox, model, warnings))
+}
+
+/// The listed tiles touching `area`, with their dates.
+fn tile_set(listed: Vec<ListedTile>, area: &BoundingBox) -> HashMap<TileId, Option<String>> {
+    listed
+        .into_iter()
+        .filter(|t| t.tile.bounds_km(TILE_KM).intersection(area).is_some())
+        .map(|t| (t.tile, t.date))
+        .collect()
+}
+
+/// The missing tiles and the centre tile's date of a fetch with the tile `set`.
+fn summary(
+    set: &HashMap<TileId, Option<String>>,
+    area: &BoundingBox,
+    bbox: &BoundingBox,
+    model: Model,
+    mut warnings: Vec<String>,
+) -> HeightModel {
+    let missing = tiles_covering_grid(area, TILE_KM)
         .into_iter()
         .filter(|tile| !set.contains_key(tile))
         .filter(|tile| {
             let b = tile.bounds_km(TILE_KM);
+            // The exact boundary: a tile centred just beyond it need not exist.
             let (e, n) = ((b.min_e + b.max_e) / 2.0, (b.min_n + b.max_n) / 2.0);
-            regions_for(&BoundingBox {
-                min_e: e,
-                min_n: n,
-                max_e: e,
-                max_n: n,
-            })
-            .contains(&Region::MecklenburgVorpommern)
+            contains_point(Region::MecklenburgVorpommern, e, n)
         })
         .collect();
     let centre = tile_at(
         (bbox.min_e + bbox.max_e) / 2.0,
         (bbox.min_n + bbox.max_n) / 2.0,
     );
-    let date = match set.get(&centre) {
-        Some(None) => {
-            warnings.push(format!(
-                "the Downloadportal gives no date for the {} tile 33_{:03}_{:04}",
-                model.label(),
-                centre.east_km,
-                centre.north_km
-            ));
-            None
-        }
-        Some(date) => date.clone(),
-        None => None,
-    };
-    Ok(HeightModel {
+    // Listed without a date, or not listed (a border map centred beyond the MV tiles).
+    let date = set.get(&centre).cloned().flatten();
+    if date.is_none() {
+        warnings.push(format!(
+            "{}: no date for the centre tile 33_{:03}_{:04}",
+            model.label(),
+            centre.east_km,
+            centre.north_km
+        ));
+    }
+    HeightModel {
         missing,
         date,
         warnings,
         ..HeightModel::default()
-    })
+    }
 }
 
 #[cfg(test)]
@@ -481,6 +496,7 @@ mod tests {
     use super::test_support::*;
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    use crate::sources::float_tiff::decode_float_tiff;
 
     /// The school tile and its eastern neighbour.
     const SCHOOL_TILE: TileId = TileId {
@@ -837,7 +853,8 @@ mod tests {
             &out,
         )
         .unwrap();
-        assert_eq!(found.warnings.len(), 1, "{:?}", found.warnings);
+        // The second warning: the centre (E 314 000) lies in the unlisted tile.
+        assert_eq!(found.warnings.len(), 2, "{:?}", found.warnings);
         assert!(
             found.warnings[0].contains("an empty answer"),
             "{:?}",
@@ -860,7 +877,7 @@ mod tests {
     }
 
     #[test]
-    fn offline_uses_the_kept_overview_and_heights() {
+    fn offline_reuses_the_stored_model() {
         let (dir, cache) = cache();
         let fetcher = MapFetcher::default();
         serve(&fetcher, Model::Dgm1, &ACROSS, &[SCHOOL_TILE], |e, _| {
@@ -877,7 +894,9 @@ mod tests {
         )
         .unwrap();
         let first = std::fs::read(&out).unwrap();
-        std::fs::remove_file(&out).unwrap();
+        // No mosaic is kept in the shared cache.
+        assert!(!cache.laiv_mv_dir().join("wcs").exists());
+        // Offline: the stored model stays, the kept tile list gives the same result.
         let none = MapFetcher::default();
         let offline = fetch_model(
             &none,
@@ -891,17 +910,32 @@ mod tests {
         assert_eq!(none.calls.get(), 0);
         assert_eq!(offline, online);
         assert_eq!(std::fs::read(&out).unwrap(), first);
-        // The DOM1 of the area was never fetched.
-        let err = fetch_model(
-            &none,
-            &cache,
-            FetchMode::Offline,
-            Model::Dom1,
-            &ACROSS,
-            &out,
-        )
-        .unwrap_err();
-        assert!(err.to_string().contains("offline and not cached"), "{err}");
+        // A smaller area inside it is covered too.
+        let inner = BoundingBox {
+            min_e: 313_990.0,
+            max_e: 314_010.0,
+            ..ACROSS
+        };
+        let found =
+            fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &inner, &out).unwrap();
+        assert_eq!(found.date, None);
+        assert_eq!(std::fs::read(&out).unwrap(), first);
+        // A larger area is not, and nothing stored is the usual error.
+        let wider = BoundingBox {
+            max_e: 314_100.0,
+            ..ACROSS
+        };
+        for (bbox, path) in [(wider, out.clone()), (ACROSS, dir.path().join("dom1.tif"))] {
+            let err = fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &bbox, &path)
+                .unwrap_err();
+            assert!(
+                err.to_string().contains(
+                    "no terrain model (LAiV M-V DGM1) stored for this map area; run \
+                     `freemapper fetch` online first"
+                ),
+                "{err}"
+            );
+        }
     }
 
     #[test]
@@ -977,5 +1011,89 @@ mod tests {
         }
         // E 312157.5 / N 5996316.5 (reference §5.3).
         assert_eq!(rasters[0].get(107, 83), 12.542);
+    }
+
+    #[test]
+    fn missing_needs_the_tile_centre_inside_mv() {
+        // The centre of 33_256_5890 lies in Brandenburg, less than 100 m from Mecklenburg-
+        // Vorpommern: an unlisted tile there is not missing.
+        let south = TileId {
+            east_km: 256,
+            north_km: 5890,
+        };
+        let north = TileId {
+            east_km: 256,
+            north_km: 5892,
+        };
+        let bbox = BoundingBox {
+            min_e: 256_980.0,
+            min_n: 5_891_980.0,
+            max_e: 257_020.0,
+            max_n: 5_892_020.0,
+        };
+        let (dir, cache) = cache();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, Model::Dgm1, &bbox, &[north], |_, _| 30.0);
+        let found = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+            &dir.path().join("dgm1.tif"),
+        )
+        .unwrap();
+        assert!(!found.missing.contains(&south), "{:?}", found.missing);
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+    }
+
+    #[test]
+    fn centre_tile_without_date_warns() {
+        let bbox = BoundingBox {
+            min_e: 312_100.0,
+            min_n: 5_996_250.0,
+            max_e: 312_200.0,
+            max_n: 5_996_350.0,
+        };
+        let (dir, cache) = cache();
+        let out = dir.path().join("dgm1.tif");
+        // Listed, but `aktualitaet` is not a date.
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, Model::Dgm1, &bbox, &[SCHOOL_TILE], |_, _| 9.0);
+        fetcher.insert_prefix(
+            &overview_prefix(Model::Dgm1),
+            OVERVIEW_DGM1.replace("2024-03-01", "03.2024").into_bytes(),
+        );
+        let found = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+            &out,
+        )
+        .unwrap();
+        assert_eq!(found.date, None);
+        assert_eq!(
+            found.warnings,
+            ["terrain model (LAiV M-V DGM1): no date for the centre tile 33_312_5996"]
+        );
+        // Not listed at all (a border map centred beyond the MV tiles).
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, Model::Dgm1, &ACROSS, &[SCHOOL_TILE], |_, _| 9.0);
+        let found = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &ACROSS,
+            &out,
+        )
+        .unwrap();
+        assert_eq!(found.date, None);
+        assert_eq!(
+            found.warnings,
+            ["terrain model (LAiV M-V DGM1): no date for the centre tile 33_314_5996"]
+        );
     }
 }
