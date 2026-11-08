@@ -852,13 +852,6 @@ mod tests {
 
     #[test]
     fn nrw_land_use_from_nutzung_flurstueck() {
-        assert_eq!(GEOBASIS_NRW.land_use_type, "ave:NutzungFlurstueck");
-        assert_eq!(GEOBASIS_NRW.buildings_type, "ave:GebaeudeBauwerk");
-        assert_eq!(
-            GEOBASIS_NRW.url,
-            "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
-        );
-        assert_eq!(GEOBASIS_NRW.crs, Crs::Utm32);
         let features: Vec<Value> = parse_gml(NRW_LAND_USE)
             .unwrap()
             .into_iter()

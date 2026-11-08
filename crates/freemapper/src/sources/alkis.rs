@@ -1068,6 +1068,89 @@ mod tests {
         );
     }
 
+    /// The text of the first `<oid>` element of a WFS answer.
+    fn first_oid(gml: &str) -> String {
+        let start = gml.find("<oid>").unwrap() + "<oid>".len();
+        gml[start..start + gml[start..].find("</oid>").unwrap()].to_string()
+    }
+
+    /// `gml` with the text of its first `<oid>` element replaced by `oid`.
+    fn with_first_oid(gml: &str, oid: &str) -> String {
+        let old = first_oid(gml);
+        gml.replacen(
+            &format!("<oid>{old}</oid>"),
+            &format!("<oid>{oid}</oid>"),
+            1,
+        )
+    }
+
+    #[test]
+    fn nrw_alkis_asks_the_geobasis_nrw_wfs_for_both_types() {
+        // Hildegard-von-Bingen-Gymnasium, Cologne (25832 E 354700 / N 5642650), box in 25833.
+        let c = Crs::Utm33
+            .reproject(
+                Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 354_700.0,
+                    northing: 5_642_650.0,
+                },
+            )
+            .unwrap();
+        let region_bbox = BoundingBox {
+            min_e: c.easting - 200.0,
+            min_n: c.northing - 200.0,
+            max_e: c.easting + 200.0,
+            max_n: c.northing + 200.0,
+        };
+        assert_eq!(regions_for(&region_bbox), vec![Region::NordrheinWestfalen]);
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            alkis_wfs::GEOBASIS_NRW.url,
+            alkis_wfs::test_support::NRW_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        assert!(!parsed.buildings.is_empty());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DENW")));
+        {
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty());
+            for url in log.iter() {
+                assert!(
+                    url.starts_with("https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?"),
+                    "{url}"
+                );
+                assert!(url.contains("TYPENAMES=ave:GebaeudeBauwerk"), "{url}");
+                assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
+            }
+        }
+        fetcher.log.borrow_mut().clear();
+        fetcher.insert_prefix(
+            alkis_wfs::GEOBASIS_NRW.url,
+            alkis_wfs::test_support::NRW_LAND_USE.as_bytes().to_vec(),
+        );
+        let raw = fetch_land_use_in(&fetcher, &area).unwrap();
+        {
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty());
+            for url in log.iter() {
+                assert!(
+                    url.starts_with("https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?"),
+                    "{url}"
+                );
+                assert!(url.contains("TYPENAMES=ave:NutzungFlurstueck"), "{url}");
+                assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
+            }
+        }
+        let land = parse_land_use(&raw).unwrap();
+        assert!(land.iter().all(|l| l.oid.starts_with("DENW")));
+        // Squares without a type come back as candidates.
+        assert!(land.iter().any(|l| l.nutzart == "Platz"
+            && l.bez.as_deref() == Some("ohne Unterart (Nordrhein-Westfalen)")));
+        assert!(land.iter().any(|l| l.nutzart == "Straßenverkehr"
+            && l.bez.as_deref() == Some("Begleitfläche Straßenverkehr")));
+    }
+
     #[test]
     fn hesse_border_reads_both_states() {
         // A box over the Nordrhein-Westfalen / Hesse border (25833 E 115329 / N 5736651).
@@ -1087,14 +1170,21 @@ mod tests {
             alkis_wfs::HVBG.url,
             alkis_wfs::test_support::HE_BUILDINGS.as_bytes().to_vec(),
         );
+        // A border object that both services deliver under the same oid.
+        let shared = first_oid(alkis_wfs::test_support::HE_BUILDINGS);
         fetcher.insert_prefix(
             alkis_wfs::GEOBASIS_NRW.url,
-            alkis_wfs::test_support::NRW_BUILDINGS.as_bytes().to_vec(),
+            with_first_oid(alkis_wfs::test_support::NRW_BUILDINGS, &shared).into_bytes(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
         let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
         assert!(oids.iter().any(|o| o.starts_with("DEHE")), "{oids:?}");
         assert!(oids.iter().any(|o| o.starts_with("DENW")), "{oids:?}");
+        assert_eq!(
+            oids.iter().filter(|o| **o == shared).count(),
+            1,
+            "shared object once: {oids:?}"
+        );
         let unique: std::collections::HashSet<&&str> = oids.iter().collect();
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
         // Both services are asked and answered in the map CRS (25832).
@@ -1106,9 +1196,10 @@ mod tests {
             alkis_wfs::HVBG.url,
             alkis_wfs::test_support::HE_LAND_USE.as_bytes().to_vec(),
         );
+        let shared_land = first_oid(alkis_wfs::test_support::HE_LAND_USE);
         fetcher.insert_prefix(
             alkis_wfs::GEOBASIS_NRW.url,
-            alkis_wfs::test_support::NRW_LAND_USE.as_bytes().to_vec(),
+            with_first_oid(alkis_wfs::test_support::NRW_LAND_USE, &shared_land).into_bytes(),
         );
         let raw: Value =
             serde_json::from_str(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
@@ -1120,6 +1211,11 @@ mod tests {
             .collect();
         assert!(ids.iter().any(|o| o.starts_with("DEHE")), "{ids:?}");
         assert!(ids.iter().any(|o| o.starts_with("DENW")), "{ids:?}");
+        assert_eq!(
+            ids.iter().filter(|o| **o == shared_land).count(),
+            1,
+            "shared land use once: {ids:?}"
+        );
         let unique: std::collections::HashSet<&&str> = ids.iter().collect();
         assert_eq!(unique.len(), ids.len(), "no duplicate land use: {ids:?}");
         let log = fetcher.log.borrow();
