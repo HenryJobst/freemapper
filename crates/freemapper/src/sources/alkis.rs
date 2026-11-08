@@ -1335,11 +1335,17 @@ mod tests {
         );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
+        // LGV also returns the first object of the LGLN answer, a building on the border.
+        let shared = "DENIAL4300009S1dBL";
+        assert!(alkis_wfs::test_support::NI_BUILDINGS.contains(&format!("gml:id=\"{shared}\"")));
+        let mut hamburg: Value =
+            serde_json::from_str(crate::sources::lgv::test_support::BUILDINGS).unwrap();
+        let mut border = hamburg["features"][0].clone();
+        border["properties"]["oid"] = Value::from(shared);
+        hamburg["features"].as_array_mut().unwrap().push(border);
         fetcher.insert_prefix(
             crate::sources::lgv::BUILDINGS_ENDPOINT,
-            crate::sources::lgv::test_support::BUILDINGS
-                .as_bytes()
-                .to_vec(),
+            hamburg.to_string().into_bytes(),
         );
         fetcher.insert_prefix(
             alkis_wfs::LGLN.url,
@@ -1349,6 +1355,7 @@ mod tests {
         let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
         assert!(oids.iter().any(|o| o.starts_with("DEHH")), "{oids:?}");
         assert!(oids.iter().any(|o| o.starts_with("DENI")), "{oids:?}");
+        assert_eq!(oids.iter().filter(|o| **o == shared).count(), 1, "{oids:?}");
         let unique: std::collections::HashSet<&&str> = oids.iter().collect();
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
         let log = fetcher.log.borrow();
