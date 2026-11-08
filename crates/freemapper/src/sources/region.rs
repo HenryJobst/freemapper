@@ -177,6 +177,30 @@ pub fn tile_centre_in(tile: TileId, region: Region) -> bool {
         })
 }
 
+/// Whether the 1 km zone-32 tile (EPSG:25832) touches `region` at all: every tile that can
+/// exist for it (a provider delivers whole or clipped tiles for each square that intersects).
+pub fn tile_touches(tile: TileId, region: Region) -> bool {
+    let corner = |de: u32, dn: u32| {
+        crate::crs::Crs::Utm33.reproject(
+            crate::crs::Crs::Utm32,
+            crate::crs::ProjectedPoint {
+                easting: f64::from(tile.east_km + de) * 1000.0,
+                northing: f64::from(tile.north_km + dn) * 1000.0,
+            },
+        )
+    };
+    let corners = [corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)];
+    let Some(corners) = corners.into_iter().collect::<Option<Vec<_>>>() else {
+        return false;
+    };
+    let ring: Vec<_> = corners
+        .iter()
+        .map(|p| coord! { x: p.easting, y: p.northing })
+        .collect();
+    let square = Polygon::new(geo::LineString::new(ring), Vec::new());
+    region.boundary().intersects(&square)
+}
+
 /// The region whose rasters a map of `bbox` uses: the one containing its centre.
 pub fn raster_region(bbox: &BoundingBox) -> Option<Region> {
     let centre = Point::new(

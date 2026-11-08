@@ -1685,6 +1685,16 @@ pub(crate) mod test_support {
     /// (terrain 20 m rising 0.01 m per metre east) and the bDOM tiles at 1 m instead of 0.2 m
     /// (surface 12 m above; test builds accept that size, and the reduction passes it through).
     pub fn serve_schleswig_holstein_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        serve_schleswig_holstein_models_lifted(fetcher, bbox, 12.0);
+    }
+
+    /// [`serve_schleswig_holstein_models`] with the bDOM `lift` metres above the DGM1 (negative:
+    /// below it).
+    pub fn serve_schleswig_holstein_models_lifted(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+        lift: f32,
+    ) {
         use crate::sources::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
         let tiles = crate::tiles::tiles_covering(bbox);
         let feature = |tile: &TileId, product: Product| {
@@ -1725,7 +1735,7 @@ pub(crate) mod test_support {
             let terrain: Vec<f32> = (0..1000 * 1000)
                 .map(|i| 20.0 + (i % 1000) as f32 * 0.01)
                 .collect();
-            let surface: Vec<f32> = terrain.iter().map(|z| z + 12.0).collect();
+            let surface: Vec<f32> = terrain.iter().map(|z| z + lift).collect();
             fetcher.insert(
                 &format!("{ATOM_DATA}/dgm1_32_{e:03}_{n:04}_1_sh_2022.tif"),
                 geotiff(&grid, &terrain),

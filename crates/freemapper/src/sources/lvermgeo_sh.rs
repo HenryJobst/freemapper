@@ -40,7 +40,7 @@ pub enum Product {
 
 impl Product {
     /// The `type[]` of `overview.php`.
-    fn overview_type(self) -> &'static str {
+    pub(crate) fn overview_type(self) -> &'static str {
         match self {
             Self::Dgm1 => "dgm1",
             Self::Bdom => "bdom",
@@ -282,11 +282,13 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
 /// GetFeatureInfo text answer: the field names, then the values of the one tile, each ending
 /// in `;` (the server puts both on one line).
 fn parse_flight_date(text: &str) -> Option<String> {
-    let mut tokens: Vec<&str> = text.split(';').map(str::trim).collect();
-    if tokens.len() % 2 == 1 {
-        tokens.pop();
-    }
-    let (header, values) = tokens.split_at(tokens.len() / 2);
+    let tokens: Vec<&str> = text.split(';').map(str::trim).collect();
+    // The names end where the first value (the numeric FID) begins; the first record is the
+    // `k` tokens from there, however many records follow.
+    let k = tokens
+        .iter()
+        .position(|t| !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()))?;
+    let (header, values) = (&tokens[..k], tokens.get(k..2 * k)?);
     if header.is_empty() {
         return None;
     }
@@ -522,6 +524,37 @@ fn tile_list(
             Ok(tiles)
         }
     }
+}
+
+/// The cache file of every tile named by the tile lists kept from earlier runs, the newest list
+/// deciding (the file name carries the vintage). Used to tell what a fetch would download.
+pub fn cached_tile_files(
+    cache: &Cache,
+    model: Model,
+) -> std::collections::HashMap<TileId, PathBuf> {
+    let dir = cache.lvermgeo_sh_dir();
+    let prefix = format!("{}_", model.overview_type());
+    let mut lists: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir.join("overview"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+        .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
+        .collect();
+    lists.sort();
+    let mut files = std::collections::HashMap::new();
+    for (_, path) in lists {
+        let Some(tiles) = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| parse_overview("", &bytes, model).ok())
+        else {
+            continue;
+        };
+        for entry in tiles {
+            files.insert(entry.tile, cache_path(&dir, model, &entry));
+        }
+    }
+    files
 }
 
 /// Where the 1 m tile of `entry` is cached; named after the portal's (checked) name.
@@ -959,13 +992,31 @@ mod tests {
             &b"Search returned no results.\n"[..],
             b"<ServiceExceptionReport/>",
             b"@DOP20 FID;A_DATUM2;\n 1;nonsense;\n",
-            b"@DOP20 FID;A_DATUM2;\n 1;17.03.2025;extra;\n",
         ] {
             let none = MapFetcher::default();
             none.insert_prefix(WMS_INFO, body.to_vec());
             assert_eq!(flight_date(&none, &SCHOOL), None, "{body:?}");
         }
         assert_eq!(flight_date(&MapFetcher::default(), &SCHOOL), None);
+    }
+
+    #[test]
+    fn flight_date_takes_the_first_of_two_features() {
+        // A point on a tile edge returns two tiles: the header once with two value rows, or
+        // the header repeated per feature.
+        let once = "@DOP20 FID;Shape;A_DATUM;A_DATUM2; 1;Polygon;2025-03-17;17.03.2025; \
+                    2;Polygon;2024-08-01;01.08.2024;\n";
+        let twice = "@DOP20 FID;Shape;A_DATUM;A_DATUM2; 1;Polygon;2025-03-17;17.03.2025;\n\
+                     @DOP20 FID;Shape;A_DATUM;A_DATUM2; 2;Polygon;2024-08-01;01.08.2024;\n";
+        for body in [once, twice] {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(WMS_INFO, body.as_bytes().to_vec());
+            assert_eq!(
+                flight_date(&fetcher, &SCHOOL).as_deref(),
+                Some("17.03.2025"),
+                "{body}"
+            );
+        }
     }
 
     #[test]
@@ -1706,7 +1757,7 @@ mod tests {
         #[test]
         fn synthetic_schleswig_holstein_serves_both_models() {
             let fetcher = MapFetcher::default();
-            crate::fetch::test_support::serve_synthetic_schleswig_holstein(&fetcher, &SCHOOL);
+            crate::fetch::test_support::serve_schleswig_holstein_models(&fetcher, &SCHOOL);
             let dir = tempfile::tempdir().unwrap();
             let cache = Cache::new(dir.path().join("cache"));
             let mut heights = Vec::new();
