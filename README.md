@@ -178,9 +178,10 @@ Ergebnis im Projektordner:
   Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
   dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
   Bahnflächen)
-- Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
-  darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
-  Namensnennung der Datenquellen und der Hinweis auf freemapper
+- Nordlinien über dem Kartenbild, als Kartenobjekte im Kartenteil „default part“
+- Randangaben unter dem Kartenbild (Kartenteil „peripheral information“): Titel (`--title`, sonst der
+  Ordnername), Maßstab und Äquidistanz, Maßstabsleiste, Namensnennung der Datenquellen und der Hinweis
+  auf freemapper
 - `data/osm-candidates.geojson` – die OSM-Objekte des Kartengebiets, aus denen die Kandidaten entstehen
 - `data/contours.geojson` – die Höhenlinien aus `derive`
 - `data/alkis-land-use.geojson` – die geladene ALKIS-Nutzung der Flurstücke

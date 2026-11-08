@@ -276,7 +276,8 @@ verbatim.
   544 pole (P), 545 lamppost (P, north-oriented). Dimensions are in the PDF.
 - Peripheral information: map scale and contour interval are mandatory. Also add title, copyright/attribution,
   a red bar on the north edge, and a bar scale, all as objects outside the map area. A legend is optional (later).
-  *Implemented in M4b:* magnetic north lines (601, 30 mm × enlargement) over the map content; title,
+  *Implemented in M4b:* magnetic north lines (601, 30 mm × enlargement) over the map content, since ADR 0043
+  in the map part "default part" as map content; title,
   `Maßstab 1:… · Äquidistanz … m`, a 50 mm bar scale, attribution and credit line below it, with four
   sheet symbols 991–994 appended to both sets. The red north bar is left out for now: ISSprOM has no
   red colour and the bar has no norm source.

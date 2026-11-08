@@ -80,8 +80,8 @@ Orienteering Maps 2019 (IOF).
 | Mast | pole | Fahnenmast, Schild, Basketballkorb (Schulsatz 544). | `Pole` |
 | Laterne | lamppost | Straßenlaterne oder Ampel (Schulsatz 545). | `Lamppost` |
 | Tartanbahn | tartan track | Kunststoffbelag von Laufbahn/Sportfeld, im Schulsatz 501 mit 50 % Braun. | `TartanTrack` |
-| Randangaben | peripheral information | Maßstab, Äquidistanz, Titel, Maßstabsleiste, Copyright (später Nordbalken, Legende) außerhalb des Kartenbilds. | `PeripheralInfo` |
-| Nordlinien | magnetic north lines | Linien nach magnetisch Nord über dem Kartenbild (ISSprOM 601, Abstand 30 mm × Symbolvergrößerung). | `north_lines` |
+| Randangaben | peripheral information | Maßstab, Äquidistanz, Titel, Maßstabsleiste, Copyright (später Nordbalken, Legende) außerhalb des Kartenbilds, im Kartenteil „peripheral information“. | `PeripheralInfo` |
+| Nordlinien | magnetic north lines | Linien nach magnetisch Nord über dem Kartenbild (ISSprOM 601, Abstand 30 mm × Symbolvergrößerung). Kartenobjekte im Kartenteil „default part“, nicht Teil der Randangaben (ADR 0043). | `north_lines` |
 | Maßstabsleiste | bar scale | Strecke mit Teilstrichen und Metern im Gelände, Teil der Randangaben. | `bar_scale` |
 | Baumkrone | tree crown | Vom Laserscan erfasstes Blätterdach eines Baumes. | `TreeCrown` |
 
@@ -162,6 +162,8 @@ Orienteering Maps 2019 (IOF).
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
 | Trainingskarte | training map | Voll generierte, druckfertige PDF-Karte, in der alle Kandidaten als Kartenobjekte gezeichnet sind. | `export_training_pdf` |
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
+| Farbtabelle | colour table | Farben des Symbolsatzes mit Name, Priorität und CMYK; freemapper nutzt die Werte der IOF-Druck- und Farbdefinitionen Rev. 4 (ADR 0044). | `colors_xml`, `RenderColour`, `OcdColour` |
+| Volltonfarbe | spot colour | Benannte Druckfarbe (PURPLE, BLACK, GREEN, BLUE, BROWN, YELLOW), aus der OOM die Rasterfarben ableitet; maßgeblich für den Druck ist das CMYK. | `<spotcolors>` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
 | Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |

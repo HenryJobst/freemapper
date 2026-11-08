@@ -1,4 +1,5 @@
-//! Symbol sets: colours and symbols copied verbatim from OOM symbol set files.
+//! Symbol sets: symbols copied verbatim from OOM symbol set files, colours in the CMYK of IOF
+//! "Printing and Colour Definitions" Rev. 4 (see `assets/symbol-sets/README.md`).
 
 use super::OmapError;
 use super::enlarge::enlarge_symbols;
@@ -100,7 +101,7 @@ impl SymbolSet {
         })
     }
 
-    /// ISSprOM 2019 at 1:4000 as shipped with OOM.
+    /// ISSprOM 2019 at 1:4000 as shipped with OOM, with the colours of IOF Rev. 4.
     pub fn issprom_2019() -> Self {
         Self::from_omap_xml(ISSPROM_2019_4000).expect("embedded ISSprOM 2019 symbol set is valid")
     }
@@ -444,5 +445,120 @@ mod tests {
         );
         assert!(set.symbols_xml.ends_with("</symbols>"));
         assert!(set.grid_xml.starts_with("<grid "));
+    }
+
+    /// One `<color>` of a colour table: name, CMYK, RGB, both methods and the spot colour
+    /// components (factor, priority).
+    struct Colour {
+        name: String,
+        cmyk: [f64; 4],
+        rgb: [f64; 3],
+        cmyk_method: String,
+        rgb_method: String,
+        components: Vec<(f64, usize)>,
+    }
+
+    fn colour_table(colors_xml: &str) -> Vec<Colour> {
+        let num = |xml: &str, anchor: &str, name: &str| -> f64 {
+            first_attr(xml, anchor, name).parse().unwrap()
+        };
+        // Each piece keeps a blank before its first attribute, which `first_attr` needs.
+        colors_xml
+            .split("<color ")
+            .skip(1)
+            .map(|c| format!(" {c}"))
+            .map(|c| Colour {
+                name: first_attr(&c, "", "name").to_string(),
+                cmyk: ["c", "m", "y", "k"].map(|n| num(&c, "", n)),
+                rgb: ["r", "g", "b"].map(|n| num(&c, "<rgb ", n)),
+                cmyk_method: first_attr(&c, "<cmyk ", "method").to_string(),
+                rgb_method: first_attr(&c, "<rgb ", "method").to_string(),
+                components: c
+                    .split("<component")
+                    .skip(1)
+                    .map(|k| (num(k, "", "factor"), num(k, "", "spotcolor") as usize))
+                    .collect(),
+            })
+            .collect()
+    }
+
+    fn close(a: &[f64], b: &[f64]) -> bool {
+        a.iter().zip(b).all(|(a, b)| (a - b).abs() < 0.0006)
+    }
+
+    #[test]
+    fn colours_follow_iof_rev4() {
+        let table = colour_table(&SymbolSet::issprom_2019().colors_xml);
+        let cmyk = |name: &str| {
+            let c = table.iter().find(|c| c.name == name).unwrap();
+            c.cmyk.map(|v| (v * 1000.0).round() / 10.0)
+        };
+        // IOF "Printing and Colour Definitions", Revision 4 (September 2024), chapter 6.
+        for (name, expected) in [
+            ("Purple for course overprint", [35.0, 85.0, 0.0, 0.0]),
+            ("Purple 50%", [18.0, 43.0, 0.0, 0.0]),
+            ("Black 100%", [0.0, 0.0, 0.0, 100.0]),
+            ("Green 100%", [80.0, 0.0, 100.0, 0.0]),
+            ("Green 60%", [48.0, 0.0, 60.0, 0.0]),
+            ("Green 30%", [24.0, 0.0, 30.0, 0.0]),
+            ("Blue 100%", [100.0, 0.0, 0.0, 0.0]),
+            ("Blue 70%", [70.0, 0.0, 0.0, 0.0]),
+            ("Brown 100%", [25.0, 75.0, 100.0, 0.0]),
+            ("Lower brown 50%", [10.0, 35.0, 50.0, 0.0]),
+            ("Lower brown 30%", [6.0, 23.0, 33.0, 0.0]),
+            ("Green 50%/Yellow 100%", [38.0, 27.0, 100.0, 0.0]),
+            ("Yellow 100%", [0.0, 27.0, 79.0, 0.0]),
+            ("Yellow 50%", [0.0, 14.0, 40.0, 0.0]),
+        ] {
+            assert_eq!(cmyk(name), expected, "{name}");
+        }
+    }
+
+    #[test]
+    fn buildings_are_black_50() {
+        // ISSprOM 2019-2 (02.01.2022): 521 Building, change of colour 60 % to 50 %.
+        for set in [SymbolSet::issprom_2019(), SymbolSet::school_2019()] {
+            let table = colour_table(&set.colors_xml);
+            let black_50 = table.iter().position(|c| c.name == "Black 50%").unwrap();
+            for code in ["521.1", "521.3"] {
+                let from = set.symbols_xml.find(&format!(r#" code="{code}""#)).unwrap();
+                let fill = first_attr(&set.symbols_xml[from..], "<area_symbol ", "inner_color");
+                assert_eq!(fill, black_50.to_string(), "{code}");
+            }
+        }
+    }
+
+    #[test]
+    fn colour_table_is_what_oom_computes() {
+        let table = colour_table(&SymbolSet::issprom_2019().colors_xml);
+        for c in &table {
+            // OOM recomputes these on load (MapColor::cmykFromSpotColors, rgbFromSpotColors).
+            let mut cmyk = [0.0; 4];
+            let mut rgb = [1.0; 3];
+            for &(factor, spot) in &c.components {
+                let spot = &table[spot];
+                for (v, spot) in cmyk.iter_mut().zip(spot.cmyk) {
+                    *v += factor * spot * (1.0 - *v);
+                }
+                for (v, spot) in rgb.iter_mut().zip(spot.rgb) {
+                    *v -= factor * (1.0 - spot) * *v;
+                }
+            }
+            match c.cmyk_method.as_str() {
+                "spotcolor" => assert!(close(&c.cmyk, &cmyk), "{} {:?}", c.name, cmyk),
+                method => assert_eq!(method, "custom", "{}", c.name),
+            }
+            let [cy, m, y, k] = c.cmyk;
+            let from_cmyk = [
+                (1.0 - cy) * (1.0 - k),
+                (1.0 - m) * (1.0 - k),
+                (1.0 - y) * (1.0 - k),
+            ];
+            match c.rgb_method.as_str() {
+                "spotcolor" => assert!(close(&c.rgb, &rgb), "{} {:?}", c.name, rgb),
+                "cmyk" => assert!(close(&c.rgb, &from_cmyk), "{} {:?}", c.name, from_cmyk),
+                other => panic!("{}: rgb method {other}", c.name),
+            }
+        }
     }
 }
