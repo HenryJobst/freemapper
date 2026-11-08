@@ -87,6 +87,11 @@ pub struct HeightModel {
     /// gemeindefrei area), as `<municipality> (<district>)`; their tiles came from other zips or
     /// are missing.
     pub unresolved: Vec<String>,
+    /// Tiles inside the map area that stayed empty and that an unresolved place is listed for.
+    pub unresolved_empty: Vec<TileId>,
+    /// Problems with the metadata list that did not stop the fetch (a flight date that cannot
+    /// be read, a new list that fell back to the kept older one).
+    pub warnings: Vec<String>,
 }
 
 /// A municipality and its district, as the metadata list names them.
@@ -99,15 +104,47 @@ pub struct Place {
 impl Place {
     /// A file name for the cached directory of the place's zip.
     fn cache_key(&self) -> String {
-        format!(
+        let key: String = format!(
             "{}__{}",
             name_key(&self.district),
             name_key(&self.municipality)
         )
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-        .collect()
+        .collect();
+        if key.len() <= MAX_KEY {
+            return key;
+        }
+        // Far longer than any real name: shortened, with a hash of the whole key to keep
+        // different names apart (FNV-1a, so the file names stay the same across releases).
+        let hash = key.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+        });
+        format!("{}_{hash:016x}", &key[..MAX_KEY - 17])
     }
+}
+
+/// Longest cache key (bytes) used as is; the longest real name is 35 characters.
+const MAX_KEY: usize = 100;
+
+/// `text` for a message: control characters become spaces, at most `max` characters.
+fn clean(text: &str, max: usize) -> String {
+    let text: String = text
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let text = text.trim();
+    if text.chars().count() <= max {
+        return text.to_string();
+    }
+    let cut: String = text.chars().take(max - 1).collect();
+    format!("{cut}…")
+}
+
+/// `<municipality> (<district>)` for messages, cleaned and capped (the names come from the
+/// server).
+fn place_label(municipality: &str, district: &str) -> String {
+    format!("{} ({})", clean(municipality, 60), clean(district, 40))
 }
 
 /// What the metadata list tells about one tile.
@@ -123,6 +160,8 @@ pub struct TileRecord {
 #[derive(Debug, Clone, Default)]
 pub struct TileIndex {
     tiles: HashMap<TileId, TileRecord>,
+    /// The tiles (`EEENNNN`) none of whose rows has a readable `Bildflugdatum`, sorted.
+    pub undated: Vec<String>,
 }
 
 impl TileIndex {
@@ -160,19 +199,26 @@ impl TileIndex {
             if !place.municipality.is_empty() && !record.places.contains(&place) {
                 record.places.push(place);
             }
-            let date = metadata_date(cell(date_at)).ok_or_else(|| {
-                format!(
-                    "tile {}: Bildflugdatum \"{}\" is not a date",
-                    cell(tile_at),
-                    cell(date_at)
-                )
-            })?;
-            record.date.get_or_insert(date);
+            // An unreadable date only costs the tile its date (the record's informational flight
+            // date), never the whole list.
+            if let Some(date) = metadata_date(cell(date_at)) {
+                record.date.get_or_insert(date);
+            }
         }
         if tiles.is_empty() {
             return Err("the metadata list names no tile".to_string());
         }
-        Ok(Self { tiles })
+        let mut undated: Vec<String> = tiles
+            .iter()
+            .filter(|(_, r)| r.date.is_none())
+            .map(|(t, _)| format!("{:03}{:04}", t.east_km, t.north_km))
+            .collect();
+        undated.sort();
+        // No date at all points to a changed format of the list, not to a gap.
+        if undated.len() == tiles.len() {
+            return Err("the metadata list has no readable Bildflugdatum".to_string());
+        }
+        Ok(Self { tiles, undated })
     }
 
     pub fn get(&self, tile: TileId) -> Option<&TileRecord> {
@@ -512,7 +558,9 @@ struct Session<'a> {
     mode: FetchMode,
     model: Model,
     dir: PathBuf,
-    index: TileIndex,
+    index: Rc<TileIndex>,
+    /// Problems with the metadata list (see [`HeightModel::warnings`]).
+    warnings: Vec<String>,
     /// The district nodes of the product tree (online only).
     districts: Vec<String>,
     listings: HashMap<String, Rc<Files>>,
@@ -522,57 +570,91 @@ struct Session<'a> {
     failed: HashMap<String, FetchError>,
     /// The places without a district or file, as `<municipality> (<district>)`.
     unresolved: Vec<String>,
+    /// The cache keys of those places.
+    unresolved_keys: Vec<String>,
+}
+
+/// The metadata list and the DGM1 product tree of the first [`fetch_model_with`] run, kept for
+/// the next one (the DOM1 run after the DGM1 run) so each is read and parsed once.
+#[derive(Default)]
+pub struct MetadataMemo {
+    loaded: Option<(Rc<TileIndex>, Vec<String>)>,
+    /// The DGM1 tree's districts and the metadata link of its description.
+    tree: Option<(Vec<String>, Option<Link>)>,
+}
+
+/// The kept metadata lists in `dir`, newest first.
+fn kept_lists(dir: &Path) -> Vec<PathBuf> {
+    let mut lists: Vec<(Option<std::time::SystemTime>, PathBuf)> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".xlsx") && e.path().is_file())
+        .map(|e| (e.metadata().and_then(|m| m.modified()).ok(), e.path()))
+        .collect();
+    lists.sort_by_key(|a| std::cmp::Reverse(a.0));
+    lists.into_iter().map(|(_, path)| path).collect()
 }
 
 /// The metadata list (`Metadaten_DGM-DOM_<Monat>-<Jahr>.xlsx`) kept in `dir` under its release
-/// name: reused while the DGM1 product description links the same release, the older one
-/// removed once a newer one parsed. Offline the kept one.
+/// name: reused while the DGM1 product description links the same release (`link`), the older
+/// ones removed once a newer one parsed. A new list that does not parse falls back to the
+/// newest kept one with a warning. Offline the newest kept one.
 fn metadata_list(
     fetcher: &dyn Fetcher,
     mode: FetchMode,
     dir: &Path,
-) -> Result<TileIndex, FetchError> {
+    link: Option<Link>,
+) -> Result<(TileIndex, Vec<String>), FetchError> {
     let read_index = |bytes: &[u8]| TileIndex::from_rows(&xlsx_rows(bytes)?);
     if mode == FetchMode::Offline {
-        let newest = std::fs::read_dir(dir)
+        let newest = kept_lists(dir)
             .into_iter()
-            .flatten()
-            .flatten()
-            .filter(|e| e.file_name().to_string_lossy().ends_with(".xlsx"))
-            .max_by_key(|e| e.metadata().and_then(|m| m.modified()).ok())
-            .map(|e| e.path())
+            .next()
             .ok_or_else(|| offline_hint("HVBG DGM/DOM metadata list"))?;
         let bytes = std::fs::read(&newest).map_err(|e| FetchError::Io(newest.clone(), e))?;
-        return read_index(&bytes).map_err(|m| refused(&newest.display().to_string(), m));
+        let index = read_index(&bytes).map_err(|m| refused(&newest.display().to_string(), m))?;
+        return Ok((index, Vec::new()));
     }
     // Both models take the list from the DGM1 description, as the plan says.
-    let tree = tree_url(Model::Dgm1);
-    let (_, link) = get_with_retries(fetcher, &tree, |b| {
-        parse_tree(b).map_err(|m| refused(&tree, m))
-    })?;
     let (url, name) = link.ok_or_else(|| {
         refused(
-            &tree,
+            &tree_url(Model::Dgm1),
             "the product description links no metadata list (Metadaten_….xlsx)",
         )
     })?;
     let file = dir.join(&name);
     if let Some(index) = std::fs::read(&file).ok().and_then(|b| read_index(&b).ok()) {
-        return Ok(index);
+        return Ok((index, Vec::new()));
     }
-    let (index, bytes) = get_with_retries(fetcher, &url, |b| {
-        let index = read_index(b).map_err(|m| refused(&url, m))?;
-        Ok((index, b.to_vec()))
-    })?;
+    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec()))?;
+    let index = match read_index(&bytes) {
+        Ok(index) => index,
+        Err(message) => {
+            // A list that does not parse never replaces a good one; the newest kept one
+            // (as offline mode would use it) stands in.
+            for older in kept_lists(dir).into_iter().filter(|p| *p != file) {
+                let Some(index) = std::fs::read(&older).ok().and_then(|b| read_index(&b).ok())
+                else {
+                    continue;
+                };
+                let old_name = older.file_name().unwrap_or_default().to_string_lossy();
+                let warning = format!(
+                    "the new HVBG metadata list {name} could not be read ({message}); \
+                     using the older list {old_name}"
+                );
+                return Ok((index, vec![warning]));
+            }
+            return Err(refused(&url, message));
+        }
+    };
     // Kept only once it parsed, so a broken answer never replaces a good copy.
     write_atomically(&file, &bytes)?;
-    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-        if entry.file_name().to_string_lossy() != name.as_str() {
-            let old = entry.path();
-            std::fs::remove_file(&old).map_err(|e| FetchError::Io(old, e))?;
-        }
+    // Only the older lists go; whatever else lies there (another run's partial file) stays.
+    for old in kept_lists(dir).into_iter().filter(|p| *p != file) {
+        let _ = std::fs::remove_file(old);
     }
-    Ok(index)
+    Ok((index, Vec::new()))
 }
 
 /// `e` once more, for a place that failed earlier in the run: the same kind with the same URL
@@ -611,35 +693,67 @@ fn again(e: &FetchError) -> FetchError {
 }
 
 impl<'a> Session<'a> {
-    /// The metadata list and, online, the product tree's districts.
+    /// The metadata list and, online, the product tree's districts; what `memo` holds is not
+    /// read again.
     fn open(
         fetcher: &'a dyn Fetcher,
         cache: &Cache,
         mode: FetchMode,
         model: Model,
+        memo: &mut MetadataMemo,
     ) -> Result<Self, FetchError> {
-        let index = metadata_list(fetcher, mode, &cache.hvbg_dir().join("metadata"))?;
-        let districts = match mode {
-            FetchMode::Online => {
-                let url = tree_url(model);
-                get_with_retries(fetcher, &url, |b| {
-                    parse_tree(b).map_err(|m| refused(&url, m))
-                })?
-                .0
-            }
-            FetchMode::Offline => Vec::new(),
+        let read_tree = |model: Model| {
+            let url = tree_url(model);
+            get_with_retries(fetcher, &url, |b| {
+                parse_tree(b).map_err(|m| refused(&url, m))
+            })
         };
+        let mut districts = Vec::new();
+        if mode == FetchMode::Online && (memo.loaded.is_none() || model == Model::Dgm1) {
+            if memo.tree.is_none() {
+                memo.tree = Some(read_tree(Model::Dgm1)?);
+            }
+            if model == Model::Dgm1 {
+                districts = memo.tree.as_ref().map(|t| t.0.clone()).unwrap_or_default();
+            }
+        }
+        if mode == FetchMode::Online && model != Model::Dgm1 {
+            districts = read_tree(model)?.0;
+        }
+        if memo.loaded.is_none() {
+            let link = memo.tree.as_ref().and_then(|t| t.1.clone());
+            let dir = cache.hvbg_dir().join("metadata");
+            let (index, mut warnings) = metadata_list(fetcher, mode, &dir, link)?;
+            if !index.undated.is_empty() {
+                let shown: Vec<&str> = index.undated.iter().take(5).map(String::as_str).collect();
+                let more = index.undated.len() - shown.len();
+                warnings.push(format!(
+                    "the metadata list has no readable Bildflugdatum for tile {}{}; their \
+                     records carry no flight date",
+                    shown.join(", "),
+                    if more > 0 {
+                        format!(" and {more} more")
+                    } else {
+                        String::new()
+                    }
+                ));
+            }
+            memo.loaded = Some((Rc::new(index), warnings));
+        }
+        let (index, warnings) = memo.loaded.clone().expect("loaded above");
         Ok(Self {
             fetcher,
             mode,
             model,
             dir: cache.hvbg_dir().join(model.code()),
             index,
+            warnings,
             districts,
             listings: HashMap::new(),
             zips: HashMap::new(),
             failed: HashMap::new(),
             unresolved: Vec::new(),
+            unresolved_keys: Vec::new(),
         })
     }
 
@@ -716,10 +830,11 @@ impl<'a> Session<'a> {
         })?;
         let zip = zip.map(Rc::new);
         if zip.is_none() {
-            let name = format!("{} ({})", place.municipality, place.district);
+            let name = place_label(&place.municipality, &place.district);
             if !self.unresolved.contains(&name) {
                 self.unresolved.push(name);
             }
+            self.unresolved_keys.push(key.clone());
         }
         self.zips.insert(key, zip.clone());
         Ok(zip)
@@ -839,13 +954,36 @@ pub fn fetch_model(
     bbox: &BoundingBox,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
-    let mut session = Session::open(fetcher, cache, mode, model)?;
+    fetch_model_with(
+        fetcher,
+        cache,
+        mode,
+        model,
+        bbox,
+        out,
+        &mut MetadataMemo::default(),
+    )
+}
+
+/// [`fetch_model`] sharing the metadata list and the DGM1 product tree with other runs through
+/// `memo`.
+pub fn fetch_model_with(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    model: Model,
+    bbox: &BoundingBox,
+    out: &Path,
+    memo: &mut MetadataMemo,
+) -> Result<HeightModel, FetchError> {
+    let mut session = Session::open(fetcher, cache, mode, model, memo)?;
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
     let (mut found, mut missing) = (0, Vec::new());
     for tile in tiles_covering(bbox) {
         let Some(bytes) = session.tile(tile)? else {
-            if tile_centre_in(tile, Region::Hessen) {
+            // A tile the list names is Hesse's even where its centre lies across the border.
+            if tile_centre_in(tile, Region::Hessen) || session.index.get(tile).is_some() {
                 missing.push(tile);
             }
             continue;
@@ -877,10 +1015,23 @@ pub fn fetch_model(
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
     };
+    let unresolved_empty = missing
+        .iter()
+        .copied()
+        .filter(|&tile| {
+            session.index.get(tile).is_some_and(|r| {
+                r.places
+                    .iter()
+                    .any(|p| session.unresolved_keys.contains(&p.cache_key()))
+            })
+        })
+        .collect();
     Ok(HeightModel {
         missing,
         date: session.date(centre),
         unresolved: session.unresolved,
+        unresolved_empty,
+        warnings: session.warnings,
     })
 }
 
@@ -1357,6 +1508,8 @@ mod tests {
                 missing: Vec::new(),
                 date: Some("2023-02-28".to_string()),
                 unresolved: Vec::new(),
+                unresolved_empty: Vec::new(),
+                warnings: Vec::new(),
             }
         );
         let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
@@ -1773,16 +1926,12 @@ mod tests {
     }
 
     #[test]
-    fn bad_flight_date_is_an_error() {
+    fn unreadable_flight_date_only_empties_that_tiles_date() {
         let rows = |date: &str| {
             vec![
                 strings(&["Kachelname", "Bildflugdatum", "Gemeinde", "Kreis"]),
-                strings(&[
-                    "4765552",
-                    date,
-                    "Frankfurt am Main",
-                    "Kreisfreie Stadt Frankfurt am Main",
-                ]),
+                strings(&["4765552", date, "Frankfurt am Main", "Frankfurt"]),
+                strings(&["4775552", "28.02.2023", "Frankfurt am Main", "Frankfurt"]),
             ]
         };
         let index = TileIndex::from_rows(&rows("28.02.2023")).unwrap();
@@ -1790,13 +1939,188 @@ mod tests {
             index.get(tile(476, 5552)).unwrap().date.as_deref(),
             Some("2023-02-28")
         );
-        for bad in ["unbekannt", ""] {
-            let err = TileIndex::from_rows(&rows(bad)).unwrap_err();
-            assert!(
-                err.contains("4765552") && err.contains("Bildflugdatum"),
-                "{err}"
+        assert!(index.undated.is_empty());
+        for bad in ["unbekannt", "", "2026-03-01"] {
+            let index = TileIndex::from_rows(&rows(bad)).unwrap();
+            assert_eq!(index.get(tile(476, 5552)).unwrap().date, None);
+            assert_eq!(
+                index.get(tile(477, 5552)).unwrap().date.as_deref(),
+                Some("2023-02-28")
             );
+            assert_eq!(index.undated, ["4765552"]);
         }
+        // No readable date at all points to a changed format: refused.
+        let all_bad = vec![
+            strings(&["Kachelname", "Bildflugdatum", "Gemeinde", "Kreis"]),
+            strings(&["4765552", "", "Frankfurt am Main", "Frankfurt"]),
+        ];
+        let err = TileIndex::from_rows(&all_bad).unwrap_err();
+        assert!(err.contains("Bildflugdatum"), "{err}");
+    }
+
+    #[test]
+    fn undated_centre_tile_gives_no_record_date_and_a_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_frankfurt(
+            &fetcher,
+            &[
+                ("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0),
+                ("DGM1_32_477_5552_1_he.tif", tile(477, 5552), 120.0),
+            ],
+        );
+        // Serial 0 is no date.
+        fetcher.insert(
+            METADATA_URL,
+            frankfurt_rows(&[(tile(476, 5552), 0), (tile(477, 5552), 45000)]),
+        );
+        let fetched = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SCHOOL,
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert_eq!(fetched.date, None);
+        assert_eq!(fetched.warnings.len(), 1, "{:?}", fetched.warnings);
+        assert!(fetched.warnings[0].contains("4765552"), "{fetched:?}");
+    }
+
+    #[test]
+    fn unparsable_new_list_falls_back_to_the_kept_older_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_frankfurt(
+            &fetcher,
+            &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
+        );
+        let metadata = cache.hvbg_dir().join("metadata");
+        std::fs::create_dir_all(&metadata).unwrap();
+        let older = metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx");
+        std::fs::write(&older, frankfurt_rows(&[(tile(476, 5552), 44985)])).unwrap();
+        fetcher.insert(METADATA_URL, b"<html>maintenance</html>".to_vec());
+        let out = dir.path().join("o.tif");
+        let fetched = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SCHOOL,
+            &out,
+        )
+        .unwrap();
+        assert_eq!(fetched.date.as_deref(), Some("2023-02-28"));
+        assert_eq!(fetched.warnings.len(), 1, "{:?}", fetched.warnings);
+        let warning = &fetched.warnings[0];
+        assert!(
+            warning.contains("Metadaten_DGM-DOM_August-2026.xlsx")
+                && warning.contains("Metadaten_DGM-DOM_Juli-2026.xlsx"),
+            "{warning}"
+        );
+        assert!(older.exists());
+        assert!(!metadata.join("Metadaten_DGM-DOM_August-2026.xlsx").exists());
+        // Without an older list the broken one is an error.
+        std::fs::remove_file(&older).unwrap();
+        let err = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SCHOOL,
+            &out,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("xlsx"), "{err}");
+    }
+
+    #[test]
+    fn metadata_clean_up_only_removes_older_lists() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_frankfurt(
+            &fetcher,
+            &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
+        );
+        fetcher.insert(METADATA_URL, frankfurt_rows(&[(tile(476, 5552), 44985)]));
+        let metadata = cache.hvbg_dir().join("metadata");
+        std::fs::create_dir_all(metadata.join("subdir")).unwrap();
+        std::fs::write(metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx"), b"old").unwrap();
+        std::fs::write(metadata.join("other.part"), b"partial").unwrap();
+        fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SCHOOL,
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert!(!metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx").exists());
+        assert!(metadata.join("Metadaten_DGM-DOM_August-2026.xlsx").exists());
+        assert!(metadata.join("other.part").exists());
+        assert!(metadata.join("subdir").is_dir());
+    }
+
+    #[test]
+    fn shared_memo_reads_tree_and_list_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_frankfurt(
+            &fetcher,
+            &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
+        );
+        fetcher.insert(METADATA_URL, frankfurt_rows(&[(tile(476, 5552), 44985)]));
+        let mut memo = MetadataMemo::default();
+        for _ in 0..2 {
+            fetch_model_with(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &SCHOOL,
+                &dir.path().join("o.tif"),
+                &mut memo,
+            )
+            .unwrap();
+        }
+        let reads = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
+        assert_eq!(reads(&tree_url(Model::Dgm1)), 1);
+        assert_eq!(reads(METADATA_URL), 1);
+    }
+
+    #[test]
+    fn long_place_names_give_bounded_distinct_cache_keys() {
+        let place = |name: &str| Place {
+            municipality: name.to_string(),
+            district: "Rheingau-Taunus".to_string(),
+        };
+        assert_eq!(place("Wiesbaden").cache_key(), "rheingau_taunus__wiesbaden");
+        let (a, b) = (
+            place(&"x".repeat(400)),
+            place(&format!("{}y", "x".repeat(400))),
+        );
+        assert!(a.cache_key().len() <= 120, "{}", a.cache_key().len());
+        assert_ne!(a.cache_key(), b.cache_key());
+        assert_eq!(a.cache_key(), a.cache_key());
+    }
+
+    #[test]
+    fn place_names_in_messages_are_cleaned_and_capped() {
+        let long = format!("Evil\nName\u{7}{}", "z".repeat(300));
+        let shown = place_label(&long, "Kreis\r");
+        assert!(shown.chars().count() <= 100, "{shown}");
+        assert!(!shown.chars().any(char::is_control), "{shown:?}");
+        assert!(shown.starts_with("Evil Name"), "{shown}");
+        assert_eq!(
+            place_label("Grebenhain", "Vogelsberg"),
+            "Grebenhain (Vogelsberg)"
+        );
     }
 
     #[test]
@@ -1851,6 +2175,25 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fetched.missing, [tile(417, 5550)]);
+        // A tile the list names but no zip holds is missing even with its centre outside Hesse.
+        let cache = Cache::new(dir.path().join("cache2"));
+        fetcher.insert(
+            METADATA_URL,
+            metadata_xlsx(&[
+                (tile(416, 5550), 44629, "Lorch", "Rheingau-Taunus"),
+                (tile(418, 5550), 44629, "Lorch", "Rheingau-Taunus"),
+            ]),
+        );
+        let fetched = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bbox,
+            &dir.path().join("o2.tif"),
+        )
+        .unwrap();
+        assert_eq!(fetched.missing, [tile(416, 5550), tile(417, 5550)]);
     }
 
     #[test]
@@ -1903,6 +2246,7 @@ mod tests {
         let out = dir.path().join("o.tif");
         let fetched = fetch_taunus(&fetcher, &cache, FetchMode::Online, &out).unwrap();
         assert_eq!(fetched.missing, []);
+        assert_eq!(fetched.unresolved_empty, []);
         assert_eq!(
             fetched.unresolved,
             [
@@ -1941,6 +2285,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fetched.missing, [tile(445, 5554)]);
+        assert_eq!(fetched.unresolved_empty, [tile(445, 5554)]);
         assert_eq!(
             fetched.unresolved,
             [

@@ -1072,40 +1072,81 @@ fn fetch_hvbg_rasters(
                 crate::sources::lgv::tile_names(&found.missing)
             ));
         }
+    };
+    // What both models report alike is said once, after both: the places without a
+    // Downloadcenter file (with the tiles that stayed empty for want of another file) and
+    // the metadata list's problems.
+    let mut unresolved: Vec<String> = Vec::new();
+    let mut unresolved_empty: Vec<TileId> = Vec::new();
+    let mut list_warnings: Vec<String> = Vec::new();
+    let mut collect = |found: &HeightModel| {
         for place in &found.unresolved {
-            progress(&format!(
-                "warning: no Downloadcenter file for {place}; the templates stay empty there"
-            ));
+            if !unresolved.contains(place) {
+                unresolved.push(place.clone());
+            }
+        }
+        for tile in &found.unresolved_empty {
+            if !unresolved_empty.contains(tile) {
+                unresolved_empty.push(*tile);
+            }
+        }
+        for warning in &found.warnings {
+            if !list_warnings.contains(warning) {
+                list_warnings.push(warning.clone());
+            }
         }
     };
+    let mut memo = hvbg::MetadataMemo::default();
     progress(&format!("reading the {}", Model::Dgm1.label()));
-    let found = hvbg::fetch_model(
+    let found = hvbg::fetch_model_with(
         fetcher,
         cache,
         mode,
         Model::Dgm1,
         bbox,
         &dir.join(TERRAIN_RELPATH),
+        &mut memo,
     )?;
     warn(progress, Model::Dgm1, &found);
+    collect(&found);
     project.terrain = Some(record(&found, &project.terrain));
     progress(&format!("reading the {}", Model::Dom1.label()));
-    match hvbg::fetch_model(
+    match hvbg::fetch_model_with(
         fetcher,
         cache,
         mode,
         Model::Dom1,
         bbox,
         &dir.join(SURFACE_RELPATH),
+        &mut memo,
     ) {
         Ok(found) => {
             warn(progress, Model::Dom1, &found);
+            collect(&found);
             project.surface = Some(record(&found, &project.surface));
         }
         Err(e) => progress(&format!(
             "warning: {} unavailable ({e}); no nDSM template",
             Model::Dom1.label()
         )),
+    }
+    for warning in &list_warnings {
+        progress(&format!("warning: {warning}"));
+    }
+    if !unresolved.is_empty() {
+        let places: Vec<String> = unresolved.iter().map(|p| format!("\"{p}\"")).collect();
+        let empty = if unresolved_empty.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "; {} stayed empty",
+                crate::sources::lgv::tile_names(&unresolved_empty)
+            )
+        };
+        progress(&format!(
+            "warning: the Downloadcenter has no file for {}{empty}",
+            places.join(", ")
+        ));
     }
     project.save(dir)?;
     Ok(())
@@ -2983,6 +3024,12 @@ mod tests {
 
     /// A 200 m square at the Lessing-Gymnasium, Frankfurt am Main (25833 E 47838, N 5571740).
     fn frankfurt_area() -> MapArea {
+        frankfurt_area_between(-100.0, 100.0)
+    }
+
+    /// A rectangle 200 m high around the Frankfurt school, from `west` to `east` metres off it
+    /// (the school's tile ends 484 m east of it).
+    fn frankfurt_area_between(west: f64, east: f64) -> MapArea {
         let corner = |e: f64, n: f64| {
             let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
                 easting: 47_838.0 + e,
@@ -2992,11 +3039,11 @@ mod tests {
             format!("[{},{}]", p.lon, p.lat)
         };
         let ring = [
-            corner(-100.0, -100.0),
-            corner(100.0, -100.0),
-            corner(100.0, 100.0),
-            corner(-100.0, 100.0),
-            corner(-100.0, -100.0),
+            corner(west, -100.0),
+            corner(east, -100.0),
+            corner(east, 100.0),
+            corner(west, 100.0),
+            corner(west, -100.0),
         ];
         MapArea::from_geojson(&format!(
             r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
@@ -3007,13 +3054,21 @@ mod tests {
 
     /// A schoolyard project at the Lessing-Gymnasium, served with synthetic HVBG data.
     fn frankfurt_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        frankfurt_school_of(fetcher, -100.0, 100.0)
+    }
+
+    fn frankfurt_school_of(
+        fetcher: &MapFetcher,
+        west: f64,
+        east: f64,
+    ) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
         let dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
         let project = init_project(
             dir.path(),
-            &frankfurt_area(),
+            &frankfurt_area_between(west, east),
             MapKind::Schoolyard,
             None,
             date,
@@ -3078,10 +3133,75 @@ mod tests {
             crate::sources::hvbg::test_support::metadata_xlsx(&rows),
         );
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        // Said once (not per model), and without claiming empty templates: the tiles came from
+        // Frankfurt.
+        let said: Vec<&String> = messages
+            .iter()
+            .filter(|m| m.contains("Gemeindefreies Gebiet"))
+            .collect();
+        assert_eq!(
+            said,
+            ["warning: the Downloadcenter has no file for \"Gemeindefreies Gebiet (Nirgendwo)\""],
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn hessen_fetch_reports_an_unreadable_flight_date_once() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = frankfurt_school_of(&fetcher, -40.0, 460.0);
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        let tiles = crate::tiles::tiles_covering(&bbox);
+        let rows: Vec<_> = tiles
+            .iter()
+            .enumerate()
+            .map(|(i, &t)| {
+                (
+                    t,
+                    if i == 0 { 0 } else { 44985 },
+                    "Frankfurt am Main",
+                    "Kreisfreie Stadt Frankfurt am Main",
+                )
+            })
+            .collect();
+        fetcher.insert(
+            crate::sources::hvbg::test_support::METADATA_URL,
+            crate::sources::hvbg::test_support::metadata_xlsx(&rows),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        let said = messages
+            .iter()
+            .filter(|m| m.starts_with("warning: the metadata list has no readable Bildflugdatum"))
+            .count();
+        assert_eq!(said, 1, "{messages:?}");
+    }
+
+    #[test]
+    fn hessen_fetch_names_the_tiles_an_unresolved_place_left_empty() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = frankfurt_school_of(&fetcher, -40.0, 460.0);
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        let tiles = crate::tiles::tiles_covering(&bbox);
+        // Nobody else holds the first tile.
+        let mut rows = vec![(tiles[0], 44985, "Gemeindefreies Gebiet", "Nirgendwo")];
+        rows.extend(tiles[1..].iter().map(|&t| {
+            (
+                t,
+                44985,
+                "Frankfurt am Main",
+                "Kreisfreie Stadt Frankfurt am Main",
+            )
+        }));
+        fetcher.insert(
+            crate::sources::hvbg::test_support::METADATA_URL,
+            crate::sources::hvbg::test_support::metadata_xlsx(&rows),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        let name = crate::sources::lgv::tile_names(&tiles[..1]);
         assert!(
             messages.iter().any(|m| m.starts_with(
-                "warning: no Downloadcenter file for Gemeindefreies Gebiet (Nirgendwo)"
-            )),
+                "warning: the Downloadcenter has no file for \"Gemeindefreies Gebiet (Nirgendwo)\""
+            ) && m.contains(&name)),
             "{messages:?}"
         );
     }
