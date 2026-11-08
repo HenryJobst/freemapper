@@ -854,17 +854,25 @@ fn fetch_wms_orthophoto(
     match mode {
         FetchMode::Online => {
             let flight = flight_date();
-            // Reused while the stored image covers the area and the flight date is the same; where
-            // the service names no date (on either side), only while the image is recent.
+            // Reused while the stored image covers the area and the flight date is the same.
+            // Without a date from the service (none known, or the query failed), the image is
+            // reused only while it is recent, and keeps the date it has.
             let today = chrono::Local::now().date_naive();
+            let recent =
+                |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
             let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
                 r.covers(bbox)
-                    && r.flight == flight
-                    && (flight.is_some()
-                        || (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS)
+                    && if flight.is_some() {
+                        r.flight == flight
+                    } else {
+                        recent(r)
+                    }
             }) && path.exists();
             if unchanged {
-                progress(&match flight.as_deref() {
+                let kept = flight
+                    .as_deref()
+                    .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
+                progress(&match kept {
                     Some(date) => format!("orthophoto unchanged (flight {date})"),
                     None => "orthophoto unchanged".to_string(),
                 });
@@ -891,8 +899,8 @@ fn fetch_wms_orthophoto(
     Ok(())
 }
 
-/// How many days a stored orthophoto without a known flight date (on either side) is reused
-/// before the next online fetch downloads it again.
+/// How many days a stored orthophoto is reused while the service gives no flight date (none known,
+/// or the query failed) before the next online fetch downloads it again.
 const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
 
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
@@ -5744,7 +5752,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(
             messages
                 .iter()
-                .any(|m| m == "reading OSM extract North Rhine-Westphalia (Köln) from 2026-11-06"),
+                .any(|m| m == "reading OSM extract North Rhine-Westphalia, Köln from 2026-11-06"),
             "{messages:?}"
         );
         assert!(
@@ -5934,6 +5942,36 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn a_failed_flight_date_query_keeps_the_recent_orthophoto_and_its_date() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1);
+        // The date query now fails.
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                crate::sources::geobasis_nrw::WMS.url
+            ),
+            b"<ServiceExceptionReport/>".to_vec(),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1, "{messages:?}");
+        assert_eq!(
+            project.orthophoto.as_ref().unwrap().flight.as_deref(),
+            Some("11.05.2025")
+        );
+        // Older than the limit: downloaded again, now without a date.
+        let mut stored = ProjectFile::load(dir.path()).unwrap();
+        stored.orthophoto.as_mut().unwrap().fetched = chrono::Local::now().date_naive()
+            - chrono::Duration::days(UNDATED_ORTHOPHOTO_MAX_AGE_DAYS);
+        stored.save(dir.path()).unwrap();
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 2);
+        assert_eq!(project.orthophoto.unwrap().flight, None);
+    }
+
+    #[test]
     fn nrw_xml_wms_answer_is_an_error() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = koeln_school(&fetcher);
@@ -6064,7 +6102,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(project.provider, Some(Provider::GeobasisNrw));
         for extract in ["Düsseldorf", "Köln"] {
             let line =
-                format!("reading OSM extract North Rhine-Westphalia ({extract}) from 2026-11-06");
+                format!("reading OSM extract North Rhine-Westphalia, {extract} from 2026-11-06");
             assert_eq!(
                 messages.iter().filter(|m| **m == line).count(),
                 1,

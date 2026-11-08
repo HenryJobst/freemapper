@@ -696,7 +696,7 @@ impl Cache {
         self.root.join("lvermgeo_sh")
     }
 
-    /// Folder of the Geobasis NRW DGM1/DOM1 tiles and the kept meta lists.
+    /// Folder of the Geobasis NRW DGM1/DOM1 tiles and the kept tile lists.
     pub fn geobasis_nrw_dir(&self) -> PathBuf {
         self.root.join("geobasis_nrw")
     }
@@ -1184,7 +1184,9 @@ pub(crate) fn get_with_attempts<T>(
     loop {
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
-            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(
+                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+            ) => return result,
             Err(_) if attempt < attempts => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;

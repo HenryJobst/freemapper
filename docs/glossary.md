@@ -82,6 +82,7 @@ Orienteering Maps 2019 (IOF).
 | Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert. | `SourceAdapter` |
 | Produkt | product | Einzelner Datensatztyp einer Quelle, z. B. DGM1, nDOM, DOP20. | `Product` |
 | Kachel | tile | Rechteckiges Teilstück eines Produkts (LGB: 1×1 km). | `Tile` |
+| Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt. | `meta_list` |
 | Kachelschema | tile scheme | Regel für Lage und Benennung der Kacheln. | `TileScheme` |
 | Kachelkennung | tile id | Name einer Kachel, z. B. `33421-5821` (SW-Ecke in km). | `TileId` |
 | Datenstand / Aktualität | data currency | Erfassungs- bzw. Veröffentlichungsdatum eines Datensatzes. | `currency` |

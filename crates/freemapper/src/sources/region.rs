@@ -111,7 +111,8 @@ impl Region {
         Self::NordrheinWestfalen,
     ];
 
-    /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`, `DEHE…`).
+    /// The state an ALKIS object id belongs to, by its first four characters (`DEBB…`, `DEBE…`,
+    /// `DESN…`, `DEST…`, `DEHH…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`).
     pub fn of_object_id(oid: &str) -> Option<Self> {
         match oid.get(..4) {
             Some("DEBB") => Some(Self::Brandenburg),

@@ -280,7 +280,7 @@ fn nrw_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         .filter(|t| tile_touches(*t, Region::NordrheinWestfalen))
         .collect();
     let model_item = |model: Model, mb_per_tile: f64| {
-        let cached = cached_tiles(cache, model);
+        let cached = cached_tiles(cache, model, &tiles);
         let open = tiles.iter().filter(|t| !cached.contains(t)).count();
         EstimateItem {
             what: model.label().to_string(),
@@ -875,7 +875,7 @@ mod tests {
         assert!(near(
             find_item(
                 items,
-                "OSM extract North Rhine-Westphalia (Köln) (shared by all projects)"
+                "OSM extract North Rhine-Westphalia, Köln (shared by all projects)"
             )
             .megabytes,
             225.2
@@ -931,7 +931,7 @@ mod tests {
         let items = &preview.estimate.items;
         for (label, megabytes) in [("Köln", 225.2), ("Düsseldorf", 217.2)] {
             let what =
-                format!("OSM extract North Rhine-Westphalia ({label}) (shared by all projects)");
+                format!("OSM extract North Rhine-Westphalia, {label} (shared by all projects)");
             let item = find_item(items, &what);
             assert!(
                 (item.megabytes - megabytes).abs() < 1e-9 && !item.cached,
@@ -987,7 +987,16 @@ mod tests {
             crate::fetch::test_support::geotiff(&grid(e, n), &vec![1.0; 1_000_000]),
         )
         .unwrap();
-        assert_eq!(cached_tiles(&cache, Model::Dgm1).len(), 1);
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1, &[]).len(),
+            0,
+            "only the asked tiles count"
+        );
+        let asked: Vec<TileId> = tiles
+            .iter()
+            .map(|&(east_km, north_km)| TileId { east_km, north_km })
+            .collect();
+        assert_eq!(cached_tiles(&cache, Model::Dgm1, &asked).len(), 1);
         let one_open = item("terrain model (Geobasis NRW DGM1)", &cache);
         assert!(
             (one_open.megabytes - 2.2).abs() < 1e-9 && !one_open.cached,
@@ -1006,6 +1015,32 @@ mod tests {
         );
         // The DOM1 is still open.
         assert!(!item("surface model (Geobasis NRW DOM1)", &cache).cached);
+    }
+
+    #[test]
+    fn nrw_estimate_does_not_list_a_tile_the_server_lacks_as_a_download() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let area = nrw_area(354_900.0, 5_642_400.0);
+        let dir = cache.geobasis_nrw_dir();
+        std::fs::create_dir_all(dir.join("meta")).unwrap();
+        std::fs::create_dir_all(dir.join("dgm1")).unwrap();
+        let names: Vec<(String, &str)> = [354, 355]
+            .iter()
+            .map(|e| (format!("dgm1_32_{e}_5642_1_nw_2022"), "2022-02-12"))
+            .collect();
+        std::fs::write(
+            dir.join("meta/dgm1_2026-10-26.zip"),
+            crate::fetch::test_support::nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &names),
+        )
+        .unwrap();
+        // Both tiles were listed, and the server answered 404 for both.
+        for (name, _) in &names {
+            std::fs::write(dir.join(format!("dgm1/{name}.missing")), b"").unwrap();
+        }
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let item = find_item(&preview.estimate.items, "terrain model (Geobasis NRW DGM1)");
+        assert!(item.megabytes == 0.0 && item.cached, "{item:?}");
     }
 
     /// 25832 E 565500 / N 5947100 as a map centre: Hamburg-Langenhorn, 600 m south of the border

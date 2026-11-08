@@ -326,17 +326,17 @@ impl GovernmentDistrict {
     fn extract(self) -> DistrictExtract {
         match self {
             Self::Arnsberg => {
-                district_extract!("arnsberg", 195.2, "North Rhine-Westphalia (Arnsberg)")
+                district_extract!("arnsberg", 195.2, "North Rhine-Westphalia, Arnsberg")
             }
             Self::Detmold => {
-                district_extract!("detmold", 137.3, "North Rhine-Westphalia (Detmold)")
+                district_extract!("detmold", 137.3, "North Rhine-Westphalia, Detmold")
             }
             Self::Duesseldorf => {
-                district_extract!("duesseldorf", 217.2, "North Rhine-Westphalia (Düsseldorf)")
+                district_extract!("duesseldorf", 217.2, "North Rhine-Westphalia, Düsseldorf")
             }
-            Self::Koeln => district_extract!("koeln", 225.2, "North Rhine-Westphalia (Köln)"),
+            Self::Koeln => district_extract!("koeln", 225.2, "North Rhine-Westphalia, Köln"),
             Self::Muenster => {
-                district_extract!("muenster", 140.9, "North Rhine-Westphalia (Münster)")
+                district_extract!("muenster", 140.9, "North Rhine-Westphalia, Münster")
             }
         }
     }
@@ -867,7 +867,7 @@ mod tests {
             koeln.state_url(),
             "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt"
         );
-        assert_eq!(koeln.label(), "North Rhine-Westphalia (Köln)");
+        assert_eq!(koeln.label(), "North Rhine-Westphalia, Köln");
         assert_eq!(koeln.megabytes(), 225.2);
         for (district, slug) in [
             (GovernmentDistrict::Arnsberg, "arnsberg"),
@@ -975,7 +975,7 @@ mod tests {
             messages,
             [
                 "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
-              reading the nearest, North Rhine-Westphalia (Köln)"
+              reading the nearest, North Rhine-Westphalia, Köln"
             ]
         );
         // Inside a district no warning is given.

@@ -5,7 +5,7 @@
 //! dates come from the product's `*_meta.zip` (one CSV row per tile), never from the directory
 //! listing, which still holds stale duplicates of older years.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -65,19 +65,23 @@ fn parse_flight_date(text: &str) -> Option<String> {
     (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
 }
 
-/// The tiles of `model` in the cache: those the newest kept tile list names whose file exists
-/// (files are written whole, atomically).
-pub fn cached_tiles(cache: &Cache, model: Model) -> std::collections::HashSet<TileId> {
+/// The tiles among `tiles` that need no download: the newest kept tile list names them and their
+/// file exists (files are written whole, atomically), or the server answered 404 for them.
+pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
     let dir = cache.geobasis_nrw_dir();
-    kept_meta(&dir, model)
-        .map(|meta| {
-            meta.tiles
-                .into_values()
-                .filter(|entry| cache_path(&dir, model, &entry.name).exists())
-                .map(|entry| entry.tile)
-                .collect()
+    let Some(meta) = kept_meta(&dir, model) else {
+        return HashSet::new();
+    };
+    tiles
+        .iter()
+        .filter(|tile| {
+            meta.tiles.get(tile).is_some_and(|entry| {
+                cache_path(&dir, model, &entry.name).exists()
+                    || marker_path(&dir, model, &entry.name).exists()
+            })
         })
-        .unwrap_or_default()
+        .copied()
+        .collect()
 }
 
 /// The height model files; the product folder appears twice in the path.
@@ -107,19 +111,19 @@ impl Model {
     }
 }
 
-/// The meta list of `model`: a zip with one CSV.
+/// The tile list of `model`: a zip with one CSV.
 pub fn meta_url(model: Model) -> String {
     let slug = model.slug();
     format!("{HM}/{slug}_tiff/{slug}_tiff/{slug}_meta.zip")
 }
 
-/// The GeoTIFF `name` (from the meta list, without extension) of `model`.
+/// The GeoTIFF `name` (from the tile list, without extension) of `model`.
 pub fn tile_url(model: Model, name: &str) -> String {
     let slug = model.slug();
     format!("{HM}/{slug}_tiff/{slug}_tiff/{name}.tif")
 }
 
-/// One row of the meta list.
+/// One row of the tile list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MetaTile {
     /// `dgm1_32_354_5642_1_nw_2022`; letters, digits and underscores only.
@@ -129,7 +133,7 @@ struct MetaTile {
     date: Option<String>,
 }
 
-/// What the meta list says.
+/// What the tile list says.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Meta {
     /// The date the list was last updated (`Aktualitaet_Kachelinformationen`).
@@ -160,7 +164,7 @@ fn iso_date(value: &str) -> Option<String> {
         .map(|d| d.to_string())
 }
 
-/// The CSV of the meta list: a few preamble lines (`Aktualitaet_Kachelinformationen;2026-10-26`),
+/// The CSV of the tile list: a few preamble lines (`Aktualitaet_Kachelinformationen;2026-10-26`),
 /// the header `Kachelname;Aktualitaet;…`, then a row per tile (`;`-separated, CRLF).
 fn parse_meta_csv(model: Model, text: &str) -> Result<Meta, String> {
     let mut lines = text.lines().map(str::trim);
@@ -232,7 +236,7 @@ const MAX_CSV_BYTES: u64 = 64 * 1024 * 1024;
 /// The largest meta zip accepted (110 KB expected).
 const MAX_ZIP_BYTES: usize = 8 * 1024 * 1024;
 
-/// The meta list in the zip `bytes`.
+/// The tile list in the zip `bytes`.
 fn parse_meta_zip(model: Model, bytes: &[u8]) -> Result<Meta, String> {
     parse_meta_zip_limited(model, bytes, MAX_CSV_BYTES)
 }
@@ -288,7 +292,7 @@ fn kept_meta(dir: &Path, model: Model) -> Option<Meta> {
         .find_map(|path| parse_meta_zip(model, &std::fs::read(path).ok()?).ok())
 }
 
-/// The meta list of `model`: downloaded and kept per release; offline, or when the download
+/// The tile list of `model`: downloaded and kept per release; offline, or when the download
 /// fails, the newest kept one.
 fn meta_list(
     fetcher: &dyn Fetcher,
@@ -307,13 +311,12 @@ fn meta_list(
             ),
         });
     }
+    let kept = kept_meta(dir, model);
     let answer = get_with_retries(fetcher, &url, |bytes| {
         if bytes.len() > MAX_ZIP_BYTES {
-            return Err(FetchError::Http {
+            return Err(FetchError::TooLarge {
                 url: url.clone(),
-                message: format!(
-                    "the answer is larger than {MAX_ZIP_BYTES} bytes; this is not the tile list"
-                ),
+                limit_mb: (MAX_ZIP_BYTES / (1024 * 1024)) as u64,
             });
         }
         let meta = parse_meta_zip(model, bytes).map_err(|message| FetchError::Http {
@@ -323,9 +326,9 @@ fn meta_list(
         Ok((meta, bytes.to_vec()))
     });
     match answer {
-        Ok((meta, _)) if kept_meta(dir, model).is_some_and(|k| k.release > meta.release) => {
+        Ok((meta, _)) if kept.as_ref().is_some_and(|k| k.release > meta.release) => {
             // A mirror or cache behind the origin: keep the newer list we have.
-            let kept = kept_meta(dir, model).expect("checked above");
+            let kept = kept.expect("checked above");
             warnings.push(format!(
                 "the server's tile list of the {} dates from {}, older than the kept one from \
                  {}; used the kept one",
@@ -337,6 +340,10 @@ fn meta_list(
         }
         Ok((meta, bytes)) => {
             let path = meta_path(dir, model, &meta.release);
+            if !path.exists() {
+                // A new release: the tiles the old one named but the server lacked may be there.
+                clear_markers(dir, model);
+            }
             write_atomically(&path, &bytes)?;
             // The older lists are not needed any more.
             for old in std::fs::read_dir(dir.join("meta"))
@@ -353,7 +360,7 @@ fn meta_list(
             Ok(meta)
         }
         Err(e) => {
-            let Some(meta) = kept_meta(dir, model) else {
+            let Some(meta) = kept else {
                 return Err(e);
             };
             warnings.push(format!(
@@ -371,6 +378,24 @@ fn cache_path(dir: &Path, model: Model, name: &str) -> PathBuf {
     dir.join(model.slug()).join(format!("{name}.tif"))
 }
 
+/// Where the note is kept that the server answered 404 for the listed tile `name`.
+fn marker_path(dir: &Path, model: Model, name: &str) -> PathBuf {
+    dir.join(model.slug()).join(format!("{name}.missing"))
+}
+
+/// Removes the 404 notes of `model`.
+fn clear_markers(dir: &Path, model: Model) {
+    for entry in std::fs::read_dir(dir.join(model.slug()))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
+        if entry.file_name().to_string_lossy().ends_with(".missing") {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
 /// `32_354_5642`.
 fn short_name(tile: TileId) -> String {
     format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
@@ -379,7 +404,7 @@ fn short_name(tile: TileId) -> String {
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), mosaicked into a Float32 GeoTIFF `out`
 /// with its world file.
 ///
-/// The tile names and dates come from the product's meta list (kept per release for offline
+/// The tile names and dates come from the product's tile list (kept per release for offline
 /// runs). Tiles are cached under their name. A tile the list names but the server lacks (404),
 /// and a tile inside North Rhine-Westphalia that the list does not name, are returned as
 /// missing; the date is the centre tile's. No tile at all is an error.
@@ -418,6 +443,7 @@ pub fn fetch_model(
             None => {}
             Some(entry) => match read_cached(&cache_path(&dir, model, &entry.name), tile) {
                 Some(part) => paste(&mut raster, entry, &part)?,
+                None if marker_path(&dir, model, &entry.name).exists() => missing.push(tile),
                 None => pending.push(entry),
             },
         }
@@ -448,8 +474,12 @@ pub fn fetch_model(
                 write_atomically(&cache_path(&dir, model, &entry.name), &bytes)?;
                 paste(&mut raster, entry, &part)?;
             }
-            // Named by the list, not on the server.
-            Err(FetchError::NotFound(_)) => missing.push(entry.tile),
+            // Named by the list, not on the server. The note keeps later runs, online and
+            // offline, from asking again; a new release of the list clears it.
+            Err(FetchError::NotFound(_)) => {
+                write_atomically(&marker_path(&dir, model, &entry.name), b"")?;
+                missing.push(entry.tile);
+            }
             Err(e) => return Err(e),
         }
     }
@@ -465,6 +495,14 @@ pub fn fetch_model(
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
     };
     let date = match meta.tiles.get(&centre) {
+        Some(_) if missing.contains(&centre) => {
+            warnings.push(format!(
+                "the {} tile {} at the centre of the map area is missing, so there is no date",
+                model.label(),
+                short_name(centre)
+            ));
+            None
+        }
         Some(entry) if entry.date.is_none() => {
             warnings.push(format!(
                 "the tile list gives no date for the {} tile {}",
@@ -574,7 +612,8 @@ mod tests {
         let fetcher = MapFetcher::default();
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().to_path_buf());
-        assert!(cached_tiles(&cache, Model::Dgm1).is_empty());
+        let area = [WEST, EAST];
+        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
         serve_synthetic_nrw(&fetcher, &BBOX);
         run(
             &fetcher,
@@ -585,11 +624,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            cached_tiles(&cache, Model::Dgm1),
+            cached_tiles(&cache, Model::Dgm1, &area),
             [WEST, EAST].into_iter().collect()
         );
+        // Only the asked tiles count.
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1, &[EAST]),
+            [EAST].into_iter().collect()
+        );
         // The DOM1 was not read.
-        assert!(cached_tiles(&cache, Model::Dom1).is_empty());
+        assert!(cached_tiles(&cache, Model::Dom1, &area).is_empty());
     }
 
     fn run(
@@ -694,6 +738,67 @@ mod tests {
     }
 
     #[test]
+    fn a_tile_that_answered_404_stays_missing_offline_and_online_until_a_new_release() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        let east_url = tile_url(Model::Dgm1, "dgm1_32_355_5642_1_nw_2022");
+        let east_file = fetcher.responses.borrow_mut().remove(&east_url).unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let tif = cache_dir.path().join("dgm1.tif");
+        let online = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(online.missing, vec![EAST]);
+        // Offline: the same answer, no error, no request.
+        let silent = MapFetcher::default();
+        let offline = run(&silent, &cache, FetchMode::Offline, Model::Dgm1, &tif).unwrap();
+        assert_eq!(offline.missing, vec![EAST]);
+        assert_eq!(silent.calls.get(), 0);
+        // Online again with the same list: the tile is not asked for again.
+        fetcher.log.borrow_mut().clear();
+        let again = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(again.missing, vec![EAST]);
+        assert!(
+            !fetcher.log.borrow().contains(&east_url),
+            "{:?}",
+            fetcher.log.borrow()
+        );
+        // A new release of the list: asked for again, and found.
+        let rows = [
+            ("dgm1_32_354_5642_1_nw_2022".to_string(), "2022-02-12"),
+            ("dgm1_32_355_5642_1_nw_2022".to_string(), "2022-02-12"),
+        ];
+        fetcher.insert(
+            &meta_url(Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-11-20", &rows),
+        );
+        fetcher.insert(&east_url, east_file);
+        let fixed = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert!(fixed.missing.is_empty(), "{:?}", fixed.missing);
+    }
+
+    #[test]
+    fn a_centre_tile_that_is_missing_gives_no_date() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        // The centre of the area lies in the east tile.
+        fetcher
+            .responses
+            .borrow_mut()
+            .remove(&tile_url(Model::Dgm1, "dgm1_32_355_5642_1_nw_2022"));
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let tif = cache_dir.path().join("dgm1.tif");
+        let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(found.missing, vec![EAST]);
+        assert_eq!(found.date, None);
+        assert!(
+            found.warnings.iter().any(|w| w.contains("32_355_5642")),
+            "{:?}",
+            found.warnings
+        );
+    }
+
+    #[test]
     fn nrw_dgm1_decodes() {
         let bytes = include_bytes!("../../../../tests/fixtures/nordrhein-westfalen-dgm1.tif");
         let raster = decode_float_tiff(bytes).unwrap();
@@ -786,6 +891,8 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("larger than"), "{err}");
+        // An oversized answer is not downloaded again.
+        assert_eq!(fetcher.calls.get(), 1);
     }
 
     #[test]

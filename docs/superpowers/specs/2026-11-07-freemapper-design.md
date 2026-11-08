@@ -178,7 +178,7 @@ LGB's OGC API with a WFS fallback. Attribution `©GeoBasis-DE/MV/CC BY 4.0 (Quel
 **Nordrhein-Westfalen (verified live 2026-11-08, details `docs/regions/nordrhein-westfalen-reference.md`):** Geobasis NRW
 (Bezirksregierung Köln), EPSG:25832 for the whole state (the map never uses zone 33). Orthophoto from the WMS (the tiles are
 JPEG 2000 only), the flight date per tile. DGM1 and DOM1 as 1 km laser tiles of the same flight; file names and dates only
-from the per-product meta list (the directory listing carries stale duplicates, and the name carries the year); nDSM =
+from the per-product tile list (the directory listing carries stale duplicates, and the name carries the year); nDSM =
 DOM1 − DGM1. ALKIS from the WFS with the LGB spellings and a detailed `funktion`. OSM from the five Regierungsbezirk extracts
 instead of the 917 MB statewide one (ADR 0028). At the Hesse border both ALKIS services are read and the rasters come from
 the state of the centre. Licence dl-de/zero-2-0; attribution `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <year>,
