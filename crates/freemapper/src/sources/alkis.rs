@@ -303,7 +303,8 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`, `DENI…`).
+/// each state has its own object id prefix (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`,
+/// `DEMV…`, `DENW…`, `DENI…`), and a feature two states both return is kept once.
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -1282,7 +1283,11 @@ mod tests {
                     "{url}"
                 );
             }
-            assert!(log.iter().any(|u| u.contains("&COUNT=")), "{log:?}");
+            assert!(
+                log.iter()
+                    .any(|u| u.contains("&COUNT=") && u.contains("&STARTINDEX=")),
+                "{log:?}"
+            );
         }
         fetcher.log.borrow_mut().clear();
         fetcher.insert_prefix(
