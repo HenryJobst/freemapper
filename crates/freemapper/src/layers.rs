@@ -87,7 +87,8 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         | Provider::Hvbg
         | Provider::LvermGeoSh
         | Provider::LaivMv
-        | Provider::GeobasisNrw => (Vec::new(), 1),
+        | Provider::GeobasisNrw
+        | Provider::Lgln => (Vec::new(), 1),
     }
 }
 
@@ -106,6 +107,8 @@ fn estimate_area(
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
+        // Task 3: the LGLN download items (WMS orthophoto, DGM1/DOM1 coverages).
+        Some(Provider::Lgln) => Vec::new(),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.

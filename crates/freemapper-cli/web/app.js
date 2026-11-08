@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -94,7 +94,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",

@@ -205,6 +205,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             Region::NordrheinWestfalen => {
                 wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
             }
+            Region::Niedersachsen => (Vec::new(), Crs::Utm32), // Task 5: LGLN ALKIS
         })
     })
 }
@@ -249,6 +250,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 Crs::Utm33,
             ),
             Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
+            Region::Niedersachsen => (Vec::new(), Crs::Utm32), // Task 5: LGLN ALKIS
         })
     })
 }
@@ -1153,12 +1155,13 @@ mod tests {
 
     #[test]
     fn hesse_border_reads_both_states() {
-        // A box over the Nordrhein-Westfalen / Hesse border (25833 E 115329 / N 5736651).
+        // A box over the Nordrhein-Westfalen / Hesse border (25833 E 115329 / N 5735651), 1 km south of
+        // the point where Niedersachsen joins.
         let region_bbox = BoundingBox {
-            min_e: 115_329.0 - 400.0,
-            min_n: 5_736_651.0 - 400.0,
-            max_e: 115_329.0 + 400.0,
-            max_n: 5_736_651.0 + 400.0,
+            min_e: 115_329.0 - 250.0,
+            min_n: 5_735_651.0 - 250.0,
+            max_e: 115_329.0 + 250.0,
+            max_n: 5_735_651.0 + 250.0,
         };
         assert_eq!(
             regions_for(&region_bbox),

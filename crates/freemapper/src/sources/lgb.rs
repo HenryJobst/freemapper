@@ -59,7 +59,8 @@ impl Product {
             | Provider::Hvbg
             | Provider::LvermGeoSh
             | Provider::LaivMv
-            | Provider::GeobasisNrw) => {
+            | Provider::GeobasisNrw
+            | Provider::Lgln) => {
                 unreachable!("{provider:?} rasters are fetched per area, not as tiles")
             }
         }
@@ -90,7 +91,8 @@ impl Product {
             | Provider::Hvbg
             | Provider::LvermGeoSh
             | Provider::LaivMv
-            | Provider::GeobasisNrw) => {
+            | Provider::GeobasisNrw
+            | Provider::Lgln) => {
                 unreachable!("{provider:?} rasters are fetched per area, not as tiles")
             }
         }
@@ -164,6 +166,7 @@ impl Product {
             Provider::LvermGeoSh => "lvermgeosh",
             Provider::LaivMv => "laivmv",
             Provider::GeobasisNrw => "geobasisnrw",
+            Provider::Lgln => "lgln",
         }
     }
 

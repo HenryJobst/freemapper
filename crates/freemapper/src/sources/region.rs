@@ -40,6 +40,10 @@ const MECKLENBURG_VORPOMMERN_BOUNDARY: &str =
 /// has negative eastings (from about -140 km to 119 km).
 const NORDRHEIN_WESTFALEN_BOUNDARY: &str =
     include_str!("../../../../assets/regions/nordrhein-westfalen.geojson");
+/// Lower Saxony from LGLN ALKIS vereinfacht `VerwaltungsEinheit` DE03 (simplified 25 m, EPSG:25833;
+/// CC BY 4.0). Bremen and Bremerhaven are holes: they are not Niedersachsen.
+const NIEDERSACHSEN_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/niedersachsen.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -57,6 +61,7 @@ pub enum Region {
     SchleswigHolstein,
     MecklenburgVorpommern,
     NordrheinWestfalen,
+    Niedersachsen,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -79,6 +84,8 @@ pub enum Provider {
     LaivMv,
     /// Geobasis NRW (Bezirksregierung Köln), North Rhine-Westphalia (EPSG:25832).
     GeobasisNrw,
+    /// LGLN, Niedersachsen (EPSG:25832).
+    Lgln,
 }
 
 impl Provider {
@@ -93,13 +100,14 @@ impl Provider {
                 | Self::LvermGeoSh
                 | Self::LaivMv
                 | Self::GeobasisNrw
+                | Self::Lgln
         )
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -109,6 +117,7 @@ impl Region {
         Self::SchleswigHolstein,
         Self::MecklenburgVorpommern,
         Self::NordrheinWestfalen,
+        Self::Niedersachsen,
     ];
 
     /// The state an ALKIS object id belongs to, by its first four characters (`DEBB…`, `DEBE…`,
@@ -124,6 +133,7 @@ impl Region {
             Some("DESH") => Some(Self::SchleswigHolstein),
             Some("DEMV") => Some(Self::MecklenburgVorpommern),
             Some("DENW") => Some(Self::NordrheinWestfalen),
+            Some("DENI") => Some(Self::Niedersachsen),
             _ => None,
         }
     }
@@ -138,6 +148,7 @@ impl Region {
             Self::SchleswigHolstein => Provider::LvermGeoSh,
             Self::MecklenburgVorpommern => Provider::LaivMv,
             Self::NordrheinWestfalen => Provider::GeobasisNrw,
+            Self::Niedersachsen => Provider::Lgln,
         }
     }
 
@@ -148,14 +159,16 @@ impl Region {
             | Self::Hamburg
             | Self::Hessen
             | Self::SchleswigHolstein
-            | Self::NordrheinWestfalen => crate::crs::Crs::Utm32,
+            | Self::NordrheinWestfalen
+            | Self::Niedersachsen => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 9] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 10] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -176,6 +189,7 @@ impl Region {
             Self::SchleswigHolstein => (6, SCHLESWIG_HOLSTEIN_BOUNDARY),
             Self::MecklenburgVorpommern => (7, MECKLENBURG_VORPOMMERN_BOUNDARY),
             Self::NordrheinWestfalen => (8, NORDRHEIN_WESTFALEN_BOUNDARY),
+            Self::Niedersachsen => (9, NIEDERSACHSEN_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -412,8 +426,8 @@ mod tests {
 
     #[test]
     fn outside_every_region_is_refused() {
-        // Lower Saxony, west of Saxony-Anhalt.
-        let elsewhere = around(150_000.0, 5_800_000.0, 300.0);
+        // Poland, east of Brandenburg.
+        let elsewhere = around(600_000.0, 5_800_000.0, 300.0);
         assert_eq!(raster_region(&elsewhere), None);
         assert!(regions_for(&elsewhere).is_empty());
         let nan = around(f64::NAN, 5_800_000.0, 300.0);
@@ -714,6 +728,101 @@ mod tests {
         let belgium = around(-135_521.0, 5_663_143.0, 300.0);
         assert!(regions_for(&belgium).is_empty());
         assert_eq!(raster_region(&belgium), None);
+    }
+
+    /// A box of half-width `half` m around a WGS84 point, in EPSG:25833.
+    fn around_lonlat(lat: f64, lon: f64, half: f64) -> BoundingBox {
+        let p = crate::crs::utm33_forward(crate::crs::LatLon { lat, lon });
+        around(p.easting, p.northing, half)
+    }
+
+    #[test]
+    fn hannover_school_is_niedersachsen_in_zone_32() {
+        // Kaiser-Wilhelm- und Ratsgymnasium Hannover (OSM way/42796993), about 52.3749 N 9.7428 E.
+        let school = around_lonlat(52.3749, 9.7428, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::Niedersachsen]);
+        assert_eq!(raster_region(&school), Some(Region::Niedersachsen));
+        assert_eq!(Region::Niedersachsen.provider(), Provider::Lgln);
+        assert!(Provider::Lgln.per_area());
+        assert_eq!(Region::Niedersachsen.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm32);
+        assert!(provider_tiles(&school, Provider::Lgln, 1).is_empty());
+        assert_eq!(
+            serde_json::to_string(&Region::Niedersachsen).unwrap(),
+            r#""niedersachsen""#
+        );
+        assert_eq!(serde_json::to_string(&Provider::Lgln).unwrap(), r#""lgln""#);
+    }
+
+    #[test]
+    fn bremen_is_not_niedersachsen() {
+        // Bremen market square and Bremerhaven town centre are holes in the Niedersachsen
+        // boundary and have no region of their own yet.
+        for (lat, lon) in [(53.0758, 8.8072), (53.5396, 8.5809)] {
+            let area = around_lonlat(lat, lon, 300.0);
+            assert!(regions_for(&area).is_empty(), "{lat} {lon}");
+            assert_eq!(raster_region(&area), None);
+            let p = crate::crs::utm33_forward(crate::crs::LatLon { lat, lon });
+            assert!(!contains_point(
+                Region::Niedersachsen,
+                p.easting,
+                p.northing
+            ));
+        }
+        // Verden (an der Aller), 30 km south-east of Bremen, is Niedersachsen.
+        let verden = around_lonlat(52.9227, 9.2287, 300.0);
+        assert_eq!(regions_for(&verden), vec![Region::Niedersachsen]);
+    }
+
+    #[test]
+    fn harburg_border_has_both_regions() {
+        // Hamburg-Harburg town centre (53.46 N 9.98 E) lies in Hamburg; Seevetal, 6 km south,
+        // in Niedersachsen. An area on the border touches both.
+        let harburg = crate::crs::utm33_forward(crate::crs::LatLon {
+            lat: 53.46,
+            lon: 9.98,
+        });
+        let seevetal = crate::crs::utm33_forward(crate::crs::LatLon {
+            lat: 53.40,
+            lon: 9.98,
+        });
+        assert_eq!(
+            regions_for(&around(harburg.easting, harburg.northing, 300.0)),
+            vec![Region::Hamburg]
+        );
+        assert_eq!(
+            regions_for(&around(seevetal.easting, seevetal.northing, 300.0)),
+            vec![Region::Niedersachsen]
+        );
+        // Walk south from Harburg to the state border: the first box touching both regions has its
+        // raster provider follow its centre.
+        let mut found = false;
+        for step in 0..120 {
+            let n = harburg.northing - f64::from(step) * 50.0;
+            let area = around(harburg.easting, n, 700.0);
+            if regions_for(&area) == vec![Region::Hamburg, Region::Niedersachsen] {
+                found = true;
+                let centre_region = if contains_point(Region::Hamburg, harburg.easting, n) {
+                    Region::Hamburg
+                } else {
+                    Region::Niedersachsen
+                };
+                assert_eq!(raster_region(&area), Some(centre_region));
+            }
+        }
+        assert!(found, "no box on the Hamburg / Niedersachsen border");
+    }
+
+    #[test]
+    fn ni_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DENI0300AbCdEfGh"),
+            Some(Region::Niedersachsen)
+        );
+        assert_eq!(
+            Region::of_object_id("DENW37AL0000AbCd"),
+            Some(Region::NordrheinWestfalen)
+        );
     }
 
     #[test]
