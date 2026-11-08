@@ -22,7 +22,16 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia, OCAD starting point, PDF training map. Next come Lower Saxony, Rhineland-Palatinate and the remaining German states; Thuringia as soon as its height-data server is back; then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+The current version is [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) of
+8 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
+sprint maps for nine states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
+Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia. Each map comes with an OCAD
+starting point and a PDF training map.
+
+freemapper is still under development. Lower Saxony is in progress, followed by Rhineland-Palatinate
+and the remaining states with open geodata. Thuringia follows once its height-data server is back.
+Forest maps and the neighbouring countries come later. Design:
+[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## User manual
 

@@ -24,7 +24,16 @@ in OOM oder OCAD.
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern und Nordrhein-Westfalen, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Niedersachsen, Rheinland-Pfalz und die übrigen Bundesländer; Thüringen, sobald sein Server für die Höhendaten wieder erreichbar ist; danach Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Aktuelle Version ist [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) vom
+8. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
+Schulhof- und Sprintkarten für neun Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern und Nordrhein-Westfalen. Zu jeder Karte gehören
+ein Ausgangsstand für OCAD und eine PDF-Trainingskarte.
+
+Das Programm ist noch in Entwicklung. Gerade entsteht Niedersachsen, danach kommen Rheinland-Pfalz
+und die übrigen Länder mit offenen Geodaten. Thüringen folgt, sobald sein Server für die Höhendaten
+wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
+[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Handbuch
 
