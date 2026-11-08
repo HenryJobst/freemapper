@@ -16,7 +16,7 @@ use crate::project::{
 use crate::sources::lgb::Product;
 use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
 use crate::sources::region::{Provider, Region, provider_tiles, raster_region, regions_for};
-use crate::tiles::TileId;
+use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
 const DOP_TILE_MB: f64 = 8.0;
@@ -166,20 +166,57 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     ]
 }
 
+/// The 1 km tiles of EPSG:25832 touched by `bbox` (EPSG:25833): what the per-area providers of
+/// zone 32 (LGV, HVBG) read, whole, out of their archives.
+fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
+    use crate::crs::{Crs, ProjectedPoint};
+    let corners = [
+        (bbox.min_e, bbox.min_n),
+        (bbox.max_e, bbox.min_n),
+        (bbox.max_e, bbox.max_n),
+        (bbox.min_e, bbox.max_n),
+    ]
+    .map(|(easting, northing)| {
+        Crs::Utm32.reproject(Crs::Utm33, ProjectedPoint { easting, northing })
+    });
+    let Some(corners) = corners.into_iter().collect::<Option<Vec<_>>>() else {
+        return Vec::new();
+    };
+    let fold = |pick: fn(&ProjectedPoint) -> f64, init: f64, f: fn(f64, f64) -> f64| {
+        corners.iter().map(pick).fold(init, f)
+    };
+    tiles_covering(&BoundingBox {
+        min_e: fold(|p| p.easting, f64::INFINITY, f64::min),
+        min_n: fold(|p| p.northing, f64::INFINITY, f64::min),
+        max_e: fold(|p| p.easting, f64::NEG_INFINITY, f64::max),
+        max_n: fold(|p| p.northing, f64::NEG_INFINITY, f64::max),
+    })
+}
+
 /// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide
-/// archives (≈2 MB DGM1 and ≈4 MB bDOM per km²).
+/// archives (≈2 MB DGM1 and ≈4 MB bDOM per 1 km tile touched).
 fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::lgv::Model;
+    let tiles = zone_32_tiles(bbox).len() as f64;
     vec![
         per_km2_item(bbox, "orthophoto (LGV WMS)", GEOSN_WMS_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dgm1.label(), 2.0),
-        per_km2_item(bbox, Model::Bdom.label(), 4.0),
+        EstimateItem {
+            what: Model::Dgm1.label().to_string(),
+            megabytes: tiles * 2.0,
+            cached: false,
+        },
+        EstimateItem {
+            what: Model::Bdom.label().to_string(),
+            megabytes: tiles * 4.0,
+            cached: false,
+        },
     ]
 }
 
-/// HVBG: the WMS orthophoto, the height models read out of the municipal zips (≈2.5 MB DGM1 and
-/// ≈3 MB DOM1 per km²) and the metadata list that finds the zips. The list's file name is only
-/// known after the product description is read, so it counts as cached once any list is.
+/// HVBG: the WMS orthophoto, the height models read out of the municipal zips (≈2.1 MB DGM1
+/// and ≈3 MB DOM1 per 1 km tile touched, those already cached left out) and the metadata list
+/// that finds the zips. The list's file name is only known after the product description is
+/// read, so it counts as cached once any list is.
 fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     use crate::sources::hvbg::Model;
     let list_cached = std::fs::read_dir(cache.hvbg_dir().join("metadata"))
@@ -187,10 +224,28 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         .flatten()
         .flatten()
         .any(|e| e.file_name().to_string_lossy().ends_with(".xlsx"));
+    let tiles = zone_32_tiles(bbox);
+    let model_item = |model: Model, mb_per_tile: f64| {
+        let open = tiles
+            .iter()
+            .filter(|t| {
+                !cache
+                    .hvbg_dir()
+                    .join(model.code())
+                    .join(format!("32_{:03}_{:04}.tif", t.east_km, t.north_km))
+                    .exists()
+            })
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        }
+    };
     vec![
         per_km2_item(bbox, "orthophoto (HVBG WMS)", GEOSN_WMS_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dgm1.label(), 2.5),
-        per_km2_item(bbox, Model::Dom1.label(), 3.0),
+        model_item(Model::Dgm1, 2.1),
+        model_item(Model::Dom1, 3.0),
         EstimateItem {
             what: "tile metadata list (HVBG)".to_string(),
             megabytes: 1.0,
@@ -632,8 +687,10 @@ mod tests {
         let km2 = bbox.width() * bbox.height() / 1e6;
         let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
         assert!(near(find("orthophoto (HVBG WMS)").megabytes, km2 * 8.0));
-        assert!(near(find("terrain model (HVBG DGM1)").megabytes, km2 * 2.5));
-        assert!(near(find("surface model (HVBG DOM1)").megabytes, km2 * 3.0));
+        // The Downloadcenter is read in whole 1 km tiles, however small the area: the 200 m
+        // school yard lies in one.
+        assert!(near(find("terrain model (HVBG DGM1)").megabytes, 2.1));
+        assert!(near(find("surface model (HVBG DOM1)").megabytes, 3.0));
         assert!(near(find("tile metadata list (HVBG)").megabytes, 1.0));
         assert!(near(
             find("OSM extract Hesse (shared by all projects)").megabytes,
@@ -645,6 +702,75 @@ mod tests {
                 .filter(|i| i.what.contains("HVBG"))
                 .all(|i| !i.cached)
         );
+    }
+
+    #[test]
+    fn hvbg_estimate_counts_tiles_and_skips_cached_ones() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 47_838.0,
+            northing: 5_571_740.0,
+        })
+        .unwrap();
+        // About 2 km wide: crosses at least one tile edge.
+        let area = square(p.lon, p.lat, 0.012);
+        let bbox = area.projected_bbox().buffered(20.0);
+        let tiles = zone_32_tiles(&bbox);
+        assert!(tiles.len() >= 2, "{tiles:?}");
+        let n = tiles.len() as f64;
+        let item = |what: &str, cache: &Cache| {
+            let preview = preview_area(&area, 20.0, cache, today());
+            preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap()
+                .clone()
+        };
+        let dgm1 = item("terrain model (HVBG DGM1)", &cache);
+        assert!((dgm1.megabytes - 2.1 * n).abs() < 1e-9 && !dgm1.cached);
+        // One tile of the DGM1 already in the cache.
+        let dir = cache.hvbg_dir().join("dgm1");
+        std::fs::create_dir_all(&dir).unwrap();
+        let t = tiles[0];
+        std::fs::write(
+            dir.join(format!("32_{:03}_{:04}.tif", t.east_km, t.north_km)),
+            b"x",
+        )
+        .unwrap();
+        let dgm1 = item("terrain model (HVBG DGM1)", &cache);
+        assert!((dgm1.megabytes - 2.1 * (n - 1.0)).abs() < 1e-9 && !dgm1.cached);
+        let dom1 = item("surface model (HVBG DOM1)", &cache);
+        assert!((dom1.megabytes - 3.0 * n).abs() < 1e-9);
+    }
+
+    #[test]
+    fn lgv_estimate_counts_whole_tiles() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Gymnasium Eppendorf, Hamburg, 25833 E 168078 N 5949079: a 200 m yard.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 168_078.0,
+            northing: 5_949_079.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let tiles = zone_32_tiles(&area.projected_bbox().buffered(20.0)).len() as f64;
+        assert!((1.0..=4.0).contains(&tiles), "{tiles}");
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let mb = |what: &str| {
+            preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap()
+                .megabytes
+        };
+        assert!((mb("terrain model (LGV DGM1 2022)") - 2.0 * tiles).abs() < 1e-9);
+        assert!((mb("surface model (LGV bDOM 2022)") - 4.0 * tiles).abs() < 1e-9);
     }
 
     #[test]

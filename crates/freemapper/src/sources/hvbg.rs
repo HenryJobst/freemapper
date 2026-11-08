@@ -68,7 +68,7 @@ impl Model {
     /// The product code in lower case: the start of the tile members
     /// (`dgm1_32_476_5552_1_he.tif`), the end of the municipal file names
     /// (`Frankfurt_am_Main-DGM1`) and the cache folder.
-    fn code(self) -> &'static str {
+    pub(crate) fn code(self) -> &'static str {
         match self {
             Self::Dgm1 => "dgm1",
             Self::Dom1 => "dom1",

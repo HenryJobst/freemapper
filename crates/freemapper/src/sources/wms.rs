@@ -107,18 +107,19 @@ pub fn fetch_orthophoto(
     let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
     let mut mosaic = image::RgbImage::new(grid.width, grid.height);
     for (piece, url) in pieces(service, &grid) {
-        let image = get_with_retries(fetcher, &url, |bytes| {
+        // A WMS reports errors as HTTP 200 with an XML document. The inner `Err` is such an
+        // answer, which would come again, so it is not retried.
+        let answer = get_with_retries(fetcher, &url, |bytes| {
             let refused = |message: String| FetchError::Http {
                 url: url.clone(),
                 message,
             };
-            // A WMS reports errors as HTTP 200 with an XML document.
             if let Some(message) = xml_message(&String::from_utf8_lossy(
                 &bytes[..bytes.len().min(XML_PROBE_BYTES)],
             )) {
-                return Err(refused(format!(
+                return Ok(Err(refused(format!(
                     "the WMS answered with an error: {message}"
-                )));
+                ))));
             }
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
                 .map_err(|e| {
@@ -135,8 +136,9 @@ pub fn fetch_orthophoto(
                     piece.height
                 )));
             }
-            Ok(image)
+            Ok(Ok(image))
         })?;
+        let image = answer?;
         let (x0, y0) = (
             ((piece.west - grid.west) / grid.pixel_size).round() as i64,
             ((grid.north - piece.north) / grid.pixel_size).round() as i64,
@@ -241,6 +243,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "{error}"
         );
         assert!(error.contains("the WMS answered with an error"), "{error}");
+        // The same exception would come every time: asked once.
+        assert_eq!(fetcher.calls.get(), 1);
     }
 
     #[test]
