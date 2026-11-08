@@ -640,6 +640,13 @@ pub fn fetch_extract(
         // Geofabrik unreachable, a portal page or a broken download: a cached extract is better
         // than no candidates.
         Err(e) => match newest {
+            Some(cached) if e.is_disk_full() => {
+                progress(&format!(
+                    "warning: the disk is full, so freemapper uses the cached OSM extract from {}. Free some space and run `freemapper fetch` again for a newer one",
+                    cached.data_date
+                ));
+                Ok(cached)
+            }
             Some(cached) => {
                 progress(&format!(
                     "warning: Geofabrik unavailable ({e}); using the cached OSM extract from {}",
@@ -1281,6 +1288,54 @@ mod tests {
         let extract = online(&fetcher, &cache).unwrap();
         assert_eq!(extract.date.to_string(), "2026-11-06");
         assert_eq!(extracts(&cache), ["brandenburg_2026-11-06.osm.pbf"]);
+    }
+
+    /// Serves like `MapFetcher`, but every download into a file meets a full disk.
+    struct FullDisk<'a>(&'a MapFetcher);
+
+    impl Fetcher for FullDisk<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.0.get(url)
+        }
+
+        fn download_to(
+            &self,
+            _url: &str,
+            path: &Path,
+            _max_bytes: u64,
+            _progress: &mut dyn FnMut(&str),
+        ) -> Result<(), FetchError> {
+            Err(FetchError::Io(
+                path.to_path_buf(),
+                std::io::Error::from(std::io::ErrorKind::StorageFull),
+            ))
+        }
+    }
+
+    #[test]
+    fn full_disk_keeps_the_cached_extract_and_says_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-10-01");
+        let cached = online(&fetcher, &cache).unwrap();
+        fetcher.insert(STATE_URL, state("2026-11-06"));
+        let mut messages = Vec::new();
+        let extract = fetch_extract(
+            &FullDisk(&fetcher),
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Online,
+            &mut |m| messages.push(m.to_string()),
+        )
+        .unwrap();
+        assert_eq!(extract, cached);
+        let expected = format!(
+            "warning: the disk is full, so freemapper uses the cached OSM extract from {}. Free some space and run `freemapper fetch` again for a newer one",
+            cached.data_date
+        );
+        assert!(messages.contains(&expected), "{messages:?}");
+        assert_eq!(extracts(&cache), ["brandenburg_2026-10-01.osm.pbf"]);
     }
 
     #[test]

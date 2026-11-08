@@ -11,7 +11,7 @@ use crate::raster::RasterError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DeriveError {
-    #[error("{path}: {source}", path = .0.display(), source = .1)]
+    #[error("{}", crate::space::io_error_text(.0, .1))]
     Io(PathBuf, std::io::Error),
     #[error("tile archive: {0}")]
     Zip(String),

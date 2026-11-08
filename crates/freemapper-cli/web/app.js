@@ -29,6 +29,17 @@ const TEXTS = {
     downloadNone: "Download: alles schon im Zwischenspeicher",
     downloadDetails: "Was geladen wird",
     cached: "schon geladen",
+    disk: "Speicherplatz: ",
+    diskVolume: (free, needed) => `${free} frei, gebraucht etwa ${needed}`,
+    cacheVolume: "Zwischenspeicher",
+    projectVolume: "Projektordner",
+    noRoom: "passt nicht auf den Datenträger",
+    noRoomSkip: (reserve) =>
+      `Nicht alles passt auf den Datenträger (freemapper lässt ${reserve} frei). Das Laden lässt die markierten Teile aus. Schaffe vorher Platz, wenn du sie brauchst:`,
+    noRoomStop: (reserve) =>
+      `Zu wenig Speicherplatz (freemapper lässt ${reserve} frei). Ohne die markierten Teile entsteht keine Karte, deshalb bricht das Laden ab, bevor es etwas lädt. Schaffe vorher Platz:`,
+    diskUnknown: (error) =>
+      `Den freien Speicherplatz kann freemapper nicht lesen (${error}). Es lädt dann ohne Prüfung.`,
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
@@ -93,6 +104,17 @@ const TEXTS = {
     downloadNone: "Download: everything is cached already",
     downloadDetails: "What is downloaded",
     cached: "cached",
+    disk: "Disk space: ",
+    diskVolume: (free, needed) => `${free} free, about ${needed} needed`,
+    cacheVolume: "cache",
+    projectVolume: "project folder",
+    noRoom: "does not fit on the disk",
+    noRoomSkip: (reserve) =>
+      `Not everything fits on the disk (freemapper keeps ${reserve} free). The fetch leaves out the marked parts. Free some space first if you need them:`,
+    noRoomStop: (reserve) =>
+      `Not enough disk space (freemapper keeps ${reserve} free). There is no map without the marked parts, so the fetch stops before it downloads anything. Free some space first:`,
+    diskUnknown: (error) =>
+      `freemapper cannot read the free disk space (${error}). It fetches without the check.`,
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
@@ -339,9 +361,10 @@ function showPreview() {
   if (!area) return;
   $("source").textContent = sourceId ? T.sourceOsm + (sourceName || sourceId) : T.sourceDrawn;
   if (!preview) {
-    ["size", "tiles", "download"].forEach((id) => ($(id).textContent = ""));
+    ["size", "tiles", "download", "disk"].forEach((id) => ($(id).textContent = ""));
     $("items").replaceChildren();
     $("too-large").hidden = true;
+    $("no-room").hidden = true;
     return;
   }
   $("size").textContent = T.size(Math.round(preview.width_m), Math.round(preview.height_m));
@@ -359,10 +382,13 @@ function showPreview() {
   $("items").replaceChildren(
     ...preview.estimate.items.map((item) => {
       const li = document.createElement("li");
-      li.textContent = `${item.what}: ${item.megabytes} MB${item.cached ? ` (${T.cached})` : ""}`;
+      const note = item.cached ? ` (${T.cached})` : item.fits === false ? ` (${T.noRoom})` : "";
+      li.textContent = `${item.what}: ${item.megabytes} MB${note}`;
+      li.classList.toggle("warning", !item.cached && item.fits === false);
       return li;
     }),
   );
+  showDisk(unusable ? null : preview.estimate);
   for (const tile of preview.tiles) {
     L.polygon(tile.corners, {
       color: "#ff7800",
@@ -374,6 +400,51 @@ function showPreview() {
       .bindTooltip(tile.name, { permanent: true, direction: "center", className: "tile-label" })
       .addTo(tileLayer);
   }
+}
+
+/** `350 MB` or `1,2 GB` in the page's language. */
+function megabytes(mb) {
+  if (mb < 1024) return `${Math.ceil(mb)} MB`;
+  const gb = (mb / 1024).toLocaleString(document.documentElement.lang, {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  });
+  return `${gb} GB`;
+}
+
+/** The free disk space of the cache and project volumes, and a hint when not everything fits. */
+function showDisk(estimate) {
+  const disk = estimate && estimate.disk;
+  const volumes = (disk && disk.volumes) || [];
+  const named = volumes.length > 1;
+  $("disk").textContent = volumes.length
+    ? T.disk +
+      volumes
+        .map((v) => {
+          const where = v.holds.includes("cache") ? T.cacheVolume : T.projectVolume;
+          const text = T.diskVolume(megabytes(v.free_megabytes), megabytes(v.needed_megabytes));
+          return named ? `${where}: ${text}` : text;
+        })
+        .join("; ")
+    : "";
+  const messages = (disk && disk.messages) || [];
+  const notice = $("no-room");
+  notice.replaceChildren();
+  if (disk && disk.error) {
+    notice.textContent = T.diskUnknown(disk.error);
+  } else if (messages.length) {
+    const reserve = megabytes(disk.reserve_megabytes);
+    const list = document.createElement("ul");
+    list.replaceChildren(
+      ...messages.map((text) => {
+        const li = document.createElement("li");
+        li.textContent = text;
+        return li;
+      }),
+    );
+    notice.append(disk.stops ? T.noRoomStop(reserve) : T.noRoomSkip(reserve), list);
+  }
+  notice.hidden = !notice.textContent;
 }
 
 // --- Search ----------------------------------------------------------------------------------

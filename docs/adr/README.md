@@ -90,3 +90,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0042](0042-rhineland-palatinate-provider-name-and-attribution.md) | Rhineland-Palatinate: provider `LvermGeoRp` and the attribution line | Accepted | 2026-11-08 |
 | [0043](0043-magnetic-north-lines-are-map-content.md) | Magnetic north lines are map content | Accepted | 2026-11-08 |
 | [0044](0044-iof-colours-rev-4.md) | Colours after IOF Printing and Colour Definitions Rev. 4, not OOM's bundled values | Accepted | 2026-11-08 |
+| [0045](0045-disk-space-check-before-fetching-and-disk-full-handling.md) | Disk space: checked before fetching, optional parts left out, a full disk reported plainly | Accepted | 2026-11-08 |
