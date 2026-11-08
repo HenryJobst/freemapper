@@ -6,12 +6,24 @@
 //! `massen.php` links are built from the same attributes as the portal's own index
 //! (`link_data`).
 
+use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
+
 use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, Fetcher, get_with_retries};
-use crate::tiles::TileId;
+use crate::fetch::{
+    Cache, FetchError, FetchMode, Fetcher, download_with_retries, get_with_retries,
+    write_atomically,
+};
+use crate::raster::{GridSpec, Raster};
+use crate::sources::height_model::HeightModel;
+use crate::sources::lvermgeo::{
+    decode_float_tiff, decode_float_tiff_from, encode_float_geotiff, write_float_raster,
+};
+use crate::sources::region::{Region, tile_centre_in};
+use crate::tiles::{TileId, tiles_covering};
 
 /// The Downloadportal; its host is reached through the bundled D-TRUST anchors (see `fetch`).
 pub const PORTAL: &str = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload";
@@ -49,14 +61,31 @@ pub struct PortalTile {
 }
 
 /// The AJAX tile lookup of `product` over `bbox` (EPSG:25832), rounded outward to whole metres.
-fn overview_url(bbox: &BoundingBox, product: Product) -> String {
+/// The product comes first, so a test server can answer each product by URL prefix.
+pub(crate) fn overview_url(bbox: &BoundingBox, product: Product) -> String {
     format!(
-        "{PORTAL}/_ajax/overview.php?bbox={},{},{},{}&crs=EPSG:25832&type[]={}",
+        "{}{}&crs=EPSG:25832",
+        overview_prefix(product),
+        bbox_key(bbox).replace('_', ",")
+    )
+}
+
+/// The start of every [`overview_url`] of `product`, up to the bbox.
+pub(crate) fn overview_prefix(product: Product) -> String {
+    format!(
+        "{PORTAL}/_ajax/overview.php?type[]={}&bbox=",
+        product.overview_type()
+    )
+}
+
+/// The bbox of an overview request: `min_e_min_n_max_e_max_n`, rounded outward to whole metres.
+fn bbox_key(bbox: &BoundingBox) -> String {
+    format!(
+        "{}_{}_{}_{}",
         bbox.min_e.floor(),
         bbox.min_n.floor(),
         bbox.max_e.ceil(),
-        bbox.max_n.ceil(),
-        product.overview_type()
+        bbox.max_n.ceil()
     )
 }
 
@@ -72,14 +101,23 @@ pub fn overview(
     let url = overview_url(bbox, product);
     // Retries cover the transport only; a refused or malformed answer does not change.
     let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
+    parse_overview(&url, &bytes, product)
+}
+
+/// An `overview.php` answer from `url` (see [`overview`]).
+fn parse_overview(
+    url: &str,
+    bytes: &[u8],
+    product: Product,
+) -> Result<Vec<PortalTile>, FetchError> {
     let error = |message: String| FetchError::Http {
-        url: url.clone(),
+        url: url.to_string(),
         message,
     };
-    let json: Value = serde_json::from_slice(&bytes).map_err(|_| {
+    let json: Value = serde_json::from_slice(bytes).map_err(|_| {
         error(format!(
             "not a tile overview: {}",
-            excerpt(&String::from_utf8_lossy(&bytes))
+            excerpt(&String::from_utf8_lossy(bytes))
         ))
     })?;
     if json["success"] != true {
@@ -204,6 +242,528 @@ fn excerpt(text: &str) -> String {
     }
 }
 
+/// The INSPIRE ATOM data directory of the DGM1 GeoTIFFs (`<name>.tif`); a static server, valid
+/// TLS, 404 for a name it does not have.
+pub const ATOM_DATA: &str = "https://service.gdi-sh.de/INSPIRE_Atom/EL/data";
+
+/// The height models are the Downloadportal's products.
+pub type Model = Product;
+
+impl Product {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dgm1 => "terrain model (LVermGeo SH DGM1)",
+            Self::Bdom => "surface model (LVermGeo SH bDOM)",
+        }
+    }
+}
+
+/// Cells per side of a DGM1 XYZ (1 m).
+const XYZ_CELLS: u32 = 1000;
+/// The size of a bDOM tile download (5000 x 5000 Float32, uncompressed).
+const BDOM_MB: u32 = 105;
+/// The size of a DGM1 XYZ download.
+const XYZ_MB: u32 = 28;
+
+/// The 1 km tiles of `model` over `bbox` (EPSG:25832), mosaicked into a Float32 GeoTIFF `out`
+/// with its world file.
+///
+/// The tiles and their names come from the Downloadportal's overview (cached per area for
+/// offline runs). DGM1 is the INSPIRE ATOM GeoTIFF, or the portal's XYZ where the ATOM directory
+/// lacks the tile (404). The bDOM (0.2 m, 105 MB, about 90 s per tile) is streamed to a
+/// temporary file and reduced to 1 m (the median of each 5 x 5 block). Only the 1 m tiles are
+/// cached, under the portal's name (which carries the vintage). Tiles inside Schleswig-Holstein
+/// that the portal does not list are returned as missing; the date is the centre tile's. No
+/// tile at all is an error.
+pub fn fetch_model(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    model: Model,
+    bbox: &BoundingBox,
+    out: &Path,
+    progress: &mut dyn FnMut(&str),
+) -> Result<HeightModel, FetchError> {
+    fetch_model_with(fetcher, cache, mode, model, bbox, out, progress, XYZ_CELLS)
+}
+
+/// [`fetch_model`] with XYZ tiles of `xyz_cells` x `xyz_cells` points (tests use fewer).
+#[allow(clippy::too_many_arguments)]
+fn fetch_model_with(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    model: Model,
+    bbox: &BoundingBox,
+    out: &Path,
+    progress: &mut dyn FnMut(&str),
+    xyz_cells: u32,
+) -> Result<HeightModel, FetchError> {
+    let dir = cache.lvermgeo_sh_dir();
+    let mut warnings = Vec::new();
+    let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
+    let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
+    let tiles: Vec<(TileId, Option<&PortalTile>)> = tiles_covering(bbox)
+        .into_iter()
+        .map(|tile| (tile, listed.iter().find(|t| t.tile == tile)))
+        .collect();
+    let downloads = tiles
+        .iter()
+        .filter_map(|(_, entry)| *entry)
+        .filter(|entry| !cache_path(&dir, model, entry).exists())
+        .count();
+    let (mut found, mut downloaded, mut missing) = (0, 0, Vec::new());
+    for (tile, entry) in tiles {
+        let Some(entry) = entry else {
+            if tile_centre_in(tile, Region::SchleswigHolstein) {
+                missing.push(tile);
+            }
+            continue;
+        };
+        let part = match read_cached(&cache_path(&dir, model, entry), tile) {
+            Some(part) => part,
+            None if mode == FetchMode::Offline => {
+                return Err(FetchError::Http {
+                    url: entry.link.clone(),
+                    message: format!(
+                        "offline and not cached: {} tile {}; run `freemapper fetch` online",
+                        model.label(),
+                        entry.name
+                    ),
+                });
+            }
+            None => {
+                downloaded += 1;
+                match model {
+                    Model::Dgm1 => dgm1_tile(fetcher, &dir, entry, xyz_cells, progress)?,
+                    Model::Bdom => {
+                        progress(&format!(
+                            "downloading bDOM tile {} ({BDOM_MB} MB, {downloaded} of {downloads})",
+                            short_name(tile)
+                        ));
+                        bdom_tile(fetcher, &dir, entry, progress)?
+                    }
+                }
+            }
+        };
+        found += 1;
+        let empty = paste_tile(&mut raster, &part).map_err(|message| FetchError::Http {
+            url: entry.link.clone(),
+            message: format!("{} tile {}: {message}", model.label(), entry.name),
+        })?;
+        if empty > 0 {
+            warnings.push(format!(
+                "{} tile {}: {empty} cells of the map area have no height",
+                model.label(),
+                short_name(tile)
+            ));
+        }
+    }
+    if found == 0 {
+        return Err(FetchError::Http {
+            url: overview_url(bbox, model),
+            message: format!(
+                "no tile of the {} covers the map area; the Downloadportal may have changed",
+                model.label()
+            ),
+        });
+    }
+    write_float_raster(&raster, out, PORTAL)?;
+    let centre = TileId {
+        east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
+        north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
+    };
+    let date = match listed.iter().find(|t| t.tile == centre) {
+        Some(entry) if entry.date.is_none() => {
+            warnings.push(format!(
+                "the Downloadportal gives no date for the {} tile {}",
+                model.label(),
+                short_name(centre)
+            ));
+            None
+        }
+        entry => entry.and_then(|e| e.date.clone()),
+    };
+    Ok(HeightModel {
+        missing,
+        date,
+        warnings,
+        ..HeightModel::default()
+    })
+}
+
+/// `32_565_5949`.
+fn short_name(tile: TileId) -> String {
+    format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
+}
+
+/// The overview of `product` over `bbox`, kept in `dir` for offline runs (and for an online
+/// run whose overview request fails, with a warning).
+fn tile_list(
+    fetcher: &dyn Fetcher,
+    dir: &Path,
+    mode: FetchMode,
+    bbox: &BoundingBox,
+    product: Product,
+    warnings: &mut Vec<String>,
+) -> Result<Vec<PortalTile>, FetchError> {
+    let url = overview_url(bbox, product);
+    let path = dir.join("overview").join(format!(
+        "{}_{}.json",
+        product.overview_type(),
+        bbox_key(bbox)
+    ));
+    let cached = || {
+        std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| parse_overview(&url, &bytes, product).ok())
+    };
+    if mode == FetchMode::Offline {
+        return cached().ok_or_else(|| FetchError::Http {
+            url: url.clone(),
+            message: format!(
+                "offline and not cached: the tile list of the {} for this area; run \
+                 `freemapper fetch` online",
+                product.label()
+            ),
+        });
+    }
+    match get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec())) {
+        Ok(bytes) => {
+            let tiles = parse_overview(&url, &bytes, product)?;
+            write_atomically(&path, &bytes)?;
+            Ok(tiles)
+        }
+        Err(e) => {
+            let tiles = cached().ok_or(e)?;
+            warnings.push(format!(
+                "the Downloadportal's tile list of the {} could not be read; used the one kept \
+                 from an earlier run",
+                product.label()
+            ));
+            Ok(tiles)
+        }
+    }
+}
+
+/// Where the 1 m tile of `entry` is cached; named after the portal's (checked) name.
+fn cache_path(dir: &Path, model: Model, entry: &PortalTile) -> PathBuf {
+    match model {
+        Model::Dgm1 => dir.join("dgm1").join(format!("{}.tif", entry.name)),
+        Model::Bdom => dir.join("bdom").join(format!("{}_1m.tif", entry.name)),
+    }
+}
+
+/// The cached tile at `path`, if it is there and reads as `tile`.
+fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
+    let bytes = std::fs::read(path).ok()?;
+    decode_float_tiff(&bytes)
+        .and_then(|raster| whole_tile(raster, tile))
+        .ok()
+}
+
+/// `raster` if it covers exactly the 1 km `tile`.
+fn whole_tile(raster: Raster<f32>, tile: TileId) -> Result<Raster<f32>, String> {
+    let g = raster.grid;
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
+    let fits = near(g.west, f64::from(tile.east_km) * 1000.0)
+        && near(g.north, f64::from(tile.north_km + 1) * 1000.0)
+        && near(f64::from(g.width) * g.pixel_size, 1000.0)
+        && near(f64::from(g.height) * g.pixel_size, 1000.0);
+    if fits {
+        Ok(raster)
+    } else {
+        Err(format!(
+            "the raster (W {} N {}, {} x {} px of {} m) is not the whole tile {}",
+            g.west,
+            g.north,
+            g.width,
+            g.height,
+            g.pixel_size,
+            short_name(tile)
+        ))
+    }
+}
+
+/// The DGM1 of `entry` from the ATOM directory, or from the portal's XYZ when the directory
+/// lacks it (404); cached.
+fn dgm1_tile(
+    fetcher: &dyn Fetcher,
+    dir: &Path,
+    entry: &PortalTile,
+    xyz_cells: u32,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Raster<f32>, FetchError> {
+    let path = cache_path(dir, Model::Dgm1, entry);
+    let what = format!("{} tile {}", Model::Dgm1.label(), entry.name);
+    let url = format!("{ATOM_DATA}/{}.tif", entry.name);
+    let atom = get_with_retries(fetcher, &url, |bytes| {
+        decode_float_tiff(bytes)
+            .and_then(|raster| whole_tile(raster, entry.tile))
+            .map(|raster| (bytes.to_vec(), raster))
+            .map_err(|message| FetchError::Http {
+                url: url.clone(),
+                message: format!("{what}: {message}"),
+            })
+    });
+    match atom {
+        Ok((bytes, raster)) => {
+            write_atomically(&path, &bytes)?;
+            Ok(raster)
+        }
+        Err(FetchError::NotFound(_)) => {
+            progress(&format!(
+                "DGM1 tile {} is not in the INSPIRE ATOM directory; downloading its XYZ \
+                 ({XYZ_MB} MB)",
+                short_name(entry.tile)
+            ));
+            let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
+                parse_xyz(reader, entry.tile, xyz_cells)
+            })?;
+            cache_raster(&path, &raster, &what)?;
+            Ok(raster)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// The bDOM of `entry`, streamed to a temporary file, decoded once, reduced to 1 m and cached.
+fn bdom_tile(
+    fetcher: &dyn Fetcher,
+    dir: &Path,
+    entry: &PortalTile,
+    progress: &mut dyn FnMut(&str),
+) -> Result<Raster<f32>, FetchError> {
+    let what = format!("{} tile {}", Model::Bdom.label(), entry.name);
+    let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
+        let start = reader.fill_buf().map_err(|e| e.to_string())?;
+        if !(start.starts_with(b"II*\0") || start.starts_with(b"MM\0*")) {
+            return Err(error_page(start));
+        }
+        // The 0.2 m pixels (100 MB) live only until they are reduced.
+        let full = decode_float_tiff_from(reader).and_then(|r| whole_tile(r, entry.tile))?;
+        reduce_to_metre(&full)
+    })?;
+    cache_raster(&cache_path(dir, Model::Bdom, entry), &raster, &what)?;
+    Ok(raster)
+}
+
+/// What an answer that is not data says: the portal reports errors as an HTML page with
+/// status 200.
+fn error_page(start: &[u8]) -> String {
+    let head = &start[..start.len().min(500)];
+    let text = String::from_utf8_lossy(head);
+    // Tags out, so the message reads as the portal's sentence.
+    let mut plain = String::new();
+    let mut in_tag = false;
+    for c in text.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => {
+                in_tag = false;
+                plain.push(' ');
+            }
+            c if !in_tag => plain.push(c),
+            _ => {}
+        }
+    }
+    format!(
+        "the Downloadportal answered with an error page: {}",
+        excerpt(&plain)
+    )
+}
+
+/// Downloads `entry.link` into a temporary file in `dir` (removed afterwards, also on error)
+/// and reads it with `read`; an error names `what`.
+fn download_checked<T>(
+    fetcher: &dyn Fetcher,
+    dir: &Path,
+    entry: &PortalTile,
+    what: &str,
+    progress: &mut dyn FnMut(&str),
+    read: impl FnOnce(&mut BufReader<std::fs::File>) -> Result<T, String>,
+) -> Result<T, FetchError> {
+    let temp = TempFile(dir.join("downloads").join(format!(
+        "{}.{}.part",
+        entry.name,
+        std::process::id()
+    )));
+    let tile = short_name(entry.tile);
+    download_with_retries(fetcher, &entry.link, &temp.0, &mut |m| {
+        progress(&format!("tile {tile}: {m}"))
+    })?;
+    let file = std::fs::File::open(&temp.0).map_err(|e| FetchError::Io(temp.0.clone(), e))?;
+    read(&mut BufReader::with_capacity(1 << 16, file)).map_err(|message| FetchError::Http {
+        url: entry.link.clone(),
+        message: format!("{what}: {message}"),
+    })
+}
+
+/// A file removed when dropped.
+struct TempFile(PathBuf);
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
+fn cache_raster(path: &Path, raster: &Raster<f32>, what: &str) -> Result<(), FetchError> {
+    let bytes = encode_float_geotiff(raster).map_err(|message| FetchError::Http {
+        url: PORTAL.to_string(),
+        message: format!("{what}: {message}"),
+    })?;
+    write_atomically(path, &bytes)
+}
+
+/// A DGM1 XYZ of the portal: `cells` x `cells` lines `565000.50 5949999.50 29.85`, the cell
+/// centres of `tile` row by row from the north-west; CRLF, a stray `\n` at the end. Every point
+/// must be where the grid puts it.
+fn parse_xyz(reader: &mut impl BufRead, tile: TileId, cells: u32) -> Result<Raster<f32>, String> {
+    let start = reader.fill_buf().map_err(|e| e.to_string())?;
+    if !start.first().is_some_and(u8::is_ascii_digit) {
+        return Err(error_page(start));
+    }
+    let pixel = 1000.0 / f64::from(cells);
+    let grid = GridSpec {
+        west: f64::from(tile.east_km) * 1000.0,
+        north: f64::from(tile.north_km + 1) * 1000.0,
+        pixel_size: pixel,
+        width: cells,
+        height: cells,
+    };
+    let total = cells as usize * cells as usize;
+    let mut data = Vec::with_capacity(total);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if reader.read_line(&mut line).map_err(|e| e.to_string())? == 0 {
+            break;
+        }
+        let text = line.trim_end();
+        if text.is_empty() {
+            continue;
+        }
+        let n = data.len();
+        if n == total {
+            return Err(format!("more than {total} points"));
+        }
+        let mut fields = text.split_ascii_whitespace().map(str::parse::<f64>);
+        let (Some(Ok(e)), Some(Ok(north)), Some(Ok(z)), None) =
+            (fields.next(), fields.next(), fields.next(), fields.next())
+        else {
+            return Err(format!(
+                "point {} is not `E N height`: {}",
+                n + 1,
+                excerpt(text)
+            ));
+        };
+        let (col, row) = ((n % cells as usize) as f64, (n / cells as usize) as f64);
+        let (want_e, want_n) = (
+            grid.west + (col + 0.5) * pixel,
+            grid.north - (row + 0.5) * pixel,
+        );
+        if (e - want_e).abs() > 0.01 || (north - want_n).abs() > 0.01 {
+            return Err(format!(
+                "point {} is at E {e:.2} N {north:.2}, expected E {want_e:.2} N {want_n:.2} \
+                 (the cells of the tile row by row from the north-west)",
+                n + 1
+            ));
+        }
+        data.push(if z < -9998.0 { f32::NAN } else { z as f32 });
+    }
+    if data.len() != total {
+        return Err(format!("{} of {total} points", data.len()));
+    }
+    Ok(Raster { grid, data })
+}
+
+/// `raster` (pixels that divide 1 m, e.g. the bDOM's 0.2 m) at 1 m: the median of each block,
+/// NaN ignored; a block without any height is NaN.
+fn reduce_to_metre(raster: &Raster<f32>) -> Result<Raster<f32>, String> {
+    let g = raster.grid;
+    let k = (1.0 / g.pixel_size).round();
+    if k < 1.0 || (k * g.pixel_size - 1.0).abs() > 1e-6 {
+        return Err(format!("pixels of {} m do not divide 1 m", g.pixel_size));
+    }
+    let k = k as u32;
+    if !g.width.is_multiple_of(k) || !g.height.is_multiple_of(k) {
+        return Err(format!(
+            "{} x {} px of {} m are not whole metres",
+            g.width, g.height, g.pixel_size
+        ));
+    }
+    let (width, height) = (g.width / k, g.height / k);
+    let mut data = Vec::with_capacity(width as usize * height as usize);
+    let mut block = Vec::with_capacity((k * k) as usize);
+    for by in 0..height {
+        for bx in 0..width {
+            block.clear();
+            for y in by * k..(by + 1) * k {
+                let row = &raster.data[(y * g.width) as usize..][..g.width as usize];
+                block.extend(
+                    row[(bx * k) as usize..((bx + 1) * k) as usize]
+                        .iter()
+                        .copied()
+                        .filter(|z| !z.is_nan()),
+                );
+            }
+            data.push(median(&mut block));
+        }
+    }
+    Ok(Raster {
+        grid: GridSpec {
+            pixel_size: 1.0,
+            width,
+            height,
+            ..g
+        },
+        data,
+    })
+}
+
+/// The median of `values` (the mean of the middle two for an even count); NaN for none.
+fn median(values: &mut [f32]) -> f32 {
+    if values.is_empty() {
+        return f32::NAN;
+    }
+    let (len, mid) = (values.len(), values.len() / 2);
+    let (lower, &mut upper, _) = values.select_nth_unstable_by(mid, f32::total_cmp);
+    if !len.is_multiple_of(2) {
+        return upper;
+    }
+    let below = lower.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+    (below + upper) / 2.0
+}
+
+/// Pastes the 1 km `part` (pixels of whole metres: the DGM1 and bDOM at 1 m, a coarser XYZ in
+/// tests) into the 1 m `raster`; returns how many pasted cells have no height.
+fn paste_tile(raster: &mut Raster<f32>, part: &Raster<f32>) -> Result<u64, String> {
+    let p = part.grid.pixel_size;
+    let k = p.round();
+    if k < 1.0 || (p - k).abs() > 1e-6 {
+        return Err(format!("pixels of {p} m are not whole metres"));
+    }
+    let k = k as u32;
+    let grid = GridSpec {
+        pixel_size: 1.0,
+        width: part.grid.width * k,
+        height: part.grid.height * k,
+        ..part.grid
+    };
+    let empty = std::cell::Cell::new(0);
+    raster
+        .paste_with(&grid, |x, y| {
+            let z = part.get(x / k, y / k);
+            if z.is_nan() {
+                empty.set(empty.get() + 1);
+            }
+            z
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(empty.get())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,8 +791,8 @@ mod tests {
 
     fn url(product: &str) -> String {
         format!(
-            "{PORTAL}/_ajax/overview.php?bbox=565100,5949100,565300,5949300&crs=EPSG:25832\
-             &type[]={product}"
+            "{PORTAL}/_ajax/overview.php?type[]={product}&bbox=565100,5949100,565300,5949300\
+             &crs=EPSG:25832"
         )
     }
 
@@ -396,6 +956,664 @@ mod tests {
                 "{product:?}"
             );
             assert!(tiles[0].year >= 2022, "{tiles:?}");
+        }
+    }
+
+    /// DGM1 and bDOM tiles (Task 4).
+    mod model {
+        use super::*;
+        use crate::fetch::{Cache, FetchMode};
+        use crate::raster::{GridSpec, Raster};
+        use crate::sources::lvermgeo::decode_float_tiff;
+
+        const DGM1_TIF: &[u8] =
+            include_bytes!("../../../../tests/fixtures/schleswig-holstein-dgm1-nw.tif");
+        const DGM1_NAME: &str = "dgm1_32_565_5949_1_sh_2022";
+        const BDOM_NAME: &str = "bdom20nc_32_565_5949_1_sh_2023";
+
+        fn atom_url(name: &str) -> String {
+            format!("{ATOM_DATA}/{name}.tif")
+        }
+
+        fn link(fixture: &str, product: Product) -> String {
+            parse_overview("fixture", fixture.as_bytes(), product).unwrap()[0]
+                .link
+                .clone()
+        }
+
+        /// An XYZ like the portal's: `cells` x `cells` points, row-major from the north-west,
+        /// CRLF lines and one stray `\n` at the end.
+        fn xyz(tile: TileId, cells: u32, height: impl Fn(u32, u32) -> f32) -> Vec<u8> {
+            let pixel = 1000.0 / f64::from(cells);
+            let mut text = String::new();
+            for row in 0..cells {
+                for col in 0..cells {
+                    let e = f64::from(tile.east_km) * 1000.0 + (f64::from(col) + 0.5) * pixel;
+                    let n = f64::from(tile.north_km + 1) * 1000.0 - (f64::from(row) + 0.5) * pixel;
+                    text.push_str(&format!("{e:.2} {n:.2} {:.2}\r\n", height(col, row)));
+                }
+            }
+            text.push('\n');
+            text.into_bytes()
+        }
+
+        fn run(
+            fetcher: &MapFetcher,
+            cache: &Cache,
+            mode: FetchMode,
+            model: Model,
+            bbox: &BoundingBox,
+            out: &Path,
+            messages: &mut Vec<String>,
+        ) -> Result<HeightModel, FetchError> {
+            fetch_model_with(
+                fetcher,
+                cache,
+                mode,
+                model,
+                bbox,
+                out,
+                &mut |m| messages.push(m.to_string()),
+                10,
+            )
+        }
+
+        fn read(out: &Path) -> Raster<f32> {
+            let bytes = std::fs::read(out).unwrap();
+            let decoded = decode_float_tiff_plain(&bytes);
+            let world = std::fs::read_to_string(out.with_extension("tfw")).unwrap();
+            Raster {
+                grid: GridSpec::from_world_file(&world, decoded.0, decoded.1).unwrap(),
+                data: decoded.2,
+            }
+        }
+
+        /// The mosaic `out` is written without GeoTIFF tags (its world file has the grid).
+        fn decode_float_tiff_plain(bytes: &[u8]) -> (u32, u32, Vec<f32>) {
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes)).unwrap();
+            let (width, height) = decoder.dimensions().unwrap();
+            let tiff::decoder::DecodingResult::F32(values) = decoder.read_image().unwrap() else {
+                panic!("not float")
+            };
+            (width, height, values)
+        }
+
+        /// Files left in the cache folder, relative to it.
+        fn cached(cache: &Cache) -> Vec<String> {
+            let root = cache.lvermgeo_sh_dir();
+            let mut files = Vec::new();
+            let mut dirs = vec![root.clone()];
+            while let Some(dir) = dirs.pop() {
+                for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        dirs.push(path);
+                    } else {
+                        files.push(
+                            path.strip_prefix(&root)
+                                .unwrap()
+                                .to_string_lossy()
+                                .replace('\\', "/"),
+                        );
+                    }
+                }
+            }
+            files.sort();
+            files
+        }
+
+        #[test]
+        fn tiled_lzw_dgm1_decodes() {
+            // The north-west 300 x 300 m of the school tile, its first 2 x 2 LZW tiles of
+            // 256 px copied from the ATOM file (the right and bottom ones partly outside).
+            let raster = decode_float_tiff(DGM1_TIF).unwrap();
+            assert_eq!(
+                raster.grid,
+                GridSpec {
+                    west: 565_000.0,
+                    north: 5_950_000.0,
+                    pixel_size: 1.0,
+                    width: 300,
+                    height: 300,
+                }
+            );
+            // The same cells in the portal's XYZ (2 decimals).
+            for (x, y, z) in [
+                (0, 0, 29.85),
+                (299, 0, 30.81),
+                (0, 299, 31.02),
+                (299, 299, 29.93),
+                (255, 255, 29.77),
+                (256, 256, 29.83),
+                (100, 270, 28.87),
+                (270, 100, 30.92),
+            ] {
+                let got = raster.get(x, y);
+                assert!((got - z).abs() < 0.006, "({x}, {y}): {got} vs {z}");
+            }
+            assert!(raster.data.iter().all(|z| z.is_finite()));
+        }
+
+        #[test]
+        fn missing_atom_tile_falls_back_to_xyz() {
+            let fetcher = serving("dgm1", DGM1);
+            // No ATOM file (404); the XYZ: 10 x 10 cells of 100 m, 20 m + 1 m per cell east.
+            fetcher.insert(
+                &link(DGM1, Product::Dgm1),
+                xyz(TILE, 10, |col, row| 20.0 + col as f32 + row as f32 * 0.1),
+            );
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("dgm1.tif");
+            let mut messages = Vec::new();
+            let found = run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &SCHOOL,
+                &out,
+                &mut messages,
+            )
+            .unwrap();
+            assert_eq!(
+                found,
+                HeightModel {
+                    date: Some("2022-03-10".to_string()),
+                    ..HeightModel::default()
+                }
+            );
+            // The ATOM file was asked for first, then the XYZ.
+            let log = fetcher.log.borrow().clone();
+            let atom = log.iter().position(|u| *u == atom_url(DGM1_NAME)).unwrap();
+            let xyz_at = log
+                .iter()
+                .position(|u| *u == link(DGM1, Product::Dgm1))
+                .unwrap();
+            assert!(atom < xyz_at, "{log:?}");
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.contains("not in the INSPIRE ATOM")),
+                "{messages:?}"
+            );
+            let raster = read(&out);
+            assert_eq!(raster.grid, GridSpec::covering(&SCHOOL, 1.0));
+            // E 565100 is cell column 1, N 5949300 cell row 7 (from the north).
+            assert!(
+                (raster.get(0, 0) - 21.7).abs() < 1e-4,
+                "{}",
+                raster.get(0, 0)
+            );
+            assert!((raster.get(199, 199) - 22.8).abs() < 1e-4);
+            // Cached under the portal's name, as a GeoTIFF; the download is gone.
+            assert_eq!(
+                cached(&cache),
+                [
+                    format!("dgm1/{DGM1_NAME}.tif"),
+                    "overview/dgm1_565100_5949100_565300_5949300.json".to_string(),
+                ]
+            );
+            // Offline, the cached tile and tile list give the same model without a request.
+            let calls = fetcher.calls.get();
+            let again = dir.path().join("again.tif");
+            let offline = run(
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &SCHOOL,
+                &again,
+                &mut messages,
+            )
+            .unwrap();
+            assert_eq!(offline, found);
+            assert_eq!(fetcher.calls.get(), calls);
+            assert_eq!(read(&again), raster);
+        }
+
+        #[test]
+        fn xyz_of_the_wrong_grid_is_an_error() {
+            let fetcher = serving("dgm1", DGM1);
+            let link = link(DGM1, Product::Dgm1);
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("dgm1.tif");
+            let full = xyz(TILE, 10, |_, _| 20.0);
+            let half = full[..50 * 28].to_vec();
+            for (body, expected) in [
+                (half, "50 of 100 points"),
+                (
+                    xyz(
+                        TileId {
+                            east_km: 566,
+                            north_km: 5949,
+                        },
+                        10,
+                        |_, _| 20.0,
+                    ),
+                    "expected E 565050.00 N 5949950.00",
+                ),
+            ] {
+                fetcher.insert(&link, body);
+                let err = run(
+                    &fetcher,
+                    &cache,
+                    FetchMode::Online,
+                    Model::Dgm1,
+                    &SCHOOL,
+                    &out,
+                    &mut Vec::new(),
+                )
+                .unwrap_err()
+                .to_string();
+                assert!(err.contains(expected), "{err}");
+                assert!(err.contains(DGM1_NAME), "{err}");
+            }
+            assert_eq!(
+                cached(&cache),
+                ["overview/dgm1_565100_5949100_565300_5949300.json"]
+            );
+        }
+
+        #[test]
+        fn html_answer_is_an_error() {
+            let html = b"<html><body>Folgender Datensatz: x konnte nicht heruntergeladen \
+                         werden.</body></html>"
+                .to_vec();
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("model.tif");
+            for (product, fixture, name) in [("dgm1", DGM1, DGM1_NAME), ("bdom", BDOM, BDOM_NAME)] {
+                let fetcher = serving(product, fixture);
+                let model = if product == "dgm1" {
+                    Model::Dgm1
+                } else {
+                    Model::Bdom
+                };
+                // DGM1: no ATOM file, and the XYZ link answers an error page (status 200).
+                fetcher.insert(&link(fixture, model), html.clone());
+                let err = run(
+                    &fetcher,
+                    &cache,
+                    FetchMode::Online,
+                    model,
+                    &SCHOOL,
+                    &out,
+                    &mut Vec::new(),
+                )
+                .unwrap_err()
+                .to_string();
+                assert!(err.contains(name), "{err}");
+                assert!(err.contains("error page"), "{err}");
+                assert!(err.contains("Folgender Datensatz"), "{err}");
+                assert!(!out.exists());
+            }
+            // Nothing but the tile lists is cached, and no download is left behind.
+            assert_eq!(
+                cached(&cache),
+                [
+                    "overview/bdom_565100_5949100_565300_5949300.json",
+                    "overview/dgm1_565100_5949100_565300_5949300.json",
+                ]
+            );
+        }
+
+        /// A 10 x 10 px tile of 0.2 m (2 x 2 m).
+        fn small_tile(values: Vec<f32>) -> Raster<f32> {
+            Raster {
+                grid: GridSpec {
+                    west: 565_000.0,
+                    north: 5_950_000.0,
+                    pixel_size: 0.2,
+                    width: 10,
+                    height: 10,
+                },
+                data: values,
+            }
+        }
+
+        #[test]
+        fn bdom_is_reduced_to_one_metre() {
+            let mut values = vec![0.0; 100];
+            for y in 0..10 {
+                for x in 0..10 {
+                    let block = (y / 5) * 2 + x / 5;
+                    values[y * 10 + x] = match block {
+                        // 25 heights 10..34 and one outlier: the median ignores it.
+                        0 => 10.0 + ((y % 5) * 5 + x % 5) as f32,
+                        // All NaN: no height.
+                        1 => f32::NAN,
+                        // 4 heights left (2, 4, 6, 100): the mean of the middle two.
+                        2 => f32::NAN,
+                        _ => 50.0,
+                    };
+                }
+            }
+            values[0] = 9_999.0;
+            for (i, z) in [(50, 2.0), (51, 100.0), (60, 4.0), (61, 6.0)] {
+                values[i] = z;
+            }
+            let reduced = reduce_to_metre(&small_tile(values)).unwrap();
+            assert_eq!(
+                reduced.grid,
+                GridSpec {
+                    west: 565_000.0,
+                    north: 5_950_000.0,
+                    pixel_size: 1.0,
+                    width: 2,
+                    height: 2,
+                }
+            );
+            // 11..34 and 9999: the median is 23 (the mean would be 421.6).
+            assert_eq!(reduced.get(0, 0), 23.0);
+            assert!(reduced.get(1, 0).is_nan());
+            assert_eq!(reduced.get(0, 1), 5.0);
+            assert_eq!(reduced.get(1, 1), 50.0);
+            // A pixel size that does not divide 1 m, or a grid not of whole metres, is refused.
+            let mut odd = small_tile(vec![0.0; 100]);
+            odd.grid.pixel_size = 0.3;
+            assert!(reduce_to_metre(&odd).unwrap_err().contains("0.3"));
+            let mut cut = small_tile(vec![0.0; 99]);
+            cut.grid.height = 9;
+            assert!(reduce_to_metre(&cut).is_err());
+        }
+
+        /// A bDOM tile of 0.5 m pixels: 40 m + 0.01 m per metre east, and in each 2 x 2 block
+        /// one outlier of 1000 m (the median of 40, 40, 40, 1000 is 40).
+        fn bdom_tile(tile: TileId) -> Vec<u8> {
+            let grid = GridSpec {
+                west: f64::from(tile.east_km) * 1000.0,
+                north: f64::from(tile.north_km + 1) * 1000.0,
+                pixel_size: 0.5,
+                width: 2000,
+                height: 2000,
+            };
+            let values: Vec<f32> = (0..2000 * 2000)
+                .map(|i| {
+                    let (x, y) = (i % 2000, i / 2000);
+                    if x % 2 == 0 && y % 2 == 0 {
+                        1000.0
+                    } else {
+                        40.0 + (x / 2) as f32 * 0.01
+                    }
+                })
+                .collect();
+            crate::fetch::test_support::geotiff(&grid, &values)
+        }
+
+        #[test]
+        fn bdom_tile_is_streamed_reduced_and_cached() {
+            let fetcher = serving("bdom", BDOM);
+            fetcher.insert(&link(BDOM, Model::Bdom), bdom_tile(TILE));
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("dom1.tif");
+            let mut messages = Vec::new();
+            let found = run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Bdom,
+                &SCHOOL,
+                &out,
+                &mut messages,
+            )
+            .unwrap();
+            assert_eq!(found.date.as_deref(), Some("2023-04-07"));
+            assert!(
+                found.missing.is_empty() && found.warnings.is_empty(),
+                "{found:?}"
+            );
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m == "downloading bDOM tile 32_565_5949 (105 MB, 1 of 1)"),
+                "{messages:?}"
+            );
+            let raster = read(&out);
+            assert_eq!(raster.grid, GridSpec::covering(&SCHOOL, 1.0));
+            // E 565100: 40 m + 100 x 0.01 m.
+            assert!(
+                (raster.get(0, 0) - 41.0).abs() < 1e-4,
+                "{}",
+                raster.get(0, 0)
+            );
+            assert!((raster.get(199, 5) - 42.99).abs() < 1e-4);
+            assert_eq!(
+                cached(&cache),
+                [
+                    format!("bdom/{BDOM_NAME}_1m.tif"),
+                    "overview/bdom_565100_5949100_565300_5949300.json".to_string(),
+                ]
+            );
+            let tile = decode_float_tiff(
+                &std::fs::read(
+                    cache
+                        .lvermgeo_sh_dir()
+                        .join(format!("bdom/{BDOM_NAME}_1m.tif")),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(tile.grid.pixel_size, 1.0);
+            assert_eq!((tile.grid.width, tile.grid.height), (1000, 1000));
+            // Online again: the cached 1 m tile is used, only the tile list is asked for.
+            let before = fetcher.log.borrow().len();
+            run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Bdom,
+                &SCHOOL,
+                &out,
+                &mut messages,
+            )
+            .unwrap();
+            assert_eq!(fetcher.log.borrow()[before..], [url("bdom")]);
+            assert_eq!(read(&out), raster);
+        }
+
+        #[test]
+        fn missing_tiles_and_empty_cells_are_reported() {
+            // Across 564/5949 (in Norderstedt, not listed) and 565/5949.
+            let bbox = BoundingBox {
+                min_e: 564_900.0,
+                ..SCHOOL
+            };
+            let fetcher = MapFetcher::default();
+            fetcher.insert(
+                &overview_url(&bbox, Product::Bdom),
+                BDOM.as_bytes().to_vec(),
+            );
+            // Every cell of 565/5949 is empty.
+            let grid = GridSpec {
+                west: 565_000.0,
+                north: 5_950_000.0,
+                pixel_size: 1.0,
+                width: 1000,
+                height: 1000,
+            };
+            let tile = crate::fetch::test_support::geotiff(&grid, &vec![f32::NAN; 1000 * 1000]);
+            fetcher.insert(&link(BDOM, Model::Bdom), tile);
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let found = run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Bdom,
+                &bbox,
+                &dir.path().join("dom1.tif"),
+                &mut Vec::new(),
+            )
+            .unwrap();
+            assert_eq!(
+                found.missing,
+                [TileId {
+                    east_km: 564,
+                    north_km: 5949
+                }]
+            );
+            assert_eq!(found.warnings.len(), 1, "{:?}", found.warnings);
+            assert!(
+                found.warnings[0].contains("32_565_5949")
+                    && found.warnings[0].contains("60000 cells"),
+                "{:?}",
+                found.warnings
+            );
+        }
+
+        #[test]
+        fn offline_without_cache_is_an_error() {
+            let fetcher = MapFetcher::default();
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let out = dir.path().join("dgm1.tif");
+            let err = run(
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &SCHOOL,
+                &out,
+                &mut Vec::new(),
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(err.contains("offline and not cached"), "{err}");
+            assert_eq!(fetcher.calls.get(), 0);
+            // The tile list is cached, the tile is not.
+            let online = serving("dgm1", DGM1);
+            online.insert(
+                &atom_url(DGM1_NAME),
+                crate::sources::hvbg::test_support::tile_tiff(TILE, 20.0, 0.0),
+            );
+            run(
+                &online,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &SCHOOL,
+                &out,
+                &mut Vec::new(),
+            )
+            .unwrap();
+            std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("dgm1")).unwrap();
+            let err = run(
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &SCHOOL,
+                &out,
+                &mut Vec::new(),
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(err.contains("offline and not cached"), "{err}");
+            assert!(err.contains(DGM1_NAME), "{err}");
+        }
+
+        #[test]
+        fn atom_tile_of_another_area_is_an_error() {
+            let fetcher = serving("dgm1", DGM1);
+            // The fixture covers only the north-west 300 m of the tile.
+            fetcher.insert(&atom_url(DGM1_NAME), DGM1_TIF.to_vec());
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let err = run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &SCHOOL,
+                &dir.path().join("dgm1.tif"),
+                &mut Vec::new(),
+            )
+            .unwrap_err()
+            .to_string();
+            assert!(err.contains("not the whole tile"), "{err}");
+            assert!(err.contains(DGM1_NAME), "{err}");
+        }
+
+        #[test]
+        fn synthetic_schleswig_holstein_serves_both_models() {
+            let fetcher = MapFetcher::default();
+            crate::fetch::test_support::serve_synthetic_schleswig_holstein(&fetcher, &SCHOOL);
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let mut heights = Vec::new();
+            for model in [Model::Dgm1, Model::Bdom] {
+                let out = dir.path().join(format!("{model:?}.tif"));
+                let found = fetch_model(
+                    &fetcher,
+                    &cache,
+                    FetchMode::Online,
+                    model,
+                    &SCHOOL,
+                    &out,
+                    &mut |_| {},
+                )
+                .unwrap();
+                assert!(found.missing.is_empty(), "{found:?}");
+                assert!(found.date.is_some(), "{found:?}");
+                heights.push(read(&out).get(10, 10));
+            }
+            assert!((heights[1] - heights[0] - 12.0).abs() < 1e-3, "{heights:?}");
+        }
+
+        #[test]
+        #[ignore = "network: one 105 MB bDOM tile, about 90 s"]
+        fn live_school_heights() {
+            let fetcher = crate::fetch::HttpFetcher::new();
+            let bbox = BoundingBox {
+                min_e: 565_100.0,
+                min_n: 5_949_150.0,
+                max_e: 565_300.0,
+                max_n: 5_949_350.0,
+            };
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let mut rasters = Vec::new();
+            for model in [Model::Dgm1, Model::Bdom] {
+                let out = dir.path().join(format!("{model:?}.tif"));
+                let started = std::time::Instant::now();
+                let found = fetch_model(
+                    &fetcher,
+                    &cache,
+                    FetchMode::Online,
+                    model,
+                    &bbox,
+                    &out,
+                    &mut |m| eprintln!("{m}"),
+                )
+                .unwrap();
+                eprintln!("{model:?}: {found:?} in {:.0?}", started.elapsed());
+                rasters.push(read(&out));
+            }
+            let (dgm, dom) = (&rasters[0], &rasters[1]);
+            // The tile's centre cell E 565214.5 / N 5949250.5 is 29.60 m.
+            let (x, y) = (114, 99);
+            eprintln!("DGM1 at the school {:.2} m", dgm.get(x, y));
+            assert!((dgm.get(x, y) - 29.60).abs() < 0.01);
+            // The main building wing (E 565150–565165, N 5949200–5949240) stands > 2 m.
+            let mut wing: Vec<f32> = (110..150)
+                .flat_map(|y| (50..65).map(move |x| (x, y)))
+                .map(|(x, y)| dom.get(x, y) - dgm.get(x, y))
+                .collect();
+            wing.sort_by(f32::total_cmp);
+            let median = wing[wing.len() / 2];
+            eprintln!("bDOM - DGM1 on the main wing: median {median:.2} m");
+            assert!(median > 2.0, "{median}");
+            for (name, size) in cached(&cache).iter().map(|f| {
+                let len = std::fs::metadata(cache.lvermgeo_sh_dir().join(f))
+                    .unwrap()
+                    .len();
+                (f.clone(), len)
+            }) {
+                eprintln!("cached {name}: {size} B");
+            }
         }
     }
 }

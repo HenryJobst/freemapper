@@ -1043,7 +1043,8 @@ fn fetch_hvbg_rasters(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
-    use crate::sources::hvbg::{self, HeightModel, Model};
+    use crate::sources::height_model::HeightModel;
+    use crate::sources::hvbg::{self, Model};
     project.tiles.clear();
     project.ndsm_tiles.clear();
     warn_beyond_state(project, Provider::Hvbg, "HVBG", progress)?;

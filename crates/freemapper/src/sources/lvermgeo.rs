@@ -120,10 +120,19 @@ fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 /// A Float32 GeoTIFF from the WCS as a raster; its grid comes from ModelTiepoint and
 /// ModelPixelScale (the 25832 answers carry no GeoKeys). NoData (−9999) becomes `NaN`.
+/// Striped and tiled (LVermGeo SH: 256 px tiles) TIFFs are read.
 pub fn decode_float_tiff(bytes: &[u8]) -> Result<Raster<f32>, String> {
+    decode_float_tiff_from(std::io::Cursor::new(bytes))
+}
+
+/// [`decode_float_tiff`] from a reader, so a large file is never held as bytes besides its
+/// pixels.
+pub(crate) fn decode_float_tiff_from(
+    reader: impl std::io::Read + std::io::Seek,
+) -> Result<Raster<f32>, String> {
     use tiff::tags::Tag;
     let error = |e: tiff::TiffError| e.to_string();
-    let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes)).map_err(error)?;
+    let mut decoder = tiff::decoder::Decoder::new(reader).map_err(error)?;
     let (width, height) = decoder.dimensions().map_err(error)?;
     let scale = decoder
         .get_tag_f64_vec(Tag::ModelPixelScaleTag)
@@ -247,6 +256,36 @@ pub(crate) fn write_float_raster(
     write_atomically(out, tiff.get_ref())?;
     write_atomically(&out.with_extension("tfw"), grid.world_file().as_bytes())?;
     Ok(())
+}
+
+/// `raster` as an LZW Float32 GeoTIFF with ModelPixelScale and ModelTiepoint, which
+/// [`decode_float_tiff`] reads back (for caching; no world file).
+pub(crate) fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
+    use tiff::tags::Tag;
+    let grid = raster.grid;
+    let mut tiff = std::io::Cursor::new(Vec::new());
+    let mut encoder = tiff::encoder::TiffEncoder::new(&mut tiff)
+        .map_err(|e| e.to_string())?
+        .with_compression(tiff::encoder::Compression::Lzw);
+    let mut image = encoder
+        .new_image::<tiff::encoder::colortype::Gray32Float>(grid.width, grid.height)
+        .map_err(|e| e.to_string())?;
+    image
+        .encoder()
+        .write_tag(
+            Tag::ModelPixelScaleTag,
+            &[grid.pixel_size, grid.pixel_size, 0.0][..],
+        )
+        .map_err(|e| e.to_string())?;
+    image
+        .encoder()
+        .write_tag(
+            Tag::ModelTiepointTag,
+            &[0.0, 0.0, 0.0, grid.west, grid.north, 0.0][..],
+        )
+        .map_err(|e| e.to_string())?;
+    image.write_data(&raster.data).map_err(|e| e.to_string())?;
+    Ok(tiff.into_inner())
 }
 
 /// The flight date of the orthophoto at the centre of `bbox` (EPSG:25832); `None` when the index

@@ -4,6 +4,7 @@ pub mod alkis;
 pub mod alkis_wfs;
 pub mod berlin;
 pub mod geosn;
+pub mod height_model;
 pub mod hvbg;
 pub mod lgb;
 pub mod lgv;

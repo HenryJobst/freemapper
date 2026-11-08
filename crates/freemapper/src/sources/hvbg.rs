@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
+use crate::sources::height_model::HeightModel;
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
@@ -74,24 +75,6 @@ impl Model {
             Self::Dom1 => "dom1",
         }
     }
-}
-
-/// What [`fetch_model`] found besides the raster.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeightModel {
-    /// Tiles inside Hesse that no municipal zip holds.
-    pub missing: Vec<TileId>,
-    /// The flight date (`YYYY-MM-DD`) of the tile at the centre of the area.
-    pub date: Option<String>,
-    /// Places of the metadata list without a district or file in the Downloadcenter (such as a
-    /// gemeindefrei area), as `<municipality> (<district>)`; their tiles came from other zips or
-    /// are missing.
-    pub unresolved: Vec<String>,
-    /// Tiles inside the map area that stayed empty and that an unresolved place is listed for.
-    pub unresolved_empty: Vec<TileId>,
-    /// Problems with the metadata list that did not stop the fetch (a flight date that cannot
-    /// be read, a new list that fell back to the kept older one).
-    pub warnings: Vec<String>,
 }
 
 /// A municipality and its district, as the metadata list names them.

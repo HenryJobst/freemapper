@@ -479,6 +479,11 @@ impl Cache {
         self.root.join("hvbg")
     }
 
+    /// Folder of the LVermGeo SH tiles (DGM1, the bDOM reduced to 1 m) and tile lists.
+    pub fn lvermgeo_sh_dir(&self) -> PathBuf {
+        self.root.join("lvermgeo_sh")
+    }
+
     /// The collected GeoSN tile index rows of `product`.
     pub fn currency_index_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.json")
@@ -943,6 +948,29 @@ pub(crate) fn get_with_retries<T>(
     let mut attempt = 1;
     loop {
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
+        match result {
+            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
+/// [`Fetcher::download_to`] of `url` into `path`, tried up to [`ATTEMPTS`] times like
+/// [`get_with_retries`]; only the transfer is retried, what was downloaded is the caller's to
+/// check.
+pub(crate) fn download_with_retries(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    path: &Path,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.download_to(url, path, progress);
         match result {
             Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
             Err(_) if attempt < ATTEMPTS => {
@@ -1598,6 +1626,72 @@ pub(crate) mod test_support {
             fetcher.insert(
                 &hvbg::file_url(&uri).expect("a server path"),
                 crate::sources::zip_range::test_support::archive(&members),
+            );
+        }
+    }
+
+    /// Serves the LVermGeo SH height models of a Schleswig-Holstein project in `bbox`
+    /// (EPSG:25832): the Downloadportal overviews of every tile of `bbox` (DGM1 2022, flown
+    /// 2022-03-10; bDOM 2023, flown 2023-04-07), the DGM1 GeoTIFFs of the INSPIRE ATOM directory
+    /// (terrain 20 m rising 0.01 m per metre east) and the bDOM tiles at 1 m instead of 0.2 m
+    /// (surface 12 m above), which the reduction passes through unchanged.
+    pub fn serve_synthetic_schleswig_holstein(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+    ) {
+        use crate::sources::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
+        let tiles = crate::tiles::tiles_covering(bbox);
+        let feature = |tile: &TileId, product: Product| {
+            let (e, n) = (tile.east_km, tile.north_km);
+            let block = format!("32{}_{}", e / 10 * 10, n / 10 * 10);
+            let properties = match product {
+                Product::Dgm1 => serde_json::json!({
+                    "title": format!("32{e:03}{n:04}"), "type": "dgm1", "jahr": "2022",
+                    "kaname": format!("dgm1_32_{e:03}_{n:04}_1_sh_2022"), "filepath": block,
+                    "a_datum": "2022-03-10",
+                }),
+                Product::Bdom => serde_json::json!({
+                    "title": format!("32{e:03}{n:04}"), "type": "bdom", "jahr": "2023",
+                    "kachel_n": format!("bdom20rgbi_32_{e:03}_{n:04}_1_sh_2023"),
+                    "kach10km": block, "filepath": format!("32{e:03}_{n:04}"),
+                    "a_datum": "2023-04-07",
+                }),
+            };
+            serde_json::json!({"type": "Feature", "properties": properties})
+        };
+        for product in [Product::Dgm1, Product::Bdom] {
+            let features: Vec<_> = tiles.iter().map(|t| feature(t, product)).collect();
+            let answer = serde_json::json!({
+                "success": true,
+                "result": {"type": "FeatureCollection", "features": features},
+            });
+            fetcher.insert_prefix(&overview_prefix(product), answer.to_string().into_bytes());
+        }
+        for tile in &tiles {
+            let (e, n) = (tile.east_km, tile.north_km);
+            let grid = crate::raster::GridSpec {
+                west: f64::from(e) * 1000.0,
+                north: f64::from(n + 1) * 1000.0,
+                pixel_size: 1.0,
+                width: 1000,
+                height: 1000,
+            };
+            let terrain: Vec<f32> = (0..1000 * 1000)
+                .map(|i| 20.0 + (i % 1000) as f32 * 0.01)
+                .collect();
+            let surface: Vec<f32> = terrain.iter().map(|z| z + 12.0).collect();
+            fetcher.insert(
+                &format!("{ATOM_DATA}/dgm1_32_{e:03}_{n:04}_1_sh_2022.tif"),
+                geotiff(&grid, &terrain),
+            );
+            fetcher.insert(
+                &format!(
+                    "{PORTAL}/massen.php?file=bdom20nc_32_{e:03}_{n:04}_1_sh_2023.tif&id=6\
+                     &live=2023&km=32{}_{}&stack=32{e:03}_{n:04}",
+                    e / 10 * 10,
+                    n / 10 * 10
+                ),
+                geotiff(&grid, &surface),
             );
         }
     }
