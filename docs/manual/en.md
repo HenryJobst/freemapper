@@ -214,8 +214,10 @@ OSM adds more candidates:
 
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
-Below the map is the **peripheral information**: title, scale, contour interval, scale bar, north
-lines and the attribution. Keep the attribution on printed maps (chapter 15).
+Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
+attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
+in the map part "default part". Break them in OOM where they hide small objects, such as boulders, path ends
+or wall corners.
 
 The example projects in the repository show what the result looks like, one per state:
 [`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF training map.
@@ -255,6 +257,9 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - The bank line runs across bridges. Cut it there by hand.
   - The cadastre often records a road bridge as road area. The water then ends at the bridge, and a bank
     line runs across the river. Delete that line in OOM and extend the water area under the bridge.
+  - Where two water areas almost meet, such as those of two states at the border in mid-Rhine, freemapper
+    closes gaps under 0.5 m. A bank line in the middle of a river therefore stands for a wider gap in the
+    cadastre. Check in the orthophoto whether there is land.
   - Water from the cadastre is always uncrossable (301), because the cadastre has no depth. Shallow
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
@@ -274,6 +279,10 @@ contributors.*
 
 Unlike the starting point, **every candidate becomes a map object** here, also the uncertain ones. The
 map is good for a quick training session. Still check it in the terrain first.
+
+The colours are CMYK values after the IOF Printing and Colour Definitions Rev. 4 (valid from 1 December
+2024), the same as in the OOM and OCAD files. If your printer prints brown or green clearly differently,
+compare with the IOF Print Test Sheet and adjust the colours.
 
 ## 11. OCAD
 

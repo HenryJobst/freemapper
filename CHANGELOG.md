@@ -8,15 +8,26 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Speicherplatz: Vor jedem Laden prüft freemapper den freien Platz im Zwischenspeicher und im Projektordner, auf zwei Laufwerken jedes für sich, und lässt auf jedem 1 GB frei. Passt nicht alles, lässt es das Oberflächenmodell und die Aktualisierung eines älteren OSM-Auszugs aus und warnt mit dem nötigen und dem freien Platz. Ohne Platz für Kartendaten, Geländemodell oder Luftbild bricht es ab, bevor es etwas lädt. Läuft der Datenträger beim Schreiben voll, meldet freemapper das klar, löscht die halbe Datei und versucht es nicht erneut. Die Download-Schätzung (MCP-Werkzeug `estimate_download`, Gebietsauswahl) zeigt den freien Platz und markiert, was nicht passt.
+
+## [0.4.0] - 2026-11-08
+
+### Hinzugefügt
+
 - Niedersachsen (LGLN): Orthophoto aus dem WMS, Gelände- und Oberflächenmodell (DGM1/DOM1) aus dem WCS in Stücken von 2 km, Flugdatum und Datenstand aus den STAC-Suchen, Gebäude und Nutzung aus ALKIS. Das nDOM ist DOM1 − DGM1; ist das DOM1 mehr als zwei Jahre älter als das Luftbild, warnt freemapper mit beiden Daten. Eine Meldung sagt, ob die Bäume beim Bildflug belaubt waren. Die Karten nutzen UTM-Zone 32. Bremen gehört noch nicht dazu.
 - Rheinland-Pfalz (LVermGeo RP): Orthophoto aus dem WMS, als Flugdatum gilt das Erstellungsdatum des Blocks. Gelände- und Oberflächenmodell (DGM1/DOM1) kommen aus Laserkacheln von 1 km, deren Namen und Daten die Befliegungsübersicht `Laserbefliegung` nennt; für Kacheln ohne Flugjahr liest freemapper die Metalink-Datei des Landes. Hat der Server eine Kachel nicht, meldet freemapper sie als fehlend und fragt nach 30 Tagen wieder. Gebäude und Nutzung kommen aus ALKIS. Die Karten nutzen UTM-Zone 32. An der Grenze zu Hessen (Mainz, Wiesbaden) liest freemapper ALKIS und OSM beider Länder.
 - Gewässer auf allen Karten: Flüsse, Kanäle, Seen, Teiche, Hafenbecken und Meer aus ALKIS werden unpassierbares Gewässer (301.1) mit Uferlinie (301.6), ohne Linien zwischen den Katasterflächen und am Kartenrand. Gewässer, die im Mittel schmaler als 2 m sind, kommen als Kandidaten. Aus OSM kommen Teiche, Schwimmbecken, Brunnenbecken, Bäche, Gräben, Brunnen, Quellen, auf Schulhofkarten Trinkbrunnen und auf Sprintkarten Brücken als Kandidaten. Höhenlinien enden am Ufer, und Brunnenpunkte im Wasser (meist Fontänen in einem Becken) fallen weg. In OCAD tragen Fläche und Uferlinie die Nummern 301.001 und 301.002. Eine vorhandene Karte bekommt die Gewässer erst mit `run --force`.
-- Speicherplatz: Vor jedem Laden prüft freemapper den freien Platz im Zwischenspeicher und im Projektordner, auf zwei Laufwerken jedes für sich, und lässt auf jedem 1 GB frei. Passt nicht alles, lässt es das Oberflächenmodell und die Aktualisierung eines älteren OSM-Auszugs aus und warnt mit dem nötigen und dem freien Platz. Ohne Platz für Kartendaten, Geländemodell oder Luftbild bricht es ab, bevor es etwas lädt. Läuft der Datenträger beim Schreiben voll, meldet freemapper das klar, löscht die halbe Datei und versucht es nicht erneut. Die Download-Schätzung (MCP-Werkzeug `estimate_download`, Gebietsauswahl) zeigt den freien Platz und markiert, was nicht passt.
 
 ### Geändert
 
+- Die Nordlinien liegen im Kartenteil „default part“ bei den übrigen Kartenobjekten, mit dem Tag `freemapper:source=north-lines`. In OOM lassen sie sich an kleinen Objekten unterbrechen, und in der Trainingskarte liegen Mauern und Zäune darüber. Titel, Maßstab und Namensnennung bleiben im Teil „peripheral information“. Eine vorhandene Karte ändert sich erst mit `run --force`.
+- Die Farben folgen den IOF-Druck- und Farbdefinitionen Rev. 4 (September 2024, gültig ab 1.12.2024) statt der älteren Werte aus dem OOM-Symbolsatz: Braun ist 25/75/100/0 statt 0/56/100/18, Grün 80/0/100/0 statt 76/0/91/0, Braun 50 % 10/35/50/0. Gebäude sind wie in ISSprOM 2019-2 mit 50 % Schwarz gefüllt statt 60 %. Das gilt für OOM-Karte, OCAD-Datei und Trainings-PDF. Namen und Reihenfolge der Farben bleiben gleich.
 - Längere Meldungen sind klarer formuliert.
 - Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
+
+### Behoben
+
+- Wo die Gewässerflächen zweier Länder an der Grenze mitten im Fluss nicht ganz aneinanderstoßen (Mainz, Rhein), lief eine Uferlinie durch den Fluss. freemapper schließt jetzt Lücken unter 0,5 m zwischen Gewässerflächen, bevor es die Uferlinien zeichnet. Das gilt auch für Flurstücke desselben Landes. Brücken und Straßen (ab 0,8 m) bleiben Land, Inseln behalten ihr Ufer.
 
 ## [0.3.0] - 2026-11-08
 

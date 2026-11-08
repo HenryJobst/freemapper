@@ -36,15 +36,18 @@ sind in Entwicklung:
 
 ## Status
 
-Aktuelle Version ist [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) vom
+Aktuelle Version ist [v0.4.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.4.0) vom
 8. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
 Schulhof- und Sprintkarten für elf Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
-Rheinland-Pfalz. Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte.
-Niedersachsen, Rheinland-Pfalz und die Gewässer auf den Karten kommen mit der nächsten Version.
+Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
+Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte.
 
-Das Programm ist noch in Entwicklung. Als Nächstes kommen die übrigen Länder mit offenen Geodaten:
-Baden-Württemberg, Bremen, Bayern und das Saarland. Thüringen folgt, sobald sein Server für die
+Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
+Daten: zuerst für Berlin (Überdachungen, Treppen, Mauern, Zäune, Hecken, Straßenbäume), danach für
+die anderen Länder. Dazu kommt eine Prüfung des freien Speicherplatzes. Danach folgen Hallenkarten
+für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
+(Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -178,9 +181,10 @@ Ergebnis im Projektordner:
   Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
   dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
   Bahnflächen)
-- Randangaben in der Karte (Kartenteil „peripheral information“): Nordlinien über dem Kartenbild,
-  darunter Titel (`--title`, sonst der Ordnername), Maßstab und Äquidistanz, Maßstabsleiste,
-  Namensnennung der Datenquellen und der Hinweis auf freemapper
+- Nordlinien über dem Kartenbild, als Kartenobjekte im Kartenteil „default part“
+- Randangaben unter dem Kartenbild (Kartenteil „peripheral information“): Titel (`--title`, sonst der
+  Ordnername), Maßstab und Äquidistanz, Maßstabsleiste, Namensnennung der Datenquellen und der Hinweis
+  auf freemapper
 - `data/osm-candidates.geojson` – die OSM-Objekte des Kartengebiets, aus denen die Kandidaten entstehen
 - `data/contours.geojson` – die Höhenlinien aus `derive`
 - `data/alkis-land-use.geojson` – die geladene ALKIS-Nutzung der Flurstücke

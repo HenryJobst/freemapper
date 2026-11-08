@@ -531,7 +531,8 @@ mod tests {
             (2_000, 4_000),
         ]));
         let p = primitives(&object(&s, "521", MapObjectKind::Path, coords), &r);
-        let Shape::Fill { rings } = &p.iter().find(|p| p.priority == 9).unwrap().shape else {
+        // The fill is black 50 % (priority 10), as in ISSprOM 2019-2.
+        let Shape::Fill { rings } = &p.iter().find(|p| p.priority == 10).unwrap().shape else {
             panic!()
         };
         assert_eq!(rings.len(), 2, "outer ring and courtyard");
