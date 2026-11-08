@@ -50,15 +50,15 @@ enum Commands {
     Export {
         /// Project folder.
         dir: PathBuf,
-        /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
+        /// Replace an existing map file and keep the old one as `<name>.omap.bak`.
         #[arg(long)]
         force: bool,
-        /// Also write an OCAD starting point into `ocad/` (OCAD 12 format); an existing OOM map is
-        /// then kept unless --force is given.
+        /// Also write an OCAD starting point into `ocad/` (OCAD 12 format); an existing OOM map
+        /// then stays unless you pass --force.
         #[arg(long)]
         ocad: bool,
         /// Also write `<name>.pdf`, a fully generated training map (all candidates drawn as map
-        /// objects); an existing OOM map is then kept unless --force is given.
+        /// objects); an existing OOM map then stays unless you pass --force.
         #[arg(long)]
         pdf: bool,
     },
@@ -86,7 +86,7 @@ enum Commands {
         /// Use the cache only, without network access.
         #[arg(long)]
         offline: bool,
-        /// Replace an existing map file (the old one is kept as `<name>.omap.bak`).
+        /// Replace an existing map file and keep the old one as `<name>.omap.bak`.
         #[arg(long)]
         force: bool,
         /// Also write an OCAD starting point into `ocad/` (OCAD 12 format).
@@ -98,8 +98,8 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
-    /// Choose the map area in the browser: draw it or pick a place; saving writes freemapper.toml
-    /// (creating the project folder if needed).
+    /// Choose the map area in the browser by drawing it or picking a place. Saving writes
+    /// freemapper.toml and creates the project folder if needed.
     Select {
         /// Project folder (created on saving if it does not exist).
         dir: PathBuf,
@@ -138,7 +138,8 @@ struct AreaArgs {
     /// OSM object of the map area, e.g. way/992423119.
     #[arg(long)]
     osm: Option<String>,
-    /// Name of the place, e.g. "Clara-Zetkin-Schule Strausberg"; the best match with an area is used.
+    /// Name of the place, e.g. "Clara-Zetkin-Schule Strausberg"; freemapper uses the best match
+    /// with an area.
     #[arg(long)]
     place: Option<String>,
 }
@@ -194,7 +195,7 @@ fn mode(offline: bool) -> FetchMode {
 
 fn report_pdf(path: &std::path::Path) {
     println!(
-        "Wrote {} (training map: every candidate is drawn as a map object; check it in the terrain)",
+        "Wrote {} (training map with every candidate drawn as a map object; check it in the terrain)",
         path.display()
     );
 }
@@ -203,7 +204,7 @@ fn report_pdf(path: &std::path::Path) {
 fn report_ocad(outcome: &OcadOutcome) {
     if outcome.kept {
         println!(
-            "Kept {} (it may contain your work; --force replaces it, the old one is kept as .ocd.bak)",
+            "Kept {} (it may contain your work; --force replaces it and keeps the old one as .ocd.bak)",
             outcome.map.display()
         );
     } else {
@@ -222,8 +223,8 @@ fn report_ocad(outcome: &OcadOutcome) {
         );
     }
     println!(
-        "In OCAD: Symbol > Load Colors and Symbols From… and pick the official ISSprOM 2019 or \
-         school symbol set; it replaces freemapper's placeholder symbols by number."
+        "In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official ISSprOM \
+         2019 or school symbol set; it replaces freemapper's placeholder symbols by number."
     );
 }
 
@@ -329,15 +330,15 @@ fn main() -> anyhow::Result<()> {
                     println!("Kept {} (it may contain your work)", map.display());
                     if !references_images {
                         println!(
-                            "The map does not reference the image templates yet: add them in OOM \
-                             (Templates > Open template…) or replace the map with --force \
-                             (the old one is kept as .omap.bak)."
+                            "The map does not reference the image templates yet. Add them in \
+                             OOM (Templates > Open template…) or replace the map with --force, \
+                             which keeps the old one as .omap.bak."
                         );
                     }
                     if missing_buildings {
                         println!(
-                            "The map has no ALKIS buildings yet: replace it with --force \
-                             (the old one is kept as .omap.bak) to add them."
+                            "The map has no ALKIS buildings yet. To add them, replace it with \
+                             --force, which keeps the old one as .omap.bak."
                         );
                     }
                 }

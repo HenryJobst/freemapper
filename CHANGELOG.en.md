@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Longer messages use plainer wording.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added

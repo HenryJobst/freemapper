@@ -18,7 +18,7 @@ const TEXTS = {
     clear: "Löschen",
     hintRectangle: "Klicke zwei gegenüberliegende Ecken in die Karte.",
     hintPolygon:
-      "Klicke die Ecken nacheinander. Schließen: erste Ecke anklicken, doppelklicken oder „Polygon schließen“. Esc bricht ab, Rücktaste nimmt die letzte Ecke zurück.",
+      "Klicke die Ecken nacheinander. Zum Schließen die erste Ecke anklicken, doppelklicken oder „Polygon schließen“ wählen. Esc bricht ab, Rücktaste nimmt die letzte Ecke zurück.",
     hintIdle: "Wähle einen Ort aus der Suche oder zeichne das Gebiet selbst.",
     summary: "Gebiet",
     sourceOsm: "Aus OpenStreetMap: ",
@@ -45,9 +45,9 @@ const TEXTS = {
     saving: "Speichere …",
     saved: "Gespeichert in freemapper.toml.",
     zoneChanged:
-      "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; die Daten werden beim nächsten Laden neu geholt.",
+      "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
     hasMap:
-      "Die vorhandene Karte (.omap) bleibt, wie sie ist; neue Vorlagen und Kandidaten entstehen für das neue Gebiet. Mit „freemapper run --force“ wird auch die Karte neu erzeugt (die alte bleibt als .omap.bak).",
+      "Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. „freemapper run --force“ erzeugt auch die Karte neu und behält die alte als .omap.bak.",
     done: "Fertig",
     closed: "Fertig. Du kannst dieses Fenster schließen.",
     next: (dir) => `Weiter: freemapper run "${dir}"`,
@@ -80,7 +80,7 @@ const TEXTS = {
     clear: "Clear",
     hintRectangle: "Click two opposite corners on the map.",
     hintPolygon:
-      "Click the corners one after another. Close: click the first corner, double-click or “Close polygon”. Esc cancels, Backspace removes the last corner.",
+      "Click the corners one after another. To close it, click the first corner, double-click or click \"Close polygon\". Esc cancels, Backspace removes the last corner.",
     hintIdle: "Pick a place from the search or draw the area yourself.",
     summary: "Area",
     sourceOsm: "From OpenStreetMap: ",
@@ -107,9 +107,9 @@ const TEXTS = {
     saving: "Saving …",
     saved: "Saved to freemapper.toml.",
     zoneChanged:
-      "Saved. The area now lies in another UTM zone; its data is fetched again on the next run.",
+      "Saved. The area now lies in another UTM zone; freemapper fetches its data again on the next run.",
     hasMap:
-      "The existing map (.omap) stays as it is; new templates and candidates are made for the new area. “freemapper run --force” makes the map anew too (the old one is kept as .omap.bak).",
+      "The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. \"freemapper run --force\" makes the map anew too and keeps the old one as .omap.bak.",
     done: "Done",
     closed: "Done. You can close this window.",
     next: (dir) => `Next: freemapper run "${dir}"`,

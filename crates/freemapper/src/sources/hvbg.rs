@@ -730,7 +730,7 @@ impl<'a> Session<'a> {
                 let more = index.undated.len() - shown.len();
                 warnings.push(format!(
                     "the metadata list has no readable Bildflugdatum for tile {}{}; their \
-                     records carry no flight date",
+                     project records have no flight date",
                     shown.join(", "),
                     if more > 0 {
                         format!(" and {more} more")
