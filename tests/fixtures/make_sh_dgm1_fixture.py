@@ -1,20 +1,27 @@
-"""Cuts the north-west corner out of an LVermGeo SH DGM1 GeoTIFF (1000 x 1000, Float32, LZW,
-256 x 256 internal tiles) without re-encoding: the first 2 x 2 tiles are copied byte for byte and
-the image size is set to SIZE x SIZE, so the right and bottom tiles are partly outside the image,
-like the edge tiles of the full file. Every other tag (GeoTIFF keys, GDAL_NODATA) is kept.
+"""Cuts 2 x 2 internal tiles out of an LVermGeo SH DGM1 GeoTIFF (1000 x 1000, Float32, LZW,
+256 x 256 internal tiles) without re-encoding: the tiles from tile column COLUMN and tile row ROW
+on are copied byte for byte, the image size is set to WIDTH x HEIGHT (so the right and bottom
+tiles can be partly outside the image, like the edge tiles of the full file) and the tiepoint is
+moved to the first tile. Every other tag (GeoTIFF keys, GDAL_NODATA) is kept.
+
+    python make_sh_dgm1_fixture.py SOURCE TARGET [COLUMN ROW WIDTH HEIGHT]
+
+The fixtures:
 
     python make_sh_dgm1_fixture.py dgm1_32_565_5949_1_sh_2022.tif schleswig-holstein-dgm1-nw.tif
+    python make_sh_dgm1_fixture.py dgm1_32_611_5970_1_sh_2022.tif \\
+        schleswig-holstein-dgm1-lzw-ne.tif 2 0 488 300
 """
 
 import struct
 import sys
 
-SIZE = 300
-TILE_COLUMNS = 2
+TILES = 2
 TYPE_SIZES = {1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 16: 8}
 
 
-def main(source, target):
+def main(source, target, column="0", row="0", width="300", height="300"):
+    column, row, new_width, new_height = int(column), int(row), int(width), int(height)
     data = open(source, "rb").read()
     if data[:4] != b"II*\x00":
         sys.exit("expected a little-endian classic TIFF")
@@ -32,12 +39,21 @@ def main(source, target):
         return struct.unpack("<%d%s" % (n, "I" if kind == 4 else "H"), raw)
 
     width = longs(256)[0]
-    tile_width = longs(322)[0]
+    tile_width, tile_height = longs(322)[0], longs(323)[0]
     across = -(-width // tile_width)
     offsets, counts = longs(324), longs(325)
-    keep = [row * across + column for row in range(TILE_COLUMNS) for column in range(TILE_COLUMNS)]
-    tags[256] = (4, 1, struct.pack("<I", SIZE))
-    tags[257] = (4, 1, struct.pack("<I", SIZE))
+    keep = [(row + y) * across + column + x for y in range(TILES) for x in range(TILES)]
+    if -(-new_width // tile_width) != TILES or -(-new_height // tile_height) != TILES:
+        sys.exit("WIDTH and HEIGHT must span 2 x 2 tiles")
+    tags[256] = (4, 1, struct.pack("<I", new_width))
+    tags[257] = (4, 1, struct.pack("<I", new_height))
+    # ModelTiepoint (raster 0 0 0 -> model west north 0) and ModelPixelScale.
+    kind, n, raw = tags[33922]
+    tie = list(struct.unpack("<6d", raw))
+    (scale_x, scale_y, _) = struct.unpack("<3d", tags[33550][2])
+    tie[3] += column * tile_width * scale_x
+    tie[4] -= row * tile_height * scale_y
+    tags[33922] = (kind, n, struct.pack("<6d", *tie))
 
     entries = sorted(tags)
     ifd_size = 2 + 12 * len(entries) + 4

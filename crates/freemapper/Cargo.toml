@@ -27,6 +27,7 @@ thiserror.workspace = true
 tiff.workspace = true
 toml.workspace = true
 ureq.workspace = true
+weezl.workspace = true
 world_magnetic_model.workspace = true
 zip.workspace = true
 

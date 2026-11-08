@@ -46,6 +46,8 @@ tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std",
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
+# Lenient TIFF LZW (chunks without an end code); already in Cargo.lock through tiff.
+weezl = "0.1.12"
 world_magnetic_model = "1.2025.0"
 # Pinned: newer releases are younger than two weeks.
 zip = { version = "=9.0.5", default-features = false, features = ["deflate"] }

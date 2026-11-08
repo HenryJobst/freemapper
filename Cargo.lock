@@ -658,6 +658,7 @@ dependencies = [
  "tiff",
  "toml",
  "ureq",
+ "weezl",
  "world_magnetic_model",
  "zip",
 ]
