@@ -1996,7 +1996,7 @@ fn fetch_berlin_layers_into(
         let path = berlin_layer_path(dir, file);
         let stored = fetched
             .features
-            .map_err(|e| one_line(&e.to_string()))
+            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|features| {
                 let parent = path.parent().expect("a file below the project folder");
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -2042,11 +2042,6 @@ fn fetch_berlin_layers_into(
         let _ = std::fs::remove_file(berlin_layer_path(dir, file));
     }
     records
-}
-
-/// `text` on one line: runs of whitespace (newlines of a server's error page) become one space.
-fn one_line(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// One stored extra Berlin layer.
