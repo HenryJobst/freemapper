@@ -179,6 +179,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 Crs::Utm32,
             ),
             Region::Hessen => wfs_buildings(fetcher, &alkis_wfs::HVBG, &in_crs)?,
+            Region::SchleswigHolstein => (Vec::new(), Crs::Utm32), // Task 2: LVermGeo SH ALKIS
         })
     })
 }
@@ -208,6 +209,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 Crs::Utm32,
             ),
             Region::Hessen => wfs_land_use(fetcher, &alkis_wfs::HVBG, &in_crs)?,
+            Region::SchleswigHolstein => (Vec::new(), Crs::Utm32), // Task 2: LVermGeo SH ALKIS
         })
     })
 }

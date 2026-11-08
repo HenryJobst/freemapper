@@ -598,6 +598,8 @@ pub fn fetch_project(
         Some(Provider::Hvbg) => {
             fetch_hvbg_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
+        // Task 5: the LVermGeo SH rasters (WMS orthophoto, DGM1) are not fetched yet.
+        Some(Provider::LvermGeoSh) => {}
         _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
     }
     project.save(dir)?;
@@ -1178,6 +1180,7 @@ fn raster_tiles(
                 Provider::LvermGeo => "LVermGeo",
                 Provider::Lgv => "LGV",
                 Provider::Hvbg => "HVBG",
+                Provider::LvermGeoSh => "LVermGeo SH",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1518,7 +1521,7 @@ pub fn derive_project(
             Product::SaxonyDtm,
             Product::SaxonyDsm,
         )),
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => None,
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1573,7 +1576,11 @@ pub fn derive_project(
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?,
-        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => {
+        Provider::GeoSn
+        | Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);

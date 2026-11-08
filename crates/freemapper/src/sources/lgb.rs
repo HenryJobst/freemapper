@@ -54,7 +54,10 @@ impl Product {
         match self.provider() {
             Provider::Lgb => 1,
             Provider::GeoSn => 2,
-            provider @ (Provider::LvermGeo | Provider::Lgv | Provider::Hvbg) => {
+            provider @ (Provider::LvermGeo
+            | Provider::Lgv
+            | Provider::Hvbg
+            | Provider::LvermGeoSh) => {
                 unreachable!("{provider:?} rasters are fetched per area, not as tiles")
             }
         }
@@ -80,7 +83,10 @@ impl Product {
                 t.east_km,
                 t.north_km
             ),
-            provider @ (Provider::LvermGeo | Provider::Lgv | Provider::Hvbg) => {
+            provider @ (Provider::LvermGeo
+            | Provider::Lgv
+            | Provider::Hvbg
+            | Provider::LvermGeoSh) => {
                 unreachable!("{provider:?} rasters are fetched per area, not as tiles")
             }
         }
@@ -151,6 +157,7 @@ impl Product {
             Provider::LvermGeo => "lvermgeo",
             Provider::Lgv => "lgv",
             Provider::Hvbg => "hvbg",
+            Provider::LvermGeoSh => "lvermgeosh",
         }
     }
 

@@ -27,6 +27,10 @@ const HAMBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/hamburg.
 /// Hesse from HVBG ALKIS vereinfacht `VerwaltungsEinheit` DE06 (dl-de/zero-2-0). In EPSG:25833 it
 /// has negative eastings (Hesse reaches from about -17 km to 167 km).
 const HESSEN_BOUNDARY: &str = include_str!("../../../../assets/regions/hessen.geojson");
+/// Schleswig-Holstein from LVermGeo SH ALKIS (simplified 25 m, EPSG:25833; dl-de/by-2-0). It shares
+/// about 131 km of border with Hamburg.
+const SCHLESWIG_HOLSTEIN_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/schleswig-holstein.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -41,6 +45,7 @@ pub enum Region {
     SaxonyAnhalt,
     Hamburg,
     Hessen,
+    SchleswigHolstein,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -57,25 +62,31 @@ pub enum Provider {
     Lgv,
     /// HVBG, Hesse (EPSG:25832).
     Hvbg,
+    /// LVermGeo SH, Schleswig-Holstein (EPSG:25832).
+    LvermGeoSh,
 }
 
 impl Provider {
     /// Whether the provider's rasters are fetched per map area (WMS, WCS, zip members) instead of
     /// as recorded tiles.
     pub fn per_area(self) -> bool {
-        matches!(self, Self::LvermGeo | Self::Lgv | Self::Hvbg)
+        matches!(
+            self,
+            Self::LvermGeo | Self::Lgv | Self::Hvbg | Self::LvermGeoSh
+        )
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
         Self::SaxonyAnhalt,
         Self::Hamburg,
         Self::Hessen,
+        Self::SchleswigHolstein,
     ];
 
     /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`, `DEHE…`).
@@ -87,6 +98,7 @@ impl Region {
             Some("DEST") => Some(Self::SaxonyAnhalt),
             Some("DEHH") => Some(Self::Hamburg),
             Some("DEHE") => Some(Self::Hessen),
+            Some("DESH") => Some(Self::SchleswigHolstein),
             _ => None,
         }
     }
@@ -98,20 +110,24 @@ impl Region {
             Self::SaxonyAnhalt => Provider::LvermGeo,
             Self::Hamburg => Provider::Lgv,
             Self::Hessen => Provider::Hvbg,
+            Self::SchleswigHolstein => Provider::LvermGeoSh,
         }
     }
 
     /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
     pub fn crs(self) -> crate::crs::Crs {
         match self {
-            Self::SaxonyAnhalt | Self::Hamburg | Self::Hessen => crate::crs::Crs::Utm32,
+            Self::SaxonyAnhalt | Self::Hamburg | Self::Hessen | Self::SchleswigHolstein => {
+                crate::crs::Crs::Utm32
+            }
             _ => crate::crs::Crs::Utm33,
         }
     }
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 6] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 7] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -126,6 +142,7 @@ impl Region {
             Self::SaxonyAnhalt => (3, SAXONY_ANHALT_BOUNDARY),
             Self::Hamburg => (4, HAMBURG_BOUNDARY),
             Self::Hessen => (5, HESSEN_BOUNDARY),
+            Self::SchleswigHolstein => (6, SCHLESWIG_HOLSTEIN_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -414,6 +431,48 @@ mod tests {
         assert_eq!(
             Region::of_object_id("DEHE0000AbCdEfGh"),
             Some(Region::Hessen)
+        );
+        assert_eq!(
+            Region::of_object_id("DEHH0000AbCdEfGh"),
+            Some(Region::Hamburg)
+        );
+    }
+
+    #[test]
+    fn norderstedt_school_is_schleswig_holstein_in_zone_32() {
+        // Coppernicus-Gymnasium Norderstedt (OSM way/26986780), 25832 E 565214 / N 5949250.
+        let school = around(169_108.0, 5_960_473.0, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::SchleswigHolstein]);
+        assert_eq!(raster_region(&school), Some(Region::SchleswigHolstein));
+        assert_eq!(Region::SchleswigHolstein.provider(), Provider::LvermGeoSh);
+        assert!(Provider::LvermGeoSh.per_area());
+        assert_eq!(Region::SchleswigHolstein.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm32);
+        assert!(provider_tiles(&school, Provider::LvermGeoSh, 1).is_empty());
+    }
+
+    #[test]
+    fn langenhorn_stays_hamburg() {
+        // A point in Hamburg-Langenhorn, 25832 E 566000 / N 5946500, about 2 km south of the border.
+        let p = crate::crs::Crs::Utm33
+            .reproject(
+                crate::crs::Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 566_000.0,
+                    northing: 5_946_500.0,
+                },
+            )
+            .unwrap();
+        let langenhorn = around(p.easting, p.northing, 200.0);
+        assert_eq!(regions_for(&langenhorn), vec![Region::Hamburg]);
+        assert_eq!(raster_region(&langenhorn), Some(Region::Hamburg));
+    }
+
+    #[test]
+    fn schleswig_holstein_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DESH0000AbCdEfGh"),
+            Some(Region::SchleswigHolstein)
         );
         assert_eq!(
             Region::of_object_id("DEHH0000AbCdEfGh"),
