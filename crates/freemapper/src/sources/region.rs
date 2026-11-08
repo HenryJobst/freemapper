@@ -497,6 +497,41 @@ mod tests {
         ] {
             assert!(!reaches_beyond_coverage(&around(e, n, 600.0)), "{e} {n}");
         }
+        // Lower Saxony's borders with supported states, at points where the boundaries meet.
+        for (border, e, n) in [
+            ("NI/NRW, 52.18 N 7.93 E", 16_879.0, 5_804_658.0),
+            ("NI/Saxony-Anhalt at Helmstedt", 231_964.0, 5_792_768.0),
+            ("NI/Hesse, 51.55 N 9.61 E", 126_608.0, 5_724_755.0),
+            (
+                "NI/Schleswig-Holstein in the Elbe at Glückstadt",
+                129_966.0,
+                5_975_154.0,
+            ),
+            (
+                "NI/Mecklenburg-Vorpommern in the Elbe at Dömitz",
+                249_166.0,
+                5_893_748.0,
+            ),
+            (
+                "NI/Mecklenburg-Vorpommern near Boizenburg",
+                220_264.0,
+                5_915_541.0,
+            ),
+        ] {
+            let area = around(e, n, 600.0);
+            assert_eq!(regions_for(&area).len(), 2, "{border}");
+            assert!(
+                regions_for(&area).contains(&Region::Niedersachsen),
+                "{border}"
+            );
+            assert!(!reaches_beyond_coverage(&area), "{border}");
+        }
+        // Lower Saxony/Thuringia east of Duderstadt: Thuringia is no region yet.
+        assert!(reaches_beyond_coverage(&around(
+            173_912.0,
+            5_715_904.0,
+            600.0
+        )));
     }
 
     #[test]
