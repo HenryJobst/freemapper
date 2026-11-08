@@ -1,5 +1,5 @@
 //! OGC WCS 2.0.1 GetCoverage of Float32 height models at 1 m (LVermGeo Saxony-Anhalt, LAiV
-//! Mecklenburg-Vorpommern): the request, the answer (a `multipart/related` answer or a plain
+//! Mecklenburg-Vorpommern, LGLN Niedersachsen): the request, the answer (a `multipart/related` answer or a plain
 //! TIFF), exception reports, and the mosaic of pieces.
 
 use crate::crs::{BoundingBox, Crs};

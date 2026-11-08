@@ -2158,6 +2158,41 @@ pub(crate) mod test_support {
         }
     }
 
+    /// The orthophoto flight date and the height model date the synthetic LGLN STAC answers give
+    /// (the live ones at the Kaiser-Wilhelm- und Ratsgymnasium, Hannover).
+    pub const LGLN_FLIGHT: &str = "2025-03-06T00:00:00Z";
+    pub const LGLN_HEIGHTS: &str = "2016-04-18T00:00:00Z";
+
+    /// Serves the LGLN rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the right
+    /// size, DGM1 and DOM1 from the WCS (one GeoTIFF of `bbox` for any subset; the terrain rises
+    /// 0.01 m per metre east from 20 m, the surface lies 12 m above it) and the three STAC
+    /// searches (flight [`LGLN_FLIGHT`], both height models [`LGLN_HEIGHTS`]).
+    pub fn serve_synthetic_lgln(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::lgln::{self, Model, test_support::stac_page};
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        for (piece, url) in crate::sources::wms::pieces(&lgln::WMS, &photo) {
+            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [90, 110, 70]));
+        }
+        let grid = crate::raster::GridSpec::covering(bbox, 1.0);
+        for (model, lift) in [(Model::Dgm1, 20.0), (Model::Dom1, 32.0)] {
+            let values: Vec<f32> = (0..grid.height)
+                .flat_map(|_| (0..grid.width).map(move |x| lift + x as f32 * 0.01))
+                .collect();
+            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+        }
+        fetcher.insert_prefix(
+            lgln::DOP_STAC,
+            stac_page(&[("dop20rgbi_32_550_5802_2_ni", LGLN_FLIGHT)], None),
+        );
+        for model in [Model::Dgm1, Model::Dom1] {
+            fetcher.insert_prefix(
+                model.stac(),
+                stac_page(&[("dgm1_32_551_5803_1_ni_2016", LGLN_HEIGHTS)], None),
+            );
+        }
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();

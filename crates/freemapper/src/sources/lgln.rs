@@ -1,12 +1,12 @@
-//! LGLN Niedersachsen open data (CC BY 4.0, "© GeoBasis-DE/LGLN"), all in EPSG:25832: DGM1 and
-//! DOM1 from the MapServer WCS, and the dates of the height models and the orthophoto from the
-//! STAC APIs (the newest item at the centre of the area).
+//! LGLN Niedersachsen open data (CC BY 4.0, "© GeoBasis-DE/LGLN"), all in EPSG:25832: the
+//! orthophoto from the WMS, DGM1 and DOM1 from the MapServer WCS, and the dates of the height
+//! models and the orthophoto from the STAC APIs (the newest item at the centre of the area).
 //!
 //! The STAC answers are not cached: a date reaches the project record only.
 
 use std::path::Path;
 
-use chrono::NaiveDate;
+use chrono::{Datelike as _, NaiveDate};
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
@@ -15,6 +15,18 @@ use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{require_stored, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::wcs::WcsService;
+use crate::sources::wms::WmsService;
+
+/// The orthophoto WMS: the newest DOP20 (the same pixels as the tiles). MaxWidth/MaxHeight is
+/// 15000, but MapServer answers only once the whole image is ready, so the pieces stay at 4000 px
+/// (≈9 s each). An oversize request is an HTTP 200 XML exception. Bremen is left white.
+pub const WMS: WmsService = WmsService {
+    url: "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
+    layer: "ni_dop20",
+    crs: Crs::Utm32,
+    extra: "",
+    max_px: 4000,
+};
 
 /// The STAC API of the orthophoto (collection `DOP`, every vintage).
 pub const DOP_STAC: &str = "https://dop.stac.lgln.niedersachsen.de";
@@ -212,6 +224,38 @@ pub fn orthophoto_date(
     bbox: &BoundingBox,
 ) -> Result<Option<NaiveDate>, FetchError> {
     Ok(newest_item(fetcher, DOP_STAC, bbox)?.map(|item| item.date))
+}
+
+/// How much older than the orthophoto the DOM1 may be before the nDSM gets a warning. The laser
+/// scan behind it is mostly from 2016/2017, the orthophoto from 2024 to 2026 (§6): new buildings
+/// and grown or felled trees are then missing from the nDSM, though the orthophoto shows them.
+pub const SURFACE_AGE_WARNING_MONTHS: u32 = 24;
+
+/// The warning when the surface model of `surface` is more than [`SURFACE_AGE_WARNING_MONTHS`]
+/// older than the orthophoto flown on `flight`; `None` when they are close.
+pub fn surface_age_warning(surface: NaiveDate, flight: NaiveDate) -> Option<String> {
+    let limit = surface.checked_add_months(chrono::Months::new(SURFACE_AGE_WARNING_MONTHS))?;
+    (limit < flight).then(|| {
+        format!(
+            "the {} is from {}, the orthophoto from {}. The nDSM may lack newer buildings and trees.",
+            Model::Dom1.label(),
+            surface.format("%d.%m.%Y"),
+            flight.format("%d.%m.%Y")
+        )
+    })
+}
+
+/// What the flight month says about the trees: flights from May to October show them in leaf
+/// (a quarter of the state), the spring flights bare.
+pub fn leaf_state(flight: NaiveDate) -> String {
+    let date = flight.format("%d.%m.%Y");
+    if (5..=10).contains(&flight.month()) {
+        format!(
+            "the orthophoto was flown on {date}, with the trees in leaf; their crowns hide what lies below them"
+        )
+    } else {
+        format!("the orthophoto was flown on {date}, with the trees bare")
+    }
 }
 
 /// DGM1 or DOM1 over `bbox` (EPSG:25832) from the WCS, in pieces of at most 2 km, written as a
