@@ -5857,13 +5857,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     #[test]
     fn nrw_project_at_the_hesse_border_takes_rasters_from_the_centre() {
         let fetcher = MapFetcher::default();
-        // 25833 E 115329 / N 5736651 is on the border; the centre is 150 m inside NRW.
+        // 25833 E 115329 / N 5735651 is on the border, 1 km south of where Niedersachsen joins; the
+        // centre is 150 m inside NRW.
         let c = crate::crs::Crs::Utm32
             .reproject(
                 crate::crs::Crs::Utm33,
                 crate::crs::ProjectedPoint {
                     easting: 115_329.0 - 150.0,
-                    northing: 5_736_651.0,
+                    northing: 5_735_651.0,
                 },
             )
             .unwrap();

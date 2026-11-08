@@ -66,6 +66,18 @@ pub const GEOBASIS_NRW: WfsService = WfsService {
     square_bez: Some("ohne Unterart (Nordrhein-Westfalen)"),
 };
 
+/// LGLN, Niedersachsen (EPSG:25832; land use per parcel part). Same schema and LGB spellings as
+/// Hesse; underground garages are `Gebäude` with `rellage` "Unter der Erdoberfläche". The service
+/// cuts an answer without `COUNT` silently at 10000 and refuses more than 10000.
+pub const LGLN: WfsService = WfsService {
+    name: "LGLN ALKIS",
+    url: "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm32,
+    square_bez: Some("ohne Unterart (Niedersachsen)"),
+};
+
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
 /// (named for its administrative-boundary theme) serves every type with normal queries; the
 /// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
@@ -434,6 +446,10 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/nordrhein-westfalen-buildings.gml");
     pub const NRW_LAND_USE: &str =
         include_str!("../../../../tests/fixtures/nordrhein-westfalen-land-use.gml");
+    pub const NI_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/niedersachsen-buildings.gml");
+    pub const NI_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/niedersachsen-land-use.gml");
 }
 
 #[cfg(test)]
@@ -878,6 +894,89 @@ mod tests {
         );
         assert!(squares.iter().all(Option::is_some), "{squares:?}");
         assert!(features.iter().all(|f| !f["geometry"].is_null()));
+    }
+
+    #[test]
+    fn lgln_buildings_parse() {
+        let features = parse_gml(NI_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        assert_eq!(parsed.buildings.len(), features.len());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DENI")));
+        // Native EPSG:25832 coordinates (Hannover).
+        let school = parsed
+            .buildings
+            .iter()
+            .find(|b| b.function == "Allgemein bildende Schule")
+            .unwrap();
+        let corner = school.footprint.0[0].exterior().0[0];
+        assert!((540_000.0..560_000.0).contains(&corner.x), "{corner:?}");
+        assert!(!school.underground);
+        assert!(parsed.buildings.iter().any(|b| b.updated.is_some()));
+        // Names come with trailing blanks in the service; they are trimmed.
+        let names: Vec<&str> = features
+            .iter()
+            .filter_map(|f| f["properties"]["name"].as_str())
+            .collect();
+        assert!(names.contains(&"Sporthalle"), "{names:?}");
+        assert!(names.iter().all(|n| *n == n.trim()), "{names:?}");
+    }
+
+    #[test]
+    fn lgln_land_use_from_nutzung_flurstueck() {
+        assert_eq!(LGLN.land_use_type, "ave:NutzungFlurstueck");
+        assert_eq!(LGLN.buildings_type, "ave:GebaeudeBauwerk");
+        assert_eq!(
+            LGLN.url,
+            "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach"
+        );
+        assert_eq!(LGLN.crs, Crs::Utm32);
+        let features: Vec<Value> = parse_gml(NI_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, LGLN.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        assert_eq!(land.len(), features.len());
+        assert!(land.iter().all(|l| l.oid.starts_with("DENI")));
+        let nutzarten: Vec<&str> = land.iter().map(|l| l.nutzart.as_str()).collect();
+        for want in ["Straßenverkehr", "Wohnbaufläche", "Platz", "Wald"] {
+            assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
+        }
+        assert!(land.iter().any(|l| l.nutzart == "Straßenverkehr"
+            && l.bez.as_deref() == Some("Begleitfläche Straßenverkehr")));
+        let squares: Vec<Option<&str>> = land
+            .iter()
+            .filter(|l| l.nutzart == "Platz")
+            .map(|l| l.bez.as_deref())
+            .collect();
+        assert!(squares.contains(&Some("Parkplatz")), "{squares:?}");
+        assert!(
+            squares.contains(&Some("ohne Unterart (Niedersachsen)")),
+            "{squares:?}"
+        );
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
+        assert!(features.iter().all(|f| !f["geometry"].is_null()));
+    }
+
+    #[test]
+    fn lgln_underground_buildings_by_rellage() {
+        let features = parse_gml(NI_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        let underground: Vec<_> = parsed.buildings.iter().filter(|b| b.underground).collect();
+        // The service marks underground garages as `Gebäude` + `rellage "Unter der Erdoberfläche"`.
+        assert_eq!(underground.len(), 4, "{underground:?}");
+        assert!(underground.iter().all(|b| b.kind == "Gebäude"));
+        // Other `rellage` values (raised buildings) stay above ground.
+        let raised = features
+            .iter()
+            .filter(|f| f["properties"]["rellage"] == "Aufgeständert")
+            .count();
+        assert!(raised > 0);
+        assert_eq!(
+            parsed.buildings.iter().filter(|b| !b.underground).count(),
+            features.len() - 4
+        );
     }
 
     #[test]

@@ -205,7 +205,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
             Region::NordrheinWestfalen => {
                 wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
             }
-            Region::Niedersachsen => (Vec::new(), Crs::Utm32), // Task 5: LGLN ALKIS
+            Region::Niedersachsen => wfs_buildings(fetcher, &alkis_wfs::LGLN, &in_crs)?,
         })
     })
 }
@@ -250,7 +250,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 Crs::Utm33,
             ),
             Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
-            Region::Niedersachsen => (Vec::new(), Crs::Utm32), // Task 5: LGLN ALKIS
+            Region::Niedersachsen => wfs_land_use(fetcher, &alkis_wfs::LGLN, &in_crs)?,
         })
     })
 }
@@ -303,7 +303,7 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`).
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`, `DENI…`).
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -930,6 +930,11 @@ mod tests {
             "Wohnhaus",
             [271_800.0, 5_881_600.0, 10.0],
         );
+        // The vertex also touches Niedersachsen, which has no building here.
+        fetcher.insert_prefix(
+            alkis_wfs::LGLN.url,
+            br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
+        );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
             alkis_wfs::LVERMGEO.url,
@@ -1227,6 +1232,126 @@ mod tests {
                 log.iter()
                     .any(|u| u.starts_with(service) && u.contains("EPSG::25832")),
                 "{service}"
+            );
+        }
+    }
+
+    #[test]
+    fn lgln_alkis_asks_the_lgln_wfs_for_both_types() {
+        // Hannover (25832 E 551800 / N 5803400), box in 25833.
+        let c = Crs::Utm33
+            .reproject(
+                Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 551_800.0,
+                    northing: 5_803_400.0,
+                },
+            )
+            .unwrap();
+        let region_bbox = BoundingBox {
+            min_e: c.easting - 200.0,
+            min_n: c.northing - 200.0,
+            max_e: c.easting + 200.0,
+            max_n: c.northing + 200.0,
+        };
+        assert_eq!(regions_for(&region_bbox), vec![Region::Niedersachsen]);
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            alkis_wfs::LGLN.url,
+            alkis_wfs::test_support::NI_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        assert!(!parsed.buildings.is_empty());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DENI")));
+        {
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty());
+            for url in log.iter() {
+                assert!(
+                    url.starts_with(
+                        "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach?"
+                    ),
+                    "{url}"
+                );
+                assert!(url.contains("TYPENAMES=ave:GebaeudeBauwerk"), "{url}");
+                assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
+                // Without COUNT the service cuts silently at 10000 (the shared reader pages with COUNT).
+                assert!(
+                    url.contains("RESULTTYPE=hits") || url.contains("&COUNT="),
+                    "{url}"
+                );
+            }
+            assert!(log.iter().any(|u| u.contains("&COUNT=")), "{log:?}");
+        }
+        fetcher.log.borrow_mut().clear();
+        fetcher.insert_prefix(
+            alkis_wfs::LGLN.url,
+            alkis_wfs::test_support::NI_LAND_USE.as_bytes().to_vec(),
+        );
+        let raw = fetch_land_use_in(&fetcher, &area).unwrap();
+        {
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty());
+            for url in log.iter() {
+                assert!(url.contains("TYPENAMES=ave:NutzungFlurstueck"), "{url}");
+                assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
+            }
+        }
+        let land = parse_land_use(&raw).unwrap();
+        assert!(land.iter().all(|l| l.oid.starts_with("DENI")));
+        assert!(
+            land.iter().any(|l| l.nutzart == "Platz"
+                && l.bez.as_deref() == Some("ohne Unterart (Niedersachsen)"))
+        );
+    }
+
+    #[test]
+    fn harburg_border_reads_both_states() {
+        // A box over the Hamburg-Harburg / Niedersachsen border (25832 E 553000 / N 5926000).
+        let centre = Crs::Utm33
+            .reproject(
+                Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 553_000.0,
+                    northing: 5_926_000.0,
+                },
+            )
+            .unwrap();
+        let region_bbox = BoundingBox {
+            min_e: centre.easting - 250.0,
+            min_n: centre.northing - 250.0,
+            max_e: centre.easting + 250.0,
+            max_n: centre.northing + 250.0,
+        };
+        assert_eq!(
+            regions_for(&region_bbox),
+            vec![Region::Hamburg, Region::Niedersachsen]
+        );
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            crate::sources::lgv::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis_wfs::LGLN.url,
+            alkis_wfs::test_support::NI_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEHH")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DENI")), "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+        let log = fetcher.log.borrow();
+        for service in [crate::sources::lgv::BUILDINGS_ENDPOINT, alkis_wfs::LGLN.url] {
+            assert!(
+                log.iter()
+                    .any(|u| u.starts_with(service) && u.contains("25832")),
+                "{service}: {log:?}"
             );
         }
     }
