@@ -5,7 +5,7 @@
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::raster::Raster;
-use crate::sources::lvermgeo::decode_float_tiff;
+use crate::sources::float_tiff::decode_float_tiff;
 
 /// A WCS serving one Float32 coverage at 1 m.
 #[derive(Debug, Clone, Copy, PartialEq)]

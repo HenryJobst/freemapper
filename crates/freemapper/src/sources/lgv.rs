@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_atomically};
 use crate::raster::{GridSpec, Raster};
-use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
+use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::sources::zip_range::{

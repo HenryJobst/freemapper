@@ -18,10 +18,10 @@ use crate::fetch::{
     write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
-use crate::sources::height_model::HeightModel;
-use crate::sources::lvermgeo::{
+use crate::sources::float_tiff::{
     decode_float_tiff, decode_float_tiff_from, encode_float_geotiff, write_float_raster,
 };
+use crate::sources::height_model::HeightModel;
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
@@ -1214,7 +1214,7 @@ mod tests {
         use super::*;
         use crate::fetch::{Cache, FetchMode};
         use crate::raster::{GridSpec, Raster};
-        use crate::sources::lvermgeo::decode_float_tiff;
+        use crate::sources::float_tiff::decode_float_tiff;
 
         const DGM1_TIF: &[u8] =
             include_bytes!("../../../../tests/fixtures/schleswig-holstein-dgm1-nw.tif");
