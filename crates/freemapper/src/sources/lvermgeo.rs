@@ -952,13 +952,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "needs the full Lübeck tile in the session scratchpad"]
+    #[ignore = "needs the full Lübeck DGM1 tile in FREEMAPPER_LIVE_TILE"]
     fn full_lubeck_tile_decodes() {
-        let path = std::env::var("FREEMAPPER_LZW_TILE").unwrap_or_else(|_| {
-            "/private/tmp/claude-502/-Users-henryprivat-Documents-gitrepos-freemapper/\
-             626dafd0-2cfb-4a8b-9864-ebf6d40c8bb0/scratchpad/lzwprobe/t.tif"
-                .to_string()
-        });
+        // The whole Lübeck DGM1 GeoTIFF of the INSPIRE ATOM directory that the `LZW_NE` crop
+        // comes from, downloaded by hand.
+        let Ok(path) = std::env::var("FREEMAPPER_LIVE_TILE") else {
+            eprintln!("FREEMAPPER_LIVE_TILE is not set; skipped");
+            return;
+        };
         let raster = decode_float_tiff(&std::fs::read(path).unwrap()).unwrap();
         let (min, max) = raster
             .data
