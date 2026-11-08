@@ -4,7 +4,9 @@
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, write_atomically};
+use crate::fetch::{
+    FetchError, Fetcher, get_with_retries, is_ogc_report, one_line, write_atomically,
+};
 use crate::raster::GridSpec;
 use crate::sources::wcs::{WcsOrthophoto, exception_text};
 
@@ -147,7 +149,7 @@ fn xml_message(text: &str) -> Option<String> {
     } else {
         message
     };
-    Some(message.chars().take(300).collect())
+    Some(one_line(&message, 300))
 }
 
 /// Downloads the orthophoto over `bbox` (in the service's CRS) at 0.2 m from the WMS, stitched, as
@@ -192,18 +194,20 @@ pub fn fetch_orthophoto_from(
             }
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
                 .map_err(|e| {
-                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
+                    let start =
+                        one_line(&String::from_utf8_lossy(&bytes[..bytes.len().min(80)]), 80);
                     refused(format!("not a JPEG ({e}): {start}"))
                 })?
                 .into_rgb8();
             if (image.width(), image.height()) != (piece.width, piece.height) {
-                return Err(refused(format!(
+                // The same size would come again: final, not retried.
+                return Ok(Err(refused(format!(
                     "{} × {} pixels instead of {} × {}",
                     image.width(),
                     image.height(),
                     piece.width,
                     piece.height
-                )));
+                ))));
             }
             Ok(Ok(image))
         })?;
@@ -462,6 +466,49 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             error.contains("3999 × 100 pixels instead of 4000 × 100"),
             "{error}"
+        );
+        // A wrong size would come again: final, not retried.
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn dop_wcs_error_text_is_one_clean_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::laiv_mv::DOP.url,
+            "<html>\x1b]0;owned\x07\u{202E}evil\nline two</html>"
+                .as_bytes()
+                .to_vec(),
+        );
+        let error =
+            fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &dir.path().join("o.jpg"))
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("not a JPEG"), "{error}");
+        assert!(
+            !error.chars().any(|c| c.is_control() || c == '\u{202E}'),
+            "{error:?}"
+        );
+    }
+
+    #[test]
+    fn wms_error_text_is_one_clean_line() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            hvbg::WMS.url,
+            "<ServiceExceptionReport>bad\x1b]0;owned\x07\u{202E}x\nthing</ServiceExceptionReport>"
+                .as_bytes()
+                .to_vec(),
+        );
+        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("the WMS answered"), "{error}");
+        assert!(
+            !error.chars().any(|c| c.is_control() || c == '\u{202E}'),
+            "{error:?}"
         );
     }
 

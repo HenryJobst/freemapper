@@ -267,7 +267,7 @@ pub(crate) fn one_line(text: &str, max_chars: usize) -> String {
     }
 }
 
-/// Whether the root element of `body` (after a BOM, an XML declaration and comments) is an OGC
+/// Whether the root element of `body` (after a BOM, an XML declaration, comments and a DOCTYPE) is an OGC
 /// exception report: `ExceptionReport` (any namespace prefix) or `ServiceExceptionReport`.
 pub(crate) fn is_ogc_report(body: &[u8]) -> bool {
     let mut rest = body.strip_prefix(b"\xef\xbb\xbf").unwrap_or(body);
@@ -277,6 +277,17 @@ pub(crate) fn is_ogc_report(body: &[u8]) -> bool {
             (b"<?", b"?>")
         } else if rest.starts_with(b"<!--") {
             (b"<!--", b"-->")
+        } else if rest.starts_with(b"<!") {
+            // A DOCTYPE; an internal subset in `[ … ]` may itself contain `>`.
+            let end = match rest.iter().position(|&b| b == b'[') {
+                Some(open) if rest[..open].iter().all(|&b| b != b'>') => {
+                    rest.windows(2).position(|w| w == b"]>").map(|i| i + 2)
+                }
+                _ => rest.iter().position(|&b| b == b'>').map(|i| i + 1),
+            };
+            let Some(end) = end else { return false };
+            rest = &rest[end..];
+            continue;
         } else {
             break;
         };
@@ -3030,6 +3041,7 @@ mod tests {
         for report in [
             &b"<ExceptionReport><Exception exceptionCode=\"A\"/></ExceptionReport>"[..],
             b"\xef\xbb\xbf  <?xml version=\"1.0\"?>\n<!-- c -->\n<!-- d --><ows:ExceptionReport xmlns:ows=\"x\">",
+            b"<?xml version=\"1.0\"?>\n<!DOCTYPE ServiceExceptionReport SYSTEM \"http://x/y.dtd\" [ <!ELEMENT a ANY> ]>\n<ServiceExceptionReport version=\"1.1.1\">",
             b"<?xml version=\"1.0\"?><ServiceExceptionReport version=\"1.3.0\"><ServiceException>no</ServiceException></ServiceExceptionReport>",
         ] {
             assert!(is_ogc_report(report), "{}", String::from_utf8_lossy(report));
