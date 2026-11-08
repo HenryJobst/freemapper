@@ -11,7 +11,8 @@ use crate::sources::alkis::LandUse;
 
 /// ISSprOM 520 area that shall not be entered.
 const OUT_OF_BOUNDS_CODE: &str = "520";
-/// Land uses that are private ground: residents, businesses, the railway.
+/// Land uses that are private ground: residents, businesses, the railway (and allotment gardens,
+/// see [`is_private`]).
 const PRIVATE_LAND_USES: [&str; 4] = [
     "Wohnbaufläche",
     "Industrie- und Gewerbefläche",
@@ -24,8 +25,14 @@ const OWN_LAND_SHARE: f64 = 0.5;
 /// boundaries and at the clip edge.
 const MIN_SIDE_MM: f64 = 1.0;
 
+/// The `bez` of the sports and recreation land use that is private ground: allotment gardens.
+const ALLOTMENT_BEZ: &str = "Kleingarten";
+/// The `nutzart` an allotment garden is a `bez` of.
+const RECREATION_NUTZART: &str = "Sport-, Freizeit- und Erholungsfläche";
+
 pub fn is_private(land: &LandUse) -> bool {
     PRIVATE_LAND_USES.contains(&land.nutzart.as_str())
+        || (land.nutzart == RECREATION_NUTZART && land.bez.as_deref() == Some(ALLOTMENT_BEZ))
 }
 
 /// 520 candidate objects for the private land uses, clipped to `clip` (map area plus buffer, EPSG:25833).
@@ -237,6 +244,44 @@ mod tests {
         ] {
             assert!(!is_private(&land(nutzart, vec![])), "{nutzart}");
         }
+    }
+
+    #[test]
+    fn kleingarten_is_out_of_bounds_candidate() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        let garden = |bez: Option<&str>| LandUse {
+            bez: bez.map(str::to_string),
+            ..land(
+                "Sport-, Freizeit- und Erholungsfläche",
+                vec![Polygon::new(ring(e + 55.0, n - 20.0, 12.0, 40.0), vec![])],
+            )
+        };
+        assert!(is_private(&garden(Some("Kleingarten"))));
+        // The rest of that land use stays open: parks, sports grounds, playgrounds.
+        for bez in [
+            None,
+            Some("Grünanlage"),
+            Some("Sportanlage"),
+            Some("Spielplatz, Bolzplatz"),
+        ] {
+            assert!(!is_private(&garden(bez)), "{bez:?}");
+        }
+        // In every state, on both map kinds, as a 520 candidate that says what it is.
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let (found, set) = objects(&f, &[garden(Some("Kleingarten"))], kind);
+            assert_eq!(found.len(), 1, "{kind:?}");
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code("520"));
+            assert!(found[0].tags.contains(&(
+                "freemapper:nutzart".to_string(),
+                "Sport-, Freizeit- und Erholungsfläche / Kleingarten".to_string()
+            )));
+        }
+        assert!(
+            objects(&f, &[garden(Some("Grünanlage"))], MapKind::Sprint)
+                .0
+                .is_empty()
+        );
     }
 
     #[test]

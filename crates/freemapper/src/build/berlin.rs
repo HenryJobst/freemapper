@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::crs::{Crs, LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::omap::{MapObject, SymbolSet};
+use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry};
 
@@ -22,6 +22,10 @@ pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 /// A monument area with a side longer than this is tagged `freemapper:size=large`: the mapper
 /// can draw its outline instead of the 526 point.
 const LARGE_MONUMENT_M: f64 = 3.0;
+/// An OSM `natural=tree` this close to a cadastre tree is the same tree and is dropped.
+const TREE_DEDUP_M: f64 = 2.0;
+/// The tree cadastre layers.
+const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
 /// The CRS of all Geoportal Berlin layers.
 const LAYER_CRS: Crs = Crs::Utm33;
 
@@ -171,8 +175,36 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
     if !alkis.is_empty() {
         tags.push(("freemapper:alkis".to_string(), alkis.join("; ")));
     }
+    if TREE_LAYERS.contains(&layer)
+        && let Some(tree) = tree_label(properties)
+    {
+        tags.push(("freemapper:baum".to_string(), tree));
+    }
     tags.sort();
     tags
+}
+
+/// What a tree candidate says about the tree: `Tilia cordata, Krone 12 m` (botanical name, else
+/// the German one; crown diameter in metres). `None` when the cadastre gives neither.
+fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<String> {
+    let text = |key: &str| {
+        properties?
+            .get(key)?
+            .as_str()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+    };
+    let species = text("art_bot").or_else(|| text("art_dtsch"));
+    let crown = properties?
+        .get("kronedurch")?
+        .as_f64()
+        .filter(|c| *c > 0.0)
+        .map(|c| format!("Krone {c} m"));
+    match (species, crown) {
+        (Some(species), Some(crown)) => Some(format!("{species}, {crown}")),
+        (Some(only), None) => Some(only.to_string()),
+        (None, crown) => crown,
+    }
 }
 
 /// The tagged features of one layer, ready for the rules: a point stays a point, each part of a
@@ -263,6 +295,47 @@ pub fn berlin_objects(
         )?);
     }
     Ok(objects)
+}
+
+/// Drops the OSM `natural=tree` candidates within [`TREE_DEDUP_M`] of a cadastre tree (a point
+/// object of a tree cadastre layer): the cadastre knows the crown, so it wins. Everything else
+/// stays.
+pub fn drop_osm_trees_near_cadastre(
+    osm: Vec<MapObject>,
+    objects: &[MapObject],
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let has_tag = |o: &MapObject, key: &str, test: &dyn Fn(&str) -> bool| {
+        o.tags.iter().any(|(k, v)| k == key && test(v))
+    };
+    let is_cadastre_tree = |o: &MapObject| {
+        has_tag(o, "freemapper:source", &|v| {
+            v.strip_prefix("geoportal-berlin/")
+                .is_some_and(|layer| TREE_LAYERS.contains(&layer))
+        })
+    };
+    let position = |o: &MapObject| match (&o.kind, o.coords.first()) {
+        (MapObjectKind::Point { .. }, Some(c)) => Some((f64::from(c.x), f64::from(c.y))),
+        _ => None,
+    };
+    let trees: Vec<(f64, f64)> = objects
+        .iter()
+        .filter(|o| is_cadastre_tree(o))
+        .filter_map(position)
+        .collect();
+    if trees.is_empty() {
+        return osm;
+    }
+    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
+    let limit = TREE_DEDUP_M * 1e6 / f64::from(scale_denominator);
+    osm.into_iter()
+        .filter(|o| {
+            let osm_tree = has_tag(o, "freemapper:osm", &|v| v == "natural=tree");
+            let near = position(o)
+                .is_some_and(|(x, y)| trees.iter().any(|(tx, ty)| (x - tx).hypot(y - ty) <= limit));
+            !(osm_tree && near)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -602,5 +675,109 @@ mod tests {
         // And the other way round.
         assert_eq!(code(&[("barrier", "fence")], &line, MapKind::Sprint), None);
         assert!(!Rules::berlin().wants(&[("barrier".into(), "fence".into())], MapKind::Sprint));
+    }
+
+    #[test]
+    fn crown_decides_417_or_418() {
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let set = kind.symbol_set();
+            let (big, small) = (set.id_for_code("417"), set.id_for_code("418"));
+            // Street trees: crowns of 4.5 and 5 m.
+            let street = objects("strassenbaeume", STRASSENBAEUME, kind);
+            assert_eq!(street.len(), 4);
+            assert!(
+                street.iter().all(|o| Some(o.symbol_id) == small),
+                "{kind:?}"
+            );
+            // Park trees: crowns of 10, 7, 10 and 10 m; from 10 m it is a large tree.
+            let park = objects("anlagenbaeume", ANLAGENBAEUME, kind);
+            let ids: Vec<Option<u32>> = park.iter().map(|o| Some(o.symbol_id)).collect();
+            assert_eq!(ids.iter().filter(|id| **id == big).count(), 3, "{kind:?}");
+            assert_eq!(ids.iter().filter(|id| **id == small).count(), 1, "{kind:?}");
+        }
+        // 9.9 m is small, 10 m large; an unknown crown is the small tree.
+        let point = some_point();
+        let code_of = |tags: &[(&str, &str)]| code(tags, &point, MapKind::Sprint);
+        let layer = ("berlin:layer", "strassenbaeume");
+        assert_eq!(
+            code_of(&[layer, ("berlin:kronedurch", "9.9")]).as_deref(),
+            Some("418")
+        );
+        assert_eq!(
+            code_of(&[layer, ("berlin:kronedurch", "10")]).as_deref(),
+            Some("417")
+        );
+        assert_eq!(
+            code_of(&[layer, ("berlin:kronedurch", "14.5")]).as_deref(),
+            Some("417")
+        );
+        assert_eq!(code_of(&[layer]).as_deref(), Some("418"));
+        assert_eq!(
+            code_of(&[("berlin:layer", "relief"), ("berlin:kronedurch", "12")]),
+            None
+        );
+        // The candidate says which tree it is.
+        let park = objects("anlagenbaeume", ANLAGENBAEUME, MapKind::Sprint);
+        let first = park
+            .iter()
+            .find(|o| {
+                o.tags.contains(&(
+                    "freemapper:baum".into(),
+                    "Tilia tomentosa, Krone 10 m".into(),
+                ))
+            })
+            .expect("species and crown as the explanation");
+        assert!(first.tags.contains(&(
+            "freemapper:source".into(),
+            "geoportal-berlin/anlagenbaeume".into()
+        )));
+    }
+
+    #[test]
+    fn osm_tree_near_cadastre_tree_is_dropped() {
+        let (georef, _, set) = setup(MapKind::Sprint);
+        let cadastre = objects("strassenbaeume", STRASSENBAEUME, MapKind::Sprint);
+        let (e, n) = (392_419.46, 5_820_118.05);
+        let osm = |code: &str, osm: &str, de: f64, dn: f64| MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: e + de,
+                        northing: n + dn,
+                    })
+                    .unwrap(),
+            ],
+            tags: vec![
+                ("freemapper:source".into(), "osm".into()),
+                ("freemapper:osm".into(), osm.into()),
+            ],
+        };
+        let tree = |de, dn| osm("418", "natural=tree", de, dn);
+        let kept = drop_osm_trees_near_cadastre(
+            vec![
+                tree(1.0, 1.0),                          // 1.4 m away: the same tree
+                tree(0.0, 1.99),                         // just inside 2 m
+                tree(0.0, 2.5),                          // 2.5 m: another tree
+                osm("526", "tourism=artwork", 0.0, 0.5), // not a tree
+            ],
+            &cadastre,
+            georef.scale_denominator,
+        );
+        let osm_tags: Vec<&str> = kept.iter().map(|o| o.tags[1].1.as_str()).collect();
+        assert_eq!(osm_tags, ["natural=tree", "tourism=artwork"]);
+        // Without cadastre trees every OSM tree stays.
+        assert_eq!(
+            drop_osm_trees_near_cadastre(vec![tree(0.0, 0.0)], &[], georef.scale_denominator).len(),
+            1
+        );
+    }
+
+    fn some_point() -> OsmGeometry {
+        OsmGeometry::Point(LatLon {
+            lat: 52.5,
+            lon: 13.4,
+        })
     }
 }

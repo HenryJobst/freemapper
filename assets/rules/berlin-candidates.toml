@@ -9,7 +9,7 @@
 #   centroid (`draw = "point"`). Holes are dropped: these are candidates only.
 #
 # Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stair areas
-# (`build/stairs.rs`: the walking direction comes from the DGM), trees and Kleingarten. ALKIS kerb lines are not taken (Plan 2 brings the
+# (`build/stairs.rs`: the walking direction comes from the DGM) and Kleingarten (a land use, `build/out_of_bounds.rs`). ALKIS kerb lines are not taken (Plan 2 brings the
 # surveyed curbs). The height of a wall decides nothing; the ALKIS name picks the symbol.
 
 # Walls, retaining walls and fences by the ALKIS name (the same symbols as the OSM rules).
@@ -71,3 +71,19 @@ when = ["berlin:layer=building-parts", "berlin:bauart=Durchfahrt im Gebäude|Dur
 draw = "area"
 schoolyard = "522"
 sprint = "522"
+
+# Trees of the tree cadastre (street and park trees): a crown of 10 m or more is a large tree
+# (417), every other tree, and one without a crown diameter, is 418. Candidates only: the
+# cadastre can be older than the trees. The first matching rule wins. The species and crown
+# diameter are in `freemapper:baum`.
+[[rule]]
+when = ["berlin:layer=strassenbaeume|anlagenbaeume", "berlin:kronedurch>=10"]
+draw = "point"
+schoolyard = "417"
+sprint = "417"
+
+[[rule]]
+when = ["berlin:layer=strassenbaeume|anlagenbaeume"]
+draw = "point"
+schoolyard = "418"
+sprint = "418"

@@ -79,6 +79,8 @@ enum Test {
     Values(Option<Vec<String>>),
     /// `key<number`: the value is a number below this.
     Below(f64),
+    /// `key>=number`: the value is a number of at least this.
+    AtLeast(f64),
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +126,7 @@ impl Condition {
                 allowed == v || allowed.strip_suffix('*').is_some_and(|p| v.starts_with(p))
             }),
             (Some(v), Test::Below(limit)) => number(v).is_some_and(|n| n < *limit),
+            (Some(v), Test::AtLeast(limit)) => number(v).is_some_and(|n| n >= *limit),
             (None, _) => false,
         };
         matches != self.negated
@@ -150,9 +153,16 @@ impl Rules {
                     .when
                     .iter()
                     .map(|condition| {
-                        if !condition.contains('=')
-                            && let Some((key, limit)) = condition.split_once('<')
-                        {
+                        let compare = if let Some((key, limit)) = condition.split_once(">=") {
+                            Some((key, limit, Test::AtLeast as fn(f64) -> Test))
+                        } else if !condition.contains('=') {
+                            condition
+                                .split_once('<')
+                                .map(|(key, limit)| (key, limit, Test::Below as fn(f64) -> Test))
+                        } else {
+                            None
+                        };
+                        if let Some((key, limit, test)) = compare {
                             let limit = number(limit).ok_or_else(|| {
                                 RulesError(format!(
                                     "condition {condition:?}: {limit:?} is no number"
@@ -160,7 +170,7 @@ impl Rules {
                             })?;
                             return Ok(Condition {
                                 key: key.to_string(),
-                                test: Test::Below(limit),
+                                test: test(limit),
                                 negated: false,
                             });
                         }
@@ -173,7 +183,7 @@ impl Rules {
                         };
                         if key.contains(['<', '>']) {
                             return Err(RulesError(format!(
-                                "condition {condition:?}: only `key<number` compares"
+                                "condition {condition:?}: only `key<number` and `key>=number` compare"
                             )));
                         }
                         if values != "*" && values.split('|').any(|v| v.is_empty() || v == "*") {
@@ -402,7 +412,7 @@ pub fn osm_objects(
             tags.push(("freemapper:osm".to_string(), found.matched));
         }
         tags.push(("freemapper:currency".to_string(), currency.to_string()));
-        for key in ["freemapper:alkis", "freemapper:size"] {
+        for key in ["freemapper:alkis", "freemapper:size", "freemapper:baum"] {
             if let Some(v) = own(key) {
                 tags.push((key.to_string(), v));
             }
@@ -722,11 +732,35 @@ mod tests {
 
     #[test]
     fn comparison_keys_are_rejected() {
-        for condition in ["width<=1.5", "width>2", "width>=2"] {
+        for condition in ["width<=1.5", "width>2", "width>=", "width>=wide"] {
             let toml =
                 format!("[[rule]]\nwhen = [\"{condition}\"]\ndraw = \"line\"\nsprint = \"506\"");
             assert!(Rules::from_toml(&toml).is_err(), "{condition}");
         }
+        // `key>=number` compares, like `key<number`.
+        let toml = "[[rule]]\nwhen = [\"width>=2\"]\ndraw = \"line\"\nsprint = \"506\"";
+        let rules = Rules::from_toml(toml).unwrap();
+        let line = OsmGeometry::Line(vec![
+            LatLon {
+                lat: 52.5,
+                lon: 13.4,
+            },
+            LatLon {
+                lat: 52.5,
+                lon: 13.401,
+            },
+        ]);
+        let width = |w: &str| vec![("width".to_string(), w.to_string())];
+        assert!(
+            rules
+                .symbol_for(&width("2"), &line, MapKind::Sprint)
+                .is_some()
+        );
+        assert!(
+            rules
+                .symbol_for(&width("1.9"), &line, MapKind::Sprint)
+                .is_none()
+        );
     }
 
     #[test]

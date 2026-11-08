@@ -27,6 +27,8 @@ pub enum Part {
     Surface,
     /// A newer OSM extract where an older one is cached; the older one serves meanwhile.
     OsmUpdate,
+    /// The Berlin K5 map (1:5000), a template the mapper may draw on.
+    K5,
 }
 
 impl Part {
@@ -43,6 +45,7 @@ impl Part {
             Part::Orthophoto => "the orthophoto",
             Part::Surface => "the surface model for the nDSM template",
             Part::OsmUpdate => "the update of the cached OSM extract",
+            Part::K5 => "the Berlin K5 map template",
         }
     }
 
@@ -53,7 +56,8 @@ impl Part {
     /// covers `data/terrain.tif`, the DGM mosaic `derive` keeps where Berlin layers have stairs.
     fn derived_share(self) -> f64 {
         match self {
-            Part::MapData | Part::OsmUpdate => 0.0,
+            // The K5 image is written straight into the templates, so it needs no extra room.
+            Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
             Part::Terrain | Part::Orthophoto => 1.0,
             Part::Surface => 0.5,
         }

@@ -136,6 +136,9 @@ Orienteering Maps 2019 (IOF).
 | Berlin-Zusatzebene | extra Berlin layer | Weitere WFS-Ebene des Geoportals Berlin (ALKIS-Bauwerke, Relief, Hecken, Baumbestand), unter `data/berlin/<Name>.geojson` gespeichert und nur für Gebiete bei Berlin geladen. | `ExtraLayer`, `EXTRA_LAYERS` |
 | Bauart (Bauteil) | part kind (building part) | Art eines ALKIS-Bauteils, z. B. „Durchfahrt im Gebäude“, „Arkade“ (`bezbat`). | `bauart` |
 | Berlin-Regeln | Berlin rules | Regeldatei `berlin-candidates.toml`: macht aus Geoportal-Berlin-Objekten (Tags `berlin:<Eigenschaft>`) Kandidaten, über dieselbe Regelmaschine wie die OSM-Regeln. | `Rules::berlin`, `berlin_objects` |
+| Baumkataster | tree cadastre | Die Baumdatenbank des Landes Berlin (Straßenbäume, Anlagenbäume) mit Art und Kronendurchmesser; Bäume mit Krone ab 10 m werden zu 417, die übrigen zu 418. | `strassenbaeume`, `anlagenbaeume`, `LARGE_TREE_CROWN_M` |
+| Kleingarten | allotment garden | ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche / Kleingarten“; privates Gelände, in jedem Bundesland ein Kandidat für 520 (verbotenes Gebiet). | `is_private` |
+| K5 | K5 (Karte von Berlin 1:5000) | Die Berlin-Karte 1:5000 in Farbe (WMS `k5_farbe`), als Vorlage `templates/k5.png` mit World-File gespeichert. | `K5_RELPATH`, `K5_WMS` |
 | OpenStreetMap (OSM) | OpenStreetMap (OSM) | Freie, gemeinschaftlich erstellte Geodaten. | `Osm` |
 
 ## Koordinaten & Georeferenzierung / coordinates & georeferencing

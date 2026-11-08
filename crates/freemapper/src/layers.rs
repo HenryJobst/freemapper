@@ -34,6 +34,13 @@ const ORTHOPHOTO_MB_PER_KM2: f64 = 8.0;
 /// A 1 m Float32 height model from a WCS (LVermGeo, LAiV M-V, LGLN) per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
+/// The Berlin ALKIS structure layers, relief, hedges and the tree cadastre, per km².
+const BERLIN_LAYERS_MB_PER_KM2: f64 = 2.0;
+/// The K5 map (1:5000) PNG template, per km².
+const K5_MB_PER_KM2: f64 = 1.5;
+/// Names of the Berlin items in the estimate (`mark_stored` finds them by these).
+pub(crate) const BERLIN_LAYERS_ITEM: &str = "Berlin ALKIS structures and tree cadastre";
+pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
 const SH_BDOM_TILE_MB: f64 = 105.0;
@@ -152,6 +159,16 @@ pub(crate) fn estimate_area(
         part: Part::MapData,
         store: Store::Project,
     });
+    // Areas that touch Berlin also get the extra Berlin layers and the K5 template.
+    if regions_for(bbox).contains(&Region::Berlin) {
+        items.push(per_km2_item(
+            bbox,
+            BERLIN_LAYERS_ITEM,
+            BERLIN_LAYERS_MB_PER_KM2,
+            Part::MapData,
+        ));
+        items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+    }
     let total_megabytes = items
         .iter()
         .filter(|i| !i.cached)
@@ -1957,6 +1974,52 @@ mod tests {
         assert_eq!(
             estimate.total_megabytes,
             ExtractSource::Brandenburg.megabytes()
+        );
+    }
+
+    #[test]
+    fn berlin_plus_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        let km2 = 1.5;
+        let estimate = estimate_area(&mitte, &mitte, &cache, today(), false);
+        let find = |what: &str| estimate.items.iter().find(|i| i.what == what).cloned();
+        // +2 MB per km² for the vector layers, +1.5 MB per km² for the K5 template.
+        let layers = find(BERLIN_LAYERS_ITEM).expect("Berlin layers");
+        assert!((layers.megabytes - km2 * 2.0).abs() < 1e-9, "{layers:?}");
+        assert!(!layers.cached);
+        let k5 = find(BERLIN_K5_ITEM).expect("K5 template");
+        assert!((k5.megabytes - km2 * 1.5).abs() < 1e-9, "{k5:?}");
+        assert_eq!((k5.part, k5.store), (Part::K5, Store::Project));
+        // The K5 map is optional, the layers and ALKIS are the map data.
+        assert!(!k5.part.required());
+        assert!(layers.part.required());
+        let other: f64 = estimate
+            .items
+            .iter()
+            .filter(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
+            .map(|i| i.megabytes)
+            .sum();
+        assert!((estimate.total_megabytes - other - km2 * 3.5).abs() < 1e-6);
+        // Outside Berlin the estimate has neither.
+        let strausberg = BoundingBox {
+            min_e: 421_000.0,
+            min_n: 5_821_000.0,
+            max_e: 422_000.0,
+            max_n: 5_822_000.0,
+        };
+        let estimate = estimate_area(&strausberg, &strausberg, &cache, today(), false);
+        assert!(
+            estimate
+                .items
+                .iter()
+                .all(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
         );
     }
 

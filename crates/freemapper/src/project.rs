@@ -10,6 +10,7 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
+    drop_osm_trees_near_cadastre,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -228,6 +229,10 @@ pub struct ProjectFile {
     /// The orthophoto from a WMS or WCS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH: WMS; LAiV M-V: WCS); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
+    /// The Berlin K5 map (1:5000) written as a template at [`K5_RELPATH`]; `flight` is the K5
+    /// dataset date. Berlin only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub k5: Option<WmsRecord>,
     /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V), at [`TERRAIN_RELPATH`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terrain: Option<WcsRecord>,
@@ -393,6 +398,7 @@ impl ProjectFile {
             LAND_USE_RELPATH,
             OSM_CANDIDATES_RELPATH,
             WMS_ORTHOPHOTO_RELPATH,
+            K5_RELPATH,
             TERRAIN_RELPATH,
             TERRAIN_MOSAIC_RELPATH,
             SURFACE_RELPATH,
@@ -401,6 +407,7 @@ impl ProjectFile {
             for file in [
                 path.clone(),
                 path.with_extension("jgw"),
+                path.with_extension("pgw"),
                 path.with_extension("tfw"),
             ] {
                 let _ = std::fs::remove_file(file);
@@ -416,6 +423,7 @@ impl ProjectFile {
         self.berlin_layers.clear();
         self.osm = None;
         self.orthophoto = None;
+        self.k5 = None;
         self.terrain = None;
         self.surface = None;
     }
@@ -471,6 +479,7 @@ pub fn init_project(
         berlin_layers: BTreeMap::new(),
         osm: None,
         orthophoto: None,
+        k5: None,
         terrain: None,
         surface: None,
         ndsm_tiles: Vec::new(),
@@ -496,6 +505,11 @@ pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
 pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
+/// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
+pub(crate) const K5_RELPATH: &str = "templates/k5.png";
+/// The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`); the
+/// WMS gives no date of its own.
+const K5_DATASET_DATE: &str = "2026-01-02";
 /// The WMS orthophoto (GeoSN, LVermGeo) as fetched, before it becomes the template.
 pub(crate) const WMS_ORTHOPHOTO_RELPATH: &str = "data/orthophoto-wms.jpg";
 /// The WCS terrain model (LVermGeo DGM1, 1 m) with its world file.
@@ -692,6 +706,17 @@ pub fn fetch_project(
         progress,
     );
     project.save(dir)?;
+    fetch_k5_into(
+        dir,
+        fetcher,
+        mode,
+        skips(Part::K5),
+        &mut project,
+        &area.region_bbox,
+        &area.bbox,
+        progress,
+    );
+    project.save(dir)?;
     let skip_update = skips(Part::OsmUpdate);
     project.osm = Some(fetch_osm_into(
         dir,
@@ -730,9 +755,17 @@ pub(crate) fn mark_stored(
             estimate.in_place.push(part);
         }
     }
-    if orthophoto {
+    let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
+    let berlin_layers = !project.berlin_layers.is_empty();
+    if orthophoto || k5 || berlin_layers {
         for item in &mut estimate.items {
-            if item.part == Part::Orthophoto && item.store == crate::space::Store::Project {
+            let stored = match (item.part, item.what.as_str()) {
+                (Part::Orthophoto, _) => orthophoto,
+                (Part::K5, _) => k5,
+                (_, crate::layers::BERLIN_LAYERS_ITEM) => berlin_layers,
+                _ => false,
+            };
+            if stored && item.store == crate::space::Store::Project {
                 item.cached = true;
             }
         }
@@ -1107,6 +1140,82 @@ fn fetch_wms_orthophoto(
         }
     }
     Ok(())
+}
+
+/// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
+/// plus buffer in the map's CRS. Optional like the Berlin layers: a failed request or a full disk
+/// (`skip`) leaves the template out with a warning, never fails the fetch. A stored template
+/// that covers the area at the right resolution is kept. Outside Berlin (`region_bbox`), and in
+/// any CRS but UTM zone 33 that the service is asked for, nothing is requested and an earlier
+/// template is removed. Offline the stored template stays.
+#[allow(clippy::too_many_arguments)]
+fn fetch_k5_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    skip: bool,
+    project: &mut ProjectFile,
+    region_bbox: &BoundingBox,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) {
+    if mode == FetchMode::Offline {
+        return;
+    }
+    let path = dir.join(K5_RELPATH);
+    let remove = |project: &mut ProjectFile| {
+        for file in [path.clone(), path.with_extension("pgw")] {
+            let _ = std::fs::remove_file(file);
+        }
+        project.k5 = None;
+    };
+    if !berlin::near_berlin(region_bbox) || project.crs() != Crs::Utm33 {
+        remove(project);
+        return;
+    }
+    if skip {
+        // The disk plan already said that the template is left out.
+        remove(project);
+        return;
+    }
+    let pixel = match project.map_kind {
+        MapKind::Sprint => crate::sources::wms::K5_SPRINT_PIXEL_M,
+        MapKind::Schoolyard => crate::sources::wms::K5_SCHOOLYARD_PIXEL_M,
+    };
+    let stored_pixel = std::fs::read_to_string(path.with_extension("pgw"))
+        .ok()
+        .and_then(|world| {
+            image::image_dimensions(&path)
+                .ok()
+                .map(|(w, h)| (world, w, h))
+        })
+        .and_then(|(world, w, h)| GridSpec::from_world_file(&world, w, h).ok())
+        .map(|grid| grid.pixel_size);
+    let unchanged = project.k5.as_ref().is_some_and(|r| r.covers(bbox))
+        && stored_pixel.is_some_and(|p| (p - pixel).abs() < 1e-9)
+        && check_template(&path, bbox).is_ok();
+    if unchanged {
+        progress("K5 template unchanged");
+        return;
+    }
+    progress("downloading the K5 map (1:5000) from the Geoportal Berlin WMS");
+    match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, &path) {
+        Ok(()) => {
+            project.k5 = Some(WmsRecord {
+                flight: Some(K5_DATASET_DATE.to_string()),
+                flight_label: Some("K5 dataset".to_string()),
+                fetched: chrono::Local::now().date_naive(),
+                bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+            });
+        }
+        Err(e) => {
+            progress(&format!(
+                "warning: the K5 map template is unavailable ({}); skipped",
+                crate::fetch::one_line(&e.to_string(), 300)
+            ));
+            remove(project);
+        }
+    }
 }
 
 /// The warning for a map area that reaches beyond the union of the supported states: abroad, into
@@ -3343,6 +3452,20 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             &symbol_set,
         ))
     };
+    // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree.
+    let berlin_candidates = stored_berlin_objects(
+        &project,
+        &berlin_layers,
+        stored_buildings.as_ref(),
+        &area,
+        &georef,
+        &symbol_set,
+    )?;
+    let osm_candidates = drop_osm_trees_near_cadastre(
+        osm_objects(Target::Candidates)?,
+        &berlin_candidates,
+        georef.scale_denominator,
+    );
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -3350,15 +3473,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(osm_objects(Target::Candidates)?)
-                .chain(stored_berlin_objects(
-                    &project,
-                    &berlin_layers,
-                    stored_buildings.as_ref(),
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(osm_candidates)
+                .chain(berlin_candidates)
                 .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
@@ -3388,6 +3504,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         (HILLSHADE_RELPATH, false, 0.5),
         (SLOPE_RELPATH, false, 0.5),
         (NDSM_RELPATH, false, 0.6),
+        (K5_RELPATH, false, 0.7),
     ]
     .into_iter()
     .filter(|(relpath, _, _)| dir.join(relpath).exists())
@@ -3475,6 +3592,11 @@ const GEOSN_ATTRIBUTION: &str = "Quelle: GeoSN, dl-de/by-2-0, Daten geändert";
 /// Geoportal Berlin data needs no attribution (dl-de/zero-2-0); it is named anyway.
 const BERLIN_ATTRIBUTION: &str =
     "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert";
+/// The Berlin K5 map, once the template was written.
+const BERLIN_K5_ATTRIBUTION: &str =
+    "Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0";
+/// The Berlin tree cadastre, once tree candidates were written.
+const BERLIN_TREES_ATTRIBUTION: &str = "Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -3512,11 +3634,27 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines
 }
 
-/// The Geoportal Berlin ALKIS line, once Berlin ALKIS objects were fetched.
-fn berlin_attribution(project: &ProjectFile) -> Option<String> {
-    alkis_records(project)
-        .any(|record| record.regions.contains(&Region::Berlin))
-        .then(|| BERLIN_ATTRIBUTION.to_string())
+/// The Geoportal Berlin lines: ALKIS once Berlin ALKIS objects were fetched, the K5 map and the
+/// tree cadastre once their data was written.
+fn berlin_attribution(project: &ProjectFile) -> Vec<String> {
+    let mut lines = Vec::new();
+    if alkis_records(project).any(|record| record.regions.contains(&Region::Berlin)) {
+        lines.push(BERLIN_ATTRIBUTION.to_string());
+    }
+    if project.k5.is_some() {
+        lines.push(BERLIN_K5_ATTRIBUTION.to_string());
+    }
+    // A stored tree layer without trees draws no candidate.
+    let trees = ["strassenbaeume", "anlagenbaeume"].iter().any(|file| {
+        project
+            .berlin_layers
+            .get(*file)
+            .is_some_and(|r| r.count > 0)
+    });
+    if trees {
+        lines.push(BERLIN_TREES_ATTRIBUTION.to_string());
+    }
+    lines
 }
 
 /// The GeoSN line, once GeoSN tiles, its orthophoto or Saxon ALKIS objects were fetched.
@@ -5666,6 +5804,7 @@ mod tests {
                 regions: Vec::new(),
             }),
             berlin_layers: BTreeMap::new(),
+            k5: None,
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
                 area: [52.5385, 13.8418, 52.5418, 13.8457],
@@ -8284,6 +8423,158 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             found.contains(&("522".into(), "geoportal-berlin/building-parts".into())),
             "{found:?}"
+        );
+    }
+
+    /// Serves a K5 map for the template area of the Berlin school.
+    fn serve_k5(fetcher: &MapFetcher, project: &ProjectFile) {
+        let grid = GridSpec::covering(
+            &project.bbox().unwrap(),
+            crate::sources::wms::K5_SCHOOLYARD_PIXEL_M,
+        );
+        assert!(grid.width <= 4000 && grid.height <= 4000, "one piece");
+        let mut png = Vec::new();
+        image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([230, 220, 200]))
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        fetcher.insert_prefix(crate::sources::wms::K5_WMS.url, png);
+    }
+
+    #[test]
+    fn berlin_plus_attribution_lines() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
+        serve_k5(&fetcher, &project);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !messages
+                .iter()
+                .any(|m| m.contains("K5") && m.contains("warning")),
+            "{messages:?}"
+        );
+        // The K5 template and its world file; the project record keeps the dataset date.
+        assert!(dir.path().join(K5_RELPATH).exists());
+        assert!(dir.path().join("templates/k5.pgw").exists());
+        assert_eq!(
+            project.k5.as_ref().unwrap().flight.as_deref(),
+            Some("2026-01-02")
+        );
+        let lines = attribution_lines(&project);
+        for line in [
+            BERLIN_ATTRIBUTION,
+            "Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0",
+            "Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0",
+        ] {
+            assert!(lines.contains(&line.to_string()), "{line}: {lines:?}");
+        }
+        // The starter map lists the K5 template, hidden behind the map.
+        let documents = starter_documents(dir.path()).unwrap();
+        let k5 = documents
+            .map
+            .templates
+            .iter()
+            .find(|t| t.relpath == K5_RELPATH)
+            .expect("K5 template in the map");
+        assert!(k5.georeferenced && k5.behind_map && !k5.visible);
+        assert!(documents.map.notes.contains("Karte 1:5000 von Berlin"));
+
+        // Without the K5 map (the service fails) and without trees there are neither lines.
+        let mut bare = project.clone();
+        bare.k5 = None;
+        for file in ["strassenbaeume", "anlagenbaeume"] {
+            bare.berlin_layers.get_mut(file).unwrap().count = 0;
+        }
+        let lines = attribution_lines(&bare);
+        assert!(lines.contains(&BERLIN_ATTRIBUTION.to_string()));
+        assert!(
+            !lines
+                .iter()
+                .any(|l| l.contains("K5") || l.contains("Baumbestand")),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn failing_k5_is_a_warning_and_tree_candidates_are_deduplicated() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
+        // No K5 answer: the fetch goes on, the template is left out.
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.k5.is_none());
+        assert!(!dir.path().join(K5_RELPATH).exists());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: the K5 map template is unavailable")),
+            "{messages:?}"
+        );
+        assert!(!attribution_lines(&project).iter().any(|l| l.contains("K5")));
+
+        // One cadastre tree with a 12 m crown inside the map area; OSM has a tree 1 m from it
+        // (the same tree) and one 6 m away.
+        let tree = serde_json::json!({"type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "strassenbaeume.1",
+            "geometry": {"type": "Point", "coordinates": [392_800.0, 5_820_850.0]},
+            "properties": {"gisid": "TREE1", "art_bot": "Tilia cordata", "kronedurch": 12}}]});
+        std::fs::write(
+            dir.path().join("data/berlin/strassenbaeume.geojson"),
+            tree.to_string(),
+        )
+        .unwrap();
+        let osm_tree = |id: &str, de: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 392_800.0 + de,
+                northing: 5_820_850.0,
+            })
+            .unwrap();
+            OsmFeature {
+                id: id.to_string(),
+                tags: vec![("natural".to_string(), "tree".to_string())],
+                geometry: crate::sources::osm::OsmGeometry::Point(p),
+            }
+        };
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[
+                osm_tree("node/1", 1.0),
+                osm_tree("node/2", 6.0),
+            ]),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let objects: Vec<&MapObject> = documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .collect();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let osm_ids: Vec<_> = objects
+            .iter()
+            .filter(|o| tag(o, "freemapper:source").as_deref() == Some("osm"))
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .collect();
+        assert_eq!(osm_ids, ["node/2"]);
+        let large = objects
+            .iter()
+            .find(|o| {
+                tag(o, "freemapper:source").as_deref() == Some("geoportal-berlin/strassenbaeume")
+            })
+            .expect("the cadastre tree");
+        assert_eq!(Some(large.symbol_id), set.id_for_code("417"));
+        assert_eq!(
+            tag(large, "freemapper:baum").as_deref(),
+            Some("Tilia cordata, Krone 12 m")
         );
     }
 
