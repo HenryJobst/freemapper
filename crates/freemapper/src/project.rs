@@ -40,7 +40,7 @@ use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_us
 use crate::sources::alkis::{fetch_buildings_in, parse_buildings};
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
-    ExtractSource, OsmFeature, features_from_geojson, features_to_geojson, fetch_extract,
+    OsmFeature, extracts_for, features_from_geojson, features_to_geojson, fetch_extract,
     read_extract,
 };
 use crate::sources::region::{
@@ -103,7 +103,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -604,6 +604,9 @@ pub fn fetch_project(
         Some(Provider::LaivMv) => {
             fetch_mv_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
+        Some(Provider::GeobasisNrw) => {
+            fetch_nrw_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
@@ -851,17 +854,25 @@ fn fetch_wms_orthophoto(
     match mode {
         FetchMode::Online => {
             let flight = flight_date();
-            // Reused while the stored image covers the area and the flight date is the same; where
-            // the service names no date (on either side), only while the image is recent.
+            // Reused while the stored image covers the area and the flight date is the same.
+            // Without a date from the service (none known, or the query failed), the image is
+            // reused only while it is recent, and keeps the date it has.
             let today = chrono::Local::now().date_naive();
+            let recent =
+                |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
             let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
                 r.covers(bbox)
-                    && r.flight == flight
-                    && (flight.is_some()
-                        || (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS)
+                    && if flight.is_some() {
+                        r.flight == flight
+                    } else {
+                        recent(r)
+                    }
             }) && path.exists();
             if unchanged {
-                progress(&match flight.as_deref() {
+                let kept = flight
+                    .as_deref()
+                    .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
+                progress(&match kept {
                     Some(date) => format!("orthophoto unchanged (flight {date})"),
                     None => "orthophoto unchanged".to_string(),
                 });
@@ -888,8 +899,8 @@ fn fetch_wms_orthophoto(
     Ok(())
 }
 
-/// How many days a stored orthophoto without a known flight date (on either side) is reused
-/// before the next online fetch downloads it again.
+/// How many days a stored orthophoto is reused while the service gives no flight date (none known,
+/// or the query failed) before the next online fetch downloads it again.
 const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
 
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
@@ -1174,6 +1185,57 @@ fn fetch_hvbg_rasters(
     Ok(())
 }
 
+/// The Geobasis NRW rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1
+/// from the 1 km tiles. The DOM1 is only a template: an unavailable one costs a warning.
+fn fetch_nrw_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::geobasis_nrw::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    warn_beyond_state(project, Provider::GeobasisNrw, "Geobasis NRW", progress)?;
+    let flight = || geobasis_nrw::flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (
+            &OrthophotoSource::Wms(geobasis_nrw::WMS),
+            "Geobasis NRW",
+            &flight,
+        ),
+        progress,
+    )?;
+    fetch_area_heights(
+        dir,
+        mode,
+        project,
+        bbox,
+        "North Rhine-Westphalia",
+        (Model::Dgm1.label(), Model::Dom1.label()),
+        &mut |surface, out, _| {
+            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
+            geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, out)
+        },
+        &mut |_, found, _, progress| {
+            for warning in &found.warnings {
+                progress(&format!("warning: {warning}"));
+            }
+        },
+        progress,
+    )?;
+    project.save(dir)?;
+    Ok(())
+}
+
 /// The LVermGeo SH rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and bDOM
 /// from the Downloadportal. The bDOM is only a template (and a 105 MB download per km²): an
 /// unavailable one costs a warning.
@@ -1404,6 +1466,7 @@ fn raster_tiles(
                 Provider::Hvbg => "HVBG",
                 Provider::LvermGeoSh => "LVermGeo SH",
                 Provider::LaivMv => "LAiV M-V",
+                Provider::GeobasisNrw => "Geobasis NRW",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1435,9 +1498,10 @@ fn tile_record(
     record
 }
 
-/// Reads the candidate features of the map area plus buffer from the OSM extract of every region
-/// the area touches (Brandenburg with Berlin, Saxony) into [`OSM_CANDIDATES_RELPATH`]; a feature
-/// in two extracts is kept once. Offline from the cached extracts.
+/// Reads the candidate features of the map area plus buffer from every OSM extract the area needs
+/// ([`extracts_for`]: one per state, one per North Rhine-Westphalia government district) into
+/// [`OSM_CANDIDATES_RELPATH`]; a feature in two extracts is kept once. Offline from the cached
+/// extracts.
 fn fetch_osm_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
@@ -1447,15 +1511,8 @@ fn fetch_osm_into(
     progress: &mut dyn FnMut(&str),
 ) -> Result<OsmRecord, ProjectError> {
     let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
-    let mut sources: Vec<ExtractSource> = Vec::new();
-    for region in regions_for(&project.region_bbox()?) {
-        let source = ExtractSource::for_region(region);
-        if !sources.contains(&source) {
-            sources.push(source);
-        }
-    }
     let mut extracts = Vec::new();
-    for source in sources {
+    for source in extracts_for(&project.region_bbox()?, progress) {
         match fetch_extract(fetcher, cache, source, mode, progress) {
             Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
@@ -1736,7 +1793,8 @@ pub fn derive_project(
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V) store their height models per area and have none.
+    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW) store their height
+    // models per area and have none.
     let tile_products: Option<(&[Product], Product, Product)> = match provider {
         Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
         Provider::GeoSn => Some((
@@ -1748,7 +1806,8 @@ pub fn derive_project(
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => None,
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1808,7 +1867,8 @@ pub fn derive_project(
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => {
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -2565,6 +2625,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(hvbg_attribution(&project));
     attribution.extend(sh_attribution(&project));
     attribution.extend(mv_attribution(&project));
+    attribution.extend(nrw_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2622,6 +2683,7 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines.extend(lvermgeo_attribution(project));
     lines.extend(lgv_attribution(project));
     lines.extend(hvbg_attribution(project));
+    lines.extend(nrw_attribution(project));
     // Both credits refer to the same licence text, which is given once.
     let cc_by = [sh_attribution(project), mv_attribution(project)];
     let any_cc_by = cc_by.iter().any(Option::is_some);
@@ -2674,6 +2736,16 @@ fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
     let year = per_area_attribution_year(project, Provider::Hvbg, Region::Hessen)?;
     Some(format!(
         "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
+    ))
+}
+
+/// The Geobasis NRW line, once its rasters or North Rhine-Westphalia ALKIS objects were fetched;
+/// the year is that of the newest fetch. The licence (dl-de/zero-2-0) asks for no note of changes.
+fn nrw_attribution(project: &ProjectFile) -> Option<String> {
+    let year =
+        per_area_attribution_year(project, Provider::GeobasisNrw, Region::NordrheinWestfalen)?;
+    Some(format!(
+        "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0"
     ))
 }
 
@@ -5570,6 +5642,495 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(project.orthophoto.is_some());
         assert_eq!(offline.calls.get(), 0);
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+    }
+
+    /// A rectangle `half` metres each way around the EPSG:25832 point `(e, n)`, as a map area.
+    fn nrw_area_at(e: f64, n: f64, half: f64) -> MapArea {
+        let corner = |de: f64, dn: f64| {
+            let p = crate::crs::Crs::Utm32
+                .inverse(crate::crs::ProjectedPoint {
+                    easting: e + de,
+                    northing: n + dn,
+                })
+                .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-half, -half),
+            corner(half, -half),
+            corner(half, half),
+            corner(-half, half),
+            corner(-half, -half),
+        ];
+        MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap()
+    }
+
+    /// A schoolyard project of `area`, served with synthetic Geobasis NRW data: the rasters,
+    /// the NRW ALKIS fixtures (and the Hesse ones) and every OSM extract the area needs.
+    fn nrw_project_of(
+        fetcher: &MapFetcher,
+        area: &MapArea,
+    ) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
+        crate::fetch::test_support::serve_synthetic_nrw(fetcher, &project.bbox().unwrap());
+        use crate::sources::alkis_wfs::{self, test_support as fixtures};
+        for (service, buildings, land_use) in [
+            (
+                alkis_wfs::GEOBASIS_NRW,
+                fixtures::NRW_BUILDINGS,
+                fixtures::NRW_LAND_USE,
+            ),
+            (
+                alkis_wfs::HVBG,
+                fixtures::HE_BUILDINGS,
+                fixtures::HE_LAND_USE,
+            ),
+        ] {
+            for (type_name, body) in [
+                (service.buildings_type, buildings),
+                (service.land_use_type, land_use),
+            ] {
+                fetcher.insert_prefix(
+                    &format!(
+                        "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                        service.url
+                    ),
+                    body.as_bytes().to_vec(),
+                );
+            }
+        }
+        for extract in
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
+        {
+            fetcher.insert(
+                extract.state_url(),
+                b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+            );
+            fetcher.insert(
+                extract.url(),
+                std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
+            );
+        }
+        (dir, cache_dir, cache)
+    }
+
+    /// The Hildegard-von-Bingen-Gymnasium, Köln (25832 E 354700 / N 5642650), 200 m square.
+    fn koeln_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        nrw_project_of(fetcher, &nrw_area_at(354_700.0, 5_642_650.0, 100.0))
+    }
+
+    #[test]
+    fn nrw_project_fetches_products() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("11.05.2025")
+        );
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2022-02-12"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2022-02-12"));
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::NordrheinWestfalen]
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract North Rhine-Westphalia, Köln from 2026-11-06"),
+            "{messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn nrw_dom1_failure_keeps_the_project_without_an_ndsm() {
+        use crate::sources::geobasis_nrw::{Model, meta_url};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetcher.failing.borrow_mut().push(meta_url(Model::Dom1));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.terrain.is_some() && project.surface.is_none());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: surface model (Geobasis NRW DOM1) unavailable")),
+            "{messages:?}"
+        );
+        assert!(!dir.path().join(SURFACE_RELPATH).exists());
+    }
+
+    #[test]
+    fn nrw_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn nrw_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        let year = chrono::Local::now().year();
+        let line =
+            format!("Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0");
+        // dl-de/zero asks for no note of changes.
+        assert!(
+            attribution.lines().any(|l| l.trim() == line),
+            "{attribution}"
+        );
+        for other in ["HVBG", "LVermGeo", "GeoBasis-DE", "CC BY", "Hamburg"] {
+            assert!(!attribution.contains(other), "{other} in {attribution}");
+        }
+    }
+
+    #[test]
+    fn aachen_project_with_negative_eastings_fetches_and_derives() {
+        let fetcher = MapFetcher::default();
+        // Aachen cathedral, 25833 E -128141 / N 5662838.
+        let c = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: -128_141.0,
+                    northing: 5_662_838.0,
+                },
+            )
+            .unwrap();
+        let (dir, _cache_dir, cache) =
+            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 100.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.region_bbox().unwrap().max_e < 0.0);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert!(project.surface.is_some() && project.buildings.is_some());
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(dir.path().join(NDSM_RELPATH).exists());
+    }
+
+    #[test]
+    fn nrw_project_at_the_hesse_border_takes_rasters_from_the_centre() {
+        let fetcher = MapFetcher::default();
+        // 25833 E 115329 / N 5736651 is on the border; the centre is 150 m inside NRW.
+        let c = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: 115_329.0 - 150.0,
+                    northing: 5_736_651.0,
+                },
+            )
+            .unwrap();
+        let (dir, _cache_dir, cache) =
+            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 300.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::Hessen, Region::NordrheinWestfalen]
+        );
+        {
+            let log = fetcher.log.borrow();
+            for service in [
+                crate::sources::alkis_wfs::HVBG.url,
+                crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            ] {
+                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+            }
+            // The rasters come from NRW alone.
+            // Neither the orthophoto WMS nor the Downloadcenter of Hesse is asked (its ALKIS
+            // WFS, on www.gds.hessen.de, is).
+            for host in ["https://www.gds-srv.hessen.de", "https://gds.hessen.de"] {
+                assert!(!log.iter().any(|u| u.starts_with(host)), "{host}");
+            }
+        }
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        for label in ["Hesse", "North Rhine-Westphalia"] {
+            let reading: Vec<&String> = messages
+                .iter()
+                .filter(|m| m.starts_with(&format!("reading OSM extract {label}")))
+                .collect();
+            assert_eq!(reading.len(), 1, "{label}: {messages:?}");
+        }
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+    }
+
+    fn nrw_getmap_requests(fetcher: &MapFetcher) -> usize {
+        fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.contains("wms_nw_dop") && u.contains("REQUEST=GetMap"))
+            .count()
+    }
+
+    #[test]
+    fn nrw_orthophoto_is_reused_while_the_flight_is_unchanged() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (flight 11.05.2025)"),
+            "{messages:?}"
+        );
+        // A new flight is downloaded again.
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                crate::sources::geobasis_nrw::WMS.url
+            ),
+            b"Layer 'nw_dop_utm_info'\n    Bildflugdatum = '02.06.2027'\n".to_vec(),
+        );
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 2);
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("02.06.2027")
+        );
+    }
+
+    #[test]
+    fn a_failed_flight_date_query_keeps_the_recent_orthophoto_and_its_date() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1);
+        // The date query now fails.
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                crate::sources::geobasis_nrw::WMS.url
+            ),
+            b"<ServiceExceptionReport/>".to_vec(),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 1, "{messages:?}");
+        assert_eq!(
+            project.orthophoto.as_ref().unwrap().flight.as_deref(),
+            Some("11.05.2025")
+        );
+        // Older than the limit: downloaded again, now without a date.
+        let mut stored = ProjectFile::load(dir.path()).unwrap();
+        stored.orthophoto.as_mut().unwrap().fetched = chrono::Local::now().date_naive()
+            - chrono::Duration::days(UNDATED_ORTHOPHOTO_MAX_AGE_DAYS);
+        stored.save(dir.path()).unwrap();
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(nrw_getmap_requests(&fetcher), 2);
+        assert_eq!(project.orthophoto.unwrap().flight, None);
+    }
+
+    #[test]
+    fn nrw_xml_wms_answer_is_an_error() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        let photo = crate::raster::GridSpec::covering(
+            &ProjectFile::load(dir.path()).unwrap().bbox().unwrap(),
+            crate::sources::wms::ORTHOPHOTO_PIXEL_M,
+        );
+        let xml = br#"<?xml version="1.0" encoding="UTF-8"?>
+<ServiceExceptionReport version="1.3.0"><ServiceException code="InvalidDimensionValue">
+msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HEIGHT must be between 1 and 5000 pixels.
+</ServiceException></ServiceExceptionReport>"#;
+        for (_, url) in crate::sources::wms::pieces(&crate::sources::geobasis_nrw::WMS, &photo) {
+            fetcher.insert(&url, xml.to_vec());
+        }
+        let error = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("Image size out of range"), "{error}");
+        assert!(ProjectFile::load(dir.path()).unwrap().orthophoto.is_none());
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_nrw_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let earlier = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+        for record in [project.terrain.as_mut(), project.surface.as_mut()] {
+            record.unwrap().fetched = earlier;
+        }
+        project.save(dir.path()).unwrap();
+        let offline = MapFetcher::default();
+        let project = fetch_project(
+            dir.path(),
+            &offline,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.surface.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2022-02-12"));
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("11.05.2025")
+        );
+        assert_eq!(offline.calls.get(), 0);
+        assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+    }
+
+    #[test]
+    fn regbez_border_reads_two_extracts() {
+        use crate::sources::osm::{ExtractSource, GovernmentDistrict};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Koeln-Worringen on the Koeln / Duesseldorf (Dormagen) district border, 25833
+        // E -70550 / N 5689830: the centre lies in the Koeln extract only, the 1 km box reaches
+        // into Duesseldorf's.
+        let (ce, cn) = (-70_550.0, 5_689_830.0);
+        let at = |e: f64, n: f64| {
+            crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: ce + e,
+                northing: cn + n,
+            })
+            .unwrap()
+        };
+        let corner = |e: f64, n: f64| {
+            let p = at(e, n);
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-480.0, -480.0),
+            corner(480.0, -480.0),
+            corner(480.0, 480.0),
+            corner(-480.0, 480.0),
+            corner(-480.0, -480.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        assert_eq!(project.crs(), Crs::Utm32);
+        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
+        let duesseldorf = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Duesseldorf);
+        let centre = BoundingBox {
+            min_e: ce,
+            min_n: cn,
+            max_e: ce,
+            max_n: cn,
+        };
+        assert_eq!(
+            crate::sources::osm::extracts_for(&centre, &mut |_| {}),
+            [koeln]
+        );
+        assert_eq!(
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {}),
+            [duesseldorf, koeln]
+        );
+        // Geofabrik's district extracts overlap at the border: both hold the same two hydrants.
+        let (south, north) = (at(0.0, -300.0), at(0.0, 300.0));
+        let hydrant: &[(&str, &str)] = &[("emergency", "fire_hydrant")];
+        let pbf = crate::fetch::test_support::osm_pbf(&[
+            (201, south.lat, south.lon, hydrant),
+            (202, north.lat, north.lon, hydrant),
+        ]);
+        for extract in [koeln, duesseldorf] {
+            fetcher.insert(
+                extract.state_url(),
+                b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+            );
+            fetcher.insert(extract.url(), pbf.clone());
+        }
+        crate::fetch::test_support::serve_synthetic_nrw(&fetcher, &project.bbox().unwrap());
+        // No ALKIS objects in this box.
+        fetcher.insert_prefix(
+            crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        for extract in ["Düsseldorf", "Köln"] {
+            let line =
+                format!("reading OSM extract North Rhine-Westphalia, {extract} from 2026-11-06");
+            assert_eq!(
+                messages.iter().filter(|m| **m == line).count(),
+                1,
+                "{messages:?}"
+            );
+        }
+        let mut cached: Vec<String> = std::fs::read_dir(cache.osm_dir())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        cached.sort();
+        assert_eq!(
+            cached,
+            [
+                "nrw-duesseldorf_2026-11-06.osm.pbf",
+                "nrw-koeln_2026-11-06.osm.pbf"
+            ]
+        );
+        // Each OSM candidate once, although both extracts hold it.
+        let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let ids: Vec<String> = crate::sources::osm::features_from_geojson(&text)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, ["node/201", "node/202"]);
+        assert_eq!(project.osm.unwrap().count, 2);
     }
 
     #[test]

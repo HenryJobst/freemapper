@@ -82,6 +82,7 @@ Orienteering Maps 2019 (IOF).
 | Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert. | `SourceAdapter` |
 | Produkt | product | Einzelner Datensatztyp einer Quelle, z. B. DGM1, nDOM, DOP20. | `Product` |
 | Kachel | tile | Rechteckiges Teilstück eines Produkts (LGB: 1×1 km). | `Tile` |
+| Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt. | `meta_list` |
 | Kachelschema | tile scheme | Regel für Lage und Benennung der Kacheln. | `TileScheme` |
 | Kachelkennung | tile id | Name einer Kachel, z. B. `33421-5821` (SW-Ecke in km). | `TileId` |
 | Datenstand / Aktualität | data currency | Erfassungs- bzw. Veröffentlichungsdatum eines Datensatzes. | `currency` |
@@ -99,6 +100,7 @@ Orienteering Maps 2019 (IOF).
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |
 | Digitales Orthophoto (DOP) | orthophoto | Entzerrtes, georeferenziertes Luftbild (DOP20 = 0,2 m). | `Orthophoto` |
 | OSM-Auszug | OSM extract | Regionaler Abzug der OSM-Daten als PBF-Datei (Geofabrik, z. B. Brandenburg). | `Extract` |
+| Regierungsbezirk-Auszug | government district extract | OSM-Auszug eines Regierungsbezirks (Nordrhein-Westfalen: Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des ganzen Landes; gewählt nach der mitgelieferten Auszugsgrenze, an einer Bezirksgrenze mehrere. | `GovernmentDistrict`, `extracts_for` |
 | Weltdatei | world file | Textdatei mit Pixelgröße und Lage eines Rasterbilds (`.jgw`, `.pgw`, `.tfw`). | `GridSpec::from_world_file` |
 | Mosaik | mosaic | Zusammengesetzte Kacheln, auf Kartengebiet plus Puffer zugeschnitten. | `mosaic_dtm` |
 | Rasterzelle | cell | Ein Pixel eines georeferenzierten Rasters. | `Cell` |
@@ -139,9 +141,9 @@ Orienteering Maps 2019 (IOF).
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
-| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
+| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
 | Rasterregion | raster region | Die Region, in der die Mitte des Kartengebiets liegt; aus ihr kommen Luftbild, Geländemodell und nDOM. | `raster_region` |
-| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein) oder LAiV M-V (Mecklenburg-Vorpommern). | `Provider` |
+| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein), LAiV M-V (Mecklenburg-Vorpommern) oder Geobasis NRW (Nordrhein-Westfalen). | `Provider` |
 | Koordinatensystem (Zone) | CRS (zone) | ETRS89/UTM-Zone 32 (EPSG:25832) oder 33 (EPSG:25833); jede Karte bekommt die Zone ihrer Rasterregion. | `Crs`, `ProjectFile::crs` |
 | Landesgrenze (Berlin) | Berlin boundary | Umriss Berlins aus ALKIS (`alkis:land`), 25 m vereinfacht; entscheidet über die Region. | `BERLIN_BOUNDARY` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |

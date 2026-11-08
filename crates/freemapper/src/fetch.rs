@@ -24,6 +24,8 @@ pub enum FetchError {
     Io(PathBuf, std::io::Error),
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
+    #[error("download of {url} is not a complete OSM extract: {message}")]
+    CorruptExtract { url: String, message: String },
     #[error(
         "{} not covered by the published tiles; reduce the map area or buffer_m in freemapper.toml",
         tiles_are(.0)
@@ -694,6 +696,11 @@ impl Cache {
         self.root.join("lvermgeo_sh")
     }
 
+    /// Folder of the Geobasis NRW DGM1/DOM1 tiles and the kept tile lists.
+    pub fn geobasis_nrw_dir(&self) -> PathBuf {
+        self.root.join("geobasis_nrw")
+    }
+
     /// Folder of the LAiV M-V tile lists (`overview.php` answers), per area.
     pub fn laiv_mv_dir(&self) -> PathBuf {
         self.root.join("laiv_mv")
@@ -828,7 +835,8 @@ fn currency_table(
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
-        | Provider::LaivMv => Err(FetchError::TilesNotCovered(tiles.to_vec())),
+        | Provider::LaivMv
+        | Provider::GeobasisNrw => Err(FetchError::TilesNotCovered(tiles.to_vec())),
     }
 }
 
@@ -1176,7 +1184,9 @@ pub(crate) fn get_with_attempts<T>(
     loop {
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
-            Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(
+                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+            ) => return result,
             Err(_) if attempt < attempts => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -2075,6 +2085,75 @@ pub(crate) mod test_support {
                 ),
                 geotiff(&grid, &surface),
             );
+        }
+    }
+
+    /// The GetFeatureInfo text answer of the NRW orthophoto WMS (flight 11.05.2025), as the
+    /// server gives it.
+    pub const NRW_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'nw_dop_utm_info'\n  \
+        Feature 20301: \n    Kachelname = '32354_5642'\n    Bildflugdatum = '11.05.2025'\n    \
+        Bodenauflösung = '0.10'\n    Photometrie = 'RGBI'\n    Bit_pro_Kanal = '8'\n";
+
+    /// The meta zip of Geobasis NRW: a CSV `csv_name` with the usual preamble and a row per
+    /// `(tile name, date)`.
+    pub fn nrw_meta_zip(csv_name: &str, release: &str, rows: &[(String, &str)]) -> Vec<u8> {
+        use std::io::Write;
+        let mut csv = format!(
+            "Kachelinformationen fuer die Datenabgabe\r\nLand;Nordrhein-Westfalen\r\n\
+             Aktualitaet_Kachelinformationen;{release}\r\nVersion_Standard;3.3\r\n\
+             Kachelname;Aktualitaet;Erfassungsmethode\r\n",
+        );
+        for (name, date) in rows {
+            csv.push_str(&format!("{name};{date};5020\r\n"));
+        }
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        zip.start_file(csv_name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(csv.as_bytes()).unwrap();
+        zip.finish().unwrap().into_inner()
+    }
+
+    /// Serves the Geobasis NRW rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
+    /// right size with the flight date 11.05.2025, the meta zips
+    /// of DGM1 and DOM1 naming every tile of `bbox` (scanned 2022-02-12, file names with
+    /// `_2022`) and the tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
+    /// above).
+    pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::geobasis_nrw::{Model, WMS, meta_url, tile_url};
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        // The WMS allows 4000 px a side: a larger area comes in pieces, each of its own size.
+        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
+            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [0, 100, 200]));
+        }
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            NRW_FLIGHT_INFO.as_bytes().to_vec(),
+        );
+        let tiles = crate::tiles::tiles_covering(bbox);
+        for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
+            let name = |t: &TileId| format!("{slug}_32_{}_{}_1_nw_2022", t.east_km, t.north_km);
+            let rows: Vec<(String, &str)> = tiles.iter().map(|t| (name(t), "2022-02-12")).collect();
+            fetcher.insert(
+                &meta_url(model),
+                nrw_meta_zip(&format!("{slug}_nw.csv"), "2026-10-26", &rows),
+            );
+            for tile in &tiles {
+                let grid = crate::raster::GridSpec {
+                    west: f64::from(tile.east_km) * 1000.0,
+                    north: f64::from(tile.north_km + 1) * 1000.0,
+                    pixel_size: 1.0,
+                    width: 1000,
+                    height: 1000,
+                };
+                let heights: Vec<f32> = (0..1000 * 1000)
+                    .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
+                    .collect();
+                fetcher.insert(&tile_url(model, &name(tile)), geotiff(&grid, &heights));
+            }
         }
     }
 

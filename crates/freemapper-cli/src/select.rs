@@ -34,7 +34,7 @@ struct Assets;
 /// Hosts can only be reached from this machine; the page tells the user so.
 const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \
      style-src 'self' 'unsafe-inline'; connect-src 'self'; \
-     img-src 'self' data: https://tile.openstreetmap.org https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de https://www.geodaten-mv.de; \
+     img-src 'self' data: https://tile.openstreetmap.org https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de https://www.geodaten-mv.de https://www.wms.nrw.de; \
      frame-ancestors 'none'";
 
 /// Settings for a project the page creates (an existing project keeps its own).

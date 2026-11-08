@@ -75,3 +75,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0027](0027-mv-orthophoto-from-the-wcs-and-masking-to-the-tile-set.md) | Mecklenburg-Vorpommern: orthophoto from the WCS, models masked to the tile set | Accepted | 2026-11-08 |
 | [0028](0028-nrw-osm-extracts-per-regierungsbezirk.md) | North Rhine-Westphalia: OSM extracts per Regierungsbezirk | Accepted | 2026-11-08 |
 | [0029](0029-lower-saxony-rasters-via-wms-and-wcs.md) | Lower Saxony: rasters via WMS and WCS instead of COG windows | Accepted (planned, not yet implemented) | 2026-11-08 |
+| [0030](0030-nrw-tile-names-and-dates-from-the-tile-list.md) | North Rhine-Westphalia: tile names and dates only from the tile list | Accepted | 2026-11-08 |
+| [0031](0031-nrw-orthophoto-from-the-wms.md) | North Rhine-Westphalia: orthophoto from the WMS, because the tiles are JPEG 2000 only | Accepted | 2026-11-08 |

@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Hessen (HVBG): Orthophoto, Gelände- und Oberflächenmodell aus den Gemeinde-Downloads, Gebäude und Nutzung aus ALKIS.
 - Schleswig-Holstein (LVermGeo SH): Orthophoto, Geländemodell aus dem INSPIRE-ATOM-Dienst (mit XYZ-Ersatz), Oberflächenmodell, Gebäude und Nutzung aus ALKIS.
 - Mecklenburg-Vorpommern (LAiV M-V): Orthophoto aus dem WCS, Gelände- und Oberflächenmodell, Gebäude und Nutzung aus ALKIS.
+- Nordrhein-Westfalen (Geobasis NRW): Orthophoto aus dem WMS, Gelände- und Oberflächenmodell (DGM1/DOM1) aus Laserkacheln, Gebäude und Nutzung aus ALKIS, OSM aus den Auszügen der fünf Regierungsbezirke statt des Landesauszugs. Die Karten nutzen UTM-Zone 32.
 - Karten können UTM-Zone 32 oder 33 nutzen. Ein Projekt übernimmt die Zone seines Bundeslands. Wechselt ein bestehendes Projekt die Zone, meldet freemapper das und räumt die alten Dateien auf.
 - Das Repository enthält pro unterstütztem Bundesland ein Beispielprojekt mit OpenOrienteering-Mapper-Datei, OCAD-Datei, Trainings-PDF und Vorschaubild.
 - Die Release-Archive enthalten das Handbuch mit Bildern, am Pfad, auf den die READMEs verlinken.

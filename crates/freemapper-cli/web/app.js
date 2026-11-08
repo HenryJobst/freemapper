@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -62,6 +62,7 @@ const TEXTS = {
     aerialHessen: "Luftbild Hessen (HVBG)",
     aerialSchleswigHolstein: "Luftbild Schleswig-Holstein (LVermGeo SH)",
     aerialMecklenburgVorpommern: "Luftbild Mecklenburg-Vorpommern (LAiV M-V)",
+    aerialNordrheinWestfalen: "Luftbild Nordrhein-Westfalen (Geobasis NRW)",
   },
   en: {
     heading: "Choose the map area",
@@ -93,7 +94,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -123,6 +124,7 @@ const TEXTS = {
     aerialHessen: "Aerial photo Hesse (HVBG)",
     aerialSchleswigHolstein: "Aerial photo Schleswig-Holstein (LVermGeo SH)",
     aerialMecklenburgVorpommern: "Aerial photo Mecklenburg-Vorpommern (LAiV M-V)",
+    aerialNordrheinWestfalen: "Aerial photo North Rhine-Westphalia (Geobasis NRW)",
   },
 };
 
@@ -214,6 +216,13 @@ const aerialMecklenburgVorpommern = L.tileLayer.wms(
     attribution: "©GeoBasis-DE/MV/CC BY 4.0",
   },
 );
+// The current DOP mosaic (EPSG:3857 is among the layer's CRS).
+const aerialNordrheinWestfalen = L.tileLayer.wms("https://www.wms.nrw.de/geobasis/wms_nw_dop", {
+  layers: "nw_dop_rgb",
+  format: "image/jpeg",
+  maxZoom: 20,
+  attribution: "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0",
+});
 L.control
   .layers({
     [T.osm]: osm,
@@ -224,6 +233,7 @@ L.control
     [T.aerialHessen]: aerialHessen,
     [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
     [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
+    [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
   })
   .addTo(map);
 map.attributionControl.addAttribution(

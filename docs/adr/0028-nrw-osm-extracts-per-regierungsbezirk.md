@@ -24,4 +24,4 @@ OSM id. If no district lies within the margin, the nearest is read with a warnin
   border.
 
 Source: NRW reference §11, §13 item 5; NRW plan `2026-11-08-nordrhein-westfalen.md` (Rulings) and commits
-59345b1, 1aa58cf on branch `nordrhein-westfalen` (not yet merged at the time of writing).
+59345b1, 1aa58cf on branch `nordrhein-westfalen`.
