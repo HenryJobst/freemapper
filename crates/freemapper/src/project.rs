@@ -1,5 +1,6 @@
 //! Project folder and project file (`freemapper.toml`).
 
+use std::collections::BTreeMap;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -39,6 +40,7 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_buildings};
+use crate::sources::berlin;
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
     OsmFeature, extracts_for, features_from_geojson, features_to_geojson, fetch_extract,
@@ -207,6 +209,11 @@ pub struct ProjectFile {
     /// The ALKIS land use of the last online `fetch`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub land_use: Option<AlkisRecord>,
+    /// The extra Berlin layers (ALKIS structures, tree cadastre) of the last online `fetch`, by
+    /// file name under [`BERLIN_LAYERS_DIR`]; empty outside Berlin. A layer without objects in
+    /// the area is recorded with count 0.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub berlin_layers: BTreeMap<String, AlkisRecord>,
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
@@ -394,6 +401,10 @@ impl ProjectFile {
         self.ndsm_tiles.clear();
         self.buildings = None;
         self.land_use = None;
+        for file in self.berlin_layers.keys() {
+            let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+        }
+        self.berlin_layers.clear();
         self.osm = None;
         self.orthophoto = None;
         self.terrain = None;
@@ -448,6 +459,7 @@ pub fn init_project(
         tiles: Vec::new(),
         buildings: None,
         land_use: None,
+        berlin_layers: BTreeMap::new(),
         osm: None,
         orthophoto: None,
         terrain: None,
@@ -489,6 +501,8 @@ const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
 pub(crate) const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 /// Skipped ALKIS features listed in a progress message.
 const SKIPPED_SHOWN: usize = 5;
+/// Folder of the extra Berlin layers, one `<file>.geojson` per layer (GeoJSON as served, EPSG:25833).
+pub(crate) const BERLIN_LAYERS_DIR: &str = "data/berlin";
 /// ALKIS buildings around the map area, as fetched (GeoJSON in the map's CRS).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
@@ -647,6 +661,16 @@ pub fn fetch_project(
         project.land_use = record;
         project.save(dir)?;
     }
+    project.berlin_layers = fetch_berlin_layers_into(
+        dir,
+        fetcher,
+        &area.region_bbox,
+        project.map_kind,
+        mode,
+        &project.berlin_layers,
+        progress,
+    );
+    project.save(dir)?;
     project.osm = Some(fetch_osm_into(
         dir, fetcher, cache, mode, &project, progress,
     )?);
@@ -1920,6 +1944,146 @@ fn fetch_land_use_into(
             }
         },
     }
+}
+
+/// Path of the stored extra Berlin layer `file` (without extension).
+fn berlin_layer_path(dir: &Path, file: &str) -> PathBuf {
+    dir.join(BERLIN_LAYERS_DIR).join(format!("{file}.geojson"))
+}
+
+/// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
+/// returns the records that replace `previous`. They only give candidates and a few map
+/// objects, so a layer that fails never fails the fetch: a stored file that still covers the
+/// area stays, one that does not is removed; each case is reported. A layer without objects is
+/// stored as an empty collection. Outside Berlin nothing is requested and stored layers of an
+/// earlier area are removed. Offline, nothing is downloaded and `previous` stays.
+fn fetch_berlin_layers_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    region_bbox: &BoundingBox,
+    kind: MapKind,
+    mode: FetchMode,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(&str),
+) -> BTreeMap<String, AlkisRecord> {
+    if !berlin::near_berlin(region_bbox) {
+        for file in previous.keys() {
+            let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+        }
+        return BTreeMap::new();
+    }
+    if mode == FetchMode::Offline {
+        if previous.is_empty() {
+            progress(
+                "no Berlin ALKIS structures stored; run `freemapper fetch` online for stairs, walls, trees and canopies",
+            );
+        }
+        return previous.clone();
+    }
+    progress("downloading Berlin ALKIS structures and tree cadastre");
+    let bbox = [
+        region_bbox.min_e.floor(),
+        region_bbox.min_n.floor(),
+        region_bbox.max_e.ceil(),
+        region_bbox.max_n.ceil(),
+    ];
+    let mut records = BTreeMap::new();
+    for fetched in berlin::fetch_extra_layers(fetcher, region_bbox, kind) {
+        let file = fetched.layer.file;
+        let path = berlin_layer_path(dir, file);
+        let stored = fetched
+            .features
+            .map_err(|e| e.to_string())
+            .and_then(|features| {
+                let parent = path.parent().expect("a file below the project folder");
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                write_atomically(&path, berlin::layer_to_geojson(&features).as_bytes())
+                    .map_err(|e| e.to_string())?;
+                Ok(features.len())
+            });
+        match stored {
+            Ok(count) => {
+                progress(&format!("{count} Berlin {file} features"));
+                records.insert(
+                    file.to_string(),
+                    AlkisRecord {
+                        bbox,
+                        fetched: chrono::Local::now().date_naive(),
+                        latest_update: None,
+                        count,
+                        regions: vec![Region::Berlin],
+                    },
+                );
+            }
+            Err(e) => match previous
+                .get(file)
+                .filter(|r| path.exists() && r.covers(region_bbox))
+            {
+                Some(record) => {
+                    progress(&format!(
+                        "warning: Berlin {file} unavailable ({e}); keeping the stored layer"
+                    ));
+                    records.insert(file.to_string(), record.clone());
+                }
+                None => {
+                    progress(&format!(
+                        "warning: Berlin {file} unavailable ({e}); layer skipped"
+                    ));
+                    let _ = std::fs::remove_file(&path);
+                }
+            },
+        }
+    }
+    // Layers the map kind no longer uses.
+    for file in previous.keys().filter(|f| !records.contains_key(*f)) {
+        let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+    }
+    records
+}
+
+/// One stored extra Berlin layer.
+// Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1, tasks 2 to 4).
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub(crate) struct StoredBerlinLayer {
+    pub layer: &'static berlin::ExtraLayer,
+    /// The features as served by the WFS (EPSG:25833, `id` like `bauwerkeflaechen.DEBE…`).
+    pub features: Vec<serde_json::Value>,
+    /// The fetch date, which stands in for the currency (the layers carry no feature dates).
+    pub fetched: NaiveDate,
+}
+
+/// The stored extra Berlin layers that cover the map area plus buffer, in table order. A layer
+/// that was not fetched, is missing or does not cover the area is left out (optional sources:
+/// `fetch` reports this, the export goes on without them). Empty outside Berlin.
+#[allow(dead_code)]
+pub(crate) fn stored_berlin_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<StoredBerlinLayer>, ProjectError> {
+    let region_bbox = project.region_bbox()?;
+    let mut layers = Vec::new();
+    for layer in berlin::extra_layers(project.map_kind) {
+        let path = berlin_layer_path(dir, layer.file);
+        let Some(record) = project
+            .berlin_layers
+            .get(layer.file)
+            .filter(|r| path.exists() && r.covers(&region_bbox))
+        else {
+            continue;
+        };
+        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        layers.push(StoredBerlinLayer {
+            layer,
+            features,
+            fetched: record.fetched,
+        });
+    }
+    Ok(layers)
 }
 
 /// The stored ALKIS land use; none when it was not fetched or does not cover the map area plus
@@ -5082,6 +5246,7 @@ mod tests {
                 count: 24,
                 regions: Vec::new(),
             }),
+            berlin_layers: BTreeMap::new(),
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
                 area: [52.5385, 13.8418, 52.5418, 13.8457],
@@ -7289,6 +7454,137 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|f| f.id)
             .collect();
         assert_eq!(ids, ["node/2", "node/5", "way/7", "way/30"]);
+    }
+
+    /// Serves the extra Berlin layer fixtures for exactly `bbox`.
+    fn serve_berlin_layers(fetcher: &MapFetcher, bbox: &BoundingBox) {
+        use crate::sources::berlin::{EXTRA_LAYERS, test_support::*, wfs_url};
+        let bodies = [
+            BAUWERKE_FLAECHEN,
+            BAUWERKE_LINIEN,
+            RELIEF,
+            VEGETATION_LINIEN,
+            STRASSENBAEUME,
+            ANLAGENBAEUME,
+        ];
+        for (layer, body) in EXTRA_LAYERS.iter().zip(bodies) {
+            fetcher.insert(
+                &wfs_url(layer.service, layer.type_name, bbox),
+                body.as_bytes().to_vec(),
+            );
+        }
+    }
+
+    #[test]
+    fn berlin_layers_are_stored_and_recorded() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+
+        // Schoolyard map: five layers, relief is for sprint maps; an empty layer is stored too.
+        let files: Vec<&str> = project.berlin_layers.keys().map(String::as_str).collect();
+        assert_eq!(
+            files,
+            [
+                "anlagenbaeume",
+                "bauwerke-flaechen",
+                "bauwerke-linien",
+                "strassenbaeume",
+                "vegetation-linien"
+            ]
+        );
+        let counts: Vec<usize> = project.berlin_layers.values().map(|r| r.count).collect();
+        assert_eq!(counts, [4, 10, 8, 4, 0]);
+        assert!(
+            dir.path()
+                .join("data/berlin/vegetation-linien.geojson")
+                .exists()
+        );
+        assert!(!dir.path().join("data/berlin/relief.geojson").exists());
+        assert!(
+            !messages.iter().any(|m| m.contains("warning: Berlin")),
+            "{messages:?}"
+        );
+
+        let stored = stored_berlin_layers(dir.path(), &project).unwrap();
+        let sizes: Vec<(&str, usize)> = stored
+            .iter()
+            .map(|l| (l.layer.file, l.features.len()))
+            .collect();
+        assert_eq!(
+            sizes,
+            [
+                ("bauwerke-flaechen", 10),
+                ("bauwerke-linien", 8),
+                ("vegetation-linien", 0),
+                ("strassenbaeume", 4),
+                ("anlagenbaeume", 4)
+            ]
+        );
+        // The records survive the project file.
+        assert_eq!(ProjectFile::load(dir.path()).unwrap(), project);
+    }
+
+    #[test]
+    fn failing_berlin_layer_is_a_warning() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        let lines = &crate::sources::berlin::EXTRA_LAYERS[1];
+        fetcher
+            .failing
+            .borrow_mut()
+            .push(crate::sources::berlin::wfs_url(
+                lines.service,
+                lines.type_name,
+                &region_bbox,
+            ));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(!project.berlin_layers.contains_key("bauwerke-linien"));
+        assert!(project.berlin_layers.contains_key("bauwerke-flaechen"));
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: Berlin bauwerke-linien unavailable")),
+            "{messages:?}"
+        );
+        assert!(
+            !dir.path()
+                .join("data/berlin/bauwerke-linien.geojson")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn brandenburg_project_makes_no_berlin_layer_request() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.berlin_layers.is_empty());
+        assert!(!dir.path().join(BERLIN_LAYERS_DIR).exists());
+        assert!(
+            !fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|url| url.contains("gdi.berlin.de/services/wfs/baumbestand")
+                    || url.contains("bauwerke")),
+            "no Berlin request outside Berlin"
+        );
+        assert!(
+            stored_berlin_layers(dir.path(), &project)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

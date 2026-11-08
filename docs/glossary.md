@@ -129,6 +129,8 @@ Orienteering Maps 2019 (IOF).
 | Liegenschaftskataster (ALKIS) | cadastre (ALKIS) | Amtliches Kataster: Flurstücke, Gebäude, Nutzung. | `Alkis` |
 | Flurstück | parcel | Katasterfläche mit Eigentumsgrenze. | `Parcel` |
 | Tatsächliche Nutzung | actual land use | ALKIS-Klassifikation der Flächennutzung (`nutzart`). | `LandUse` |
+| Berlin-Zusatzebene | extra Berlin layer | Weitere WFS-Ebene des Geoportals Berlin (ALKIS-Bauwerke, Relief, Hecken, Baumbestand), unter `data/berlin/<Name>.geojson` gespeichert und nur für Gebiete bei Berlin geladen. | `ExtraLayer`, `EXTRA_LAYERS` |
+| Bauart (Bauteil) | part kind (building part) | Art eines ALKIS-Bauteils, z. B. „Durchfahrt im Gebäude“, „Arkade“ (`bezbat`). | `bauart` |
 | OpenStreetMap (OSM) | OpenStreetMap (OSM) | Freie, gemeinschaftlich erstellte Geodaten. | `Osm` |
 
 ## Koordinaten & Georeferenzierung / coordinates & georeferencing
