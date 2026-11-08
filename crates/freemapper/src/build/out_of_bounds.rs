@@ -66,9 +66,9 @@ pub fn out_of_bounds_objects(
 
 /// The clip window for land use objects (map area plus buffer) and the sliver limits.
 pub(crate) struct LandClip {
-    polygon: Polygon<f64>,
-    min_area: f64,
-    min_width: f64,
+    pub(crate) polygon: Polygon<f64>,
+    pub(crate) min_area: f64,
+    pub(crate) min_width: f64,
 }
 
 impl LandClip {
