@@ -28,7 +28,7 @@ const JOB_LINES: usize = 50;
 const PREVIEW_PX: u32 = 800;
 
 const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
-orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony and OSM. \
+orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony, and from OSM. \
 Workflow: find_place (search the school or area by name; pick a result with has_area) → \
 create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user \
 how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
@@ -83,8 +83,9 @@ impl Jobs {
             .find(|(_, job)| job.state == JobState::Running)
         {
             return Err(format!(
-                "{id} is still running for {}; one pipeline runs at a time (projects share the \
-                 download cache): start this one when project_status reports finished or failed",
+                "{id} is still running for {}; one pipeline runs at a time because projects \
+                 share the download cache. Start this one when project_status reports finished \
+                 or failed",
                 job.dir.display()
             ));
         }
@@ -186,7 +187,7 @@ struct ProjectDir {
 struct StartPipeline {
     /// Project folder (absolute path or starting with ~).
     dir: String,
-    /// Replace an existing map file (the old one is kept as .omap.bak). Default false.
+    /// Replace an existing map file and keep the old one as .omap.bak. Default false.
     force: Option<bool>,
     /// Use the download cache only, without network access. Default false.
     offline: Option<bool>,
@@ -194,7 +195,7 @@ struct StartPipeline {
     /// edit in OCAD). Default false.
     ocad: Option<bool>,
     /// Also write <name>.pdf, a fully generated training map ready to print (every candidate drawn
-    /// as a map object, to be checked in the terrain). Default false.
+    /// as a map object; check them in the terrain). Default false.
     pdf: Option<bool>,
 }
 
@@ -369,15 +370,15 @@ fn summary(outcome: &RunOutcome) -> String {
             ));
             if !references_images {
                 lines.push(
-                    "The map does not reference the image templates yet: start the pipeline with \
-                     force to replace it (the old one is kept as .omap.bak)."
+                    "The map does not reference the image templates yet. Start the pipeline \
+                     with force to replace it and keep the old one as .omap.bak."
                         .to_string(),
                 );
             }
             if *missing_buildings {
                 lines.push(
-                    "The map has no ALKIS buildings yet: start the pipeline with force to add them \
-                     (the old one is kept as .omap.bak)."
+                    "The map has no ALKIS buildings yet. Start the pipeline with force to add \
+                     them; it replaces the map and keeps the old one as .omap.bak."
                         .to_string(),
                 );
             }
@@ -410,8 +411,8 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
         ));
     }
     text.push_str(&format!(
-        "\nWrote {}\nIn OCAD: Symbol > Load Colors and Symbols From… with the official ISSprOM 2019 \
-         or school symbol set replaces the placeholder symbols by number.",
+        "\nWrote {}\nIn OCAD, choose Symbol > Load Colors and Symbols From… and pick the \
+         official ISSprOM 2019 or school symbol set; it replaces the placeholder symbols by number.",
         outcome.candidates.display()
     ));
     text
@@ -473,7 +474,7 @@ impl FreemapperServer {
     }
 
     #[tool(
-        description = "Create a project folder for a map area: give osm_id (from find_place) or a \
+        description = "Create a project folder for a map area. Give osm_id (from find_place) or a \
                        GeoJSON file. kind is schoolyard (1:1000, default) or sprint (1:4000)."
     )]
     async fn create_project(
@@ -561,7 +562,7 @@ impl FreemapperServer {
     #[tool(
         description = "Download the data, compute the templates and write the starter project \
                        (fetch, derive, export). Runs in the background and returns a job_id; poll \
-                       project_status. One pipeline runs at a time. An existing map is kept unless force \
+                       project_status. One pipeline runs at a time. It keeps an existing map unless force \
                        is true."
     )]
     async fn start_pipeline(

@@ -167,8 +167,8 @@ fn refuse_redirect(
     Err(FetchError::Http {
         url: url.to_string(),
         message: format!(
-            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; redirects of this \
-             host are not followed, as its certificates are pinned",
+            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; freemapper does not \
+             follow redirects of this host, because it pins the host's certificates",
             status.as_u16()
         ),
     })
