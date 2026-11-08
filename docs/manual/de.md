@@ -49,10 +49,10 @@ Auf Wunsch erzeugt freemapper zusätzlich eine **druckfertige Trainingskarte als
 - Internet für das erste Laden.
 - Freien Speicherplatz:
   - Beim ersten Mal lädt freemapper den OSM-Auszug des Landes, für Brandenburg und Berlin etwa 300 MB,
-    für Sachsen etwa 270 MB, für Sachsen-Anhalt etwa 180 MB, für Hamburg etwa 55 MB, für Hessen etwa 350 MB. Er wird für
+    für Sachsen etwa 270 MB, für Sachsen-Anhalt etwa 180 MB, für Hamburg etwa 55 MB, für Hessen etwa 350 MB, für Schleswig-Holstein etwa 160 MB (ohne Hamburg). Er wird für
     alle Projekte wiederverwendet.
   - Dazu kommen je Karte meist 10–100 MB.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg oder Hessen**. Weitere Länder folgen.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen oder Schleswig-Holstein**. Weitere Länder folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -267,8 +267,9 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Sachsen-Anhalt | LVermGeo | Die Karte liegt in UTM-Zone 32 (EPSG:25832), wie alle Daten des Landes; Luftbild aus dem Kartendienst, Gelände- und Oberflächenmodell mit 1 m; das nDOM ist wie in Sachsen grob |
 | Hamburg | LGV | Zone 32 wie Sachsen-Anhalt; Luftbild von 2026, Gelände- und Oberflächenmodell aber von 2022: Neubauten der letzten Jahre fehlen im nDOM |
 | Hessen | HVBG | Zone 32; Luftbild im Sommer beflogen (2023 Südwesten, 2024 Norden, 2025 Süden); nDOM = DOM1 − DGM1 mit 1 m aus dem Laserscan (2019–2025 je nach Gegend). In vielen Gegenden wurde der Scan im Winter ohne Laub geflogen, daher können die Kronen von Laubbäumen niedriger erscheinen als im Sommer. Der Scan kann aus einem anderen Jahr stammen als das Luftbild (Frankfurt: Scan 28.02.2023, Luftbild 19.08.2025). Die Höhenmodelle kommen aus dem Downloadcenter, eine Zip-Datei je Gemeinde; freemapper liest nur die nötigen 1-km-Kacheln. Plätze ohne `bez` nur als Kandidaten; Straßenflächen mit Grünstreifen (keine Trennung); Schulflächen heißen „Öffentliche Zwecke“ |
+| Schleswig-Holstein | LVermGeo SH | Zone 32; das Land wurde in zwei Hälften beflogen: 2024 (Mai/September, belaubt) und 2025 (März–Juni: März/April unbelaubt, Mai/Juni belaubt); Norderstedt z. B. am 17.03.2025 unbelaubt. Der Kartendienst bietet keine Zeitwahl. Gelände: DGM1 mit 1 m aus dem Laserscan (Stand je nach Kachel 2005–2025; Norderstedt 10.03.2022). Oberflächenmodell: bildbasiertes bDOM mit 0,2 m (nur Stände 2023 und 2024); das nDOM ist bDOM − DGM1. freemapper lädt dafür ganze Kacheln von je 105 MB (etwa 90 s je Kachel, Teilladen geht nicht), rechnet sie auf 1 m herunter und behält nur diese Kopie. In der Hälfte von 2025 ist das bDOM zwei Jahre älter als das Luftbild: Neubauten können im nDOM fehlen (freemapper warnt). Das Downloadportal schickt eine unvollständige Zertifikatskette; freemapper bringt das fehlende D-TRUST-Zertifikat mit und verwendet es nur für diesen einen Server. Plätze ohne `bez` nur als Kandidaten; Straßenflächen teils ohne Trennung des Grünstreifens; Schulflächen heißen „Öffentliche Zwecke“; die ALKIS-Schreibweisen der LGB gelten. An der Hamburger Grenze liest freemapper ALKIS und OSM-Auszug beider Seiten; die Rasterdaten kommen aus dem Land, in dem die Mitte des Kartengebiets liegt, und die Kacheln aus Schleswig-Holstein reichen bis nach Hamburg hinein |
 
-**Koordinatensystem:** Brandenburg, Berlin und Sachsen liefern in UTM-Zone 33, Sachsen-Anhalt, Hamburg und Hessen in Zone 32.
+**Koordinatensystem:** Brandenburg, Berlin und Sachsen liefern in UTM-Zone 33, Sachsen-Anhalt, Hamburg, Hessen und Schleswig-Holstein in Zone 32.
 Jede Karte bekommt die Zone des Landes, in dem ihre Mitte liegt; OOM und OCAD zeigen sie in der
 Georeferenz an. Verschieben Sie ein Kartengebiet über die Zonengrenze oder in ein anderes Land, lädt freemapper alles
 neu.
@@ -294,7 +295,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
-| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg oder Hessen. | Ein anderes Gebiet wählen; weitere Länder folgen. |
+| `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen oder Schleswig-Holstein. | Ein anderes Gebiet wählen; weitere Länder folgen. |
 | `map area plus buffer is … more than 4000 m per side` | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
 | `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, oder das Gebiet im Browser zeichnen. |
 | `MultiPolygon with … parts` | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |
@@ -303,12 +304,23 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `download of … failed` oder `invalid ALKIS data` | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | `… refused the request (HTTP 400)` | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
 | `… ignored the byte range` | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
-| `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. | Einen Fehler melden. |
+| `download of … is larger than … MB; stopped` | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. | Später erneut versuchen, sonst einen Fehler melden. |
+| `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein: Das Downloadportal hat sich vermutlich geändert. | Einen Fehler melden. |
 | `warning: the … has no tile(s) … inside Hamburg` | Im Archiv fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `warning: the … has no tile(s) … inside Hesse` | Im Downloadcenter-Archiv der Gemeinde fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `warning: the Downloadcenter has no file for "…"` | Für den Ort (z. B. ein gemeindefreies Gebiet) gibt es im Downloadcenter keine Datei. Die Kacheln, die danach nach einem Semikolon genannt werden (falls vorhanden), blieben leer, weil keine andere Gemeinde sie enthält. | Kacheln aus Nachbargemeinden brauchen nichts; die genannten Kacheln bleiben leer. |
 | `warning: the metadata list has no readable Bildflugdatum for tile …` | In der HVBG-Metadatenliste fehlt für diese Kacheln das Befliegungsdatum. | Es fehlt nur das Datum im Projekteintrag. |
 | `warning: the new HVBG metadata list … could not be read …` | Die neu veröffentlichte Liste ließ sich nicht lesen; die ältere gespeicherte Liste wird verwendet. | Bei Dauer freemapper aktualisieren. |
+| `warning: the … has no tile(s) … inside Schleswig-Holstein` | Im Downloadportal fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
+| `the Downloadportal lists at most … tiles per request` | Das Gebiet braucht mehr Kacheln, als das Downloadportal je Anfrage nennt. | Das Gebiet kleiner wählen. |
+| `the Downloadportal answered with an error page` | Das Downloadportal (Schleswig-Holstein) liefert statt der Kachel eine Fehlerseite. | Später erneut versuchen; freemapper lädt die Kachel einmal selbst erneut. |
+| `warning: DGM1 tile … is not in the INSPIRE ATOM directory` / `… does not read (…); used its XYZ from the Downloadportal` | Das GeoTIFF der Geländekachel fehlt im INSPIRE-ATOM-Verzeichnis oder lässt sich nicht lesen (Fehlerseite, anderes Raster, Serverfehler); freemapper hat dieselbe Kachel als XYZ aus dem Downloadportal genommen. Scheitert auch das, nennt der Fehler beide Gründe. | Nichts; die Höhen sind dieselben. |
+| `the Downloadportal's tile list … could not be read` | Die Kachelliste ließ sich nicht lesen; die aus einem früheren Lauf wird verwendet. | Nichts, sofern die Daten dieselben sind. |
+| `warning: the surface model (bDOM …) is older than the orthophoto (…)` | Das bDOM ist mindestens ein Jahr älter als das Luftbild (in Schleswig-Holstein ab der 2025er Hälfte). | Neubauten im nDOM ggf. von Hand prüfen. |
+| `warning: surface model (LVermGeo SH bDOM) unavailable` | Das bDOM ließ sich nicht laden; ein Fehler dabei ist nur eine Warnung. Mit `…; kept the surface model fetched on …` bleibt das Oberflächenmodell eines früheren Abrufs desselben Gebiets erhalten, und das nDOM kommt weiter daraus (auch beim DOM1 der HVBG). | Mit `no nDSM template` fehlt die nDOM-Vorlage; später erneut versuchen. |
+| `downloading bDOM tile … (105 MB, … of …)` | Fortschrittsmeldung: freemapper lädt eine ganze Kachel, das dauert etwa 90 s. | Abwarten. |
+| `geodaten.schleswig-holstein.de answered with a redirect (HTTP …) to …` | Das Downloadportal leitet auf eine andere Adresse um. freemapper folgt dem nicht, weil es diesen Server nur gegen die eigenen Zertifikate prüft. | Einen Fehler melden. |
+| `… certificate …` (Server `geodaten.schleswig-holstein.de`) | Die Zertifikatsprüfung für das Downloadportal schlug fehl, etwa weil dessen Zertifizierungsstelle gewechselt hat. | freemapper aktualisieren, sonst einen Fehler melden. |
 | `warning: the map area now lies in another state's data` | Das Gebiet liegt jetzt bei einem anderen Anbieter. | Nichts; freemapper lädt alles neu. |
 | `offline and not cached` / `no OSM extract cached` | Mit `--offline` fehlen Daten. | Einmal mit Internet laden. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Es wurde noch nicht geladen, oder das Gebiet hat sich geändert. | `run` bzw. `fetch` ausführen. |
@@ -327,6 +339,7 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 - `© GeoBasis-DE / LVermGeo ST <Jahr>, dl-de/by-2-0, Daten geändert` (Sachsen-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <Jahr>, dl-de/by-2-0, Daten geändert` (Hamburg)
 - `Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) <Jahr>, dl-de/zero-2-0, verändert` (Hessen)
+- `© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Schleswig-Holstein)
 - `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper`
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.

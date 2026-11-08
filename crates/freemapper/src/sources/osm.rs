@@ -262,6 +262,10 @@ const HESSEN_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf";
 const HESSEN_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt";
+const SCHLESWIG_HOLSTEIN_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf";
+const SCHLESWIG_HOLSTEIN_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -275,6 +279,7 @@ pub enum ExtractSource {
     SaxonyAnhalt,
     Hamburg,
     Hessen,
+    SchleswigHolstein,
 }
 
 impl ExtractSource {
@@ -286,6 +291,7 @@ impl ExtractSource {
             Region::SaxonyAnhalt => Self::SaxonyAnhalt,
             Region::Hamburg => Self::Hamburg,
             Region::Hessen => Self::Hessen,
+            Region::SchleswigHolstein => Self::SchleswigHolstein,
         }
     }
 
@@ -296,6 +302,7 @@ impl ExtractSource {
             Self::SaxonyAnhalt => SAXONY_ANHALT_EXTRACT_URL,
             Self::Hamburg => HAMBURG_EXTRACT_URL,
             Self::Hessen => HESSEN_EXTRACT_URL,
+            Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
         }
     }
 
@@ -306,6 +313,7 @@ impl ExtractSource {
             Self::SaxonyAnhalt => SAXONY_ANHALT_STATE_URL,
             Self::Hamburg => HAMBURG_STATE_URL,
             Self::Hessen => HESSEN_STATE_URL,
+            Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
         }
     }
 
@@ -317,6 +325,7 @@ impl ExtractSource {
             Self::SaxonyAnhalt => "sachsen-anhalt_",
             Self::Hamburg => "hamburg_",
             Self::Hessen => "hessen_",
+            Self::SchleswigHolstein => "schleswig-holstein_",
         }
     }
 
@@ -328,6 +337,7 @@ impl ExtractSource {
             Self::SaxonyAnhalt => 177.0,
             Self::Hamburg => 54.0,
             Self::Hessen => 348.0,
+            Self::SchleswigHolstein => 159.0,
         }
     }
 
@@ -338,9 +348,12 @@ impl ExtractSource {
             Self::SaxonyAnhalt => "Saxony-Anhalt",
             Self::Hamburg => "Hamburg",
             Self::Hessen => "Hesse",
+            Self::SchleswigHolstein => "Schleswig-Holstein",
         }
     }
 }
+/// Largest OSM extract downloaded: the largest state extract is about 350 MB.
+const MAX_EXTRACT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 /// Partial downloads older than this are left over from interrupted runs.
 const STALE_PART_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
 
@@ -456,7 +469,7 @@ fn refresh_extract(
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
     let result = fetcher
-        .download_to(source.url(), &part, progress)
+        .download_to(source.url(), &part, MAX_EXTRACT_BYTES, progress)
         .and_then(|()| check_pbf(&part));
     let header_date = match result {
         Ok(header_date) => header_date,
@@ -605,6 +618,21 @@ mod tests {
         );
         assert_eq!(hessen.label(), "Hesse");
         assert_eq!(hessen.megabytes(), 348.0);
+    }
+
+    #[test]
+    fn schleswig_holstein_extract_urls() {
+        let sh = ExtractSource::for_region(crate::sources::region::Region::SchleswigHolstein);
+        assert_eq!(
+            sh.url(),
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf"
+        );
+        assert_eq!(
+            sh.state_url(),
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt"
+        );
+        assert_eq!(sh.label(), "Schleswig-Holstein");
+        assert_eq!(sh.megabytes(), 159.0);
     }
 
     fn extracts(cache: &Cache) -> Vec<String> {

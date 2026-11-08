@@ -27,6 +27,7 @@ thiserror.workspace = true
 tiff.workspace = true
 toml.workspace = true
 ureq.workspace = true
+weezl.workspace = true
 world_magnetic_model.workspace = true
 zip.workspace = true
 
@@ -35,4 +36,5 @@ workspace = true
 
 [dev-dependencies]
 quick-xml.workspace = true
+sha2.workspace = true
 tempfile.workspace = true

@@ -16,15 +16,15 @@ in OOM oder OCAD.
     [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
-- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg und Hessen (Open Data von LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV und HVBG);
+- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen und Schleswig-Holstein (Open Data von LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG und LVermGeo SH);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 - Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
   [`examples/`](examples/).
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg und Hessen, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen die übrigen Bundesländer, danach Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen und Schleswig-Holstein, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Mecklenburg-Vorpommern und Thüringen (dessen Server für die Höhendaten derzeit nicht erreichbar ist), danach die übrigen Bundesländer und Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
@@ -167,6 +167,7 @@ freemapper run vorstadt
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
 | Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026) |
 | Hessen | HVBG | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
+| Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²) |
 
 An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im

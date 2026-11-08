@@ -1,6 +1,6 @@
-//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG;
-//! GML 3.2 only), read into GeoJSON features with the LGB property schema (the attribute names are the
-//! same).
+//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG,
+//! LVermGeo SH; GML 3.2 only), read into GeoJSON features with the LGB property schema (the
+//! attribute names are the same).
 
 use serde_json::Value;
 
@@ -52,6 +52,18 @@ pub const HVBG: WfsService = WfsService {
     land_use_type: "ave:NutzungFlurstueck",
     crs: Crs::Utm32,
     square_bez: "ohne Unterart (Hessen)",
+};
+
+/// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
+/// (named for its administrative-boundary theme) serves every type with normal queries; the
+/// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
+pub const LVERMGEO_SH: WfsService = WfsService {
+    name: "LVermGeo SH ALKIS",
+    url: "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm32,
+    square_bez: "ohne Unterart (Schleswig-Holstein)",
 };
 
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
@@ -386,6 +398,10 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/saxony-anhalt-land-use.gml");
     pub const HE_BUILDINGS: &str = include_str!("../../../../tests/fixtures/hessen-buildings.gml");
     pub const HE_LAND_USE: &str = include_str!("../../../../tests/fixtures/hessen-land-use.gml");
+    pub const SH_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/schleswig-holstein-buildings.gml");
+    pub const SH_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/schleswig-holstein-land-use.gml");
 }
 
 #[cfg(test)]
@@ -757,6 +773,73 @@ mod tests {
             "{squares:?}"
         );
         assert!(squares.iter().all(Option::is_some), "{squares:?}");
+    }
+
+    #[test]
+    fn lvermgeo_sh_buildings_parse() {
+        let features = parse_gml(SH_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        assert_eq!(parsed.buildings.len(), features.len());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DESH")));
+        // Native EPSG:25832 coordinates (Norderstedt).
+        let corner = parsed.buildings[0].footprint.0[0].exterior().0[0];
+        assert!((565_000.0..566_000.0).contains(&corner.x), "{corner:?}");
+        let part = parsed
+            .buildings
+            .iter()
+            .find(|b| b.kind == "Bauteil" && b.underground)
+            .expect("an underground building part");
+        assert!(!part.function.is_empty());
+        assert!(parsed.buildings.iter().any(|b| !b.underground));
+        assert!(parsed.buildings.iter().any(|b| b.kind == "Gebäude"));
+    }
+
+    #[test]
+    fn lvermgeo_sh_land_use_from_nutzung_flurstueck() {
+        assert_eq!(LVERMGEO_SH.land_use_type, "ave:NutzungFlurstueck");
+        assert_eq!(
+            LVERMGEO_SH.url,
+            "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD"
+        );
+        assert_eq!(LVERMGEO_SH.crs, Crs::Utm32);
+        let features: Vec<Value> = parse_gml(SH_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, LVERMGEO_SH.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        assert_eq!(land.len(), features.len());
+        let nutzarten: Vec<&str> = land.iter().map(|l| l.nutzart.as_str()).collect();
+        for want in ["Straßenverkehr", "Wohnbaufläche", "Platz"] {
+            assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
+        }
+        assert!(features.iter().all(|f| !f["geometry"].is_null()));
+        let squares: Vec<Option<&str>> = land
+            .iter()
+            .filter(|l| l.nutzart == "Platz")
+            .map(|l| l.bez.as_deref())
+            .collect();
+        assert_eq!(squares.len(), 2, "{squares:?}");
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
+        assert!(
+            squares.contains(&Some("ohne Unterart (Schleswig-Holstein)")),
+            "{squares:?}"
+        );
+        let url = LVERMGEO_SH.wfs_url(
+            LVERMGEO_SH.land_use_type,
+            &BoundingBox {
+                min_e: 565_115.0,
+                min_n: 5_949_136.0,
+                max_e: 565_312.0,
+                max_n: 5_949_365.0,
+            },
+            0,
+        );
+        assert!(
+            url.contains("BBOX=565115,5949136,565312,5949365,urn:ogc:def:crs:EPSG::25832"),
+            "{url}"
+        );
     }
 
     #[test]

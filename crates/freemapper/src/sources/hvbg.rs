@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
+use crate::sources::height_model::HeightModel;
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
@@ -74,24 +75,6 @@ impl Model {
             Self::Dom1 => "dom1",
         }
     }
-}
-
-/// What [`fetch_model`] found besides the raster.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct HeightModel {
-    /// Tiles inside Hesse that no municipal zip holds.
-    pub missing: Vec<TileId>,
-    /// The flight date (`YYYY-MM-DD`) of the tile at the centre of the area.
-    pub date: Option<String>,
-    /// Places of the metadata list without a district or file in the Downloadcenter (such as a
-    /// gemeindefrei area), as `<municipality> (<district>)`; their tiles came from other zips or
-    /// are missing.
-    pub unresolved: Vec<String>,
-    /// Tiles inside the map area that stayed empty and that an unresolved place is listed for.
-    pub unresolved_empty: Vec<TileId>,
-    /// Problems with the metadata list that did not stop the fetch (a flight date that cannot
-    /// be read, a new list that fell back to the kept older one).
-    pub warnings: Vec<String>,
 }
 
 /// A municipality and its district, as the metadata list names them.
@@ -598,8 +581,8 @@ fn kept_lists(dir: &Path) -> Vec<PathBuf> {
 
 /// The metadata list (`Metadaten_DGM-DOM_<Monat>-<Jahr>.xlsx`) kept in `dir` under its release
 /// name: reused while the DGM1 product description links the same release (`link`), the older
-/// ones removed once a newer one parsed. A new list that does not parse falls back to the
-/// newest kept one with a warning. Offline the newest kept one.
+/// ones removed once a newer one parsed. A new list that cannot be downloaded or does not parse
+/// falls back to the newest kept one with a warning. Offline the newest kept one.
 fn metadata_list(
     fetcher: &dyn Fetcher,
     mode: FetchMode,
@@ -627,25 +610,30 @@ fn metadata_list(
     if let Some(index) = std::fs::read(&file).ok().and_then(|b| read_index(&b).ok()) {
         return Ok((index, Vec::new()));
     }
-    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec()))?;
+    // A list that cannot be downloaded or does not parse never replaces a good one; the
+    // newest kept one (as offline mode would use it) stands in.
+    let fall_back = |message: String| {
+        for older in kept_lists(dir).into_iter().filter(|p| *p != file) {
+            let Some(index) = std::fs::read(&older).ok().and_then(|b| read_index(&b).ok()) else {
+                continue;
+            };
+            let old_name = older.file_name().unwrap_or_default().to_string_lossy();
+            let warning = format!(
+                "the new HVBG metadata list {name} could not be read ({message}); \
+                 using the older list {old_name}"
+            );
+            return Some((index, vec![warning]));
+        }
+        None
+    };
+    let bytes = match get_with_retries(fetcher, &url, |b| Ok(b.to_vec())) {
+        Ok(bytes) => bytes,
+        Err(e) => return fall_back(e.to_string()).ok_or(e),
+    };
     let index = match read_index(&bytes) {
         Ok(index) => index,
         Err(message) => {
-            // A list that does not parse never replaces a good one; the newest kept one
-            // (as offline mode would use it) stands in.
-            for older in kept_lists(dir).into_iter().filter(|p| *p != file) {
-                let Some(index) = std::fs::read(&older).ok().and_then(|b| read_index(&b).ok())
-                else {
-                    continue;
-                };
-                let old_name = older.file_name().unwrap_or_default().to_string_lossy();
-                let warning = format!(
-                    "the new HVBG metadata list {name} could not be read ({message}); \
-                     using the older list {old_name}"
-                );
-                return Ok((index, vec![warning]));
-            }
-            return Err(refused(&url, message));
+            return fall_back(message.clone()).ok_or_else(|| refused(&url, message));
         }
     };
     // Kept only once it parsed, so a broken answer never replaces a good copy.
@@ -677,6 +665,10 @@ fn again(e: &FetchError) -> FetchError {
         FetchError::Refused { url, status } => FetchError::Refused {
             url: url.clone(),
             status: *status,
+        },
+        FetchError::TooLarge { url, limit_mb } => FetchError::TooLarge {
+            url: url.clone(),
+            limit_mb: *limit_mb,
         },
         FetchError::RangeIgnored { url, range, status } => FetchError::RangeIgnored {
             url: url.clone(),
@@ -2035,6 +2027,46 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("xlsx"), "{err}");
+    }
+
+    #[test]
+    fn metadata_list_download_failure_uses_the_kept_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_frankfurt(
+            &fetcher,
+            &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
+        );
+        let metadata = cache.hvbg_dir().join("metadata");
+        std::fs::create_dir_all(&metadata).unwrap();
+        let older = metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx");
+        std::fs::write(&older, frankfurt_rows(&[(tile(476, 5552), 44985)])).unwrap();
+        // The new list is not served at all: its download fails.
+        let out = dir.path().join("o.tif");
+        let run = || {
+            fetch_model(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &SCHOOL,
+                &out,
+            )
+        };
+        let fetched = run().unwrap();
+        assert_eq!(fetched.date.as_deref(), Some("2023-02-28"));
+        assert_eq!(fetched.warnings.len(), 1, "{:?}", fetched.warnings);
+        let warning = &fetched.warnings[0];
+        assert!(
+            warning.contains("Metadaten_DGM-DOM_August-2026.xlsx")
+                && warning.contains("Metadaten_DGM-DOM_Juli-2026.xlsx"),
+            "{warning}"
+        );
+        assert!(older.exists());
+        // Without a kept list the download error stays.
+        std::fs::remove_file(&older).unwrap();
+        assert!(run().is_err());
     }
 
     #[test]

@@ -103,7 +103,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -209,10 +209,10 @@ pub struct ProjectFile {
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
-    /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG); LGB orthophotos are tiles.
+    /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
-    /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG), at [`TERRAIN_RELPATH`].
+    /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH), at [`TERRAIN_RELPATH`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terrain: Option<WcsRecord>,
     /// The surface model of a per-area provider, at [`SURFACE_RELPATH`].
@@ -597,6 +597,9 @@ pub fn fetch_project(
         }
         Some(Provider::Hvbg) => {
             fetch_hvbg_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
+        Some(Provider::LvermGeoSh) => {
+            fetch_sh_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
         _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
     }
@@ -1029,6 +1032,39 @@ fn warn_beyond_state(
     Ok(())
 }
 
+/// The record of a height model just read; offline the tiles come from the cache, so the record
+/// keeps the date they were fetched.
+fn height_record(
+    mode: FetchMode,
+    bbox: &BoundingBox,
+    found: &crate::sources::height_model::HeightModel,
+    old: &Option<WcsRecord>,
+) -> WcsRecord {
+    WcsRecord {
+        fetched: match (mode, old) {
+            (FetchMode::Offline, Some(old)) => old.fetched,
+            _ => chrono::Local::now().date_naive(),
+        },
+        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        date: found.date.clone(),
+    }
+}
+
+/// The warning for the tiles of `label` that the provider lacks inside `state`.
+fn warn_missing_tiles(
+    progress: &mut dyn FnMut(&str),
+    state: &str,
+    label: &str,
+    found: &crate::sources::height_model::HeightModel,
+) {
+    if !found.missing.is_empty() {
+        progress(&format!(
+            "warning: the {label} has no {} inside {state}; the templates stay empty there",
+            crate::sources::lgv::tile_names(&found.missing)
+        ));
+    }
+}
+
 /// The HVBG rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 read out
 /// of the Downloadcenter's municipal zips. The DOM1 is only a template: an unavailable one costs
 /// a warning.
@@ -1041,7 +1077,8 @@ fn fetch_hvbg_rasters(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
-    use crate::sources::hvbg::{self, HeightModel, Model};
+    use crate::sources::height_model::HeightModel;
+    use crate::sources::hvbg::{self, Model};
     project.tiles.clear();
     project.ndsm_tiles.clear();
     warn_beyond_state(project, Provider::Hvbg, "HVBG", progress)?;
@@ -1055,23 +1092,10 @@ fn fetch_hvbg_rasters(
         (&hvbg::WMS, "HVBG", &flight),
         progress,
     )?;
-    // Offline the tiles come from the cache: they were fetched when the record says.
-    let record = |found: &HeightModel, old: &Option<WcsRecord>| WcsRecord {
-        fetched: match (mode, old) {
-            (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => chrono::Local::now().date_naive(),
-        },
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
-        date: found.date.clone(),
-    };
+    let record =
+        |found: &HeightModel, old: &Option<WcsRecord>| height_record(mode, bbox, found, old);
     let warn = |progress: &mut dyn FnMut(&str), model: Model, found: &HeightModel| {
-        if !found.missing.is_empty() {
-            progress(&format!(
-                "warning: the {} has no {} inside Hesse; the templates stay empty there",
-                model.label(),
-                crate::sources::lgv::tile_names(&found.missing)
-            ));
-        }
+        warn_missing_tiles(progress, "Hesse", model.label(), found);
     };
     // What both models report alike is said once, after both: the places without a
     // Downloadcenter file (with the tiles that stayed empty for want of another file) and
@@ -1125,10 +1149,7 @@ fn fetch_hvbg_rasters(
             collect(&found);
             project.surface = Some(record(&found, &project.surface));
         }
-        Err(e) => progress(&format!(
-            "warning: {} unavailable ({e}); no nDSM template",
-            Model::Dom1.label()
-        )),
+        Err(e) => keep_surface(dir, mode, project, bbox, Model::Dom1.label(), &e, progress),
     }
     for warning in &list_warnings {
         progress(&format!("warning: {warning}"));
@@ -1150,6 +1171,129 @@ fn fetch_hvbg_rasters(
     }
     project.save(dir)?;
     Ok(())
+}
+
+/// The LVermGeo SH rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and bDOM
+/// from the Downloadportal. The bDOM is only a template (and a 105 MB download per km²): an
+/// unavailable one costs a warning.
+fn fetch_sh_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::height_model::HeightModel;
+    use crate::sources::lvermgeo_sh::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    warn_beyond_state(project, Provider::LvermGeoSh, "LVermGeo SH", progress)?;
+    let flight = || lvermgeo_sh::flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (&lvermgeo_sh::WMS, "LVermGeo SH", &flight),
+        progress,
+    )?;
+    let record =
+        |found: &HeightModel, old: &Option<WcsRecord>| height_record(mode, bbox, found, old);
+    let warn = |progress: &mut dyn FnMut(&str), model: Model, found: &HeightModel| {
+        warn_missing_tiles(progress, "Schleswig-Holstein", model.label(), found);
+        for warning in &found.warnings {
+            progress(&format!("warning: {warning}"));
+        }
+    };
+    progress(&format!("reading the {}", Model::Dgm1.label()));
+    let found = lvermgeo_sh::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Dgm1,
+        bbox,
+        &dir.join(TERRAIN_RELPATH),
+        progress,
+    )?;
+    warn(progress, Model::Dgm1, &found);
+    project.terrain = Some(record(&found, &project.terrain));
+    progress(&format!("reading the {}", Model::Bdom.label()));
+    match lvermgeo_sh::fetch_model(
+        fetcher,
+        cache,
+        mode,
+        Model::Bdom,
+        bbox,
+        &dir.join(SURFACE_RELPATH),
+        progress,
+    ) {
+        Ok(found) => {
+            warn(progress, Model::Bdom, &found);
+            let year = |date: &str, flight_style: bool| -> Option<i32> {
+                let part = if flight_style {
+                    date.rsplit('.').next()
+                } else {
+                    date.split('-').next()
+                };
+                part?.parse().ok()
+            };
+            let flight_year = project
+                .orthophoto
+                .as_ref()
+                .and_then(|o| o.flight.as_deref())
+                .and_then(|d| year(d, true));
+            let surface_year = found.date.as_deref().and_then(|d| year(d, false));
+            if let (Some(photo), Some(surface)) = (flight_year, surface_year)
+                && photo - surface >= 1
+            {
+                progress(&format!(
+                    "warning: the surface model (bDOM {surface}) is older than the orthophoto ({photo}); new buildings may be missing in the nDSM"
+                ));
+            }
+            project.surface = Some(record(&found, &project.surface));
+        }
+        Err(e) => keep_surface(dir, mode, project, bbox, Model::Bdom.label(), &e, progress),
+    }
+    project.save(dir)?;
+    Ok(())
+}
+
+/// After the surface model `label` of a per-area provider failed with `e`: the stored one is
+/// kept when its record still covers `bbox` (derive uses it), and dropped with its file when it
+/// does not; offline nothing is deleted (derive ignores a record that does not cover the area).
+fn keep_surface(
+    dir: &Path,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    label: &str,
+    e: &dyn std::fmt::Display,
+    progress: &mut dyn FnMut(&str),
+) {
+    let stored = project
+        .surface
+        .as_ref()
+        .filter(|r| r.covers(bbox) && dir.join(SURFACE_RELPATH).exists());
+    if let Some(record) = stored {
+        progress(&format!(
+            "warning: {label} unavailable ({e}); kept the surface model fetched on {}",
+            record.fetched
+        ));
+        return;
+    }
+    progress(&format!(
+        "warning: {label} unavailable ({e}); no nDSM template"
+    ));
+    if mode == FetchMode::Online {
+        project.surface = None;
+        let surface = dir.join(SURFACE_RELPATH);
+        for file in [surface.clone(), surface.with_extension("tfw")] {
+            let _ = std::fs::remove_file(file);
+        }
+    }
 }
 
 /// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
@@ -1178,6 +1322,7 @@ fn raster_tiles(
                 Provider::LvermGeo => "LVermGeo",
                 Provider::Lgv => "LGV",
                 Provider::Hvbg => "HVBG",
+                Provider::LvermGeoSh => "LVermGeo SH",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1510,7 +1655,7 @@ pub fn derive_project(
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG) store their height models per area and have none.
+    // providers (LVermGeo, LGV, HVBG, LVermGeo SH) store their height models per area and have none.
     let tile_products: Option<(&[Product], Product, Product)> = match provider {
         Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
         Provider::GeoSn => Some((
@@ -1518,7 +1663,7 @@ pub fn derive_project(
             Product::SaxonyDtm,
             Product::SaxonyDsm,
         )),
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => None,
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1573,7 +1718,11 @@ pub fn derive_project(
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?,
-        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => {
+        Provider::GeoSn
+        | Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -2328,6 +2477,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(lvermgeo_attribution(&project));
     attribution.extend(lgv_attribution(&project));
     attribution.extend(hvbg_attribution(&project));
+    attribution.extend(sh_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2385,6 +2535,10 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines.extend(lvermgeo_attribution(project));
     lines.extend(lgv_attribution(project));
     lines.extend(hvbg_attribution(project));
+    if let Some(line) = sh_attribution(project) {
+        lines.push(line);
+        lines.push(SH_LICENCE_NOTE.to_string());
+    }
     lines
 }
 
@@ -2431,6 +2585,17 @@ fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
     Some(format!(
         "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
     ))
+}
+
+/// The LVermGeo SH credit the licence prescribes for changed data.
+const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
+/// The licence text the credit refers to (added to the project notes only).
+const SH_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
+
+/// The LVermGeo SH line, once its rasters or Schleswig-Holstein ALKIS objects were fetched.
+fn sh_attribution(project: &ProjectFile) -> Option<String> {
+    per_area_attribution_year(project, Provider::LvermGeoSh, Region::SchleswigHolstein)?;
+    Some(SH_ATTRIBUTION.to_string())
 }
 
 /// The year of the newest fetch of `provider`'s data in the project: its terrain model and
@@ -3110,6 +3275,46 @@ mod tests {
     }
 
     #[test]
+    fn hessen_dom1_failure_keeps_a_covering_surface_and_drops_another() {
+        use crate::sources::hvbg::{self, Model};
+        for shrink in [false, true] {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
+            fetch(dir.path(), &fetcher, &cache);
+            if shrink {
+                let mut project = ProjectFile::load(dir.path()).unwrap();
+                project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+                project.save(dir.path()).unwrap();
+            }
+            // A fresh cache: the DOM1 must be read again, and its product tree fails.
+            let cache_dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(cache_dir.path().to_path_buf());
+            fetcher
+                .failing
+                .borrow_mut()
+                .push(hvbg::tree_url(Model::Dom1));
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
+            let warning = messages
+                .iter()
+                .find(|m| m.starts_with(&unavailable))
+                .unwrap_or_else(|| panic!("{messages:?}"));
+            if shrink {
+                assert!(warning.ends_with("no nDSM template"), "{warning}");
+                assert!(project.surface.is_none());
+                assert!(!dir.path().join(SURFACE_RELPATH).exists());
+            } else {
+                assert!(
+                    warning.contains("kept the surface model fetched on"),
+                    "{warning}"
+                );
+                assert!(project.surface.is_some());
+                assert!(dir.path().join(SURFACE_RELPATH).exists());
+            }
+        }
+    }
+
+    #[test]
     fn hessen_fetch_warns_about_unresolved_places() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
@@ -3225,6 +3430,449 @@ mod tests {
             .to_rgba8();
         let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
         assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    /// A 200 m square at the Coppernicus-Gymnasium, Norderstedt (25833 E 169108, N 5960473).
+    fn norderstedt_area() -> MapArea {
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 169_108.0 + e,
+                northing: 5_960_473.0 + n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-100.0, -100.0),
+            corner(100.0, -100.0),
+            corner(100.0, 100.0),
+            corner(-100.0, 100.0),
+            corner(-100.0, -100.0),
+        ];
+        MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap()
+    }
+
+    /// A schoolyard project at the Coppernicus-Gymnasium, served with synthetic SH data.
+    fn norderstedt_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project = init_project(
+            dir.path(),
+            &norderstedt_area(),
+            MapKind::Schoolyard,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+        crate::fetch::test_support::serve_synthetic_schleswig_holstein(
+            fetcher,
+            &project.bbox().unwrap(),
+        );
+        (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn schleswig_holstein_project_fetches_products() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert!(project.tiles.is_empty());
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("17.03.2025")
+        );
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2022-03-10"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2023-04-07"));
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::SchleswigHolstein]
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Schleswig-Holstein from 2026-11-06"),
+            "{messages:?}"
+        );
+        // The surface model (2023) is older than the orthophoto (2025).
+        assert!(
+            messages.iter().any(|m| m
+                == "warning: the surface model (bDOM 2023) is older than the orthophoto (2025); new buildings may be missing in the nDSM"),
+            "{messages:?}"
+        );
+        assert_eq!(
+            messages.iter().filter(|m| m.starts_with("warning")).count(),
+            1,
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn schleswig_holstein_bdom_failure_is_a_warning() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        fetcher.insert_prefix(
+            &crate::sources::lvermgeo_sh::overview_prefix(
+                crate::sources::lvermgeo_sh::Product::Bdom,
+            ),
+            b"<html>maintenance</html>".to_vec(),
+        );
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.terrain.is_some() && project.surface.is_none());
+        assert!(
+            messages.iter().any(|m| m
+                .starts_with("warning: surface model (LVermGeo SH bDOM) unavailable")
+                && m.ends_with("no nDSM template")),
+            "{messages:?}"
+        );
+    }
+
+    /// The SH school fetched online once, then again in `mode` with the bDOM unavailable
+    /// (offline: its tiles gone from the cache; online: the tile list an error page and none
+    /// kept); `shrink` makes the stored surface record one of a smaller (another) area first.
+    fn refetch_with_bdom_failing(
+        mode: FetchMode,
+        shrink: bool,
+    ) -> (tempfile::TempDir, ProjectFile, Vec<String>) {
+        use crate::sources::lvermgeo_sh::{Product, overview_prefix};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert!(dir.path().join(SURFACE_RELPATH).exists());
+        if shrink {
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+            project.save(dir.path()).unwrap();
+        }
+        let again = MapFetcher::default();
+        let fetcher = match mode {
+            FetchMode::Offline => {
+                std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("bdom")).unwrap();
+                &again
+            }
+            FetchMode::Online => {
+                for entry in std::fs::read_dir(cache.lvermgeo_sh_dir().join("overview")).unwrap() {
+                    let path = entry.unwrap().path();
+                    if path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with("bdom_")
+                    {
+                        std::fs::remove_file(path).unwrap();
+                    }
+                }
+                fetcher.insert_prefix(
+                    &overview_prefix(Product::Bdom),
+                    b"<html>maintenance</html>".to_vec(),
+                );
+                &fetcher
+            }
+        };
+        let mut messages = Vec::new();
+        let project = fetch_project(dir.path(), fetcher, &cache, mode, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        // Derive needs a cache only for tile providers.
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        (dir, project, messages)
+    }
+
+    #[test]
+    fn schleswig_holstein_bdom_failure_on_a_refetch_keeps_the_old_surface() {
+        for mode in [FetchMode::Offline, FetchMode::Online] {
+            let (dir, project, messages) = refetch_with_bdom_failing(mode, false);
+            let surface = project.surface.as_ref().expect("the old surface record");
+            let kept = format!("kept the surface model fetched on {}", surface.fetched);
+            assert!(
+                messages.iter().any(|m| m
+                    .starts_with("warning: surface model (LVermGeo SH bDOM) unavailable")
+                    && m.ends_with(&kept)),
+                "{mode:?}: {messages:?}"
+            );
+            assert!(project.terrain.is_some());
+            assert!(dir.path().join(SURFACE_RELPATH).exists(), "{mode:?}");
+            assert!(dir.path().join(NDSM_RELPATH).exists(), "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn schleswig_holstein_bdom_failure_drops_a_surface_of_another_area() {
+        // Online the surface of another area goes ...
+        let (dir, project, messages) = refetch_with_bdom_failing(FetchMode::Online, true);
+        assert!(
+            messages.iter().any(|m| m.ends_with("no nDSM template")),
+            "{messages:?}"
+        );
+        assert!(project.terrain.is_some() && project.surface.is_none());
+        assert!(!dir.path().join(SURFACE_RELPATH).exists());
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
+        // ... offline nothing is deleted, but derive does not use it.
+        let (dir, project, messages) = refetch_with_bdom_failing(FetchMode::Offline, true);
+        assert!(
+            messages.iter().any(|m| m.ends_with("no nDSM template")),
+            "{messages:?}"
+        );
+        assert!(project.surface.is_some());
+        assert!(dir.path().join(SURFACE_RELPATH).exists());
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
+    }
+
+    #[test]
+    fn schleswig_holstein_ndsm_pipeline_handles_bdom_below_dgm1() {
+        // A smoke test: the nDSM is transparent below 0.3 m, so the PNG cannot show the clamp at
+        // 0 itself; that is pinned by `derive::ndsm::ndsm_from_bdom_minus_dtm`.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        // The bDOM 5 m below the DGM1 (a removed building, a lowered pit).
+        crate::fetch::test_support::serve_schleswig_holstein_models_lifted(&fetcher, &bbox, -5.0);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(0.0));
+    }
+
+    #[test]
+    fn other_states_attribution_has_no_licence_link() {
+        for provider_fetch in 0..2 {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = if provider_fetch == 0 {
+                eppendorf_school(&fetcher)
+            } else {
+                frankfurt_school(&fetcher)
+            };
+            fetch(dir.path(), &fetcher, &cache);
+            derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+            export_starter_project(dir.path(), false).unwrap();
+            let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+            assert!(
+                !attribution.contains("creativecommons.org")
+                    && !attribution.contains("LVermGeo SH"),
+                "{attribution}"
+            );
+        }
+    }
+
+    #[test]
+    fn schleswig_holstein_border_map_reads_both_states_once() {
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // 25832 E 565500 / N 5948100 (Norderstedt), a box reaching into Hamburg-Langenhorn.
+        let c = crate::crs::Crs::Utm33
+            .reproject(
+                crate::crs::Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 565_500.0,
+                    northing: 5_948_100.0,
+                },
+            )
+            .unwrap();
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: c.easting + e,
+                northing: c.northing + n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-250.0, -450.0),
+            corner(250.0, -450.0),
+            corner(250.0, 50.0),
+            corner(-250.0, 50.0),
+            corner(-250.0, -450.0),
+        ];
+        let area = MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+        let bbox = project.bbox().unwrap();
+        crate::fetch::test_support::serve_synthetic_hamburg(&fetcher, &bbox);
+        crate::fetch::test_support::serve_synthetic_schleswig_holstein(&fetcher, &bbox);
+        // Geofabrik's extracts overlap at the border: both hold the same hydrants, one on the
+        // Norderstedt side and one in Langenhorn.
+        let at = |e: f64, n: f64| {
+            crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: c.easting + e,
+                northing: c.northing + n,
+            })
+            .unwrap()
+        };
+        let (north, south) = (at(0.0, 0.0), at(0.0, -400.0));
+        let hydrant: &[(&str, &str)] = &[("emergency", "fire_hydrant")];
+        let pbf = crate::fetch::test_support::osm_pbf(&[
+            (101, north.lat, north.lon, hydrant),
+            (102, south.lat, south.lon, hydrant),
+        ]);
+        for extract in [
+            crate::sources::osm::ExtractSource::Hamburg,
+            crate::sources::osm::ExtractSource::SchleswigHolstein,
+        ] {
+            fetcher.insert(extract.url(), pbf.clone());
+        }
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        // The rasters come from the centre's provider (Schleswig-Holstein).
+        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::Hamburg, Region::SchleswigHolstein]
+        );
+        for extract in ["Hamburg", "Schleswig-Holstein"] {
+            let line = format!("reading OSM extract {extract} from 2026-11-06");
+            assert_eq!(
+                messages.iter().filter(|m| **m == line).count(),
+                1,
+                "{messages:?}"
+            );
+        }
+        let buildings = stored_buildings(dir.path()).unwrap();
+        let oids: Vec<&str> = buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEHH")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DESH")), "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+        // Each OSM candidate once, although both extracts hold it.
+        let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let ids: Vec<String> = crate::sources::osm::features_from_geojson(&text)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, ["node/101", "node/102"]);
+        assert_eq!(project.osm.unwrap().count, 2);
+    }
+
+    #[test]
+    fn schleswig_holstein_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        // bDOM (terrain + 12 m) minus DGM1.
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn schleswig_holstein_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(
+            attribution.contains("© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"),
+            "{attribution}"
+        );
+        assert!(
+            attribution.contains("https://creativecommons.org/licenses/by/4.0/"),
+            "{attribution}"
+        );
+        assert!(
+            !attribution.contains("HVBG") && !attribution.contains("GeoBasis-DE/LGB"),
+            "{attribution}"
+        );
+    }
+
+    #[test]
+    fn schleswig_holstein_orthophoto_is_reused_while_the_flight_is_unchanged() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        let getmaps = |fetcher: &MapFetcher| {
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .filter(|u| u.contains("WMS_SH_DOP20col_OpenGBD") && u.contains("REQUEST=GetMap"))
+                .count()
+        };
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(getmaps(&fetcher), 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(getmaps(&fetcher), 1);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (flight 17.03.2025)"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_schleswig_holstein_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let earlier = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+        for record in [project.terrain.as_mut(), project.surface.as_mut()] {
+            record.unwrap().fetched = earlier;
+        }
+        project.save(dir.path()).unwrap();
+        let project = fetch_project(
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.surface.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2022-03-10"));
+    }
+
+    #[test]
+    fn hamburg_to_schleswig_holstein_drops_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let before = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(before.provider, Some(Provider::Lgv));
+        assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
+        let project = set_map_area(dir.path(), &norderstedt_area()).unwrap();
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
+        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert!(project.terrain.is_none() && project.surface.is_none());
+        assert!(project.orthophoto.is_none() && project.buildings.is_none());
+        assert!(!dir.path().join(TERRAIN_RELPATH).exists());
+        assert!(!dir.path().join(SURFACE_RELPATH).exists());
+        assert!(!dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
     }
 
     #[test]

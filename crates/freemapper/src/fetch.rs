@@ -46,6 +46,10 @@ pub enum FetchError {
     /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
     #[error("{url}: the server refused the request (HTTP {status})")]
     Refused { url: String, status: u16 },
+    /// A streamed download grew past its limit (a misbehaving server); asking again does not
+    /// help.
+    #[error("download of {url} is larger than {limit_mb} MB; stopped")]
+    TooLarge { url: String, limit_mb: u64 },
     /// The server answered a byte range with the whole file; asking again does not help.
     #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
     RangeIgnored {
@@ -76,7 +80,7 @@ fn tiles_are(tiles: &[TileId]) -> String {
 }
 
 /// Partial files older than this are left over from interrupted runs.
-const STALE_PART_AGE: Duration = Duration::from_secs(3600);
+pub(crate) const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 
 /// Source of downloads; HTTP in production, in-memory in tests.
 pub trait Fetcher {
@@ -99,14 +103,20 @@ pub trait Fetcher {
     }
 
     /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
-    /// being held in memory.
+    /// being held in memory. More than `max_bytes` is [`FetchError::TooLarge`], and `path` is
+    /// removed.
     fn download_to(
         &self,
         url: &str,
         path: &Path,
+        max_bytes: u64,
         progress: &mut dyn FnMut(&str),
     ) -> Result<(), FetchError> {
         let bytes = self.get(url)?;
+        if bytes.len() as u64 > max_bytes {
+            let _ = std::fs::remove_file(path);
+            return Err(too_large(url, max_bytes));
+        }
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -123,6 +133,43 @@ pub enum ByteRange {
     From { start: u64, len: u64 },
     /// The last `n` bytes.
     Last(u64),
+}
+
+/// A redirect answer as an error. Only the agents of [`PORTAL_HOST`] return one: they follow
+/// none, as a followed redirect would keep the portal's pinned trust.
+fn refuse_redirect(
+    url: &str,
+    response: &ureq::http::Response<ureq::Body>,
+) -> Result<(), FetchError> {
+    let status = response.status();
+    if !status.is_redirection() {
+        return Ok(());
+    }
+    let location: String = response
+        .headers()
+        .get("location")
+        .map(|v| String::from_utf8_lossy(v.as_bytes()).into_owned())
+        .unwrap_or_else(|| "nowhere".to_string())
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(200)
+        .collect();
+    Err(FetchError::Http {
+        url: url.to_string(),
+        message: format!(
+            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; redirects of this \
+             host are not followed, as its certificates are pinned",
+            status.as_u16()
+        ),
+    })
+}
+
+/// [`FetchError::TooLarge`] for `url` over `max_bytes`.
+fn too_large(url: &str, max_bytes: u64) -> FetchError {
+    FetchError::TooLarge {
+        url: url.to_string(),
+        limit_mb: max_bytes.div_ceil(1024 * 1024),
+    }
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -165,10 +212,72 @@ fn megabytes(bytes: u64) -> u64 {
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 
+/// The LVermGeo SH Downloadportal. It sends its leaf certificate without the intermediate
+/// `D-TRUST BR CA 1-20-1 2020`, and rustls does not fetch missing intermediates, so this host
+/// is verified against the bundled intermediate and its root instead of the default roots.
+///
+/// The agents of this host follow no redirects: a followed redirect would keep the trust of the
+/// URL it started from (a redirect away from the portal checked against the D-TRUST anchors, one
+/// to the portal against the default roots). A redirect answer is an error naming this host.
+const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
+
+/// The only trust anchors for [`PORTAL_HOST`]: the intermediate `D-TRUST BR CA 1-20-1 2020`
+/// (valid to 2035-02-11) and the root `D-TRUST BR Root CA 1 2020` that signed it.
+///
+/// The intermediate is a trust anchor because the server omits it from its chain. As an anchor,
+/// its own validity period, extended key usage and revocation are not checked, and the pin does
+/// not follow a later distrust of the root in the default roots. This applies to that one host
+/// only; the leaf is still fully verified (chain, validity and host name). When the portal
+/// changes its CA or the intermediate expires, its requests fail with a certificate error until
+/// `assets/tls/` is updated.
+const PORTAL_ANCHORS: [&[u8]; 2] = [
+    include_bytes!("../../../assets/tls/d-trust-br-ca-1-20-1-2020.pem"),
+    include_bytes!("../../../assets/tls/d-trust-br-root-ca-1-2020.pem"),
+];
+
+/// Which certificates a URL is verified against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Trust {
+    /// ureq's default (webpki) roots, for every host but the portal.
+    DefaultRoots,
+    /// Only the bundled [`PORTAL_ANCHORS`].
+    PortalAnchors,
+}
+
+/// The trust for `url`: the bundled anchors exactly for absolute URLs on the host
+/// [`PORTAL_HOST`], the default roots for everything else, including URLs that do not parse.
+/// Hosts compare without case, and a single trailing dot (the fully qualified form of the same
+/// name, as a pasted URL may carry) is the same host.
+fn trust_for(url: &str) -> Trust {
+    let Ok(uri) = url.parse::<ureq::http::Uri>() else {
+        return Trust::DefaultRoots;
+    };
+    let host = uri
+        .host()
+        .map(|host| host.strip_suffix('.').unwrap_or(host));
+    match (uri.scheme(), host) {
+        (Some(_), Some(host)) if host.eq_ignore_ascii_case(PORTAL_HOST) => Trust::PortalAnchors,
+        _ => Trust::DefaultRoots,
+    }
+}
+
+fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
+    PORTAL_ANCHORS
+        .iter()
+        .map(|pem| ureq::tls::Certificate::from_pem(pem).expect("bundled certificates are PEM"))
+        .collect()
+}
+
+/// An agent for ordinary requests and one for large bodies.
+struct Agents {
+    normal: ureq::Agent,
+    large: ureq::Agent,
+}
+
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
 pub struct HttpFetcher {
-    agent: ureq::Agent,
-    large: ureq::Agent,
+    default: Agents,
+    portal: Agents,
 }
 
 impl HttpFetcher {
@@ -182,17 +291,37 @@ impl HttpFetcher {
     }
 
     fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
-        let agent = |body: Duration| -> ureq::Agent {
-            ureq::Agent::config_builder()
+        let agent = |body: Duration, trust: Trust| -> ureq::Agent {
+            let config = ureq::Agent::config_builder()
                 .timeout_connect(Some(connect))
                 .timeout_recv_response(Some(response))
-                .timeout_recv_body(Some(body))
-                .build()
-                .into()
+                .timeout_recv_body(Some(body));
+            match trust {
+                Trust::DefaultRoots => config,
+                Trust::PortalAnchors => config.max_redirects(0).tls_config(
+                    ureq::tls::TlsConfig::builder()
+                        .root_certs(ureq::tls::RootCerts::new_with_certs(&portal_anchors()))
+                        .build(),
+                ),
+            }
+            .build()
+            .into()
+        };
+        let agents = |trust: Trust| Agents {
+            normal: agent(body, trust),
+            large: agent(LARGE_BODY_TIMEOUT.max(body), trust),
         };
         Self {
-            agent: agent(body),
-            large: agent(LARGE_BODY_TIMEOUT.max(body)),
+            default: agents(Trust::DefaultRoots),
+            portal: agents(Trust::PortalAnchors),
+        }
+    }
+
+    /// The agents verifying `url`'s host.
+    fn agents(&self, url: &str) -> &Agents {
+        match trust_for(url) {
+            Trust::DefaultRoots => &self.default,
+            Trust::PortalAnchors => &self.portal,
         }
     }
 }
@@ -213,12 +342,14 @@ impl Fetcher for HttpFetcher {
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
         let mut response = self
-            .agent
+            .agents(url)
+            .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .header("Range", &header)
             .call()
             .map_err(|e| status_error(url, e))?;
+        refuse_redirect(url, &response)?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
@@ -244,6 +375,7 @@ impl Fetcher for HttpFetcher {
         &self,
         url: &str,
         path: &Path,
+        max_bytes: u64,
         progress: &mut dyn FnMut(&str),
     ) -> Result<(), FetchError> {
         let http_error = |message: String| FetchError::Http {
@@ -251,11 +383,13 @@ impl Fetcher for HttpFetcher {
             message,
         };
         let mut response = self
+            .agents(url)
             .large
             .get(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| http_error(e.to_string()))?;
+        refuse_redirect(url, &response)?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -264,6 +398,10 @@ impl Fetcher for HttpFetcher {
             .get("content-length")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok());
+        if total.is_some_and(|total| total > max_bytes) {
+            let _ = std::fs::remove_file(path);
+            return Err(too_large(url, max_bytes));
+        }
         let mut file =
             std::fs::File::create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
         let mut reader = response.body_mut().as_reader();
@@ -274,6 +412,11 @@ impl Fetcher for HttpFetcher {
                 .map_err(|e| http_error(e.to_string()))?;
             if n == 0 {
                 break;
+            }
+            if done + n as u64 > max_bytes {
+                drop(file);
+                let _ = std::fs::remove_file(path);
+                return Err(too_large(url, max_bytes));
             }
             std::io::Write::write_all(&mut file, &buffer[..n])
                 .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
@@ -292,11 +435,13 @@ impl Fetcher for HttpFetcher {
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
         let response = self
-            .agent
+            .agents(url)
+            .normal
             .head(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| status_error(url, e))?;
+        refuse_redirect(url, &response)?;
         Ok(response
             .headers()
             .get("last-modified")
@@ -308,11 +453,13 @@ impl Fetcher for HttpFetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let http_error = |e: ureq::Error| status_error(url, e);
         let mut response = self
-            .agent
+            .agents(url)
+            .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(http_error)?;
+        refuse_redirect(url, &response)?;
         let mut bytes = Vec::new();
         response
             .body_mut()
@@ -395,6 +542,11 @@ impl Cache {
     /// Folder of the HVBG Hesse tiles, zip directories and metadata list.
     pub fn hvbg_dir(&self) -> PathBuf {
         self.root.join("hvbg")
+    }
+
+    /// Folder of the LVermGeo SH tiles (DGM1, the bDOM reduced to 1 m) and tile lists.
+    pub fn lvermgeo_sh_dir(&self) -> PathBuf {
+        self.root.join("lvermgeo_sh")
     }
 
     /// The collected GeoSN tile index rows of `product`.
@@ -522,7 +674,7 @@ fn currency_table(
         Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
         Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
         // LVermGeo rasters are fetched per area (WMS, WCS), not as tiles.
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => {
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => {
             Err(FetchError::TilesNotCovered(tiles.to_vec()))
         }
     }
@@ -863,6 +1015,32 @@ pub(crate) fn get_with_retries<T>(
         let result = fetcher.get(url).and_then(|bytes| check(&bytes));
         match result {
             Err(FetchError::NotFound(_) | FetchError::Refused { .. }) => return result,
+            Err(_) if attempt < ATTEMPTS => {
+                std::thread::sleep(RETRY_DELAY * attempt);
+                attempt += 1;
+            }
+            _ => return result,
+        }
+    }
+}
+
+/// [`Fetcher::download_to`] of `url` into `path` (at most `max_bytes`), tried up to
+/// [`ATTEMPTS`] times like [`get_with_retries`]; only the transfer is retried, what was
+/// downloaded is the caller's to check. A download over the limit is not retried.
+pub(crate) fn download_with_retries(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    path: &Path,
+    max_bytes: u64,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), FetchError> {
+    let mut attempt = 1;
+    loop {
+        let result = fetcher.download_to(url, path, max_bytes, progress);
+        match result {
+            Err(
+                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+            ) => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -1520,6 +1698,128 @@ pub(crate) mod test_support {
         }
     }
 
+    /// Serves everything a Schleswig-Holstein project in `bbox` (EPSG:25832) fetches: a WMS
+    /// orthophoto of the right size with the metadata GetFeatureInfo flight date (17.03.2025),
+    /// the SH ALKIS fixtures, the SH OSM extract and the height models (see below).
+    pub fn serve_synthetic_schleswig_holstein(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+    ) {
+        use crate::sources::{alkis_wfs, lvermgeo_sh};
+        serve_schleswig_holstein_models(fetcher, bbox);
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap",
+                lvermgeo_sh::WMS.url
+            ),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        fetcher.insert_prefix(
+            "https://service.gdi-sh.de/WMS_SH_MD_DOP?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+            include_bytes!("../../../tests/fixtures/schleswig-holstein-dop-info.txt").to_vec(),
+        );
+        let service = alkis_wfs::LVERMGEO_SH;
+        for (type_name, body) in [
+            (
+                service.buildings_type,
+                alkis_wfs::test_support::SH_BUILDINGS,
+            ),
+            (service.land_use_type, alkis_wfs::test_support::SH_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    service.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let extract = crate::sources::osm::ExtractSource::SchleswigHolstein;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
+    /// Serves the LVermGeo SH height models of a Schleswig-Holstein project in `bbox`
+    /// (EPSG:25832): the Downloadportal overviews of every tile of `bbox` (DGM1 2022, flown
+    /// 2022-03-10; bDOM 2023, flown 2023-04-07), the DGM1 GeoTIFFs of the INSPIRE ATOM directory
+    /// (terrain 20 m rising 0.01 m per metre east) and the bDOM tiles at 1 m instead of 0.2 m
+    /// (surface 12 m above; test builds accept that size, and the reduction passes it through).
+    pub fn serve_schleswig_holstein_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        serve_schleswig_holstein_models_lifted(fetcher, bbox, 12.0);
+    }
+
+    /// [`serve_schleswig_holstein_models`] with the bDOM `lift` metres above the DGM1 (negative:
+    /// below it).
+    pub fn serve_schleswig_holstein_models_lifted(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+        lift: f32,
+    ) {
+        use crate::sources::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
+        let tiles = crate::tiles::tiles_covering(bbox);
+        let feature = |tile: &TileId, product: Product| {
+            let (e, n) = (tile.east_km, tile.north_km);
+            let block = format!("32{}_{}", e / 10 * 10, n / 10 * 10);
+            let properties = match product {
+                Product::Dgm1 => serde_json::json!({
+                    "title": format!("32{e:03}{n:04}"), "type": "dgm1", "jahr": "2022",
+                    "kaname": format!("dgm1_32_{e:03}_{n:04}_1_sh_2022"), "filepath": block,
+                    "a_datum": "2022-03-10",
+                }),
+                Product::Bdom => serde_json::json!({
+                    "title": format!("32{e:03}{n:04}"), "type": "bdom", "jahr": "2023",
+                    "kachel_n": format!("bdom20rgbi_32_{e:03}_{n:04}_1_sh_2023"),
+                    "kach10km": block, "filepath": format!("32{e:03}_{n:04}"),
+                    "a_datum": "2023-04-07",
+                }),
+            };
+            serde_json::json!({"type": "Feature", "properties": properties})
+        };
+        for product in [Product::Dgm1, Product::Bdom] {
+            let features: Vec<_> = tiles.iter().map(|t| feature(t, product)).collect();
+            let answer = serde_json::json!({
+                "success": true,
+                "result": {"type": "FeatureCollection", "features": features},
+            });
+            fetcher.insert_prefix(&overview_prefix(product), answer.to_string().into_bytes());
+        }
+        for tile in &tiles {
+            let (e, n) = (tile.east_km, tile.north_km);
+            let grid = crate::raster::GridSpec {
+                west: f64::from(e) * 1000.0,
+                north: f64::from(n + 1) * 1000.0,
+                pixel_size: 1.0,
+                width: 1000,
+                height: 1000,
+            };
+            let terrain: Vec<f32> = (0..1000 * 1000)
+                .map(|i| 20.0 + (i % 1000) as f32 * 0.01)
+                .collect();
+            let surface: Vec<f32> = terrain.iter().map(|z| z + lift).collect();
+            fetcher.insert(
+                &format!("{ATOM_DATA}/dgm1_32_{e:03}_{n:04}_1_sh_2022.tif"),
+                geotiff(&grid, &terrain),
+            );
+            fetcher.insert(
+                &format!(
+                    "{PORTAL}/massen.php?file=bdom20nc_32_{e:03}_{n:04}_1_sh_2023.tif&id=6\
+                     &live=2023&km=32{}_{}&stack=32{e:03}_{n:04}",
+                    e / 10 * 10,
+                    n / 10 * 10
+                ),
+                geotiff(&grid, &surface),
+            );
+        }
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();
@@ -1549,6 +1849,80 @@ pub(crate) mod test_support {
         let url = crate::sources::lgb::ndsm_tile_url(tile);
         fetcher.insert(&url, std::fs::read(&path).unwrap());
         fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+    }
+
+    /// An OSM node for [`osm_pbf`]: id, latitude, longitude, tags.
+    pub type PbfNode<'a> = (i64, f64, f64, &'a [(&'a str, &'a str)]);
+
+    /// A minimal OSM PBF (uncompressed blobs, plain nodes): the header block, then one block
+    /// with each node.
+    pub fn osm_pbf(nodes: &[PbfNode<'_>]) -> Vec<u8> {
+        fn varint(out: &mut Vec<u8>, mut v: u64) {
+            while v >= 0x80 {
+                out.push((v as u8) | 0x80);
+                v >>= 7;
+            }
+            out.push(v as u8);
+        }
+        fn zigzag(v: i64) -> u64 {
+            ((v << 1) ^ (v >> 63)) as u64
+        }
+        fn number(out: &mut Vec<u8>, field: u64, v: u64) {
+            varint(out, field << 3);
+            varint(out, v);
+        }
+        fn bytes(out: &mut Vec<u8>, field: u64, b: &[u8]) {
+            varint(out, (field << 3) | 2);
+            varint(out, b.len() as u64);
+            out.extend_from_slice(b);
+        }
+        fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
+            let mut blob = Vec::new();
+            bytes(&mut blob, 1, data);
+            number(&mut blob, 2, data.len() as u64);
+            let mut header = Vec::new();
+            bytes(&mut header, 1, kind.as_bytes());
+            number(&mut header, 3, blob.len() as u64);
+            out.extend((header.len() as u32).to_be_bytes());
+            out.extend(header);
+            out.extend(blob);
+        }
+        let mut strings: Vec<String> = vec![String::new()];
+        let mut index = |s: &str| -> u64 {
+            let at = strings.iter().position(|t| t == s).unwrap_or_else(|| {
+                strings.push(s.to_string());
+                strings.len() - 1
+            });
+            at as u64
+        };
+        let mut group = Vec::new();
+        for &(id, lat, lon, tags) in nodes {
+            let (mut keys, mut vals) = (Vec::new(), Vec::new());
+            for (k, v) in tags {
+                varint(&mut keys, index(k));
+                varint(&mut vals, index(v));
+            }
+            let mut node = Vec::new();
+            number(&mut node, 1, zigzag(id));
+            bytes(&mut node, 2, &keys);
+            bytes(&mut node, 3, &vals);
+            number(&mut node, 8, zigzag((lat * 1e7).round() as i64));
+            number(&mut node, 9, zigzag((lon * 1e7).round() as i64));
+            bytes(&mut group, 1, &node);
+        }
+        let mut table = Vec::new();
+        for s in &strings {
+            bytes(&mut table, 1, s.as_bytes());
+        }
+        let mut block = Vec::new();
+        bytes(&mut block, 1, &table);
+        bytes(&mut block, 2, &group);
+        let mut header = Vec::new();
+        bytes(&mut header, 4, b"OsmSchema-V0.6");
+        let mut file = Vec::new();
+        blob(&mut file, "OSMHeader", &header);
+        blob(&mut file, "OSMData", &block);
+        file
     }
 
     /// The OSM extract fixture cut around the school.
@@ -2405,6 +2779,63 @@ mod tests {
     }
 
     #[test]
+    fn download_over_the_limit_is_an_error_and_removed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("downloads/tile.part");
+        // In-memory (the trait's default), then streamed over HTTP.
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.test/tile", vec![b'x'; 10_000]);
+        fetcher
+            .download_to("https://example.test/tile", &path, 10_000, &mut |_| {})
+            .unwrap();
+        assert_eq!(std::fs::read(&path).unwrap().len(), 10_000);
+        let err = fetcher
+            .download_to("https://example.test/tile", &path, 9_999, &mut |_| {})
+            .unwrap_err();
+        assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+        assert!(!path.exists());
+        for length in [true, false] {
+            let (url, connections) = if length {
+                answering("200 OK", vec![b'x'; 300_000])
+            } else {
+                streaming_without_length(vec![b'x'; 300_000])
+            };
+            let mut messages = Vec::new();
+            let err = download_with_retries(&HttpFetcher::new(), &url, &path, 200_000, &mut |m| {
+                messages.push(m.to_string())
+            })
+            .unwrap_err();
+            assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+            assert!(err.to_string().contains("larger than"), "{err}");
+            assert!(!path.exists(), "length {length}");
+            // Asking again does not make it smaller.
+            assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+        }
+    }
+
+    /// A server answering every request with `body` without a Content-Length.
+    fn streaming_without_length(
+        body: Vec<u8>,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/big.tif", listener.local_addr().unwrap());
+        let connections = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(stream, "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n");
+                let _ = stream.write_all(&body);
+            }
+        });
+        (url, connections)
+    }
+
+    #[test]
     fn ignored_range_is_not_retried() {
         let (url, connections) = answering("200 OK", vec![b'x'; 10_000]);
         let err = get_range_with_retries(
@@ -2559,5 +2990,208 @@ mod tests {
             .unwrap();
         let table = parse_currency_csv(&String::from_utf8(text).unwrap()).unwrap();
         assert!(table.contains_key(&TILE));
+    }
+
+    /// SHA-256 fingerprints (as `openssl x509 -fingerprint -sha256` prints them) of the bundled
+    /// intermediate and root.
+    const INTERMEDIATE_SHA256: &str = "19:9A:B2:AA:AF:FF:40:40:1E:0A:3B:7B:87:EE:99:64:65:9E:FF:A9:\
+                                       4A:1F:EC:BE:91:8A:E1:36:E4:B4:E0:A8";
+    const ROOT_SHA256: &str = "E5:9A:AA:81:60:09:C2:2B:FF:5B:25:BA:D3:7D:F3:06:F0:49:79:7C:1F:81:\
+                               D8:5A:B0:89:E6:57:BD:8F:00:44";
+
+    const PORTAL_OVERVIEW: &str = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/\
+        dladownload/_ajax/overview.php?bbox=565100,5949100,565300,5949300&crs=EPSG:25832\
+        &type[]=dgm1";
+
+    fn fingerprint(der: &[u8]) -> String {
+        use sha2::Digest as _;
+        sha2::Sha256::digest(der)
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect::<Vec<_>>()
+            .join(":")
+    }
+
+    fn root_certs(agent: &ureq::Agent) -> &ureq::tls::RootCerts {
+        agent.config().tls_config().root_certs()
+    }
+
+    fn same_timeouts(a: &ureq::Agent, b: &ureq::Agent) -> bool {
+        let (a, b) = (a.config().timeouts(), b.config().timeouts());
+        (a.connect, a.recv_response, a.recv_body) == (b.connect, b.recv_response, b.recv_body)
+    }
+
+    #[test]
+    fn portal_host_uses_the_bundled_anchors() {
+        let anchors: Vec<_> = portal_anchors()
+            .iter()
+            .map(|cert| fingerprint(cert.der()))
+            .collect();
+        assert_eq!(
+            anchors,
+            [
+                INTERMEDIATE_SHA256.replace(' ', ""),
+                ROOT_SHA256.replace(' ', "")
+            ]
+        );
+        let fetcher = HttpFetcher::new();
+        for url in [
+            PORTAL_OVERVIEW,
+            "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?\
+             file=bdom20nc_32_565_5949_1_sh_2023.tif&id=6&live=2023&km=32560_5940&stack=32565_5949",
+            "https://GEODATEN.Schleswig-Holstein.de/",
+            "https://geodaten.schleswig-holstein.de:443/x",
+            "http://geodaten.schleswig-holstein.de/x",
+            // A fully qualified name is the same host.
+            "https://geodaten.schleswig-holstein.de./x",
+        ] {
+            assert_eq!(trust_for(url), Trust::PortalAnchors, "{url}");
+            let agents = fetcher.agents(url);
+            for (agent, default) in [
+                (&agents.normal, &fetcher.default.normal),
+                (&agents.large, &fetcher.default.large),
+            ] {
+                let ureq::tls::RootCerts::Specific(certs) = root_certs(agent) else {
+                    panic!("{url}: {:?}", root_certs(agent));
+                };
+                let pinned: Vec<_> = certs.iter().map(|c| fingerprint(c.der())).collect();
+                assert_eq!(pinned, anchors, "{url}");
+                assert!(!agent.config().tls_config().disable_verification());
+                assert!(same_timeouts(agent, default), "{url}");
+            }
+        }
+    }
+
+    #[test]
+    fn other_hosts_keep_the_default_roots() {
+        let fetcher = HttpFetcher::new();
+        for url in [
+            "https://geodaten.schleswig-holstein.de.evil.example/x",
+            "https://xgeodaten.schleswig-holstein.de/x",
+            "https://evil.geodaten.schleswig-holstein.de/x",
+            "https://geodaten.schleswig-holstein.de@evil.example/x",
+            "https://evil.example/geodaten.schleswig-holstein.de/x",
+            "https://evil.example/?next=https://geodaten.schleswig-holstein.de/",
+            "https://service.gdi-sh.de/INSPIRE_Atom/EL/data/dgm1_32_565_5949_1_sh_2022.tif",
+            "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
+            "https://opendata.schleswig-holstein.de/api/3/action/package_show",
+            "geodaten.schleswig-holstein.de",
+            "https://geodaten.schleswig-holstein.de../x",
+            "https://geodaten.schleswig-holstein.de.evil./x",
+            "not a url",
+        ] {
+            assert_eq!(trust_for(url), Trust::DefaultRoots, "{url}");
+            let agents = fetcher.agents(url);
+            for agent in [&agents.normal, &agents.large] {
+                assert!(
+                    matches!(root_certs(agent), ureq::tls::RootCerts::WebPki),
+                    "{url}: {:?}",
+                    root_certs(agent)
+                );
+                assert!(!agent.config().tls_config().disable_verification());
+            }
+        }
+        // The default agents are configured as before the portal agents existed.
+        let plain: ureq::Agent = ureq::Agent::config_builder().build().into();
+        for agent in [&fetcher.default.normal, &fetcher.default.large] {
+            assert_eq!(
+                format!("{:?}", agent.config().tls_config()),
+                format!("{:?}", plain.config().tls_config())
+            );
+        }
+    }
+
+    #[test]
+    fn portal_agents_follow_no_redirects() {
+        let fetcher = HttpFetcher::new();
+        for agent in [&fetcher.portal.normal, &fetcher.portal.large] {
+            assert_eq!(agent.config().max_redirects(), 0);
+        }
+        // The other hosts follow redirects as before.
+        let plain: ureq::Agent = ureq::Agent::config_builder().build().into();
+        for agent in [&fetcher.default.normal, &fetcher.default.large] {
+            assert_eq!(
+                agent.config().max_redirects(),
+                plain.config().max_redirects()
+            );
+        }
+        // A redirect the portal agents return is an error naming the host, for every kind of
+        // request (here a local server stands in for the portal).
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/massen.php", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 302 Found\r\nLocation: https://evil.example/x\r\n\
+                     Content-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+            }
+        });
+        let pinned = HttpFetcher {
+            default: Agents {
+                normal: fetcher.portal.normal.clone(),
+                large: fetcher.portal.large.clone(),
+            },
+            portal: fetcher.portal,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tile.part");
+        let errors = [
+            pinned.get(&url).unwrap_err(),
+            pinned
+                .get_range(&url, ByteRange::From { start: 0, len: 4 })
+                .unwrap_err(),
+            pinned.last_modified(&url).unwrap_err(),
+            pinned
+                .download_to(&url, &path, 1000, &mut |_| {})
+                .unwrap_err(),
+        ];
+        for err in errors {
+            let text = err.to_string();
+            assert!(matches!(err, FetchError::Http { .. }), "{text}");
+            assert!(text.contains(PORTAL_HOST), "{text}");
+            assert!(
+                text.contains("redirect (HTTP 302) to https://evil.example/x"),
+                "{text}"
+            );
+        }
+        assert!(!path.exists());
+    }
+
+    /// The portal's leaf-only chain verifies with the bundled anchors.
+    #[test]
+    #[ignore = "network"]
+    fn live_portal_overview_verifies() {
+        let bytes = HttpFetcher::new().get(PORTAL_OVERVIEW).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json["success"], true, "{json}");
+        assert!(
+            json["result"]["features"]
+                .as_array()
+                .is_some_and(|f| !f.is_empty()),
+            "{json}"
+        );
+    }
+
+    /// The bundled anchors do not verify a chain to another CA (Let's Encrypt here).
+    #[test]
+    #[ignore = "network"]
+    fn live_portal_anchors_refuse_other_chains() {
+        let fetcher = HttpFetcher::new();
+        let result = fetcher
+            .portal
+            .normal
+            .get("https://opendata.schleswig-holstein.de/api/3/action/status_show")
+            .call();
+        let err = result.expect_err("a Let's Encrypt chain must not verify");
+        assert!(
+            err.to_string().to_lowercase().contains("certificate"),
+            "{err}"
+        );
     }
 }

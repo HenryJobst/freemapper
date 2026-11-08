@@ -15,7 +15,9 @@ use crate::project::{
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{ExtractSource, MAX_EXTRACT_AGE_DAYS, cached_extract_date};
-use crate::sources::region::{Provider, Region, provider_tiles, raster_region, regions_for};
+use crate::sources::region::{
+    Provider, Region, provider_tiles, raster_region, regions_for, tile_touches,
+};
 use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
@@ -24,13 +26,16 @@ const DGM_TILE_MB: f64 = 1.3;
 const NDSM_TILE_MB: f64 = 15.0;
 /// The bDOM GeoTIFF that replaces the nDOM inside Berlin.
 const BDOM_TILE_MB: f64 = 30.0;
-/// GeoSN 2 km tiles and the WMS orthophoto per km² of map area plus buffer.
+/// The WMS orthophoto per km² of map area plus buffer (all states), and GeoSN's 2 km tiles.
 const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
-const GEOSN_WMS_MB_PER_KM2: f64 = 8.0;
+const WMS_MB_PER_KM2: f64 = 8.0;
 /// A 1 m Float32 height model from the LVermGeo WCS per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
+/// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
+const SH_DGM1_TILE_MB: f64 = 1.5;
+const SH_BDOM_TILE_MB: f64 = 105.0;
 
 /// One download of a project.
 #[derive(Debug, Clone, PartialEq)]
@@ -74,7 +79,9 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         }
         // LVermGeo rasters are fetched per area (WMS, WCS).
         // HVBG rasters are fetched per area, too (no 25833 grid: Hesse has negative eastings).
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => (Vec::new(), 1),
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => {
+            (Vec::new(), 1)
+        }
     }
 }
 
@@ -88,8 +95,9 @@ fn estimate_area(
     let mut items = match raster_region(bbox).map(Region::provider) {
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
         Some(Provider::LvermGeo) => lvermgeo_items(bbox),
-        Some(Provider::Lgv) => lgv_items(bbox),
+        Some(Provider::Lgv) => lgv_items(bbox, cache),
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
+        Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -141,7 +149,7 @@ fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<Estim
     }
     items.push(EstimateItem {
         what: "orthophoto (GeoSN WMS)".to_string(),
-        megabytes: (bbox.width() * bbox.height() / 1e6 * GEOSN_WMS_MB_PER_KM2).max(0.1),
+        megabytes: (bbox.width() * bbox.height() / 1e6 * WMS_MB_PER_KM2).max(0.1),
         cached: false,
     });
     items
@@ -157,10 +165,7 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
         cached: false,
     };
     vec![
-        item(
-            "orthophoto (LVermGeo WMS)".to_string(),
-            GEOSN_WMS_MB_PER_KM2,
-        ),
+        item("orthophoto (LVermGeo WMS)".to_string(), WMS_MB_PER_KM2),
         item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
         item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
     ]
@@ -194,22 +199,29 @@ fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
 }
 
 /// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide
-/// archives (≈2 MB DGM1 and ≈4 MB bDOM per 1 km tile touched).
-fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+/// archives (≈2 MB DGM1 and ≈4 MB bDOM per 1 km tile touched, those already cached left out).
+fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     use crate::sources::lgv::Model;
-    let tiles = zone_32_tiles(bbox).len() as f64;
+    // Only tiles that can exist: every square that touches Hamburg has a (clipped) tile.
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, Region::Hamburg))
+        .collect();
+    let model_item = |model: Model, mb_per_tile: f64| {
+        let open = tiles
+            .iter()
+            .filter(|t| !model.tile_cache_file(cache, **t).exists())
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        }
+    };
     vec![
-        per_km2_item(bbox, "orthophoto (LGV WMS)", GEOSN_WMS_MB_PER_KM2),
-        EstimateItem {
-            what: Model::Dgm1.label().to_string(),
-            megabytes: tiles * 2.0,
-            cached: false,
-        },
-        EstimateItem {
-            what: Model::Bdom.label().to_string(),
-            megabytes: tiles * 4.0,
-            cached: false,
-        },
+        per_km2_item(bbox, "orthophoto (LGV WMS)", WMS_MB_PER_KM2),
+        model_item(Model::Dgm1, 2.0),
+        model_item(Model::Bdom, 4.0),
     ]
 }
 
@@ -243,7 +255,7 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (HVBG WMS)", GEOSN_WMS_MB_PER_KM2),
+        per_km2_item(bbox, "orthophoto (HVBG WMS)", WMS_MB_PER_KM2),
         model_item(Model::Dgm1, 2.1),
         model_item(Model::Dom1, 3.0),
         EstimateItem {
@@ -251,6 +263,44 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
             megabytes: 1.0,
             cached: list_cached,
         },
+    ]
+}
+
+/// LVermGeo SH: the WMS orthophoto, the DGM1 (a 1.5 MB GeoTIFF) and the bDOM (a 105 MB full-tile
+/// download, reduced to 1 m after) per whole 1 km tile that can exist inside the state, those
+/// already cached left out.
+fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
+    use crate::sources::lvermgeo_sh::{Model, cached_tile_files};
+    // Every square that touches the state has a (whole) tile.
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, Region::SchleswigHolstein))
+        .collect();
+    // A tile counts as cached only under the name its current vintage has.
+    let model_item = |model: Model, mb_per_tile: f64, what: String| {
+        let files = cached_tile_files(cache, model);
+        let open = tiles
+            .iter()
+            .filter(|t| !files.get(t).is_some_and(|file| file.exists()))
+            .count();
+        EstimateItem {
+            what,
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        }
+    };
+    vec![
+        per_km2_item(bbox, "orthophoto (LVermGeo SH WMS)", WMS_MB_PER_KM2),
+        model_item(
+            Model::Dgm1,
+            SH_DGM1_TILE_MB,
+            Model::Dgm1.label().to_string(),
+        ),
+        model_item(
+            Model::Bdom,
+            SH_BDOM_TILE_MB,
+            "surface model (LVermGeo SH bDOM, full-tile download)".to_string(),
+        ),
     ]
 }
 
@@ -744,6 +794,344 @@ mod tests {
         assert!((dgm1.megabytes - 2.1 * (n - 1.0)).abs() < 1e-9 && !dgm1.cached);
         let dom1 = item("surface model (HVBG DOM1)", &cache);
         assert!((dom1.megabytes - 3.0 * n).abs() < 1e-9);
+    }
+
+    /// 25832 E 565500 / N 5947100 as a map centre: Hamburg-Langenhorn, 600 m south of the border
+    /// to Norderstedt.
+    fn langenhorn_area(size: f64) -> crate::area::MapArea {
+        let p = crate::crs::Crs::Utm33
+            .reproject(
+                crate::crs::Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 565_500.0,
+                    northing: 5_947_100.0,
+                },
+            )
+            .unwrap();
+        let p = crate::crs::utm33_inverse(p).unwrap();
+        square(p.lon, p.lat, size)
+    }
+
+    #[test]
+    fn hamburg_estimate_counts_every_tile_touching_hamburg() {
+        use crate::sources::lgv::Model;
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let area = langenhorn_area(0.02);
+        let all = zone_32_tiles(&area.projected_bbox().buffered(20.0));
+        // 565/5948 lies mostly in Norderstedt but touches Hamburg (its centre is not in it);
+        // 565/5949 is Schleswig-Holstein's only.
+        let at = |east_km, north_km| TileId { east_km, north_km };
+        assert!(
+            all.contains(&at(565, 5948)) && all.contains(&at(565, 5949)),
+            "{all:?}"
+        );
+        let touching = all
+            .iter()
+            .filter(|t| tile_touches(**t, Region::Hamburg))
+            .count();
+        assert!(touching < all.len());
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let find = |what: &str| {
+            preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap()
+                .clone()
+        };
+        assert!((find(Model::Dgm1.label()).megabytes - 2.0 * touching as f64).abs() < 1e-9);
+        assert!((find(Model::Bdom.label()).megabytes - 4.0 * touching as f64).abs() < 1e-9);
+    }
+
+    #[test]
+    fn schleswig_holstein_estimate_counts_tiles_mostly_in_hamburg() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The area starts at 25832 E 567700 / N 5947700 (Norderstedt) and reaches 2 km north-east.
+        let p = crate::crs::Crs::Utm33
+            .reproject(
+                crate::crs::Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 567_700.0,
+                    northing: 5_947_700.0,
+                },
+            )
+            .unwrap();
+        let p = crate::crs::utm33_inverse(p).unwrap();
+        let area = square(p.lon, p.lat, 0.02);
+        let all = zone_32_tiles(&area.projected_bbox().buffered(20.0));
+        let at = |east_km, north_km| TileId { east_km, north_km };
+        // 568/5948 is mostly Hamburg's (its centre is not in Schleswig-Holstein) but touches it;
+        // 567/5947 and 568/5947 do not.
+        assert!(
+            all.contains(&at(568, 5948)) && all.contains(&at(567, 5947)),
+            "{all:?}"
+        );
+        let touching = all
+            .iter()
+            .filter(|t| crate::sources::region::tile_touches(**t, Region::SchleswigHolstein))
+            .count();
+        assert!(touching < all.len());
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let find = |prefix: &str| {
+            preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what.starts_with(prefix))
+                .unwrap()
+                .clone()
+        };
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        assert!(near(find("terrain model").megabytes, 1.5 * touching as f64));
+        assert!(near(
+            find("surface model").megabytes,
+            105.0 * touching as f64
+        ));
+    }
+
+    #[test]
+    fn schleswig_holstein_estimate_merges_all_kept_tile_lists() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 169_108.0,
+            northing: 5_960_473.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let root = cache.lvermgeo_sh_dir();
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        std::fs::create_dir_all(root.join("dgm1")).unwrap();
+        let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
+        let dgm1 = || {
+            preview_area(&area, 20.0, &cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+                .unwrap()
+        };
+        let keep = |file: &str, text: &str| {
+            std::fs::write(root.join("overview").join(file), text).unwrap();
+            // The lists are ordered by modification time.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        // The school tile 565/5949 is named only by the list of another project's area, and
+        // its file is cached: the newest list (of other tiles) does not hide it.
+        keep("dgm1_other.json", list);
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2022.tif"),
+            b"x",
+        )
+        .unwrap();
+        keep(
+            "dgm1_newest.json",
+            &list
+                .replace("565_5949", "570_5949")
+                .replace("325655949", "325705949"),
+        );
+        assert!(dgm1().cached, "{:?}", dgm1());
+        // An older list names an older vintage, the newer one the current: the newer wins, so
+        // the cached old file does not count.
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let root = cache.lvermgeo_sh_dir();
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        std::fs::create_dir_all(root.join("dgm1")).unwrap();
+        let keep = |file: &str, text: &str| {
+            std::fs::write(root.join("overview").join(file), text).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        let dgm1 = || {
+            preview_area(&area, 20.0, &cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+                .unwrap()
+        };
+        keep(
+            "dgm1_before.json",
+            &list.replace("565_5949_1_sh_2022", "565_5949_1_sh_2019"),
+        );
+        keep("dgm1_after.json", list);
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2019.tif"),
+            b"x",
+        )
+        .unwrap();
+        assert!(!dgm1().cached && dgm1().megabytes == 1.5, "{:?}", dgm1());
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2022.tif"),
+            b"x",
+        )
+        .unwrap();
+        assert!(dgm1().cached, "{:?}", dgm1());
+    }
+
+    #[test]
+    fn schleswig_holstein_estimate_needs_the_current_vintage_of_a_cached_tile() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 169_108.0,
+            northing: 5_960_473.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let tiles = zone_32_tiles(&area.projected_bbox().buffered(20.0));
+        assert_eq!(tiles.len(), 1, "{tiles:?}");
+        let t = tiles[0];
+        let root = cache.lvermgeo_sh_dir();
+        // The tile list kept from the last online run names the current files (2022).
+        let name = format!("dgm1_32_{:03}_{:04}_1_sh_2022", t.east_km, t.north_km);
+        let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
+        assert!(list.contains(&name), "{name}");
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        std::fs::write(root.join("overview").join("dgm1_1_2_3_4.json"), list).unwrap();
+        std::fs::create_dir_all(root.join("dgm1")).unwrap();
+        // Only an older vintage is cached: the tile is downloaded again.
+        std::fs::write(
+            root.join("dgm1").join(format!(
+                "dgm1_32_{:03}_{:04}_1_sh_2019.tif",
+                t.east_km, t.north_km
+            )),
+            b"x",
+        )
+        .unwrap();
+        let dgm1 = |cache: &Cache| {
+            preview_area(&area, 20.0, cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+                .unwrap()
+        };
+        assert!(!dgm1(&cache).cached && dgm1(&cache).megabytes == 1.5);
+        std::fs::write(root.join("dgm1").join(format!("{name}.tif")), b"x").unwrap();
+        assert!(dgm1(&cache).cached);
+    }
+
+    #[test]
+    fn schleswig_holstein_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Coppernicus-Gymnasium in Norderstedt, 25833 E 169108 N 5960473.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 169_108.0,
+            northing: 5_960_473.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let items = &preview.estimate.items;
+        let find = |what: &str| {
+            items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap_or_else(|| panic!("{what} in {items:?}"))
+        };
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        let tiles = zone_32_tiles(&bbox).len() as f64;
+        assert!(near(
+            find("orthophoto (LVermGeo SH WMS)").megabytes,
+            km2 * 8.0
+        ));
+        assert!(near(
+            find("terrain model (LVermGeo SH DGM1)").megabytes,
+            1.5 * tiles
+        ));
+        let bdom = find("surface model (LVermGeo SH bDOM, full-tile download)");
+        assert!(near(bdom.megabytes, 105.0 * tiles), "{bdom:?}");
+        assert!(near(
+            find("OSM extract Schleswig-Holstein (shared by all projects)").megabytes,
+            159.0
+        ));
+        assert!(
+            items
+                .iter()
+                .filter(|i| i.what.contains("LVermGeo SH"))
+                .all(|i| !i.cached)
+        );
+        // The school lies in one tile (565/5949); its current files are in the cache.
+        assert_eq!(zone_32_tiles(&bbox).len(), 1);
+        let root = cache.lvermgeo_sh_dir();
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        for (folder, list, file) in [
+            (
+                "dgm1",
+                include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json"),
+                "dgm1_32_565_5949_1_sh_2022.tif",
+            ),
+            (
+                "bdom",
+                include_str!("../../../tests/fixtures/schleswig-holstein-overview-bdom.json"),
+                "bdom20nc_32_565_5949_1_sh_2023_1m.tif",
+            ),
+        ] {
+            std::fs::write(
+                root.join("overview").join(format!("{folder}_1_2_3_4.json")),
+                list,
+            )
+            .unwrap();
+            std::fs::create_dir_all(root.join(folder)).unwrap();
+            std::fs::write(root.join(folder).join(file), b"x").unwrap();
+        }
+        let preview = preview_area(&area, 20.0, &cache, today());
+        for prefix in ["terrain model", "surface model"] {
+            let item = preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what.starts_with(prefix))
+                .unwrap();
+            assert!(item.cached && item.megabytes == 0.0, "{item:?}");
+        }
+    }
+
+    #[test]
+    fn hamburg_estimate_marks_cached_tiles() {
+        use crate::sources::lgv::Model;
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 168_078.0,
+            northing: 5_949_079.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let tiles = zone_32_tiles(&area.projected_bbox().buffered(20.0));
+        let item = |what: &str, cache: &Cache| {
+            preview_area(&area, 20.0, cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == what)
+                .unwrap()
+        };
+        let label = Model::Dgm1.label();
+        assert!(!item(label, &cache).cached);
+        // Every tile of the DGM1 in the cache, none of the bDOM.
+        let dir = cache.lgv_dir().join("dgm1").join(Model::Dgm1.release());
+        std::fs::create_dir_all(&dir).unwrap();
+        for (i, t) in tiles.iter().enumerate() {
+            std::fs::write(
+                dir.join(format!("dgm1_32_{:03}_{:04}_.tif", t.east_km, t.north_km)),
+                b"x",
+            )
+            .unwrap();
+            let dgm1 = item(label, &cache);
+            let open = (tiles.len() - i - 1) as f64;
+            assert!((dgm1.megabytes - 2.0 * open).abs() < 1e-9, "{dgm1:?}");
+            assert_eq!(dgm1.cached, open == 0.0);
+        }
+        let bdom = item(Model::Bdom.label(), &cache);
+        assert!(!bdom.cached && (bdom.megabytes - 4.0 * tiles.len() as f64).abs() < 1e-9);
     }
 
     #[test]

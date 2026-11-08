@@ -37,6 +37,8 @@ rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+# Test only: certificate fingerprints (already in Cargo.lock through a dependency).
+sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tiff = "0.11.3"
@@ -44,6 +46,8 @@ tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std",
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
+# Lenient TIFF LZW (chunks without an end code); already in Cargo.lock through tiff.
+weezl = "0.1.12"
 world_magnetic_model = "1.2025.0"
 # Pinned: newer releases are younger than two weeks.
 zip = { version = "=9.0.5", default-features = false, features = ["deflate"] }

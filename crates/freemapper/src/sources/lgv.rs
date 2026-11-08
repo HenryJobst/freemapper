@@ -2,7 +2,7 @@
 //! Geoinformation und Vermessung (LGV)"), all in EPSG:25832: ALKIS from the OGC API with its
 //! ASCII spellings normalised to the LGB ones.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
@@ -110,6 +110,20 @@ impl Model {
             Self::Dgm1 => "dgm1",
             Self::Bdom => "dom1",
         }
+    }
+
+    /// Where a tile of this model is cached: named after the tile, never the archive member.
+    pub fn tile_cache_file(self, cache: &Cache, tile: TileId) -> PathBuf {
+        cache
+            .lgv_dir()
+            .join(self.cache_name())
+            .join(self.release())
+            .join(format!(
+                "{}_32_{:03}_{:04}_.tif",
+                self.file_prefix(),
+                tile.east_km,
+                tile.north_km
+            ))
     }
 
     fn cache_name(self) -> &'static str {
