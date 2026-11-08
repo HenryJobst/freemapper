@@ -1851,9 +1851,12 @@ pub(crate) mod test_support {
         fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
     }
 
+    /// An OSM node for [`osm_pbf`]: id, latitude, longitude, tags.
+    pub type PbfNode<'a> = (i64, f64, f64, &'a [(&'a str, &'a str)]);
+
     /// A minimal OSM PBF (uncompressed blobs, plain nodes): the header block, then one block
-    /// with each node `(id, lat, lon, tags)`.
-    pub fn osm_pbf(nodes: &[(i64, f64, f64, &[(&str, &str)])]) -> Vec<u8> {
+    /// with each node.
+    pub fn osm_pbf(nodes: &[PbfNode<'_>]) -> Vec<u8> {
         fn varint(out: &mut Vec<u8>, mut v: u64) {
             while v >= 0x80 {
                 out.push((v as u8) | 0x80);
