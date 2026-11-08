@@ -435,6 +435,32 @@ mod tests {
     }
 
     #[test]
+    fn training_pdf_paints_water_under_paved_areas_and_buildings() {
+        let (r, s) = set();
+        // Painted highest priority number first, so a larger number lies lower.
+        let fill_priority = |code: &str| {
+            let p = primitives(&object(&s, code, MapObjectKind::Path, square(10_000)), &r);
+            p.iter()
+                .filter(|p| matches!(p.shape, Shape::Fill { .. }))
+                .map(|p| p.priority)
+                .max()
+                .unwrap_or_else(|| panic!("{code} has a fill"))
+        };
+        let water = fill_priority("301.1");
+        assert!(water > fill_priority("501.5"), "paved areas cover water");
+        assert!(water > fill_priority("521.3"), "buildings cover water");
+        assert!(water < fill_priority("520"), "water covers out of bounds");
+        let bank = primitives(
+            &object(&s, "301.6", MapObjectKind::Path, square(10_000)),
+            &r,
+        );
+        assert!(
+            bank.iter().all(|p| p.priority < water),
+            "the bank line is on top of the fill"
+        );
+    }
+
+    #[test]
     fn bush_is_dot_and_ring() {
         let (r, s) = set();
         let p = primitives(

@@ -12,7 +12,7 @@ use crate::project::MapKind;
 
 /// freemapper codes whose OCAD number differs from the plain `code × 1000` rule, checked against
 /// OCAD's official ISSprOM 2019-2 set (`docs/ocad/ocd12-reference.md` §9).
-const NUMBERS: [(&str, i32); 9] = [
+const NUMBERS: [(&str, i32); 11] = [
     ("501.1", 501_100),
     ("501.5", 501_001),
     ("501.10", 501_020),
@@ -22,6 +22,8 @@ const NUMBERS: [(&str, i32); 9] = [
     ("513.2", 513_200),
     ("521.1", 521_003),
     ("410.1", 411_002),
+    ("301.1", 301_001),
+    ("301.6", 301_002),
 ];
 
 /// The OCAD number of a freemapper symbol code. OCAD reads the part after the dot as a three-place
@@ -472,6 +474,29 @@ mod tests {
         }
         assert_eq!(ocad_number("abc", MapKind::Sprint), None);
         assert_eq!(ocad_number("1.2345", MapKind::Sprint), None);
+    }
+
+    #[test]
+    fn ocad_numbers_for_water() {
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            assert_eq!(ocad_number("301.1", kind), Some(301_001));
+            assert_eq!(ocad_number("301.6", kind), Some(301_002));
+            for (code, number) in [
+                ("301", 301_000),
+                ("305", 305_000),
+                ("306", 306_000),
+                ("311", 311_000),
+                ("312", 312_000),
+                ("313", 313_000),
+            ] {
+                assert_eq!(ocad_number(code, kind), Some(number), "{code}");
+            }
+            let set = kind.symbol_set();
+            let all = placeholders(&set);
+            let kind_of = |code: &str| all[&set.id_for_code(code).unwrap()].kind.clone();
+            assert!(matches!(kind_of("301.1"), PlaceholderKind::Area { .. }));
+            assert!(matches!(kind_of("301.6"), PlaceholderKind::Line { .. }));
+        }
     }
 
     #[test]

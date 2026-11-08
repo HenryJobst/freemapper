@@ -13,6 +13,7 @@ use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::water::{drop_covered_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
@@ -2651,6 +2652,17 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
+    let water = water_objects(&land_use, &project.bbox()?, &georef, &symbol_set)?;
+    // OSM ponds inside the drawn ALKIS water would only duplicate it.
+    let osm_objects = |target| -> Result<Vec<MapObject>, ProjectError> {
+        Ok(drop_covered_water(
+            stored_osm_objects(target, osm.as_ref(), &project, &area, &georef, &symbol_set)?,
+            &water.union,
+            &project.bbox()?,
+            &georef,
+            &symbol_set,
+        ))
+    };
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -2658,14 +2670,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(stored_osm_objects(
-                    Target::Candidates,
-                    osm.as_ref(),
-                    &project,
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(osm_objects(Target::Candidates)?)
                 .chain(stored_contour_objects(
                     dir,
                     &project,
@@ -2674,6 +2679,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                     &symbol_set,
                 )?)
                 .chain(paved.candidates)
+                .chain(water.candidates)
                 .chain(stored_out_of_bounds_objects(
                     &land_use,
                     &project,
@@ -2718,14 +2724,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     });
     let mut map_objects = building_objects;
     map_objects.extend(paved.map);
-    map_objects.extend(stored_osm_objects(
-        Target::Map,
-        osm.as_ref(),
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
+    map_objects.extend(water.map);
+    map_objects.extend(osm_objects(Target::Map)?);
     let buildings_part = MapPart {
         name: "default part".to_string(),
         objects: map_objects,
@@ -7314,6 +7314,78 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000031</t>"#));
+    }
+
+    /// One 30 m lake parcel in the stored land use, and two OSM ponds as closed ways: one inside
+    /// the lake, one clear of it.
+    fn store_lake_and_ponds(dir: &Path) {
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let lake = land_use_feature(
+            "DEBBAL0100000040",
+            "Stehendes Gewässer",
+            None,
+            [421_560.0, 5_821_690.0, 30.0],
+        );
+        std::fs::write(dir.join(LAND_USE_RELPATH), page(&[lake], None)).unwrap();
+        let pond = |id: &str, e: f64, n: f64| crate::sources::osm::OsmFeature {
+            id: id.to_string(),
+            tags: [("natural".to_string(), "water".to_string())]
+                .into_iter()
+                .collect(),
+            geometry: crate::sources::osm::OsmGeometry::Line(
+                [
+                    (0.0, 0.0),
+                    (10.0, 0.0),
+                    (10.0, 10.0),
+                    (0.0, 10.0),
+                    (0.0, 0.0),
+                ]
+                .into_iter()
+                .map(|(de, dn)| lat_lon_at(e + de, n + dn))
+                .collect(),
+            ),
+        };
+        let features = [
+            pond("way/10", 421_570.0, 5_821_700.0),
+            pond("way/11", 421_620.0, 5_821_700.0),
+        ];
+        std::fs::write(
+            dir.join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn export_adds_water_to_both_map_kinds() {
+        let fetcher = MapFetcher::default();
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.map_kind = kind;
+            project.scale_denominator = if kind == MapKind::Sprint { 4000 } else { 1000 };
+            project.save(dir.path()).unwrap();
+            store_lake_and_ponds(dir.path());
+            let map = std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap())
+                .unwrap();
+            let set = kind.symbol_set();
+            let (fill, bank) = (
+                set.id_for_code("301.1").unwrap(),
+                set.id_for_code("301.6").unwrap(),
+            );
+            assert_eq!(symbols_of(&map, "DEBBAL0100000040").len(), 2, "{kind:?}");
+            assert!(map.contains(&format!(r#"symbol="{fill}""#)), "{kind:?}");
+            assert!(map.contains(&format!(r#"symbol="{bank}""#)), "{kind:?}");
+            let candidates =
+                std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+            let pond = set.id_for_code("301").unwrap();
+            assert_eq!(
+                symbols_of(&candidates, "way/10"),
+                Vec::<u32>::new(),
+                "{kind:?}: the pond inside the lake is dropped"
+            );
+            assert_eq!(symbols_of(&candidates, "way/11"), [pond], "{kind:?}");
+        }
     }
 
     #[test]
