@@ -67,8 +67,8 @@ pub fn out_of_bounds_objects(
 /// The clip window for land use objects (map area plus buffer) and the sliver limits.
 pub(crate) struct LandClip {
     pub(crate) polygon: Polygon<f64>,
-    pub(crate) min_area: f64,
-    pub(crate) min_width: f64,
+    min_area: f64,
+    min_width: f64,
 }
 
 impl LandClip {
@@ -84,6 +84,31 @@ impl LandClip {
             min_width: MIN_SIDE_MM * metres_per_mm,
         }
     }
+
+    /// `polygon` is a sliver: smaller than (1 mm)², or narrower than 1 mm on paper or than
+    /// `width_cap_m` on the ground, whichever is less (`f64::INFINITY`: the paper limit alone,
+    /// `0.0`: no width limit).
+    pub(crate) fn is_sliver(&self, polygon: &Polygon<f64>, width_cap_m: f64) -> bool {
+        polygon.unsigned_area() < self.min_area
+            || mean_width(polygon) < self.min_width.min(width_cap_m)
+    }
+}
+
+/// Mean width of a polygon: 2·area/perimeter, holes included.
+pub(crate) fn mean_width(polygon: &Polygon<f64>) -> f64 {
+    let perimeter: f64 = std::iter::once(polygon.exterior())
+        .chain(polygon.interiors())
+        .map(|r| geo::Euclidean.length(r))
+        .sum();
+    2.0 * polygon.unsigned_area() / perimeter.max(f64::MIN_POSITIVE)
+}
+
+/// The land use's class as tagged: `nutzart / bez`, or `nutzart` alone.
+pub(crate) fn nutzart_label(land: &LandUse) -> String {
+    match &land.bez {
+        Some(bez) => format!("{} / {bez}", land.nutzart),
+        None => land.nutzart.clone(),
+    }
 }
 
 /// Area objects with `symbol_id` for the pieces of `part` (a part of `land`) inside the clip
@@ -97,13 +122,7 @@ pub(crate) fn clipped_part_objects(
 ) -> Result<Vec<MapObject>, GeorefError> {
     let mut objects = Vec::new();
     for piece in part.intersection(&clip.polygon).0 {
-        let piece_area = piece.unsigned_area();
-        let perimeter: f64 = std::iter::once(piece.exterior())
-            .chain(piece.interiors())
-            .map(|r| geo::Euclidean.length(r))
-            .sum();
-        let width = 2.0 * piece_area / perimeter.max(f64::MIN_POSITIVE);
-        if piece_area < clip.min_area || width < clip.min_width {
+        if clip.is_sliver(&piece, f64::INFINITY) {
             continue;
         }
         let mut coords = Vec::new();
@@ -121,14 +140,10 @@ pub(crate) fn clipped_part_objects(
                 .collect::<Result<Vec<_>, _>>()?;
             coords.extend(closed_ring(&points));
         }
-        let nutzart = match &land.bez {
-            Some(bez) => format!("{} / {bez}", land.nutzart),
-            None => land.nutzart.clone(),
-        };
         let mut tags = vec![
             ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
             ("freemapper:source_id".to_string(), land.oid.clone()),
-            ("freemapper:nutzart".to_string(), nutzart),
+            ("freemapper:nutzart".to_string(), nutzart_label(land)),
         ];
         if let Some(updated) = land.updated {
             tags.push(("freemapper:currency".to_string(), updated.to_string()));

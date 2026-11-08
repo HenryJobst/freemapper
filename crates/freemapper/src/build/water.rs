@@ -5,12 +5,10 @@
 //! never along a parcel boundary or the clip edge (the map edge).
 
 use geo::orient::Direction;
-use geo::{
-    Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, Length as _, Orient as _,
-};
+use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, Orient as _};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 
-use crate::build::out_of_bounds::LandClip;
+use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
@@ -43,8 +41,8 @@ pub struct WaterObjects {
     pub map: Vec<MapObject>,
     /// The same for parts narrower than [`NARROW_WATER_M`]: ditches, or slivers of a river.
     pub candidates: Vec<MapObject>,
-    /// The dissolved wide water parts, unclipped, in the map's CRS; OSM water areas inside it
-    /// are duplicates.
+    /// The 301.1 areas of `map` as drawn (clipped, slivers and sliver holes dropped), in the
+    /// map's CRS; OSM water areas inside it are duplicates.
     pub union: MultiPolygon<f64>,
 }
 
@@ -85,29 +83,27 @@ pub fn water_objects(
             }
         }
     }
-    let union = dissolve(&wide);
     let clipper = Clipper {
         clip: &land_clip,
         bbox: clip,
         georef,
         symbols,
     };
+    // Wide water is no sliver down to 2 m on the ground, even where 1 mm on paper is more
+    // (4 m at 1:4000): a mill stream or a small pond stays on the map. A candidate is narrow by
+    // definition, so only the area limit drops it.
+    let (map, drawn) = clipper.objects(&dissolve(&wide), &wide, NARROW_WATER_M)?;
+    let (candidates, _) = clipper.objects(&dissolve(&narrow), &narrow, 0.0)?;
     Ok(WaterObjects {
-        map: clipper.objects(&union, &wide, true)?,
-        candidates: clipper.objects(&dissolve(&narrow), &narrow, false)?,
-        union,
+        map,
+        candidates,
+        union: MultiPolygon(drawn),
     })
 }
 
 /// The union of `parts`: one shape per connected body of water.
 fn dissolve(parts: &[Part]) -> MultiPolygon<f64> {
     geo::unary_union(parts.iter().map(|(_, part)| part))
-}
-
-/// Mean width of a polygon: 2·area/perimeter, holes included.
-fn mean_width(polygon: &Polygon<f64>) -> f64 {
-    let perimeter: f64 = rings(polygon).map(|r| geo::Euclidean.length(r)).sum();
-    2.0 * polygon.unsigned_area() / perimeter.max(f64::MIN_POSITIVE)
 }
 
 fn rings(polygon: &Polygon<f64>) -> impl Iterator<Item = &LineString<f64>> {
@@ -129,29 +125,37 @@ struct Clipper<'a> {
 
 impl Clipper<'_> {
     /// Fill and bank line objects for the pieces of `shape` inside the clip window, tagged with
-    /// the parcels of `sources` they come from. Slivers are dropped: whole pieces and holes
-    /// under (1 mm)² or narrower than 1 mm on paper. A candidate is narrow by definition, so
-    /// only the area limit drops it.
+    /// the parcels of `sources` they come from, and the pieces drawn.
+    ///
+    /// Slivers are dropped (`LandClip::is_sliver`): pieces with the width limit capped at
+    /// `width_cap_m`, and holes with the paper limit alone. The hole test uses the mean width
+    /// 2·area/perimeter, which is the radius of a round island, so islands up to about 2 mm
+    /// across on paper (8 m at 1:4000) are filled. Such an island inside uncrossable water is
+    /// unreachable anyway; the test is meant for gaps between parcels that do not quite meet.
     fn objects(
         &self,
         shape: &MultiPolygon<f64>,
         sources: &[Part],
-        wide: bool,
-    ) -> Result<Vec<MapObject>, GeorefError> {
+        width_cap_m: f64,
+    ) -> Result<(Vec<MapObject>, Vec<Polygon<f64>>), GeorefError> {
         let mut objects = Vec::new();
+        let mut drawn = Vec::new();
         if shape.0.is_empty() {
-            return Ok(objects);
+            return Ok((objects, drawn));
         }
         for piece in shape.intersection(&self.clip.polygon).0 {
-            // Gaps between parcels that do not quite meet are holes, but no islands.
             let islands = piece
                 .interiors()
                 .iter()
-                .filter(|hole| !self.is_sliver(&Polygon::new((*hole).clone(), vec![]), true))
+                .filter(|hole| {
+                    !self
+                        .clip
+                        .is_sliver(&Polygon::new((*hole).clone(), vec![]), f64::INFINITY)
+                })
                 .cloned()
                 .collect();
             let piece = Polygon::new(piece.exterior().clone(), islands);
-            if self.is_sliver(&piece, wide) {
+            if self.clip.is_sliver(&piece, width_cap_m) {
                 continue;
             }
             let tags = provenance(
@@ -177,13 +181,9 @@ impl Clipper<'_> {
             for coords in banks {
                 objects.push(self.path(self.symbols.bank, coords, &tags));
             }
+            drawn.push(piece);
         }
-        Ok(objects)
-    }
-
-    fn is_sliver(&self, polygon: &Polygon<f64>, check_width: bool) -> bool {
-        polygon.unsigned_area() < self.clip.min_area
-            || (check_width && mean_width(polygon) < self.clip.min_width)
+        Ok((objects, drawn))
     }
 
     fn to_map(&self, coords: &[Coord<f64>]) -> Result<Vec<(i32, i32)>, GeorefError> {
@@ -227,10 +227,7 @@ fn provenance<'a>(lands: impl Iterator<Item = &'a LandUse>) -> Vec<(String, Stri
     let mut currency = None;
     for land in lands {
         oids.push(land.oid.clone());
-        nutzarten.push(match &land.bez {
-            Some(bez) => format!("{} / {bez}", land.nutzart),
-            None => land.nutzart.clone(),
-        });
+        nutzarten.push(nutzart_label(land));
         currency = currency.max(land.updated);
     }
     for list in [&mut oids, &mut nutzarten] {
@@ -558,6 +555,39 @@ mod tests {
     }
 
     #[test]
+    fn three_metre_stream_is_drawn() {
+        let f = fixture();
+        // 3 m is wide water, but under 1 mm (4 m) on paper at 1:4000. The 0.5 m left of a lake
+        // inside the clip window is a sliver.
+        let land_use = [
+            land(
+                "DEBBAL01",
+                "Fließgewässer",
+                None,
+                vec![rect(&f, -30.0, 20.0, 60.0, 3.0)],
+            ),
+            land(
+                "DEBBAL02",
+                "Stehendes Gewässer",
+                None,
+                vec![rect(&f, 149.5, -20.0, 100.0, 40.0)],
+            ),
+        ];
+        let (objects, set) = water(&f, &land_use);
+        assert!(objects.candidates.is_empty());
+        let fills = with_code(&objects.map, &set, "301.1");
+        assert_eq!(fills.len(), 1);
+        assert_eq!(tag(fills[0], "freemapper:source_id"), Some("DEBBAL01"));
+        assert_eq!(with_code(&objects.map, &set, "301.6").len(), 1);
+        // The union is what is drawn: the stream, not the lake's sliver.
+        assert!(
+            (objects.union.unsigned_area() - 180.0).abs() < 1e-6,
+            "{}",
+            objects.union.unsigned_area()
+        );
+    }
+
+    #[test]
     fn sliver_gaps_inside_water_are_dropped() {
         let f = fixture();
         // Two parcels of a lake around a third that leaves a 5 cm gap: a hole that is no island.
@@ -743,7 +773,8 @@ mod tests {
             vec![bowtie, point, flat, empty],
         )];
         let (objects, _) = water(&f, &land_use);
-        assert!(objects.map.len() <= 4);
+        assert!(objects.map.is_empty() && objects.candidates.is_empty());
+        assert!(objects.union.0.is_empty());
     }
 
     #[test]
