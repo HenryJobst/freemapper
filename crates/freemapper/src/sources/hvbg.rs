@@ -70,6 +70,10 @@ pub struct HeightModel {
     pub missing: Vec<TileId>,
     /// The flight date (`YYYY-MM-DD`) of the tile at the centre of the area.
     pub date: Option<String>,
+    /// Places of the metadata list without a district or file in the Downloadcenter (such as a
+    /// gemeindefrei area), as `<municipality> (<district>)`; their tiles came from other zips or
+    /// are missing.
+    pub unresolved: Vec<String>,
 }
 
 /// A municipality and its district, as the metadata list names them.
@@ -499,9 +503,12 @@ struct Session<'a> {
     /// The district nodes of the product tree (online only).
     districts: Vec<String>,
     listings: HashMap<String, Rc<Files>>,
-    zips: HashMap<String, Rc<Zip>>,
+    /// The zip of each place looked up, `None` for a place without a district or file.
+    zips: HashMap<String, Option<Rc<Zip>>>,
     /// The places whose zip could not be read in this run, with the error.
     failed: HashMap<String, FetchError>,
+    /// The places without a district or file, as `<municipality> (<district>)`.
+    unresolved: Vec<String>,
 }
 
 /// The metadata list (`Metadaten_DGM-DOM_<Monat>-<Jahr>.xlsx`) kept in `dir` under its release
@@ -555,10 +562,19 @@ fn metadata_list(
     Ok(index)
 }
 
-/// `e` once more, for a place that failed earlier in the run.
+/// `e` once more, for a place that failed earlier in the run: the same kind with the same URL
+/// or path (only the kinds a zip read cannot produce keep just their text).
 fn again(e: &FetchError) -> FetchError {
     match e {
         FetchError::Http { url, message } => FetchError::Http {
+            url: url.clone(),
+            message: message.clone(),
+        },
+        FetchError::Io(path, error) => FetchError::Io(
+            path.clone(),
+            std::io::Error::new(error.kind(), error.to_string()),
+        ),
+        FetchError::CorruptArchive { url, message } => FetchError::CorruptArchive {
             url: url.clone(),
             message: message.clone(),
         },
@@ -567,7 +583,17 @@ fn again(e: &FetchError) -> FetchError {
             url: url.clone(),
             status: *status,
         },
-        other => refused(REST_URL, other.to_string()),
+        FetchError::RangeIgnored { url, range, status } => FetchError::RangeIgnored {
+            url: url.clone(),
+            range: range.clone(),
+            status: *status,
+        },
+        FetchError::TilesNotCovered(tiles) => FetchError::TilesNotCovered(tiles.clone()),
+        FetchError::MissingOffline(product, tiles) => {
+            FetchError::MissingOffline(*product, tiles.clone())
+        }
+        FetchError::OsmExtractMissing => FetchError::OsmExtractMissing,
+        FetchError::CurrencyCsv(_) | FetchError::Alkis(_) => refused(REST_URL, e.to_string()),
     }
 }
 
@@ -600,6 +626,7 @@ impl<'a> Session<'a> {
             listings: HashMap::new(),
             zips: HashMap::new(),
             failed: HashMap::new(),
+            unresolved: Vec::new(),
         })
     }
 
@@ -610,8 +637,9 @@ impl<'a> Session<'a> {
 
     /// The GeoTIFF of `tile` from the first zip of its municipalities that holds it (zips whose
     /// directory is already read first, those that failed last); `None` when every zip was read
-    /// and none holds it. A zip that could not be read is an error unless another one has the
-    /// tile, so a server failure never turns into a silently empty tile.
+    /// (places without a zip skipped) and none holds it. A zip that could not be read is an error
+    /// unless another one has the tile, so a server failure never turns into a silently empty
+    /// tile.
     fn tile(&mut self, tile: TileId) -> Result<Option<Vec<u8>>, FetchError> {
         let Some(record) = self.index.get(tile) else {
             return Ok(None);
@@ -633,7 +661,9 @@ impl<'a> Session<'a> {
         let mut failure = None;
         for place in &places {
             let zip = match self.zip(place) {
-                Ok(zip) => zip,
+                Ok(Some(zip)) => zip,
+                // No zip of this place exists: other places may still hold the tile.
+                Ok(None) => continue,
                 Err(e) => {
                     failure.get_or_insert(e);
                     continue;
@@ -657,12 +687,13 @@ impl<'a> Session<'a> {
         failure.map_or(Ok(None), Err)
     }
 
-    /// The zip of `place`, its directory read once per run and kept for offline runs; a place
-    /// that failed is not tried again in the run.
-    fn zip(&mut self, place: &Place) -> Result<Rc<Zip>, FetchError> {
+    /// The zip of `place`, its directory read once per run and kept for offline runs; `None`
+    /// for a place without a district or file in the Downloadcenter (noted in
+    /// [`Self::unresolved`]). A place that failed is not tried again in the run.
+    fn zip(&mut self, place: &Place) -> Result<Option<Rc<Zip>>, FetchError> {
         let key = place.cache_key();
         if let Some(zip) = self.zips.get(&key) {
-            return Ok(Rc::clone(zip));
+            return Ok(zip.clone());
         }
         if let Some(e) = self.failed.get(&key) {
             return Err(again(e));
@@ -670,24 +701,46 @@ impl<'a> Session<'a> {
         let zip = self.read_zip(place, &key).inspect_err(|e| {
             self.failed.insert(key.clone(), again(e));
         })?;
-        let zip = Rc::new(zip);
-        self.zips.insert(key, Rc::clone(&zip));
+        let zip = zip.map(Rc::new);
+        if zip.is_none() {
+            let name = format!("{} ({})", place.municipality, place.district);
+            if !self.unresolved.contains(&name) {
+                self.unresolved.push(name);
+            }
+        }
+        self.zips.insert(key, zip.clone());
         Ok(zip)
     }
 
-    fn read_zip(&mut self, place: &Place, key: &str) -> Result<Zip, FetchError> {
-        // The member count (u16, little-endian), then the central directory.
+    fn read_zip(&mut self, place: &Place, key: &str) -> Result<Option<Zip>, FetchError> {
+        // The member count (u16, little-endian), then the central directory; or a marker that
+        // the place has no zip, so offline runs know it too.
         let file = self.dir.join("zips").join(format!("{key}.bin"));
+        let no_zip = self.dir.join("zips").join(format!("{key}.none"));
+        let remove = |path: &Path| match std::fs::remove_file(path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(FetchError::Io(path.to_path_buf(), e))
+            }
+            _ => Ok(()),
+        };
         Ok(match self.mode {
             FetchMode::Online => {
-                let url = self.zip_url(place)?;
+                let Some(url) = self.zip_url(place)? else {
+                    write_atomically(&no_zip, b"")?;
+                    remove(&file)?;
+                    return Ok(None);
+                };
                 let (directory, count) = read_directory_bytes(self.fetcher, &url)?;
                 let members = parse_directory(&directory, count).map_err(|m| refused(&url, m))?;
                 // Kept only once it parsed, so a broken answer never replaces a good copy.
                 write_atomically(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
-                Zip { url, members }
+                remove(&no_zip)?;
+                Some(Zip { url, members })
             }
             FetchMode::Offline => {
+                if !file.exists() && no_zip.exists() {
+                    return Ok(None);
+                }
                 let hint =
                     || offline_hint(&format!("{} of {}", self.model.label(), place.municipality));
                 let cached = std::fs::read(&file).map_err(|_| hint())?;
@@ -695,27 +748,19 @@ impl<'a> Session<'a> {
                 let url = file.display().to_string();
                 let members = parse_directory(directory, u16::from_le_bytes([count[0], count[1]]))
                     .map_err(|m| refused(&url, m))?;
-                Zip { url, members }
+                Some(Zip { url, members })
             }
         })
     }
 
     /// The current URL of the zip of `place`: its district in the product tree, then its file
-    /// in the district's listing.
-    fn zip_url(&mut self, place: &Place) -> Result<String, FetchError> {
+    /// in the district's listing; `None` when either has no unique match.
+    fn zip_url(&mut self, place: &Place) -> Result<Option<String>, FetchError> {
         let product = self.model.product();
-        let district = best_match(&self.districts, &place.district)
-            .map(|i| self.districts[i].clone())
-            .ok_or_else(|| {
-                refused(
-                    &tree_url(self.model),
-                    format!(
-                        "no unique district of the Downloadcenter matches \"{}\" of the metadata list (districts: {})",
-                        place.district,
-                        self.districts.join(", ")
-                    ),
-                )
-            })?;
+        let Some(district) = best_match(&self.districts, &place.district) else {
+            return Ok(None);
+        };
+        let district = self.districts[district].clone();
         let files = match self.listings.get(&district) {
             Some(files) => Rc::clone(files),
             None => {
@@ -728,18 +773,7 @@ impl<'a> Session<'a> {
             .iter()
             .map(|(name, _)| file_key(name, self.model))
             .collect();
-        let at = best_match(&keys, &place.municipality).ok_or_else(|| {
-            let names: Vec<&str> = files.iter().map(|(name, _)| name.as_str()).collect();
-            refused(
-                &listing_url(product, &district, 1),
-                format!(
-                    "no unique file of {district} matches \"{}\" of the metadata list (files: {})",
-                    place.municipality,
-                    names.join(", ")
-                ),
-            )
-        })?;
-        Ok(files[at].1.clone())
+        Ok(best_match(&keys, &place.municipality).map(|at| files[at].1.clone()))
     }
 }
 
@@ -799,6 +833,7 @@ pub fn fetch_model(
     Ok(HeightModel {
         missing,
         date: session.date(centre),
+        unresolved: session.unresolved,
     })
 }
 
@@ -1273,7 +1308,8 @@ mod tests {
             fetched,
             HeightModel {
                 missing: Vec::new(),
-                date: Some("2023-02-28".to_string())
+                date: Some("2023-02-28".to_string()),
+                unresolved: Vec::new(),
             }
         );
         let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
@@ -1737,5 +1773,122 @@ mod tests {
         });
         let err = parse_tree(tree.to_string().as_bytes()).unwrap_err();
         assert!(err.contains("product id"), "{err}");
+    }
+
+    /// A gemeindefrei area of Rheingau-Taunus with no file, and a place in a district the
+    /// (trimmed) tree does not have.
+    const NO_FILE: (&str, &str) = ("Gutsbezirk Reinhardswald", "Rheingau-Taunus");
+    const NO_DISTRICT: (&str, &str) = ("Grebenhain", "Vogelsberg");
+
+    fn fetch_taunus(
+        fetcher: &MapFetcher,
+        cache: &Cache,
+        mode: FetchMode,
+        out: &Path,
+    ) -> Result<HeightModel, FetchError> {
+        let bbox = BoundingBox {
+            min_e: 445_500.0,
+            min_n: 5_554_500.0,
+            max_e: 446_500.0,
+            max_n: 5_554_600.0,
+        };
+        fetch_model(fetcher, cache, mode, Model::Dgm1, &bbox, out)
+    }
+
+    #[test]
+    fn gemeindefrei_place_is_skipped_not_fatal() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_taunus(
+            &fetcher,
+            &[],
+            &[tile(445, 5554), tile(446, 5554)],
+            &[
+                (tile(445, 5554), NO_FILE),
+                (tile(445, 5554), NO_DISTRICT),
+                (tile(445, 5554), TS),
+                (tile(446, 5554), NO_FILE),
+                (tile(446, 5554), TS),
+            ],
+        );
+        let out = dir.path().join("o.tif");
+        let fetched = fetch_taunus(&fetcher, &cache, FetchMode::Online, &out).unwrap();
+        assert_eq!(fetched.missing, []);
+        assert_eq!(
+            fetched.unresolved,
+            [
+                "Gutsbezirk Reinhardswald (Rheingau-Taunus)",
+                "Grebenhain (Vogelsberg)"
+            ]
+        );
+        let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
+        assert_eq!(raster.get(250, 50), 2.0);
+        // Offline the same: the unresolvable places are remembered, not "not cached".
+        let offline =
+            fetch_taunus(&MapFetcher::default(), &cache, FetchMode::Offline, &out).unwrap();
+        assert_eq!(offline, fetched);
+    }
+
+    #[test]
+    fn only_unresolvable_places_make_the_tile_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_taunus(
+            &fetcher,
+            &[],
+            &[tile(446, 5554)],
+            &[
+                (tile(445, 5554), NO_FILE),
+                (tile(445, 5554), NO_DISTRICT),
+                (tile(446, 5554), TS),
+            ],
+        );
+        let fetched = fetch_taunus(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert_eq!(fetched.missing, [tile(445, 5554)]);
+        assert_eq!(
+            fetched.unresolved,
+            [
+                "Gutsbezirk Reinhardswald (Rheingau-Taunus)",
+                "Grebenhain (Vogelsberg)"
+            ]
+        );
+    }
+
+    #[test]
+    fn replayed_errors_keep_their_url() {
+        for e in [
+            FetchError::Http {
+                url: "https://gds.hessen.de/a.zip".to_string(),
+                message: "503".to_string(),
+            },
+            FetchError::Io(
+                std::path::PathBuf::from("/cache/hvbg/dgm1/zips/x.bin"),
+                std::io::Error::other("disk full"),
+            ),
+            FetchError::CorruptArchive {
+                url: "https://gds.hessen.de/a.zip".to_string(),
+                message: "short".to_string(),
+            },
+            FetchError::RangeIgnored {
+                url: "https://gds.hessen.de/a.zip".to_string(),
+                range: "bytes=0-9".to_string(),
+                status: 200,
+            },
+            FetchError::NotFound("https://gds.hessen.de/a.zip".to_string()),
+            FetchError::Refused {
+                url: "https://gds.hessen.de/a.zip".to_string(),
+                status: 403,
+            },
+        ] {
+            assert_eq!(again(&e).to_string(), e.to_string());
+        }
     }
 }
