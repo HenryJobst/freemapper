@@ -180,7 +180,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                     (
                         lgv::BUILDINGS_ENDPOINT,
                         &alkis_wfs::LGV,
-                        alkis_wfs::LGV.buildings_type,
+                        AlkisLayer::Buildings,
                     ),
                     &in_crs(Crs::Utm32),
                     lgv::normalise_building,
@@ -195,7 +195,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                     (
                         MV_BUILDINGS_ENDPOINT,
                         &alkis_wfs::LAIV_MV,
-                        alkis_wfs::LAIV_MV.buildings_type,
+                        AlkisLayer::Buildings,
                     ),
                     &in_crs(Crs::Utm33),
                     std::convert::identity,
@@ -224,11 +224,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
             Region::Hamburg => (
                 ogc_api_or_wfs(
                     fetcher,
-                    (
-                        lgv::LAND_USE_ENDPOINT,
-                        &alkis_wfs::LGV,
-                        alkis_wfs::LGV.land_use_type,
-                    ),
+                    (lgv::LAND_USE_ENDPOINT, &alkis_wfs::LGV, AlkisLayer::LandUse),
                     &in_crs(Crs::Utm32),
                     lgv::normalise_land_use,
                 )?,
@@ -242,7 +238,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                     (
                         MV_LAND_USE_ENDPOINT,
                         &alkis_wfs::LAIV_MV,
-                        alkis_wfs::LAIV_MV.land_use_type,
+                        AlkisLayer::LandUse,
                     ),
                     &in_crs(Crs::Utm33),
                     std::convert::identity,
@@ -255,21 +251,27 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
 
 type Features = (Vec<Value>, Crs);
 
+/// Which ALKIS layer the WFS fallback of [`ogc_api_or_wfs`] reads.
+#[derive(Clone, Copy)]
+enum AlkisLayer {
+    Buildings,
+    LandUse,
+}
+
 /// The features of one collection in `bbox` (in the WFS service's CRS), normalised to the LGB
 /// spellings: from the OGC API `endpoint`, or from the classic WFS (the same data) when the OGC
-/// API fails. When both fail, the OGC API's error is reported. `wfs_type` is the service's
-/// buildings or land use type; land use gets the service's `square_bez` rule, if it has one.
+/// API fails. When both fail, the OGC API's error is reported. `layer` says which
+/// of the service's feature types the WFS fallback reads; land use gets the service's `square_bez` rule, if it has one.
 fn ogc_api_or_wfs(
     fetcher: &dyn Fetcher,
-    (endpoint, wfs, wfs_type): (&str, &alkis_wfs::WfsService, &str),
+    (endpoint, wfs, layer): (&str, &alkis_wfs::WfsService, AlkisLayer),
     bbox: &BoundingBox,
     normalise: fn(Value) -> Value,
 ) -> Result<Vec<Value>, FetchError> {
     let features = collection_features_in(fetcher, endpoint, bbox, wfs.crs).or_else(|e| {
-        if wfs_type == wfs.land_use_type {
-            alkis_wfs::fetch_land_use(fetcher, wfs, bbox)
-        } else {
-            alkis_wfs::fetch_buildings(fetcher, wfs, bbox)
+        match layer {
+            AlkisLayer::LandUse => alkis_wfs::fetch_land_use(fetcher, wfs, bbox),
+            AlkisLayer::Buildings => alkis_wfs::fetch_buildings(fetcher, wfs, bbox),
         }
         .map_err(|_| e)
     })?;
@@ -690,6 +692,39 @@ mod tests {
         fetcher.insert("https://x/p2", page(&[wohnhaus("A"), wohnhaus("B")], None));
         let text = fetch_buildings(&fetcher, &BBOX).unwrap();
         assert_eq!(oids(&text), ["A", "B"]);
+    }
+
+    #[test]
+    fn first_state_wins_for_an_object_in_both_services() {
+        // Brüssow: Brandenburg and Mecklenburg-Vorpommern.
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 436_900.0,
+                min_n: 5_917_900.0,
+                max_e: 437_100.0,
+                max_n: 5_918_900.0,
+            },
+            Crs::Utm33,
+        );
+        let regions = regions_for(&area.region_bbox);
+        assert!(regions.len() >= 2, "{regions:?}");
+        let first = regions[0];
+        let copy = |from: &str| -> Features {
+            let feature = serde_json::json!({
+                "type": "Feature", "id": from,
+                "geometry": {"type": "Point", "coordinates": [437_000.0, 5_918_000.0]},
+                "properties": {"oid": "SAME", "from": from}
+            });
+            (vec![feature], Crs::Utm33)
+        };
+        let text = merged(&area, |region| {
+            Ok(copy(if region == first { "first" } else { "later" }))
+        })
+        .unwrap();
+        let json: Value = serde_json::from_str(&text).unwrap();
+        let features = json["features"].as_array().unwrap();
+        assert_eq!(features.len(), 1);
+        assert_eq!(features[0]["properties"]["from"], "first");
     }
 
     #[test]

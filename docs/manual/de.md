@@ -325,8 +325,9 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `warning: the … has no tile(s) … inside Mecklenburg-Vorpommern` | Im Downloadportal der Landesvermessung fehlen einzelne Kacheln (nur innerhalb des Landes). | Die Vorlagen bleiben dort leer. |
 | `… cells inside the Mecklenburg-Vorpommern tiles have no height` | Einzelne Zellen innerhalb der Landeskacheln haben im Höhenmodell keinen Wert. | Die Vorlagen bleiben dort leer. |
 | `… no date for the centre tile …` | Für die Kachel in der Mitte des Kartengebiets nennt das Downloadportal kein Datum (Grenzkarte, Mitte außerhalb der Landeskacheln). | Nur das Datum im Projekteintrag fehlt. |
-| `no TIFF in the WCS answer: …` | Der WCS-Dienst (Höhenmodelle oder Luftbild von Mecklenburg-Vorpommern) hat statt des Bildes eine Fehlermeldung geschickt; ihr Text steht dahinter. | Später erneut versuchen, bei Dauer einen Fehler melden. |
-| `…; the stored model has no date` | Offline: Die Kachelliste ließ sich nicht lesen; das gespeicherte Höhenmodell wird verwendet, aber ohne Datum. | Einmal online laden. |
+| `no TIFF in the WCS answer: …` | Der WCS-Dienst der Höhenmodelle von Mecklenburg-Vorpommern hat statt des Bildes eine Fehlermeldung geschickt; ihr Text steht dahinter. | Später erneut versuchen, bei Dauer einen Fehler melden. |
+| `the WCS answered with an error: …` / `not a JPEG (…): …` | Der WCS-Dienst des Luftbilds von Mecklenburg-Vorpommern hat statt des Bildes eine Fehlermeldung oder etwas anderes als ein JPEG geschickt; der bereinigte Anfang der Antwort steht dahinter. | Später erneut versuchen, bei Dauer einen Fehler melden. |
+| `…; the stored model keeps its recorded date` | Offline: Die Kachelliste ließ sich nicht lesen; das gespeicherte Höhenmodell wird verwendet und behält das Datum seines Eintrags. | Einmal online laden. |
 | `warning: … unavailable (…); no nDSM template` (LAiV M-V DOM1) | Das DOM1 ließ sich nicht laden; ein Fehler dabei ist nur eine Warnung. | Die nDOM-Vorlage fehlt; später erneut versuchen. |
 | `warning: the map area now lies in another state's data` | Das Gebiet liegt jetzt bei einem anderen Anbieter. | Nichts; freemapper lädt alles neu. |
 | `offline and not cached` / `no OSM extract cached` | Mit `--offline` fehlen Daten. | Einmal mit Internet laden. |
@@ -347,7 +348,7 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <Jahr>, dl-de/by-2-0, Daten geändert` (Hamburg)
 - `Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) <Jahr>, dl-de/zero-2-0, verändert` (Hessen)
 - `© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Schleswig-Holstein)
-- `© GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Mecklenburg-Vorpommern)
+- `©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Mecklenburg-Vorpommern)
 - `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper`
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.

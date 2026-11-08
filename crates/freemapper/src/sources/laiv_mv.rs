@@ -385,7 +385,7 @@ pub fn fetch_model(
         let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
             Ok(listed) => tile_set(listed, &area),
             Err(e) => {
-                warnings.push(format!("{e}; the stored model has no date"));
+                warnings.push(format!("{e}; the stored model keeps its recorded date"));
                 return Ok(HeightModel {
                     warnings,
                     ..HeightModel::default()
@@ -790,7 +790,7 @@ mod tests {
                 .filter(|u| u.starts_with(wcs.url))
                 .count()
         };
-        // With status 200: an error with the exception's text (retried like any bad answer).
+        // With status 200: an error with the exception's text (a report is final, not retried).
         let (dir, cache) = cache();
         let fetcher = MapFetcher::default();
         serve(&fetcher, Model::Dgm1, &ACROSS, &[SCHOOL_TILE], |_, _| 1.0);

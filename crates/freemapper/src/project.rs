@@ -209,7 +209,7 @@ pub struct ProjectFile {
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
-    /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V); LGB orthophotos are tiles.
+    /// The orthophoto from a WMS or WCS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH: WMS; LAiV M-V: WCS); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
     /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V), at [`TERRAIN_RELPATH`].
@@ -851,16 +851,18 @@ fn fetch_wms_orthophoto(
     match mode {
         FetchMode::Online => {
             let flight = flight_date();
+            // Reused while the stored image covers the area and the flight date is the same; where
+            // the service names no date (on either side), the stored image is kept too.
             let unchanged = project
                 .orthophoto
                 .as_ref()
-                .is_some_and(|r| r.covers(bbox) && r.flight.is_some() && r.flight == flight)
+                .is_some_and(|r| r.covers(bbox) && r.flight == flight)
                 && path.exists();
             if unchanged {
-                progress(&format!(
-                    "orthophoto unchanged (flight {})",
-                    flight.as_deref().unwrap_or_default()
-                ));
+                progress(&match flight.as_deref() {
+                    Some(date) => format!("orthophoto unchanged (flight {date})"),
+                    None => "orthophoto unchanged".to_string(),
+                });
             } else {
                 progress(&format!(
                     "downloading the orthophoto from the {provider} {}",
@@ -1023,8 +1025,8 @@ fn fetch_lgv_rasters(
     Ok(())
 }
 
-/// Reports once that the map area reaches into a state other than `provider`'s: there is no
-/// `name` data on the other side.
+/// Reports once that the map area reaches into a state other than `provider`'s: the `name` data
+/// stop at the edge of their own coverage (their tiles may reach slightly past the border).
 fn warn_beyond_state(
     project: &ProjectFile,
     provider: Provider,
@@ -1036,7 +1038,7 @@ fn warn_beyond_state(
         .any(|r| r.provider() != provider)
     {
         progress(&format!(
-            "the map area reaches beyond the state border; no {name} data on the other side, the templates stay empty there"
+            "the map area reaches beyond the state border; the {name} data stop at the edge of their coverage, the templates stay empty where there is none"
         ));
     }
     Ok(())
@@ -3524,7 +3526,7 @@ mod tests {
         assert_eq!(centre, crate::derive::ndsm::colour(12.0));
     }
 
-    /// A 200 m square at the Coppernicus-Gymnasium, Norderstedt (25833 E 169108, N 5960473).
+    /// A 200 m square at the Innerstädtisches Gymnasium, Rostock (25833 E 312157, N 5996317).
     fn rostock_area() -> MapArea {
         let corner = |e: f64, n: f64| {
             let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
@@ -3548,6 +3550,7 @@ mod tests {
         .unwrap()
     }
 
+    /// A 200 m square at the Coppernicus-Gymnasium, Norderstedt (25833 E 169108, N 5960473).
     fn norderstedt_area() -> MapArea {
         let corner = |e: f64, n: f64| {
             let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
@@ -4421,6 +4424,35 @@ mod tests {
     }
 
     #[test]
+    fn mv_orthophoto_without_any_flight_date_is_reused() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        // The portal lists no dop20 tile for the centre: no flight date, now or later.
+        fetcher.insert_prefix(
+            &format!("{}?type[]=dop20&bbox=", crate::sources::laiv_mv::OVERVIEW),
+            crate::sources::laiv_mv::test_support::dop20_overview_answer(&[], "2024-08-14"),
+        );
+        let getcoverages = |fetcher: &MapFetcher| {
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .filter(|u| u.contains("inspire_oi_dop_wcs") && u.contains("GetCoverage"))
+                .count()
+        };
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.orthophoto.as_ref().unwrap().flight, None);
+        let first = getcoverages(&fetcher);
+        assert!(first >= 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(getcoverages(&fetcher), first, "{messages:?}");
+        assert!(
+            messages.iter().any(|m| m == "orthophoto unchanged"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
     fn offline_fetch_keeps_the_mv_record_dates() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
@@ -4549,7 +4581,7 @@ mod tests {
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(
             messages.iter().any(|m| m.starts_with(
-                "the map area reaches beyond the state border; no LAiV M-V data on the other side"
+                "the map area reaches beyond the state border; the LAiV M-V data stop"
             )),
             "{messages:?}"
         );

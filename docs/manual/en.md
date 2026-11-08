@@ -318,8 +318,9 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `warning: the … has no tile(s) … inside Mecklenburg-Vorpommern` | Single tiles are missing from the state survey's Downloadportal (only inside the state). | The templates stay empty there. |
 | `… cells inside the Mecklenburg-Vorpommern tiles have no height` | Single cells inside the state tiles have no value in the height model. | The templates stay empty there. |
 | `… no date for the centre tile …` | The Downloadportal names no date for the tile at the centre of the map area (border map, centre beyond the state tiles). | Only the date in the project record is missing. |
-| `no TIFF in the WCS answer: …` | The WCS service (height models or orthophoto of Mecklenburg-Vorpommern) sent an error message instead of the image; its text follows. | Try again later, report a bug if it persists. |
-| `…; the stored model has no date` | Offline: the tile list could not be read; the stored height model is used, but without a date. | Fetch once online. |
+| `no TIFF in the WCS answer: …` | The WCS service of the Mecklenburg-Vorpommern height models sent an error message instead of the image; its text follows. | Try again later, report a bug if it persists. |
+| `the WCS answered with an error: …` / `not a JPEG (…): …` | The WCS service of the Mecklenburg-Vorpommern orthophoto sent an error message or something other than a JPEG instead of the image; the cleaned start of the answer follows. | Try again later, report a bug if it persists. |
+| `…; the stored model keeps its recorded date` | Offline: the tile list could not be read; the stored height model is used and keeps the date of its record. | Fetch once online. |
 | `warning: … unavailable (…); no nDSM template` (LAiV M-V DOM1) | The DOM1 could not be fetched; an error there is only a warning. | The nDSM template is missing; try again later. |
 | `warning: the map area now lies in another state's data` | The area now lies with another provider. | Nothing; freemapper fetches everything again. |
 | `offline and not cached` / `no OSM extract cached` | Data is missing for `--offline`. | Fetch once with internet. |
@@ -340,7 +341,7 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten geändert` (Hamburg)
 - `Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) <year>, dl-de/zero-2-0, verändert` (Hesse)
 - `© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)` and the licence link https://creativecommons.org/licenses/by/4.0/ (Schleswig-Holstein)
-- `© GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)` and the licence link https://creativecommons.org/licenses/by/4.0/ (Mecklenburg-Vorpommern)
+- `©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)` and the licence link https://creativecommons.org/licenses/by/4.0/ (Mecklenburg-Vorpommern)
 - `Created with freemapper – https://github.com/HenryJobst/freemapper`
 
 Keep these lines on printed and published maps.
