@@ -70,6 +70,7 @@ whole of Strausberg Vorstadt follow as the second map kind on the same pipeline.
 | Private land | template only | user |
 | Process | Superpowers workflow (plan → subagent-driven development, TDD for parsers/writers/algorithms). Speed first: light gates now, ub-mode-style gates later | user |
 | Formatting/lint | automatic: Claude Code hooks (rustfmt after edits, clippy at stop), lefthook pre-commit, CI on 3 OSes | user |
+| AI features | optional: a feature that calls a model runs only when a model is configured, and freemapper does every job in full without one. The MCP server is not affected, because an outside assistant drives the program there (ADR 0037) | user (suite rule) |
 
 ## 4. Architecture
 
