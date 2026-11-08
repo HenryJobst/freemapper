@@ -1966,19 +1966,22 @@ fn fetch_berlin_layers_into(
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(&str),
 ) -> BTreeMap<String, AlkisRecord> {
-    if !berlin::near_berlin(region_bbox) {
-        for file in previous.keys() {
-            let _ = std::fs::remove_file(berlin_layer_path(dir, file));
-        }
-        return BTreeMap::new();
-    }
     if mode == FetchMode::Offline {
-        if previous.is_empty() {
+        if berlin::near_berlin(region_bbox) && previous.is_empty() {
             progress(
                 "no Berlin ALKIS structures stored; run `freemapper fetch` online for stairs, walls, trees and canopies",
             );
         }
         return previous.clone();
+    }
+    if !berlin::near_berlin(region_bbox) {
+        if !previous.is_empty() {
+            progress("removing the stored Berlin layers: the map area is no longer near Berlin");
+            for file in previous.keys() {
+                let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+            }
+        }
+        return BTreeMap::new();
     }
     progress("downloading Berlin ALKIS structures and tree cadastre");
     let bbox = [
@@ -1993,7 +1996,7 @@ fn fetch_berlin_layers_into(
         let path = berlin_layer_path(dir, file);
         let stored = fetched
             .features
-            .map_err(|e| e.to_string())
+            .map_err(|e| one_line(&e.to_string()))
             .and_then(|features| {
                 let parent = path.parent().expect("a file below the project folder");
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -2026,10 +2029,10 @@ fn fetch_berlin_layers_into(
                     records.insert(file.to_string(), record.clone());
                 }
                 None => {
+                    // Nothing was written for it; a stale file is removed with the unused layers.
                     progress(&format!(
                         "warning: Berlin {file} unavailable ({e}); layer skipped"
                     ));
-                    let _ = std::fs::remove_file(&path);
                 }
             },
         }
@@ -2039,6 +2042,11 @@ fn fetch_berlin_layers_into(
         let _ = std::fs::remove_file(berlin_layer_path(dir, file));
     }
     records
+}
+
+/// `text` on one line: runs of whitespace (newlines of a server's error page) become one space.
+fn one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// One stored extra Berlin layer.
@@ -7584,6 +7592,59 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             stored_berlin_layers(dir.path(), &project)
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn leaving_berlin_deletes_stored_layers_only_online() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = berlin_layer_path(dir.path(), "relief");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, b"{}").unwrap();
+        let record = AlkisRecord {
+            bbox: [0.0; 4],
+            fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
+            latest_update: None,
+            count: 0,
+            regions: vec![Region::Berlin],
+        };
+        let previous = BTreeMap::from([("relief".to_string(), record)]);
+        // Strausberg, Brandenburg.
+        let away = BoundingBox {
+            min_e: 421_490.0,
+            min_n: 5_821_580.0,
+            max_e: 421_736.0,
+            max_n: 5_821_896.0,
+        };
+        let fetcher = MapFetcher::default();
+        let mut messages = Vec::new();
+        let mut progress = |m: &str| messages.push(m.to_string());
+        let kept = fetch_berlin_layers_into(
+            dir.path(),
+            &fetcher,
+            &away,
+            MapKind::Sprint,
+            FetchMode::Offline,
+            &previous,
+            &mut progress,
+        );
+        assert_eq!(kept, previous, "offline never forgets stored layers");
+        assert!(path.exists());
+        let kept = fetch_berlin_layers_into(
+            dir.path(),
+            &fetcher,
+            &away,
+            MapKind::Sprint,
+            FetchMode::Online,
+            &previous,
+            &mut progress,
+        );
+        assert!(kept.is_empty());
+        assert!(!path.exists());
+        assert_eq!(fetcher.calls.get(), 0);
+        assert_eq!(
+            messages,
+            ["removing the stored Berlin layers: the map area is no longer near Berlin"]
         );
     }
 
