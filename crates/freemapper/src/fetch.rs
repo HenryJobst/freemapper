@@ -213,10 +213,10 @@ pub(crate) fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchE
 /// The code and text of an OGC (OWS or WMS service) exception report, as [`one_line`]s; `None`
 /// for any other body, and for a report that names neither.
 pub(crate) fn ogc_exception(body: &[u8]) -> Option<String> {
-    let text = String::from_utf8_lossy(body);
-    if !text.contains("ExceptionReport") {
+    if !is_ogc_report(body) {
         return None;
     }
+    let text = String::from_utf8_lossy(body);
     let between = |open: &str, close: char| {
         let start = text.find(open)? + open.len();
         text[start..].split(close).next().map(str::trim)
@@ -240,10 +240,21 @@ pub(crate) fn ogc_exception(body: &[u8]) -> Option<String> {
 }
 
 /// `text` on one line of at most `max_chars` characters (then `…`): control characters become
-/// spaces, bidi controls and zero-width characters are dropped, runs of white space shrink to
+/// spaces, bidi controls and zero-width characters (U+061C, U+200B–U+200F, U+202A–U+202E,
+/// U+2060, U+2066–U+2069, U+FEFF) are dropped, runs of white space shrink to
 /// one. Server text must not reach the terminal as escape sequences or reordered lines.
 pub(crate) fn one_line(text: &str, max_chars: usize) -> String {
-    let invisible = |c: char| matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}');
+    let invisible = |c: char| {
+        matches!(
+            c,
+            '\u{061C}'
+                | '\u{200B}'..='\u{200F}'
+                | '\u{202A}'..='\u{202E}'
+                | '\u{2060}'
+                | '\u{2066}'..='\u{2069}'
+                | '\u{FEFF}'
+        )
+    };
     let printable: String = text
         .chars()
         .filter(|&c| !invisible(c))
@@ -254,6 +265,42 @@ pub(crate) fn one_line(text: &str, max_chars: usize) -> String {
         Some((end, _)) => format!("{}…", &line[..end]),
         None => line,
     }
+}
+
+/// Whether the root element of `body` (after a BOM, an XML declaration and comments) is an OGC
+/// exception report: `ExceptionReport` (any namespace prefix) or `ServiceExceptionReport`.
+pub(crate) fn is_ogc_report(body: &[u8]) -> bool {
+    let mut rest = body.strip_prefix(b"\xef\xbb\xbf").unwrap_or(body);
+    loop {
+        rest = rest.trim_ascii_start();
+        let (open, close): (&[u8], &[u8]) = if rest.starts_with(b"<?") {
+            (b"<?", b"?>")
+        } else if rest.starts_with(b"<!--") {
+            (b"<!--", b"-->")
+        } else {
+            break;
+        };
+        let inner = &rest[open.len()..];
+        let Some(end) = inner.windows(close.len()).position(|w| w == close) else {
+            return false;
+        };
+        rest = &inner[end + close.len()..];
+    }
+    let Some(tag) = rest.strip_prefix(b"<") else {
+        return false;
+    };
+    let Some(end) = tag
+        .iter()
+        .position(|&b| b.is_ascii_whitespace() || b == b'>' || b == b'/')
+    else {
+        return false;
+    };
+    let name = &tag[..end];
+    let local = name
+        .iter()
+        .rposition(|&b| b == b':')
+        .map_or(name, |colon| &name[colon + 1..]);
+    matches!(local, b"ExceptionReport" | b"ServiceExceptionReport")
 }
 
 /// Largest error answer read for its exception report.
@@ -2940,6 +2987,28 @@ mod tests {
     }
 
     #[test]
+    fn only_a_report_root_is_an_exception_report() {
+        for report in [
+            &b"<ExceptionReport><Exception exceptionCode=\"A\"/></ExceptionReport>"[..],
+            b"\xef\xbb\xbf  <?xml version=\"1.0\"?>\n<!-- c -->\n<!-- d --><ows:ExceptionReport xmlns:ows=\"x\">",
+            b"<?xml version=\"1.0\"?><ServiceExceptionReport version=\"1.3.0\"><ServiceException>no</ServiceException></ServiceExceptionReport>",
+        ] {
+            assert!(is_ogc_report(report), "{}", String::from_utf8_lossy(report));
+        }
+        for other in [
+            &b"<html><body>ExceptionReport</body></html>"[..],
+            b"<!DOCTYPE html><html><pre><ows:ExceptionReport exceptionCode=\"X\"></pre></html>",
+            b"<?xml version=\"1.0\"?><wfs:FeatureCollection><ExceptionReport/></wfs:FeatureCollection>",
+            b"<ExceptionReports/>",
+            b"",
+            b"<!-- unclosed <ExceptionReport>",
+        ] {
+            assert!(!is_ogc_report(other), "{}", String::from_utf8_lossy(other));
+            assert_eq!(ogc_exception(other), None);
+        }
+    }
+
+    #[test]
     fn one_line_drops_controls_and_format_characters() {
         assert_eq!(
             one_line(
@@ -2948,6 +3017,7 @@ mod tests {
             ),
             "a [31mbc d"
         );
+        assert_eq!(one_line("x\u{061C}y\u{2060}z", 10), "xyz");
         assert_eq!(one_line("abc def", 5), "abc d…");
         assert_eq!(one_line("abcde", 5), "abcde");
     }

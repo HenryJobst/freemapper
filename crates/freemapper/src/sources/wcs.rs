@@ -3,7 +3,7 @@
 //! TIFF), exception reports, and the mosaic of pieces.
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, Fetcher, get_with_retries, ogc_exception, one_line};
+use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, ogc_exception, one_line};
 use crate::raster::Raster;
 use crate::sources::float_tiff::decode_float_tiff;
 
@@ -98,7 +98,7 @@ impl WcsService {
                 // The outer error is asked again; an exception report is final (the inner one).
                 let part = get_with_retries(fetcher, &url, |bytes| match self.tiff(bytes) {
                     Ok(tiff) => decode_float_tiff(tiff).map(Ok).map_err(error),
-                    Err(message) if ogc_exception(bytes).is_some() => Ok(Err(error(message))),
+                    Err(message) if is_ogc_report(bytes) => Ok(Err(error(message))),
                     Err(message) => Err(error(message)),
                 })
                 .and_then(|part| part)?;
@@ -227,5 +227,24 @@ mod tests {
         fetcher.insert_prefix(SERVICE.url, b"<html>Proxy Error</html>".to_vec());
         assert!(SERVICE.fill(&fetcher, &mut raster, &grid.bounds()).is_err());
         assert_eq!(fetcher.calls.get(), 3);
+        // Only the root element decides: a page that mentions a report is still retried.
+        let page = b"<!DOCTYPE html><html><body><h1>502</h1><pre>&lt;ows:ExceptionReport&gt; \
+            <ExceptionReport exceptionCode=\"X\"></pre></body></html>";
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(SERVICE.url, page.to_vec());
+        assert!(SERVICE.fill(&fetcher, &mut raster, &grid.bounds()).is_err());
+        assert_eq!(fetcher.calls.get(), 3);
+        // A real report after a declaration and a comment is final.
+        let report = br#"<?xml version="1.0" encoding="UTF-8"?>
+<!-- MapServer version 8.0 -->
+<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="NoSuchCoverage"><ows:ExceptionText>mv_dgx</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#;
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(SERVICE.url, report.to_vec());
+        let err = SERVICE
+            .fill(&fetcher, &mut raster, &grid.bounds())
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("NoSuchCoverage: mv_dgx"), "{err}");
+        assert_eq!(fetcher.calls.get(), 1);
     }
 }
