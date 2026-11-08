@@ -233,10 +233,16 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
     }
     let (across, down) = (width.div_ceil(chunk_width), height.div_ceil(chunk_height));
     // The image rounded up to whole chunks: a hostile TileWidth/TileLength must not make one
-    // chunk larger than the image may be.
+    // chunk larger than the image may be. A strip holds at most the image's rows (and
+    // RowsPerStrip = 2^32 - 1 is libtiff's "the whole image in one strip").
+    let rows_per_chunk = if tiled {
+        chunk_height
+    } else {
+        chunk_height.min(height)
+    };
     let padded = u64::from(across)
         .checked_mul(u64::from(chunk_width))
-        .zip(u64::from(down).checked_mul(u64::from(chunk_height)))
+        .zip(u64::from(down).checked_mul(u64::from(rows_per_chunk)))
         .and_then(|(w, h)| w.checked_mul(h));
     if !padded.is_some_and(|px| px <= MAX_PIXELS) {
         return Err(format!(
@@ -899,6 +905,78 @@ mod tests {
         }
         bytes.extend(0u32.to_le_bytes());
         bytes
+    }
+
+    /// A little-endian striped Float32 LZW TIFF of `width` x `height` px in one strip `data`,
+    /// declaring `rows_per_strip`.
+    fn one_strip_tiff(
+        width: u32,
+        height: u32,
+        rows_per_strip: u32,
+        predictor: u16,
+        data: &[u8],
+    ) -> Vec<u8> {
+        let data_at = 8u32;
+        let entries: [(u16, u16, u32); 11] = [
+            (256, 4, width),
+            (257, 4, height),
+            (258, 3, 32),
+            (259, 3, u32::from(LZW)),
+            (262, 3, 1),
+            (273, 4, data_at),
+            (277, 3, 1),
+            (278, 4, rows_per_strip),
+            (279, 4, data.len() as u32),
+            (317, 3, u32::from(predictor)),
+            (339, 3, 3),
+        ];
+        let ifd = data_at + data.len() as u32;
+        let mut bytes = b"II*\0".to_vec();
+        bytes.extend(ifd.to_le_bytes());
+        bytes.extend(data);
+        bytes.extend((entries.len() as u16).to_le_bytes());
+        for (tag, kind, value) in entries {
+            bytes.extend(tag.to_le_bytes());
+            bytes.extend(kind.to_le_bytes());
+            bytes.extend(1u32.to_le_bytes());
+            if kind == 3 {
+                bytes.extend((value as u16).to_le_bytes());
+                bytes.extend([0, 0]);
+            } else {
+                bytes.extend(value.to_le_bytes());
+            }
+        }
+        bytes.extend(0u32.to_le_bytes());
+        bytes
+    }
+
+    #[test]
+    fn lenient_lzw_reads_one_strip_of_rows_per_strip_max() {
+        // libtiff's "the whole image in one strip": RowsPerStrip = 2^32 - 1.
+        let (width, height) = (4, 2);
+        let heights: Vec<f32> = (0..8).map(|i| 20.0 + i as f32 * 0.25).collect();
+        let raw: Vec<u8> = heights.iter().flat_map(|h| h.to_le_bytes()).collect();
+        let encoded = weezl::encode::Encoder::with_tiff_size_switch(weezl::BitOrder::Msb, 8)
+            .encode(&raw)
+            .unwrap();
+        // The stream without its end code (9-bit codes here), as on the LVermGeo SH edge
+        // tiles: the code bits up to the end code, the rest of the byte zero.
+        let codes = encoded.len() * 8 / 9;
+        let bits = (codes - 1) * 9;
+        let mut data = encoded[..bits.div_ceil(8)].to_vec();
+        if !bits.is_multiple_of(8) {
+            *data.last_mut().unwrap() &= 0xFF << (8 - bits % 8);
+        }
+        let tiff = one_strip_tiff(width, height, u32::MAX, 1, &data);
+        // The fallback itself (the `tiff` crate reads this small strip; it refuses some
+        // complete chunks, as `lzw_chunks_without_end_code_decode` shows): the declared strip
+        // height is not the size of the strip.
+        let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&tiff)).unwrap();
+        assert_eq!(decoder.chunk_dimensions(), (width, u32::MAX));
+        assert_eq!(
+            lenient_lzw_values(&mut decoder, width, height).unwrap(),
+            heights
+        );
     }
 
     #[test]
