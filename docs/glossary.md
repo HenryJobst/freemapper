@@ -38,6 +38,7 @@ Orienteering Maps 2019 (IOF).
 | Startprojekt | starter project | Erstes, von freemapper erzeugtes OOM-Projekt, ab dem in OOM kartiert wird. | `StarterProject` |
 | Abgleich | reconciliation | (später) Vergleich neuer Quelldaten mit einer bereits bearbeiteten Karte. | `reconcile` |
 | Generalisierung | generalization | Vereinfachen von Geometrie auf Kartenmaßstab (Mindestgrößen, Vereinfachung). | `generalize` |
+| Auflösen | dissolve | Benachbarte oder überlappende Flächen zu einer Fläche vereinigen, sodass zwischen ihnen keine Grenzlinie bleibt, z. B. die vielen ALKIS-Flächen eines Flusses. | `dissolve` |
 | Glättung | smoothing | Entfernen von Rauschen aus Linien oder Rastern. | `smooth` |
 | Namensnennung | attribution | Pflichtvermerk der Datenlizenz auf Karte und in Dateien. | `Attribution` |
 
@@ -56,6 +57,17 @@ Orienteering Maps 2019 (IOF).
 | Verkehrsfläche | traffic area | ALKIS-Nutzung `Straßenverkehr`, `Weg`, `Platz`; Quelle der befestigten Flächen der Sprintkarte. | `paved_area_objects` |
 | Regelziel | rule target | Wohin eine OSM-Regel ein Objekt schreibt: in die Karte (verlässlich) oder in die Kandidaten. | `Target` |
 | Begleitfläche | verge | ALKIS `Begleitfläche Straßenverkehr`: Grünstreifen und Baumreihen neben der Fahrbahn; wird nicht gezeichnet. | `VERGE` |
+| Gewässer | body of water | Fluss, Kanal, See, Teich, Hafenbecken oder Meer. Auf beiden Kartenarten werden die ALKIS-Nutzungen `Fließgewässer`, `Stehendes Gewässer`, `Hafenbecken` und `Meer` zu Kartenobjekten 301.1 und 301.6, Gewässer aus OSM zu Kandidaten. | `water_objects`, `WATER_LAND_USES` |
+| Unpassierbares Gewässer | uncrossable body of water | Wasser, das nicht durchquert werden darf (ISSprOM 301). freemapper zeichnet ALKIS-Gewässer als Fläche 301.1 mit Uferlinie 301.6 und OSM-Gewässer mit dem kombinierten Symbol 301. | `FILL_CODE`, `OSM_AREA_CODE` |
+| Passierbares Gewässer | crossable body of water | Flaches Wasser, das durchquert werden darf (ISSprOM 302). freemapper erzeugt es nicht; der Kartierer stuft flache Gewässer im Gelände um. | – |
+| Uferlinie | bank line | Schwarze Randlinie eines unpassierbaren Gewässers (ISSprOM 301.6). Wo ein Gewässer über Kartengebiet plus Puffer hinausreicht, fehlt sie an dieser Kante; Inseln bekommen eine eigene. | `BANK_CODE`, `bank_lines` |
+| Mittlere Breite | mean width | 2 · Fläche / Umfang einer Fläche. ALKIS-Gewässer unter 2 m mittlerer Breite werden Kandidaten statt Kartenobjekte. | `mean_width`, `NARROW_WATER_M` |
+| Kleiner Wasserlauf | small crossable watercourse | Bach oder Graben unter 2 m Breite, der ganzjährig Wasser führt (ISSprOM 305); Kandidat aus OSM `waterway=stream` oder `drain`. | `"305"` |
+| Graben | minor or seasonal watercourse | Graben oder Bach, der zeitweise trocken fällt (ISSprOM 306); Kandidat aus OSM `waterway=ditch` und aus `stream` oder `drain` mit `intermittent=yes`. | `"306"` |
+| Brunnen | small fountain or well | Brunnen oder Wasserstelle als Punkt (ISSprOM 311); Kandidat aus OSM `amenity=fountain` (Punkt) und `man_made=water_well`. | `"311"` |
+| Quelle (Wasser) | spring | Stelle, an der ein Wasserlauf entspringt (ISSprOM 312); Kandidat aus OSM `natural=spring`. | `"312"` |
+| Markantes Wasserobjekt | prominent water feature | Auffälliges Wasserobjekt als Punkt (ISSprOM 313); auf Schulhofkarten Kandidat aus OSM `amenity=drinking_water` (Trinkbrunnen). | `"313"` |
+| Brücke | bridge | Bauwerk, das Wege über Wasser, Bahn oder Straße führt. ALKIS enthält keine Brücken; OSM-Flächen `man_made=bridge` werden auf Sprintkarten Kandidaten 501.5. Die Uferlinie läuft unter der Brücke durch und muss dort von Hand getrennt werden. | `man_made=bridge` |
 | Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520); Kandidaten aus der ALKIS-Nutzung. | `out_of_bounds_objects` |
 | Unpassierbares Objekt / Durchgangsbarriere | impassable feature | Darf nicht überquert werden: Mauer, Zaun, Hecke usw. | `ImpassableFeature` |
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |

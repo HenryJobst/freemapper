@@ -30,10 +30,11 @@ freemapper fetches the official geodata of an area and builds the **starting poi
 map (1:1000) or sprint map (1:4000). The geodata includes the orthophoto, the terrain model, and the
 buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) is added.
 
-- **Drawn as finished map objects** is only what is reliable: buildings, and on sprint maps also paved
-  areas (streets, squares) and unpaved paths with a known surface.
+- **Drawn as finished map objects** is only what is reliable: buildings, water from the cadastre, and on
+  sprint maps also paved areas (streets, squares) and unpaved paths with a known surface.
 - **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, height
-  above ground (nDSM), contours, fences, hedges, benches, playground equipment and out-of-bounds areas.
+  above ground (nDSM), contours, fences, hedges, benches, playground equipment, out-of-bounds areas,
+  ponds, streams, fountains and bridges.
 - You still draw and check the map in the terrain, in **OpenOrienteering Mapper (OOM)** or **OCAD**.
 
 On request freemapper also writes a **print-ready training map as a PDF** (chapter 10).
@@ -171,7 +172,7 @@ Among other files, the project folder then holds:
 
 | File | What it is |
 |---|---|
-| `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings and the peripheral information |
+| `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, water and the peripheral information |
 | `templates/` | the templates: orthophoto, hillshade, slope, nDSM and the candidates map |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the training map |
@@ -180,8 +181,27 @@ Among other files, the project folder then holds:
 
 Open the `.omap` file in OOM. The templates are already linked; show and hide them in the *Templates*
 menu. The **candidates** (`templates/candidates.omap`) are a separate map on top: fences, hedges,
-benches, contours and out-of-bounds areas. Check them and take over what is right: trace them, or open
-the candidates map and copy and paste the objects. Both maps have the same georeferencing.
+benches, contours, out-of-bounds areas, water from OSM and bridges. Check them and take over what is
+right: trace them, or open the candidates map and copy and paste the objects. Both maps have the same
+georeferencing.
+
+freemapper draws **water** on both map kinds. Rivers, canals, lakes, ponds, harbour basins and sea from
+the cadastre become uncrossable bodies of water: a blue area (301.1) with a black bank line (301.6). The
+cadastre often splits a river into many separate areas. freemapper dissolves them into one, so no lines
+run across the water. Where the water reaches beyond the map area and buffer, it gets no bank line on
+that edge; islands keep theirs. Water with a mean width under 2 m goes into the candidates only.
+
+OSM adds more candidates:
+
+- Ponds, basins, outdoor swimming pools and fountain basins as areas (301). If at least half of such an
+  area lies in water from the cadastre, freemapper leaves it out.
+- Streams and ditches as lines: 305 if they carry water all year, otherwise 306. Culverted sections are
+  left out.
+- Fountains and wells (311) and springs (312) as points, and on schoolyard maps also drinking fountains
+  (313).
+- Bridges as paved areas (501.5), on sprint maps only. They lie over the water.
+
+Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar, north
 lines and the attribution. Keep the attribution on printed maps (chapter 15).
@@ -218,6 +238,14 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
 - **Fences, walls, hedges:** they come from OSM and the nDSM. Can they be crossed? Are there gates?
 - **Out-of-bounds areas:** private grounds, railway land, and on schoolyard maps everything outside the
   school grounds.
+- **Banks and bridges:**
+  - The cadastre area of a body of water can include the bank slope. Move the bank line to the water's
+    edge, using the orthophoto.
+  - The bank line runs across bridges. Cut it there by hand.
+  - Water from the cadastre is always uncrossable (301), because the cadastre has no depth. Shallow
+    water that you can wade through becomes a crossable body of water (302).
+  - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
+    carry water?
 - **Furniture and playground equipment:** it comes from OSM and is often incomplete.
 - **Contours:** small banks and steps show better in the hillshade or slope.
 
@@ -284,6 +312,11 @@ corner at Harburg. freemapper tells you when an area crosses a border.
   It only updates the templates and candidates. If buildings are missing from the map, freemapper
   tells you.
 - **Write it again:** `--force` replaces the map. The old one is kept as `.omap.bak`.
+- **Water in an older map:** a map made before this version has no water yet. Running `run` again does
+  not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
+  map is kept as `.omap.bak`, the OCAD map as `.ocd.bak`. Every `run` renews the candidates and the
+  training map (`--pdf`). So the training map shows the water without `--force`, and the candidates show
+  the water from OSM and the narrow water from the cadastre.
 - **Change the area:** run `select` on the existing folder, then `run` again.
 - **Without internet:** `--offline` works with the data downloaded before.
 - **Data currency:** freemapper only downloads what was republished. If a provider changes a tile, you
