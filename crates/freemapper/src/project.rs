@@ -5641,6 +5641,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             );
             fetcher.insert(extract.url(), pbf.clone());
         }
+        // No ALKIS objects in this box.
+        fetcher.insert_prefix(
+            crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
+        );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.provider, Some(Provider::GeobasisNrw));
         for extract in ["Düsseldorf", "Köln"] {

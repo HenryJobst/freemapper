@@ -55,6 +55,17 @@ pub const HVBG: WfsService = WfsService {
     square_bez: Some("ohne Unterart (Hessen)"),
 };
 
+/// Geobasis NRW, Nordrhein-Westfalen (EPSG:25832; land use per parcel part). Same schema and
+/// LGB spellings as Hesse, but with detailed `funktion` values. Errors come as a bare HTTP 400.
+pub const GEOBASIS_NRW: WfsService = WfsService {
+    name: "Geobasis NRW ALKIS",
+    url: "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm32,
+    square_bez: Some("ohne Unterart (Nordrhein-Westfalen)"),
+};
+
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
 /// (named for its administrative-boundary theme) serves every type with normal queries; the
 /// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
@@ -419,6 +430,10 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/schleswig-holstein-buildings.gml");
     pub const SH_LAND_USE: &str =
         include_str!("../../../../tests/fixtures/schleswig-holstein-land-use.gml");
+    pub const NRW_BUILDINGS: &str =
+        include_str!("../../../../tests/fixtures/nordrhein-westfalen-buildings.gml");
+    pub const NRW_LAND_USE: &str =
+        include_str!("../../../../tests/fixtures/nordrhein-westfalen-land-use.gml");
 }
 
 #[cfg(test)]
@@ -812,6 +827,64 @@ mod tests {
             "{squares:?}"
         );
         assert!(squares.iter().all(Option::is_some), "{squares:?}");
+    }
+
+    #[test]
+    fn nrw_buildings_parse() {
+        let features = parse_gml(NRW_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        assert_eq!(parsed.buildings.len(), features.len());
+        assert!(parsed.buildings.iter().all(|b| b.oid.starts_with("DENW")));
+        // Native EPSG:25832 coordinates (Cologne).
+        let school = parsed
+            .buildings
+            .iter()
+            .find(|b| b.function == "Allgemein bildende Schule")
+            .unwrap();
+        let corner = school.footprint.0[0].exterior().0[0];
+        assert!((354_000.0..355_000.0).contains(&corner.x), "{corner:?}");
+        assert!(!school.underground);
+        let part = parsed.buildings.iter().find(|b| b.underground).unwrap();
+        assert!(part.oid.starts_with("DENW"));
+        assert!(parsed.buildings.iter().any(|b| b.updated.is_some()));
+    }
+
+    #[test]
+    fn nrw_land_use_from_nutzung_flurstueck() {
+        assert_eq!(GEOBASIS_NRW.land_use_type, "ave:NutzungFlurstueck");
+        assert_eq!(GEOBASIS_NRW.buildings_type, "ave:GebaeudeBauwerk");
+        assert_eq!(
+            GEOBASIS_NRW.url,
+            "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
+        );
+        assert_eq!(GEOBASIS_NRW.crs, Crs::Utm32);
+        let features: Vec<Value> = parse_gml(NRW_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, GEOBASIS_NRW.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        assert_eq!(land.len(), features.len());
+        assert!(land.iter().all(|l| l.oid.starts_with("DENW")));
+        let nutzarten: Vec<&str> = land.iter().map(|l| l.nutzart.as_str()).collect();
+        for want in ["Straßenverkehr", "Wohnbaufläche", "Platz"] {
+            assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
+        }
+        assert!(land.iter().any(|l| l.nutzart == "Straßenverkehr"
+            && l.bez.as_deref() == Some("Begleitfläche Straßenverkehr")));
+        let squares: Vec<Option<&str>> = land
+            .iter()
+            .filter(|l| l.nutzart == "Platz")
+            .map(|l| l.bez.as_deref())
+            .collect();
+        assert!(squares.contains(&Some("Parkplatz")), "{squares:?}");
+        assert!(
+            squares.contains(&Some("ohne Unterart (Nordrhein-Westfalen)")),
+            "{squares:?}"
+        );
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
+        assert!(features.iter().all(|f| !f["geometry"].is_null()));
     }
 
     #[test]

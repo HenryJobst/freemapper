@@ -202,7 +202,9 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 )?,
                 Crs::Utm33,
             ),
-            Region::NordrheinWestfalen => (Vec::new(), Crs::Utm32), // Task 2: Geobasis NRW ALKIS
+            Region::NordrheinWestfalen => {
+                wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
+            }
         })
     })
 }
@@ -246,7 +248,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 )?,
                 Crs::Utm33,
             ),
-            Region::NordrheinWestfalen => (Vec::new(), Crs::Utm32), // Task 2: Geobasis NRW ALKIS
+            Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
         })
     })
 }
@@ -299,7 +301,7 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`).
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`).
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -1064,6 +1066,70 @@ mod tests {
             log.iter()
                 .any(|u| u.starts_with(alkis_wfs::LVERMGEO_SH.url) && u.contains("EPSG::25832"))
         );
+    }
+
+    #[test]
+    fn hesse_border_reads_both_states() {
+        // A box over the Nordrhein-Westfalen / Hesse border (25833 E 115329 / N 5736651).
+        let region_bbox = BoundingBox {
+            min_e: 115_329.0 - 400.0,
+            min_n: 5_736_651.0 - 400.0,
+            max_e: 115_329.0 + 400.0,
+            max_n: 5_736_651.0 + 400.0,
+        };
+        assert_eq!(
+            regions_for(&region_bbox),
+            vec![Region::Hessen, Region::NordrheinWestfalen]
+        );
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            alkis_wfs::HVBG.url,
+            alkis_wfs::test_support::HE_BUILDINGS.as_bytes().to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis_wfs::GEOBASIS_NRW.url,
+            alkis_wfs::test_support::NRW_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEHE")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DENW")), "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+        // Both services are asked and answered in the map CRS (25832).
+        for b in &parsed.buildings {
+            let c = b.footprint.0[0].exterior().0[0];
+            assert!((350_000.0..500_000.0).contains(&c.x), "{} {c:?}", b.oid);
+        }
+        fetcher.insert_prefix(
+            alkis_wfs::HVBG.url,
+            alkis_wfs::test_support::HE_LAND_USE.as_bytes().to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis_wfs::GEOBASIS_NRW.url,
+            alkis_wfs::test_support::NRW_LAND_USE.as_bytes().to_vec(),
+        );
+        let raw: Value =
+            serde_json::from_str(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
+        let ids: Vec<&str> = raw["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["properties"]["oid"].as_str().unwrap())
+            .collect();
+        assert!(ids.iter().any(|o| o.starts_with("DEHE")), "{ids:?}");
+        assert!(ids.iter().any(|o| o.starts_with("DENW")), "{ids:?}");
+        let unique: std::collections::HashSet<&&str> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len(), "no duplicate land use: {ids:?}");
+        let log = fetcher.log.borrow();
+        for service in [alkis_wfs::HVBG.url, alkis_wfs::GEOBASIS_NRW.url] {
+            assert!(
+                log.iter()
+                    .any(|u| u.starts_with(service) && u.contains("EPSG::25832")),
+                "{service}"
+            );
+        }
     }
 
     #[test]

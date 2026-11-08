@@ -13,6 +13,7 @@
 | `mecklenburg-vorpommern-overview-dop20.json` | LAiV M-V Downloadportal `overview.php` answer (`type[]=dop20`) around the school, with the flight date of the tiles, 2026-11-08 | ©GeoBasis-DE/MV/CC BY 4.0 |
 | `mecklenburg-vorpommern-buildings.json`, `mecklenburg-vorpommern-land-use.json` | LAiV M-V ALKIS simplified (`alkis_vereinfacht`) buildings and land use parts (`NutzungFlurstueck`) from the OGC API Features at the school, 30 features each, 2026-11-08 | ©GeoBasis-DE/MV/CC BY 4.0 |
 | `mecklenburg-vorpommern-wfs-buildings.gml`, `mecklenburg-vorpommern-wfs-land-use.gml` | The same objects from the classic LAiV M-V WFS 2.0 (the fallback of the OGC API), 25 buildings and 30 land use parts, 2026-11-08 | ©GeoBasis-DE/MV/CC BY 4.0 |
+| `nordrhein-westfalen-buildings.gml`, `nordrhein-westfalen-land-use.gml` | Geobasis NRW ALKIS vereinfacht WFS answers (`ave:GebaeudeBauwerk`, `ave:NutzungFlurstueck`, EPSG:25832, 2026-11-08) around the Hildegard-von-Bingen-Gymnasium, Köln: 36 buildings (school, gym, underground and raised parts) and 25 parcel land-use features (Platz with and without `bez`, Straßenverkehr with "Begleitfläche Straßenverkehr"; a few from the surrounding 2 km, one Wald), whole `wfs:member` elements copied unchanged, envelope removed | © Geobasis NRW, dl-de/zero-2-0 |
 
 Regenerate the PBF fixture with `python make_osm_fixture.py brandenburg-latest.osm.pbf strausberg-school.osm.pbf`
 (needs `pip install osmium`).
