@@ -1,0 +1,616 @@
+//! LGLN Niedersachsen open data (CC BY 4.0, "© GeoBasis-DE/LGLN"), all in EPSG:25832: DGM1 and
+//! DOM1 from the MapServer WCS, and the dates of the height models and the orthophoto from the
+//! STAC APIs (the newest item at the centre of the area).
+//!
+//! The STAC answers are not cached: a date reaches the project record only.
+
+use std::path::Path;
+
+use chrono::NaiveDate;
+use serde_json::Value;
+
+use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
+use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, one_line};
+use crate::raster::{GridSpec, Raster};
+use crate::sources::float_tiff::{stored_grid, write_float_raster};
+use crate::sources::height_model::HeightModel;
+use crate::sources::wcs::WcsService;
+
+/// The STAC API of the orthophoto (collection `DOP`, every vintage).
+pub const DOP_STAC: &str = "https://dop.stac.lgln.niedersachsen.de";
+/// The STAC API of DGM1 (collection `dgm1`).
+pub const DGM_STAC: &str = "https://dgm.stac.lgln.niedersachsen.de";
+/// The STAC API of DOM1 (collection `dom1`).
+pub const DOM_STAC: &str = "https://dom.stac.lgln.niedersachsen.de";
+
+/// The extent of `ni_dgm1` (DescribeCoverage); DOM1 has the same tiles.
+pub const ENVELOPE: BoundingBox = BoundingBox {
+    min_e: 341_000.0,
+    min_n: 5_681_992.0,
+    max_e: 676_040.0,
+    max_n: 5_973_000.0,
+};
+
+/// DGM1 from the WCS: a plain Float32 TIFF (LZW with the floating point predictor), NoData −9999.
+pub const DGM1_WCS: WcsService = WcsService {
+    url: "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs",
+    coverage: "ni_dgm1",
+    extra: "",
+    multipart: false,
+    envelope: ENVELOPE,
+    max_m: WCS_MAX_M,
+};
+
+/// DOM1 from the WCS, like [`DGM1_WCS`].
+pub const DOM1_WCS: WcsService = WcsService {
+    url: "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs",
+    coverage: "ni_dom1",
+    ..DGM1_WCS
+};
+
+/// Largest side of one GetCoverage. The WCS has no limit up to 5 km, but MapServer answers
+/// only once the whole image is ready (2 km: 18 s, 4 km: 49 s), so 2 km pieces stay well inside
+/// the response timeout.
+const WCS_MAX_M: f64 = 2000.0;
+/// Items per STAC page (the server caps `limit` at 1000).
+const STAC_LIMIT: u32 = 100;
+/// Pages of one STAC search; a search at one point finds a dozen items.
+const STAC_MAX_PAGES: usize = 10;
+
+/// A height model served by the WCS at 1 m.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Model {
+    /// DGM1, the terrain.
+    Dgm1,
+    /// DOM1, the (laser) surface.
+    Dom1,
+}
+
+impl Model {
+    pub fn wcs(self) -> WcsService {
+        match self {
+            Self::Dgm1 => DGM1_WCS,
+            Self::Dom1 => DOM1_WCS,
+        }
+    }
+
+    /// The STAC API with the model's tiles and dates.
+    pub fn stac(self) -> &'static str {
+        match self {
+            Self::Dgm1 => DGM_STAC,
+            Self::Dom1 => DOM_STAC,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dgm1 => "terrain model (LGLN DGM1)",
+            Self::Dom1 => "surface model (LGLN DOM1)",
+        }
+    }
+}
+
+/// A STAC item: its id and the date of its `datetime`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StacItem {
+    pub id: String,
+    pub date: NaiveDate,
+}
+
+/// The STAC search of `host` at the centre of `bbox` (EPSG:25832): a box of ±10 m around it in
+/// lon/lat, which the search wants.
+pub fn stac_search_url(host: &str, bbox: &BoundingBox) -> String {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let corners: Vec<_> = [(-10.0, -10.0), (10.0, -10.0), (-10.0, 10.0), (10.0, 10.0)]
+        .into_iter()
+        .filter_map(|(de, dn)| {
+            Crs::Utm32.inverse(ProjectedPoint {
+                easting: e + de,
+                northing: n + dn,
+            })
+        })
+        .collect();
+    let min = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MAX, f64::min);
+    let max = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MIN, f64::max);
+    format!(
+        "{host}/search?bbox={:.6},{:.6},{:.6},{:.6}&limit={STAC_LIMIT}",
+        min(|p| p.lon),
+        min(|p| p.lat),
+        max(|p| p.lon),
+        max(|p| p.lat)
+    )
+}
+
+/// The newest item (by `datetime`) of the STAC search at the centre of `bbox`, following the
+/// `next` links (on `host` only, up to 10 pages); `None` when the search finds nothing. Items
+/// without a readable `datetime` are passed over; paging ends at an empty page or a page read
+/// before.
+pub fn newest_item(
+    fetcher: &dyn Fetcher,
+    host: &str,
+    bbox: &BoundingBox,
+) -> Result<Option<StacItem>, FetchError> {
+    let mut newest: Option<StacItem> = None;
+    let mut visited: Vec<String> = Vec::new();
+    let mut next = Some(stac_search_url(host, bbox));
+    while let Some(url) = next.take() {
+        if visited.len() == STAC_MAX_PAGES {
+            return Err(FetchError::Http {
+                url,
+                message: format!("the STAC search has more than {STAC_MAX_PAGES} pages"),
+            });
+        }
+        let page = get_with_retries(fetcher, &url, |bytes| {
+            serde_json::from_slice::<Value>(bytes)
+                .ok()
+                .filter(|page| page["features"].is_array())
+                .ok_or_else(|| FetchError::Http {
+                    url: url.clone(),
+                    message: format!(
+                        "not a STAC search answer: {}",
+                        one_line(&String::from_utf8_lossy(bytes), 80)
+                    ),
+                })
+        })?;
+        let features = page["features"]
+            .as_array()
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for item in features.iter().filter_map(stac_item) {
+            if newest.as_ref().is_none_or(|n| item.date > n.date) {
+                newest = Some(item);
+            }
+        }
+        visited.push(url);
+        if features.is_empty() {
+            break;
+        }
+        let Some(href) = page["links"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|link| link["rel"] == "next")
+            .and_then(|link| link["href"].as_str())
+        else {
+            break;
+        };
+        if !href.starts_with(&format!("{host}/")) {
+            return Err(FetchError::Http {
+                url: visited.pop().unwrap_or_default(),
+                message: format!("the STAC next link leaves {host}: {}", one_line(href, 120)),
+            });
+        }
+        next = Some(href.to_string()).filter(|href| !visited.contains(href));
+    }
+    Ok(newest)
+}
+
+/// The id and `properties.datetime` (`YYYY-MM-DDT00:00:00Z`) of a STAC item.
+fn stac_item(feature: &Value) -> Option<StacItem> {
+    let datetime = feature["properties"]["datetime"].as_str()?;
+    let date = chrono::DateTime::parse_from_rfc3339(datetime)
+        .ok()?
+        .date_naive();
+    Some(StacItem {
+        id: feature["id"].as_str().unwrap_or_default().to_string(),
+        date,
+    })
+}
+
+/// The flight date (`DD.MM.YYYY`) of the newest orthophoto at the centre of `bbox`; `None` when
+/// the STAC does not tell it. [`newest_item`] of [`DOP_STAC`] gives the date itself (for the
+/// leaf state by month).
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    newest_item(fetcher, DOP_STAC, bbox)
+        .ok()
+        .flatten()
+        .map(|item| item.date.format("%d.%m.%Y").to_string())
+}
+
+/// DGM1 or DOM1 over `bbox` (EPSG:25832) from the WCS, in pieces of at most 2 km, written as a
+/// Float32 GeoTIFF `out` with its world file.
+///
+/// The date (`YYYY-MM-DD`) is the newest STAC item's at the centre; an empty or failed search
+/// leaves it out with a warning. An area without any height (beyond the coverage's data) is an
+/// error, and an HTML page in place of the TIFF (MapServer answers some faults with HTTP 200)
+/// too.
+///
+/// Offline, the model stored at `out` is kept when it covers the area; nothing is asked (the
+/// STAC is not cached, the caller keeps the recorded date).
+pub fn fetch_model(
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    model: Model,
+    bbox: &BoundingBox,
+    out: &Path,
+) -> Result<HeightModel, FetchError> {
+    let grid = GridSpec::covering(bbox, 1.0);
+    let area = grid.bounds();
+    if mode == FetchMode::Offline {
+        let covers = stored_grid(out).is_some_and(|stored| {
+            let s = stored.bounds();
+            s.min_e <= area.min_e
+                && s.min_n <= area.min_n
+                && s.max_e >= area.max_e
+                && s.max_n >= area.max_n
+        });
+        if !covers {
+            return Err(FetchError::Http {
+                url: out.display().to_string(),
+                message: format!(
+                    "no {} stored for this map area; run `freemapper fetch` online first",
+                    model.label()
+                ),
+            });
+        }
+        return Ok(HeightModel::default());
+    }
+    let wcs = model.wcs();
+    let mut raster = Raster::filled(grid, f32::NAN);
+    wcs.fill(fetcher, &mut raster, &area)?;
+    if raster.data.iter().all(|z| z.is_nan()) {
+        return Err(FetchError::Http {
+            url: wcs.get_coverage_url(&area),
+            message: format!("the {} has no height in the map area", model.label()),
+        });
+    }
+    write_float_raster(&raster, out, wcs.url)?;
+    let mut warnings = Vec::new();
+    let date = match newest_item(fetcher, model.stac(), bbox) {
+        Ok(Some(item)) => Some(item.date.format("%Y-%m-%d").to_string()),
+        Ok(None) => {
+            warnings.push(format!(
+                "{}: no date, the STAC lists no tile at the centre of the map area",
+                model.label()
+            ));
+            None
+        }
+        Err(e) => {
+            warnings.push(format!("{}: no date ({e})", model.label()));
+            None
+        }
+    };
+    Ok(HeightModel {
+        date,
+        warnings,
+        ..HeightModel::default()
+    })
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    pub const WCS_DGM1: &[u8] =
+        include_bytes!("../../../../tests/fixtures/niedersachsen-wcs-dgm1.tif");
+    pub const STAC_DGM1: &str =
+        include_str!("../../../../tests/fixtures/niedersachsen-stac-dgm1.json");
+    pub const STAC_DOP: &str =
+        include_str!("../../../../tests/fixtures/niedersachsen-stac-dop.json");
+
+    /// A STAC search page with items `(id, datetime)` and an optional `next` link.
+    pub fn stac_page(items: &[(&str, &str)], next: Option<&str>) -> Vec<u8> {
+        let features: Vec<serde_json::Value> = items
+            .iter()
+            .map(|(id, datetime)| {
+                serde_json::json!({
+                    "type": "Feature", "id": id, "collection": "dgm1",
+                    "properties": { "datetime": datetime },
+                })
+            })
+            .collect();
+        let mut links = vec![serde_json::json!({ "rel": "self", "href": "x" })];
+        if let Some(href) = next {
+            links.push(serde_json::json!({ "rel": "next", "href": href, "method": "GET" }));
+        }
+        serde_json::json!({
+            "type": "FeatureCollection", "features": features, "links": links,
+            "numberReturned": items.len(),
+        })
+        .to_string()
+        .into_bytes()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::*;
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use crate::sources::float_tiff::decode_float_tiff;
+
+    /// The live WCS sample: 200 × 50 m at the Kaiser-Wilhelm- und Ratsgymnasium, Hannover.
+    const SAMPLE: BoundingBox = BoundingBox {
+        min_e: 551_800.0,
+        min_n: 5_803_350.0,
+        max_e: 552_000.0,
+        max_n: 5_803_400.0,
+    };
+
+    fn date(s: &str) -> NaiveDate {
+        NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+    }
+
+    #[test]
+    fn stac_picks_the_newest_item() {
+        // The search box: ±10 m around the centre, in lon/lat (the school at 9.762 E, 52.378 N).
+        let url = stac_search_url(DOP_STAC, &SAMPLE);
+        let query = url
+            .strip_prefix("https://dop.stac.lgln.niedersachsen.de/search?bbox=")
+            .unwrap_or_else(|| panic!("{url}"));
+        let corners: Vec<f64> = query
+            .split('&')
+            .next()
+            .unwrap()
+            .split(',')
+            .map(|v| v.parse().unwrap())
+            .collect();
+        assert_eq!(corners.len(), 4, "{url}");
+        assert!((9.761..9.763).contains(&corners[0]), "{url}");
+        assert!((52.377..52.379).contains(&corners[1]), "{url}");
+        assert!(corners[2] > corners[0] && corners[3] > corners[1], "{url}");
+        assert!(
+            corners[2] - corners[0] < 0.001 && corners[3] - corners[1] < 0.001,
+            "{url}"
+        );
+        assert!(url.contains("&limit=100"), "{url}");
+        // The live answer lists five vintages of the 2 km blocks and two 1 km DOP10 tiles
+        // (2013 … 2025); the newest is 2025-03-06, in whatever order the items come.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DOP_STAC, STAC_DOP.as_bytes().to_vec());
+        let newest = newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap().unwrap();
+        assert_eq!(newest.date, date("2025-03-06"));
+        assert!(newest.id.ends_with("_2025-03-06"), "{}", newest.id);
+        assert_eq!(
+            flight_date(&fetcher, &SAMPLE).as_deref(),
+            Some("06.03.2025")
+        );
+        let mut answer: Value = serde_json::from_str(STAC_DOP).unwrap();
+        answer["features"].as_array_mut().unwrap().reverse();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DOP_STAC, answer.to_string().into_bytes());
+        let newest = newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap().unwrap();
+        assert_eq!(newest.date, date("2025-03-06"));
+        // An item without a readable date is passed over.
+        let page = stac_page(
+            &[
+                ("a", "2016-04-18T00:00:00Z"),
+                ("b", "soon"),
+                ("c", "2021-02-01T00:00:00Z"),
+            ],
+            None,
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM_STAC, page);
+        let newest = newest_item(&fetcher, DGM_STAC, &SAMPLE).unwrap().unwrap();
+        assert_eq!((newest.id.as_str(), newest.date), ("c", date("2021-02-01")));
+        // A bbox outside Niedersachsen: 200 with an empty list, so no item and no date.
+        let empty = stac_page(&[], None);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DOP_STAC, empty);
+        assert_eq!(newest_item(&fetcher, DOP_STAC, &SAMPLE).unwrap(), None);
+        assert_eq!(flight_date(&fetcher, &SAMPLE), None);
+        // Not a search answer: an error naming it.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DOP_STAC, b"<html>\x1b[2JBad Gateway</html>".to_vec());
+        let err = newest_item(&fetcher, DOP_STAC, &SAMPLE)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not a STAC search answer"), "{err}");
+        assert!(!err.contains('\x1b'), "{err:?}");
+        assert_eq!(flight_date(&fetcher, &SAMPLE), None);
+    }
+
+    #[test]
+    fn stac_pages_are_followed() {
+        let first = stac_search_url(DGM_STAC, &SAMPLE);
+        let second = format!("{DGM_STAC}/search?bbox=1,2,3,4&limit=100&token=next:dgm1:a");
+        let third = format!("{DGM_STAC}/search?bbox=1,2,3,4&limit=100&token=next:dgm1:b");
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &first,
+            stac_page(&[("a", "2016-04-18T00:00:00Z")], Some(&second)),
+        );
+        fetcher.insert(
+            &second,
+            stac_page(&[("b", "2025-03-03T00:00:00Z")], Some(&third)),
+        );
+        fetcher.insert(&third, stac_page(&[("c", "2020-01-01T00:00:00Z")], None));
+        let newest = newest_item(&fetcher, DGM_STAC, &SAMPLE).unwrap().unwrap();
+        assert_eq!((newest.id.as_str(), newest.date), ("b", date("2025-03-03")));
+        assert_eq!(
+            *fetcher.log.borrow(),
+            vec![first.clone(), second.clone(), third.clone()]
+        );
+        // A link back to a page already read ends the search.
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &first,
+            stac_page(&[("a", "2016-04-18T00:00:00Z")], Some(&second)),
+        );
+        fetcher.insert(
+            &second,
+            stac_page(&[("b", "2017-01-01T00:00:00Z")], Some(&first)),
+        );
+        let newest = newest_item(&fetcher, DGM_STAC, &SAMPLE).unwrap().unwrap();
+        assert_eq!(newest.id, "b");
+        assert_eq!(fetcher.calls.get(), 2);
+        // An empty page ends it too.
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &first,
+            stac_page(&[("a", "2016-04-18T00:00:00Z")], Some(&second)),
+        );
+        fetcher.insert(&second, stac_page(&[], Some(&third)));
+        assert_eq!(
+            newest_item(&fetcher, DGM_STAC, &SAMPLE)
+                .unwrap()
+                .unwrap()
+                .id,
+            "a"
+        );
+        assert_eq!(fetcher.calls.get(), 2);
+        // A link to another host is not followed.
+        let fetcher = MapFetcher::default();
+        let elsewhere = "https://stac.example/search?token=next:dgm1:a";
+        fetcher.insert(
+            &first,
+            stac_page(&[("a", "2016-04-18T00:00:00Z")], Some(elsewhere)),
+        );
+        fetcher.insert(elsewhere, stac_page(&[("x", "2026-01-01T00:00:00Z")], None));
+        let err = newest_item(&fetcher, DGM_STAC, &SAMPLE)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("leaves"), "{err}");
+        assert_eq!(fetcher.calls.get(), 1);
+        // Endless paging stops at the page cap.
+        let fetcher = MapFetcher::default();
+        let page =
+            |i: usize| format!("{DGM_STAC}/search?bbox=1,2,3,4&limit=100&token=next:dgm1:{i}");
+        fetcher.insert(
+            &first,
+            stac_page(&[("0", "2016-04-18T00:00:00Z")], Some(&page(1))),
+        );
+        for i in 1..=STAC_MAX_PAGES + 1 {
+            let id = i.to_string();
+            fetcher.insert(
+                &page(i),
+                stac_page(&[(id.as_str(), "2016-04-18T00:00:00Z")], Some(&page(i + 1))),
+            );
+        }
+        let err = newest_item(&fetcher, DGM_STAC, &SAMPLE)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("more than 10 pages"), "{err}");
+        assert_eq!(fetcher.calls.get(), STAC_MAX_PAGES);
+    }
+
+    #[test]
+    fn wcs_html_answer_is_an_error() {
+        // MapServer answers a request it cannot serve (an unknown map) with HTTP 200 and HTML.
+        let page =
+            b"<HTML>\n<HEAD><TITLE>MapServer Message</TITLE></HEAD>\n<!-- MapServer version \
+            8.0.1 -->\n<BODY BGCOLOR=\"#FFFFFF\">\nmsCGILoadMap(): Web application error. CGI \
+            variable &quot;map&quot; not found.\n</BODY></HTML>";
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM1_WCS.url, page.to_vec());
+        fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("dgm1.tif");
+        let err = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("no TIFF in the WCS answer"), "{err}");
+        assert!(err.contains("MapServer Message"), "{err}");
+        assert!(!out.exists());
+        // DOM1 the same.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DOM1_WCS.url, page.to_vec());
+        assert!(fetch_model(&fetcher, FetchMode::Online, Model::Dom1, &SAMPLE, &out).is_err());
+        assert!(!out.exists());
+    }
+
+    #[test]
+    fn lgln_dgm1_from_the_wcs() {
+        assert_eq!(
+            DGM1_WCS.get_coverage_url(&SAMPLE),
+            "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs?SERVICE=WCS&VERSION=2.0.1\
+             &REQUEST=GetCoverage&COVERAGEID=ni_dgm1&FORMAT=image/tiff\
+             &SUBSET=x(551800,552000)&SUBSET=y(5803350,5803400)"
+        );
+        assert_eq!(
+            Model::Dom1.wcs().get_coverage_url(&SAMPLE),
+            "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs?SERVICE=WCS&VERSION=2.0.1\
+             &REQUEST=GetCoverage&COVERAGEID=ni_dom1&FORMAT=image/tiff\
+             &SUBSET=x(551800,552000)&SUBSET=y(5803350,5803400)"
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("dgm1.tif");
+        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        // The date of the newest item at the centre (ALS of lot L1603).
+        assert_eq!(
+            found,
+            HeightModel {
+                date: Some("2016-04-18".to_string()),
+                ..HeightModel::default()
+            }
+        );
+        assert_eq!(
+            fetcher.log.borrow()[0],
+            DGM1_WCS.get_coverage_url(&SAMPLE),
+            "one GetCoverage, then the STAC"
+        );
+        assert!(fetcher.log.borrow()[1].starts_with(&format!("{DGM_STAC}/search?bbox=")));
+        // Written with its world file, as for the other per-area providers.
+        let grid = stored_grid(&out).unwrap();
+        assert_eq!((grid.width, grid.height), (200, 50));
+        assert_eq!((grid.west, grid.north), (551_800.0, 5_803_400.0));
+        let file = std::fs::File::open(&out).unwrap();
+        let tiff::decoder::DecodingResult::F32(heights) =
+            tiff::decoder::Decoder::new(std::io::BufReader::new(file))
+                .unwrap()
+                .read_image()
+                .unwrap()
+        else {
+            panic!("not Float32");
+        };
+        // The school tile lies at 51.6–57.1 m (reference §5), without NoData; the live answer
+        // decodes like the served one.
+        assert!(
+            heights.iter().all(|z| (51.0..58.0).contains(z)),
+            "{:?}",
+            heights.iter().find(|z| !(51.0..58.0).contains(*z))
+        );
+        assert_eq!(heights, decode_float_tiff(WCS_DGM1).unwrap().data);
+        // An empty STAC answer: the model without a date, and a warning.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        fetcher.insert_prefix(DGM_STAC, stac_page(&[], None));
+        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        assert_eq!(found.date, None);
+        assert_eq!(found.warnings.len(), 1, "{:?}", found.warnings);
+        assert!(
+            found.warnings[0].contains("no date"),
+            "{:?}",
+            found.warnings
+        );
+        // A failed STAC search: a warning as well.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        assert_eq!(found.date, None);
+        assert!(
+            found.warnings[0].contains("not found"),
+            "{:?}",
+            found.warnings
+        );
+        // No height at all (an area beyond the coverage's data): an error.
+        let grid = crate::raster::GridSpec::covering(&SAMPLE, 1.0);
+        let nodata = vec![-9999.0; (grid.width * grid.height) as usize];
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            DGM1_WCS.url,
+            crate::fetch::test_support::geotiff(&grid, &nodata),
+        );
+        let empty = dir.path().join("empty.tif");
+        let err = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &empty)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("no height"), "{err}");
+        assert!(!empty.exists());
+        // Offline the stored model is kept when it covers the area; nothing is asked.
+        let fetcher = MapFetcher::default();
+        let found = fetch_model(&fetcher, FetchMode::Offline, Model::Dgm1, &SAMPLE, &out).unwrap();
+        assert_eq!(found, HeightModel::default());
+        assert_eq!(fetcher.calls.get(), 0);
+        let larger = SAMPLE.buffered(10.0);
+        let err = fetch_model(&fetcher, FetchMode::Offline, Model::Dgm1, &larger, &out)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("run `freemapper fetch` online first"), "{err}");
+    }
+}

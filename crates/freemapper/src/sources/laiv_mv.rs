@@ -17,7 +17,7 @@ use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::write_float_raster;
+use crate::sources::float_tiff::{stored_grid, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::region::{Region, contains_point};
 use crate::sources::wcs::{WcsOrthophoto, WcsService};
@@ -328,17 +328,6 @@ fn tile_at(e: f64, n: f64) -> TileId {
         east_km: km(e),
         north_km: km(n),
     }
-}
-
-/// The grid of the model stored at `out` (its world file and TIFF size).
-fn stored_grid(out: &Path) -> Option<GridSpec> {
-    let world = std::fs::read_to_string(out.with_extension("tfw")).ok()?;
-    let file = std::fs::File::open(out).ok()?;
-    let (width, height) = tiff::decoder::Decoder::new(std::io::BufReader::new(file))
-        .ok()?
-        .dimensions()
-        .ok()?;
-    GridSpec::from_world_file(&world, width, height).ok()
 }
 
 /// DGM1 or DOM1 over `bbox` (EPSG:25833) from the WCS, masked to the MV tile set and written as

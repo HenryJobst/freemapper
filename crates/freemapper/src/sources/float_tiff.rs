@@ -297,6 +297,17 @@ pub(crate) fn write_float_raster(
     Ok(())
 }
 
+/// The grid of the model [`write_float_raster`] stored at `out` (its world file and TIFF size).
+pub(crate) fn stored_grid(out: &Path) -> Option<GridSpec> {
+    let world = std::fs::read_to_string(out.with_extension("tfw")).ok()?;
+    let file = std::fs::File::open(out).ok()?;
+    let (width, height) = tiff::decoder::Decoder::new(std::io::BufReader::new(file))
+        .ok()?
+        .dimensions()
+        .ok()?;
+    GridSpec::from_world_file(&world, width, height).ok()
+}
+
 /// `raster` as an LZW Float32 GeoTIFF with ModelPixelScale and ModelTiepoint, which
 /// [`decode_float_tiff`] reads back (for caching; no world file).
 pub(crate) fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
