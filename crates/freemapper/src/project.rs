@@ -905,9 +905,10 @@ fn fetch_wms_orthophoto(
     Ok(())
 }
 
-/// The warning for a map area that reaches beyond the union of the supported states (abroad, or
-/// into Bremen, which is no region yet). The states' services stop at their borders.
-const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states; the state data may be missing there, so the orthophoto can be white and there are no ALKIS buildings or land use";
+/// The warning for a map area that reaches beyond the union of the supported states (abroad, into
+/// Bremen, which is no region yet, or into sea outside a state boundary). The states' services
+/// stop at their borders.
+const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states (abroad, in Bremen or at sea). The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
 /// How many days a stored orthophoto is reused while the service gives no flight date (none known,
 /// or the query failed) before the next online fetch downloads it again.
