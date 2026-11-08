@@ -274,7 +274,9 @@ everything again.
 
 **At a state border** freemapper queries the cadastre of both states and reads both OSM extracts. The
 orthophoto and terrain come from the state holding the centre of the map area. If the area reaches far
-across the border, the templates stay empty on the other side. freemapper tells you so.
+across the border, the templates on the other side stay empty where that state's orthophoto and height
+models end. Some services reach further: the LGLN orthophoto and height models also cover the Hamburg
+corner at Harburg. freemapper tells you when an area crosses a border.
 
 ## 13. Working on later
 
@@ -296,7 +298,7 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `no area found for …` | The place was not found, or its grounds are several parts in OSM. | Spell it differently, or draw the area in the browser. |
 | `MultiPolygon with … parts` | The chosen grounds consist of several parts. | Draw one connected area in the browser. |
 | `warning: no ALKIS buildings found in the map area` | There are no buildings in the area, e.g. in a forest. | Nothing, if that is right. Otherwise fetch again later. |
-| `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. | The templates stay empty there. |
+| `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. The orthophoto and height models come from the state holding the centre, ALKIS and OSM from both states. | The templates stay empty where that state's orthophoto and height models end. Draw that part by hand. |
 | `warning: part of the map area lies outside the supported states` | Part of the area lies outside every supported state: abroad, at sea or in a German state freemapper does not support yet. Those states are Bremen, Thuringia, Bavaria, Baden-Württemberg, Rhineland-Palatinate and Saarland. The sea includes the Baltic off Schleswig-Holstein and Mecklenburg-Vorpommern and the Schleswig-Holstein Wadden Sea, for example between Föhr and Dagebüll. The boundaries of these two states leave that water out. There are no state data there, the orthophoto can be white, and ALKIS gives no buildings or land use. freemapper reports this when it fetches, not in the size estimate. A strip of up to 50 m beyond the border does not trigger the warning. | Draw that part by hand or move the area. |
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |

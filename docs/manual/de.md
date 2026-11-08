@@ -279,7 +279,9 @@ neu.
 
 **An einer Landesgrenze** fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge.
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Reicht das Gebiet
-weit über die Grenze, bleiben die Vorlagen jenseits davon leer. freemapper weist darauf hin.
+weit über die Grenze, bleiben die Vorlagen jenseits davon leer, soweit Luftbild und Höhenmodelle dieses
+Landes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
+Hamburger Ecke bei Harburg ab. freemapper meldet, wenn ein Gebiet über eine Grenze reicht.
 
 ## 13. Später weiterarbeiten
 
@@ -303,7 +305,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, oder das Gebiet im Browser zeichnen. |
 | `MultiPolygon with … parts` | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |
 | `warning: no ALKIS buildings found in the map area` | Im Gebiet gibt es keine Gebäude, z. B. im Wald. | Nichts, wenn das stimmt. Sonst später erneut laden. |
-| `the map area reaches beyond the state border` | Ein Teil des Gebiets liegt im Nachbarland. | Die Vorlagen bleiben dort leer. |
+| `the map area reaches beyond the state border` | Ein Teil des Gebiets liegt im Nachbarland. Luftbild und Höhenmodelle kommen aus dem Land der Gebietsmitte, ALKIS und OSM aus beiden Ländern. | Die Vorlagen bleiben leer, wo Luftbild und Höhenmodelle dieses Landes enden. Den Teil von Hand zeichnen. |
 | `warning: part of the map area lies outside the supported states` | Ein Teil des Gebiets liegt außerhalb aller unterstützten Länder: im Ausland, auf dem Meer oder in einem Land, das freemapper noch nicht unterstützt. Das sind Bremen, Thüringen, Bayern, Baden-Württemberg, Rheinland-Pfalz und das Saarland. Zum Meer gehören die Ostsee vor Schleswig-Holstein und Mecklenburg-Vorpommern und das schleswig-holsteinische Wattenmeer, etwa zwischen Föhr und Dagebüll. Die Landesgrenzen dieser beiden Länder lassen dieses Wasser aus. Dort gibt es keine Landesdaten, das Luftbild kann weiß sein, und ALKIS liefert weder Gebäude noch Nutzung. freemapper meldet das beim Laden, nicht schon bei der Größenschätzung. Ein Streifen bis 50 m hinter der Grenze löst die Warnung nicht aus. | Den Teil von Hand zeichnen oder das Gebiet verschieben. |
 | `download of … failed` oder `invalid ALKIS data` | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | `… refused the request (HTTP 400)` | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |

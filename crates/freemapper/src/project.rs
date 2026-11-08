@@ -1054,8 +1054,10 @@ fn fetch_lgv_rasters(
     Ok(())
 }
 
-/// Reports once that the map area reaches into a state other than `provider`'s: the `name` data
-/// stop at the edge of their own coverage (their tiles may reach slightly past the border).
+/// Reports once that the map area reaches into a state other than `provider`'s. Whether the `name`
+/// rasters end at the border depends on the service (the LGLN WMS and WCS cover the Hamburg corner
+/// but the WMS is white in Bremen; tiles may reach slightly past), so the line promises no empty
+/// templates. ALKIS and OSM are read from both states.
 fn warn_beyond_state(
     project: &ProjectFile,
     provider: Provider,
@@ -1067,7 +1069,7 @@ fn warn_beyond_state(
         .any(|r| r.provider() != provider)
     {
         progress(&format!(
-            "the map area reaches beyond the state border; the {name} data stop at the edge of their coverage, and the templates stay empty beyond it"
+            "the map area reaches beyond the state border; beyond it the templates are empty wherever the {name} orthophoto and height models end. ALKIS and OSM come from both states"
         ));
     }
     Ok(())
@@ -4798,7 +4800,7 @@ mod tests {
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(
             messages.iter().any(|m| m.starts_with(
-                "the map area reaches beyond the state border; the LAiV M-V data stop"
+                "the map area reaches beyond the state border; beyond it the templates are empty wherever the LAiV M-V orthophoto and height models end"
             )),
             "{messages:?}"
         );
@@ -6645,10 +6647,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             }
         }
+        // LGLN's orthophoto and height models also cover this Hamburg corner (live run), so the
+        // line must not promise empty templates there.
         assert!(
-            messages
-                .iter()
-                .any(|m| m.contains("the LGLN data stop at the edge of their coverage")),
+            messages.iter().any(|m| m
+                == "the map area reaches beyond the state border; beyond it the templates are empty wherever the LGLN orthophoto and height models end. ALKIS and OSM come from both states"),
+            "{messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.contains("stay empty beyond it")),
             "{messages:?}"
         );
         // Both neighbours are supported states: nothing lies outside them.
