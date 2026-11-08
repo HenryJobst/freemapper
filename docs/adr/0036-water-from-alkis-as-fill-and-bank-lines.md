@@ -41,9 +41,10 @@ Addendum (2026-11-08, Mainz): at the Rhine the Rhineland-Palatinate and Hesse pa
 in mid-river without sharing their vertices, and the union kept the seam as a bank line through the river. The
 "parcels that do not quite meet" cost above came true. After the union freemapper now closes every gap, inlet and
 hole narrower than 0.5 m (`SEAM_TOLERANCE_M`), for parcels of one state as well. It takes the pieces that a
-morphological closing (grow by 0.25 m, shrink by 0.25 m, mitre joins) adds and joins only those, grown by 1 cm, to
-the union, so every other vertex stays where it was. The narrowest real gap, a bridge of 0.8 m, stays land, and so
-does an island. Where a closed gap meets the shore, the bank line can get a bump of 1 cm. Dropping bank segments near
+morphological closing (grow by 0.25 m, shrink by 0.25 m, mitre joins) adds and joins only those to the union, grown
+by 1 cm to overlap both sides and cut back to the closing, so every other vertex stays where it was and the shore
+stays straight where a gap meets it. The narrowest real gap, a bridge of 0.8 m, stays land, and so does an island.
+Dropping bank segments near
 other water was the alternative; it would have left the white gap in the fill and in the water that contours and OSM
 duplicates are tested against (branch `sheet-colours`).
 

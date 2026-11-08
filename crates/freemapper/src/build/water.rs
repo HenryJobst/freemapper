@@ -50,7 +50,8 @@ const SEAM_TOLERANCE_M: f64 = 0.5;
 /// Corners sharper than this get a bevel instead of a mitre while gaps are closed (radians,
 /// about 6°).
 const MITRE_MIN_ANGLE: f64 = 0.1;
-/// A closed gap is grown by this much before it joins the water, so it overlaps both sides.
+/// A closed gap is grown by this much before it joins the water, so it overlaps both sides; the
+/// growth is cut back to the closing.
 const GAP_OVERLAP_M: f64 = 0.01;
 
 pub fn is_water(land: &LandUse) -> bool {
@@ -269,7 +270,10 @@ fn close_gaps(shape: &MultiPolygon<f64>) -> MultiPolygon<f64> {
     if gaps.is_empty() {
         return shape.clone();
     }
-    shape.union(&MultiPolygon(gaps).buffer_with_style(style(GAP_OVERLAP_M)))
+    // Grown so they overlap the water on both sides, then cut back to the closing, so they do
+    // not bulge out where a gap meets the shore.
+    let grown = MultiPolygon(gaps).buffer_with_style(style(GAP_OVERLAP_M));
+    shape.union(&grown.intersection(&closed))
 }
 
 fn rings(polygon: &Polygon<f64>) -> impl Iterator<Item = &LineString<f64>> {
@@ -864,6 +868,39 @@ mod tests {
         let (objects, set) = water(&f, &land_use);
         assert_eq!(with_code(&objects.map, &set, "301.1").len(), 1);
         assert_eq!(banks_and_seam(&f, &objects, &set), (2, false));
+    }
+
+    #[test]
+    fn a_gap_across_the_river_leaves_the_shore_straight() {
+        let f = fixture();
+        // A 40 m river split across its width, the two parcels 0.2 m apart: the closed gap meets
+        // both shores and must not bulge out of them.
+        let part = |oid: &str, de: f64, w: f64| {
+            land(
+                oid,
+                "Fließgewässer",
+                None,
+                vec![rect(&f, de, -20.0, w, 40.0)],
+            )
+        };
+        let land_use = [
+            part("DERPAL01", -1000.0, 999.9),
+            part("DEHEAL01", 0.1, 999.9),
+        ];
+        let (objects, set) = water(&f, &land_use);
+        assert_eq!(with_code(&objects.map, &set, "301.1").len(), 1);
+        let banks = with_code(&objects.map, &set, "301.6");
+        assert_eq!(banks.len(), 2, "the north and the south bank");
+        let n = f.centre.1;
+        for bank in banks {
+            for p in projected(&f, bank) {
+                let off = (p.northing - (n - 20.0))
+                    .abs()
+                    .min((p.northing - (n + 20.0)).abs());
+                // Map coordinates are 1 µm on paper, 4 mm on the ground at 1:4000.
+                assert!(off < 0.005, "{p:?} is {off} m off the shore");
+            }
+        }
     }
 
     #[test]
