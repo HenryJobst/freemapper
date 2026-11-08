@@ -77,6 +77,7 @@ objects each map has is in [`examples/README.en.md`](examples/README.en.md).
 | Mecklenburg-Vorpommern | [Wismar old town](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
 | North Rhine-Westphalia | [Monschau old town](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](examples/niedersachsen-herrenhausen/) | <a href="examples/niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="examples/niedersachsen-herrenhausen/preview.jpg" width="160" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="160" alt=""></a> |
 
 ## Choosing the area in the browser
 
