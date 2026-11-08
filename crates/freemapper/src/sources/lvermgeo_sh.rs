@@ -94,10 +94,21 @@ pub fn overview(
     let features = json["result"]["features"]
         .as_array()
         .ok_or_else(|| error("not a tile overview: no features".to_string()))?;
-    let mut tiles = features
+    let matching: Vec<&Value> = features
         .iter()
         .map(|feature| &feature["properties"])
         .filter(|properties| text(&properties["type"]).as_deref() == Some(product.overview_type()))
+        .collect();
+    // Features, but none of the requested type: the portal changed, not an empty area.
+    if matching.is_empty() && !features.is_empty() {
+        return Err(error(format!(
+            "the overview lists {} tiles but none of type `{}`; the Downloadportal has changed",
+            features.len(),
+            product.overview_type()
+        )));
+    }
+    let mut tiles = matching
+        .into_iter()
         .map(|properties| portal_tile(properties, product).map_err(error))
         .collect::<Result<Vec<_>, _>>()?;
     tiles.sort_by_key(|t| t.tile);
@@ -126,10 +137,12 @@ fn portal_tile(properties: &Value, product: Product) -> Result<PortalTile, Strin
         }
         Product::Bdom => {
             let listed = field("kachel_n")?;
-            // The overview names the tile `bdom20rgbi_…`; the file is `bdom20nc_…`.
+            // The overview names the tile `bdom20rgbi_…`; the file is `bdom20nc_…`. Any other
+            // name would build a link the portal answers with an HTML error.
             let name = match listed.strip_prefix("bdom20rgbi_") {
                 Some(rest) => format!("bdom20nc_{rest}"),
-                None => listed,
+                None if listed.starts_with("bdom20nc_") => listed,
+                None => return Err(format!("unknown bDOM tile name {listed}")),
             };
             let km = field("kach10km")?;
             let stack = field("filepath")?;
@@ -177,9 +190,14 @@ fn parse_tile_key(key: &str) -> Option<TileId> {
     })
 }
 
-/// The start of an error answer, on one line.
+/// The start of an error answer, on one line and without control characters (an escape
+/// sequence from the server must not reach the user's terminal).
 fn excerpt(text: &str) -> String {
-    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let printable: String = text
+        .chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let line = printable.split_whitespace().collect::<Vec<_>>().join(" ");
     match line.char_indices().nth(200) {
         Some((end, _)) => format!("{}…", &line[..end]),
         None => line,
@@ -292,11 +310,78 @@ mod tests {
         assert!(message.contains("Folgender Datensatz"), "{message}");
     }
 
+    /// `fixture` with the first feature's `key` set to `value`.
+    fn with_property(fixture: &str, key: &str, value: Value) -> String {
+        let mut json: Value = serde_json::from_str(fixture).unwrap();
+        json["result"]["features"][0]["properties"][key] = value;
+        json.to_string()
+    }
+
     #[test]
     fn unsafe_names_are_refused() {
-        let evil = DGM1.replace("dgm1_32_565_5949_1_sh_2022", "x&file=../../etc");
-        let err = overview(&serving("dgm1", &evil), &SCHOOL, Product::Dgm1).unwrap_err();
-        assert!(err.to_string().contains("x&file=../../etc"), "{err}");
+        let evil = "x&file=../../etc";
+        for (product, fixture, keys) in [
+            (
+                Product::Dgm1,
+                DGM1,
+                &["title", "jahr", "kaname", "filepath"][..],
+            ),
+            (
+                Product::Bdom,
+                BDOM,
+                &["title", "jahr", "kachel_n", "kach10km", "filepath"][..],
+            ),
+        ] {
+            let name = product.overview_type();
+            for key in keys {
+                let answer = with_property(fixture, key, Value::from(evil));
+                let err = overview(&serving(name, &answer), &SCHOOL, product).unwrap_err();
+                assert!(
+                    err.to_string().contains(&format!("`{key}`")),
+                    "{key}: {err}"
+                );
+            }
+            // A number that is not a whole year.
+            let answer = with_property(fixture, "jahr", Value::from(2022.5));
+            let err = overview(&serving(name, &answer), &SCHOOL, product).unwrap_err();
+            assert!(err.to_string().contains("`jahr`"), "{err}");
+        }
+    }
+
+    #[test]
+    fn control_characters_are_not_echoed() {
+        let answer = "\x1b[31mFehler\x1b[0m\x07 beim\r\nAbruf";
+        let err = overview(&serving("dgm1", answer), &SCHOOL, Product::Dgm1).unwrap_err();
+        let message = err.to_string();
+        assert!(!message.chars().any(char::is_control), "{message:?}");
+        assert!(message.contains("[31mFehler"), "{message}");
+        assert!(message.contains("beim Abruf"), "{message}");
+    }
+
+    #[test]
+    fn features_of_another_type_are_an_error() {
+        // A DGM1 answer to a bDOM request: the portal's `type` no longer matches.
+        let err = overview(&serving("bdom", DGM1), &SCHOOL, Product::Bdom).unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("none of type `bdom`"), "{message}");
+        // No features at all is an empty area, not an error.
+        let empty = DGM1.replace(
+            &DGM1[DGM1.find("[{").unwrap()..DGM1.rfind("}]").unwrap() + 2],
+            "[]",
+        );
+        let tiles = overview(&serving("dgm1", &empty), &SCHOOL, Product::Dgm1).unwrap();
+        assert!(tiles.is_empty());
+    }
+
+    #[test]
+    fn unknown_bdom_name_is_an_error() {
+        let answer = BDOM.replace("bdom20rgbi_", "bdom40rgb_");
+        let err = overview(&serving("bdom", &answer), &SCHOOL, Product::Bdom).unwrap_err();
+        assert!(err.to_string().contains("bdom40rgb_32_565_5949"), "{err}");
+        // The file name itself is accepted as it is.
+        let answer = BDOM.replace("bdom20rgbi_", "bdom20nc_");
+        let tiles = overview(&serving("bdom", &answer), &SCHOOL, Product::Bdom).unwrap();
+        assert_eq!(tiles[0].name, "bdom20nc_32_565_5949_1_sh_2023");
     }
 
     #[test]

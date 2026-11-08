@@ -170,8 +170,15 @@ const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 /// is verified against the bundled intermediate and its root instead of the default roots.
 const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
 
-/// The only trust anchors for [`PORTAL_HOST`]: the intermediate (valid to 2035-02-11) and the
-/// root `D-TRUST BR Root CA 1 2020` that signed it (also in the default roots).
+/// The only trust anchors for [`PORTAL_HOST`]: the intermediate `D-TRUST BR CA 1-20-1 2020`
+/// (valid to 2035-02-11) and the root `D-TRUST BR Root CA 1 2020` that signed it.
+///
+/// The intermediate is a trust anchor because the server omits it from its chain. As an anchor,
+/// its own validity period, extended key usage and revocation are not checked, and the pin does
+/// not follow a later distrust of the root in the default roots. This applies to that one host
+/// only; the leaf is still fully verified (chain, validity and host name). When the portal
+/// changes its CA or the intermediate expires, its requests fail with a certificate error until
+/// `assets/tls/` is updated.
 const PORTAL_ANCHORS: [&[u8]; 2] = [
     include_bytes!("../../../assets/tls/d-trust-br-ca-1-20-1-2020.pem"),
     include_bytes!("../../../assets/tls/d-trust-br-root-ca-1-2020.pem"),
@@ -187,13 +194,17 @@ enum Trust {
 }
 
 /// The trust for `url`: the bundled anchors exactly for absolute URLs on the host
-/// [`PORTAL_HOST`] (hosts compare without case), the default roots for everything else,
-/// including URLs that do not parse.
+/// [`PORTAL_HOST`], the default roots for everything else, including URLs that do not parse.
+/// Hosts compare without case, and a single trailing dot (the fully qualified form of the same
+/// name, as a pasted URL may carry) is the same host.
 fn trust_for(url: &str) -> Trust {
     let Ok(uri) = url.parse::<ureq::http::Uri>() else {
         return Trust::DefaultRoots;
     };
-    match (uri.scheme(), uri.host()) {
+    let host = uri
+        .host()
+        .map(|host| host.strip_suffix('.').unwrap_or(host));
+    match (uri.scheme(), host) {
         (Some(_), Some(host)) if host.eq_ignore_ascii_case(PORTAL_HOST) => Trust::PortalAnchors,
         _ => Trust::DefaultRoots,
     }
@@ -2682,6 +2693,8 @@ mod tests {
             "https://GEODATEN.Schleswig-Holstein.de/",
             "https://geodaten.schleswig-holstein.de:443/x",
             "http://geodaten.schleswig-holstein.de/x",
+            // A fully qualified name is the same host.
+            "https://geodaten.schleswig-holstein.de./x",
         ] {
             assert_eq!(trust_for(url), Trust::PortalAnchors, "{url}");
             let agents = fetcher.agents(url);
@@ -2714,6 +2727,8 @@ mod tests {
             "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
             "https://opendata.schleswig-holstein.de/api/3/action/package_show",
             "geodaten.schleswig-holstein.de",
+            "https://geodaten.schleswig-holstein.de../x",
+            "https://geodaten.schleswig-holstein.de.evil./x",
             "not a url",
         ] {
             assert_eq!(trust_for(url), Trust::DefaultRoots, "{url}");
