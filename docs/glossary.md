@@ -62,7 +62,7 @@ Orienteering Maps 2019 (IOF).
 | Passierbares Gewässer | crossable body of water | Flaches Wasser, das durchquert werden darf (ISSprOM 302). freemapper erzeugt es nicht; der Kartierer stuft flache Gewässer im Gelände um. | – |
 | Uferlinie | bank line | Schwarze Randlinie eines unpassierbaren Gewässers (ISSprOM 301.6). Wo ein Gewässer über Kartengebiet plus Puffer hinausreicht, fehlt sie an dieser Kante; Inseln bekommen eine eigene. | `BANK_CODE`, `bank_lines` |
 | Mittlere Breite | mean width | 2 · Fläche / Umfang einer Fläche. ALKIS-Gewässer unter 2 m mittlerer Breite werden Kandidaten statt Kartenobjekte. | `mean_width`, `NARROW_WATER_M` |
-| Kleiner Wasserlauf | small crossable watercourse | Bach oder Graben unter 2 m Breite, der ganzjährig Wasser führt (ISSprOM 305); Kandidat aus OSM `waterway=stream` oder `drain`. | `"305"` |
+| Kleiner Wasserlauf | small crossable watercourse | Bach oder Abzugsgraben unter 2 m Breite, der ganzjährig Wasser führt (ISSprOM 305); Kandidat aus OSM `waterway=stream` oder `drain`. Gräben (`ditch`) sind immer 306. | `"305"` |
 | Graben | minor or seasonal watercourse | Graben oder Bach, der zeitweise trocken fällt (ISSprOM 306); Kandidat aus OSM `waterway=ditch` und aus `stream` oder `drain` mit `intermittent=yes`. | `"306"` |
 | Brunnen | small fountain or well | Brunnen oder Wasserstelle als Punkt (ISSprOM 311); Kandidat aus OSM `amenity=fountain` (Punkt) und `man_made=water_well`. | `"311"` |
 | Quelle (Wasser) | spring | Stelle, an der ein Wasserlauf entspringt (ISSprOM 312); Kandidat aus OSM `natural=spring`. | `"312"` |

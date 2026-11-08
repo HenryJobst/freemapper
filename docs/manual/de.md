@@ -203,8 +203,8 @@ Aus OSM kommen weitere Kandidaten:
 
 - Teiche, Becken, Schwimmbecken im Freien und Brunnenbecken als Fläche (301). Liegt eine solche Fläche mindestens zur
   Hälfte im Gewässer aus dem Kataster, lässt freemapper sie weg.
-- Bäche und Gräben als Linie: 305, wenn sie ganzjährig Wasser führen, sonst 306. Verrohrte Abschnitte
-  fehlen.
+- Bäche und Abzugsgräben (`drain`) als Linie: 305, wenn sie ganzjährig Wasser führen, sonst 306. Gräben
+  (`ditch`) sind immer 306. Verrohrte Abschnitte fehlen.
 - Brunnen (311) und Quellen (312) als Punkt, auf Schulhofkarten auch Trinkbrunnen (313). Brunnenpunkte, die
   im Wasser stehen, lässt freemapper weg, denn meist sind es die Fontänen in einem Becken.
 - Brücken als befestigte Fläche (501.5), nur auf Sprintkarten. Sie liegen über dem Wasser.
@@ -249,6 +249,9 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Die Katasterfläche eines Gewässers kann die Uferböschung einschließen. Legen Sie die Uferlinie
     nach dem Luftbild an die Wasserkante.
   - Die Uferlinie läuft quer über Brücken. Schneiden Sie sie dort von Hand auf.
+  - Oft führt das Kataster eine Straßenbrücke als Straßenfläche. Dann endet das Wasser an der Brücke, und
+    eine Uferlinie läuft quer über den Fluss. Löschen Sie diese Linie in OOM und ziehen Sie die Fläche unter
+    der Brücke durch.
   - Gewässer aus dem Kataster sind immer unpassierbar (301), denn das Kataster kennt keine Tiefe.
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben

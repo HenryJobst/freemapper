@@ -31,5 +31,10 @@ multipolygon rivers are lost. ALKIS-vereinfacht `GebaeudeBauwerk` has no bridges
 Addendum (2026-11-08): the contour candidates (101/102) stop at the drawn ALKIS water, and OSM 311 points inside
 that water or inside a kept OSM 301 area (mostly fountain jets in a basin) are dropped (commits 3593992, f3f37fb).
 
+Addendum (2026-11-08, final review): holes get the same 2 m width cap as the water, so an island or mole of 2 m mean
+width keeps its bank line at 1:4000 (f43bf6b). Parcel parts are cut to the clip window plus 5 m after the width test
+and before the union, so a huge `Meer` parcel costs what the map needs (066a3ff). The water rules skip only the tunnel
+values, so `tunnel=no` keeps a stream or pond (ee21c5d).
+
 Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
 71e3937, ee73610, 3a99a31, 599c414, 0cbbe35 and 19fe4c1 on branch `water`.

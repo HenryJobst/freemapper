@@ -318,18 +318,18 @@ reliability policy below**. It is not taken over literally.
   clipped to the map area plus buffer. Each piece becomes one 301.1 area (holes = islands) and its rings become 301.6
   bank lines, minus the segments on the clip rectangle. The fill and the bank line are separate symbols because the
   combined 301 would draw a line at every parcel boundary and along the map edge. Slivers under 1 mm on paper (2 m on
-  the ground at most) and gap holes under 1 mm are dropped. Tags (prefix `freemapper:`): `source=alkis-nutzung`,
+  the ground at most) and gap holes of the same width are dropped. Tags (prefix `freemapper:`): `source=alkis-nutzung`,
   `source_id` = sorted oids joined by `;`, `nutzart` = the distinct `nutzart / bez`, `currency` = the newest
   `updated`.
 - *candidate 301.1 + 301.6:* ALKIS water parts with a mean width under 2 m, dissolved among themselves.
-- *candidate 301 (combined, OSM areas are not clipped):* `natural=water` (not `covered=yes`, no `tunnel`),
+- *candidate 301 (combined, OSM areas are not clipped):* `natural=water` (not `covered=yes`, not in a tunnel or culvert; `tunnel=no` is kept),
   `waterway=riverbank`, `landuse=reservoir`, `landuse=basin` (not `basin=retention|infiltration|detention`),
   `leisure=swimming_pool` (not indoor, covered, underground or on a roof), `amenity=fountain` areas. An OSM 301 area
   is dropped when at least 50 % of its part inside the clip window lies in the ALKIS water (`OSM_WATER_COVERED`,
   `drop_covered_water`).
 - *candidate points and lines:* 311 `amenity=fountain` nodes and `man_made=water_well`; 312 `natural=spring`; 313
   `amenity=drinking_water` (schoolyard only); 305 `waterway=stream|drain` without `intermittent=yes`; 306
-  `waterway=ditch` and intermittent streams and drains. No `tunnel` on any line.
+  `waterway=ditch` and intermittent streams and drains. No line in a tunnel or culvert; `tunnel=no` is kept.
 - *candidate 501.5 bridge (sprint only):* `man_made=bridge` areas. ALKIS-vereinfacht `GebaeudeBauwerk` has no
   bridges. The bank line runs across the bridge; the mapper cuts it.
 - *paint order* comes from the colour priorities, no object order: bank line 301.6 (black, 2) on top, then buildings

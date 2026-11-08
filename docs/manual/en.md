@@ -196,8 +196,8 @@ OSM adds more candidates:
 
 - Ponds, basins, outdoor swimming pools and fountain basins as areas (301). If at least half of such an
   area lies in water from the cadastre, freemapper leaves it out.
-- Streams and ditches as lines: 305 if they carry water all year, otherwise 306. Culverted sections are
-  left out.
+- Streams and drains (`drain`) as lines: 305 if they carry water all year, otherwise 306. Ditches
+  (`ditch`) are always 306. Culverted sections are left out.
 - Fountains and wells (311) and springs (312) as points, and on schoolyard maps also drinking fountains
   (313). freemapper leaves out fountain points that stand in water, because they are mostly the jets in a
   basin.
@@ -244,6 +244,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - The cadastre area of a body of water can include the bank slope. Move the bank line to the water's
     edge, using the orthophoto.
   - The bank line runs across bridges. Cut it there by hand.
+  - The cadastre often records a road bridge as road area. The water then ends at the bridge, and a bank
+    line runs across the river. Delete that line in OOM and extend the water area under the bridge.
   - Water from the cadastre is always uncrossable (301), because the cadastre has no depth. Shallow
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
