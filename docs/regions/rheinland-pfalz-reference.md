@@ -670,7 +670,7 @@ The Tiefgarage `…LFomBL` lies exactly under the Platz `…dWfbTN` (Görresplat
   geo's `check_validation` on the asset; a full freemapper run.
 - DGM/DOM border tiles towards France, Luxembourg, Belgium, Saarland and BW (NoData share); the WMS clipping at those borders.
 - Why the DGM XML says `Erfassung 2024-03-15` while the ALS index says 30.03./06.04.2024.
-- The 13 tiles without `flugjahr` (E 333–337, N 5537–5539) — their DGM/DOM names say 2025.
+- The 13 tiles without `flugjahr` (E 333–337, N 5537–5539) — their DGM/DOM names say 2025. The live index sample of 2026-11-08 used for the example has a 14th, `3335536` (E 333, N 5536).
 - Rate limits / fair-use rules (none seen in ≈5,600 requests; none found on the open-data pages); the stability of the
   geo5 host (a GeoPortal.rlp news item about a geo5 maintenance outage turned up in a web search, not opened).
 - `ln/current/` (Landnutzung) answered 502 at the time; `lb` (1.9 GB) and `hu` (319 MB) zips not examined.

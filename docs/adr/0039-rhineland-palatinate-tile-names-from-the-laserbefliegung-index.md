@@ -25,10 +25,10 @@ Metalink stop at 32 MB. The mosaic of named tiles is shared with Geobasis NRW (`
 ## Consequences
 
 - Two list requests of about 0.2 s per run (one per model), then the tiles; DGM1 and DOM1 share one flight.
-- Only the 13 tiles north of Trier need the 11 MB Metalink. A Kreis Metalink is smaller but needs a municipality key,
+- Only the 14 tiles north of Trier need the 11 MB Metalink. A Kreis Metalink is smaller but needs a municipality key,
   which freemapper cannot look up. The size estimate counts the Metalink when a kept list needs it.
 - The shared fetcher retries a 404 of the list or the Metalink three times, about 6 s when a URL is gone.
-- Cost if wrong: if the index lags behind the files, a newer scan is not used; without the Metalink the 13 tiles stay
+- Cost if wrong: if the index lags behind the files, a newer scan is not used; without the Metalink the 14 tiles stay
   empty.
 
 Source: Rhineland-Palatinate reference §2.1, §2.2, §5, §13 item 1; plan `docs/superpowers/plans/2026-11-08-rheinland-pfalz.md`

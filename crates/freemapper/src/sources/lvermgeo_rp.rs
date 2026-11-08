@@ -878,7 +878,7 @@ mod tests {
             (tile(302, 5500), "", "29.02.24, 03.03.24"),
             (tile(303, 5500), "2025", ""),
             (tile(304, 5500), "2024", "30.3.24"),
-            // The 13 tiles about 23 km north of Trier have neither.
+            // The 14 tiles north of Trier have neither.
             (tile(333, 5539), "", ""),
             // Days and year that disagree.
             (tile(305, 5500), "2024", "30.03.23"),
