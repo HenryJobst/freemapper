@@ -145,9 +145,9 @@ sprint = "505.2"
 # so the bank line is part of the symbol. Areas inside ALKIS water are dropped by
 # `water::drop_covered_water`. Rivers and canals have no rule: their area comes from ALKIS or
 # `natural=water`, and a centre line would be the wrong symbol. Culverts and other tunnels are not
-# on the surface.
+# on the surface. The rules list the tunnel values, so `tunnel=no` stays.
 [[rule]]
-when = ["natural=water", "covered!=yes", "tunnel!=*"]
+when = ["natural=water", "covered!=yes", "tunnel!=yes|culvert|flooded|building_passage|canal"]
 draw = "area"
 schoolyard = "301"
 sprint = "301"
@@ -209,13 +209,13 @@ schoolyard = "313"
 
 # Streams are crossable (305); a stream that falls dry and every ditch is 306.
 [[rule]]
-when = ["waterway=stream|drain", "intermittent!=yes", "tunnel!=*"]
+when = ["waterway=stream|drain", "intermittent!=yes", "tunnel!=yes|culvert|flooded|building_passage|canal"]
 draw = "line"
 schoolyard = "305"
 sprint = "305"
 
 [[rule]]
-when = ["waterway=stream|drain|ditch", "tunnel!=*"]
+when = ["waterway=stream|drain|ditch", "tunnel!=yes|culvert|flooded|building_passage|canal"]
 draw = "line"
 schoolyard = "306"
 sprint = "306"

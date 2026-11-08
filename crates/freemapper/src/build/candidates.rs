@@ -202,7 +202,6 @@ impl Rules {
             .map(Rules)
     }
 
-    /// Whether any rule's conditions hold for `tags` (used to filter the extract).
     /// Whether a rule with a symbol for `kind` holds for `tags` (used to filter the extract).
     pub fn wants(&self, tags: &[(String, String)], kind: MapKind) -> bool {
         let tags = tags.to_vec();
@@ -931,6 +930,7 @@ mod tests {
             ]
         );
     }
+
     fn sprint_code(t: &[(&str, &str)], geometry: &OsmGeometry) -> Option<(String, Draw)> {
         Rules::embedded()
             .symbol_for(&tags(t), geometry, MapKind::Sprint)
@@ -1061,9 +1061,27 @@ mod tests {
     }
 
     #[test]
+    fn stream_tagged_tunnel_no_is_kept() {
+        let l = way();
+        let code = |t: &[(&str, &str)]| sprint_code(t, &l).map(|(c, _)| c);
+        assert_eq!(
+            code(&[("waterway", "stream"), ("tunnel", "no")]),
+            Some("305".into())
+        );
+        assert_eq!(
+            code(&[("waterway", "ditch"), ("tunnel", "no")]),
+            Some("306".into())
+        );
+        assert_eq!(
+            sprint_code(&[("natural", "water"), ("tunnel", "no")], &ring()),
+            Some(("301".to_string(), Draw::Area))
+        );
+    }
+
+    #[test]
     fn culverts_are_skipped() {
         let l = way();
-        for t in ["culvert", "yes", "flooded"] {
+        for t in ["culvert", "yes", "flooded", "building_passage", "canal"] {
             for waterway in ["stream", "drain", "ditch"] {
                 assert_eq!(
                     sprint_code(&[("waterway", waterway), ("tunnel", t)], &l),
