@@ -22,7 +22,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 
 ## Status
 
-Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse and Schleswig-Holstein, OCAD starting point, PDF training map. Next come Thuringia and Mecklenburg-Vorpommern, then the remaining German states and forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse and Schleswig-Holstein, OCAD starting point, PDF training map. Next come Mecklenburg-Vorpommern and Thuringia (whose height-data server is unreachable for now), then the remaining German states and forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 

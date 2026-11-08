@@ -24,7 +24,7 @@ in OOM oder OCAD.
 
 ## Status
 
-In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen und Schleswig-Holstein, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Thüringen und Mecklenburg-Vorpommern, danach die übrigen Bundesländer und Waldkarten.. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen und Schleswig-Holstein, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Mecklenburg-Vorpommern und Thüringen (dessen Server für die Höhendaten derzeit nicht erreichbar ist), danach die übrigen Bundesländer und Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## Installation
 
