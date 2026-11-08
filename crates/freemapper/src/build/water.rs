@@ -4,6 +4,7 @@
 //! fill and the bank line are separate symbols, and the bank line runs only along the shore,
 //! never along a parcel boundary or the clip edge (the map edge).
 
+use geo::algorithm::validation::Validation as _;
 use geo::orient::Direction;
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, Orient as _};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
@@ -336,6 +337,10 @@ pub fn drop_covered_water(
                 })
                 .collect();
             let area = Polygon::new(LineString(ring), vec![]);
+            // A self-intersecting ring (a bow tie) has no reliable area: keep it for the mapper.
+            if !area.is_valid() {
+                return true;
+            }
             let visible = area.intersection(&window);
             let visible_area = visible.unsigned_area();
             if visible_area <= 0.0 {
@@ -921,7 +926,7 @@ mod tests {
         )]);
         let inside = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
         // Three fifths in: a duplicate.
-        let half = osm_water(&f.georef, &set, e + 38.0, n - 10.0, 20.0, 20.0);
+        let mostly_inside = osm_water(&f.georef, &set, e + 38.0, n - 10.0, 20.0, 20.0);
         // Only a quarter in.
         let quarter = osm_water(&f.georef, &set, e + 40.0, n + 40.0, 20.0, 20.0);
         let far = osm_water(&f.georef, &set, e - 120.0, n - 120.0, 20.0, 20.0);
@@ -932,7 +937,7 @@ mod tests {
         let kept = drop_covered_water(
             vec![
                 inside,
-                half,
+                mostly_inside,
                 quarter.clone(),
                 far.clone(),
                 bridge.clone(),
@@ -960,5 +965,47 @@ mod tests {
         let lake = osm_water(&f.georef, &set, e + 100.0, n - 20.0, 200.0, 40.0);
         let kept = drop_covered_water(vec![lake], &union, &f.clip, &f.georef, &set);
         assert!(kept.is_empty());
+    }
+
+    #[test]
+    fn drop_covered_water_guards_keep_the_object() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n - 50.0, 100.0, 100.0),
+            vec![],
+        )]);
+        let lake = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        let keep = |objects: Vec<MapObject>, union: &MultiPolygon<f64>| {
+            drop_covered_water(objects.clone(), union, &f.clip, &f.georef, &set) == objects
+        };
+        // No ALKIS water: nothing to compare with.
+        assert!(keep(vec![lake.clone()], &MultiPolygon(vec![])));
+        // Fewer than 4 coordinates is no ring.
+        let mut short = lake.clone();
+        short.coords.truncate(3);
+        assert!(keep(vec![short], &union));
+        // Entirely outside the clip window: nothing visible to measure.
+        let outside = osm_water(&f.georef, &set, e + 400.0, n, 20.0, 20.0);
+        assert!(keep(vec![outside], &union));
+        // Sanity: the same lake with a valid ring is dropped.
+        assert!(!keep(vec![lake], &union));
+    }
+
+    #[test]
+    fn self_intersecting_osm_ring_is_kept() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n - 50.0, 100.0, 100.0),
+            vec![],
+        )]);
+        // A bow tie inside the ALKIS lake: invalid, so not measured and not dropped.
+        let mut bow = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        bow.coords.swap(1, 2);
+        let kept = drop_covered_water(vec![bow.clone()], &union, &f.clip, &f.georef, &set);
+        assert_eq!(kept, vec![bow]);
     }
 }

@@ -1146,4 +1146,30 @@ mod tests {
         assert_eq!(objects.len(), 1);
         assert_eq!(Some(objects[0].symbol_id), set.id_for_code("501.5"));
     }
+
+    #[test]
+    fn water_is_a_schoolyard_symbol_too() {
+        let found = |t: &[(&str, &str)], g: &OsmGeometry| {
+            Rules::embedded()
+                .symbol_for(&tags(t), g, MapKind::Schoolyard)
+                .map(|m| (m.code, m.draw))
+        };
+        assert_eq!(
+            found(&[("natural", "water")], &ring()),
+            Some(("301".to_string(), Draw::Area))
+        );
+        assert_eq!(
+            found(&[("amenity", "fountain")], &OsmGeometry::Point(SCHOOL)),
+            Some(("311".to_string(), Draw::Point))
+        );
+        let (objects, set) = objects(
+            &[
+                line("w1", &[("natural", "water")], square()),
+                point("f1", &[("amenity", "fountain")]),
+            ],
+            MapKind::Schoolyard,
+        );
+        let ids: Vec<_> = objects.iter().map(|o| Some(o.symbol_id)).collect();
+        assert_eq!(ids, vec![set.id_for_code("301"), set.id_for_code("311")]);
+    }
 }
