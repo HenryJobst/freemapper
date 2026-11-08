@@ -39,11 +39,12 @@ The current version is [v0.4.0](https://github.com/HenryJobst/freemapper/release
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
-2024. Each map comes with an OCAD starting point and a PDF training map.
+2024. Each map comes with an OCAD starting point and a PDF training map. Before downloading, freemapper
+checks the free disk space (on the main branch, ships with the next version).
 
 freemapper is still under development. Work in progress: more detailed sprint maps from further open
 data, first for Berlin (canopies, stairs, walls, fences, hedges, street trees), then for the other
-states, and a check of the free disk space. After that come gym maps for indoor orienteering,
+states. After that come gym maps for indoor orienteering,
 program texts in German and English, and the remaining states with open geodata
 (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:

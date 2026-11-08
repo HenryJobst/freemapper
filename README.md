@@ -41,11 +41,12 @@ Aktuelle Version ist [v0.4.0](https://github.com/HenryJobst/freemapper/releases/
 Schulhof- und Sprintkarten für elf Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
-Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte.
+Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte. Vor dem Laden prüft
+freemapper den freien Speicherplatz (im Hauptzweig, kommt mit der nächsten Version).
 
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
 Daten: zuerst für Berlin (Überdachungen, Treppen, Mauern, Zäune, Hecken, Straßenbäume), danach für
-die anderen Länder. Dazu kommt eine Prüfung des freien Speicherplatzes. Danach folgen Hallenkarten
+die anderen Länder. Danach folgen Hallenkarten
 für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
 (Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
