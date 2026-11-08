@@ -1,6 +1,6 @@
 # freemapper
 
-[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md)
+[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -20,11 +20,56 @@ in OOM oder OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH und LAiV M-V);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 - Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
-  [`examples/`](examples/).
+  [Beispiele](#beispiele).
 
 ## Status
 
 In Entwicklung: Schulhof- und Sprintkarten für Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein und Mecklenburg-Vorpommern, OCAD-Ausgangsstand, PDF-Trainingskarte. Als Nächstes folgen Nordrhein-Westfalen, Niedersachsen und die übrigen Bundesländer; Thüringen, sobald sein Server für die Höhendaten wieder erreichbar ist; danach Waldkarten. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+
+## Handbuch
+
+Das [Handbuch](docs/manual/de.md) führt Schritt für Schritt vom Gebiet zur fertigen Karte, auch ohne Erfahrung
+mit der Kommandozeile. Die meistgebrauchten Kapitel:
+
+- [Installation](docs/manual/de.md#3-installation)
+- [Mit einem KI-Assistenten](docs/manual/de.md#4-weg-a-mit-einem-ki-assistenten) oder
+  [ohne Assistent](docs/manual/de.md#5-weg-b-ohne-assistent)
+- [Das Kartengebiet im Browser wählen](docs/manual/de.md#6-das-kartengebiet-im-browser-wählen)
+- [Was im Gelände zu prüfen ist](docs/manual/de.md#9-was-im-gelände-zu-prüfen-ist)
+- [Meldungen und was zu tun ist](docs/manual/de.md#14-meldungen-und-was-zu-tun-ist)
+
+## Beispiele
+
+Für jedes unterstützte Land liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
+OCAD-Datei und PDF-Trainingskarte. Ein Klick auf das Bild öffnet das PDF. Wie die Gebiete ausgewählt
+wurden und wie viele Objekte jede Karte hat, steht in [`examples/README.md`](examples/README.md).
+
+| Land | Gebiet | Vorschau |
+|---|---|---|
+| Brandenburg | [Park Sanssouci, Potsdam](examples/brandenburg-sanssouci/) | <a href="examples/brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="examples/brandenburg-sanssouci/preview.jpg" width="160" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="160" alt=""></a> |
+| Sachsen | [Altstadt Bautzen](examples/sachsen-bautzen/) | <a href="examples/sachsen-bautzen/sachsen-bautzen.pdf"><img src="examples/sachsen-bautzen/preview.jpg" width="160" alt=""></a> |
+| Sachsen-Anhalt | [Schlossberg Quedlinburg](examples/sachsen-anhalt-quedlinburg/) | <a href="examples/sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="examples/sachsen-anhalt-quedlinburg/preview.jpg" width="160" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](examples/hamburg-blankenese/) | <a href="examples/hamburg-blankenese/hamburg-blankenese.pdf"><img src="examples/hamburg-blankenese/preview.jpg" width="160" alt=""></a> |
+| Hessen | [Altstadt und Landgrafenschloss Marburg](examples/hessen-marburg/) | <a href="examples/hessen-marburg/hessen-marburg.pdf"><img src="examples/hessen-marburg/preview.jpg" width="160" alt=""></a> |
+| Schleswig-Holstein | [Altstadt Lübeck](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
+| Mecklenburg-Vorpommern | [Altstadt Wismar](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
+
+## Gebiet im Browser wählen
+
+Am einfachsten zeichnet man das Kartengebiet im Browser:
+
+```sh
+freemapper select mein-schulhof --kind schoolyard
+```
+
+![Gebietsauswahl im Browser](docs/manual/images/area-selector.jpg)
+
+Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
+OpenStreetMap oder das Luftbild des Landes. Die Seite zeigt die Größe mit Puffer und den
+geschätzten Download. „Speichern“ legt das Projekt an, danach erzeugt
+`freemapper run mein-schulhof --pdf --ocad` die Karten. Die Seite läuft nur auf diesem Rechner
+(127.0.0.1). Mehr im [Handbuch, Kapitel 6](docs/manual/de.md#6-das-kartengebiet-im-browser-wählen).
 
 ## Installation
 
@@ -76,18 +121,7 @@ Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`) oder 
 (`--place "Clara-Zetkin-Schule Strausberg"`; genommen wird der beste Treffer mit Fläche, gesucht über
 Nominatim von OpenStreetMap).
 
-Oder das Gebiet im Browser wählen:
-
-```sh
-freemapper select clara-zetkin-schule --kind schoolyard
-```
-
-Die Seite öffnet sich im Standardbrowser (`--no-browser` gibt nur die Adresse aus). Dort sucht man einen
-Ort oder zeichnet ein Rechteck (zwei Ecken anklicken) oder ein Polygon (Ecken anklicken, Doppelklick
-schließt). Hintergrund wahlweise OpenStreetMap oder das Luftbild (LGB, GeoSN). Die Seite zeigt die
-Datenkacheln (LGB 1 km, GeoSN 2 km), die Größe mit Puffer und den geschätzten Download; „Speichern“ legt das Projekt an
-oder ändert das Kartengebiet eines vorhandenen (eine vorhandene Karte bleibt unverändert), „Fertig“
-beendet die Seite. Die Seite läuft nur auf diesem Rechner (127.0.0.1, zufällige Adresse).
+Oder das Gebiet im Browser wählen, siehe [Gebiet im Browser wählen](#gebiet-im-browser-wählen).
 
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 

@@ -1,6 +1,6 @@
 # freemapper
 
-[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md)
+[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
@@ -18,11 +18,55 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH and LAiV M-V);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
-  [`examples/`](examples/README.en.md).
+  [Examples](#examples).
 
 ## Status
 
 Under development: schoolyard and sprint maps for Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein and Mecklenburg-Vorpommern, OCAD starting point, PDF training map. Next come North Rhine-Westphalia, Lower Saxony and the remaining German states; Thuringia as soon as its height-data server is back; then forest maps. Design: [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+
+## User manual
+
+The [user manual](docs/manual/en.md) goes step by step from an area to a finished map, with no command-line
+experience needed. The chapters people use most:
+
+- [Installation](docs/manual/en.md#3-installation)
+- [With an AI assistant](docs/manual/en.md#4-route-a-with-an-ai-assistant) or
+  [without one](docs/manual/en.md#5-route-b-without-an-assistant)
+- [Choosing the map area in the browser](docs/manual/en.md#6-choosing-the-map-area-in-the-browser)
+- [What to check in the terrain](docs/manual/en.md#9-what-to-check-in-the-terrain)
+- [Messages and what to do](docs/manual/en.md#14-messages-and-what-to-do)
+
+## Examples
+
+The repository holds a finished sprint map project for every supported state, with the OOM map, the OCAD
+file and the PDF training map. Clicking a picture opens the PDF. How the areas were chosen and how many
+objects each map has is in [`examples/README.en.md`](examples/README.en.md).
+
+| State | Area | Preview |
+|---|---|---|
+| Brandenburg | [Park Sanssouci, Potsdam](examples/brandenburg-sanssouci/) | <a href="examples/brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="examples/brandenburg-sanssouci/preview.jpg" width="160" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="160" alt=""></a> |
+| Saxony | [Bautzen old town](examples/sachsen-bautzen/) | <a href="examples/sachsen-bautzen/sachsen-bautzen.pdf"><img src="examples/sachsen-bautzen/preview.jpg" width="160" alt=""></a> |
+| Saxony-Anhalt | [Schlossberg Quedlinburg](examples/sachsen-anhalt-quedlinburg/) | <a href="examples/sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="examples/sachsen-anhalt-quedlinburg/preview.jpg" width="160" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](examples/hamburg-blankenese/) | <a href="examples/hamburg-blankenese/hamburg-blankenese.pdf"><img src="examples/hamburg-blankenese/preview.jpg" width="160" alt=""></a> |
+| Hesse | [Marburg old town and castle](examples/hessen-marburg/) | <a href="examples/hessen-marburg/hessen-marburg.pdf"><img src="examples/hessen-marburg/preview.jpg" width="160" alt=""></a> |
+| Schleswig-Holstein | [Lübeck old town](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
+| Mecklenburg-Vorpommern | [Wismar old town](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
+
+## Choosing the area in the browser
+
+The easiest way is to draw the map area in the browser:
+
+```sh
+freemapper select my-schoolyard --kind schoolyard
+```
+
+![Area selection in the browser](docs/manual/images/area-selector.jpg)
+
+On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
+orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
+project; then `freemapper run my-schoolyard --pdf --ocad` makes the maps. The page runs on this computer
+only (127.0.0.1). More in the [user manual, chapter 6](docs/manual/en.md#6-choosing-the-map-area-in-the-browser).
 
 ## Installation
 
@@ -72,19 +116,7 @@ Instead of a GeoJSON file, give the OSM object (`--osm way/992423119`) or the na
 (`--place "Clara-Zetkin-Schule Strausberg"`; the best match with an area is used, searched with
 OpenStreetMap's Nominatim).
 
-Or choose the area in the browser:
-
-```sh
-freemapper select clara-zetkin-schule --kind schoolyard
-```
-
-The page opens in the default browser (`--no-browser` only prints the address). Search a place there, or
-draw a rectangle (click two corners) or a polygon (click the corners, double-click closes). The
-background is OpenStreetMap or the orthophoto (LGB, GeoSN). The page shows the data tiles (LGB 1 km,
-GeoSN 2 km), the size with
-buffer and the estimated download; "Save" creates the project or changes the map area of an existing
-one (an existing map stays as it is), "Done" ends the page. The page runs on this computer only
-(127.0.0.1, random address).
+Or choose the area in the browser, see [Choosing the area in the browser](#choosing-the-area-in-the-browser).
 
 `run` performs three steps that are also available on their own:
 

@@ -102,6 +102,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
@@ -111,7 +114,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -l dist
-          notes="Download the archive for your system, unpack it and start \`freemapper\`
+          # The release body starts with this version's section of CHANGELOG.en.md.
+          version="${TAG#v}"
+          awk -v head="## [$version]" '
+            index($0, head) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found
+          ' CHANGELOG.en.md > changelog-section.md
+          if [ ! -s changelog-section.md ]; then
+            echo "No section for $version in CHANGELOG.en.md" >&2
+          fi
+          install_text="Download the archive for your system, unpack it and start \`freemapper\`
           (Windows: \`freemapper.exe\`) from a terminal or register it with your AI assistant.
           Installation and first steps: see README.md (Deutsch) / README.en.md (English) in the
           archive or https://github.com/HenryJobst/freemapper#readme
@@ -120,9 +133,10 @@ jobs:
           - macOS Apple Silicon (M1 and newer): freemapper-$TAG-macos-arm64.tar.gz
           - macOS Intel: freemapper-$TAG-macos-x86_64.tar.gz
           - Linux: freemapper-$TAG-linux-x86_64.tar.gz (ARM: linux-arm64)"
+          { cat changelog-section.md; echo; echo "$install_text"; } > release-notes.md
           if gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber -R "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" dist/* -R "$GITHUB_REPOSITORY" \
-              --title "freemapper $TAG" --notes "$notes" --generate-notes
+              --title "freemapper $TAG" --notes-file release-notes.md --generate-notes
           fi

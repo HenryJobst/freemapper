@@ -2,6 +2,8 @@
 
 Status: for review · Date: 2026-11-07 · Terms follow [`docs/glossary.md`](../../glossary.md).
 
+Decisions are recorded as ADRs in `docs/adr/`.
+
 ## 1. Intent
 
 Orienteering mappers who don't use OCAD (Windows-only, commercial) draw in OpenOrienteering Mapper (OOM).
