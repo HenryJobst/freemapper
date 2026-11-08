@@ -1634,7 +1634,7 @@ pub(crate) mod test_support {
     /// (EPSG:25832): the Downloadportal overviews of every tile of `bbox` (DGM1 2022, flown
     /// 2022-03-10; bDOM 2023, flown 2023-04-07), the DGM1 GeoTIFFs of the INSPIRE ATOM directory
     /// (terrain 20 m rising 0.01 m per metre east) and the bDOM tiles at 1 m instead of 0.2 m
-    /// (surface 12 m above), which the reduction passes through unchanged.
+    /// (surface 12 m above; test builds accept that size, and the reduction passes it through).
     pub fn serve_synthetic_schleswig_holstein(
         fetcher: &MapFetcher,
         bbox: &crate::crs::BoundingBox,
