@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Längere Meldungen sind klarer formuliert.
+
 ## [0.3.0] - 2026-11-08
 
 ### Hinzugefügt

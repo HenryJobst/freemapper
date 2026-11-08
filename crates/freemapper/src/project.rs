@@ -565,7 +565,7 @@ pub fn fetch_project(
     let crs = map_crs(&region_bbox);
     if crs != project.crs() {
         progress(&format!(
-            "warning: the map area lies in UTM zone {} (EPSG:{}); everything is fetched again in it",
+            "warning: the map area lies in UTM zone {} (EPSG:{}); freemapper fetches everything again in that zone",
             if crs == Crs::Utm32 { 32 } else { 33 },
             crs.epsg()
         ));
@@ -576,7 +576,7 @@ pub fn fetch_project(
     let provider = raster_region(&region_bbox).map(Region::provider);
     if project.provider.is_some() && project.provider != provider {
         progress(
-            "warning: the map area now lies in another state's data; everything is fetched again",
+            "warning: the map area now lies in another state's data; freemapper fetches everything again",
         );
         project.drop_fetched(dir);
         project.provider = provider;
@@ -1055,7 +1055,7 @@ fn warn_beyond_state(
         .any(|r| r.provider() != provider)
     {
         progress(&format!(
-            "the map area reaches beyond the state border; the {name} data stop at the edge of their coverage, the templates stay empty where there is none"
+            "the map area reaches beyond the state border; the {name} data stop at the edge of their coverage, and the templates stay empty beyond it"
         ));
     }
     Ok(())
@@ -1457,7 +1457,7 @@ fn raster_tiles(
         .collect();
     if !outside.is_empty() {
         progress(&format!(
-            "the map area reaches beyond the state border; no {} data for {}, the templates stay empty there",
+            "the map area reaches beyond the state border; no {} data for {}, so the templates stay empty there",
             match provider {
                 Provider::Lgb => "LGB",
                 Provider::GeoSn => "GeoSN",
@@ -1705,7 +1705,7 @@ fn fetch_land_use_into(
             }
             Some(_) => {
                 progress(&format!(
-                    "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area and was removed"
+                    "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area, so freemapper removed it"
                 ));
                 let _ = std::fs::remove_file(&path);
                 Some(None)
