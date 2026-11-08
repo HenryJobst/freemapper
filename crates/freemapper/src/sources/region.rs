@@ -303,6 +303,40 @@ pub fn provider_tiles(bbox: &BoundingBox, provider: Provider, km: u32) -> Vec<Ti
         .collect()
 }
 
+/// How far a point must lie from every supported region to count as outside them all. The
+/// boundaries are simplified separately (up to 25 m each), so a shared border can leave a gap of
+/// up to about 50 m between two states.
+const UNCOVERED_M: f64 = 50.0;
+/// The spacing of the points [`reaches_beyond_coverage`] tests, half of [`UNCOVERED_M`].
+const COVERAGE_STEP_M: f64 = 25.0;
+
+/// Whether part of `bbox` (EPSG:25833) lies outside every supported region: a point of it more
+/// than [`UNCOVERED_M`] from all their boundaries, e.g. in Bremen (a hole in Niedersachsen) or
+/// abroad.
+pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
+    use geo::{BooleanOps as _, Distance as _, Euclidean};
+    // Every boundary part within UNCOVERED_M of a point of `bbox` lies in this rectangle.
+    let near = rectangle(&bbox.buffered(UNCOVERED_M));
+    let parts: Vec<MultiPolygon<f64>> = Region::ALL
+        .into_iter()
+        .filter(|region| region.boundary().intersects(&near))
+        .map(|region| region.boundary().intersection(&near))
+        .collect();
+    let steps = |min: f64, max: f64| {
+        let n = ((max - min) / COVERAGE_STEP_M).ceil().max(1.0) as u32;
+        (0..=n).map(move |i| (min + f64::from(i) * COVERAGE_STEP_M).min(max))
+    };
+    steps(bbox.min_e, bbox.max_e).any(|e| {
+        steps(bbox.min_n, bbox.max_n).any(|n| {
+            let point = Point::new(e, n);
+            !parts.iter().any(|part| part.contains(&point))
+                && parts
+                    .iter()
+                    .all(|part| Euclidean.distance(&point, part) > UNCOVERED_M)
+        })
+    })
+}
+
 /// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
 pub fn touches_berlin(bbox: &BoundingBox) -> bool {
     Region::Berlin.boundary().intersects(&rectangle(bbox))
@@ -432,6 +466,37 @@ mod tests {
         assert!(regions_for(&elsewhere).is_empty());
         let nan = around(f64::NAN, 5_800_000.0, 300.0);
         assert_eq!(raster_region(&nan), None);
+    }
+
+    #[test]
+    fn coverage_gaps_are_found_beyond_the_supported_states_only() {
+        // Bremen probe, tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen).
+        assert!(reaches_beyond_coverage(&around(
+            83_417.0,
+            5_894_566.0,
+            300.0
+        )));
+        // Poland, just east of the Oder at Frankfurt (Oder).
+        assert!(reaches_beyond_coverage(&around(
+            474_000.0,
+            5_799_000.0,
+            600.0
+        )));
+        // Inside one state.
+        assert!(!reaches_beyond_coverage(&around(
+            412_000.0,
+            5_820_000.0,
+            2000.0
+        )));
+        // Shared borders between supported states, including the slivers the separately
+        // simplified boundaries leave in no region.
+        for (e, n) in [
+            (391_595.0, 5_834_335.0),
+            (418_969.0, 5_692_390.0),
+            (410_500.0, 5_691_150.0),
+        ] {
+            assert!(!reaches_beyond_coverage(&around(e, n, 600.0)), "{e} {n}");
+        }
     }
 
     #[test]

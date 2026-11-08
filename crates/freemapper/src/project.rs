@@ -585,6 +585,9 @@ pub fn fetch_project(
     project.provider = provider;
     let bbox = project.bbox()?;
     check_size(&bbox)?;
+    if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+        progress(BEYOND_COVERAGE_WARNING);
+    }
     match raster_region(&region_bbox).map(Region::provider) {
         Some(Provider::LvermGeo) => {
             fetch_lvermgeo_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
@@ -901,6 +904,10 @@ fn fetch_wms_orthophoto(
     }
     Ok(())
 }
+
+/// The warning for a map area that reaches beyond the union of the supported states (abroad, or
+/// into Bremen, which is no region yet). The states' services stop at their borders.
+const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states; the state data may be missing there, so the orthophoto can be white and there are no ALKIS buildings or land use";
 
 /// How many days a stored orthophoto is reused while the service gives no flight date (none known,
 /// or the query failed) before the next online fetch downloads it again.
@@ -1379,24 +1386,16 @@ fn fetch_lgln_rasters(
     project.ndsm_tiles.clear();
     warn_beyond_state(project, Provider::Lgln, "LGLN", progress)?;
     // One DOP search gives the flight date and the leaf state; offline nothing is asked.
-    let flown = match mode {
+    let (flown, missing) = match mode {
         FetchMode::Online => match lgln::orthophoto_date(fetcher, bbox) {
-            Ok(date) => {
-                if date.is_none() {
-                    progress(
-                        "warning: orthophoto (LGLN WMS): no flight date, the STAC lists no image at the centre of the map area",
-                    );
-                }
-                date
-            }
-            Err(e) => {
-                progress(&format!(
-                    "warning: orthophoto (LGLN WMS): no flight date, the STAC search failed ({e})"
-                ));
-                None
-            }
+            Ok(Some(date)) => (Some(date), None),
+            Ok(None) => (
+                None,
+                Some("the STAC lists no image at the centre of the map area".to_string()),
+            ),
+            Err(e) => (None, Some(format!("the STAC search failed ({e})"))),
         },
-        FetchMode::Offline => None,
+        FetchMode::Offline => (None, None),
     };
     let flight_text = flown.map(|date| date.format("%d.%m.%Y").to_string());
     let flight = || flight_text.clone();
@@ -1409,7 +1408,21 @@ fn fetch_lgln_rasters(
         (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight),
         progress,
     )?;
-    if let Some(date) = flown {
+    // Without a fresh date a recent stored orthophoto is kept with its own (see
+    // `fetch_wms_orthophoto`); the warning says which of the two happened.
+    let stored = project.orthophoto.as_ref().and_then(|o| o.flight.clone());
+    if let Some(reason) = missing {
+        progress(&match &stored {
+            Some(date) => format!(
+                "warning: orthophoto (LGLN WMS): {reason}; kept the stored orthophoto and its flight date {date}"
+            ),
+            None => format!("warning: orthophoto (LGLN WMS): no flight date, {reason}"),
+        });
+    }
+    let shown = stored
+        .as_deref()
+        .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
+    if let (FetchMode::Online, Some(date)) = (mode, shown) {
         progress(&lgln::leaf_state(date));
     }
     fetch_area_heights(
@@ -5754,7 +5767,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     /// A rectangle `half` metres each way around the EPSG:25832 point `(e, n)`, as a map area.
-    fn nrw_area_at(e: f64, n: f64, half: f64) -> MapArea {
+    fn utm32_area_at(e: f64, n: f64, half: f64) -> MapArea {
         let corner = |de: f64, dn: f64| {
             let p = crate::crs::Crs::Utm32
                 .inverse(crate::crs::ProjectedPoint {
@@ -5834,7 +5847,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     /// The Hildegard-von-Bingen-Gymnasium, Köln (25832 E 354700 / N 5642650), 200 m square.
     fn koeln_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
-        nrw_project_of(fetcher, &nrw_area_at(354_700.0, 5_642_650.0, 100.0))
+        nrw_project_of(fetcher, &utm32_area_at(354_700.0, 5_642_650.0, 100.0))
     }
 
     #[test]
@@ -5943,7 +5956,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             )
             .unwrap();
         let (dir, _cache_dir, cache) =
-            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 100.0));
+            nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 100.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
@@ -5973,7 +5986,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             )
             .unwrap();
         let (dir, _cache_dir, cache) =
-            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 300.0));
+            nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.provider, Some(Provider::GeobasisNrw));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
@@ -6000,6 +6013,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             messages
                 .iter()
                 .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        // Both neighbours are supported states: nothing lies outside them.
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
             "{messages:?}"
         );
         for label in ["Hesse", "North Rhine-Westphalia"] {
@@ -6186,7 +6204,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     /// The Kaiser-Wilhelm- und Ratsgymnasium, Hannover (25832 E 551900 / N 5803300), 200 m square.
     fn hannover_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
-        ni_project_of(fetcher, &nrw_area_at(551_900.0, 5_803_300.0, 100.0))
+        ni_project_of(fetcher, &utm32_area_at(551_900.0, 5_803_300.0, 100.0))
     }
 
     /// The warning of the synthetic LGLN data: DOM1 of 2016, orthophoto of 2025.
@@ -6315,45 +6333,87 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     #[test]
     fn ni_flight_date_lookup_failures_are_warned() {
         use crate::sources::lgln::{self, test_support::stac_page};
+        let dop_searches = |fetcher: &MapFetcher| {
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .filter(|u| u.starts_with(lgln::DOP_STAC))
+                .count()
+        };
+        let warnings = |messages: &[String]| -> Vec<String> {
+            messages
+                .iter()
+                .filter(|m| m.starts_with("warning"))
+                .cloned()
+                .collect()
+        };
         // No orthophoto at the centre: no flight date, and nothing to compare the DOM1 with.
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         fetcher.insert_prefix(lgln::DOP_STAC, stac_page(&[], None));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.orthophoto.unwrap().flight, None);
-        let warnings: Vec<&String> = messages
-            .iter()
-            .filter(|m| m.starts_with("warning"))
-            .collect();
         assert_eq!(
-            warnings,
+            warnings(&messages),
             [
                 "warning: orthophoto (LGLN WMS): no flight date, the STAC lists no image at the centre of the map area"
             ],
             "{messages:?}"
         );
-        // A failed search: warned, and the stored orthophoto keeps its image and date.
+        // A refused search (HTTP 400 is not retried) on a new project: no flight date either.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push(lgln::DOP_STAC.to_string());
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.orthophoto.unwrap().flight, None);
+        assert_eq!(dop_searches(&fetcher), 1);
+        let found = warnings(&messages);
+        assert_eq!(found.len(), 1, "{messages:?}");
+        assert!(
+            found[0].starts_with(
+                "warning: orthophoto (LGLN WMS): no flight date, the STAC search failed ("
+            ),
+            "{messages:?}"
+        );
+        // A failed search later: the stored orthophoto stays with its flight date, and every
+        // line says so.
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
-        fetcher.insert_prefix(lgln::DOP_STAC, b"<html>Bad Gateway</html>".to_vec());
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push(lgln::DOP_STAC.to_string());
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
             Some("06.03.2025")
         );
+        assert_eq!(dop_searches(&fetcher), 2, "one search per fetch");
         assert!(
-            messages.iter().any(|m| m.starts_with(
-                "warning: orthophoto (LGLN WMS): no flight date, the STAC search failed ("
-            )),
+            !messages.iter().any(|m| m.contains("no flight date")),
             "{messages:?}"
         );
+        let kept: Vec<&String> = messages
+            .iter()
+            .filter(|m| m.starts_with("warning: orthophoto (LGLN WMS): the STAC search failed ("))
+            .collect();
+        assert_eq!(kept.len(), 1, "{messages:?}");
         assert!(
-            messages
-                .iter()
-                .any(|m| m == "orthophoto unchanged (flight 06.03.2025)"),
-            "{messages:?}"
+            kept[0].ends_with("; kept the stored orthophoto and its flight date 06.03.2025"),
+            "{}",
+            kept[0]
         );
+        for line in [
+            "orthophoto unchanged (flight 06.03.2025)",
+            "the orthophoto was flown on 06.03.2025, with the trees bare",
+        ] {
+            assert!(messages.iter().any(|m| m == line), "{line}: {messages:?}");
+        }
         let getmap = fetcher
             .log
             .borrow()
@@ -6361,6 +6421,55 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
             .count();
         assert_eq!(getmap, 1);
+        // An empty answer later keeps the stored orthophoto the same way.
+        fetcher.refusing.borrow_mut().clear();
+        fetcher.insert_prefix(lgln::DOP_STAC, stac_page(&[], None));
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                == "warning: orthophoto (LGLN WMS): the STAC lists no image at the centre of the map area; kept the stored orthophoto and its flight date 06.03.2025"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_area_reaching_into_bremen_is_warned() {
+        // The Bremen probe, tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen): the
+        // first 600 m area south of the tile centre whose centre lies in Niedersachsen.
+        let (e, n) = (0..40)
+            .map(|step| (485_500.0, 5_876_500.0 - f64::from(step) * 50.0))
+            .find(|&(e, n)| {
+                raster_region(&utm32_area_at(e, n, 300.0).projected_bbox())
+                    == Some(Region::Niedersachsen)
+            })
+            .expect("a centre in Niedersachsen");
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(
+            messages
+                .iter()
+                .filter(|m| m.as_str() == BEYOND_COVERAGE_WARNING)
+                .count(),
+            1,
+            "{messages:?}"
+        );
+        // Bremen is not a region: the border message between two supported states stays out.
+        assert!(
+            !messages
+                .iter()
+                .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        // Fully inside Niedersachsen: no such warning.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
+            "{messages:?}"
+        );
     }
 
     #[test]
@@ -6469,14 +6578,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (e, n) = (0..60)
             .map(|step| (553_000.0, 5_926_000.0 - f64::from(step) * 100.0))
             .find(|&(e, n)| {
-                let area = nrw_area_at(e, n, 300.0);
+                let area = utm32_area_at(e, n, 300.0);
                 let bbox = area.projected_bbox();
                 raster_region(&bbox) == Some(Region::Niedersachsen)
                     && regions_for(&bbox).contains(&Region::Hamburg)
             })
             .expect("a border area south of Harburg");
         let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &nrw_area_at(e, n, 300.0));
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.provider, Some(Provider::Lgln));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
@@ -6504,6 +6613,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             messages
                 .iter()
                 .any(|m| m.contains("the LGLN data stop at the edge of their coverage")),
+            "{messages:?}"
+        );
+        // Both neighbours are supported states: nothing lies outside them.
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
             "{messages:?}"
         );
         for label in ["Hamburg", "Lower Saxony"] {

@@ -851,7 +851,7 @@ mod tests {
     }
 
     /// A square map area (0.002 degrees) whose corner is at EPSG:25832 `easting`/`northing`.
-    fn nrw_area(easting: f64, northing: f64) -> crate::area::MapArea {
+    fn utm32_area(easting: f64, northing: f64) -> crate::area::MapArea {
         let p = crate::crs::Crs::Utm32
             .inverse(crate::crs::ProjectedPoint { easting, northing })
             .unwrap();
@@ -870,7 +870,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // Hildegard-von-Bingen-Gymnasium, Köln: inside the tile 354/5642.
-        let area = nrw_area(354_600.0, 5_642_550.0);
+        let area = utm32_area(354_600.0, 5_642_550.0);
         let preview = preview_area(&area, 20.0, &cache, today());
         let items = &preview.estimate.items;
         let bbox = area.projected_bbox().buffered(20.0);
@@ -911,7 +911,7 @@ mod tests {
                 },
             )
             .unwrap();
-        let area = nrw_area(c.easting, c.northing);
+        let area = utm32_area(c.easting, c.northing);
         assert!(area.projected_bbox().min_e < 0.0);
         let preview = preview_area(&area, 20.0, &cache, today());
         assert!(
@@ -966,7 +966,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // Two tiles side by side: the tile border 355 km east lies inside the area.
-        let area = nrw_area(354_900.0, 5_642_400.0);
+        let area = utm32_area(354_900.0, 5_642_400.0);
         let item = |what: &str, cache: &Cache| {
             let preview = preview_area(&area, 20.0, cache, today());
             find_item(&preview.estimate.items, what).clone()
@@ -1034,7 +1034,7 @@ mod tests {
     fn nrw_estimate_does_not_list_a_tile_the_server_lacks_as_a_download() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let area = nrw_area(354_900.0, 5_642_400.0);
+        let area = utm32_area(354_900.0, 5_642_400.0);
         let dir = cache.geobasis_nrw_dir();
         std::fs::create_dir_all(dir.join("meta")).unwrap();
         std::fs::create_dir_all(dir.join("dgm1")).unwrap();
@@ -1280,7 +1280,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // The Kaiser-Wilhelm- und Ratsgymnasium, Hannover (25832 E 551900 / N 5803300).
-        let area = nrw_area(551_800.0, 5_803_200.0);
+        let area = utm32_area(551_800.0, 5_803_200.0);
         let preview = preview_area(&area, 20.0, &cache, today());
         assert!(
             !preview.too_large && !preview.outside_coverage,

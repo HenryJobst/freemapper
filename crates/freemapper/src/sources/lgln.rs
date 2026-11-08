@@ -366,6 +366,33 @@ mod tests {
     }
 
     #[test]
+    fn leaf_state_by_month() {
+        let bare = |d: &str| leaf_state(date(d)).ends_with("with the trees bare");
+        // The spring flights (February to April) and the winter months are bare.
+        for d in [
+            "2025-01-15",
+            "2025-03-06",
+            "2025-04-30",
+            "2025-11-01",
+            "2025-12-31",
+        ] {
+            assert!(bare(d), "{d}: {}", leaf_state(date(d)));
+        }
+        // May to October: in leaf.
+        for d in ["2025-05-01", "2025-08-12", "2025-10-31"] {
+            assert!(!bare(d), "{d}");
+            assert!(
+                leaf_state(date(d)).contains("with the trees in leaf"),
+                "{d}"
+            );
+        }
+        assert_eq!(
+            leaf_state(date("2025-04-30")),
+            "the orthophoto was flown on 30.04.2025, with the trees bare"
+        );
+    }
+
+    #[test]
     fn stac_picks_the_newest_item() {
         // The search box: ±10 m around the centre, in lon/lat (the school at 9.762 E, 52.378 N).
         let url = stac_search_url(DOP_STAC, &SAMPLE).unwrap();
