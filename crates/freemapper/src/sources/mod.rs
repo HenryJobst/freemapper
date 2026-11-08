@@ -13,6 +13,7 @@ pub mod lgb;
 pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
+pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
 pub mod osm;
 pub mod region;
