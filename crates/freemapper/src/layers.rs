@@ -18,6 +18,7 @@ use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_fo
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, tile_touches,
 };
+use crate::space::{Part, Store};
 use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
@@ -49,6 +50,10 @@ pub struct EstimateItem {
     pub what: String,
     pub megabytes: f64,
     pub cached: bool,
+    /// The part of the fetch it belongs to, kept or left out as a whole when space runs short.
+    pub part: Part,
+    /// Where the download is stored.
+    pub store: Store,
 }
 
 /// What `fetch` will download for a project.
@@ -103,7 +108,7 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
 }
 
 /// `bbox` is the map area plus buffer in EPSG:25833, `map_bbox` the same in the map's CRS.
-fn estimate_area(
+pub(crate) fn estimate_area(
     bbox: &BoundingBox,
     map_bbox: &BoundingBox,
     cache: &Cache,
@@ -125,17 +130,27 @@ fn estimate_area(
     };
     // The estimate stays quiet; the fetch prints any extract warning.
     for source in extracts_for(bbox, &mut |_| {}) {
+        let date = cached_extract_date(cache, source);
+        let cached = date.is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS);
         items.push(EstimateItem {
             what: format!("OSM extract {} (shared by all projects)", source.label()),
             megabytes: source.megabytes(),
-            cached: cached_extract_date(cache, source)
-                .is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS),
+            cached,
+            // An older cached extract serves when the newer one does not fit.
+            part: if date.is_some() && !cached {
+                Part::OsmUpdate
+            } else {
+                Part::MapData
+            },
+            store: Store::Cache,
         });
     }
     items.push(EstimateItem {
         what: "ALKIS buildings and land use".to_string(),
         megabytes: ALKIS_MB,
         cached: alkis_cached,
+        part: Part::MapData,
+        store: Store::Project,
     });
     let total_megabytes = items
         .iter()
@@ -153,22 +168,25 @@ fn estimate_area(
 fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     let mut items = Vec::new();
     for &tile in tiles {
-        for (product, mb) in [
-            (Product::SaxonyDtm, GEOSN_DGM1_TILE_MB),
-            (Product::SaxonyDsm, GEOSN_DOM1_TILE_MB),
+        for (product, mb, part) in [
+            (Product::SaxonyDtm, GEOSN_DGM1_TILE_MB, Part::Terrain),
+            (Product::SaxonyDsm, GEOSN_DOM1_TILE_MB, Part::Surface),
         ] {
             items.push(EstimateItem {
                 what: format!("{product} tile {}", tile.name()),
                 megabytes: mb,
                 cached: cache.has_tile(product, tile),
+                part,
+                store: Store::Cache,
             });
         }
     }
-    items.push(EstimateItem {
-        what: "orthophoto (GeoSN WMS)".to_string(),
-        megabytes: (bbox.width() * bbox.height() / 1e6 * ORTHOPHOTO_MB_PER_KM2).max(0.1),
-        cached: false,
-    });
+    items.push(per_km2_item(
+        bbox,
+        "orthophoto (GeoSN WMS)",
+        ORTHOPHOTO_MB_PER_KM2,
+        Part::Orthophoto,
+    ));
     items
 }
 
@@ -176,18 +194,29 @@ fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<Estim
 fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::lvermgeo::Model;
     let km2 = bbox.width() * bbox.height() / 1e6;
-    let item = |what: String, mb_per_km2: f64| EstimateItem {
+    let item = |what: String, mb_per_km2: f64, part: Part| EstimateItem {
         what,
         megabytes: (km2 * mb_per_km2).max(0.1),
         cached: false,
+        part,
+        store: Store::Project,
     };
     vec![
         item(
             "orthophoto (LVermGeo WMS)".to_string(),
             ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
         ),
-        item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
-        item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
+        item(
+            Model::Dgm1.label().to_string(),
+            WCS_MB_PER_KM2,
+            Part::Terrain,
+        ),
+        item(
+            Model::Dom1.label().to_string(),
+            WCS_MB_PER_KM2,
+            Part::Surface,
+        ),
     ]
 }
 
@@ -227,7 +256,7 @@ fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         .into_iter()
         .filter(|t| tile_touches(*t, Region::Hamburg))
         .collect();
-    let model_item = |model: Model, mb_per_tile: f64| {
+    let model_item = |model: Model, mb_per_tile: f64, part: Part| {
         let open = tiles
             .iter()
             .filter(|t| !model.tile_cache_file(cache, **t).exists())
@@ -236,12 +265,19 @@ fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
             what: model.label().to_string(),
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
+            part,
+            store: Store::Cache,
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (LGV WMS)", ORTHOPHOTO_MB_PER_KM2),
-        model_item(Model::Dgm1, 2.0),
-        model_item(Model::Bdom, 4.0),
+        per_km2_item(
+            bbox,
+            "orthophoto (LGV WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, 2.0, Part::Terrain),
+        model_item(Model::Bdom, 4.0, Part::Surface),
     ]
 }
 
@@ -257,7 +293,7 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         .flatten()
         .any(|e| e.file_name().to_string_lossy().ends_with(".xlsx"));
     let tiles = zone_32_tiles(bbox);
-    let model_item = |model: Model, mb_per_tile: f64| {
+    let model_item = |model: Model, mb_per_tile: f64, part: Part| {
         let open = tiles
             .iter()
             .filter(|t| {
@@ -272,16 +308,26 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
             what: model.label().to_string(),
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
+            part,
+            store: Store::Cache,
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (HVBG WMS)", ORTHOPHOTO_MB_PER_KM2),
-        model_item(Model::Dgm1, 2.1),
-        model_item(Model::Dom1, 3.0),
+        per_km2_item(
+            bbox,
+            "orthophoto (HVBG WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, 2.1, Part::Terrain),
+        model_item(Model::Dom1, 3.0, Part::Surface),
+        // Both models need the list; it goes with the terrain model, which the run needs.
         EstimateItem {
             what: "tile metadata list (HVBG)".to_string(),
             megabytes: 1.0,
             cached: list_cached,
+            part: Part::Terrain,
+            store: Store::Cache,
         },
     ]
 }
@@ -294,19 +340,26 @@ fn nrw_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         .into_iter()
         .filter(|t| tile_touches(*t, Region::NordrheinWestfalen))
         .collect();
-    let model_item = |model: Model, mb_per_tile: f64| {
+    let model_item = |model: Model, mb_per_tile: f64, part: Part| {
         let cached = cached_tiles(cache, model, &tiles);
         let open = tiles.iter().filter(|t| !cached.contains(t)).count();
         EstimateItem {
             what: model.label().to_string(),
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
+            part,
+            store: Store::Cache,
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (Geobasis NRW WMS)", ORTHOPHOTO_MB_PER_KM2),
-        model_item(Model::Dgm1, NRW_DGM1_TILE_MB),
-        model_item(Model::Dom1, NRW_DOM1_TILE_MB),
+        per_km2_item(
+            bbox,
+            "orthophoto (Geobasis NRW WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, NRW_DGM1_TILE_MB, Part::Terrain),
+        model_item(Model::Dom1, NRW_DOM1_TILE_MB, Part::Surface),
     ]
 }
 
@@ -323,10 +376,11 @@ fn rp_items(bbox: &BoundingBox, map_bbox: &BoundingBox, cache: &Cache) -> Vec<Es
         bbox,
         "orthophoto (LVermGeo RP WMS)",
         ORTHOPHOTO_MB_PER_KM2,
+        Part::Orthophoto,
     )];
-    for (model, mb_per_tile) in [
-        (Model::Dgm1, RP_DGM1_TILE_MB),
-        (Model::Dom1, RP_DOM1_TILE_MB),
+    for (model, mb_per_tile, part) in [
+        (Model::Dgm1, RP_DGM1_TILE_MB, Part::Terrain),
+        (Model::Dom1, RP_DOM1_TILE_MB, Part::Surface),
     ] {
         let cached = cached_tiles(cache, model, map_bbox, &tiles);
         let open = tiles.iter().filter(|t| !cached.contains(t)).count();
@@ -334,12 +388,16 @@ fn rp_items(bbox: &BoundingBox, map_bbox: &BoundingBox, cache: &Cache) -> Vec<Es
             what: model.label().to_string(),
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
+            part,
+            store: Store::Cache,
         });
         if metalink_to_fetch(cache, model, map_bbox, &tiles) {
             items.push(EstimateItem {
                 what: format!("Metalink of the {}", model.label()),
                 megabytes: METALINK_MB,
                 cached: false,
+                part,
+                store: Store::Cache,
             });
         }
     }
@@ -357,7 +415,7 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
         .filter(|t| tile_touches(*t, Region::SchleswigHolstein))
         .collect();
     // A tile counts as cached only under the name its current vintage has.
-    let model_item = |model: Model, mb_per_tile: f64, what: String| {
+    let model_item = |model: Model, mb_per_tile: f64, what: String, part: Part| {
         let files = cached_tile_files(cache, model);
         let open = tiles
             .iter()
@@ -367,19 +425,28 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
             what,
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
+            part,
+            store: Store::Cache,
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (LVermGeo SH WMS)", ORTHOPHOTO_MB_PER_KM2),
+        per_km2_item(
+            bbox,
+            "orthophoto (LVermGeo SH WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
         model_item(
             Model::Dgm1,
             SH_DGM1_TILE_MB,
             Model::Dgm1.label().to_string(),
+            Part::Terrain,
         ),
         model_item(
             Model::Bdom,
             SH_BDOM_TILE_MB,
             "surface model (LVermGeo SH bDOM, full-tile download)".to_string(),
+            Part::Surface,
         ),
     ]
 }
@@ -389,9 +456,14 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
 fn laiv_mv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::laiv_mv::Model;
     vec![
-        per_km2_item(bbox, "orthophoto (LAiV M-V WCS)", ORTHOPHOTO_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
+        per_km2_item(
+            bbox,
+            "orthophoto (LAiV M-V WCS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2, Part::Terrain),
+        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2, Part::Surface),
     ]
 }
 
@@ -400,18 +472,26 @@ fn laiv_mv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
 fn lgln_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::lgln::Model;
     vec![
-        per_km2_item(bbox, "orthophoto (LGLN WMS)", ORTHOPHOTO_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
-        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
+        per_km2_item(
+            bbox,
+            "orthophoto (LGLN WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2, Part::Terrain),
+        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2, Part::Surface),
     ]
 }
 
-/// A download that grows with the area: `mb_per_km2` over `bbox` (at least 0.1 MB).
-fn per_km2_item(bbox: &BoundingBox, what: &str, mb_per_km2: f64) -> EstimateItem {
+/// A download that grows with the area: `mb_per_km2` over `bbox` (at least 0.1 MB), requested
+/// for the area itself and stored in the project folder.
+fn per_km2_item(bbox: &BoundingBox, what: &str, mb_per_km2: f64, part: Part) -> EstimateItem {
     EstimateItem {
         what: what.to_string(),
         megabytes: (bbox.width() * bbox.height() / 1e6 * mb_per_km2).max(0.1),
         cached: false,
+        part,
+        store: Store::Project,
     }
 }
 
@@ -419,14 +499,16 @@ fn per_km2_item(bbox: &BoundingBox, what: &str, mb_per_km2: f64) -> EstimateItem
 fn lgb_items(tiles: &[TileId], cache: &Cache) -> Vec<EstimateItem> {
     let mut items = Vec::new();
     for &tile in tiles {
-        for (product, mb) in [
-            (Product::Orthophoto, DOP_TILE_MB),
-            (Product::Dtm, DGM_TILE_MB),
+        for (product, mb, part) in [
+            (Product::Orthophoto, DOP_TILE_MB, Part::Orthophoto),
+            (Product::Dtm, DGM_TILE_MB, Part::Terrain),
         ] {
             items.push(EstimateItem {
                 what: format!("{product} tile {}", tile.name()),
                 megabytes: mb,
                 cached: cache.has_tile(product, tile),
+                part,
+                store: Store::Cache,
             });
         }
         // LGB publishes no nDOM inside Berlin; the bDOM stands in for it.
@@ -436,12 +518,16 @@ fn lgb_items(tiles: &[TileId], cache: &Cache) -> Vec<EstimateItem> {
                 what: format!("nDSM tile {} ({})", tile.name(), Product::ImageDsm),
                 megabytes: BDOM_TILE_MB,
                 cached: cache.has_tile(Product::ImageDsm, tile),
+                part: Part::Surface,
+                store: Store::Cache,
             }
         } else {
             EstimateItem {
                 what: format!("nDSM tile {}", tile.name()),
                 megabytes: NDSM_TILE_MB,
                 cached: cache.has_ndsm(tile),
+                part: Part::Surface,
+                store: Store::Cache,
             }
         });
     }
@@ -1864,6 +1950,8 @@ mod tests {
             .find(|i| i.what.contains("OSM"))
             .unwrap();
         assert!(!osm.cached, "{osm:?}");
+        // The older extract serves when the newer one does not fit.
+        assert_eq!(osm.part, Part::OsmUpdate);
         assert_eq!(
             estimate.total_megabytes,
             ExtractSource::Brandenburg.megabytes()
@@ -1930,6 +2018,60 @@ mod tests {
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         let err = preview_png(dir.path(), "ndsm", 800).unwrap_err();
         assert!(err.to_string().contains("no nDSM"), "{err}");
+    }
+
+    #[test]
+    fn estimate_items_name_their_part_and_store() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let lgb = estimate_download(dir.path(), &cache, today()).unwrap();
+        let of = |items: &[EstimateItem], what: &str| {
+            let item = find_item(items, what);
+            (item.part, item.store)
+        };
+        assert_eq!(
+            of(
+                &lgb.items,
+                &format!("{} tile 33421-5821", Product::Orthophoto)
+            ),
+            (Part::Orthophoto, Store::Cache)
+        );
+        assert_eq!(
+            of(&lgb.items, &format!("{} tile 33421-5821", Product::Dtm)),
+            (Part::Terrain, Store::Cache)
+        );
+        assert_eq!(
+            of(&lgb.items, "nDSM tile 33421-5821"),
+            (Part::Surface, Store::Cache)
+        );
+        assert_eq!(
+            of(&lgb.items, "ALKIS buildings and land use"),
+            (Part::MapData, Store::Project)
+        );
+        // No extract cached yet: the run needs it.
+        let osm = "OSM extract Brandenburg (shared by all projects)";
+        assert_eq!(of(&lgb.items, osm), (Part::MapData, Store::Cache));
+        // A per-area provider stores what it requests in the project folder.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 47_838.0,
+            northing: 5_571_740.0,
+        })
+        .unwrap();
+        let hesse = preview_area(&square(p.lon, p.lat, 0.002), 20.0, &cache, today()).estimate;
+        assert_eq!(
+            of(&hesse.items, "orthophoto (HVBG WMS)"),
+            (Part::Orthophoto, Store::Project)
+        );
+        assert_eq!(
+            of(&hesse.items, "tile metadata list (HVBG)"),
+            (Part::Terrain, Store::Cache)
+        );
+        assert_eq!(
+            of(&hesse.items, "surface model (HVBG DOM1)"),
+            (Part::Surface, Store::Cache)
+        );
     }
 
     #[test]

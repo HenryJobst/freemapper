@@ -152,6 +152,10 @@ fn mcp_creates_a_project_and_lists_layers() {
     let (error, text) = session.call("estimate_download", json!({ "dir": project }));
     assert!(!error, "{text}");
     assert!(text.contains("33421-5821"), "{text}");
+    assert!(
+        text.contains("\"free_megabytes\"") && text.contains("\"fits\""),
+        "{text}"
+    );
 
     let (error, text) = session.call("list_layers", json!({ "dir": project }));
     assert!(!error, "{text}");

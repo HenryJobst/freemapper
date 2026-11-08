@@ -1,8 +1,9 @@
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
 use std::collections::HashMap;
-use std::io::Read as _;
+use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::NaiveDate;
@@ -11,6 +12,7 @@ use crate::sources::alkis::AlkisError;
 use crate::sources::lgb::ndsm_tile_url;
 use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
 use crate::sources::region::Provider;
+use crate::space::{DiskSpace, SystemDiskSpace};
 use crate::tiles::TileId;
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
@@ -20,7 +22,7 @@ const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 pub enum FetchError {
     #[error("download of {url} failed: {message}")]
     Http { url: String, message: String },
-    #[error("{path}: {source}", path = .0.display(), source = .1)]
+    #[error("{}", crate::space::io_error_text(.0, .1))]
     Io(PathBuf, std::io::Error),
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
@@ -74,6 +76,13 @@ pub enum FetchError {
         range: String,
         status: u16,
     },
+}
+
+impl FetchError {
+    /// Whether writing failed because the volume is full.
+    pub fn is_disk_full(&self) -> bool {
+        matches!(self, FetchError::Io(_, e) if crate::space::is_storage_full(e))
+    }
 }
 
 pub(crate) fn tile_names(tiles: &[TileId]) -> String {
@@ -137,10 +146,73 @@ pub trait Fetcher {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
-        std::fs::write(path, &bytes).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+        if let Err(e) = std::fs::write(path, &bytes) {
+            let _ = std::fs::remove_file(path);
+            return Err(FetchError::Io(path.to_path_buf(), e));
+        }
         progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
         Ok(())
     }
+}
+
+/// Streams `reader`, the body of `url` (`total` bytes, if the server says), into the file `path`
+/// that `create` opens, at most `max_bytes`, reporting the size.
+fn stream_to_file(
+    url: &str,
+    reader: &mut dyn std::io::Read,
+    total: Option<u64>,
+    path: &Path,
+    create: &dyn Fn(&Path) -> std::io::Result<Box<dyn std::io::Write>>,
+    max_bytes: u64,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), FetchError> {
+    let result = stream(url, reader, total, path, create, max_bytes, progress);
+    // A partial file is of no use; on a full disk it also takes the space others need.
+    if result.is_err() {
+        let _ = std::fs::remove_file(path);
+    }
+    result
+}
+
+/// The work of [`stream_to_file`], which removes `path` when this fails.
+fn stream(
+    url: &str,
+    reader: &mut dyn std::io::Read,
+    total: Option<u64>,
+    path: &Path,
+    create: &dyn Fn(&Path) -> std::io::Result<Box<dyn std::io::Write>>,
+    max_bytes: u64,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), FetchError> {
+    let mut file = create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+    let mut buffer = vec![0u8; 1 << 16];
+    let (mut done, mut reported) = (0u64, 0u64);
+    loop {
+        let n = reader.read(&mut buffer).map_err(|e| FetchError::Http {
+            url: url.to_string(),
+            message: e.to_string(),
+        })?;
+        if n == 0 {
+            break;
+        }
+        if done + n as u64 > max_bytes {
+            return Err(too_large(url, max_bytes));
+        }
+        file.write_all(&buffer[..n])
+            .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+        done += n as u64;
+        if done - reported >= PROGRESS_STEP_BYTES {
+            reported = done;
+            let of = total
+                .map(|t| format!(" of {} MB", megabytes(t)))
+                .unwrap_or_default();
+            progress(&format!("downloaded {} MB{of}", megabytes(done)));
+        }
+    }
+    file.flush()
+        .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+    progress(&format!("downloaded {} MB", megabytes(done)));
+    Ok(())
 }
 
 /// A part of a file.
@@ -541,35 +613,11 @@ impl Fetcher for HttpFetcher {
             let _ = std::fs::remove_file(path);
             return Err(too_large(url, max_bytes));
         }
-        let mut file =
-            std::fs::File::create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
+        let create = |path: &Path| -> std::io::Result<Box<dyn std::io::Write>> {
+            Ok(Box::new(std::fs::File::create(path)?))
+        };
         let mut reader = response.body_mut().as_reader();
-        let mut buffer = vec![0u8; 1 << 16];
-        let (mut done, mut reported) = (0u64, 0u64);
-        loop {
-            let n = std::io::Read::read(&mut reader, &mut buffer)
-                .map_err(|e| http_error(e.to_string()))?;
-            if n == 0 {
-                break;
-            }
-            if done + n as u64 > max_bytes {
-                drop(file);
-                let _ = std::fs::remove_file(path);
-                return Err(too_large(url, max_bytes));
-            }
-            std::io::Write::write_all(&mut file, &buffer[..n])
-                .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
-            done += n as u64;
-            if done - reported >= PROGRESS_STEP_BYTES {
-                reported = done;
-                let of = total
-                    .map(|t| format!(" of {} MB", megabytes(t)))
-                    .unwrap_or_default();
-                progress(&format!("downloaded {} MB{of}", megabytes(done)));
-            }
-        }
-        progress(&format!("downloaded {} MB", megabytes(done)));
-        Ok(())
+        stream_to_file(url, &mut reader, total, path, &create, max_bytes, progress)
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
@@ -628,15 +676,34 @@ impl Fetcher for HttpFetcher {
     }
 }
 
-/// Tile cache shared by all projects.
+/// Tile cache shared by all projects. It also answers how much space the volumes freemapper
+/// writes to have left (the system's free space, unless replaced).
 #[derive(Debug, Clone)]
 pub struct Cache {
     root: PathBuf,
+    space: Arc<dyn DiskSpace>,
 }
 
 impl Cache {
     pub fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self {
+            root,
+            space: Arc::new(SystemDiskSpace),
+        }
+    }
+
+    /// The cache with `space` as the source of free space (tests simulate a full disk).
+    pub fn with_disk_space(self, space: Arc<dyn DiskSpace>) -> Self {
+        Self { space, ..self }
+    }
+
+    /// The folder of the cache.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn disk_space(&self) -> &dyn DiskSpace {
+        self.space.as_ref()
     }
 
     /// `<system cache dir>/freemapper`, if the system has a cache directory.
@@ -1178,7 +1245,7 @@ const RETRY_DELAY: Duration = Duration::ZERO;
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
 /// and answers `check` refuses (an error page with status 200) are retried; a missing URL or a
-/// refused request is not.
+/// refused request is not, and neither is a write to a full disk.
 pub(crate) fn get_with_retries<T>(
     fetcher: &dyn Fetcher,
     url: &str,
@@ -1230,6 +1297,8 @@ fn retrying<T>(
             Err(
                 FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
             ) => return result,
+            // Asking again does not free disk space.
+            Err(ref e) if e.is_disk_full() => return result,
             Err(_) if attempt < attempts => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -1256,6 +1325,7 @@ pub(crate) fn download_with_retries(
             Err(
                 FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
             ) => return result,
+            Err(ref e) if e.is_disk_full() => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);
                 attempt += 1;
@@ -3413,6 +3483,105 @@ mod tests {
             // Asking again does not make it smaller.
             assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
         }
+    }
+
+    /// A file with room for `room` bytes; then it fails like a full disk.
+    struct FullDisk {
+        file: std::fs::File,
+        room: usize,
+    }
+
+    impl std::io::Write for FullDisk {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.room == 0 {
+                return Err(std::io::Error::from(std::io::ErrorKind::StorageFull));
+            }
+            let n = buf.len().min(self.room);
+            self.file.write_all(&buf[..n])?;
+            self.room -= n;
+            Ok(n)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.file.flush()
+        }
+    }
+
+    #[test]
+    fn storage_full_during_download_removes_the_part_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("osm/extract.osm.pbf.part");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let body = vec![b'x'; 200_000];
+        let full_disk = |p: &Path| -> std::io::Result<Box<dyn std::io::Write>> {
+            Ok(Box::new(FullDisk {
+                file: std::fs::File::create(p)?,
+                room: 100_000,
+            }))
+        };
+        let err = stream_to_file(
+            "https://example.test/extract",
+            &mut body.as_slice(),
+            Some(200_000),
+            &path,
+            &full_disk,
+            MAX_DOWNLOAD_BYTES,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(err.is_disk_full(), "{err:?}");
+        assert_eq!(
+            err.to_string(),
+            format!(
+                "the disk is full, so freemapper could not write {}. Free some space and try again",
+                path.display()
+            )
+        );
+        assert!(!path.exists());
+    }
+
+    /// Fails every download like a full disk and counts the attempts.
+    #[derive(Default)]
+    struct FullDiskFetcher {
+        attempts: std::cell::Cell<u32>,
+    }
+
+    impl Fetcher for FullDiskFetcher {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            Err(FetchError::NotFound(url.to_string()))
+        }
+
+        fn download_to(
+            &self,
+            _url: &str,
+            path: &Path,
+            _max_bytes: u64,
+            _progress: &mut dyn FnMut(&str),
+        ) -> Result<(), FetchError> {
+            self.attempts.set(self.attempts.get() + 1);
+            Err(FetchError::Io(
+                path.to_path_buf(),
+                std::io::Error::from(std::io::ErrorKind::StorageFull),
+            ))
+        }
+    }
+
+    #[test]
+    fn storage_full_is_not_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let part = dir.path().join("tile.part");
+        let fetcher = FullDiskFetcher::default();
+        let err = download_with_retries(&fetcher, "https://example.test/t", &part, 10, &mut |_| {})
+            .unwrap_err();
+        assert!(err.is_disk_full(), "{err:?}");
+        assert_eq!(fetcher.attempts.get(), 1);
+        let fetcher = FullDiskFetcher::default();
+        let err = get_limited_with_retries(&fetcher, "https://example.test/t", &part, 10, |b| {
+            Ok(b.to_vec())
+        })
+        .unwrap_err();
+        assert!(err.is_disk_full(), "{err:?}");
+        assert_eq!(fetcher.attempts.get(), 1);
     }
 
     /// A server answering every request with `body` without a Content-Length.

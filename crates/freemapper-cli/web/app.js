@@ -29,6 +29,13 @@ const TEXTS = {
     downloadNone: "Download: alles schon im Zwischenspeicher",
     downloadDetails: "Was geladen wird",
     cached: "schon geladen",
+    disk: "Speicherplatz: ",
+    diskVolume: (free, needed) => `${free} frei, gebraucht etwa ${needed}`,
+    cacheVolume: "Zwischenspeicher",
+    projectVolume: "Projektordner",
+    noRoom: "passt nicht auf den Datenträger",
+    noRoomHint: (reserve) =>
+      `Nicht alles passt auf den Datenträger (freemapper lässt ${reserve} frei). Schaffe Platz, bevor du lädst. Sonst lässt freemapper das Oberflächenmodell und die Aktualisierung des OSM-Auszugs aus, und ohne Platz für Kartendaten, Geländemodell oder Luftbild bricht es ab.`,
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
@@ -93,6 +100,13 @@ const TEXTS = {
     downloadNone: "Download: everything is cached already",
     downloadDetails: "What is downloaded",
     cached: "cached",
+    disk: "Disk space: ",
+    diskVolume: (free, needed) => `${free} free, about ${needed} needed`,
+    cacheVolume: "cache",
+    projectVolume: "project folder",
+    noRoom: "does not fit on the disk",
+    noRoomHint: (reserve) =>
+      `Not everything fits on the disk (freemapper keeps ${reserve} free). Free some space before you fetch. Otherwise freemapper leaves out the surface model and the OSM extract update, and it stops if the map data, terrain model or orthophoto do not fit.`,
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
@@ -339,9 +353,10 @@ function showPreview() {
   if (!area) return;
   $("source").textContent = sourceId ? T.sourceOsm + (sourceName || sourceId) : T.sourceDrawn;
   if (!preview) {
-    ["size", "tiles", "download"].forEach((id) => ($(id).textContent = ""));
+    ["size", "tiles", "download", "disk"].forEach((id) => ($(id).textContent = ""));
     $("items").replaceChildren();
     $("too-large").hidden = true;
+    $("no-room").hidden = true;
     return;
   }
   $("size").textContent = T.size(Math.round(preview.width_m), Math.round(preview.height_m));
@@ -359,10 +374,13 @@ function showPreview() {
   $("items").replaceChildren(
     ...preview.estimate.items.map((item) => {
       const li = document.createElement("li");
-      li.textContent = `${item.what}: ${item.megabytes} MB${item.cached ? ` (${T.cached})` : ""}`;
+      const note = item.cached ? ` (${T.cached})` : item.fits === false ? ` (${T.noRoom})` : "";
+      li.textContent = `${item.what}: ${item.megabytes} MB${note}`;
+      li.classList.toggle("warning", !item.cached && item.fits === false);
       return li;
     }),
   );
+  showDisk(unusable ? null : preview.estimate);
   for (const tile of preview.tiles) {
     L.polygon(tile.corners, {
       color: "#ff7800",
@@ -374,6 +392,36 @@ function showPreview() {
       .bindTooltip(tile.name, { permanent: true, direction: "center", className: "tile-label" })
       .addTo(tileLayer);
   }
+}
+
+/** `350 MB` or `1,2 GB` in the page's language. */
+function megabytes(mb) {
+  if (mb < 1024) return `${Math.ceil(mb)} MB`;
+  const gb = (mb / 1024).toLocaleString(document.documentElement.lang, {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+  });
+  return `${gb} GB`;
+}
+
+/** The free disk space of the cache and project volumes, and a hint when not everything fits. */
+function showDisk(estimate) {
+  const disk = estimate && estimate.disk;
+  const volumes = (disk && disk.volumes) || [];
+  const named = volumes.length > 1;
+  $("disk").textContent = volumes.length
+    ? T.disk +
+      volumes
+        .map((v) => {
+          const where = v.holds.includes("cache") ? T.cacheVolume : T.projectVolume;
+          const text = T.diskVolume(megabytes(v.free_megabytes), megabytes(v.needed_megabytes));
+          return named ? `${where}: ${text}` : text;
+        })
+        .join("; ")
+    : "";
+  const short = estimate && estimate.items.some((i) => !i.cached && i.fits === false);
+  $("no-room").hidden = !short;
+  $("no-room").textContent = short ? T.noRoomHint(megabytes(disk.reserve_megabytes)) : "";
 }
 
 // --- Search ----------------------------------------------------------------------------------

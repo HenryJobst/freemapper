@@ -194,6 +194,18 @@ fn preview_reports_tiles() {
     assert_eq!(preview["tiles"][0]["corners"].as_array().unwrap().len(), 4);
     assert_eq!(preview["too_large"], false);
     assert!(preview["estimate"]["total_megabytes"].as_f64().unwrap() > 300.0);
+    // The free space of the volume that holds the cache (and here the project folder, too).
+    let volume = &preview["estimate"]["disk"]["volumes"][0];
+    assert!(volume["free_megabytes"].as_u64().is_some(), "{preview}");
+    assert!(
+        volume["needed_megabytes"].as_u64().unwrap() > 300,
+        "{preview}"
+    );
+    assert_eq!(preview["estimate"]["disk"]["reserve_megabytes"], 1024);
+    assert!(
+        preview["estimate"]["items"][0]["fits"].is_boolean(),
+        "{preview}"
+    );
 }
 
 #[test]
