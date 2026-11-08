@@ -13,9 +13,11 @@ use crate::build::berlin::{
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::stairs::stair_objects;
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -392,6 +394,7 @@ impl ProjectFile {
             OSM_CANDIDATES_RELPATH,
             WMS_ORTHOPHOTO_RELPATH,
             TERRAIN_RELPATH,
+            TERRAIN_MOSAIC_RELPATH,
             SURFACE_RELPATH,
         ] {
             let path = dir.join(relpath);
@@ -497,6 +500,10 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 pub(crate) const WMS_ORTHOPHOTO_RELPATH: &str = "data/orthophoto-wms.jpg";
 /// The WCS terrain model (LVermGeo DGM1, 1 m) with its world file.
 pub(crate) const TERRAIN_RELPATH: &str = "data/dgm1.tif";
+/// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
+/// world file. `derive` writes it only for areas with extra Berlin layers: the export reads the
+/// walking direction of the stairs from it, offline and without the tile cache.
+pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
 /// The WCS surface model (LVermGeo DOM1, 1 m) with its world file.
 pub(crate) const SURFACE_RELPATH: &str = "data/dom1.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
@@ -2322,11 +2329,11 @@ pub(crate) fn stored_berlin_layers(
 fn stored_berlin_objects(
     dir: &Path,
     project: &ProjectFile,
+    layers: &[StoredBerlinLayer],
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    let layers = stored_berlin_layers(dir, project)?;
     let mut inputs: Vec<(&str, &[serde_json::Value], NaiveDate)> = layers
         .iter()
         .map(|l| (l.layer.file, l.features.as_slice(), l.fetched))
@@ -2364,6 +2371,78 @@ fn stored_berlin_objects(
         georef,
         symbol_set,
     )?)
+}
+
+/// The 522 canopy map objects and the 532.x stair candidates of the stored Berlin
+/// `bauwerke-flaechen` layer; none outside Berlin.
+struct BerlinStructures {
+    canopies: Vec<MapObject>,
+    stairs: Vec<MapObject>,
+}
+
+fn stored_berlin_structures(
+    dir: &Path,
+    project: &ProjectFile,
+    layers: &[StoredBerlinLayer],
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<BerlinStructures, ProjectError> {
+    // The stairs are in the same layer as the canopies (`STAIR_LAYER`).
+    let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER) else {
+        return Ok(BerlinStructures {
+            canopies: Vec::new(),
+            stairs: Vec::new(),
+        });
+    };
+    let map_area = area.projected_polygon_in(project.crs());
+    // A canopy inside a 521 footprint would double the building.
+    let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
+        .into_iter()
+        .filter(|b| classify(b) == Rule::Object)
+        .flat_map(|b| b.footprint.0)
+        .collect();
+    let canopies = canopy_objects(
+        &layer.features,
+        &footprints,
+        &map_area,
+        project.buffer_m,
+        georef,
+        symbol_set,
+        layer.fetched,
+    )?;
+    let terrain = stored_stair_terrain(dir, project)?;
+    let stairs = stair_objects(
+        &layer.features,
+        terrain.as_ref(),
+        &map_area,
+        project.buffer_m,
+        georef,
+        symbol_set,
+        layer.fetched,
+    )?;
+    Ok(BerlinStructures { canopies, stairs })
+}
+
+/// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area
+/// provider, else the mosaic `derive` wrote ([`TERRAIN_MOSAIC_RELPATH`]); none before `derive`.
+/// Stairs outside it get the long axis (`freemapper:direction=guessed`).
+fn stored_stair_terrain(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Option<Raster<f32>>, ProjectError> {
+    let bbox = project.bbox()?;
+    let per_area = project.terrain.as_ref().is_some_and(|r| r.covers(&bbox))
+        && dir.join(TERRAIN_RELPATH).exists();
+    let path = if per_area {
+        dir.join(TERRAIN_RELPATH)
+    } else {
+        dir.join(TERRAIN_MOSAIC_RELPATH)
+    };
+    if !path.exists() {
+        return Ok(None);
+    }
+    Ok(Some(read_float_raster(&path)?))
 }
 
 /// The stored ALKIS land use; none when it was not fetched or does not cover the map area plus
@@ -2543,6 +2622,17 @@ pub fn derive_project(
             .map_err(DeriveError::from)?;
         dtm
     };
+    // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
+    // the cache, so it is kept with the project where there are Berlin stairs.
+    let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
+    if tile_products.is_some() && !project.berlin_layers.is_empty() {
+        progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
+        crate::sources::float_tiff::write_float_raster(&dtm, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
+    } else {
+        for file in [mosaic.clone(), mosaic.with_extension("tfw")] {
+            let _ = std::fs::remove_file(file);
+        }
+    }
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
     progress(&format!("writing {HILLSHADE_RELPATH}"));
     write_gray_png(&hillshade(&dtm), &hillshade_path)?;
@@ -3194,6 +3284,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
 
     // Buildings first: they are the map's own objects, candidates only a template.
     let building_objects = stored_building_objects(dir, &project, &area, &georef, &symbol_set)?;
+    let berlin_layers = stored_berlin_layers(dir, &project)?;
+    let structures =
+        stored_berlin_structures(dir, &project, &berlin_layers, &area, &georef, &symbol_set)?;
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
@@ -3227,10 +3320,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                 .chain(stored_berlin_objects(
                     dir,
                     &project,
+                    &berlin_layers,
                     &area,
                     &georef,
                     &symbol_set,
                 )?)
+                .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
                     &project,
@@ -3288,6 +3383,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
     let mut map_objects = north_lines(&content, spacing_mm, &symbol_set);
     map_objects.extend(building_objects);
+    // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
+    map_objects.extend(structures.canopies);
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(osm_objects(Target::Map)?);
@@ -8152,6 +8249,76 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             found.contains(&("522".into(), "geoportal-berlin/building-parts".into())),
             "{found:?}"
+        );
+    }
+
+    #[test]
+    fn berlin_canopies_are_map_objects_and_stairs_get_the_derived_terrain() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let area = |id: &str, kind: &str, (e, n): (f64, f64), (w, h): (f64, f64)| {
+            serde_json::json!({
+                "type": "Feature", "id": format!("bauwerkeflaechen.{id}"),
+                "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                    [e, n], [e + w, n], [e + w, n + h], [e, n + h], [e, n]]]]},
+                "properties": {"uuid": id, "bezbwf": kind}})
+        };
+        let layer = serde_json::json!({"type": "FeatureCollection", "features": [
+            area("DEBE00ROOF", "Überdachung", (392_760.0, 5_820_860.0), (6.0, 4.0)),
+            area("DEBE00STEP", "Treppe", (392_760.0, 5_820_835.0), (6.0, 3.0)),
+        ]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-flaechen.geojson"),
+            layer.to_string(),
+        )
+        .unwrap();
+        let source = |o: &MapObject| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == "freemapper:source")
+                .map(|(_, v)| v.clone())
+        };
+        let set = MapKind::Schoolyard.symbol_set();
+        let stairs = |documents: &StarterDocuments| -> Vec<MapObject> {
+            documents.candidates.parts[0]
+                .objects
+                .iter()
+                .filter(|o| Some(o.symbol_id) == set.id_for_code("532.8"))
+                .cloned()
+                .collect()
+        };
+        let documents = starter_documents(dir.path()).unwrap();
+        let canopies: Vec<&MapObject> = documents.map.parts[0]
+            .objects
+            .iter()
+            .filter(|o| Some(o.symbol_id) == set.id_for_code("522"))
+            .collect();
+        assert_eq!(canopies.len(), 1);
+        assert_eq!(
+            source(canopies[0]).as_deref(),
+            Some("geoportal-berlin/bauwerke-flaechen")
+        );
+        // Before `derive` there is no terrain: the long axis, guessed.
+        let guessed = ("freemapper:direction".to_string(), "guessed".to_string());
+        let before = stairs(&documents);
+        assert_eq!(before.len(), 1);
+        assert!(before[0].tags.contains(&guessed));
+
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+        // The synthetic DGM rises 0.1 m per metre to the east: 0.6 m along the stair.
+        let after = stairs(&starter_documents(dir.path()).unwrap());
+        assert_eq!(after.len(), 1);
+        assert!(!after[0].tags.contains(&guessed), "{:?}", after[0].tags);
+        assert!(
+            after[0].coords[1].x > after[0].coords[0].x,
+            "uphill to the east"
         );
     }
 

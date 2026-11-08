@@ -51,7 +51,10 @@ Orienteering Maps 2019 (IOF).
 | Formlinie | form line | Zwischenhöhenlinie für Geländeformen (ISSprOM 103). | `FormLine` |
 | Äquidistanz | contour interval | Höhenabstand benachbarter Höhenlinien in Metern (Sprint: 2 m). | `contour_interval_m` |
 | Gebäude | building | Gebäudeumriss (ISSprOM 521). | `Building` |
-| Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! | `Canopy` |
+| Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! In Berlin werden die ALKIS-Bauwerke `Überdachung` und `Carport` zu Kartenobjekten. | `Canopy`, `canopy_objects` |
+| Treppe | stairway | Treppe als Linie in Laufrichtung (ISSprOM 532.6–532.9); in Berlin Kandidaten aus den ALKIS-Bauwerken `Treppe` und `Freitreppe`. | `stair_objects` |
+| Laufrichtung (Treppe) | walking direction | Richtung, in der man eine Treppe hinauf- oder hinabgeht. freemapper nimmt die Achse des Treppenumrisses mit dem größeren Höhenunterschied im DGM; steigt keine um 0,3 m, die lange Achse, markiert mit `freemapper:direction=guessed`. | `STAIR_MIN_RISE_M` |
+| Treppenbreite | stair footprint | Breite der Treppe quer zur Laufrichtung in Metern; wählt das Symbol 532.6 (1,6 m) bis 532.9 (4 m). | `footprint_code` |
 | Befestigte Fläche | paved area | Asphalt-, Pflaster- oder Plattenfläche (ISSprOM 501). | `PavedArea` |
 | Unbefestigter Weg | unpaved path | Weg/Pfad ohne Befestigung (ISSprOM 505/506/507). | `UnpavedPath` |
 | Verkehrsfläche | traffic area | ALKIS-Nutzung `Straßenverkehr`, `Weg`, `Platz`; Quelle der befestigten Flächen der Sprintkarte. | `paved_area_objects` |
@@ -124,6 +127,7 @@ Orienteering Maps 2019 (IOF).
 | Regierungsbezirk-Auszug | government district extract | OSM-Auszug eines Regierungsbezirks (Nordrhein-Westfalen: Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des ganzen Landes; gewählt nach der mitgelieferten Auszugsgrenze, an einer Bezirksgrenze mehrere. | `GovernmentDistrict`, `extracts_for` |
 | Weltdatei | world file | Textdatei mit Pixelgröße und Lage eines Rasterbilds (`.jgw`, `.pgw`, `.tfw`). | `GridSpec::from_world_file` |
 | Mosaik | mosaic | Zusammengesetzte Kacheln, auf Kartengebiet plus Puffer zugeschnitten. | `mosaic_dtm` |
+| Geländemosaik | terrain mosaic | Das DGM-Mosaik eines Kachelanbieters, das `derive` für Gebiete mit Berlin-Zusatzebenen unter `data/terrain.tif` speichert, damit der Export die Laufrichtung der Treppen offline bestimmen kann. | `TERRAIN_MOSAIC_RELPATH` |
 | Rasterzelle | cell | Ein Pixel eines georeferenzierten Rasters. | `Cell` |
 | Auflösung | resolution | Kantenlänge einer Rasterzelle in Metern. | `resolution_m` |
 | Liegenschaftskataster (ALKIS) | cadastre (ALKIS) | Amtliches Kataster: Flurstücke, Gebäude, Nutzung. | `Alkis` |

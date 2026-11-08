@@ -8,8 +8,8 @@
 # - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point at its
 #   centroid (`draw = "point"`). Holes are dropped: these are candidates only.
 #
-# Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stairs
-# (`build/stairs.rs`), trees and Kleingarten. ALKIS kerb lines are not taken (Plan 2 brings the
+# Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stair areas
+# (`build/stairs.rs`: the walking direction comes from the DGM), trees and Kleingarten. ALKIS kerb lines are not taken (Plan 2 brings the
 # surveyed curbs). The height of a wall decides nothing; the ALKIS name picks the symbol.
 
 # Walls, retaining walls and fences by the ALKIS name (the same symbols as the OSM rules).
@@ -36,6 +36,13 @@ when = ["berlin:layer=vegetation-linien", "berlin:bezbws=Heckenkante*"]
 draw = "line"
 schoolyard = "410.1"
 sprint = "410.1"
+
+# Stair lines: the 2 m footprint; the stair areas are built in `build/stairs.rs`.
+[[rule]]
+when = ["berlin:layer=bauwerke-linien", "berlin:bezbwf=Freitreppe"]
+draw = "line"
+schoolyard = "532.7"
+sprint = "532.7"
 
 # Monuments: a point at the centroid; areas wider than 3 m are tagged `freemapper:size=large`.
 [[rule]]

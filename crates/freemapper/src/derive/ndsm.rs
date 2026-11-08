@@ -95,7 +95,7 @@ fn nearest(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
 
 /// Bilinear interpolation between the four cell centres around (e, n), held constant beyond the
 /// outer centres up to the raster edge; `None` outside the raster or if a centre is missing.
-fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
+pub(crate) fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
     let (w, h) = (f64::from(r.grid.width), f64::from(r.grid.height));
     let cx = (e - r.grid.west) / r.grid.pixel_size;
     let cy = (r.grid.north - n) / r.grid.pixel_size;

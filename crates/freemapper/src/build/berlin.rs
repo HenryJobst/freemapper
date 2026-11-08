@@ -75,6 +75,70 @@ fn polygon_parts(rings: &Value) -> Option<(Vec<LatLon>, LatLon, bool)> {
     Some((ring, latlon((centroid.x(), centroid.y()))?, large))
 }
 
+/// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
+/// layers are in EPSG:25833. Empty for other geometries. Used by the canopy and stair builders,
+/// which need the area itself and not a rule's line or point.
+pub(crate) fn feature_polygons(feature: &Value, crs: Crs) -> Vec<geo_types::Polygon<f64>> {
+    let to_map = |(easting, northing): (f64, f64)| -> Option<(f64, f64)> {
+        if crs == LAYER_CRS {
+            return Some((easting, northing));
+        }
+        let p = crs.forward(latlon((easting, northing))?);
+        Some((p.easting, p.northing))
+    };
+    let ring = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
+        let points: Option<Vec<(f64, f64)>> = coordinates
+            .as_array()?
+            .iter()
+            .map(|c| position(c).and_then(to_map))
+            .collect();
+        Some(geo_types::LineString::from(points?))
+    };
+    let polygon = |rings: &Value| -> Option<geo_types::Polygon<f64>> {
+        let mut rings = rings.as_array()?.iter().map(ring);
+        let exterior = rings.next()??;
+        Some(geo_types::Polygon::new(
+            exterior,
+            rings.collect::<Option<_>>()?,
+        ))
+    };
+    let coordinates = &feature["geometry"]["coordinates"];
+    match feature["geometry"]["type"].as_str() {
+        Some("Polygon") => polygon(coordinates).into_iter().collect(),
+        Some("MultiPolygon") => coordinates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(polygon)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The provenance tags of a map object or candidate built from a Berlin feature directly (not
+/// through the rules), in the order [`osm_objects`] writes them: `freemapper:source`,
+/// `freemapper:source_id`, `freemapper:currency`, `freemapper:alkis`.
+pub(crate) fn provenance_tags(
+    layer: &str,
+    feature: &Value,
+    currency: NaiveDate,
+) -> Vec<(String, String)> {
+    let own = feature_tags(layer, feature);
+    let own = |key: &str| own.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+    let mut tags = vec![(
+        "freemapper:source".to_string(),
+        format!("geoportal-berlin/{layer}"),
+    )];
+    if let Some(id) = own("freemapper:source_id") {
+        tags.push(("freemapper:source_id".to_string(), id));
+    }
+    tags.push(("freemapper:currency".to_string(), currency.to_string()));
+    if let Some(alkis) = own("freemapper:alkis") {
+        tags.push(("freemapper:alkis".to_string(), alkis));
+    }
+    tags
+}
+
 /// The tags of a Berlin feature: `berlin:layer`, each string (not empty) and number property as
 /// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
 /// ALKIS name as `freemapper:alkis`).
@@ -424,6 +488,25 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn freitreppe_line_is_a_stair_candidate() {
+        let line = some_line();
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let tags = [
+                ("berlin:layer", "bauwerke-linien"),
+                ("berlin:bezbwf", "Freitreppe"),
+            ];
+            assert_eq!(code(&tags, &line, kind), Some("532.7".to_string()));
+            // Stair areas are built in `build/stairs.rs`, not by the rules.
+            let area = [
+                ("berlin:layer", "bauwerke-flaechen"),
+                ("berlin:bezbwf", "Freitreppe"),
+            ];
+            assert_eq!(code(&area, &some_ring(), kind), None);
+            assert_eq!(code(&area, &line, kind), None);
+        }
     }
 
     #[test]
