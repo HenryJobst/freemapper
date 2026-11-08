@@ -674,9 +674,11 @@ fn currency_table(
         Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
         Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
         // LVermGeo rasters are fetched per area (WMS, WCS), not as tiles.
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => {
-            Err(FetchError::TilesNotCovered(tiles.to_vec()))
-        }
+        Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh
+        | Provider::LaivMv => Err(FetchError::TilesNotCovered(tiles.to_vec())),
     }
 }
 

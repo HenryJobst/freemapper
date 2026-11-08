@@ -212,7 +212,7 @@ pub struct ProjectFile {
     /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
-    /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH), at [`TERRAIN_RELPATH`].
+    /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V), at [`TERRAIN_RELPATH`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terrain: Option<WcsRecord>,
     /// The surface model of a per-area provider, at [`SURFACE_RELPATH`].
@@ -601,6 +601,8 @@ pub fn fetch_project(
         Some(Provider::LvermGeoSh) => {
             fetch_sh_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
         }
+        // Task 5: the LAiV M-V rasters (WCS orthophoto, DGM1, DOM1) are not fetched yet.
+        Some(Provider::LaivMv) => {}
         _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
     }
     project.save(dir)?;
@@ -1323,6 +1325,7 @@ fn raster_tiles(
                 Provider::Lgv => "LGV",
                 Provider::Hvbg => "HVBG",
                 Provider::LvermGeoSh => "LVermGeo SH",
+                Provider::LaivMv => "LAiV M-V",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1655,7 +1658,7 @@ pub fn derive_project(
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
     // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH) store their height models per area and have none.
+    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V) store their height models per area and have none.
     let tile_products: Option<(&[Product], Product, Product)> = match provider {
         Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
         Provider::GeoSn => Some((
@@ -1663,7 +1666,11 @@ pub fn derive_project(
             Product::SaxonyDtm,
             Product::SaxonyDsm,
         )),
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => None,
+        Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh
+        | Provider::LaivMv => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1722,7 +1729,8 @@ pub fn derive_project(
         | Provider::LvermGeo
         | Provider::Lgv
         | Provider::Hvbg
-        | Provider::LvermGeoSh => {
+        | Provider::LvermGeoSh
+        | Provider::LaivMv => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);

@@ -79,9 +79,11 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         }
         // LVermGeo rasters are fetched per area (WMS, WCS).
         // HVBG rasters are fetched per area, too (no 25833 grid: Hesse has negative eastings).
-        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg | Provider::LvermGeoSh => {
-            (Vec::new(), 1)
-        }
+        Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh
+        | Provider::LaivMv => (Vec::new(), 1),
     }
 }
 
@@ -98,6 +100,8 @@ fn estimate_area(
         Some(Provider::Lgv) => lgv_items(bbox, cache),
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
+        // Task 5: the LAiV M-V download items (WCS, per km2; no tile grid to count).
+        Some(Provider::LaivMv) => Vec::new(),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();

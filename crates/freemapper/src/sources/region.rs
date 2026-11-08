@@ -31,6 +31,10 @@ const HESSEN_BOUNDARY: &str = include_str!("../../../../assets/regions/hessen.ge
 /// about 131 km of border with Hamburg.
 const SCHLESWIG_HOLSTEIN_BOUNDARY: &str =
     include_str!("../../../../assets/regions/schleswig-holstein.geojson");
+/// Mecklenburg-Vorpommern from LAiV M-V ALKIS (simplified 25 m, EPSG:25833; CC BY 4.0). It shares
+/// its southern border with Brandenburg, and stays in UTM zone 33 like it.
+const MECKLENBURG_VORPOMMERN_BOUNDARY: &str =
+    include_str!("../../../../assets/regions/mecklenburg-vorpommern.geojson");
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 const MARGIN_M: f64 = 100.0;
@@ -46,6 +50,7 @@ pub enum Region {
     Hamburg,
     Hessen,
     SchleswigHolstein,
+    MecklenburgVorpommern,
 }
 
 /// Who serves a region's rasters (orthophoto, terrain and surface models).
@@ -64,6 +69,8 @@ pub enum Provider {
     Hvbg,
     /// LVermGeo SH, Schleswig-Holstein (EPSG:25832).
     LvermGeoSh,
+    /// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833, the first per-area provider in zone 33).
+    LaivMv,
 }
 
 impl Provider {
@@ -72,14 +79,14 @@ impl Provider {
     pub fn per_area(self) -> bool {
         matches!(
             self,
-            Self::LvermGeo | Self::Lgv | Self::Hvbg | Self::LvermGeoSh
+            Self::LvermGeo | Self::Lgv | Self::Hvbg | Self::LvermGeoSh | Self::LaivMv
         )
     }
 }
 
 impl Region {
     /// All regions, in the order they are listed and queried.
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -87,6 +94,7 @@ impl Region {
         Self::Hamburg,
         Self::Hessen,
         Self::SchleswigHolstein,
+        Self::MecklenburgVorpommern,
     ];
 
     /// The state an ALKIS object id belongs to (`DEBB…`, `DEBE…`, `DESN…`, `DEHE…`).
@@ -99,6 +107,7 @@ impl Region {
             Some("DEHH") => Some(Self::Hamburg),
             Some("DEHE") => Some(Self::Hessen),
             Some("DESH") => Some(Self::SchleswigHolstein),
+            Some("DEMV") => Some(Self::MecklenburgVorpommern),
             _ => None,
         }
     }
@@ -111,6 +120,7 @@ impl Region {
             Self::Hamburg => Provider::Lgv,
             Self::Hessen => Provider::Hvbg,
             Self::SchleswigHolstein => Provider::LvermGeoSh,
+            Self::MecklenburgVorpommern => Provider::LaivMv,
         }
     }
 
@@ -126,7 +136,8 @@ impl Region {
 
     /// The region's boundary, parsed once.
     fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 7] = [
+        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 8] = [
+            OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
             OnceLock::new(),
@@ -143,6 +154,7 @@ impl Region {
             Self::Hamburg => (4, HAMBURG_BOUNDARY),
             Self::Hessen => (5, HESSEN_BOUNDARY),
             Self::SchleswigHolstein => (6, SCHLESWIG_HOLSTEIN_BOUNDARY),
+            Self::MecklenburgVorpommern => (7, MECKLENBURG_VORPOMMERN_BOUNDARY),
         };
         BOUNDARIES[index].get_or_init(|| parse_boundary(text))
     }
@@ -553,6 +565,72 @@ mod tests {
         assert_eq!(
             Region::of_object_id("DEHH0000AbCdEfGh"),
             Some(Region::Hamburg)
+        );
+    }
+
+    #[test]
+    fn rostock_school_is_mecklenburg_vorpommern_in_zone_33() {
+        // Innerstaedtisches Gymnasium Rostock (OSM way/402355834), 25833 E 312157 / N 5996317.
+        let school = around(312_157.0, 5_996_317.0, 200.0);
+        assert_eq!(regions_for(&school), vec![Region::MecklenburgVorpommern]);
+        assert_eq!(raster_region(&school), Some(Region::MecklenburgVorpommern));
+        assert_eq!(Region::MecklenburgVorpommern.provider(), Provider::LaivMv);
+        assert!(Provider::LaivMv.per_area());
+        assert_eq!(Region::MecklenburgVorpommern.crs(), crate::crs::Crs::Utm33);
+        assert_eq!(crate::project::map_crs(&school), crate::crs::Crs::Utm33);
+        assert!(provider_tiles(&school, Provider::LaivMv, 1).is_empty());
+        // The same place in zone 32 (E 704637 / N 5997030) is the same point.
+        let p = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: 312_157.0,
+                    northing: 5_996_317.0,
+                },
+            )
+            .unwrap();
+        assert!((p.easting - 704_637.0).abs() < 2.0 && (p.northing - 5_997_030.0).abs() < 2.0);
+    }
+
+    #[test]
+    fn brussow_border_has_both_regions() {
+        // Bruessow on the Brandenburg/MV border, 25833 E 436007-438007, N 5917677-5919677.
+        let border = BoundingBox {
+            min_e: 436_007.0,
+            min_n: 5_917_677.0,
+            max_e: 438_007.0,
+            max_n: 5_919_677.0,
+        };
+        let regions = regions_for(&border);
+        assert!(regions.contains(&Region::Brandenburg));
+        assert!(regions.contains(&Region::MecklenburgVorpommern));
+        // The raster region follows the centre; both sides stay in zone 33.
+        let centre = raster_region(&border).unwrap();
+        assert!(matches!(
+            centre,
+            Region::Brandenburg | Region::MecklenburgVorpommern
+        ));
+        assert_eq!(crate::project::map_crs(&border), crate::crs::Crs::Utm33);
+        // A map centred well inside either side takes that side's provider.
+        let north = around(437_007.0, 5_919_400.0, 100.0);
+        let south = around(437_007.0, 5_917_900.0, 100.0);
+        let providers: Vec<_> = [north, south]
+            .iter()
+            .map(|b| raster_region(b).unwrap().provider())
+            .collect();
+        assert!(providers.contains(&Provider::LaivMv));
+        assert!(providers.contains(&Provider::Lgb));
+    }
+
+    #[test]
+    fn mv_object_ids() {
+        assert_eq!(
+            Region::of_object_id("DEMV0000AbCdEfGh"),
+            Some(Region::MecklenburgVorpommern)
+        );
+        assert_eq!(
+            Region::of_object_id("DEBB0000AbCdEfGh"),
+            Some(Region::Brandenburg)
         );
     }
 
