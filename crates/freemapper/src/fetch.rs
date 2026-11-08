@@ -165,10 +165,57 @@ fn megabytes(bytes: u64) -> u64 {
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 
+/// The LVermGeo SH Downloadportal. It sends its leaf certificate without the intermediate
+/// `D-TRUST BR CA 1-20-1 2020`, and rustls does not fetch missing intermediates, so this host
+/// is verified against the bundled intermediate and its root instead of the default roots.
+const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
+
+/// The only trust anchors for [`PORTAL_HOST`]: the intermediate (valid to 2035-02-11) and the
+/// root `D-TRUST BR Root CA 1 2020` that signed it (also in the default roots).
+const PORTAL_ANCHORS: [&[u8]; 2] = [
+    include_bytes!("../../../assets/tls/d-trust-br-ca-1-20-1-2020.pem"),
+    include_bytes!("../../../assets/tls/d-trust-br-root-ca-1-2020.pem"),
+];
+
+/// Which certificates a URL is verified against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Trust {
+    /// ureq's default (webpki) roots, for every host but the portal.
+    DefaultRoots,
+    /// Only the bundled [`PORTAL_ANCHORS`].
+    PortalAnchors,
+}
+
+/// The trust for `url`: the bundled anchors exactly for absolute URLs on the host
+/// [`PORTAL_HOST`] (hosts compare without case), the default roots for everything else,
+/// including URLs that do not parse.
+fn trust_for(url: &str) -> Trust {
+    let Ok(uri) = url.parse::<ureq::http::Uri>() else {
+        return Trust::DefaultRoots;
+    };
+    match (uri.scheme(), uri.host()) {
+        (Some(_), Some(host)) if host.eq_ignore_ascii_case(PORTAL_HOST) => Trust::PortalAnchors,
+        _ => Trust::DefaultRoots,
+    }
+}
+
+fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
+    PORTAL_ANCHORS
+        .iter()
+        .map(|pem| ureq::tls::Certificate::from_pem(pem).expect("bundled certificates are PEM"))
+        .collect()
+}
+
+/// An agent for ordinary requests and one for large bodies.
+struct Agents {
+    normal: ureq::Agent,
+    large: ureq::Agent,
+}
+
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
 pub struct HttpFetcher {
-    agent: ureq::Agent,
-    large: ureq::Agent,
+    default: Agents,
+    portal: Agents,
 }
 
 impl HttpFetcher {
@@ -182,17 +229,37 @@ impl HttpFetcher {
     }
 
     fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
-        let agent = |body: Duration| -> ureq::Agent {
-            ureq::Agent::config_builder()
+        let agent = |body: Duration, trust: Trust| -> ureq::Agent {
+            let config = ureq::Agent::config_builder()
                 .timeout_connect(Some(connect))
                 .timeout_recv_response(Some(response))
-                .timeout_recv_body(Some(body))
-                .build()
-                .into()
+                .timeout_recv_body(Some(body));
+            match trust {
+                Trust::DefaultRoots => config,
+                Trust::PortalAnchors => config.tls_config(
+                    ureq::tls::TlsConfig::builder()
+                        .root_certs(ureq::tls::RootCerts::new_with_certs(&portal_anchors()))
+                        .build(),
+                ),
+            }
+            .build()
+            .into()
+        };
+        let agents = |trust: Trust| Agents {
+            normal: agent(body, trust),
+            large: agent(LARGE_BODY_TIMEOUT.max(body), trust),
         };
         Self {
-            agent: agent(body),
-            large: agent(LARGE_BODY_TIMEOUT.max(body)),
+            default: agents(Trust::DefaultRoots),
+            portal: agents(Trust::PortalAnchors),
+        }
+    }
+
+    /// The agents verifying `url`'s host.
+    fn agents(&self, url: &str) -> &Agents {
+        match trust_for(url) {
+            Trust::DefaultRoots => &self.default,
+            Trust::PortalAnchors => &self.portal,
         }
     }
 }
@@ -213,7 +280,8 @@ impl Fetcher for HttpFetcher {
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
         let mut response = self
-            .agent
+            .agents(url)
+            .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .header("Range", &header)
@@ -251,6 +319,7 @@ impl Fetcher for HttpFetcher {
             message,
         };
         let mut response = self
+            .agents(url)
             .large
             .get(url)
             .header("User-Agent", USER_AGENT)
@@ -292,7 +361,8 @@ impl Fetcher for HttpFetcher {
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
         let response = self
-            .agent
+            .agents(url)
+            .normal
             .head(url)
             .header("User-Agent", USER_AGENT)
             .call()
@@ -308,7 +378,8 @@ impl Fetcher for HttpFetcher {
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let http_error = |e: ureq::Error| status_error(url, e);
         let mut response = self
-            .agent
+            .agents(url)
+            .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .call()
@@ -2559,5 +2630,142 @@ mod tests {
             .unwrap();
         let table = parse_currency_csv(&String::from_utf8(text).unwrap()).unwrap();
         assert!(table.contains_key(&TILE));
+    }
+
+    /// SHA-256 fingerprints (as `openssl x509 -fingerprint -sha256` prints them) of the bundled
+    /// intermediate and root.
+    const INTERMEDIATE_SHA256: &str = "19:9A:B2:AA:AF:FF:40:40:1E:0A:3B:7B:87:EE:99:64:65:9E:FF:A9:\
+                                       4A:1F:EC:BE:91:8A:E1:36:E4:B4:E0:A8";
+    const ROOT_SHA256: &str = "E5:9A:AA:81:60:09:C2:2B:FF:5B:25:BA:D3:7D:F3:06:F0:49:79:7C:1F:81:\
+                               D8:5A:B0:89:E6:57:BD:8F:00:44";
+
+    const PORTAL_OVERVIEW: &str = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/\
+        dladownload/_ajax/overview.php?bbox=565100,5949100,565300,5949300&crs=EPSG:25832\
+        &type[]=dgm1";
+
+    fn fingerprint(der: &[u8]) -> String {
+        use sha2::Digest as _;
+        sha2::Sha256::digest(der)
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect::<Vec<_>>()
+            .join(":")
+    }
+
+    fn root_certs(agent: &ureq::Agent) -> &ureq::tls::RootCerts {
+        agent.config().tls_config().root_certs()
+    }
+
+    fn same_timeouts(a: &ureq::Agent, b: &ureq::Agent) -> bool {
+        let (a, b) = (a.config().timeouts(), b.config().timeouts());
+        (a.connect, a.recv_response, a.recv_body) == (b.connect, b.recv_response, b.recv_body)
+    }
+
+    #[test]
+    fn portal_host_uses_the_bundled_anchors() {
+        let anchors: Vec<_> = portal_anchors()
+            .iter()
+            .map(|cert| fingerprint(cert.der()))
+            .collect();
+        assert_eq!(
+            anchors,
+            [
+                INTERMEDIATE_SHA256.replace(' ', ""),
+                ROOT_SHA256.replace(' ', "")
+            ]
+        );
+        let fetcher = HttpFetcher::new();
+        for url in [
+            PORTAL_OVERVIEW,
+            "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?\
+             file=bdom20nc_32_565_5949_1_sh_2023.tif&id=6&live=2023&km=32560_5940&stack=32565_5949",
+            "https://GEODATEN.Schleswig-Holstein.de/",
+            "https://geodaten.schleswig-holstein.de:443/x",
+            "http://geodaten.schleswig-holstein.de/x",
+        ] {
+            assert_eq!(trust_for(url), Trust::PortalAnchors, "{url}");
+            let agents = fetcher.agents(url);
+            for (agent, default) in [
+                (&agents.normal, &fetcher.default.normal),
+                (&agents.large, &fetcher.default.large),
+            ] {
+                let ureq::tls::RootCerts::Specific(certs) = root_certs(agent) else {
+                    panic!("{url}: {:?}", root_certs(agent));
+                };
+                let pinned: Vec<_> = certs.iter().map(|c| fingerprint(c.der())).collect();
+                assert_eq!(pinned, anchors, "{url}");
+                assert!(!agent.config().tls_config().disable_verification());
+                assert!(same_timeouts(agent, default), "{url}");
+            }
+        }
+    }
+
+    #[test]
+    fn other_hosts_keep_the_default_roots() {
+        let fetcher = HttpFetcher::new();
+        for url in [
+            "https://geodaten.schleswig-holstein.de.evil.example/x",
+            "https://xgeodaten.schleswig-holstein.de/x",
+            "https://evil.geodaten.schleswig-holstein.de/x",
+            "https://geodaten.schleswig-holstein.de@evil.example/x",
+            "https://evil.example/geodaten.schleswig-holstein.de/x",
+            "https://evil.example/?next=https://geodaten.schleswig-holstein.de/",
+            "https://service.gdi-sh.de/INSPIRE_Atom/EL/data/dgm1_32_565_5949_1_sh_2022.tif",
+            "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
+            "https://opendata.schleswig-holstein.de/api/3/action/package_show",
+            "geodaten.schleswig-holstein.de",
+            "not a url",
+        ] {
+            assert_eq!(trust_for(url), Trust::DefaultRoots, "{url}");
+            let agents = fetcher.agents(url);
+            for agent in [&agents.normal, &agents.large] {
+                assert!(
+                    matches!(root_certs(agent), ureq::tls::RootCerts::WebPki),
+                    "{url}: {:?}",
+                    root_certs(agent)
+                );
+                assert!(!agent.config().tls_config().disable_verification());
+            }
+        }
+        // The default agents are configured as before the portal agents existed.
+        let plain: ureq::Agent = ureq::Agent::config_builder().build().into();
+        for agent in [&fetcher.default.normal, &fetcher.default.large] {
+            assert_eq!(
+                format!("{:?}", agent.config().tls_config()),
+                format!("{:?}", plain.config().tls_config())
+            );
+        }
+    }
+
+    /// The portal's leaf-only chain verifies with the bundled anchors.
+    #[test]
+    #[ignore = "network"]
+    fn live_portal_overview_verifies() {
+        let bytes = HttpFetcher::new().get(PORTAL_OVERVIEW).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json["success"], true, "{json}");
+        assert!(
+            json["result"]["features"]
+                .as_array()
+                .is_some_and(|f| !f.is_empty()),
+            "{json}"
+        );
+    }
+
+    /// The bundled anchors do not verify a chain to another CA (Let's Encrypt here).
+    #[test]
+    #[ignore = "network"]
+    fn live_portal_anchors_refuse_other_chains() {
+        let fetcher = HttpFetcher::new();
+        let result = fetcher
+            .portal
+            .normal
+            .get("https://opendata.schleswig-holstein.de/api/3/action/status_show")
+            .call();
+        let err = result.expect_err("a Let's Encrypt chain must not verify");
+        assert!(
+            err.to_string().to_lowercase().contains("certificate"),
+            "{err}"
+        );
     }
 }

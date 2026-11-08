@@ -8,6 +8,7 @@ pub mod hvbg;
 pub mod lgb;
 pub mod lgv;
 pub mod lvermgeo;
+pub mod lvermgeo_sh;
 pub mod osm;
 pub mod region;
 pub mod wms;
