@@ -1,7 +1,8 @@
 """Cuts the first strips out of a Geobasis NRW DGM1 GeoTIFF (1000 x 1000, Float32, LZW, strips of
 2 rows) without re-encoding: the first ROWS / 2 strips are copied byte for byte and the image
 height is set to ROWS. Every other tag (GeoTIFF keys, GDAL_NODATA) is kept, so the tiepoint (the
-north-west corner) stays.
+north-west corner) stays. The layout is kept too: a source with its IFD behind the strips (the
+LVermGeo RP DOM1 of 2022-2024) gives a fixture with its IFD at the end.
 
     python make_nrw_dgm1_fixture.py SOURCE TARGET [ROWS]
 
@@ -45,15 +46,30 @@ def main(source, target, rows="100"):
 
     entries = sorted(tags)
     ifd_size = 2 + 12 * len(entries) + 4
-    values_start = 8 + ifd_size
-    extra = sum((len(raw) + 1) // 2 * 2 for kind, n, raw in tags.values() if len(raw) > 4)
-    new_offsets, at = [], values_start + extra
+    ifd_last = ifd > max(offsets)
+    if ifd_last:
+        # Strips first, then the IFD (on a word boundary) and its values.
+        strips_size = sum(counts)
+        ifd_at = 8 + strips_size + strips_size % 2
+        values_start = ifd_at + ifd_size
+        at = 8
+    else:
+        ifd_at = 8
+        values_start = 8 + ifd_size
+        extra = sum((len(raw) + 1) // 2 * 2 for kind, n, raw in tags.values() if len(raw) > 4)
+        at = values_start + extra
+    new_offsets = []
     for c in counts:
         new_offsets.append(at)
         at += c
     tags[273] = (4, keep, struct.pack("<%dI" % keep, *new_offsets))
 
-    out = bytearray(b"II*\x00" + struct.pack("<I", 8))
+    strips = bytearray()
+    for o, c in zip(offsets, counts):
+        strips += data[o : o + c]
+    out = bytearray(b"II*\x00" + struct.pack("<I", ifd_at))
+    if ifd_last:
+        out += strips + b"\x00" * (ifd_at - 8 - len(strips))
     values = bytearray()
     out += struct.pack("<H", len(entries))
     for tag in entries:
@@ -65,8 +81,8 @@ def main(source, target, rows="100"):
             values += raw + (b"\x00" if len(raw) % 2 else b"")
     out += struct.pack("<I", 0)
     out += values
-    for o, c in zip(offsets, counts):
-        out += data[o : o + c]
+    if not ifd_last:
+        out += strips
     open(target, "wb").write(out)
 
 

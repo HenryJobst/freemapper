@@ -15,7 +15,7 @@ use chrono::{Datelike, NaiveDate};
 
 use crate::crs::BoundingBox;
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_with_retries, one_line, write_atomically,
+    Cache, FetchError, FetchMode, Fetcher, get_limited_with_retries, one_line, write_atomically,
 };
 use crate::sources::alkis_wfs::{number_matched, parse_gml};
 use crate::sources::height_model::{
@@ -87,7 +87,7 @@ struct ListedTile {
     year: Option<i32>,
     /// The last flight day, `YYYY-MM-DD`.
     date: Option<String>,
-    /// Why the year or the date is missing.
+    /// Why the year or the date is missing, as what the tile list does (`gives no flight days`).
     note: Option<String>,
 }
 
@@ -189,17 +189,16 @@ fn listed_tile(tile: TileId, flight_year: &str, days: &str) -> ListedTile {
         (None, None) => (
             None,
             None,
-            Some("the tile list gives neither a flight year nor flight days".to_string()),
+            Some("gives neither a flight year nor flight days".to_string()),
         ),
-        (Some(year), None) => (
-            Some(year),
-            None,
-            Some("the tile list gives no flight days".to_string()),
-        ),
+        (Some(year), None) => (Some(year), None, Some("gives no flight days".to_string())),
         (year, Some(None)) => (
             year,
             None,
-            Some(format!("the flight days {} cannot be read", quoted(days))),
+            Some(format!(
+                "gives flight days {} that cannot be read",
+                quoted(days)
+            )),
         ),
         (year, Some(Some(dates))) => {
             let years: HashSet<i32> = dates.iter().map(|d| d.year()).collect();
@@ -211,7 +210,7 @@ fn listed_tile(tile: TileId, flight_year: &str, days: &str) -> ListedTile {
                     None,
                     last,
                     Some(format!(
-                        "the flight days {} and the flight year {} do not give one year",
+                        "gives flight days {} and a flight year {} that do not agree on one year",
                         quoted(days),
                         quoted(flight_year)
                     )),
@@ -271,8 +270,9 @@ fn parse_tile_list(text: &str) -> Result<TileList, String> {
     Ok(TileList { tiles, warnings })
 }
 
-/// The largest tile list answer accepted (1.3 KB per tile; a 5 x 5 km area is 50 KB).
-const MAX_LIST_BYTES: usize = 32 * 1024 * 1024;
+/// The largest tile list answer accepted (1.3 KB per tile; a 5 x 5 km area is 50 KB); a larger
+/// one is stopped while it is read.
+const MAX_LIST_BYTES: u64 = 32 * 1024 * 1024;
 
 /// `min_e_min_n_max_e_max_n`, rounded outward to whole metres.
 fn bbox_key(bbox: &BoundingBox) -> String {
@@ -310,13 +310,8 @@ fn tile_list(
                 .to_string(),
         });
     }
-    let answer = get_with_retries(fetcher, &url, |bytes| {
-        if bytes.len() > MAX_LIST_BYTES {
-            return Err(FetchError::TooLarge {
-                url: url.clone(),
-                limit_mb: (MAX_LIST_BYTES / (1024 * 1024)) as u64,
-            });
-        }
+    let part = path.with_extension("gml.part");
+    let answer = get_limited_with_retries(fetcher, &url, &part, MAX_LIST_BYTES, |bytes| {
         let list = parse_tile_list(&String::from_utf8_lossy(bytes)).map_err(|message| {
             FetchError::Http {
                 url: url.clone(),
@@ -370,16 +365,164 @@ fn known_missing(path: &Path, mode: FetchMode) -> bool {
             .is_some_and(|age| age < RECHECK_AFTER)
 }
 
-/// The tiles among `tiles` that need no download: a file of some year is cached, or the server
-/// answered 404 (an estimate; the tile list decides which year is current).
+/// The Metalink of `model` for the whole Land (AGS `07`, 11 MB): file name, size and SHA-256 of
+/// every file. The Kreis and Gemeinde ones are smaller, but which of them covers the map area
+/// would need the area's municipality key.
+pub fn metalink_url(model: Model) -> String {
+    let slug = model.slug();
+    format!("{DATA}/{slug}/current/meta4/{slug}_tif_07.meta4")
+}
+
+/// The largest Metalink accepted (11 MB expected); a larger one is stopped while it is read.
+const MAX_METALINK_BYTES: u64 = 32 * 1024 * 1024;
+
+/// The GeoTIFF tile names of `model` in a Metalink (`<file name="dgm1_32_400_5579_1_rp_2024.tif">`),
+/// by tile; a name the strict pattern refuses is skipped, and of two years the later wins. An
+/// answer that is not a Metalink (an HTML page) is an error.
+fn parse_metalink(model: Model, text: &str) -> Result<HashMap<TileId, String>, String> {
+    let start = text.trim_start().trim_start_matches('\u{feff}');
+    let root = start
+        .strip_prefix("<?xml")
+        .and_then(|rest| rest.split_once("?>"))
+        .map_or(start, |(_, rest)| rest)
+        .trim_start();
+    if !root.starts_with("<metalink") {
+        return Err(format!("not a Metalink: {}", one_line(text, 200)));
+    }
+    let mut names: HashMap<TileId, String> = HashMap::new();
+    for element in text.split("<file name=\"").skip(1) {
+        let Some(stem) = element
+            .split('"')
+            .next()
+            .and_then(|name| name.strip_suffix(".tif"))
+        else {
+            continue;
+        };
+        if !valid_name(model, stem) {
+            continue;
+        }
+        // Checked: `dgm1_32_EEE_NNNN_…`.
+        let parts: Vec<&str> = stem.split('_').collect();
+        let (Ok(east_km), Ok(north_km)) = (parts[2].parse(), parts[3].parse()) else {
+            continue;
+        };
+        let tile = TileId { east_km, north_km };
+        if names.get(&tile).is_none_or(|old| old.as_str() < stem) {
+            names.insert(tile, stem.to_string());
+        }
+    }
+    Ok(names)
+}
+
+/// Where the Metalink of `model` is kept.
+fn metalink_path(dir: &Path, model: Model) -> PathBuf {
+    dir.join("meta4")
+        .join(format!("{}_tif_07.meta4", model.slug()))
+}
+
+/// The kept Metalink of `model`, read.
+fn kept_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
+    let bytes = std::fs::read(metalink_path(dir, model)).ok()?;
+    parse_metalink(model, &String::from_utf8_lossy(&bytes)).ok()
+}
+
+/// The tile names of the Metalink of `model`, for tiles the tile list gives no year: downloaded
+/// (once per run and product, as only `fetch_model` asks) and kept; offline, or when the download
+/// fails, the kept one. `None`, with a warning, when there is none.
+fn metalink_names(
+    fetcher: &dyn Fetcher,
+    dir: &Path,
+    mode: FetchMode,
+    model: Model,
+    warnings: &mut Vec<String>,
+) -> Option<HashMap<TileId, String>> {
+    let path = metalink_path(dir, model);
+    let error = match mode {
+        FetchMode::Offline => "offline and not kept from an earlier run".to_string(),
+        FetchMode::Online => {
+            let url = metalink_url(model);
+            let part = path.with_extension("meta4.part");
+            let answer =
+                get_limited_with_retries(fetcher, &url, &part, MAX_METALINK_BYTES, |bytes| {
+                    let names = parse_metalink(model, &String::from_utf8_lossy(bytes)).map_err(
+                        |message| FetchError::Http {
+                            url: url.clone(),
+                            message,
+                        },
+                    )?;
+                    Ok((names, bytes.to_vec()))
+                });
+            match answer {
+                Ok((names, bytes)) => match write_atomically(&path, &bytes) {
+                    Ok(()) => return Some(names),
+                    Err(e) => {
+                        warnings.push(format!("the LVermGeo RP Metalink was not kept: {e}"));
+                        return Some(names);
+                    }
+                },
+                Err(e) => e.to_string(),
+            }
+        }
+    };
+    match kept_metalink(dir, model) {
+        Some(names) => {
+            if mode == FetchMode::Online {
+                warnings.push(format!(
+                    "the LVermGeo RP Metalink of the {} could not be read ({error}); used the one \
+                     kept from an earlier run",
+                    model.label()
+                ));
+            }
+            Some(names)
+        }
+        None => {
+            warnings.push(format!(
+                "the LVermGeo RP Metalink of the {} could not be read ({error}), so the tiles its \
+                 tile list gives no flight year for stay without heights",
+                model.label()
+            ));
+            None
+        }
+    }
+}
+
+/// The tiles among `tiles` that need no download (an estimate before a run): a file of some
+/// year is cached, the server answered 404 lately, or a kept tile list gives the tile no year
+/// and the kept Metalink (if any) names no file for it either.
 pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
-    let names: Vec<String> = std::fs::read_dir(cache.lvermgeo_rp_dir().join(model.slug()))
+    let dir = cache.lvermgeo_rp_dir();
+    let files: Vec<(String, PathBuf)> = std::fs::read_dir(dir.join(model.slug()))
         .into_iter()
         .flatten()
         .flatten()
-        .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.ends_with(".tif") || name.ends_with(".missing"))
+        .map(|entry| {
+            (
+                entry.file_name().to_string_lossy().into_owned(),
+                entry.path(),
+            )
+        })
+        .filter(|(name, path)| {
+            name.ends_with(".tif")
+                || (name.ends_with(".missing") && known_missing(path, FetchMode::Online))
+        })
         .collect();
+    let unnamed: HashSet<TileId> = std::fs::read_dir(dir.join("tile_list"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let bytes = std::fs::read(entry.path()).ok()?;
+            parse_tile_list(&String::from_utf8_lossy(&bytes)).ok()
+        })
+        .flat_map(|list| list.tiles.into_values())
+        .filter(|entry| entry.name(model).is_none())
+        .map(|entry| entry.tile)
+        .collect();
+    let metalink = if unnamed.is_empty() {
+        HashMap::new()
+    } else {
+        kept_metalink(&dir, model).unwrap_or_default()
+    };
     tiles
         .iter()
         .filter(|tile| {
@@ -389,7 +532,8 @@ pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<Ti
                 tile.east_km,
                 tile.north_km
             );
-            names.iter().any(|name| name.starts_with(&prefix))
+            files.iter().any(|(name, _)| name.starts_with(&prefix))
+                || (unnamed.contains(tile) && !metalink.contains_key(tile))
         })
         .copied()
         .collect()
@@ -422,26 +566,51 @@ pub fn fetch_model(
     let list = tile_list(fetcher, &dir, mode, bbox, &mut warnings)?;
     warnings.extend(list.warnings.iter().cloned());
     let mut area = AreaTiles::default();
+    let mut unnamed = Vec::new();
     for tile in tiles_covering(bbox) {
         let Some(entry) = list.tiles.get(&tile) else {
             if tile_centre_in(tile, Region::RheinlandPfalz) {
                 area.missing
-                    .push((tile, "not in the tile list".to_string()));
+                    .push((tile, "not in LVermGeo RP's tile list".to_string()));
             }
             continue;
         };
         match entry.name(model) {
             Some(name) => area.named.push((tile, name)),
-            None => {
-                warnings.push(format!(
-                    "{} tile {}: {}, so it has no file name",
-                    model.label(),
-                    short_name(tile),
-                    entry.note.as_deref().unwrap_or("no year")
-                ));
-                area.missing.push((tile, "no flight year".to_string()));
-            }
+            None => unnamed.push(entry),
         }
+    }
+    // The tile list leaves these without a year; the Metalink has the exact names.
+    let metalink = if unnamed.is_empty() {
+        None
+    } else {
+        metalink_names(fetcher, &dir, mode, model, &mut warnings)
+    };
+    for entry in unnamed {
+        if let Some(name) = metalink.as_ref().and_then(|names| names.get(&entry.tile)) {
+            area.named.push((entry.tile, name.clone()));
+            continue;
+        }
+        let note = entry.note.as_deref().unwrap_or("gives no flight year");
+        let (either, why) = if metalink.is_some() {
+            (
+                ", and its Metalink names no file for it either",
+                "no flight year in LVermGeo RP's tile list (Laserbefliegung) and no file in its \
+                 Metalink",
+            )
+        } else {
+            (
+                "",
+                "no flight year in LVermGeo RP's tile list (Laserbefliegung)",
+            )
+        };
+        warnings.push(format!(
+            "{} tile {}: this 1 km square has no heights in the map. LVermGeo RP's tile list \
+             (Laserbefliegung) {note} for it, so the file name is not known{either}",
+            model.label(),
+            short_name(entry.tile),
+        ));
+        area.missing.push((entry.tile, why.to_string()));
     }
     let list_url = tile_list_url(bbox);
     let store = TileStore {
@@ -460,17 +629,17 @@ pub fn fetch_model(
             let start = String::from_utf8_lossy(&bytes[..bytes.len().min(1000)]);
             Err(format!("not a GeoTIFF: {}", one_line(&start, 200)))
         },
-        explain_empty: false,
+        explain_empty: true,
     };
     let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, out, &mut warnings)?;
     let centre = centre_tile(bbox);
     let listed = list.tiles.get(&centre).map(|entry| {
         entry.date.clone().ok_or_else(|| {
             format!(
-                "the {} tile {}: {}, so there is no date",
+                "the {} tile {} has no date: LVermGeo RP's tile list (Laserbefliegung) {} for it",
                 model.label(),
                 short_name(centre),
-                entry.note.as_deref().unwrap_or("no flight days")
+                entry.note.as_deref().unwrap_or("gives no flight days")
             )
         })
     });
@@ -667,6 +836,8 @@ mod tests {
                 .all(|u| u.starts_with("https://geobasis-rlp.de/data/"))
         );
         assert!(log[0].starts_with(TILE_LIST_URL), "{}", log[0]);
+        // Every tile has a name: no Metalink.
+        assert!(!log.iter().any(|u| u.ends_with(".meta4")), "{log:?}");
         assert!(
             log[0].contains("BBOX=399900,5579400,400100,5579600,urn:ogc:def:crs:EPSG::25832"),
             "{}",
@@ -758,7 +929,10 @@ mod tests {
         assert_eq!(found.missing, vec![EAST]);
         assert_eq!(found.date, None);
         assert!(
-            found.warnings.iter().any(|w| w.contains("32_400_5579")),
+            found.warnings.iter().any(|w| w.contains("32_400_5579")
+                && w.contains("no heights in the map")
+                && w.contains("LVermGeo RP's tile list (Laserbefliegung)")
+                && !w.contains('\u{2014}')),
             "{:?}",
             found.warnings
         );
@@ -831,6 +1005,262 @@ mod tests {
     }
 
     #[test]
+    fn dom1_with_the_ifd_at_the_end_decodes() {
+        // The DOM1 of 2022-2024: no predictor, strips of 20 rows, the IFD behind the pixels, no
+        // world file; the grid comes from the GeoTIFF tags.
+        let bytes = include_bytes!("../../../../tests/fixtures/rheinland-pfalz-dom1.tif");
+        let ifd = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        assert!(ifd > bytes.len() / 2, "the IFD at {ifd} of {}", bytes.len());
+        let raster = decode_float_tiff(bytes).unwrap();
+        let g = raster.grid;
+        assert_eq!((g.width, g.height, g.pixel_size), (1000, 20, 1.0));
+        assert_eq!((g.west, g.north), (400_000.0, 5_580_000.0));
+        for (x, y, want) in [(0, 0, 61.496), (999, 0, 61.326), (500, 19, 61.516)] {
+            let z = raster.get(x, y);
+            assert!((z - want).abs() < 1e-4, "{x} {y}: {z}");
+        }
+    }
+
+    /// A Metalink as the file server writes it, with an entry per file name.
+    fn metalink(names: &[&str]) -> Vec<u8> {
+        let mut xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<metalink \
+            xmlns=\"urn:ietf:params:xml:ns:metalink\">\n    \
+            <generator>RLP-Met4Generator</generator>\n    \
+            <published>2026-08-12 09:59:48.526579+00:00</published>"
+            .to_string();
+        for name in names {
+            xml.push_str(&format!(
+                "<file name=\"{name}\">\n        <size>1358359</size>\n        \
+                 <url>https://geobasis-rlp.de/data/dgm1/current/tif/{name}</url>\n\n    </file>"
+            ));
+        }
+        xml.push_str("</metalink>\n");
+        xml.into_bytes()
+    }
+
+    #[test]
+    fn an_area_of_unnamed_tiles_says_why_it_has_no_heights() {
+        // Inside the Saarburg block: the list names the tiles, but without a year, and the
+        // Metalink has no file for them.
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        let rows = [(WEST, "", ""), (EAST, "", "")];
+        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert(
+            &metalink_url(Model::Dgm1),
+            include_bytes!("../../../../tests/fixtures/rheinland-pfalz-dgm1.meta4").to_vec(),
+        );
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        let err = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(
+                "no tile of the terrain model (LVermGeo RP DGM1) covers the map area: no flight \
+                 year in LVermGeo RP's tile list (Laserbefliegung) and no file in its Metalink: \
+                 32_399_5579, 32_400_5579"
+            ),
+            "{err}"
+        );
+        // One tile not on the server, one without a year, no Metalink.
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
+        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher
+            .responses
+            .borrow_mut()
+            .remove(&tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
+        let (_empty_dir, empty) = temp_cache();
+        let err = run(&fetcher, &empty, FetchMode::Online, Model::Dgm1, &tif)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(
+                "no flight year in LVermGeo RP's tile list (Laserbefliegung): 32_400_5579"
+            ),
+            "{err}"
+        );
+        assert!(
+            err.contains("not on the server (404): 32_399_5579"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn the_metalink_names_tiles_the_tile_list_leaves_unnamed() {
+        let live = include_str!("../../../../tests/fixtures/rheinland-pfalz-dgm1.meta4");
+        let names = parse_metalink(Model::Dgm1, live).unwrap();
+        assert_eq!(
+            names,
+            [(tile(400, 5580), "dgm1_32_400_5580_1_rp_2024".to_string())]
+                .into_iter()
+                .collect()
+        );
+        assert!(parse_metalink(Model::Dom1, live).unwrap().is_empty());
+        assert!(parse_metalink(Model::Dgm1, "<html>Proxy Error</html>").is_err());
+        // Strict names; the later year wins.
+        let synthetic = metalink(&[
+            "dgm1_32_400_5579_1_rp_2025.tif",
+            "dgm1_32_400_5579_1_rp_2025.tfw",
+            "dgm1_32_400_5579_1_rp_2023.tif",
+            "dgm1_32_399_5579_1_rp_2026/../x.tif",
+            "dgm1_32_399_5579_1_rp_20260.tif",
+        ]);
+        let names = parse_metalink(Model::Dgm1, &String::from_utf8_lossy(&synthetic)).unwrap();
+        assert_eq!(
+            names,
+            [(EAST, "dgm1_32_400_5579_1_rp_2025".to_string())]
+                .into_iter()
+                .collect()
+        );
+
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
+        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        fetcher.insert(&metalink_url(Model::Dgm1), synthetic);
+        let grid = GridSpec {
+            west: 400_000.0,
+            north: 5_580_000.0,
+            pixel_size: 1.0,
+            width: 1000,
+            height: 1000,
+        };
+        fetcher.insert(
+            &tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2025"),
+            crate::fetch::test_support::geotiff(&grid, &vec![77.0; 1_000_000]),
+        );
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+        assert_eq!(read_out(&tif).2[100 * 200 + 190], 77.0);
+        assert_eq!(
+            metalink_url(Model::Dgm1),
+            "https://geobasis-rlp.de/data/dgm1/current/meta4/dgm1_tif_07.meta4"
+        );
+        let asked = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
+        assert_eq!(asked(&metalink_url(Model::Dgm1)), 1);
+        // Offline: the kept Metalink, nothing requested.
+        let silent = MapFetcher::default();
+        let offline = run(&silent, &cache, FetchMode::Offline, Model::Dgm1, &tif).unwrap();
+        assert!(offline.missing.is_empty(), "{:?}", offline.missing);
+        assert_eq!(silent.calls.get(), 0);
+    }
+
+    /// Answers the tile list and the Metalink only through the size-limited `download_to`.
+    struct StreamOnly(MapFetcher);
+
+    impl Fetcher for StreamOnly {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            if url.starts_with(TILE_LIST_URL) || url.ends_with(".meta4") {
+                panic!("{url} read without a size limit");
+            }
+            self.0.get(url)
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            path: &Path,
+            max_bytes: u64,
+            progress: &mut dyn FnMut(&str),
+        ) -> Result<(), FetchError> {
+            self.0.download_to(url, path, max_bytes, progress)
+        }
+    }
+
+    #[test]
+    fn the_tile_list_and_the_metalink_are_read_with_a_size_limit() {
+        let inner = MapFetcher::default();
+        serve_synthetic_rp_heights(&inner, &BBOX);
+        let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
+        inner.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        inner.insert(
+            &metalink_url(Model::Dgm1),
+            metalink(&["dgm1_32_400_5579_1_rp_2024.tif"]),
+        );
+        let fetcher = StreamOnly(inner);
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        let found = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &BBOX,
+            &tif,
+        )
+        .unwrap();
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+        // Over the limit: stopped, not asked again.
+        fetcher
+            .0
+            .insert_prefix(&tile_list_prefix(), vec![b' '; MAX_LIST_BYTES as usize + 1]);
+        fetcher.0.calls.set(0);
+        let (_empty_dir, empty) = temp_cache();
+        let err = fetch_model(
+            &fetcher,
+            &empty,
+            FetchMode::Online,
+            Model::Dgm1,
+            &BBOX,
+            &tif,
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("larger than"), "{err}");
+        assert_eq!(fetcher.0.calls.get(), 1);
+    }
+
+    #[test]
+    fn cached_tiles_counts_what_needs_no_download() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        // The west tile is not on the server; the list gives the east one no year.
+        let rows = [(WEST, "2024", "30.03.24, 06.04.24"), (EAST, "", "")];
+        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        let area = [WEST, EAST, tile(401, 5579)];
+        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+        fetcher
+            .responses
+            .borrow_mut()
+            .remove(&tile_url(Model::Dgm1, "dgm1_32_399_5579_1_rp_2024"));
+        let _ = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif);
+        // A recent 404 and a tile the list cannot name need no download; an unknown tile does.
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1, &area),
+            [WEST, EAST].into_iter().collect()
+        );
+        // A 404 older than the re-check is asked for again.
+        let marker = cache_dir
+            .path()
+            .join("lvermgeo_rp/dgm1/dgm1_32_399_5579_1_rp_2024.missing");
+        let month_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(31 * 86_400);
+        std::fs::File::options()
+            .write(true)
+            .open(&marker)
+            .unwrap()
+            .set_modified(month_ago)
+            .unwrap();
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1, &area),
+            [EAST].into_iter().collect()
+        );
+        // A kept Metalink that names the east tile makes it a download again.
+        std::fs::create_dir_all(cache_dir.path().join("lvermgeo_rp/meta4")).unwrap();
+        std::fs::write(
+            cache_dir.path().join("lvermgeo_rp/meta4/dgm1_tif_07.meta4"),
+            metalink(&["dgm1_32_400_5579_1_rp_2025.tif"]),
+        )
+        .unwrap();
+        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+    }
+
+    #[test]
     fn predictor2_tile_decodes() {
         // The live DGM1 (LZW, predictor 2, strips of 2 rows), its northern 100 rows.
         let bytes = include_bytes!("../../../../tests/fixtures/rheinland-pfalz-dgm1.tif");
@@ -849,17 +1279,6 @@ mod tests {
                 .iter()
                 .all(|z| (61.20..66.79).contains(z) && z.is_finite())
         );
-        // The DOM1 of 2022-2024: no predictor, strips of 20 rows, no world file; the grid comes
-        // from the GeoTIFF tags.
-        let bytes = include_bytes!("../../../../tests/fixtures/rheinland-pfalz-dom1.tif");
-        let raster = decode_float_tiff(bytes).unwrap();
-        let g = raster.grid;
-        assert_eq!((g.width, g.height, g.pixel_size), (1000, 20, 1.0));
-        assert_eq!((g.west, g.north), (400_000.0, 5_580_000.0));
-        for (x, y, want) in [(0, 0, 61.496), (999, 0, 61.326), (500, 19, 61.516)] {
-            let z = raster.get(x, y);
-            assert!((z - want).abs() < 1e-4, "{x} {y}: {z}");
-        }
         // NoData (−9999) of a predictor 2 tile becomes NaN.
         let grid = GridSpec {
             west: 400_000.0,

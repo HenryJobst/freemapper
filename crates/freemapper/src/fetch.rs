@@ -1187,6 +1187,25 @@ pub(crate) fn get_with_retries<T>(
     get_with_attempts(fetcher, url, ATTEMPTS, check)
 }
 
+/// [`get_with_retries`] for an answer of at most `max_bytes`: it streams into the file `part`
+/// (removed afterwards) through [`Fetcher::download_to`], so a larger answer is stopped while it
+/// is read, as [`FetchError::TooLarge`] (not asked again).
+pub(crate) fn get_limited_with_retries<T>(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    part: &Path,
+    max_bytes: u64,
+    check: impl Fn(&[u8]) -> Result<T, FetchError>,
+) -> Result<T, FetchError> {
+    retrying(ATTEMPTS, || {
+        let read = fetcher
+            .download_to(url, part, max_bytes, &mut |_| {})
+            .and_then(|()| std::fs::read(part).map_err(|e| FetchError::Io(part.to_path_buf(), e)));
+        let _ = std::fs::remove_file(part);
+        read.and_then(|bytes| check(&bytes))
+    })
+}
+
 /// [`get_with_retries`] with up to `attempts` tries.
 pub(crate) fn get_with_attempts<T>(
     fetcher: &dyn Fetcher,
@@ -1194,9 +1213,19 @@ pub(crate) fn get_with_attempts<T>(
     attempts: u32,
     check: impl Fn(&[u8]) -> Result<T, FetchError>,
 ) -> Result<T, FetchError> {
+    retrying(attempts, || {
+        fetcher.get(url).and_then(|bytes| check(&bytes))
+    })
+}
+
+/// `once` up to `attempts` times, like [`get_with_retries`].
+fn retrying<T>(
+    attempts: u32,
+    mut once: impl FnMut() -> Result<T, FetchError>,
+) -> Result<T, FetchError> {
     let mut attempt = 1;
     loop {
-        let result = fetcher.get(url).and_then(|bytes| check(&bytes));
+        let result = once();
         match result {
             Err(
                 FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
