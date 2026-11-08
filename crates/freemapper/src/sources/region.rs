@@ -520,8 +520,9 @@ mod tests {
         assert!(tile_touches(at(565, 5948), Region::Hamburg));
         assert!(tile_touches(at(565, 5948), Region::SchleswigHolstein));
         assert!(tile_touches(at(566, 5948), Region::SchleswigHolstein));
-        // Just outside: a tile off the coast of either state touches neither.
+        // Inside Hamburg just south of the border: 566/5947 does not reach Schleswig-Holstein.
         assert!(!tile_touches(at(566, 5947), Region::SchleswigHolstein));
+        // Far from both states (E 400 km, N 5000 km): it touches neither.
         assert!(!tile_touches(at(400, 5000), Region::Hamburg));
         assert!(!tile_touches(at(400, 5000), Region::SchleswigHolstein));
     }

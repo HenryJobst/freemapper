@@ -3711,6 +3711,27 @@ mod tests {
         let bbox = project.bbox().unwrap();
         crate::fetch::test_support::serve_synthetic_hamburg(&fetcher, &bbox);
         crate::fetch::test_support::serve_synthetic_schleswig_holstein(&fetcher, &bbox);
+        // Geofabrik's extracts overlap at the border: both hold the same hydrants, one on the
+        // Norderstedt side and one in Langenhorn.
+        let at = |e: f64, n: f64| {
+            crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: c.easting + e,
+                northing: c.northing + n,
+            })
+            .unwrap()
+        };
+        let (north, south) = (at(0.0, 0.0), at(0.0, -400.0));
+        let hydrant: &[(&str, &str)] = &[("emergency", "fire_hydrant")];
+        let pbf = crate::fetch::test_support::osm_pbf(&[
+            (101, north.lat, north.lon, hydrant),
+            (102, south.lat, south.lon, hydrant),
+        ]);
+        for extract in [
+            crate::sources::osm::ExtractSource::Hamburg,
+            crate::sources::osm::ExtractSource::SchleswigHolstein,
+        ] {
+            fetcher.insert(extract.url(), pbf.clone());
+        }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // The rasters come from the centre's provider (Schleswig-Holstein).
         assert_eq!(project.provider, Some(Provider::LvermGeoSh));
@@ -3733,6 +3754,15 @@ mod tests {
         assert!(oids.iter().any(|o| o.starts_with("DESH")), "{oids:?}");
         let unique: std::collections::HashSet<&&str> = oids.iter().collect();
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+        // Each OSM candidate once, although both extracts hold it.
+        let text = std::fs::read_to_string(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
+        let ids: Vec<String> = crate::sources::osm::features_from_geojson(&text)
+            .unwrap()
+            .into_iter()
+            .map(|f| f.id)
+            .collect();
+        assert_eq!(ids, ["node/101", "node/102"]);
+        assert_eq!(project.osm.unwrap().count, 2);
     }
 
     #[test]

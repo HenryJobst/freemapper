@@ -1851,6 +1851,77 @@ pub(crate) mod test_support {
         fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
     }
 
+    /// A minimal OSM PBF (uncompressed blobs, plain nodes): the header block, then one block
+    /// with each node `(id, lat, lon, tags)`.
+    pub fn osm_pbf(nodes: &[(i64, f64, f64, &[(&str, &str)])]) -> Vec<u8> {
+        fn varint(out: &mut Vec<u8>, mut v: u64) {
+            while v >= 0x80 {
+                out.push((v as u8) | 0x80);
+                v >>= 7;
+            }
+            out.push(v as u8);
+        }
+        fn zigzag(v: i64) -> u64 {
+            ((v << 1) ^ (v >> 63)) as u64
+        }
+        fn number(out: &mut Vec<u8>, field: u64, v: u64) {
+            varint(out, field << 3);
+            varint(out, v);
+        }
+        fn bytes(out: &mut Vec<u8>, field: u64, b: &[u8]) {
+            varint(out, (field << 3) | 2);
+            varint(out, b.len() as u64);
+            out.extend_from_slice(b);
+        }
+        fn blob(out: &mut Vec<u8>, kind: &str, data: &[u8]) {
+            let mut blob = Vec::new();
+            bytes(&mut blob, 1, data);
+            number(&mut blob, 2, data.len() as u64);
+            let mut header = Vec::new();
+            bytes(&mut header, 1, kind.as_bytes());
+            number(&mut header, 3, blob.len() as u64);
+            out.extend((header.len() as u32).to_be_bytes());
+            out.extend(header);
+            out.extend(blob);
+        }
+        let mut strings: Vec<String> = vec![String::new()];
+        let mut index = |s: &str| -> u64 {
+            let at = strings.iter().position(|t| t == s).unwrap_or_else(|| {
+                strings.push(s.to_string());
+                strings.len() - 1
+            });
+            at as u64
+        };
+        let mut group = Vec::new();
+        for &(id, lat, lon, tags) in nodes {
+            let (mut keys, mut vals) = (Vec::new(), Vec::new());
+            for (k, v) in tags {
+                varint(&mut keys, index(k));
+                varint(&mut vals, index(v));
+            }
+            let mut node = Vec::new();
+            number(&mut node, 1, zigzag(id));
+            bytes(&mut node, 2, &keys);
+            bytes(&mut node, 3, &vals);
+            number(&mut node, 8, zigzag((lat * 1e7).round() as i64));
+            number(&mut node, 9, zigzag((lon * 1e7).round() as i64));
+            bytes(&mut group, 1, &node);
+        }
+        let mut table = Vec::new();
+        for s in &strings {
+            bytes(&mut table, 1, s.as_bytes());
+        }
+        let mut block = Vec::new();
+        bytes(&mut block, 1, &table);
+        bytes(&mut block, 2, &group);
+        let mut header = Vec::new();
+        bytes(&mut header, 4, b"OsmSchema-V0.6");
+        let mut file = Vec::new();
+        blob(&mut file, "OSMHeader", &header);
+        blob(&mut file, "OSMData", &block);
+        file
+    }
+
     /// The OSM extract fixture cut around the school.
     pub const OSM_FIXTURE: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
