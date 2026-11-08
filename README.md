@@ -54,6 +54,7 @@ wurden und wie viele Objekte jede Karte hat, steht in [`examples/README.md`](exa
 | Hessen | [Altstadt und Landgrafenschloss Marburg](examples/hessen-marburg/) | <a href="examples/hessen-marburg/hessen-marburg.pdf"><img src="examples/hessen-marburg/preview.jpg" width="160" alt=""></a> |
 | Schleswig-Holstein | [Altstadt Lübeck](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
 | Mecklenburg-Vorpommern | [Altstadt Wismar](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
+| Nordrhein-Westfalen | [Altstadt Monschau](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
 
 ## Gebiet im Browser wählen
 
