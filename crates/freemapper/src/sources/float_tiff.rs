@@ -326,11 +326,9 @@ pub(crate) fn require_stored(
     if covers {
         return Ok(());
     }
-    Err(FetchError::Http {
-        url: out.display().to_string(),
-        message: format!(
-            "no {label} stored for this map area; run `freemapper fetch` online first"
-        ),
+    Err(FetchError::NotStored {
+        label: label.to_string(),
+        path: out.to_path_buf(),
     })
 }
 
@@ -388,11 +386,14 @@ mod tests {
         let message = |e: FetchError| e.to_string();
         // Nothing stored yet.
         let err = message(require_stored(&out, &inside, "terrain model (X)").unwrap_err());
-        assert!(
-            err.contains(
-                "no terrain model (X) stored for this map area; run `freemapper fetch` online first"
-            ),
-            "{err}"
+        // The path is a local file: the text names it as the stored model, not as a download.
+        assert_eq!(
+            err,
+            format!(
+                "no terrain model (X) stored for this map area: {} is missing, cannot be read or \
+                 does not cover it; run `freemapper fetch` online first",
+                out.display()
+            )
         );
         write_float_raster(&Raster::filled(grid, 1.0), &out, "x").unwrap();
         require_stored(&out, &inside, "terrain model (X)").unwrap();
@@ -403,7 +404,11 @@ mod tests {
             ..inside
         };
         let err = message(require_stored(&out, &beyond, "surface model (X)").unwrap_err());
-        assert!(err.contains("no surface model (X) stored"), "{err}");
+        assert!(
+            err.starts_with("no surface model (X) stored for this map area: "),
+            "{err}"
+        );
+        assert!(!err.contains("download"), "{err}");
     }
 
     /// The north-east 488 x 300 m of the LVermGeo SH DGM1 tile 611/5970 (Lübeck), its 2 x 2

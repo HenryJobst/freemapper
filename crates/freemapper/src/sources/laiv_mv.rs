@@ -1001,10 +1001,11 @@ mod tests {
             let err = fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &bbox, &path)
                 .unwrap_err();
             assert!(
-                err.to_string().contains(
-                    "no terrain model (LAiV M-V DGM1) stored for this map area; run \
-                     `freemapper fetch` online first"
-                ),
+                err.to_string().starts_with(&format!(
+                    "no terrain model (LAiV M-V DGM1) stored for this map area: {} is missing, \
+                     cannot be read or does not cover it; run `freemapper fetch` online first",
+                    path.display()
+                )),
                 "{err}"
             );
         }

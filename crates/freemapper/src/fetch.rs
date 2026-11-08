@@ -60,6 +60,13 @@ pub enum FetchError {
     /// help.
     #[error("download of {url} is larger than {limit_mb} MB; stopped")]
     TooLarge { url: String, limit_mb: u64 },
+    /// Offline: the model `label` stored at `path` is missing, cannot be read or does not cover
+    /// the map area.
+    #[error(
+        "no {label} stored for this map area: {path} is missing, cannot be read or does not cover it; run `freemapper fetch` online first",
+        path = .path.display()
+    )]
+    NotStored { label: String, path: PathBuf },
     /// The server answered a byte range with the whole file; asking again does not help.
     #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
     RangeIgnored {
