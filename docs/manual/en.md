@@ -45,10 +45,10 @@ On request freemapper also writes a **print-ready training map as a PDF** (chapt
 - An internet connection for the first download.
 - Free disk space:
   - The first time, freemapper downloads the OSM extract of the state: about 300 MB for Brandenburg
-    and Berlin, about 270 MB for Saxony, about 180 MB for Saxony-Anhalt, about 55 MB for Hamburg, about 350 MB for Hesse. It
+    and Berlin, about 270 MB for Saxony, about 180 MB for Saxony-Anhalt, about 55 MB for Hamburg, about 350 MB for Hesse, about 160 MB for Schleswig-Holstein (without Hamburg). It
     is reused by all projects.
   - On top of that, each map usually needs 10–100 MB.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg or Hesse**. More states will follow.
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse or Schleswig-Holstein**. More states will follow.
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -262,9 +262,10 @@ version yet; feedback is welcome (chapter 16).
 | Saxony-Anhalt | LVermGeo | the map is in UTM zone 32 (EPSG:25832), like all of the state's data; orthophoto from the map service, terrain and surface model at 1 m; the nDSM is as coarse as in Saxony |
 | Hamburg | LGV | zone 32 like Saxony-Anhalt; orthophoto from 2026, but terrain and surface model from 2022: buildings of the last years are missing from the nDSM |
 | Hesse | HVBG | zone 32; orthophoto flown in summer (2023 south-west, 2024 north, 2025 south); nDSM = DOM1 − DGM1 at 1 m from the laser scan (2019–2025 by region). In many areas the scan was flown in winter, without leaves, so the crowns of deciduous trees can come out lower than in summer. The scan can be from another year than the orthophoto (Frankfurt: scan 28.02.2023, orthophoto 19.08.2025). The height models come from the Downloadcenter, one zip per municipality; freemapper reads only the needed 1 km tiles. Squares without `bez` only as candidates; street areas include verges (no split); school grounds are called "Öffentliche Zwecke" |
+| Schleswig-Holstein | LVermGeo SH | zone 32; the state was flown in two halves: 2024 (May/September, leaf-on) and 2025 (March–June: March/April leaf-off, May/June leaf-on); Norderstedt, for example, was flown leaf-off on 17.03.2025. The map service has no time choice. Terrain: DGM1 at 1 m from the laser scan (vintage 2005–2025 by tile; Norderstedt 10.03.2022). Surface model: image-based bDOM at 0.2 m (only the 2023 and 2024 vintages); the nDSM is bDOM − DGM1. freemapper downloads whole tiles of 105 MB for it (about 90 s each, no partial downloads), reduces them to 1 m and keeps only that copy. In the 2025 half the bDOM is two years older than the orthophoto: new buildings may be missing in the nDSM (freemapper warns). The Downloadportal sends an incomplete certificate chain; freemapper ships the missing D-TRUST certificate and uses it for that one server only. Squares without `bez` only as candidates; street areas partly without a verge split; school grounds are called "Öffentliche Zwecke"; the LGB's ALKIS spellings apply. At the Hamburg border freemapper reads the ALKIS and OSM extract of both sides; the rasters come from the state where the centre of the map area lies, and the Schleswig-Holstein tiles reach into Hamburg |
 
-**Coordinate system:** Brandenburg, Berlin and Saxony deliver in UTM zone 33, Saxony-Anhalt, Hamburg and
-Hesse in zone 32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
+**Coordinate system:** Brandenburg, Berlin and Saxony deliver in UTM zone 33, Saxony-Anhalt, Hamburg,
+Hesse and Schleswig-Holstein in zone 32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
 georeferencing. If you move a map area across the zone line or into another state, freemapper fetches
 everything again.
 
@@ -287,7 +288,7 @@ across the border, the templates stay empty on the other side. freemapper tells 
 
 | Message (start) | Meaning | What to do |
 |---|---|---|
-| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg or Hesse. | Choose another area; more states will follow. |
+| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse or Schleswig-Holstein. | Choose another area; more states will follow. |
 | `map area plus buffer is … more than 4000 m per side` | The area is too large. | Draw it smaller or split it into several maps. |
 | `no area found for …` | The place was not found, or its grounds are several parts in OSM. | Spell it differently, or draw the area in the browser. |
 | `MultiPolygon with … parts` | The chosen grounds consist of several parts. | Draw one connected area in the browser. |
@@ -296,12 +297,20 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
-| `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Hesse: the Downloadcenter may have changed. | Report a bug. |
+| `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Hesse: the Downloadcenter may have changed. Schleswig-Holstein: the Downloadportal may have changed. | Report a bug. |
 | `warning: the … has no tile(s) … inside Hamburg` | Single tiles are missing from the archive. | The templates stay empty there. |
 | `warning: the … has no tile(s) … inside Hesse` | Single tiles are missing from the municipality's Downloadcenter archive. | The templates stay empty there. |
 | `warning: the Downloadcenter has no file for "…"` | The Downloadcenter has no file for the place (e.g. an unincorporated area). The tiles it names after `;` (if any) stayed empty because no other municipality's file holds them. | Tiles taken from neighbouring municipalities need no action; the named tiles stay empty. |
 | `warning: the metadata list has no readable Bildflugdatum for tile …` | The HVBG metadata list has no flight date for these tiles. | Only the date in the project record is missing. |
 | `warning: the new HVBG metadata list … could not be read …` | The newly published list could not be read; the older kept list is used. | Update freemapper if it persists. |
+| `warning: the … has no tile(s) … inside Schleswig-Holstein` | Single tiles are missing from the Downloadportal. | The templates stay empty there. |
+| `the Downloadportal lists at most … tiles per request` | The area needs more tiles than the Downloadportal lists per request. | Choose a smaller area. |
+| `the Downloadportal answered with an error page` | The Downloadportal (Schleswig-Holstein) sends an error page instead of the tile. | Try again later; freemapper retries the tile once itself. |
+| `the Downloadportal's tile list … could not be read` | The tile list could not be read; the one from an earlier run is used. | Nothing, as long as the data is the same. |
+| `warning: the surface model (bDOM …) is older than the orthophoto (…)` | The bDOM is at least a year older than the orthophoto (in Schleswig-Holstein from the 2025 half on). | Check new buildings in the nDSM by hand if needed. |
+| `warning: surface model (LVermGeo SH bDOM) unavailable` | The bDOM could not be fetched; an error there is only a warning. | The nDSM template is missing; try again later. |
+| `downloading bDOM tile … (105 MB, … of …)` | Progress message: freemapper downloads a whole tile, which takes about 90 s. | Wait. |
+| `… certificate …` (server `geodaten.schleswig-holstein.de`) | The certificate check for the Downloadportal failed, for example because its certificate authority changed. | Update freemapper, otherwise report a bug. |
 | `warning: the map area now lies in another state's data` | The area now lies with another provider. | Nothing; freemapper fetches everything again. |
 | `offline and not cached` / `no OSM extract cached` | Data is missing for `--offline`. | Fetch once with internet. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Nothing was fetched yet, or the area changed. | Run `run` or `fetch`. |
@@ -320,6 +329,7 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
 - `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert` (Saxony-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten geändert` (Hamburg)
 - `Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) <year>, dl-de/zero-2-0, verändert` (Hesse)
+- `© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)` and the licence link https://creativecommons.org/licenses/by/4.0/ (Schleswig-Holstein)
 - `Created with freemapper – https://github.com/HenryJobst/freemapper`
 
 Keep these lines on printed and published maps.
