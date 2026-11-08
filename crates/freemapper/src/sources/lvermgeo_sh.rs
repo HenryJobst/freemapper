@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, download_with_retries, get_with_retries,
+    Cache, FetchError, FetchMode, Fetcher, STALE_PART_AGE, download_with_retries, get_with_retries,
     write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
@@ -743,7 +743,7 @@ const DOWNLOADS: u32 = 2;
 
 /// Downloads `entry.link` (at most `max_bytes`) into a temporary file in `dir` (removed
 /// afterwards, also on error) and reads it with `read`, downloading it once more if it does not
-/// read; an error names `what`.
+/// read; an error names `what`. Downloads a killed run left behind are removed first.
 fn download_checked<T>(
     fetcher: &dyn Fetcher,
     dir: &Path,
@@ -753,11 +753,9 @@ fn download_checked<T>(
     progress: &mut dyn FnMut(&str),
     read: impl Fn(&mut BufReader<std::fs::File>) -> Result<T, String>,
 ) -> Result<T, FetchError> {
-    let temp = TempFile(dir.join("downloads").join(format!(
-        "{}.{}.part",
-        entry.name,
-        std::process::id()
-    )));
+    let downloads = dir.join("downloads");
+    crate::fsutil::remove_stale_parts(&downloads, STALE_PART_AGE);
+    let temp = TempFile(downloads.join(format!("{}.{}.part", entry.name, std::process::id())));
     let tile = short_name(entry.tile);
     let mut attempt = 1;
     loop {
@@ -2037,6 +2035,42 @@ mod tests {
                 .map(|e| e.file_name())
                 .collect();
             assert!(left.is_empty(), "{left:?}");
+        }
+
+        #[test]
+        fn stale_downloads_of_killed_runs_are_removed() {
+            let fetcher = serving("bdom", BDOM);
+            fetcher.insert(&link(BDOM, Model::Bdom), bdom_tile(TILE));
+            let dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(dir.path().join("cache"));
+            let downloads = cache.lvermgeo_sh_dir().join("downloads");
+            std::fs::create_dir_all(&downloads).unwrap();
+            let two_hours_ago =
+                std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 3600);
+            // A run killed during its download, and one still downloading.
+            let killed = downloads.join(format!("{BDOM_NAME}.999999.part"));
+            let running = downloads.join("bdom20nc_32_566_5949_1_sh_2023.888888.part");
+            for path in [&killed, &running] {
+                std::fs::write(path, b"partial").unwrap();
+            }
+            std::fs::File::options()
+                .write(true)
+                .open(&killed)
+                .unwrap()
+                .set_modified(two_hours_ago)
+                .unwrap();
+            run(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Bdom,
+                &SCHOOL,
+                &dir.path().join("dom1.tif"),
+                &mut Vec::new(),
+            )
+            .unwrap();
+            assert!(!killed.exists());
+            assert!(running.exists());
         }
 
         #[test]

@@ -80,7 +80,7 @@ fn tiles_are(tiles: &[TileId]) -> String {
 }
 
 /// Partial files older than this are left over from interrupted runs.
-const STALE_PART_AGE: Duration = Duration::from_secs(3600);
+pub(crate) const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 
 /// Source of downloads; HTTP in production, in-memory in tests.
 pub trait Fetcher {
