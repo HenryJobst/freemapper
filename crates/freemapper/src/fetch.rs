@@ -24,6 +24,8 @@ pub enum FetchError {
     Io(PathBuf, std::io::Error),
     #[error("download of {url} is not a complete tile archive: {message}")]
     CorruptArchive { url: String, message: String },
+    #[error("download of {url} is not a complete OSM extract: {message}")]
+    CorruptExtract { url: String, message: String },
     #[error(
         "{} not covered by the published tiles; reduce the map area or buffer_m in freemapper.toml",
         tiles_are(.0)

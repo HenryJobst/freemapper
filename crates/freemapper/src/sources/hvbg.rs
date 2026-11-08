@@ -661,6 +661,10 @@ fn again(e: &FetchError) -> FetchError {
             url: url.clone(),
             message: message.clone(),
         },
+        FetchError::CorruptExtract { url, message } => FetchError::CorruptExtract {
+            url: url.clone(),
+            message: message.clone(),
+        },
         FetchError::NotFound(url) => FetchError::NotFound(url.clone()),
         FetchError::Refused {
             url,

@@ -1453,7 +1453,7 @@ fn fetch_osm_into(
 ) -> Result<OsmRecord, ProjectError> {
     let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
-    for source in extracts_for(&project.region_bbox()?) {
+    for source in extracts_for(&project.region_bbox()?, progress) {
         match fetch_extract(fetcher, cache, source, mode, progress) {
             Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
@@ -5619,9 +5619,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             max_e: ce,
             max_n: cn,
         };
-        assert_eq!(crate::sources::osm::extracts_for(&centre), [koeln]);
         assert_eq!(
-            crate::sources::osm::extracts_for(&project.region_bbox().unwrap()),
+            crate::sources::osm::extracts_for(&centre, &mut |_| {}),
+            [koeln]
+        );
+        assert_eq!(
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {}),
             [duesseldorf, koeln]
         );
         // Geofabrik's district extracts overlap at the border: both hold the same two hydrants.

@@ -106,7 +106,8 @@ fn estimate_area(
         Some(Provider::GeobasisNrw) => Vec::new(),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
-    for source in extracts_for(bbox) {
+    // The estimate stays quiet; the fetch prints any extract warning.
+    for source in extracts_for(bbox, &mut |_| {}) {
         items.push(EstimateItem {
             what: format!("OSM extract {} (shared by all projects)", source.label()),
             megabytes: source.megabytes(),
@@ -554,6 +555,7 @@ mod tests {
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_ndsm, serve_synthetic_tile};
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};
+    use crate::sources::osm::ExtractSource;
     use crate::tiles::TileId;
     use chrono::NaiveDate;
 
@@ -1346,7 +1348,7 @@ mod tests {
         assert!(!osm.cached, "{osm:?}");
         assert_eq!(
             estimate.total_megabytes,
-            crate::sources::osm::ExtractSource::Brandenburg.megabytes()
+            ExtractSource::Brandenburg.megabytes()
         );
     }
 

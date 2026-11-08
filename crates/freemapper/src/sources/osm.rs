@@ -2,11 +2,9 @@
 //! district (Regierungsbezirk) in North Rhine-Westphalia.
 
 use std::path::{Path, PathBuf};
-
-use chrono::NaiveDate;
-
 use std::sync::OnceLock;
 
+use chrono::NaiveDate;
 use geo_types::MultiPolygon;
 
 use crate::area::GeoBox;
@@ -290,7 +288,59 @@ pub enum GovernmentDistrict {
     Muenster,
 }
 
+/// The Geofabrik extract of a government district.
+struct DistrictExtract {
+    url: &'static str,
+    state_url: &'static str,
+    /// Start of the cache file name, `nrw-<slug>_`.
+    prefix: &'static str,
+    /// Rough download size in MB.
+    megabytes: f64,
+    label: &'static str,
+}
+
+/// The extract of the district with Geofabrik's `slug`: URL, state URL and cache prefix all come
+/// from the slug.
+macro_rules! district_extract {
+    ($slug:literal, $megabytes:literal, $label:literal) => {
+        DistrictExtract {
+            url: concat!(
+                "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/",
+                $slug,
+                "-regbez-latest.osm.pbf"
+            ),
+            state_url: concat!(
+                "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/",
+                $slug,
+                "-regbez-updates/state.txt"
+            ),
+            prefix: concat!("nrw-", $slug, "_"),
+            megabytes: $megabytes,
+            label: $label,
+        }
+    };
+}
+
 impl GovernmentDistrict {
+    /// The district's extract: slug, size (Geofabrik, 2026-11-08) and label.
+    fn extract(self) -> DistrictExtract {
+        match self {
+            Self::Arnsberg => {
+                district_extract!("arnsberg", 195.2, "North Rhine-Westphalia (Arnsberg)")
+            }
+            Self::Detmold => {
+                district_extract!("detmold", 137.3, "North Rhine-Westphalia (Detmold)")
+            }
+            Self::Duesseldorf => {
+                district_extract!("duesseldorf", 217.2, "North Rhine-Westphalia (Düsseldorf)")
+            }
+            Self::Koeln => district_extract!("koeln", 225.2, "North Rhine-Westphalia (Köln)"),
+            Self::Muenster => {
+                district_extract!("muenster", 140.9, "North Rhine-Westphalia (Münster)")
+            }
+        }
+    }
+
     /// All districts, in the order their extracts are read.
     pub const ALL: [Self; 5] = [
         Self::Arnsberg,
@@ -354,8 +404,9 @@ pub enum ExtractSource {
 
 /// The extracts a map of `bbox` (EPSG:25833) reads, each once: the extract of every region the
 /// area touches; in North Rhine-Westphalia every government district extract whose boundary lies
-/// within the region margin of the area (two or more on a district border).
-pub fn extracts_for(bbox: &BoundingBox) -> Vec<ExtractSource> {
+/// within the region margin of the area (two or more on a district border). Warnings go to
+/// `progress`.
+pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(&str)) -> Vec<ExtractSource> {
     let mut sources: Vec<ExtractSource> = Vec::new();
     for region in regions_for(bbox) {
         let found: Vec<ExtractSource> = match region {
@@ -366,7 +417,7 @@ pub fn extracts_for(bbox: &BoundingBox) -> Vec<ExtractSource> {
             Region::Hessen => vec![ExtractSource::Hessen],
             Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
             Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
-            Region::NordrheinWestfalen => nrw_districts_for(bbox)
+            Region::NordrheinWestfalen => nrw_districts_for(bbox, progress)
                 .into_iter()
                 .map(ExtractSource::NordrheinWestfalen)
                 .collect(),
@@ -383,7 +434,10 @@ pub fn extracts_for(bbox: &BoundingBox) -> Vec<ExtractSource> {
 /// The districts whose extract boundary lies within the margin of `bbox`. The boundaries cover
 /// the state with its margin; should an area at the state border still miss them all, the
 /// nearest district's extract is read.
-fn nrw_districts_for(bbox: &BoundingBox) -> Vec<GovernmentDistrict> {
+fn nrw_districts_for(
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Vec<GovernmentDistrict> {
     let near: Vec<GovernmentDistrict> = GovernmentDistrict::ALL
         .into_iter()
         .filter(|district| within_margin(district.boundary(), bbox))
@@ -391,7 +445,15 @@ fn nrw_districts_for(bbox: &BoundingBox) -> Vec<GovernmentDistrict> {
     if !near.is_empty() {
         return near;
     }
-    nearest_district(bbox).into_iter().collect()
+    let nearest = nearest_district(bbox);
+    if let Some(district) = nearest {
+        progress(&format!(
+            "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
+             reading the nearest, {}",
+            ExtractSource::NordrheinWestfalen(district).label()
+        ));
+    }
+    nearest.into_iter().collect()
 }
 
 /// The district whose extract boundary is nearest to `bbox`.
@@ -420,23 +482,7 @@ impl ExtractSource {
             Self::Hessen => HESSEN_EXTRACT_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_EXTRACT_URL,
-            Self::NordrheinWestfalen(district) => match district {
-                GovernmentDistrict::Arnsberg => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/arnsberg-regbez-latest.osm.pbf"
-                }
-                GovernmentDistrict::Detmold => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/detmold-regbez-latest.osm.pbf"
-                }
-                GovernmentDistrict::Duesseldorf => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/duesseldorf-regbez-latest.osm.pbf"
-                }
-                GovernmentDistrict::Koeln => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
-                }
-                GovernmentDistrict::Muenster => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/muenster-regbez-latest.osm.pbf"
-                }
-            },
+            Self::NordrheinWestfalen(district) => district.extract().url,
         }
     }
 
@@ -449,23 +495,7 @@ impl ExtractSource {
             Self::Hessen => HESSEN_STATE_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_STATE_URL,
-            Self::NordrheinWestfalen(district) => match district {
-                GovernmentDistrict::Arnsberg => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/arnsberg-regbez-updates/state.txt"
-                }
-                GovernmentDistrict::Detmold => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/detmold-regbez-updates/state.txt"
-                }
-                GovernmentDistrict::Duesseldorf => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/duesseldorf-regbez-updates/state.txt"
-                }
-                GovernmentDistrict::Koeln => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt"
-                }
-                GovernmentDistrict::Muenster => {
-                    "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/muenster-regbez-updates/state.txt"
-                }
-            },
+            Self::NordrheinWestfalen(district) => district.extract().state_url,
         }
     }
 
@@ -479,13 +509,7 @@ impl ExtractSource {
             Self::Hessen => "hessen_",
             Self::SchleswigHolstein => "schleswig-holstein_",
             Self::MecklenburgVorpommern => "mecklenburg-vorpommern_",
-            Self::NordrheinWestfalen(district) => match district {
-                GovernmentDistrict::Arnsberg => "nrw-arnsberg_",
-                GovernmentDistrict::Detmold => "nrw-detmold_",
-                GovernmentDistrict::Duesseldorf => "nrw-duesseldorf_",
-                GovernmentDistrict::Koeln => "nrw-koeln_",
-                GovernmentDistrict::Muenster => "nrw-muenster_",
-            },
+            Self::NordrheinWestfalen(district) => district.extract().prefix,
         }
     }
 
@@ -499,13 +523,7 @@ impl ExtractSource {
             Self::Hessen => 348.0,
             Self::SchleswigHolstein => 159.0,
             Self::MecklenburgVorpommern => 128.8,
-            Self::NordrheinWestfalen(district) => match district {
-                GovernmentDistrict::Arnsberg => 195.2,
-                GovernmentDistrict::Detmold => 137.3,
-                GovernmentDistrict::Duesseldorf => 217.2,
-                GovernmentDistrict::Koeln => 225.2,
-                GovernmentDistrict::Muenster => 140.9,
-            },
+            Self::NordrheinWestfalen(district) => district.extract().megabytes,
         }
     }
 
@@ -518,13 +536,7 @@ impl ExtractSource {
             Self::Hessen => "Hesse",
             Self::SchleswigHolstein => "Schleswig-Holstein",
             Self::MecklenburgVorpommern => "Mecklenburg-Vorpommern",
-            Self::NordrheinWestfalen(district) => match district {
-                GovernmentDistrict::Arnsberg => "North Rhine-Westphalia (Arnsberg)",
-                GovernmentDistrict::Detmold => "North Rhine-Westphalia (Detmold)",
-                GovernmentDistrict::Duesseldorf => "North Rhine-Westphalia (Düsseldorf)",
-                GovernmentDistrict::Koeln => "North Rhine-Westphalia (Köln)",
-                GovernmentDistrict::Muenster => "North Rhine-Westphalia (Münster)",
-            },
+            Self::NordrheinWestfalen(district) => district.extract().label,
         }
     }
 }
@@ -571,7 +583,10 @@ fn cached_extracts(cache: &Cache, source: ExtractSource) -> Vec<Extract> {
                 .ok()?;
             let path = entry.path();
             Some(Extract {
-                data_date: check_pbf(&path).ok().flatten().unwrap_or(date),
+                data_date: check_pbf(&path, source.url())
+                    .ok()
+                    .flatten()
+                    .unwrap_or(date),
                 path,
                 date,
             })
@@ -646,7 +661,7 @@ fn refresh_extract(
     let part = path.with_extension("pbf.part");
     let result = fetcher
         .download_to(source.url(), &part, MAX_EXTRACT_BYTES, progress)
-        .and_then(|()| check_pbf(&part));
+        .and_then(|()| check_pbf(&part, source.url()));
     let header_date = match result {
         Ok(header_date) => header_date,
         Err(e) => {
@@ -668,11 +683,11 @@ fn refresh_extract(
     })
 }
 
-/// Checks that `path` starts with an OSM PBF header block and returns the date of its replication
-/// timestamp, if it has one.
-fn check_pbf(path: &Path) -> Result<Option<NaiveDate>, FetchError> {
-    let corrupt = |message: String| FetchError::CorruptArchive {
-        url: EXTRACT_URL.to_string(),
+/// Checks that `path`, downloaded from `url`, starts with an OSM PBF header block and returns the
+/// date of its replication timestamp, if it has one.
+fn check_pbf(path: &Path, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+    let corrupt = |message: String| FetchError::CorruptExtract {
+        url: url.to_string(),
         message,
     };
     let mut blobs = osmpbf::BlobReader::from_path(path).map_err(|e| corrupt(e.to_string()))?;
@@ -768,7 +783,10 @@ mod tests {
             max_e: 391_500.0,
             max_n: 5_820_500.0,
         };
-        assert_eq!(extracts_for(&mitte), [ExtractSource::Brandenburg]);
+        assert_eq!(
+            extracts_for(&mitte, &mut |_| {}),
+            [ExtractSource::Brandenburg]
+        );
     }
 
     #[test]
@@ -840,7 +858,7 @@ mod tests {
             max_n: 5_671_881.0,
         };
         let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
-        assert_eq!(extracts_for(&school), [koeln]);
+        assert_eq!(extracts_for(&school, &mut |_| {}), [koeln]);
         assert_eq!(
             koeln.url(),
             "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
@@ -881,7 +899,7 @@ mod tests {
                 max_n: n + 200.0,
             };
             assert_eq!(
-                extracts_for(&bbox),
+                extracts_for(&bbox, &mut |_| {}),
                 [ExtractSource::NordrheinWestfalen(district)],
                 "{e} {n}"
             );
@@ -928,6 +946,67 @@ mod tests {
                 .all(|d| !within_margin(d.boundary(), &belgium))
         );
         assert_eq!(nearest_district(&belgium), Some(GovernmentDistrict::Koeln));
+    }
+
+    #[test]
+    fn state_border_sliver_falls_back_to_the_nearest_district() {
+        // In the Eifel on the Rhineland-Palatinate border, 25833 E -83909 / N 5619611: the region
+        // margin reaches a sliver where the state boundary pokes about 30 m past Geofabrik's Koeln
+        // poly, but no district boundary is within the margin. The nearest district is read, with
+        // a warning.
+        let sliver = BoundingBox {
+            min_e: -83_909.0,
+            min_n: 5_619_611.0,
+            max_e: -83_909.0,
+            max_n: 5_619_611.0,
+        };
+        assert_eq!(regions_for(&sliver), [Region::NordrheinWestfalen]);
+        assert!(
+            GovernmentDistrict::ALL
+                .iter()
+                .all(|d| !within_margin(d.boundary(), &sliver))
+        );
+        let mut messages = Vec::new();
+        assert_eq!(
+            extracts_for(&sliver, &mut |m| messages.push(m.to_string())),
+            [ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln)]
+        );
+        assert_eq!(
+            messages,
+            [
+                "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
+              reading the nearest, North Rhine-Westphalia (Köln)"
+            ]
+        );
+        // Inside a district no warning is given.
+        let mut quiet = Vec::new();
+        let school = BoundingBox {
+            min_e: -66_680.0,
+            min_n: 5_671_681.0,
+            max_e: -66_680.0,
+            max_n: 5_671_681.0,
+        };
+        extracts_for(&school, &mut |m| quiet.push(m.to_string()));
+        assert!(quiet.is_empty(), "{quiet:?}");
+    }
+
+    #[test]
+    fn corrupt_district_extract_names_its_url() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
+        fetcher.insert(koeln.state_url(), state("2026-11-06"));
+        fetcher.insert(koeln.url(), b"<html>portal</html>".to_vec());
+        let err =
+            fetch_extract(&fetcher, &cache, koeln, FetchMode::Online, &mut |_| {}).unwrap_err();
+        let text = err.to_string();
+        assert!(
+            text.contains("koeln-regbez-latest.osm.pbf is not a complete OSM extract"),
+            "{text}"
+        );
+        assert!(!text.contains("brandenburg"), "{text}");
+        assert!(extracts(&cache).is_empty(), "{:?}", extracts(&cache));
     }
 
     fn extracts(cache: &Cache) -> Vec<String> {
@@ -1318,7 +1397,7 @@ mod tests {
         fetcher.insert(STATE_URL, state("2026-11-06"));
         fetcher.insert(EXTRACT_URL, b"<html>not a pbf</html>".to_vec());
         let err = online(&fetcher, &cache).unwrap_err();
-        assert!(matches!(err, FetchError::CorruptArchive { .. }), "{err:?}");
+        assert!(matches!(err, FetchError::CorruptExtract { .. }), "{err:?}");
         assert!(extracts(&cache).is_empty(), "{:?}", extracts(&cache));
     }
 }
