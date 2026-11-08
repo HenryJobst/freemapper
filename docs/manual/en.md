@@ -295,8 +295,8 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. | The templates stay empty there. |
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
-| `… ignored the byte range` | The server (Hamburg height models) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
-| `no tile of the … covers the map area` | The Hamburg archive has no tile for the area; it was probably renamed. | Report a bug. |
+| `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
+| `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Hesse: the Downloadcenter may have changed. | Report a bug. |
 | `warning: the … has no tile(s) … inside Hamburg` | Single tiles are missing from the archive. | The templates stay empty there. |
 | `warning: the … has no tile(s) … inside Hesse` | Single tiles are missing from the municipality's Downloadcenter archive. | The templates stay empty there. |
 | `warning: no Downloadcenter file for …` | The Downloadcenter has no file for the place (e.g. an unincorporated area). | The templates stay empty there. |

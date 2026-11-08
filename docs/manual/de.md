@@ -302,8 +302,8 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `the map area reaches beyond the state border` | Ein Teil des Gebiets liegt im Nachbarland. | Die Vorlagen bleiben dort leer. |
 | `download of … failed` oder `invalid ALKIS data` | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | `… refused the request (HTTP 400)` | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
-| `… ignored the byte range` | Der Server (Hamburger Höhenmodelle) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
-| `no tile of the … covers the map area` | Das Hamburger Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. | Einen Fehler melden. |
+| `… ignored the byte range` | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
+| `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. | Einen Fehler melden. |
 | `warning: the … has no tile(s) … inside Hamburg` | Im Archiv fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `warning: the … has no tile(s) … inside Hesse` | Im Downloadcenter-Archiv der Gemeinde fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `warning: no Downloadcenter file for …` | Für den Ort (z. B. ein gemeindefreies Gebiet) gibt es im Downloadcenter keine Datei. | Die Vorlagen bleiben dort leer. |
