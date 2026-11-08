@@ -713,8 +713,9 @@ impl<'a> Session<'a> {
     }
 
     fn read_zip(&mut self, place: &Place, key: &str) -> Result<Option<Zip>, FetchError> {
-        // The member count (u16, little-endian), then the central directory; or a marker that
-        // the place has no zip, so offline runs know it too.
+        // The member count (u16, little-endian), then the central directory; and a marker that
+        // the place had no zip in the last online run, so offline runs know it too (a cached
+        // directory wins over the marker).
         let file = self.dir.join("zips").join(format!("{key}.bin"));
         let no_zip = self.dir.join("zips").join(format!("{key}.none"));
         let remove = |path: &Path| match std::fs::remove_file(path) {
@@ -726,8 +727,9 @@ impl<'a> Session<'a> {
         Ok(match self.mode {
             FetchMode::Online => {
                 let Some(url) = self.zip_url(place)? else {
+                    // A cached directory is kept: the listing may lack the file only for a
+                    // while, and offline runs prefer the directory over the marker.
                     write_atomically(&no_zip, b"")?;
-                    remove(&file)?;
                     return Ok(None);
                 };
                 let (directory, count) = read_directory_bytes(self.fetcher, &url)?;
@@ -1890,5 +1892,48 @@ mod tests {
         ] {
             assert_eq!(again(&e).to_string(), e.to_string());
         }
+    }
+
+    #[test]
+    fn transient_no_match_keeps_the_cached_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_taunus(
+            &fetcher,
+            &[tile(446, 5554)],
+            &[tile(445, 5554)],
+            &[(tile(445, 5554), TS), (tile(446, 5554), WI)],
+        );
+        let out = dir.path().join("o.tif");
+        let first = fetch_taunus(&fetcher, &cache, FetchMode::Online, &out).unwrap();
+        assert_eq!((first.missing.len(), first.unresolved.len()), (0, 0));
+        let taunusstein = Place {
+            municipality: TS.0.to_string(),
+            district: TS.1.to_string(),
+        };
+        let directory = cache
+            .hvbg_dir()
+            .join("dgm1/zips")
+            .join(format!("{}.bin", taunusstein.cache_key()));
+        assert!(directory.exists());
+        // The listing loses Taunusstein for a while: unresolved now, but the cached directory
+        // stays for offline runs.
+        fetcher.insert(
+            &listing_url(Model::Dgm1.product(), "Rheingau-Taunus-Kreis", 1),
+            listing_answer(&[(
+                "Niedernhausen - DGM1",
+                "/downloadcenter/20261108/x/Niedernhausen - DGM1.zip",
+            )]),
+        );
+        let second = fetch_taunus(&fetcher, &cache, FetchMode::Online, &out).unwrap();
+        assert_eq!(second.missing, [tile(445, 5554)]);
+        assert_eq!(second.unresolved, ["Taunusstein (Rheingau-Taunus)"]);
+        assert!(directory.exists());
+        let offline =
+            fetch_taunus(&MapFetcher::default(), &cache, FetchMode::Offline, &out).unwrap();
+        assert_eq!(offline, first);
+        let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
+        assert_eq!(raster.get(250, 50), 2.0, "445/5554 from the cache");
     }
 }
