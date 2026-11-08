@@ -328,8 +328,9 @@ pub fn fetch_wfs(
                 .map_err(|e| FetchError::Alkis(invalid(format!("{url}: {}", e.message))))
         })
         .map_err(|e| match e {
-            FetchError::Refused { status, .. } => FetchError::Alkis(invalid(format!(
-                "{name} service refused the request (HTTP {status}): {url}"
+            FetchError::Refused { status, detail, .. } => FetchError::Alkis(invalid(format!(
+                "{name} service refused the request (HTTP {status}){}: {url}",
+                detail.map(|d| format!(": {d}")).unwrap_or_default()
             ))),
             e => e,
         })
@@ -572,6 +573,28 @@ mod tests {
             "{err}"
         );
         assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn refusal_keeps_the_exception_text() {
+        // XtraServer answers errors with 400 and an OWS report (LAiV M-V).
+        let fetcher = MapFetcher::default();
+        fetcher.refusing.borrow_mut().push(GEOSN.url.to_string());
+        fetcher.refusal_bodies.borrow_mut().insert(
+            GEOSN.url.to_string(),
+            br#"<ows:ExceptionReport><ows:Exception exceptionCode="InvalidParameterValue"><ows:ExceptionText>COUNT exceeds 30000</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#.to_vec(),
+        );
+        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("GeoSN ALKIS service refused the request (HTTP 400)"),
+            "{err}"
+        );
+        assert!(
+            err.contains("InvalidParameterValue: COUNT exceeds 30000"),
+            "{err}"
+        );
     }
 
     fn with_geometry(geometry: &str) -> String {

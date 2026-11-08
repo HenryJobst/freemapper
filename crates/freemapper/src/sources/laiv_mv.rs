@@ -13,7 +13,9 @@ use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_attempts, write_atomically};
+use crate::fetch::{
+    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
+};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, encode_float_geotiff, write_float_raster};
 use crate::sources::height_model::HeightModel;
@@ -204,18 +206,9 @@ fn parse_tile_key(key: &str) -> Option<TileId> {
     (tile.east_km.is_multiple_of(TILE_KM) && tile.north_km.is_multiple_of(TILE_KM)).then_some(tile)
 }
 
-/// The start of an answer, on one line and without control characters (an escape sequence from
-/// the server must not reach the user's terminal).
+/// The start of an answer as one clean line (see [`one_line`]).
 fn excerpt(text: &str) -> String {
-    let printable: String = text
-        .chars()
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect();
-    let line = printable.split_whitespace().collect::<Vec<_>>().join(" ");
-    match line.char_indices().nth(200) {
-        Some((end, _)) => format!("{}…", &line[..end]),
-        None => line,
-    }
+    one_line(text, 200)
 }
 
 /// The overview of `model` over `bbox`, kept in `dir` for offline runs (and for an online run
@@ -701,7 +694,7 @@ mod tests {
         .to_string();
         assert!(err.contains("no TIFF in the WCS answer"), "{err}");
         assert!(err.contains("ExtentError: msWCSGetCoverage20()"), "{err}");
-        assert_eq!(calls(&fetcher), 3);
+        assert_eq!(calls(&fetcher), 1, "a report is final");
         assert!(!out.exists());
 
         // With status 400: refused at once, with the exception's text.
@@ -778,7 +771,7 @@ mod tests {
                 "Interner Fehler",
             ),
             (b"", true, "an empty answer"),
-            (b"<html>\x1b[31mBad Gateway</html>", true, "<html> [31mBad Gateway"),
+            (b"<html>\x1b[31mBad\xe2\x80\xae Gateway</html>", true, "<html> [31mBad Gateway"),
         ] {
             let Err(e) = parse(body, Model::Dgm1) else {
                 panic!("{body:?} parsed")

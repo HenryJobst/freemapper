@@ -210,9 +210,9 @@ pub(crate) fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchE
     }
 }
 
-/// The code and text of an OGC (OWS or WMS service) exception report, on one line and without
-/// control characters; `None` for any other body.
-fn ogc_exception(body: &[u8]) -> Option<String> {
+/// The code and text of an OGC (OWS or WMS service) exception report, as [`one_line`]s; `None`
+/// for any other body, and for a report that names neither.
+pub(crate) fn ogc_exception(body: &[u8]) -> Option<String> {
     let text = String::from_utf8_lossy(body);
     if !text.contains("ExceptionReport") {
         return None;
@@ -231,18 +231,28 @@ fn ogc_exception(body: &[u8]) -> Option<String> {
         let body = &rest[rest.find('>')? + 1..];
         body.split('<').next().map(str::trim)
     });
-    let line = |s: &str| {
-        let clean: String = s
-            .chars()
-            .map(|c| if c.is_control() { ' ' } else { c })
-            .take(300)
-            .collect();
-        clean.split_whitespace().collect::<Vec<_>>().join(" ")
-    };
+    let line = |s: &str| one_line(s, 300);
     match (code, message) {
         (Some(code), Some(message)) => Some(format!("{}: {}", line(code), line(message))),
         (Some(one), None) | (None, Some(one)) => Some(line(one)),
-        (None, None) => Some("an exception report".to_string()),
+        (None, None) => None,
+    }
+}
+
+/// `text` on one line of at most `max_chars` characters (then `…`): control characters become
+/// spaces, bidi controls and zero-width characters are dropped, runs of white space shrink to
+/// one. Server text must not reach the terminal as escape sequences or reordered lines.
+pub(crate) fn one_line(text: &str, max_chars: usize) -> String {
+    let invisible = |c: char| matches!(c, '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' | '\u{FEFF}');
+    let printable: String = text
+        .chars()
+        .filter(|&c| !invisible(c))
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    let line = printable.split_whitespace().collect::<Vec<_>>().join(" ");
+    match line.char_indices().nth(max_chars) {
+        Some((end, _)) => format!("{}…", &line[..end]),
+        None => line,
     }
 }
 
@@ -2927,6 +2937,19 @@ mod tests {
             }
         });
         (url, connections)
+    }
+
+    #[test]
+    fn one_line_drops_controls_and_format_characters() {
+        assert_eq!(
+            one_line(
+                "a\u{1b}[31m\u{202E}b\u{200B}c\u{2066}\n   d\u{FEFF}\u{200F}\u{2069}\u{202A}",
+                200
+            ),
+            "a [31mbc d"
+        );
+        assert_eq!(one_line("abc def", 5), "abc d…");
+        assert_eq!(one_line("abcde", 5), "abcde");
     }
 
     #[test]
