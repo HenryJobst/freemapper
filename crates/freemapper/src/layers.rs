@@ -102,7 +102,7 @@ fn estimate_area(
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         // Task 5: the LAiV M-V download items (WCS, per km2; no tile grid to count).
         Some(Provider::LaivMv) => Vec::new(),
-        _ => lgb_items(&tiles, cache),
+        Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
     for region in regions_for(bbox) {

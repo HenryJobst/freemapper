@@ -605,11 +605,7 @@ mod tests {
         assert!(regions.contains(&Region::Brandenburg));
         assert!(regions.contains(&Region::MecklenburgVorpommern));
         // The raster region follows the centre; both sides stay in zone 33.
-        let centre = raster_region(&border).unwrap();
-        assert!(matches!(
-            centre,
-            Region::Brandenburg | Region::MecklenburgVorpommern
-        ));
+        assert_eq!(raster_region(&border), Some(Region::MecklenburgVorpommern));
         assert_eq!(crate::project::map_crs(&border), crate::crs::Crs::Utm33);
         // A map centred well inside either side takes that side's provider.
         let north = around(437_007.0, 5_919_400.0, 100.0);

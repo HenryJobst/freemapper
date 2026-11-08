@@ -209,7 +209,7 @@ pub struct ProjectFile {
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
-    /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH); LGB orthophotos are tiles.
+    /// The orthophoto from a WMS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
     /// The terrain model of a per-area provider (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V), at [`TERRAIN_RELPATH`].
@@ -603,7 +603,9 @@ pub fn fetch_project(
         }
         // Task 5: the LAiV M-V rasters (WCS orthophoto, DGM1, DOM1) are not fetched yet.
         Some(Provider::LaivMv) => {}
-        _ => fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?,
+        Some(Provider::Lgb) | None => {
+            fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
     }
     project.save(dir)?;
     let area = FetchArea {
@@ -3441,6 +3443,29 @@ mod tests {
     }
 
     /// A 200 m square at the Coppernicus-Gymnasium, Norderstedt (25833 E 169108, N 5960473).
+    fn rostock_area() -> MapArea {
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                easting: 312_157.0 + e,
+                northing: 5_996_317.0 + n,
+            })
+            .unwrap();
+            format!("[{},{}]", p.lon, p.lat)
+        };
+        let ring = [
+            corner(-100.0, -100.0),
+            corner(100.0, -100.0),
+            corner(100.0, 100.0),
+            corner(-100.0, 100.0),
+            corner(-100.0, -100.0),
+        ];
+        MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            ring.join(",")
+        ))
+        .unwrap()
+    }
+
     fn norderstedt_area() -> MapArea {
         let corner = |e: f64, n: f64| {
             let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
@@ -4105,6 +4130,27 @@ mod tests {
         // Moving within a zone keeps them (they are checked against the new area on fetch).
         let back = set_map_area(dir.path(), &fixture_area()).unwrap();
         assert_eq!(back.crs(), crate::crs::Crs::Utm33);
+    }
+
+    #[test]
+    fn brandenburg_to_mv_drops_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _) = fetched_school(&fetcher);
+        let before = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(before.provider, Some(Provider::Lgb));
+        assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
+        let project = set_map_area(dir.path(), &rostock_area()).unwrap();
+        assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
+        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
+        assert!(project.buildings.is_none() && project.land_use.is_none());
+        assert!(project.osm.is_none() && project.orthophoto.is_none());
+        for relpath in [BUILDINGS_RELPATH, LAND_USE_RELPATH, OSM_CANDIDATES_RELPATH] {
+            assert!(
+                !dir.path().join(relpath).exists(),
+                "{relpath} of Brandenburg"
+            );
+        }
     }
 
     #[test]
