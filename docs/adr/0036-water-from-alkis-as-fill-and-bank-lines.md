@@ -1,0 +1,32 @@
+# 0036. Water from ALKIS as fill and bank lines, water from OSM as candidates
+
+Date: 2026-11-08
+Status: Accepted
+
+## Context
+
+No map showed water. ALKIS land use has the water parcels (`Fließgewässer`, `Stehendes Gewässer`, `Hafenbecken`,
+`Meer`) but no depth, and one river can lie in many parcels (33 in one Hannover area). Brandenburg, Saxony and
+Saxony-Anhalt give no `bez`, so a `Graben` looks like a `Fluss` there. freemapper reads no OSM relations, so OSM
+multipolygon rivers are lost. ALKIS-vereinfacht `GebaeudeBauwerk` has no bridges.
+
+## Decision
+
+- ALKIS water becomes uncrossable water (301) on both map kinds, never 302. The fill (301.1) and the bank line
+  (301.6) are separate objects. freemapper dissolves the wide parts, clips the shape to the map area plus buffer and
+  removes the bank line segments on the clip rectangle. Islands keep theirs.
+- A part with a mean width (2·area/perimeter) under 2 m, the ISSprOM 305 limit, is a candidate. This replaces `bez`.
+- OSM water areas, fountains, wells, springs, streams and ditches are candidates. freemapper drops an OSM area when at
+  least 50 % of its clipped part lies in the ALKIS water (`OSM_WATER_COVERED`).
+- Bridges come from OSM only: `man_made=bridge` areas are 501.5 candidates on sprint maps. OSM relations, river
+  centre lines, marsh (307 to 310) and `natural=coastline` stay out of scope.
+
+## Consequences
+
+- No black lines cross rivers at parcel boundaries or run along the map edge, which the combined 301 would draw.
+- The mapper fixes parcel edges that include the bank slope, bank lines across bridges and shallow water (302).
+- Sea missing from ALKIS stays white. Existing maps get the water only with `run --force`.
+- Cost if wrong: crossable ponds drawn as uncrossable; parcels that do not quite meet draw a bank line across a river.
+
+Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
+71e3937, ee73610, 3a99a31, 599c414, 0cbbe35 and 19fe4c1 on branch `water`.

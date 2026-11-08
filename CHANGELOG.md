@@ -9,6 +9,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Hinzugefügt
 
 - Niedersachsen (LGLN): Orthophoto aus dem WMS, Gelände- und Oberflächenmodell (DGM1/DOM1) aus dem WCS in Stücken von 2 km, Flugdatum und Datenstand aus den STAC-Suchen, Gebäude und Nutzung aus ALKIS. Das nDOM ist DOM1 − DGM1; ist das DOM1 mehr als zwei Jahre älter als das Luftbild, warnt freemapper mit beiden Daten. Eine Meldung sagt, ob die Bäume beim Bildflug belaubt waren. Die Karten nutzen UTM-Zone 32. Bremen gehört noch nicht dazu.
+- Gewässer auf allen Karten: Flüsse, Kanäle, Seen, Teiche, Hafenbecken und Meer aus ALKIS werden unpassierbares Gewässer (301.1) mit Uferlinie (301.6), ohne Linien zwischen den Katasterflächen und am Kartenrand. Gewässer, die im Mittel schmaler als 2 m sind, kommen als Kandidaten. Aus OSM kommen Teiche, Schwimmbecken, Brunnenbecken, Bäche, Gräben, Brunnen, Quellen, auf Schulhofkarten Trinkbrunnen und auf Sprintkarten Brücken als Kandidaten. In OCAD tragen Fläche und Uferlinie die Nummern 301.001 und 301.002. Eine vorhandene Karte bekommt die Gewässer erst mit `run --force`.
 
 ### Geändert
 

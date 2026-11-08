@@ -81,3 +81,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0033](0033-lower-saxony-dates-from-stac.md) | Lower Saxony: dates from STAC, the newest item at the centre | Accepted | 2026-11-08 |
 | [0034](0034-warning-for-areas-beyond-every-supported-state.md) | A warning for areas that reach beyond every supported state | Accepted | 2026-11-08 |
 | [0035](0035-bremen-outside-until-its-own-region.md) | Bremen stays outside until it gets its own region | Accepted | 2026-11-08 |
+| [0036](0036-water-from-alkis-as-fill-and-bank-lines.md) | Water from ALKIS as fill and bank lines, water from OSM as candidates | Accepted | 2026-11-08 |
