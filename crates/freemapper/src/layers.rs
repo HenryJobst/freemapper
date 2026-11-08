@@ -71,7 +71,13 @@ pub fn estimate_download(
     let bbox = project.region_bbox()?;
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
-    Ok(estimate_area(&bbox, cache, today, alkis_cached))
+    Ok(estimate_area(
+        &bbox,
+        &project.bbox()?,
+        cache,
+        today,
+        alkis_cached,
+    ))
 }
 
 /// The tiles a map of `bbox` uses, on its raster provider's grid, and the grid size in km.
@@ -96,8 +102,10 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
     }
 }
 
+/// `bbox` is the map area plus buffer in EPSG:25833, `map_bbox` the same in the map's CRS.
 fn estimate_area(
     bbox: &BoundingBox,
+    map_bbox: &BoundingBox,
     cache: &Cache,
     today: NaiveDate,
     alkis_cached: bool,
@@ -112,7 +120,7 @@ fn estimate_area(
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
         Some(Provider::Lgln) => lgln_items(bbox),
-        Some(Provider::LvermGeoRp) => rp_items(bbox, cache),
+        Some(Provider::LvermGeoRp) => rp_items(bbox, map_bbox, cache),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.
@@ -303,14 +311,14 @@ fn nrw_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
 }
 
 /// LVermGeo RP: the WMS orthophoto, and the DGM1 (≈1.5 MB) and DOM1 (≈3 MB) per whole 1 km tile
-/// that touches the state, those already cached left out, and the Metalink of a model (11 MB)
-/// when the kept tile list gives one of the tiles no year.
-fn rp_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
-    use crate::sources::lvermgeo_rp::{METALINK_MB, Model, cached_tiles, metalink_to_fetch};
-    let tiles: Vec<TileId> = zone_32_tiles(bbox)
-        .into_iter()
-        .filter(|t| tile_touches(*t, Region::RheinlandPfalz))
-        .collect();
+/// the run will download (those the kept tile list of the area names, else those touching the
+/// state; `map_bbox` in EPSG:25832), those already cached left out, and the Metalink of a model
+/// (11 MB) when the kept tile list gives one of the tiles no year.
+fn rp_items(bbox: &BoundingBox, map_bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
+    use crate::sources::lvermgeo_rp::{
+        METALINK_MB, Model, cached_tiles, metalink_to_fetch, tiles_to_fetch,
+    };
+    let tiles = tiles_to_fetch(cache, map_bbox);
     let mut items = vec![per_km2_item(
         bbox,
         "orthophoto (LVermGeo RP WMS)",
@@ -500,7 +508,7 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
             total_megabytes: 0.0,
         }
     } else {
-        estimate_area(&bbox, cache, today, false)
+        estimate_area(&bbox, &map_bbox, cache, today, false)
     };
     AreaPreview {
         tiles: outlines,
@@ -1166,8 +1174,8 @@ mod tests {
         assert!(dgm1.megabytes == 0.0 && dgm1.cached, "{dgm1:?}");
         assert!(!find_item(&items, "surface model (LVermGeo RP DOM1)").cached);
 
-        // A kept tile list that gives the tile no year: the Metalink names its files (11 MB a
-        // model), and the DOM1 tile is no download of its own.
+        // A kept tile list that gives the tile no year: the Metalink (11 MB a model) will name
+        // its file, which is then downloaded.
         std::fs::create_dir_all(dir.join("tile_list")).unwrap();
         let tile = TileId {
             east_km: 400,
@@ -1185,7 +1193,91 @@ mod tests {
             "{metalink:?}"
         );
         let dom1 = find_item(&items, "surface model (LVermGeo RP DOM1)");
-        assert!(dom1.megabytes == 0.0, "{dom1:?}");
+        assert!(near(dom1.megabytes, 3.0) && !dom1.cached, "{dom1:?}");
+        // A fresh kept DOM1 Metalink that names no file for it: nothing to download.
+        std::fs::create_dir_all(dir.join("meta4")).unwrap();
+        std::fs::write(
+            dir.join("meta4/dom1_tif_07.meta4"),
+            "<metalink xmlns=\"urn:ietf:params:xml:ns:metalink\"></metalink>\n",
+        )
+        .unwrap();
+        let items = item(&cache);
+        let dom1 = find_item(&items, "surface model (LVermGeo RP DOM1)");
+        assert!(dom1.megabytes == 0.0 && dom1.cached, "{dom1:?}");
+        assert!(
+            !items
+                .iter()
+                .any(|i| i.what.contains("Metalink of the surface")),
+            "{items:?}"
+        );
+    }
+
+    #[test]
+    fn rp_estimate_counts_the_tiles_the_kept_list_names() {
+        use crate::fetch::test_support::rp_tile_list;
+        use crate::sources::lvermgeo_rp::list_path;
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // At the Hesse border in Mainz: the tile 447/5540 is 43 % RP, 448/5540 lies wholly in
+        // Hesse (Wiesbaden). An area from E 446500 to 448100 covers 446 to 448.
+        let at = |east_km, north_km| TileId { east_km, north_km };
+        assert!(tile_touches(at(447, 5540), Region::RheinlandPfalz));
+        assert!(!tile_touches(at(448, 5540), Region::RheinlandPfalz));
+        let p = |easting, northing| {
+            crate::crs::Crs::Utm32
+                .inverse(crate::crs::ProjectedPoint { easting, northing })
+                .unwrap()
+        };
+        let (sw, ne) = (p(446_500.0, 5_540_300.0), p(448_100.0, 5_540_700.0));
+        let area = crate::area::MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{e},{n}],[{w},{n}],[{w},{s}]]]}}"#,
+            w = sw.lon,
+            s = sw.lat,
+            e = ne.lon,
+            n = ne.lat
+        ))
+        .unwrap();
+        let region_bbox = area.projected_bbox().buffered(20.0);
+        assert_eq!(
+            raster_region(&region_bbox),
+            Some(Region::RheinlandPfalz),
+            "the centre lies in RP"
+        );
+        let map_bbox = area
+            .projected_bbox_in(crate::crs::Crs::Utm32)
+            .buffered(20.0);
+        let area_tiles = tiles_covering(&map_bbox);
+        let dgm1 = |cache: &Cache| {
+            let preview = preview_area(&area, 20.0, cache, today());
+            find_item(&preview.estimate.items, "terrain model (LVermGeo RP DGM1)").clone()
+        };
+        // Before a run: the tiles that touch the state.
+        let touching = area_tiles
+            .iter()
+            .filter(|t| tile_touches(**t, Region::RheinlandPfalz))
+            .count();
+        assert!(touching < area_tiles.len(), "{area_tiles:?}");
+        let before = dgm1(&cache);
+        assert!(
+            (before.megabytes - touching as f64 * 1.5).abs() < 1e-9,
+            "{before:?}"
+        );
+        // The list kept for this area names every tile but 446/5540: those are what the run
+        // downloads, the Hesse tile 448/5540 among them.
+        let listed: Vec<(TileId, &str, &str)> = area_tiles
+            .iter()
+            .filter(|t| **t != at(446, 5540))
+            .map(|t| (*t, "2024", "30.03.24, 06.04.24"))
+            .collect();
+        assert!(listed.iter().any(|(t, _, _)| *t == at(448, 5540)));
+        let path = list_path(&cache.lvermgeo_rp_dir(), &map_bbox);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, rp_tile_list(&listed)).unwrap();
+        let after = dgm1(&cache);
+        assert!(
+            (after.megabytes - listed.len() as f64 * 1.5).abs() < 1e-9,
+            "{after:?}"
+        );
     }
 
     #[test]
