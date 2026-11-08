@@ -29,7 +29,7 @@ const BDOM_TILE_MB: f64 = 30.0;
 /// The WMS orthophoto per km² of map area plus buffer (all states), and GeoSN's 2 km tiles.
 const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
-const WMS_MB_PER_KM2: f64 = 8.0;
+const ORTHOPHOTO_MB_PER_KM2: f64 = 8.0;
 /// A 1 m Float32 height model from the LVermGeo WCS per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
@@ -152,7 +152,7 @@ fn geosn_items(tiles: &[TileId], bbox: &BoundingBox, cache: &Cache) -> Vec<Estim
     }
     items.push(EstimateItem {
         what: "orthophoto (GeoSN WMS)".to_string(),
-        megabytes: (bbox.width() * bbox.height() / 1e6 * WMS_MB_PER_KM2).max(0.1),
+        megabytes: (bbox.width() * bbox.height() / 1e6 * ORTHOPHOTO_MB_PER_KM2).max(0.1),
         cached: false,
     });
     items
@@ -168,7 +168,10 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
         cached: false,
     };
     vec![
-        item("orthophoto (LVermGeo WMS)".to_string(), WMS_MB_PER_KM2),
+        item(
+            "orthophoto (LVermGeo WMS)".to_string(),
+            ORTHOPHOTO_MB_PER_KM2,
+        ),
         item(Model::Dgm1.label().to_string(), WCS_MB_PER_KM2),
         item(Model::Dom1.label().to_string(), WCS_MB_PER_KM2),
     ]
@@ -222,7 +225,7 @@ fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (LGV WMS)", WMS_MB_PER_KM2),
+        per_km2_item(bbox, "orthophoto (LGV WMS)", ORTHOPHOTO_MB_PER_KM2),
         model_item(Model::Dgm1, 2.0),
         model_item(Model::Bdom, 4.0),
     ]
@@ -258,7 +261,7 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (HVBG WMS)", WMS_MB_PER_KM2),
+        per_km2_item(bbox, "orthophoto (HVBG WMS)", ORTHOPHOTO_MB_PER_KM2),
         model_item(Model::Dgm1, 2.1),
         model_item(Model::Dom1, 3.0),
         EstimateItem {
@@ -293,7 +296,7 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
         }
     };
     vec![
-        per_km2_item(bbox, "orthophoto (LVermGeo SH WMS)", WMS_MB_PER_KM2),
+        per_km2_item(bbox, "orthophoto (LVermGeo SH WMS)", ORTHOPHOTO_MB_PER_KM2),
         model_item(
             Model::Dgm1,
             SH_DGM1_TILE_MB,
@@ -312,7 +315,7 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateIt
 fn laiv_mv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::laiv_mv::Model;
     vec![
-        per_km2_item(bbox, "orthophoto (LAiV M-V WCS)", WMS_MB_PER_KM2),
+        per_km2_item(bbox, "orthophoto (LAiV M-V WCS)", ORTHOPHOTO_MB_PER_KM2),
         per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
         per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
     ]
