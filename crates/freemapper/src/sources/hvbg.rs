@@ -679,6 +679,10 @@ fn again(e: &FetchError) -> FetchError {
             url: url.clone(),
             limit_mb: *limit_mb,
         },
+        FetchError::NotStored { label, path } => FetchError::NotStored {
+            label: label.clone(),
+            path: path.clone(),
+        },
         FetchError::RangeIgnored { url, range, status } => FetchError::RangeIgnored {
             url: url.clone(),
             range: range.clone(),

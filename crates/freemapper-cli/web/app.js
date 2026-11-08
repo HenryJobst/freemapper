@@ -32,7 +32,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -63,6 +63,7 @@ const TEXTS = {
     aerialSchleswigHolstein: "Luftbild Schleswig-Holstein (LVermGeo SH)",
     aerialMecklenburgVorpommern: "Luftbild Mecklenburg-Vorpommern (LAiV M-V)",
     aerialNordrheinWestfalen: "Luftbild Nordrhein-Westfalen (Geobasis NRW)",
+    aerialNiedersachsen: "Luftbild Niedersachsen (LGLN)",
   },
   en: {
     heading: "Choose the map area",
@@ -94,7 +95,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
     outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia); freemapper has no data sources for other regions yet.",
+      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony); freemapper has no data sources for other regions yet.",
     settings: "Map",
     kind: "Map kind",
     schoolyard: "Schoolyard map (1:1000)",
@@ -125,6 +126,7 @@ const TEXTS = {
     aerialSchleswigHolstein: "Aerial photo Schleswig-Holstein (LVermGeo SH)",
     aerialMecklenburgVorpommern: "Aerial photo Mecklenburg-Vorpommern (LAiV M-V)",
     aerialNordrheinWestfalen: "Aerial photo North Rhine-Westphalia (Geobasis NRW)",
+    aerialNiedersachsen: "Aerial photo Lower Saxony (LGLN)",
   },
 };
 
@@ -223,6 +225,16 @@ const aerialNordrheinWestfalen = L.tileLayer.wms("https://www.wms.nrw.de/geobasi
   maxZoom: 20,
   attribution: "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0",
 });
+// The newest DOP20 (EPSG:3857 is among the service's CRS); Bremen is left white.
+const aerialNiedersachsen = L.tileLayer.wms(
+  "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
+  {
+    layers: "ni_dop20",
+    format: "image/jpeg",
+    maxZoom: 20,
+    attribution: "© GeoBasis-DE/LGLN, CC BY 4.0",
+  },
+);
 L.control
   .layers({
     [T.osm]: osm,
@@ -234,6 +246,7 @@ L.control
     [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
     [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
     [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
+    [T.aerialNiedersachsen]: aerialNiedersachsen,
   })
   .addTo(map);
 map.attributionControl.addAttribution(

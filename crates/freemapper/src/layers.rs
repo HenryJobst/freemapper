@@ -30,7 +30,7 @@ const BDOM_TILE_MB: f64 = 30.0;
 const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
 const ORTHOPHOTO_MB_PER_KM2: f64 = 8.0;
-/// A 1 m Float32 height model from the LVermGeo WCS per km².
+/// A 1 m Float32 height model from a WCS (LVermGeo, LAiV M-V, LGLN) per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
@@ -87,7 +87,8 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
         | Provider::Hvbg
         | Provider::LvermGeoSh
         | Provider::LaivMv
-        | Provider::GeobasisNrw => (Vec::new(), 1),
+        | Provider::GeobasisNrw
+        | Provider::Lgln => (Vec::new(), 1),
     }
 }
 
@@ -106,6 +107,7 @@ fn estimate_area(
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
         Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
+        Some(Provider::Lgln) => lgln_items(bbox),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.
@@ -339,6 +341,17 @@ fn laiv_mv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::laiv_mv::Model;
     vec![
         per_km2_item(bbox, "orthophoto (LAiV M-V WCS)", ORTHOPHOTO_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
+    ]
+}
+
+/// LGLN: the WMS orthophoto and the DGM1 and DOM1 from the WCS, all requested for the area
+/// itself (the WCS in pieces of at most 2 km), so nothing is shared between projects or cached.
+fn lgln_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::lgln::Model;
+    vec![
+        per_km2_item(bbox, "orthophoto (LGLN WMS)", ORTHOPHOTO_MB_PER_KM2),
         per_km2_item(bbox, Model::Dgm1.label(), WCS_MB_PER_KM2),
         per_km2_item(bbox, Model::Dom1.label(), WCS_MB_PER_KM2),
     ]
@@ -838,7 +851,7 @@ mod tests {
     }
 
     /// A square map area (0.002 degrees) whose corner is at EPSG:25832 `easting`/`northing`.
-    fn nrw_area(easting: f64, northing: f64) -> crate::area::MapArea {
+    fn utm32_area(easting: f64, northing: f64) -> crate::area::MapArea {
         let p = crate::crs::Crs::Utm32
             .inverse(crate::crs::ProjectedPoint { easting, northing })
             .unwrap();
@@ -857,7 +870,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // Hildegard-von-Bingen-Gymnasium, Köln: inside the tile 354/5642.
-        let area = nrw_area(354_600.0, 5_642_550.0);
+        let area = utm32_area(354_600.0, 5_642_550.0);
         let preview = preview_area(&area, 20.0, &cache, today());
         let items = &preview.estimate.items;
         let bbox = area.projected_bbox().buffered(20.0);
@@ -898,7 +911,7 @@ mod tests {
                 },
             )
             .unwrap();
-        let area = nrw_area(c.easting, c.northing);
+        let area = utm32_area(c.easting, c.northing);
         assert!(area.projected_bbox().min_e < 0.0);
         let preview = preview_area(&area, 20.0, &cache, today());
         assert!(
@@ -953,7 +966,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // Two tiles side by side: the tile border 355 km east lies inside the area.
-        let area = nrw_area(354_900.0, 5_642_400.0);
+        let area = utm32_area(354_900.0, 5_642_400.0);
         let item = |what: &str, cache: &Cache| {
             let preview = preview_area(&area, 20.0, cache, today());
             find_item(&preview.estimate.items, what).clone()
@@ -1021,7 +1034,7 @@ mod tests {
     fn nrw_estimate_does_not_list_a_tile_the_server_lacks_as_a_download() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let area = nrw_area(354_900.0, 5_642_400.0);
+        let area = utm32_area(354_900.0, 5_642_400.0);
         let dir = cache.geobasis_nrw_dir();
         std::fs::create_dir_all(dir.join("meta")).unwrap();
         std::fs::create_dir_all(dir.join("dgm1")).unwrap();
@@ -1260,6 +1273,66 @@ mod tests {
         assert!(!dgm1(&cache).cached && dgm1(&cache).megabytes == 1.5);
         std::fs::write(root.join("dgm1").join(format!("{name}.tif")), b"x").unwrap();
         assert!(dgm1(&cache).cached);
+    }
+
+    #[test]
+    fn ni_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Kaiser-Wilhelm- und Ratsgymnasium, Hannover (25832 E 551900 / N 5803300).
+        let area = utm32_area(551_800.0, 5_803_200.0);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        assert!(
+            !preview.too_large && !preview.outside_coverage,
+            "{preview:?}"
+        );
+        let items = &preview.estimate.items;
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        // Everything comes from WMS and WCS requests for the area itself: nothing is cached.
+        for (what, mb_per_km2) in [
+            ("orthophoto (LGLN WMS)", 8.0),
+            ("terrain model (LGLN DGM1)", 4.0),
+            ("surface model (LGLN DOM1)", 4.0),
+        ] {
+            let item = find_item(items, what);
+            assert!(
+                near(item.megabytes, km2 * mb_per_km2) && !item.cached,
+                "{item:?}"
+            );
+        }
+        assert!(near(
+            find_item(items, "OSM extract Lower Saxony (shared by all projects)").megabytes,
+            510.0
+        ));
+        assert!(preview.estimate.tiles.is_empty());
+        assert!(!items.iter().any(|i| i.what.contains("LGB")), "{items:?}");
+        // A large area is estimated by its size, too (four 2 km GetCoverages per model).
+        let p = |e: f64, n: f64| {
+            crate::crs::Crs::Utm32
+                .inverse(crate::crs::ProjectedPoint {
+                    easting: e,
+                    northing: n,
+                })
+                .unwrap()
+        };
+        let (sw, ne) = (p(550_000.0, 5_801_000.0), p(553_500.0, 5_804_500.0));
+        let large = crate::area::MapArea::from_geojson(&format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{e},{n}],[{w},{n}],[{w},{s}]]]}}"#,
+            w = sw.lon,
+            s = sw.lat,
+            e = ne.lon,
+            n = ne.lat
+        ))
+        .unwrap();
+        let preview = preview_area(&large, 20.0, &cache, today());
+        assert!(!preview.too_large, "{preview:?}");
+        let bbox = large.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        assert!(km2 > 12.0, "{km2}");
+        let dgm1 = find_item(&preview.estimate.items, "terrain model (LGLN DGM1)");
+        assert!(near(dgm1.megabytes, km2 * 4.0), "{dgm1:?}");
     }
 
     #[test]

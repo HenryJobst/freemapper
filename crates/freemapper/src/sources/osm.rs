@@ -273,6 +273,10 @@ const MECKLENBURG_VORPOMMERN_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf";
 const MECKLENBURG_VORPOMMERN_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt";
+const NIEDERSACHSEN_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf";
+const NIEDERSACHSEN_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -398,6 +402,8 @@ pub enum ExtractSource {
     Hessen,
     SchleswigHolstein,
     MecklenburgVorpommern,
+    /// Niedersachsen, with Bremen inside it.
+    Niedersachsen,
     /// A North Rhine-Westphalia government district.
     NordrheinWestfalen(GovernmentDistrict),
 }
@@ -417,6 +423,7 @@ pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(&str)) -> Vec<E
             Region::Hessen => vec![ExtractSource::Hessen],
             Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
             Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
+            Region::Niedersachsen => vec![ExtractSource::Niedersachsen],
             Region::NordrheinWestfalen => nrw_districts_for(bbox, progress)
                 .into_iter()
                 .map(ExtractSource::NordrheinWestfalen)
@@ -482,6 +489,7 @@ impl ExtractSource {
             Self::Hessen => HESSEN_EXTRACT_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_EXTRACT_URL,
+            Self::Niedersachsen => NIEDERSACHSEN_EXTRACT_URL,
             Self::NordrheinWestfalen(district) => district.extract().url,
         }
     }
@@ -495,6 +503,7 @@ impl ExtractSource {
             Self::Hessen => HESSEN_STATE_URL,
             Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
             Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_STATE_URL,
+            Self::Niedersachsen => NIEDERSACHSEN_STATE_URL,
             Self::NordrheinWestfalen(district) => district.extract().state_url,
         }
     }
@@ -509,6 +518,7 @@ impl ExtractSource {
             Self::Hessen => "hessen_",
             Self::SchleswigHolstein => "schleswig-holstein_",
             Self::MecklenburgVorpommern => "mecklenburg-vorpommern_",
+            Self::Niedersachsen => "niedersachsen_",
             Self::NordrheinWestfalen(district) => district.extract().prefix,
         }
     }
@@ -523,6 +533,7 @@ impl ExtractSource {
             Self::Hessen => 348.0,
             Self::SchleswigHolstein => 159.0,
             Self::MecklenburgVorpommern => 128.8,
+            Self::Niedersachsen => 510.0,
             Self::NordrheinWestfalen(district) => district.extract().megabytes,
         }
     }
@@ -536,6 +547,7 @@ impl ExtractSource {
             Self::Hessen => "Hesse",
             Self::SchleswigHolstein => "Schleswig-Holstein",
             Self::MecklenburgVorpommern => "Mecklenburg-Vorpommern",
+            Self::Niedersachsen => "Lower Saxony",
             Self::NordrheinWestfalen(district) => district.extract().label,
         }
     }
@@ -846,6 +858,33 @@ mod tests {
         );
         assert_eq!(mv.label(), "Mecklenburg-Vorpommern");
         assert_eq!(mv.megabytes(), 128.8);
+    }
+
+    #[test]
+    fn ni_extract_urls() {
+        let ni = ExtractSource::Niedersachsen;
+        assert_eq!(
+            ni.url(),
+            "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf"
+        );
+        assert_eq!(
+            ni.state_url(),
+            "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt"
+        );
+        assert_eq!(ni.label(), "Lower Saxony");
+        assert_eq!(ni.megabytes(), 510.0);
+        // Hannover: the one state extract.
+        let p = crate::crs::utm33_forward(crate::crs::LatLon {
+            lat: 52.3749,
+            lon: 9.7428,
+        });
+        let hannover = BoundingBox {
+            min_e: p.easting - 200.0,
+            min_n: p.northing - 200.0,
+            max_e: p.easting + 200.0,
+            max_n: p.northing + 200.0,
+        };
+        assert_eq!(extracts_for(&hannover, &mut |_| {}), [ni]);
     }
 
     #[test]

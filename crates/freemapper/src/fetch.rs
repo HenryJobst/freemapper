@@ -60,6 +60,13 @@ pub enum FetchError {
     /// help.
     #[error("download of {url} is larger than {limit_mb} MB; stopped")]
     TooLarge { url: String, limit_mb: u64 },
+    /// Offline: the model `label` stored at `path` is missing, cannot be read or does not cover
+    /// the map area.
+    #[error(
+        "no {label} stored for this map area: {path} is missing, cannot be read or does not cover it; run `freemapper fetch` online first",
+        path = .path.display()
+    )]
+    NotStored { label: String, path: PathBuf },
     /// The server answered a byte range with the whole file; asking again does not help.
     #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
     RangeIgnored {
@@ -836,7 +843,8 @@ fn currency_table(
         | Provider::Hvbg
         | Provider::LvermGeoSh
         | Provider::LaivMv
-        | Provider::GeobasisNrw => Err(FetchError::TilesNotCovered(tiles.to_vec())),
+        | Provider::GeobasisNrw
+        | Provider::Lgln => Err(FetchError::TilesNotCovered(tiles.to_vec())),
     }
 }
 
@@ -2154,6 +2162,41 @@ pub(crate) mod test_support {
                     .collect();
                 fetcher.insert(&tile_url(model, &name(tile)), geotiff(&grid, &heights));
             }
+        }
+    }
+
+    /// The orthophoto flight date and the height model date the synthetic LGLN STAC answers give
+    /// (the live ones at the Kaiser-Wilhelm- und Ratsgymnasium, Hannover).
+    pub const LGLN_FLIGHT: &str = "2025-03-06T00:00:00Z";
+    pub const LGLN_HEIGHTS: &str = "2016-04-18T00:00:00Z";
+
+    /// Serves the LGLN rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the right
+    /// size, DGM1 and DOM1 from the WCS (one GeoTIFF of `bbox` for any subset; the terrain rises
+    /// 0.01 m per metre east from 20 m, the surface lies 12 m above it) and the three STAC
+    /// searches (flight [`LGLN_FLIGHT`], both height models [`LGLN_HEIGHTS`]).
+    pub fn serve_synthetic_lgln(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::lgln::{self, Model, test_support::stac_page};
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        for (piece, url) in crate::sources::wms::pieces(&lgln::WMS, &photo) {
+            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [90, 110, 70]));
+        }
+        let grid = crate::raster::GridSpec::covering(bbox, 1.0);
+        for (model, lift) in [(Model::Dgm1, 20.0), (Model::Dom1, 32.0)] {
+            let values: Vec<f32> = (0..grid.height)
+                .flat_map(|_| (0..grid.width).map(move |x| lift + x as f32 * 0.01))
+                .collect();
+            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+        }
+        fetcher.insert_prefix(
+            lgln::DOP_STAC,
+            stac_page(&[("dop20rgbi_32_550_5802_2_ni", LGLN_FLIGHT)], None),
+        );
+        for model in [Model::Dgm1, Model::Dom1] {
+            fetcher.insert_prefix(
+                model.stac(),
+                stac_page(&[("dgm1_32_551_5803_1_ni_2016", LGLN_HEIGHTS)], None),
+            );
         }
     }
 

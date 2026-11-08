@@ -74,6 +74,10 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0026](0026-lenient-lzw-fallback.md) | Lenient LZW fallback for GeoTIFF chunks | Accepted | 2026-11-08 |
 | [0027](0027-mv-orthophoto-from-the-wcs-and-masking-to-the-tile-set.md) | Mecklenburg-Vorpommern: orthophoto from the WCS, models masked to the tile set | Accepted | 2026-11-08 |
 | [0028](0028-nrw-osm-extracts-per-regierungsbezirk.md) | North Rhine-Westphalia: OSM extracts per Regierungsbezirk | Accepted | 2026-11-08 |
-| [0029](0029-lower-saxony-rasters-via-wms-and-wcs.md) | Lower Saxony: rasters via WMS and WCS instead of COG windows | Accepted (planned, not yet implemented) | 2026-11-08 |
+| [0029](0029-lower-saxony-rasters-via-wms-and-wcs.md) | Lower Saxony: rasters via WMS and WCS instead of COG windows | Accepted | 2026-11-08 |
 | [0030](0030-nrw-tile-names-and-dates-from-the-tile-list.md) | North Rhine-Westphalia: tile names and dates only from the tile list | Accepted | 2026-11-08 |
 | [0031](0031-nrw-orthophoto-from-the-wms.md) | North Rhine-Westphalia: orthophoto from the WMS, because the tiles are JPEG 2000 only | Accepted | 2026-11-08 |
+| [0032](0032-lower-saxony-ndsm-from-dom1-with-an-age-warning.md) | Lower Saxony: nDSM from DOM1 minus DGM1, with an age warning | Accepted | 2026-11-08 |
+| [0033](0033-lower-saxony-dates-from-stac.md) | Lower Saxony: dates from STAC, the newest item at the centre | Accepted | 2026-11-08 |
+| [0034](0034-warning-for-areas-beyond-every-supported-state.md) | A warning for areas that reach beyond every supported state | Accepted | 2026-11-08 |
+| [0035](0035-bremen-outside-until-its-own-region.md) | Bremen stays outside until it gets its own region | Accepted | 2026-11-08 |

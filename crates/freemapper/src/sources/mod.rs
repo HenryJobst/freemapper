@@ -10,6 +10,7 @@ pub mod height_model;
 pub mod hvbg;
 pub mod laiv_mv;
 pub mod lgb;
+pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
 pub mod lvermgeo_sh;

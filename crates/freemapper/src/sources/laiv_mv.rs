@@ -17,7 +17,7 @@ use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
 };
 use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::write_float_raster;
+use crate::sources::float_tiff::{require_stored, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::region::{Region, contains_point};
 use crate::sources::wcs::{WcsOrthophoto, WcsService};
@@ -330,17 +330,6 @@ fn tile_at(e: f64, n: f64) -> TileId {
     }
 }
 
-/// The grid of the model stored at `out` (its world file and TIFF size).
-fn stored_grid(out: &Path) -> Option<GridSpec> {
-    let world = std::fs::read_to_string(out.with_extension("tfw")).ok()?;
-    let file = std::fs::File::open(out).ok()?;
-    let (width, height) = tiff::decoder::Decoder::new(std::io::BufReader::new(file))
-        .ok()?
-        .dimensions()
-        .ok()?;
-    GridSpec::from_world_file(&world, width, height).ok()
-}
-
 /// DGM1 or DOM1 over `bbox` (EPSG:25833) from the WCS, masked to the MV tile set and written as
 /// a Float32 GeoTIFF `out` with its world file.
 ///
@@ -366,22 +355,7 @@ pub fn fetch_model(
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
     if mode == FetchMode::Offline {
-        let covers = stored_grid(out).is_some_and(|stored| {
-            let s = stored.bounds();
-            s.min_e <= area.min_e
-                && s.min_n <= area.min_n
-                && s.max_e >= area.max_e
-                && s.max_n >= area.max_n
-        });
-        if !covers {
-            return Err(FetchError::Http {
-                url: out.display().to_string(),
-                message: format!(
-                    "no {} stored for this map area; run `freemapper fetch` online first",
-                    model.label()
-                ),
-            });
-        }
+        require_stored(out, &area, model.label())?;
         let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
             Ok(listed) => tile_set(listed, &area),
             Err(e) => {
@@ -1027,10 +1001,11 @@ mod tests {
             let err = fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &bbox, &path)
                 .unwrap_err();
             assert!(
-                err.to_string().contains(
-                    "no terrain model (LAiV M-V DGM1) stored for this map area; run \
-                     `freemapper fetch` online first"
-                ),
+                err.to_string().starts_with(&format!(
+                    "no terrain model (LAiV M-V DGM1) stored for this map area: {} is missing, \
+                     cannot be read or does not cover it; run `freemapper fetch` online first",
+                    path.display()
+                )),
                 "{err}"
             );
         }

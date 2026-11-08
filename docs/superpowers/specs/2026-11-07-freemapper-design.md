@@ -184,6 +184,20 @@ instead of the 917 MB statewide one (ADR 0028). At the Hesse border both ALKIS s
 the state of the centre. Licence dl-de/zero-2-0; attribution `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <year>,
 dl-de/zero-2-0`.
 
+**Niedersachsen (verified live 2026-11-08, details `docs/regions/niedersachsen-reference.md`):** LGLN, EPSG:25832 for the
+whole state. Rasters per area (ADR 0029): orthophoto from the WMS `ni_dop20` in pieces of at most 4000 px; DGM1 and DOM1
+from the WCS (`ni_dgm1`, `ni_dom1`, Float32, NoData −9999) through the shared `WcsService` in pieces of at most 2 km (a
+4 km piece took 48.6 s against the 60 s timeout); an HTTP 200 HTML answer ("MapServer Message") is an error. Dates from
+the STAC searches (`dop`, `dgm`, `dom.stac.lgln.niedersachsen.de`): the newest item at the area's centre, not cached
+beyond the project record (ADR 0033); the flight month gives the leaf state. nDSM = DOM1 − DGM1, with a warning when the
+DOM1 is more than 24 months older than the orthophoto (ADR 0032); bDOM20 is not used. ALKIS from the WFS
+`alkis_wfs_einfach` (`ave:GebaeudeBauwerk`, `ave:NutzungFlurstueck`, `COUNT` ≤ 10000, names trimmed, underground by
+`rellage`). OSM from `niedersachsen-latest` (510 MB), which includes Bremen; Bremen and Bremerhaven are holes in the
+boundary and stay outside the supported states until Bremen gets its own region (ADR 0035). At the Hamburg border both
+ALKIS services and both extracts are read. An area reaching more than 50 m beyond every supported state (abroad, sea,
+or a German state not supported yet such as Bremen or Thuringia) is warned for every provider (ADR 0034). Attribution `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` plus
+the licence link.
+
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
 (e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
@@ -381,7 +395,7 @@ renderer for the OOM symbol set (lines, dashes, area patterns, point symbols, te
 peripheral information on the sheet. The PDF names freemapper and its repository like every generated project (§4.1). OCAD starter project (user, 2026-11-07): the same content as an `.ocd` file for further
 editing in OCAD. Options to check: write OCD directly (OCAD publishes its file format), or rely on OOM's
 OCD export. Keep map objects, symbols and templates in a format-neutral model so a second writer can be
-added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next Lower Saxony, Rhineland-Palatinate, then the states of `docs/regions/states-survey.md`; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
+added; image templates with world files already work in OCAD. Berlin adapter (done 2026-11-07: §4.1), Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia and Lower Saxony (done 2026-11-08: §4.1; Thuringia blocked for now by its height-data host; next Rhineland-Palatinate, then the states of `docs/regions/states-survey.md`; user, 2026-11-07), then forest maps; then the neighbouring countries; Polish and Czech data for border maps (timing open), forest maps (ISOM, vegetation, cliffs via
 karttapullautin), reconciliation, other regions, optional GDAL feature, legend generation, stricter quality
 gates (ub-mode style).
 

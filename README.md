@@ -16,8 +16,8 @@ in OOM oder OCAD.
     [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
-- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern und Nordrhein-Westfalen (Open Data von LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V und Geobasis NRW);
+- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen und Niedersachsen (Open Data von LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW und LGLN);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 - Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
   [Beispiele](#beispiele).
@@ -26,12 +26,13 @@ in OOM oder OCAD.
 
 Aktuelle Version ist [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) vom
 8. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
-Schulhof- und Sprintkarten für neun Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
-Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern und Nordrhein-Westfalen. Zu jeder Karte gehören
-ein Ausgangsstand für OCAD und eine PDF-Trainingskarte.
+Schulhof- und Sprintkarten für zehn Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen und Niedersachsen. Zu jeder
+Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte. Niedersachsen ist im
+Hauptzweig und kommt mit der nächsten Version.
 
-Das Programm ist noch in Entwicklung. Gerade entsteht Niedersachsen, danach kommen Rheinland-Pfalz
-und die übrigen Länder mit offenen Geodaten. Thüringen folgt, sobald sein Server für die Höhendaten
+Das Programm ist noch in Entwicklung. Als Nächstes kommt Rheinland-Pfalz, danach die übrigen Länder
+mit offenen Geodaten. Thüringen folgt, sobald sein Server für die Höhendaten
 wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -64,6 +65,7 @@ wurden und wie viele Objekte jede Karte hat, steht in [`examples/README.md`](exa
 | Schleswig-Holstein | [Altstadt Lübeck](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
 | Mecklenburg-Vorpommern | [Altstadt Wismar](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
 | Nordrhein-Westfalen | [Altstadt Monschau](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
+| Niedersachsen | [Großer Garten Herrenhausen, Hannover](examples/niedersachsen-herrenhausen/) | <a href="examples/niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="examples/niedersachsen-herrenhausen/preview.jpg" width="160" alt=""></a> |
 
 ## Gebiet im Browser wählen
 
@@ -214,6 +216,7 @@ freemapper run vorstadt
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | Luftbild als Farbpalette (256 Farben); Höhenmodelle nur innerhalb der Landeskacheln |
 | Nordrhein-Westfalen | Geobasis NRW | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke |
+| Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Bremen noch nicht dabei |
 
 An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im

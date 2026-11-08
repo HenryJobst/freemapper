@@ -103,7 +103,7 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony); freemapper has data sources for those only so far"
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -585,6 +585,9 @@ pub fn fetch_project(
     project.provider = provider;
     let bbox = project.bbox()?;
     check_size(&bbox)?;
+    if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+        progress(BEYOND_COVERAGE_WARNING);
+    }
     match raster_region(&region_bbox).map(Region::provider) {
         Some(Provider::LvermGeo) => {
             fetch_lvermgeo_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
@@ -606,6 +609,9 @@ pub fn fetch_project(
         }
         Some(Provider::GeobasisNrw) => {
             fetch_nrw_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
+        }
+        Some(Provider::Lgln) => {
+            fetch_lgln_rasters(dir, fetcher, mode, &mut project, &bbox, progress)?
         }
         Some(Provider::Lgb) | None => {
             fetch_lgb_rasters(dir, fetcher, cache, mode, &mut project, &bbox, progress)?
@@ -899,6 +905,12 @@ fn fetch_wms_orthophoto(
     Ok(())
 }
 
+/// The warning for a map area that reaches beyond the union of the supported states: abroad, into
+/// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
+/// Bavaria, Baden-Württemberg, Rhineland-Palatinate, Saarland). The states' services stop at
+/// their borders.
+const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
+
 /// How many days a stored orthophoto is reused while the service gives no flight date (none known,
 /// or the query failed) before the next online fetch downloads it again.
 const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
@@ -1042,8 +1054,10 @@ fn fetch_lgv_rasters(
     Ok(())
 }
 
-/// Reports once that the map area reaches into a state other than `provider`'s: the `name` data
-/// stop at the edge of their own coverage (their tiles may reach slightly past the border).
+/// Reports once that the map area reaches into a state other than `provider`'s. Whether the `name`
+/// rasters end at the border depends on the service (the LGLN WMS and WCS cover the Hamburg corner
+/// but the WMS is white in Bremen; tiles may reach slightly past), so the line promises no empty
+/// templates. ALKIS and OSM are read from both states.
 fn warn_beyond_state(
     project: &ProjectFile,
     provider: Provider,
@@ -1055,7 +1069,7 @@ fn warn_beyond_state(
         .any(|r| r.provider() != provider)
     {
         progress(&format!(
-            "the map area reaches beyond the state border; the {name} data stop at the edge of their coverage, and the templates stay empty beyond it"
+            "the map area reaches beyond the state border; beyond it the templates are empty wherever the {name} orthophoto and height models end. ALKIS and OSM come from both states"
         ));
     }
     Ok(())
@@ -1360,6 +1374,104 @@ fn fetch_mv_rasters(
     Ok(())
 }
 
+/// The LGLN rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from the
+/// WCS, all dated by the STAC searches. The DOM1 is only a template: an unavailable one costs a
+/// warning, and so does one much older than the orthophoto.
+fn fetch_lgln_rasters(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(&str),
+) -> Result<(), ProjectError> {
+    use crate::sources::lgln::{self, Model};
+    project.tiles.clear();
+    project.ndsm_tiles.clear();
+    warn_beyond_state(project, Provider::Lgln, "LGLN", progress)?;
+    // One DOP search gives the flight date and the leaf state; offline nothing is asked.
+    let (flown, missing) = match mode {
+        FetchMode::Online => match lgln::orthophoto_date(fetcher, bbox) {
+            Ok(Some(date)) => (Some(date), None),
+            Ok(None) => (
+                None,
+                Some("the STAC lists no image at the centre of the map area".to_string()),
+            ),
+            Err(e) => (
+                None,
+                Some(format!("the STAC search gave no usable answer ({e})")),
+            ),
+        },
+        FetchMode::Offline => (None, None),
+    };
+    let flight_text = flown.map(|date| date.format("%d.%m.%Y").to_string());
+    let flight = || flight_text.clone();
+    fetch_wms_orthophoto(
+        dir,
+        fetcher,
+        mode,
+        project,
+        bbox,
+        (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight),
+        progress,
+    )?;
+    // Without a fresh date a recent stored orthophoto is kept with its own (see
+    // `fetch_wms_orthophoto`); the warning says which of the two happened.
+    let stored = project.orthophoto.as_ref().and_then(|o| o.flight.clone());
+    if let Some(reason) = missing {
+        progress(&match &stored {
+            Some(date) => format!(
+                "warning: orthophoto (LGLN WMS): {reason}; kept the stored orthophoto and its flight date {date}"
+            ),
+            None => format!("warning: orthophoto (LGLN WMS): no flight date, {reason}"),
+        });
+    }
+    let shown = stored
+        .as_deref()
+        .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
+    if let (FetchMode::Online, Some(date)) = (mode, shown) {
+        progress(&lgln::leaf_state(date));
+    }
+    fetch_area_heights(
+        dir,
+        mode,
+        project,
+        bbox,
+        "Lower Saxony",
+        (Model::Dgm1.label(), Model::Dom1.label()),
+        &mut |surface, out, _| {
+            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
+            lgln::fetch_model(fetcher, mode, model, bbox, out)
+        },
+        &mut |surface, found, project, progress| {
+            for warning in &found.warnings {
+                progress(&format!("warning: {warning}"));
+            }
+            if !surface {
+                return;
+            }
+            // The stored flight date also covers an orthophoto kept after a failed search.
+            let flight = project
+                .orthophoto
+                .as_ref()
+                .and_then(|o| o.flight.as_deref())
+                .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
+            let scanned = found
+                .date
+                .as_deref()
+                .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
+            if let (Some(scanned), Some(flight)) = (scanned, flight)
+                && let Some(warning) = lgln::surface_age_warning(scanned, flight)
+            {
+                progress(&format!("warning: {warning}"));
+            }
+        },
+        progress,
+    )?;
+    project.save(dir)?;
+    Ok(())
+}
+
 /// The terrain model (required) and the surface model (a template: a failure costs a warning)
 /// of a per-area provider whose fetch reports a [`HeightModel`](crate::sources::height_model::HeightModel).
 /// `fetch(surface, out, progress)` reads one model into `out`; `after(surface, found, project, progress)`
@@ -1467,6 +1579,7 @@ fn raster_tiles(
                 Provider::LvermGeoSh => "LVermGeo SH",
                 Provider::LaivMv => "LAiV M-V",
                 Provider::GeobasisNrw => "Geobasis NRW",
+                Provider::Lgln => "LGLN",
             },
             crate::fetch::tile_names(&outside)
         ));
@@ -1807,7 +1920,8 @@ pub fn derive_project(
         | Provider::Hvbg
         | Provider::LvermGeoSh
         | Provider::LaivMv
-        | Provider::GeobasisNrw => None,
+        | Provider::GeobasisNrw
+        | Provider::Lgln => None,
     };
     let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
@@ -1868,7 +1982,8 @@ pub fn derive_project(
         | Provider::Hvbg
         | Provider::LvermGeoSh
         | Provider::LaivMv
-        | Provider::GeobasisNrw => {
+        | Provider::GeobasisNrw
+        | Provider::Lgln => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -2626,6 +2741,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     attribution.extend(sh_attribution(&project));
     attribution.extend(mv_attribution(&project));
     attribution.extend(nrw_attribution(&project));
+    attribution.extend(lgln_attribution(&project));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
@@ -2684,8 +2800,12 @@ fn attribution_lines(project: &ProjectFile) -> Vec<String> {
     lines.extend(lgv_attribution(project));
     lines.extend(hvbg_attribution(project));
     lines.extend(nrw_attribution(project));
-    // Both credits refer to the same licence text, which is given once.
-    let cc_by = [sh_attribution(project), mv_attribution(project)];
+    // The CC BY credits refer to the same licence text, which is given once.
+    let cc_by = [
+        sh_attribution(project),
+        mv_attribution(project),
+        lgln_attribution(project),
+    ];
     let any_cc_by = cc_by.iter().any(Option::is_some);
     lines.extend(cc_by.into_iter().flatten());
     if any_cc_by {
@@ -2749,8 +2869,8 @@ fn nrw_attribution(project: &ProjectFile) -> Option<String> {
     ))
 }
 
-/// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern) refer to
-/// (added to the project notes only).
+/// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
+/// Niedersachsen) refer to (added to the project notes only).
 const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
 /// The LVermGeo SH credit the licence prescribes for changed data.
 const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
@@ -2768,6 +2888,15 @@ const MV_ATTRIBUTION: &str = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)";
 fn mv_attribution(project: &ProjectFile) -> Option<String> {
     per_area_attribution_year(project, Provider::LaivMv, Region::MecklenburgVorpommern)?;
     Some(MV_ATTRIBUTION.to_string())
+}
+
+/// The LGLN line, once its rasters or Niedersachsen ALKIS objects were fetched: the credit the
+/// AGNB prescribes (with the year of the newest fetch and the note of changes) and the licence.
+fn lgln_attribution(project: &ProjectFile) -> Option<String> {
+    let year = per_area_attribution_year(project, Provider::Lgln, Region::Niedersachsen)?;
+    Some(format!(
+        "© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0"
+    ))
 }
 
 /// The year of the newest fetch of `provider`'s data in the project: its terrain model and
@@ -4671,7 +4800,7 @@ mod tests {
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(
             messages.iter().any(|m| m.starts_with(
-                "the map area reaches beyond the state border; the LAiV M-V data stop"
+                "the map area reaches beyond the state border; beyond it the templates are empty wherever the LAiV M-V orthophoto and height models end"
             )),
             "{messages:?}"
         );
@@ -5645,7 +5774,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     /// A rectangle `half` metres each way around the EPSG:25832 point `(e, n)`, as a map area.
-    fn nrw_area_at(e: f64, n: f64, half: f64) -> MapArea {
+    fn utm32_area_at(e: f64, n: f64, half: f64) -> MapArea {
         let corner = |de: f64, dn: f64| {
             let p = crate::crs::Crs::Utm32
                 .inverse(crate::crs::ProjectedPoint {
@@ -5725,7 +5854,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     /// The Hildegard-von-Bingen-Gymnasium, Köln (25832 E 354700 / N 5642650), 200 m square.
     fn koeln_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
-        nrw_project_of(fetcher, &nrw_area_at(354_700.0, 5_642_650.0, 100.0))
+        nrw_project_of(fetcher, &utm32_area_at(354_700.0, 5_642_650.0, 100.0))
     }
 
     #[test]
@@ -5834,7 +5963,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             )
             .unwrap();
         let (dir, _cache_dir, cache) =
-            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 100.0));
+            nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 100.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
@@ -5852,18 +5981,19 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     #[test]
     fn nrw_project_at_the_hesse_border_takes_rasters_from_the_centre() {
         let fetcher = MapFetcher::default();
-        // 25833 E 115329 / N 5736651 is on the border; the centre is 150 m inside NRW.
+        // 25833 E 115329 / N 5735651 is on the border, 1 km south of where Niedersachsen joins; the
+        // centre is 150 m inside NRW.
         let c = crate::crs::Crs::Utm32
             .reproject(
                 crate::crs::Crs::Utm33,
                 crate::crs::ProjectedPoint {
                     easting: 115_329.0 - 150.0,
-                    northing: 5_736_651.0,
+                    northing: 5_735_651.0,
                 },
             )
             .unwrap();
         let (dir, _cache_dir, cache) =
-            nrw_project_of(&fetcher, &nrw_area_at(c.easting, c.northing, 300.0));
+            nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.provider, Some(Provider::GeobasisNrw));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
@@ -5890,6 +6020,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             messages
                 .iter()
                 .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        // Both neighbours are supported states: nothing lies outside them.
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
             "{messages:?}"
         );
         for label in ["Hesse", "North Rhine-Westphalia"] {
@@ -6022,6 +6157,543 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         assert_eq!(offline.calls.get(), 0);
         assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+    }
+
+    /// A schoolyard project of `area`, served with synthetic LGLN data: the rasters, the
+    /// Niedersachsen ALKIS fixtures (and the Hamburg ones) and every OSM extract the area needs.
+    fn ni_project_of(
+        fetcher: &MapFetcher,
+        area: &MapArea,
+    ) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let date = NaiveDate::from_ymd_opt(2026, 11, 8).unwrap();
+        let project =
+            init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
+        crate::fetch::test_support::serve_synthetic_lgln(fetcher, &project.bbox().unwrap());
+        use crate::sources::alkis_wfs::{LGLN, test_support as fixtures};
+        for (type_name, body) in [
+            (LGLN.buildings_type, fixtures::NI_BUILDINGS),
+            (LGLN.land_use_type, fixtures::NI_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    LGLN.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        use crate::sources::lgv;
+        fetcher.insert_prefix(
+            lgv::BUILDINGS_ENDPOINT,
+            lgv::test_support::BUILDINGS.as_bytes().to_vec(),
+        );
+        fetcher.insert_prefix(
+            lgv::LAND_USE_ENDPOINT,
+            lgv::test_support::LAND_USE.as_bytes().to_vec(),
+        );
+        for extract in
+            crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
+        {
+            fetcher.insert(
+                extract.state_url(),
+                b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+            );
+            fetcher.insert(
+                extract.url(),
+                std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
+            );
+        }
+        (dir, cache_dir, cache)
+    }
+
+    /// The Kaiser-Wilhelm- und Ratsgymnasium, Hannover (25832 E 551900 / N 5803300), 200 m square.
+    fn hannover_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        ni_project_of(fetcher, &utm32_area_at(551_900.0, 5_803_300.0, 100.0))
+    }
+
+    /// The warning of the synthetic LGLN data: DOM1 of 2016, orthophoto of 2025.
+    const NI_DOM_AGE_WARNING: &str = "warning: the surface model (LGLN DOM1) is from 18.04.2016, the orthophoto from 06.03.2025. The nDSM may lack newer buildings and trees.";
+
+    #[test]
+    fn ni_project_fetches_products() {
+        use crate::sources::lgln;
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("06.03.2025")
+        );
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2016-04-18"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2016-04-18"));
+        for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        assert_eq!(project.buildings.unwrap().regions, [Region::Niedersachsen]);
+        {
+            let log = fetcher.log.borrow();
+            let getmap: Vec<&String> = log
+                .iter()
+                .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+                .collect();
+            assert_eq!(getmap.len(), 1, "{log:?}");
+            assert!(
+                getmap[0].contains("LAYERS=ni_dop20&") && getmap[0].contains("CRS=EPSG:25832&"),
+                "{}",
+                getmap[0]
+            );
+            for (model, coverage) in [
+                (lgln::Model::Dgm1, "ni_dgm1"),
+                (lgln::Model::Dom1, "ni_dom1"),
+            ] {
+                assert!(
+                    log.iter()
+                        .any(|u| u.starts_with(model.wcs().url) && u.contains(coverage)),
+                    "{coverage}: {log:?}"
+                );
+            }
+            // One DOP search gives both the flight date and the leaf state.
+            let dop = log.iter().filter(|u| u.starts_with(lgln::DOP_STAC)).count();
+            assert_eq!(dop, 1, "{log:?}");
+        }
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "the orthophoto was flown on 06.03.2025, with the trees bare"),
+            "{messages:?}"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "reading OSM extract Lower Saxony from 2026-11-06"),
+            "{messages:?}"
+        );
+        // The DOM1 of 2016 is the one warning.
+        let warnings: Vec<&String> = messages
+            .iter()
+            .filter(|m| m.starts_with("warning"))
+            .collect();
+        assert_eq!(warnings, [NI_DOM_AGE_WARNING], "{messages:?}");
+    }
+
+    #[test]
+    fn dom_older_than_dop_is_warned() {
+        use crate::sources::lgln::{self, test_support::stac_page};
+        // The synthetic DOM1 (18.04.2016) is nine years older than the orthophoto (06.03.2025).
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m == NI_DOM_AGE_WARNING),
+            "{messages:?}"
+        );
+        // A DOM1 two years older or less, or newer, is close enough: no warning.
+        for dom in [
+            "2023-03-06T00:00:00Z",
+            "2024-05-01T00:00:00Z",
+            "2026-01-10T00:00:00Z",
+        ] {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+            fetcher.insert_prefix(lgln::DOM_STAC, stac_page(&[("dom", dom)], None));
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert_eq!(
+                project.surface.unwrap().date.as_deref(),
+                Some(&dom[..10]),
+                "{dom}"
+            );
+            assert!(
+                !messages.iter().any(|m| m.starts_with("warning")),
+                "{dom}: {messages:?}"
+            );
+        }
+        // Just over two years: warned.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher.insert_prefix(
+            lgln::DOM_STAC,
+            stac_page(&[("dom", "2023-03-05T00:00:00Z")], None),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                == "warning: the surface model (LGLN DOM1) is from 05.03.2023, the orthophoto from 06.03.2025. The nDSM may lack newer buildings and trees."),
+            "{messages:?}"
+        );
+        // Without a DOM1 date there is nothing to compare.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher.insert_prefix(lgln::DOM_STAC, stac_page(&[], None));
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !messages.iter().any(|m| m.contains("is from")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_flight_date_lookup_failures_are_warned() {
+        use crate::sources::lgln::{self, test_support::stac_page};
+        let dop_searches = |fetcher: &MapFetcher| {
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .filter(|u| u.starts_with(lgln::DOP_STAC))
+                .count()
+        };
+        let warnings = |messages: &[String]| -> Vec<String> {
+            messages
+                .iter()
+                .filter(|m| m.starts_with("warning"))
+                .cloned()
+                .collect()
+        };
+        // No orthophoto at the centre: no flight date, and nothing to compare the DOM1 with.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher.insert_prefix(lgln::DOP_STAC, stac_page(&[], None));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.orthophoto.unwrap().flight, None);
+        assert_eq!(
+            warnings(&messages),
+            [
+                "warning: orthophoto (LGLN WMS): no flight date, the STAC lists no image at the centre of the map area"
+            ],
+            "{messages:?}"
+        );
+        // A refused search (HTTP 400 is not retried) on a new project: no flight date either.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push(lgln::DOP_STAC.to_string());
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.orthophoto.unwrap().flight, None);
+        assert_eq!(dop_searches(&fetcher), 1);
+        let found = warnings(&messages);
+        assert_eq!(found.len(), 1, "{messages:?}");
+        assert!(
+            found[0].starts_with(
+                "warning: orthophoto (LGLN WMS): no flight date, the STAC search gave no usable answer ("
+            ),
+            "{messages:?}"
+        );
+        // A failed search later: the stored orthophoto stays with its flight date, and every
+        // line says so.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push(lgln::DOP_STAC.to_string());
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("06.03.2025")
+        );
+        assert_eq!(dop_searches(&fetcher), 2, "one search per fetch");
+        assert!(
+            !messages.iter().any(|m| m.contains("no flight date")),
+            "{messages:?}"
+        );
+        let kept: Vec<&String> = messages
+            .iter()
+            .filter(|m| {
+                m.starts_with(
+                    "warning: orthophoto (LGLN WMS): the STAC search gave no usable answer (",
+                )
+            })
+            .collect();
+        assert_eq!(kept.len(), 1, "{messages:?}");
+        assert!(
+            kept[0].ends_with("; kept the stored orthophoto and its flight date 06.03.2025"),
+            "{}",
+            kept[0]
+        );
+        for line in [
+            "orthophoto unchanged (flight 06.03.2025)",
+            "the orthophoto was flown on 06.03.2025, with the trees bare",
+        ] {
+            assert!(messages.iter().any(|m| m == line), "{line}: {messages:?}");
+        }
+        let getmap = fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+            .count();
+        assert_eq!(getmap, 1);
+        // An empty answer later keeps the stored orthophoto the same way.
+        fetcher.refusing.borrow_mut().clear();
+        fetcher.insert_prefix(lgln::DOP_STAC, stac_page(&[], None));
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                == "warning: orthophoto (LGLN WMS): the STAC lists no image at the centre of the map area; kept the stored orthophoto and its flight date 06.03.2025"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_area_reaching_into_bremen_is_warned() {
+        // The Bremen probe, tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen): the
+        // first 600 m area south of the tile centre whose centre lies in Niedersachsen.
+        let (e, n) = (0..40)
+            .map(|step| (485_500.0, 5_876_500.0 - f64::from(step) * 50.0))
+            .find(|&(e, n)| {
+                raster_region(&utm32_area_at(e, n, 300.0).projected_bbox())
+                    == Some(Region::Niedersachsen)
+            })
+            .expect("a centre in Niedersachsen");
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(
+            messages
+                .iter()
+                .filter(|m| m.as_str() == BEYOND_COVERAGE_WARNING)
+                .count(),
+            1,
+            "{messages:?}"
+        );
+        // Bremen is not a region: the border message between two supported states stays out.
+        assert!(
+            !messages
+                .iter()
+                .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        // Fully inside Niedersachsen: no such warning.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_area_reaching_into_thuringia_names_unsupported_states() {
+        // East of Duderstadt on 51.50 N the NI/TH border crosses near 25832 E 590304: a 600 m
+        // area centred 150 m west of it lies in Niedersachsen and reaches into Thuringia.
+        let area = utm32_area_at(590_150.0, 5_706_232.0, 300.0);
+        assert_eq!(
+            raster_region(&area.projected_bbox()),
+            Some(Region::Niedersachsen)
+        );
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &area);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        let warnings: Vec<&String> = messages
+            .iter()
+            .filter(|m| {
+                m.starts_with("warning: part of the map area lies outside the supported states")
+            })
+            .collect();
+        assert_eq!(warnings, [BEYOND_COVERAGE_WARNING], "{messages:?}");
+        // Thuringia is a German state freemapper does not support yet: the text must say so.
+        assert!(
+            BEYOND_COVERAGE_WARNING.contains("a state freemapper does not support yet"),
+            "{BEYOND_COVERAGE_WARNING}"
+        );
+    }
+
+    #[test]
+    fn ni_leaf_on_flight_is_reported() {
+        use crate::sources::lgln::{self, test_support::stac_page};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetcher.insert_prefix(
+            lgln::DOP_STAC,
+            stac_page(&[("dop", "2024-08-12T00:00:00Z")], None),
+        );
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                == "the orthophoto was flown on 12.08.2024, with the trees in leaf; their crowns hide what lies below them"),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_derive_writes_all_templates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        for relpath in [
+            ORTHOPHOTO_RELPATH,
+            HILLSHADE_RELPATH,
+            SLOPE_RELPATH,
+            NDSM_RELPATH,
+        ] {
+            assert!(dir.path().join(relpath).exists(), "{relpath}");
+        }
+        // DOM1 (terrain + 12 m) minus DGM1.
+        let png = image::open(dir.path().join(NDSM_RELPATH))
+            .unwrap()
+            .to_rgba8();
+        let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
+        assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn ni_attribution() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        let year = chrono::Local::now().year();
+        let line = format!("© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0");
+        assert!(
+            attribution.lines().any(|l| l.trim() == line),
+            "{attribution}"
+        );
+        assert_eq!(
+            attribution
+                .matches("https://creativecommons.org/licenses/by/4.0/")
+                .count(),
+            1,
+            "{attribution}"
+        );
+        for other in [
+            "HVBG",
+            "LVermGeo",
+            "Geobasis NRW",
+            "GeoBasis-DE/MV",
+            "LGB",
+            "Hamburg",
+        ] {
+            assert!(!attribution.contains(other), "{other} in {attribution}");
+        }
+        // The map's credits name LGLN too.
+        let lines = attribution_lines(&project);
+        assert!(lines.contains(&line), "{lines:?}");
+        let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
+        assert!(map.contains(&line), "the map credits lack {line}");
+    }
+
+    #[test]
+    fn ni_credit_and_licence_link_are_not_repeated_across_the_sh_border() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        let (mut project, _) = fetch(dir.path(), &fetcher, &cache);
+        // Objects of both states were fetched (a map on the Elbe).
+        project.buildings.as_mut().unwrap().regions =
+            vec![Region::SchleswigHolstein, Region::Niedersachsen];
+        let lines = attribution_lines(&project);
+        assert!(lines.iter().any(|l| l == SH_ATTRIBUTION), "{lines:?}");
+        assert!(
+            lines.iter().any(|l| l.starts_with("© GeoBasis-DE/LGLN ")),
+            "{lines:?}"
+        );
+        let links = lines
+            .iter()
+            .filter(|l| l.contains("creativecommons.org"))
+            .count();
+        assert_eq!(links, 1, "{lines:?}");
+    }
+
+    #[test]
+    fn ni_project_at_the_hamburg_border_takes_rasters_from_the_centre() {
+        use crate::sources::region::regions_for;
+        // Walk south from Hamburg-Harburg (25832 E 553000 / N 5926000) to the first 600 m area
+        // whose centre lies in Niedersachsen while it still reaches into Hamburg.
+        let (e, n) = (0..60)
+            .map(|step| (553_000.0, 5_926_000.0 - f64::from(step) * 100.0))
+            .find(|&(e, n)| {
+                let area = utm32_area_at(e, n, 300.0);
+                let bbox = area.projected_bbox();
+                raster_region(&bbox) == Some(Region::Niedersachsen)
+                    && regions_for(&bbox).contains(&Region::Hamburg)
+            })
+            .expect("a border area south of Harburg");
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [Region::Hamburg, Region::Niedersachsen]
+        );
+        {
+            let log = fetcher.log.borrow();
+            for service in [
+                crate::sources::lgv::BUILDINGS_ENDPOINT,
+                crate::sources::alkis_wfs::LGLN.url,
+            ] {
+                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+            }
+            // The rasters come from Niedersachsen alone.
+            for lgv_raster in ["geodienste.hamburg.de", "daten-hamburg.de"] {
+                assert!(
+                    !log.iter().any(|u| u.contains(lgv_raster)),
+                    "{lgv_raster}: {log:?}"
+                );
+            }
+        }
+        // LGLN's orthophoto and height models also cover this Hamburg corner (live run), so the
+        // line must not promise empty templates there.
+        assert!(
+            messages.iter().any(|m| m
+                == "the map area reaches beyond the state border; beyond it the templates are empty wherever the LGLN orthophoto and height models end. ALKIS and OSM come from both states"),
+            "{messages:?}"
+        );
+        assert!(
+            !messages.iter().any(|m| m.contains("stay empty beyond it")),
+            "{messages:?}"
+        );
+        // Both neighbours are supported states: nothing lies outside them.
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
+            "{messages:?}"
+        );
+        for label in ["Hamburg", "Lower Saxony"] {
+            let reading = messages
+                .iter()
+                .filter(|m| m.starts_with(&format!("reading OSM extract {label} ")))
+                .count();
+            assert_eq!(reading, 1, "{label}: {messages:?}");
+        }
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_ni_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = hannover_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let offline = MapFetcher::default();
+        let project = fetch_project(
+            dir.path(),
+            &offline,
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2016-04-18"));
+        assert_eq!(project.surface.unwrap().date.as_deref(), Some("2016-04-18"));
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("06.03.2025")
+        );
+        assert_eq!(offline.calls.get(), 0);
     }
 
     #[test]
