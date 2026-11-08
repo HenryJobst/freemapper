@@ -550,12 +550,17 @@ fn metalink_names(
 /// The size of a Metalink download (the Land file, 11 MB), for the estimate.
 pub const METALINK_MB: f64 = 11.0;
 
-/// Whether a run over `tiles` would download the Metalink of `model` (an estimate before a run):
-/// the newest kept tile list gives one of them no year, and no Metalink kept within
-/// [`RECHECK_AFTER`] can stand in.
-pub fn metalink_to_fetch(cache: &Cache, model: Model, tiles: &[TileId]) -> bool {
+/// Whether a run over `tiles` of the area `bbox` (EPSG:25832) would download the Metalink of
+/// `model` (an estimate before a run): the tile list kept for this area gives one of them no
+/// year, and no Metalink kept within [`RECHECK_AFTER`] can stand in.
+pub fn metalink_to_fetch(
+    cache: &Cache,
+    model: Model,
+    bbox: &BoundingBox,
+    tiles: &[TileId],
+) -> bool {
     let dir = cache.lvermgeo_rp_dir();
-    let Some(list) = newest_kept_list(&dir) else {
+    let Some(list) = kept_list(&dir, bbox) else {
         return false;
     };
     let unnamed = tiles.iter().any(|tile| {
@@ -566,15 +571,9 @@ pub fn metalink_to_fetch(cache: &Cache, model: Model, tiles: &[TileId]) -> bool 
     unnamed && fresh_metalink(&dir, model).is_none()
 }
 
-/// The newest tile list kept from an earlier run, of any area.
-fn newest_kept_list(dir: &Path) -> Option<TileList> {
-    let newest = std::fs::read_dir(dir.join("tile_list"))
-        .ok()?
-        .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().ends_with(".gml"))
-        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
-        .max()?;
-    let bytes = std::fs::read(newest.1).ok()?;
+/// The tile list kept from an earlier run over `bbox`.
+fn kept_list(dir: &Path, bbox: &BoundingBox) -> Option<TileList> {
+    let bytes = std::fs::read(list_path(dir, bbox)).ok()?;
     parse_tile_list(&String::from_utf8_lossy(&bytes)).ok()
 }
 
@@ -591,53 +590,61 @@ fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
         .flatten()
 }
 
-/// The tiles among `tiles` that need no download (an estimate before a run): a file of some
-/// year is cached, the server answered 404 lately, or the newest kept tile list gives the tile
-/// no year and a Metalink kept within [`RECHECK_AFTER`] names no file for it either. Without
-/// such a Metalink the run downloads one, and it is taken to name the file.
-pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
+/// The tiles among `tiles` of the area `bbox` that need no download (an estimate before a run):
+/// the file the tile list kept for this area names (with its scan year) is cached, the server
+/// answered 404 for it lately, or the list gives the tile no year and a Metalink kept within
+/// [`RECHECK_AFTER`] names no file for it either (or names a cached one). Without such a
+/// Metalink the run downloads one, and it is taken to name the file. Without a kept list, a file
+/// of any year counts.
+pub fn cached_tiles(
+    cache: &Cache,
+    model: Model,
+    bbox: &BoundingBox,
+    tiles: &[TileId],
+) -> HashSet<TileId> {
     let dir = cache.lvermgeo_rp_dir();
-    let files: Vec<(String, PathBuf)> = std::fs::read_dir(dir.join(model.slug()))
+    let files: HashSet<String> = std::fs::read_dir(dir.join(model.slug()))
         .into_iter()
         .flatten()
         .flatten()
-        .map(|entry| {
-            (
-                entry.file_name().to_string_lossy().into_owned(),
-                entry.path(),
-            )
-        })
-        .filter(|(name, path)| {
-            name.ends_with(".tif")
-                || (name.ends_with(".missing") && known_missing(path, FetchMode::Online))
+        .filter_map(|entry| {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let ok = name.ends_with(".tif")
+                || (name.ends_with(".missing") && known_missing(&entry.path(), FetchMode::Online));
+            ok.then_some(name)
         })
         .collect();
-    let unnamed: HashSet<TileId> = newest_kept_list(&dir)
-        .into_iter()
-        .flat_map(|list| list.tiles.into_values())
-        .filter(|entry| entry.name(model).is_none())
-        .map(|entry| entry.tile)
-        .collect();
-    let metalink = if unnamed.is_empty() {
-        None
-    } else {
-        fresh_metalink(&dir, model)
+    let has = |stem: &str| {
+        files.contains(&format!("{stem}.tif")) || files.contains(&format!("{stem}.missing"))
     };
+    let list = kept_list(&dir, bbox);
+    let metalink = list
+        .as_ref()
+        .filter(|list| list.tiles.values().any(|entry| entry.name(model).is_none()))
+        .and_then(|_| fresh_metalink(&dir, model));
     tiles
         .iter()
-        .filter(|tile| {
-            let prefix = format!(
-                "{}_32_{:03}_{:04}_1_rp_",
-                model.slug(),
-                tile.east_km,
-                tile.north_km
-            );
-            files.iter().any(|(name, _)| name.starts_with(&prefix))
-                || (unnamed.contains(tile)
-                    && metalink
-                        .as_ref()
-                        .is_some_and(|names| !names.contains_key(tile)))
-        })
+        .filter(
+            |tile| match list.as_ref().and_then(|list| list.tiles.get(tile)) {
+                Some(entry) => match entry.name(model) {
+                    Some(name) => has(&name),
+                    None => metalink.as_ref().is_some_and(|names| {
+                        names
+                            .get(tile)
+                            .is_none_or(|file| has(file.trim_end_matches(".tif")))
+                    }),
+                },
+                None => {
+                    let prefix = format!(
+                        "{}_32_{:03}_{:04}_1_rp_",
+                        model.slug(),
+                        tile.east_km,
+                        tile.north_km
+                    );
+                    files.iter().any(|name| name.starts_with(&prefix))
+                }
+            },
+        )
         .copied()
         .collect()
 }
@@ -871,7 +878,7 @@ mod tests {
             (tile(302, 5500), "", "29.02.24, 03.03.24"),
             (tile(303, 5500), "2025", ""),
             (tile(304, 5500), "2024", "30.3.24"),
-            // The 13 tiles near Saarburg have neither.
+            // The 13 tiles about 23 km north of Trier have neither.
             (tile(333, 5539), "", ""),
             // Days and year that disagree.
             (tile(305, 5500), "2024", "30.03.23"),
@@ -1105,13 +1112,13 @@ mod tests {
         let (_cache_dir, cache) = temp_cache();
         let out = tempfile::tempdir().unwrap();
         let tif = out.path().join("dgm1.tif");
-        assert!(cached_tiles(&cache, Model::Dgm1, &[WEST, EAST]).is_empty());
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &[WEST, EAST]).is_empty());
         let online = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert_eq!(
-            cached_tiles(&cache, Model::Dgm1, &[WEST, EAST]),
+            cached_tiles(&cache, Model::Dgm1, &BBOX, &[WEST, EAST]),
             [WEST, EAST].into_iter().collect()
         );
-        assert!(cached_tiles(&cache, Model::Dom1, &[WEST, EAST]).is_empty());
+        assert!(cached_tiles(&cache, Model::Dom1, &BBOX, &[WEST, EAST]).is_empty());
         // Offline: nothing is requested.
         let silent = MapFetcher::default();
         let offline = run(&silent, &cache, FetchMode::Offline, Model::Dgm1, &tif).unwrap();
@@ -1166,7 +1173,7 @@ mod tests {
 
     #[test]
     fn an_area_of_unnamed_tiles_says_why_it_has_no_heights() {
-        // Inside the Saarburg block: the list names the tiles, but without a year, and the
+        // Inside the block north of Trier: the list names the tiles, but without a year, and the
         // Metalink has no file for them.
         let fetcher = MapFetcher::default();
         serve_synthetic_rp_heights(&fetcher, &BBOX);
@@ -1376,15 +1383,15 @@ mod tests {
         let tif = cache_dir.path().join("dgm1.tif");
         let area = [WEST, EAST];
         // Before any run nothing tells that a Metalink is needed.
-        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &area));
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &BBOX, &area));
         let asked = |url: &str| fetcher.log.borrow().iter().filter(|u| *u == url).count();
         let dgm1 = metalink_url(Model::Dgm1);
         run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert_eq!(asked(&dgm1), 1);
         // The DOM1 has its own Metalink, still to be fetched; the DGM1 one is fresh.
-        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &area));
-        assert!(metalink_to_fetch(&cache, Model::Dom1, &area));
-        assert!(!metalink_to_fetch(&cache, Model::Dom1, &[WEST]));
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &BBOX, &area));
+        assert!(metalink_to_fetch(&cache, Model::Dom1, &BBOX, &area));
+        assert!(!metalink_to_fetch(&cache, Model::Dom1, &BBOX, &[WEST]));
         // Online again: the kept one is used.
         let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert!(found.missing.is_empty(), "{:?}", found.missing);
@@ -1397,34 +1404,60 @@ mod tests {
         let dom1 = run(&fetcher, &cache, FetchMode::Online, Model::Dom1, &tif).unwrap();
         assert!(dom1.missing.is_empty(), "{:?}", dom1.missing);
         assert_eq!(asked(&metalink_url(Model::Dom1)), 1);
-        assert!(!metalink_to_fetch(&cache, Model::Dom1, &area));
+        assert!(!metalink_to_fetch(&cache, Model::Dom1, &BBOX, &area));
         // A month later it is fetched again.
         age(
             &cache_dir.path().join("lvermgeo_rp/meta4/dgm1_tif_07.meta4"),
             31,
         );
-        assert!(metalink_to_fetch(&cache, Model::Dgm1, &area));
+        assert!(metalink_to_fetch(&cache, Model::Dgm1, &BBOX, &area));
         run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert_eq!(asked(&dgm1), 2);
         const { assert!(METALINK_MB > 10.0) };
     }
 
     #[test]
-    fn the_estimate_reads_the_newest_kept_tile_list() {
+    fn the_estimate_reads_the_list_of_its_own_area() {
         let (cache_dir, cache) = temp_cache();
+        let dir = cache.lvermgeo_rp_dir();
         let lists = cache_dir.path().join("lvermgeo_rp/tile_list");
         std::fs::create_dir_all(&lists).unwrap();
-        // An old list of another area gives the east tile no year; the newest one names it.
-        let old = lists.join("399000_5579000_401000_5580000.gml");
-        std::fs::write(&old, rp_tile_list(&[(EAST, "", "")])).unwrap();
-        age(&old, 90);
+        // The list of this area gives the east tile no year; a newer one of another area does.
+        std::fs::write(list_path(&dir, &BBOX), rp_tile_list(&[(EAST, "", "")])).unwrap();
+        let other = BoundingBox {
+            min_e: 399_000.0,
+            ..BBOX
+        };
         std::fs::write(
-            lists.join("399900_5579400_400100_5579600.gml"),
+            list_path(&dir, &other),
             rp_tile_list(&[(EAST, "2024", "30.03.24, 06.04.24")]),
         )
         .unwrap();
-        assert!(cached_tiles(&cache, Model::Dgm1, &[EAST]).is_empty());
-        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &[EAST]));
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &[EAST]).is_empty());
+        assert!(metalink_to_fetch(&cache, Model::Dgm1, &BBOX, &[EAST]));
+        // The other area has a year: no Metalink.
+        assert!(!metalink_to_fetch(&cache, Model::Dgm1, &other, &[EAST]));
+    }
+
+    #[test]
+    fn a_cached_file_of_another_scan_year_is_not_cached() {
+        let (cache_dir, cache) = temp_cache();
+        let dir = cache.lvermgeo_rp_dir();
+        std::fs::create_dir_all(dir.join("tile_list")).unwrap();
+        std::fs::write(
+            list_path(&dir, &BBOX),
+            rp_tile_list(&[(EAST, "2024", "30.03.24, 06.04.24")]),
+        )
+        .unwrap();
+        let tiles = cache_dir.path().join("lvermgeo_rp/dgm1");
+        std::fs::create_dir_all(&tiles).unwrap();
+        std::fs::write(tiles.join("dgm1_32_400_5579_1_rp_2022.tif"), b"x").unwrap();
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &[EAST]).is_empty());
+        std::fs::write(tiles.join("dgm1_32_400_5579_1_rp_2024.tif"), b"x").unwrap();
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1, &BBOX, &[EAST]),
+            [EAST].into_iter().collect()
+        );
     }
 
     #[test]
@@ -1464,7 +1497,7 @@ mod tests {
         let (cache_dir, cache) = temp_cache();
         let tif = cache_dir.path().join("dgm1.tif");
         let area = [WEST, EAST, tile(401, 5579)];
-        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &area).is_empty());
         fetcher
             .responses
             .borrow_mut()
@@ -1473,7 +1506,7 @@ mod tests {
         // A recent 404 needs no download. The tile the list cannot name does: no Metalink is
         // kept, so the next run downloads one, and it names the file.
         assert_eq!(
-            cached_tiles(&cache, Model::Dgm1, &area),
+            cached_tiles(&cache, Model::Dgm1, &BBOX, &area),
             [WEST].into_iter().collect()
         );
         // A 404 older than the re-check is asked for again.
@@ -1487,21 +1520,21 @@ mod tests {
             .unwrap()
             .set_modified(month_ago)
             .unwrap();
-        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &area).is_empty());
         // A fresh kept Metalink that names no file for the east tile: nothing to download.
         let kept = cache_dir.path().join("lvermgeo_rp/meta4/dgm1_tif_07.meta4");
         std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
         std::fs::write(&kept, metalink(&["dgm1_32_401_5579_1_rp_2025.tif"])).unwrap();
         assert_eq!(
-            cached_tiles(&cache, Model::Dgm1, &area),
+            cached_tiles(&cache, Model::Dgm1, &BBOX, &area),
             [EAST].into_iter().collect()
         );
         // An old one is downloaded again, and may name it.
         age(&kept, 31);
-        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &area).is_empty());
         // One that names it makes it a download.
         std::fs::write(&kept, metalink(&["dgm1_32_400_5579_1_rp_2025.tif"])).unwrap();
-        assert!(cached_tiles(&cache, Model::Dgm1, &area).is_empty());
+        assert!(cached_tiles(&cache, Model::Dgm1, &BBOX, &area).is_empty());
     }
 
     #[test]

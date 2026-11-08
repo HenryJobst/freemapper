@@ -1315,7 +1315,7 @@ fn fetch_rp_rasters(
         mode,
         project,
         bbox,
-        "Rhineland-Palatinate",
+        "the map area",
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };

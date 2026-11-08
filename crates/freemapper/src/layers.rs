@@ -328,14 +328,14 @@ fn rp_items(bbox: &BoundingBox, map_bbox: &BoundingBox, cache: &Cache) -> Vec<Es
         (Model::Dgm1, RP_DGM1_TILE_MB),
         (Model::Dom1, RP_DOM1_TILE_MB),
     ] {
-        let cached = cached_tiles(cache, model, &tiles);
+        let cached = cached_tiles(cache, model, map_bbox, &tiles);
         let open = tiles.iter().filter(|t| !cached.contains(t)).count();
         items.push(EstimateItem {
             what: model.label().to_string(),
             megabytes: open as f64 * mb_per_tile,
             cached: open == 0,
         });
-        if metalink_to_fetch(cache, model, &tiles) {
+        if metalink_to_fetch(cache, model, map_bbox, &tiles) {
             items.push(EstimateItem {
                 what: format!("Metalink of the {}", model.label()),
                 megabytes: METALINK_MB,
@@ -1182,7 +1182,12 @@ mod tests {
             north_km: 5579,
         };
         std::fs::write(
-            dir.join("tile_list/400000_5579000_401000_5580000.gml"),
+            crate::sources::lvermgeo_rp::list_path(
+                &dir,
+                &area
+                    .projected_bbox_in(crate::crs::Crs::Utm32)
+                    .buffered(20.0),
+            ),
             rp_tile_list(&[(tile, "", "")]),
         )
         .unwrap();
