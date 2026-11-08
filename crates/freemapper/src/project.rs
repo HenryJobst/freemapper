@@ -1468,21 +1468,21 @@ pub fn derive_project(
     let provider = raster_region(&region_bbox)
         .ok_or(ProjectError::OutsideCoverage)?
         .provider();
-    // The tile products each provider needs, and its terrain and surface models (LVermGeo has
-    // no tiles: its height models are stored per area).
-    let (required, dtm_product, dsm_product): (&[Product], Product, Product) = match provider {
-        Provider::Lgb => (&PRODUCTS, Product::Dtm, Product::ImageDsm),
-        Provider::GeoSn | Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => (
+    // The tile products of a tile provider: required, terrain and surface model. The per-area
+    // providers (LVermGeo, LGV, HVBG) store their height models per area and have none.
+    let tile_products: Option<(&[Product], Product, Product)> = match provider {
+        Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
+        Provider::GeoSn => Some((
             &[Product::SaxonyDtm],
             Product::SaxonyDtm,
             Product::SaxonyDsm,
-        ),
+        )),
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => None,
     };
-    let needed = if provider.per_area() {
-        Vec::new()
-    } else {
+    let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
         provider_tiles(&bbox, provider, dtm_product.grid_km())
-    };
+    });
+    let required = tile_products.map_or(&[][..], |(required, _, _)| required);
     let outdated: Vec<TileId> = needed
         .iter()
         .copied()
@@ -1544,7 +1544,9 @@ pub fn derive_project(
     let stored_model = |record: &Option<WcsRecord>, relpath: &str| {
         record.as_ref().is_some_and(|r| r.covers(&bbox)) && dir.join(relpath).exists()
     };
-    let dtm = if provider.per_area() {
+    let dtm = if let Some((_, dtm_product, _)) = tile_products {
+        mosaic_dtm(&tiles(dtm_product)?, &bbox)?
+    } else {
         if !stored_model(&project.terrain, TERRAIN_RELPATH) {
             return Err(ProjectError::TerrainNotFetched);
         }
@@ -1554,8 +1556,6 @@ pub fn derive_project(
         dtm.paste_with(&stored.grid, |x, y| stored.get(x, y))
             .map_err(DeriveError::from)?;
         dtm
-    } else {
-        mosaic_dtm(&tiles(dtm_product)?, &bbox)?
     };
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
     progress(&format!("writing {HILLSHADE_RELPATH}"));
@@ -1581,10 +1581,9 @@ pub fn derive_project(
             "warning: no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin",
         );
     }
-    let dsm_recorded = if provider.per_area() {
-        stored_model(&project.surface, SURFACE_RELPATH)
-    } else {
-        project.tiles.iter().any(|r| r.product == dsm_product)
+    let dsm_recorded = match tile_products {
+        Some((_, _, dsm_product)) => project.tiles.iter().any(|r| r.product == dsm_product),
+        None => stored_model(&project.surface, SURFACE_RELPATH),
     };
     if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
@@ -1623,16 +1622,17 @@ pub fn derive_project(
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
     let dsm = if dsm_recorded {
-        let model = if provider.per_area() {
-            read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from)
-        } else {
-            tiles(dsm_product).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?))
+        let model = match tile_products {
+            Some((_, _, dsm_product)) => {
+                tiles(dsm_product).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?))
+            }
+            None => read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from),
         };
         match model {
             Ok(dsm) => Some(dsm),
             Err(e) => {
                 progress(&format!(
-                    "warning: {dsm_product} unusable ({e}); run `freemapper fetch`"
+                    "warning: surface model unusable ({e}); run `freemapper fetch`"
                 ));
                 None
             }
@@ -2368,28 +2368,7 @@ fn geosn_attribution(project: &ProjectFile) -> Option<String> {
 /// The LVermGeo line, once its rasters or Saxony-Anhalt ALKIS objects were fetched; the year is
 /// that of the newest fetch.
 fn lvermgeo_attribution(project: &ProjectFile) -> Option<String> {
-    let raster = raster_provider(project) == Some(Provider::LvermGeo);
-    let years = [
-        project
-            .terrain
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-        project
-            .orthophoto
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(
-        alkis_records(project)
-            .filter(|r| r.regions.contains(&Region::SaxonyAnhalt))
-            .map(|r| r.fetched),
-    )
-    .map(|d| d.year());
-    let year = years.max()?;
+    let year = per_area_attribution_year(project, Provider::LvermGeo, Region::SaxonyAnhalt)?;
     Some(format!(
         "© GeoBasis-DE / LVermGeo ST {year}, dl-de/by-2-0, Daten geändert"
     ))
@@ -2398,28 +2377,7 @@ fn lvermgeo_attribution(project: &ProjectFile) -> Option<String> {
 /// The LGV line, once its rasters or Hamburg ALKIS objects were fetched; the year is that of the
 /// newest fetch.
 fn lgv_attribution(project: &ProjectFile) -> Option<String> {
-    let raster = raster_provider(project) == Some(Provider::Lgv);
-    let year = [
-        project
-            .terrain
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-        project
-            .orthophoto
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(
-        alkis_records(project)
-            .filter(|r| r.regions.contains(&Region::Hamburg))
-            .map(|r| r.fetched),
-    )
-    .map(|d| d.year())
-    .max()?;
+    let year = per_area_attribution_year(project, Provider::Lgv, Region::Hamburg)?;
     Some(format!(
         "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) {year}, dl-de/by-2-0, Daten geändert"
     ))
@@ -2428,8 +2386,21 @@ fn lgv_attribution(project: &ProjectFile) -> Option<String> {
 /// The HVBG line, once its rasters or Hesse ALKIS objects were fetched; the year is that of the
 /// newest fetch.
 fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
-    let raster = raster_provider(project) == Some(Provider::Hvbg);
-    let year = [
+    let year = per_area_attribution_year(project, Provider::Hvbg, Region::Hessen)?;
+    Some(format!(
+        "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
+    ))
+}
+
+/// The year of the newest fetch of `provider`'s data in the project: its terrain model and
+/// orthophoto (when the project's rasters come from it) and its ALKIS objects of `region`.
+fn per_area_attribution_year(
+    project: &ProjectFile,
+    provider: Provider,
+    region: Region,
+) -> Option<i32> {
+    let raster = raster_provider(project) == Some(provider);
+    [
         project
             .terrain
             .as_ref()
@@ -2445,14 +2416,11 @@ fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
     .flatten()
     .chain(
         alkis_records(project)
-            .filter(|r| r.regions.contains(&Region::Hessen))
+            .filter(|r| r.regions.contains(&region))
             .map(|r| r.fetched),
     )
     .map(|d| d.year())
-    .max()?;
-    Some(format!(
-        "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
-    ))
+    .max()
 }
 
 /// The provider of the project's rasters.
@@ -3158,6 +3126,101 @@ mod tests {
             !attribution.contains("LVermGeo") && !attribution.contains("GeoBasis-DE/LGB"),
             "{attribution}"
         );
+    }
+
+    fn hessen_getmap_requests(fetcher: &MapFetcher) -> usize {
+        fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.contains("ogc-free-images.ows") && u.contains("REQUEST=GetMap"))
+            .count()
+    }
+
+    #[test]
+    fn hessen_orthophoto_is_reused_while_the_flight_is_unchanged() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(hessen_getmap_requests(&fetcher), 1);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(hessen_getmap_requests(&fetcher), 1);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m == "orthophoto unchanged (flight 19.08.2025)"),
+            "{messages:?}"
+        );
+        // A new flight is downloaded again.
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                crate::sources::hvbg::WMS.url
+            ),
+            b"bildflug = '02-06-2026'\n".to_vec(),
+        );
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(hessen_getmap_requests(&fetcher), 2);
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("02.06.2026")
+        );
+    }
+
+    #[test]
+    fn offline_fetch_keeps_the_hvbg_record_dates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let earlier = NaiveDate::from_ymd_opt(2026, 1, 2).unwrap();
+        for record in [project.terrain.as_mut(), project.surface.as_mut()] {
+            record.unwrap().fetched = earlier;
+        }
+        project.save(dir.path()).unwrap();
+        let project = fetch_project(
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(project.terrain.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.surface.as_ref().unwrap().fetched, earlier);
+        assert_eq!(project.terrain.unwrap().date.as_deref(), Some("2023-02-28"));
+        assert_eq!(
+            project.orthophoto.unwrap().flight.as_deref(),
+            Some("19.08.2025")
+        );
+        assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+    }
+
+    #[test]
+    fn provider_change_to_and_from_hesse_drops_records() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = halle_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        assert!(dir.path().join(TERRAIN_RELPATH).exists());
+        let project = set_map_area(dir.path(), &frankfurt_area()).unwrap();
+        assert_eq!(project.provider, Some(Provider::Hvbg));
+        assert!(project.terrain.is_none() && project.orthophoto.is_none());
+        assert!(project.buildings.is_none());
+        assert!(!dir.path().join(TERRAIN_RELPATH).exists());
+        assert!(!dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
+
+        crate::fetch::test_support::serve_synthetic_hessen(&fetcher, &project.bbox().unwrap());
+        fetch(dir.path(), &fetcher, &cache);
+        let before = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(before.provider, Some(Provider::Hvbg));
+        assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
+        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert!(project.terrain.is_none() && project.surface.is_none());
+        assert!(project.orthophoto.is_none() && project.buildings.is_none());
+        assert!(!dir.path().join(TERRAIN_RELPATH).exists());
+        assert!(!dir.path().join(SURFACE_RELPATH).exists());
+        assert!(!dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
     }
 
     #[test]

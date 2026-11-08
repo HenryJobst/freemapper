@@ -358,7 +358,10 @@ mod tests {
             max_n: 5_656_000.0,
         };
         let err = fetch_orthophoto(&fetcher, &bbox, &dir.path().join("o.jpg")).unwrap_err();
-        assert!(err.to_string().contains("not a JPEG"), "{err}");
+        assert!(
+            err.to_string().contains("the WMS answered with an error"),
+            "{err}"
+        );
         assert_eq!(fetcher.calls.get(), 3);
         assert!(!dir.path().join("o.jpg").exists());
     }

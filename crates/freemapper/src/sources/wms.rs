@@ -65,20 +65,34 @@ pub(crate) fn mm(v: f64) -> f64 {
     (v * 1000.0).round() / 1000.0
 }
 
-/// The message of a WMS ServiceException / MapServer error document; `None` when `text` is not
-/// XML.
+/// How much of an answer is read to find an XML exception message.
+const XML_PROBE_BYTES: usize = 2000;
+
+/// The text of a WMS ServiceException / `ows:ExceptionText` document, tags removed and white
+/// space collapsed; `None` when `text` is not XML.
 fn xml_message(text: &str) -> Option<String> {
-    let t = text.trim_start();
-    if !t.starts_with('<') {
+    if !text.trim_start().starts_with('<') {
         return None;
     }
-    let body = t
-        .find("Exception")
-        .and_then(|i| t[i..].find('>').map(|j| i + j + 1));
-    let inner = body.map_or(t, |b| &t[b..]);
-    let end = inner.find('<').unwrap_or(inner.len());
-    let message = inner[..end].trim();
-    let message = if message.is_empty() { t } else { message };
+    let mut plain = String::new();
+    let mut in_tag = false;
+    for c in text.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => {
+                in_tag = false;
+                plain.push(' ');
+            }
+            _ if !in_tag => plain.push(c),
+            _ => {}
+        }
+    }
+    let message = plain.split_whitespace().collect::<Vec<_>>().join(" ");
+    let message = if message.is_empty() {
+        text.split_whitespace().collect::<Vec<_>>().join(" ")
+    } else {
+        message
+    };
     Some(message.chars().take(300).collect())
 }
 
@@ -98,16 +112,19 @@ pub fn fetch_orthophoto(
                 url: url.clone(),
                 message,
             };
-            if !bytes.starts_with(&[0xFF, 0xD8]) {
-                // A WMS reports errors as HTTP 200 with an XML document.
-                let text = String::from_utf8_lossy(&bytes[..bytes.len().min(600)]);
-                return Err(refused(match xml_message(&text) {
-                    Some(message) => format!("not a JPEG, the WMS answered: {message}"),
-                    None => format!("not a JPEG: {}", &text[..text.len().min(80)]),
-                }));
+            // A WMS reports errors as HTTP 200 with an XML document.
+            if let Some(message) = xml_message(&String::from_utf8_lossy(
+                &bytes[..bytes.len().min(XML_PROBE_BYTES)],
+            )) {
+                return Err(refused(format!(
+                    "the WMS answered with an error: {message}"
+                )));
             }
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
-                .map_err(|e| refused(format!("not a JPEG ({e})")))?
+                .map_err(|e| {
+                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
+                    refused(format!("not a JPEG ({e}): {start}"))
+                })?
                 .into_rgb8();
             if (image.width(), image.height()) != (piece.width, piece.height) {
                 return Err(refused(format!(
@@ -223,22 +240,79 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             error.contains("Image size out of range") && !error.contains("JPEG decode"),
             "{error}"
         );
-        assert!(error.contains("the WMS answered"), "{error}");
+        assert!(error.contains("the WMS answered with an error"), "{error}");
     }
 
     #[test]
-    fn hung_wms_request_is_retried() {
+    fn xml_wms_answer_names_the_inner_service_message() {
+        let message = "msWMSLoadGetMapParams(): WMS server error. Image size out of range, \
+                       WIDTH and HEIGHT must be between 1 and 3000 pixels.";
+        let report = format!(
+            "<?xml version='1.0' encoding=\"UTF-8\" standalone=\"no\" ?>\n\
+             <!DOCTYPE ServiceExceptionReport SYSTEM \"http://schemas.opengis.net/wms/1.3.0/exception_1_3_0.dtd\">\n\
+             <ServiceExceptionReport version=\"1.3.0\" xmlns=\"http://www.opengis.net/ogc\">\n\
+             <ServiceException code=\"InvalidDimensionValue\">\n{message}\n</ServiceException>\n\
+             </ServiceExceptionReport>"
+        );
+        assert_eq!(xml_message(&report).as_deref(), Some(message));
+        let ows = "<ows:ExceptionReport><ows:Exception exceptionCode=\"X\">\
+                   <ows:ExceptionText>Layer  not\n found</ows:ExceptionText></ows:Exception></ows:ExceptionReport>";
+        assert_eq!(xml_message(ows).as_deref(), Some("Layer not found"));
+        assert_eq!(xml_message("\u{89}PNG"), None);
+    }
+
+    #[test]
+    fn non_jpeg_non_xml_answer_is_an_error_not_a_panic() {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(hvbg::WMS.url, solid_jpeg(1000, 1000, [1, 2, 3]));
-        // A request that hangs surfaces as a timeout error from the client; the fetcher
-        // models it as a transient failure.
-        fetcher
-            .flaky
-            .borrow_mut()
-            .insert(hvbg::WMS.url.to_string(), 2);
+        // Invalid UTF-8 becomes 3-byte replacement characters; byte 80 of that is mid-character.
+        let mut png = vec![0x89];
+        png.extend(b"PNG\r\n\x1a\n");
+        png.extend([0x89u8; 60]);
+        fetcher.insert_prefix(hvbg::WMS.url, png);
+        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("not a JPEG"), "{error}");
+        assert!(!error.contains("the WMS answered"), "{error}");
+        assert!(error.contains("not a JPEG ("), "{error}");
+    }
+
+    #[test]
+    fn stalled_wms_request_times_out_and_is_retried() {
+        use std::io::{Read as _, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url: &'static str =
+            Box::leak(format!("http://{}/wms", listener.local_addr().unwrap()).into_boxed_str());
+        let jpeg = solid_jpeg(1000, 1000, [1, 2, 3]);
+        std::thread::spawn(move || {
+            // The first connection is held without an answer; the second gets the image.
+            let (_stalled, _) = listener.accept().unwrap();
+            let (mut conn, _) = listener.accept().unwrap();
+            let mut request = [0u8; 4096];
+            let _ = conn.read(&mut request);
+            let head = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                jpeg.len()
+            );
+            conn.write_all(head.as_bytes()).unwrap();
+            conn.write_all(&jpeg).unwrap();
+            std::thread::sleep(std::time::Duration::from_secs(2));
+        });
+        let service = WmsService { url, ..hvbg::WMS };
+        let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("o.jpg");
-        fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &out).unwrap();
+        let fetcher =
+            crate::fetch::HttpFetcher::with_timeout(std::time::Duration::from_millis(300));
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let path = out.clone();
+        std::thread::spawn(move || {
+            sender.send(fetch_orthophoto(&fetcher, &service, &bbox(), &path))
+        });
+        receiver
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("the stalled request did not time out")
+            .unwrap();
         assert!(out.exists());
     }
 }

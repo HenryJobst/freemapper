@@ -89,7 +89,7 @@ fn estimate_area(
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
         Some(Provider::LvermGeo) => lvermgeo_items(bbox),
         Some(Provider::Lgv) => lgv_items(bbox),
-        Some(Provider::Hvbg) => hvbg_items(bbox),
+        Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -170,39 +170,42 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
 /// archives (≈2 MB DGM1 and ≈4 MB bDOM per km²).
 fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
     use crate::sources::lgv::Model;
-    let km2 = bbox.width() * bbox.height() / 1e6;
-    let item = |what: String, mb_per_km2: f64| EstimateItem {
-        what,
-        megabytes: (km2 * mb_per_km2).max(0.1),
-        cached: false,
-    };
     vec![
-        item("orthophoto (LGV WMS)".to_string(), GEOSN_WMS_MB_PER_KM2),
-        item(Model::Dgm1.label().to_string(), 2.0),
-        item(Model::Bdom.label().to_string(), 4.0),
+        per_km2_item(bbox, "orthophoto (LGV WMS)", GEOSN_WMS_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dgm1.label(), 2.0),
+        per_km2_item(bbox, Model::Bdom.label(), 4.0),
     ]
 }
 
 /// HVBG: the WMS orthophoto, the height models read out of the municipal zips (≈2.5 MB DGM1 and
-/// ≈3 MB DOM1 per km²) and the metadata list that finds the zips.
-fn hvbg_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+/// ≈3 MB DOM1 per km²) and the metadata list that finds the zips. The list's file name is only
+/// known after the product description is read, so it counts as cached once any list is.
+fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     use crate::sources::hvbg::Model;
-    let km2 = bbox.width() * bbox.height() / 1e6;
-    let item = |what: String, mb_per_km2: f64| EstimateItem {
-        what,
-        megabytes: (km2 * mb_per_km2).max(0.1),
-        cached: false,
-    };
+    let list_cached = std::fs::read_dir(cache.hvbg_dir().join("metadata"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| e.file_name().to_string_lossy().ends_with(".xlsx"));
     vec![
-        item("orthophoto (HVBG WMS)".to_string(), GEOSN_WMS_MB_PER_KM2),
-        item(Model::Dgm1.label().to_string(), 2.5),
-        item(Model::Dom1.label().to_string(), 3.0),
+        per_km2_item(bbox, "orthophoto (HVBG WMS)", GEOSN_WMS_MB_PER_KM2),
+        per_km2_item(bbox, Model::Dgm1.label(), 2.5),
+        per_km2_item(bbox, Model::Dom1.label(), 3.0),
         EstimateItem {
             what: "tile metadata list (HVBG)".to_string(),
             megabytes: 1.0,
-            cached: false,
+            cached: list_cached,
         },
     ]
+}
+
+/// A download that grows with the area: `mb_per_km2` over `bbox` (at least 0.1 MB).
+fn per_km2_item(bbox: &BoundingBox, what: &str, mb_per_km2: f64) -> EstimateItem {
+    EstimateItem {
+        what: what.to_string(),
+        megabytes: (bbox.width() * bbox.height() / 1e6 * mb_per_km2).max(0.1),
+        cached: false,
+    }
 }
 
 /// LGB: orthophoto, DTM and nDSM (or bDOM inside Berlin) per 1 km tile.
@@ -642,6 +645,37 @@ mod tests {
                 .filter(|i| i.what.contains("HVBG"))
                 .all(|i| !i.cached)
         );
+    }
+
+    #[test]
+    fn cached_hvbg_metadata_list_is_not_estimated() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 47_838.0,
+            northing: 5_571_740.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let list = |cache: &Cache| {
+            let preview = preview_area(&area, 20.0, cache, today());
+            let item = preview
+                .estimate
+                .items
+                .iter()
+                .find(|i| i.what == "tile metadata list (HVBG)")
+                .unwrap()
+                .clone();
+            (item.cached, preview.estimate.total_megabytes)
+        };
+        let (cached, total) = list(&cache);
+        assert!(!cached);
+        let dir = cache.hvbg_dir().join("metadata");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("Metadaten_20260101.xlsx"), b"x").unwrap();
+        let (cached, after) = list(&cache);
+        assert!(cached);
+        assert!((total - after - 1.0).abs() < 1e-9);
     }
 
     #[test]
