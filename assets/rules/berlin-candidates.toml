@@ -1,0 +1,66 @@
+# Geoportal Berlin features → candidate symbols (Berlin plus 1). Same syntax and engine as
+# osm-candidates.toml, with these differences:
+#
+# - Tags are `berlin:<property>` (string and number properties of the WFS feature) plus
+#   `berlin:layer=<layer file>`, so an OSM rule can never match a Berlin feature and the other
+#   way round. Every rule names its layer.
+# - A condition value ending in `*` is a prefix (`Mauerkante*` = `Mauerkante, rechts` …).
+# - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point at its
+#   centroid (`draw = "point"`). Holes are dropped: these are candidates only.
+#
+# Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stairs
+# (`build/stairs.rs`), trees and Kleingarten. ALKIS kerb lines are not taken (Plan 2 brings the
+# surveyed curbs). The height of a wall decides nothing; the ALKIS name picks the symbol.
+
+# Walls, retaining walls and fences by the ALKIS name (the same symbols as the OSM rules).
+[[rule]]
+when = ["berlin:layer=bauwerke-linien|bauwerke-flaechen", "berlin:bezbwf=Mauer|Mauerkante*|Mauermitte"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+[[rule]]
+when = ["berlin:layer=bauwerke-linien|bauwerke-flaechen", "berlin:bezbwf=Stützmauer*"]
+draw = "line"
+schoolyard = "513.2"
+sprint = "513.2"
+
+[[rule]]
+when = ["berlin:layer=bauwerke-linien", "berlin:bezbwf=Zaun"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+[[rule]]
+when = ["berlin:layer=vegetation-linien", "berlin:bezbws=Heckenkante*"]
+draw = "line"
+schoolyard = "410.1"
+sprint = "410.1"
+
+# Monuments: a point at the centroid; areas wider than 3 m are tagged `freemapper:size=large`.
+[[rule]]
+when = ["berlin:layer=bauwerke-flaechen", "berlin:bezbwf=Denkmal, Denkstein, Standbild"]
+draw = "point"
+schoolyard = "526"
+sprint = "526"
+
+# Bridges: the area of the bridge deck.
+[[rule]]
+when = ["berlin:layer=bauwerke-flaechen", "berlin:bezbwf=Brücke"]
+draw = "area"
+sprint = "501.5"
+
+# Embankment top; the bottom edge and the other boundary edges are skipped.
+[[rule]]
+when = ["berlin:layer=relief", "berlin:bezart=Oberkante"]
+draw = "line"
+sprint = "104"
+
+# Passages through buildings: the 521 object stays whole, the passage is a canopy candidate (the
+# data does not say whether it is gated). "Auskragender Geschossteil / zurückspringendes Geschoss"
+# mixes overhangs with set-back storeys and is left out. The second value has a no-break space after "an" (written \u00a0).
+[[rule]]
+when = ["berlin:layer=building-parts", "berlin:bauart=Durchfahrt im Gebäude|Durchfahrt an\u00a0überbautem Verkehrsweg|Arkade"]
+draw = "area"
+schoolyard = "522"
+sprint = "522"

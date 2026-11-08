@@ -9,6 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
+use crate::build::berlin::{
+    BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
+};
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
@@ -2045,8 +2048,7 @@ fn fetch_berlin_layers_into(
 }
 
 /// One stored extra Berlin layer.
-// Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1, tasks 2 to 4).
-#[allow(dead_code)]
+// Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1).
 #[derive(Debug, Clone)]
 pub(crate) struct StoredBerlinLayer {
     pub layer: &'static berlin::ExtraLayer,
@@ -2059,7 +2061,6 @@ pub(crate) struct StoredBerlinLayer {
 /// The stored extra Berlin layers that cover the map area plus buffer, in table order. A layer
 /// that was not fetched, is missing or does not cover the area is left out (optional sources:
 /// `fetch` reports this, the export goes on without them). Empty outside Berlin.
-#[allow(dead_code)]
 pub(crate) fn stored_berlin_layers(
     dir: &Path,
     project: &ProjectFile,
@@ -2087,6 +2088,55 @@ pub(crate) fn stored_berlin_layers(
         });
     }
     Ok(layers)
+}
+
+/// Candidates from the stored extra Berlin layers and the building parts of the stored buildings
+/// (passages), through the Berlin rules. None outside Berlin.
+fn stored_berlin_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let layers = stored_berlin_layers(dir, project)?;
+    let mut inputs: Vec<(&str, &[serde_json::Value], NaiveDate)> = layers
+        .iter()
+        .map(|l| (l.layer.file, l.features.as_slice(), l.fetched))
+        .collect();
+    // The building parts are in the buildings file (`bauart` is set by the Berlin source only).
+    let parts = match (&project.buildings, dir.join(BUILDINGS_RELPATH)) {
+        (Some(record), path) if path.exists() && !layers.is_empty() => {
+            let text =
+                std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+            let features =
+                berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
+                    path: path.clone(),
+                    message: e.to_string(),
+                })?;
+            Some((building_part_features(&features), record.fetched))
+        }
+        _ => None,
+    };
+    if let Some((features, fetched)) = &parts {
+        inputs.push((BUILDING_PARTS_LAYER, features.as_slice(), *fetched));
+    }
+    let inputs: Vec<LayerInput<'_>> = inputs
+        .into_iter()
+        .map(|(file, features, currency)| LayerInput {
+            file,
+            features,
+            currency,
+        })
+        .collect();
+    Ok(berlin_objects(
+        &inputs,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
 }
 
 /// The stored ALKIS land use; none when it was not fetched or does not cover the map area plus
@@ -2539,6 +2589,7 @@ fn stored_osm_objects(
         project.buffer_m,
         georef,
         symbol_set,
+        "osm",
         *extract,
     )?)
 }
@@ -2946,6 +2997,13 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
                 .chain(osm_objects(Target::Candidates)?)
+                .chain(stored_berlin_objects(
+                    dir,
+                    &project,
+                    &area,
+                    &georef,
+                    &symbol_set,
+                )?)
                 .chain(stored_contour_objects(
                     dir,
                     &project,

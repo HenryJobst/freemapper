@@ -11,6 +11,7 @@ use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
+const BERLIN_RULES: &str = include_str!("../../../../assets/rules/berlin-candidates.toml");
 /// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
 const MIN_LINE_MM: f64 = 1.0;
 
@@ -118,7 +119,10 @@ impl Condition {
     fn holds(&self, tags: &Tags) -> bool {
         let matches = match (value(tags, &self.key), &self.test) {
             (Some(_), Test::Values(None)) => true,
-            (Some(v), Test::Values(Some(values))) => values.iter().any(|allowed| allowed == v),
+            (Some(v), Test::Values(Some(values))) => values.iter().any(|allowed| {
+                // `Mauerkante*` is a prefix (only the Berlin rules use it).
+                allowed == v || allowed.strip_suffix('*').is_some_and(|p| v.starts_with(p))
+            }),
             (Some(v), Test::Below(limit)) => number(v).is_some_and(|n| n < *limit),
             (None, _) => false,
         };
@@ -130,6 +134,11 @@ impl Rules {
     /// The rules shipped with freemapper (`assets/rules/osm-candidates.toml`).
     pub fn embedded() -> Self {
         Self::from_toml(EMBEDDED_RULES).expect("embedded candidate rules are valid")
+    }
+
+    /// The Geoportal Berlin rules (`assets/rules/berlin-candidates.toml`): `berlin:*` tags only.
+    pub fn berlin() -> Self {
+        Self::from_toml(BERLIN_RULES).expect("embedded Berlin rules are valid")
     }
 
     pub fn from_toml(text: &str) -> Result<Self, RulesError> {
@@ -255,7 +264,9 @@ impl Rules {
 }
 
 /// Objects for the features within `buffer_m` of `map_area` (EPSG:25833) whose rule has `target`,
-/// tagged with their provenance and the extract date as currency.
+/// tagged with their provenance (`source`: `osm`, `geoportal-berlin/<layer>`) and `currency`.
+/// Features from other sources carry `freemapper:*` tags (their `freemapper:source_id`, …) that
+/// the objects take over; an OSM feature cannot set them.
 #[allow(clippy::too_many_arguments)]
 pub fn osm_objects(
     features: &[OsmFeature],
@@ -266,6 +277,7 @@ pub fn osm_objects(
     buffer_m: f64,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
+    source: &str,
     currency: NaiveDate,
 ) -> Result<Vec<MapObject>, GeorefError> {
     let projected = |p: &LatLon| {
@@ -368,12 +380,28 @@ pub fn osm_objects(
             }
             _ => continue,
         };
-        let tags = vec![
-            ("freemapper:source".to_string(), "osm".to_string()),
-            ("freemapper:source_id".to_string(), feature.id.clone()),
-            ("freemapper:osm".to_string(), found.matched),
-            ("freemapper:currency".to_string(), currency.to_string()),
+        let own = |key: &str| {
+            (source != "osm")
+                .then(|| value(&feature.tags, key))
+                .flatten()
+                .map(str::to_string)
+        };
+        let mut tags = vec![
+            ("freemapper:source".to_string(), source.to_string()),
+            (
+                "freemapper:source_id".to_string(),
+                own("freemapper:source_id").unwrap_or_else(|| feature.id.clone()),
+            ),
         ];
+        if source == "osm" {
+            tags.push(("freemapper:osm".to_string(), found.matched));
+        }
+        tags.push(("freemapper:currency".to_string(), currency.to_string()));
+        for key in ["freemapper:alkis", "freemapper:size"] {
+            if let Some(v) = own(key) {
+                tags.push((key.to_string(), v));
+            }
+        }
         for (kind, coords) in pieces {
             objects.push(MapObject {
                 symbol_id,
@@ -469,6 +497,7 @@ mod tests {
             20.0,
             &f.georef,
             &set,
+            "osm",
             currency,
         )
         .unwrap();
@@ -477,7 +506,7 @@ mod tests {
 
     #[test]
     fn embedded_rule_codes_exist_in_the_symbol_sets() {
-        for rule in &Rules::embedded().0 {
+        for rule in Rules::embedded().0.iter().chain(&Rules::berlin().0) {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
                 (&rule.sprint, MapKind::Sprint),
@@ -489,6 +518,27 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn trailing_star_is_a_prefix() {
+        let rules = Rules::from_toml(
+            "[[rule]]\nwhen = [\"name=Wall*|Fence\"]\ndraw = \"line\"\nsprint = \"515\"",
+        )
+        .unwrap();
+        for (name, expected) in [
+            ("Wall", true),
+            ("Wall, left", true),
+            ("Fence", true),
+            ("Fenced", false),
+            ("Hall", false),
+        ] {
+            assert_eq!(
+                rules.wants(&tags(&[("name", name)]), MapKind::Sprint),
+                expected,
+                "{name}"
+            );
         }
     }
 
@@ -685,6 +735,7 @@ mod tests {
             20.0,
             &f.georef,
             &set,
+            "osm",
             currency,
         )
         .unwrap();
@@ -832,7 +883,7 @@ mod tests {
 
     #[test]
     fn embedded_rule_symbols_fit_their_draw_kind() {
-        for rule in &Rules::embedded().0 {
+        for rule in Rules::embedded().0.iter().chain(&Rules::berlin().0) {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
                 (&rule.sprint, MapKind::Sprint),
