@@ -99,6 +99,11 @@ Orienteering Maps 2019 (IOF).
 | Laserscan / ALS | airborne laser scanning (ALS) | Flugzeuggestützte LiDAR-Vermessung. | `Als` |
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |
 | Digitales Orthophoto (DOP) | orthophoto | Entzerrtes, georeferenziertes Luftbild (DOP20 = 0,2 m). | `Orthophoto` |
+| Flugdatum | flight date | Tag, an dem das Luftbild beflogen wurde. | `WmsRecord::flight` |
+| Belaubung (belaubt / unbelaubt) | leaf state (leaf-on / leaf-off) | Ob die Bäume beim Bildflug Laub trugen; in Niedersachsen nach dem Flugmonat bestimmt (Mai bis Oktober belaubt). | `lgln::leaf_state` |
+| Kartendienst (WMS) | map service (WMS) | OGC Web Map Service: liefert ein Bild für einen Ausschnitt; freemapper setzt das Luftbild aus Stücken von höchstens 4000 px zusammen. | `WmsService` |
+| WCS-Dienst | WCS service | OGC Web Coverage Service: liefert die Rasterwerte für einen Ausschnitt, z. B. DGM1 und DOM1 in Sachsen-Anhalt, Mecklenburg-Vorpommern und Niedersachsen. | `WcsService` |
+| STAC-Suche | STAC search | Abfrage im SpatioTemporal Asset Catalog eines Anbieters, die zu einem Ort die Kacheln mit Datum nennt (LGLN: ein Server je Produkt). freemapper nimmt den neuesten Eintrag in der Mitte des Kartengebiets. | `lgln::newest_item`, `StacItem` |
 | OSM-Auszug | OSM extract | Regionaler Abzug der OSM-Daten als PBF-Datei (Geofabrik, z. B. Brandenburg). | `Extract` |
 | Regierungsbezirk-Auszug | government district extract | OSM-Auszug eines Regierungsbezirks (Nordrhein-Westfalen: Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des ganzen Landes; gewählt nach der mitgelieferten Auszugsgrenze, an einer Bezirksgrenze mehrere. | `GovernmentDistrict`, `extracts_for` |
 | Weltdatei | world file | Textdatei mit Pixelgröße und Lage eines Rasterbilds (`.jgw`, `.pgw`, `.tfw`). | `GridSpec::from_world_file` |
@@ -143,7 +148,9 @@ Orienteering Maps 2019 (IOF).
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
 | Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
 | Rasterregion | raster region | Die Region, in der die Mitte des Kartengebiets liegt; aus ihr kommen Luftbild, Geländemodell und nDOM. | `raster_region` |
-| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein), LAiV M-V (Mecklenburg-Vorpommern) Geobasis NRW (Nordrhein-Westfalen) oder LGLN (Niedersachsen). | `Provider` |
+| Abdeckung | coverage | Die Fläche aller Regionen zusammen. Reicht ein Kartengebiet mehr als 50 m darüber hinaus (Ausland, Bremen, Meer), warnt freemapper beim Laden. | `reaches_beyond_coverage`, `BEYOND_COVERAGE_WARNING` |
+| Alterswarnung (DOM) | surface age warning | Warnung, wenn das DOM mehr als 24 Monate älter ist als das Luftbild (Niedersachsen); das nDOM kann dann Neubauten und junge Bäume nicht zeigen. | `lgln::surface_age_warning`, `SURFACE_AGE_WARNING_MONTHS` |
+| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein), LAiV M-V (Mecklenburg-Vorpommern), Geobasis NRW (Nordrhein-Westfalen) oder LGLN (Niedersachsen). | `Provider` |
 | Koordinatensystem (Zone) | CRS (zone) | ETRS89/UTM-Zone 32 (EPSG:25832) oder 33 (EPSG:25833); jede Karte bekommt die Zone ihrer Rasterregion. | `Crs`, `ProjectFile::crs` |
 | Landesgrenze (Berlin) | Berlin boundary | Umriss Berlins aus ALKIS (`alkis:land`), 25 m vereinfacht; entscheidet über die Region. | `BERLIN_BOUNDARY` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
