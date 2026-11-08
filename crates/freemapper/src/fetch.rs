@@ -1439,7 +1439,10 @@ pub(crate) mod test_support {
             (hvbg::Model::Dgm1, "DGM1", 100.0),
             (hvbg::Model::Dom1, "DOM1", 112.0),
         ] {
-            fetcher.insert(&hvbg::tree_url(model), he::tree_answer(&[DISTRICT]));
+            // Only the DGM1 description links the metadata list (the DOM1 one does too, but
+            // both models take it from DGM1).
+            let link = model == hvbg::Model::Dgm1;
+            fetcher.insert(&hvbg::tree_url(model), he::tree_answer(&[DISTRICT], link));
             let uri = format!(
                 "/downloadcenter/20261108/{}/{DISTRICT}/Frankfurt_am_Main-{code}.zip",
                 model.product()
