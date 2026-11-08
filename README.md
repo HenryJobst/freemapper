@@ -1,6 +1,6 @@
 # freemapper
 
-[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md)
+[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
