@@ -210,7 +210,7 @@ fn text(value: &Value) -> Option<String> {
 }
 
 /// Safe to put into a URL unescaped.
-fn is_plain(value: &str) -> bool {
+pub(crate) fn is_plain(value: &str) -> bool {
     !value.is_empty()
         && value
             .bytes()
@@ -577,7 +577,7 @@ fn cache_path(dir: &Path, model: Model, entry: &PortalTile) -> PathBuf {
 }
 
 /// The cached tile at `path`, if it is there and reads as `tile`.
-fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
+pub(crate) fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
     let bytes = std::fs::read(path).ok()?;
     decode_float_tiff(&bytes)
         .and_then(|raster| whole_tile(raster, tile, &[1.0]))
@@ -592,7 +592,11 @@ const BDOM_PIXELS: &[f64] = &[0.2];
 const BDOM_PIXELS: &[f64] = &[0.2, 0.5, 1.0];
 
 /// `raster` if it covers exactly the 1 km `tile` with pixels of one of the `pixels` sizes.
-fn whole_tile(raster: Raster<f32>, tile: TileId, pixels: &[f64]) -> Result<Raster<f32>, String> {
+pub(crate) fn whole_tile(
+    raster: Raster<f32>,
+    tile: TileId,
+    pixels: &[f64],
+) -> Result<Raster<f32>, String> {
     let g = raster.grid;
     let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
     if !pixels.iter().any(|&p| (g.pixel_size - p).abs() < 1e-9) {
@@ -938,7 +942,7 @@ fn median(values: &mut [f32]) -> f32 {
 }
 
 /// Pastes the 1 m `part` into the 1 m `raster`; returns how many pasted cells have no height.
-fn paste_tile(raster: &mut Raster<f32>, part: &Raster<f32>) -> Result<u64, String> {
+pub(crate) fn paste_tile(raster: &mut Raster<f32>, part: &Raster<f32>) -> Result<u64, String> {
     let empty = std::cell::Cell::new(0);
     raster
         .paste_with(&part.grid, |x, y| {
