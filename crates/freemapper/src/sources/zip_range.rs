@@ -2,7 +2,11 @@
 //! from the archive's end, then one member's local header and data), for the statewide
 //! Hamburg archive and the Hessian municipal ones.
 
-use crate::fetch::{ByteRange, FetchError, Fetcher, get_range_with_retries};
+use std::path::Path;
+
+use crate::fetch::{
+    ByteRange, FetchError, FetchMode, Fetcher, get_range_with_retries, write_atomically,
+};
 
 /// Largest central directory read (LGV's are about 100 KB).
 const MAX_DIRECTORY_BYTES: u64 = 16 << 20;
@@ -170,6 +174,27 @@ pub(crate) fn read_member(
         ));
     }
     Ok(bytes)
+}
+
+/// The content of `member` from the cache file `file` when its CRC matches the member's; else,
+/// online, read from the archive at `url` and kept in `file`; offline `offline` is the error.
+pub(crate) fn cached_member(
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    url: &str,
+    member: &Member,
+    file: &Path,
+    offline: impl FnOnce() -> FetchError,
+) -> Result<Vec<u8>, FetchError> {
+    match std::fs::read(file) {
+        Ok(bytes) if crc32fast::hash(&bytes) == member.crc => Ok(bytes),
+        _ if mode == FetchMode::Online => {
+            let bytes = read_member(fetcher, url, member)?;
+            write_atomically(file, &bytes)?;
+            Ok(bytes)
+        }
+        _ => Err(offline()),
+    }
 }
 
 /// The file name of `member` without its folders (split on `/` and `\`).

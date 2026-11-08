@@ -6,14 +6,14 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::crs::{BoundingBox, Crs, ProjectedPoint};
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_atomically};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
-use crate::sources::region::{Region, regions_for};
+use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::sources::zip_range::{
-    find_member, parse_directory, read_directory_bytes, read_member, refused,
+    cached_member, find_member, parse_directory, read_directory_bytes, refused,
 };
 use crate::tiles::{TileId, tiles_covering};
 
@@ -129,24 +129,6 @@ pub fn tile_names(tiles: &[TileId]) -> String {
     format!("{noun} {}", names.join(", "))
 }
 
-/// Whether the centre of the 1 km tile (EPSG:25832) lies in or near Hamburg, so the archive
-/// must have it.
-fn inside_hamburg(tile: TileId) -> bool {
-    let centre = ProjectedPoint {
-        easting: f64::from(tile.east_km) * 1000.0 + 500.0,
-        northing: f64::from(tile.north_km) * 1000.0 + 500.0,
-    };
-    Crs::Utm33.reproject(Crs::Utm32, centre).is_some_and(|p| {
-        regions_for(&BoundingBox {
-            min_e: p.easting,
-            min_n: p.northing,
-            max_e: p.easting,
-            max_n: p.northing,
-        })
-        .contains(&Region::Hamburg)
-    })
-}
-
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), read out of the statewide archive and
 /// cached, mosaicked into a Float32 GeoTIFF `out` with its world file. Tiles outside Hamburg
 /// are missing from the archive and stay empty; returned are the missing tiles inside Hamburg.
@@ -207,7 +189,7 @@ pub fn fetch_model(
         let Some(member) = find_member(&members, |file| {
             file.starts_with(&prefix) && file.ends_with(".tif")
         }) else {
-            if inside_hamburg(tile) {
+            if tile_centre_in(tile, Region::Hamburg) {
                 missing.push(tile);
             }
             continue;
@@ -216,15 +198,9 @@ pub fn fetch_model(
         // Named after the tile, never after the archive's member name (which comes from the
         // server and could hold `..` or `\`).
         let file = dir.join(format!("{prefix}.tif"));
-        let bytes = match std::fs::read(&file) {
-            Ok(bytes) if crc32fast::hash(&bytes) == member.crc => bytes,
-            _ if mode == FetchMode::Online => {
-                let bytes = read_member(fetcher, url, member)?;
-                write_atomically(&file, &bytes)?;
-                bytes
-            }
-            _ => return Err(offline_hint(&member.name)),
-        };
+        let bytes = cached_member(fetcher, mode, url, member, &file, || {
+            offline_hint(&member.name)
+        })?;
         let part = decode_float_tiff(&bytes).map_err(|message| refused(url, message))?;
         raster
             .paste_with(&part.grid, |x, y| part.get(x, y))

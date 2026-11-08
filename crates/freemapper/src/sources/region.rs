@@ -140,6 +140,26 @@ pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
         .collect()
 }
 
+/// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near `region`, so its
+/// provider must have the tile.
+pub fn tile_centre_in(tile: TileId, region: Region) -> bool {
+    let centre = crate::crs::ProjectedPoint {
+        easting: f64::from(tile.east_km) * 1000.0 + 500.0,
+        northing: f64::from(tile.north_km) * 1000.0 + 500.0,
+    };
+    crate::crs::Crs::Utm33
+        .reproject(crate::crs::Crs::Utm32, centre)
+        .is_some_and(|p| {
+            regions_for(&BoundingBox {
+                min_e: p.easting,
+                min_n: p.northing,
+                max_e: p.easting,
+                max_n: p.northing,
+            })
+            .contains(&region)
+        })
+}
+
 /// The region whose rasters a map of `bbox` uses: the one containing its centre.
 pub fn raster_region(bbox: &BoundingBox) -> Option<Region> {
     let centre = Point::new(
