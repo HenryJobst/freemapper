@@ -173,9 +173,10 @@ Result in the project folder:
   contours, and out-of-bounds areas (520) from the ALKIS land use: on the schoolyard map everything but
   the school's own parcel, on the sprint map private land (residential, commercial, mixed-use and
   railway land)
-- peripheral information in the map (map part "peripheral information"): magnetic north lines over the
-  map content, below it the title (`--title`, else the folder name), scale and contour interval, a bar
-  scale, the attribution of the data sources and the freemapper credit line
+- magnetic north lines over the map content, as map objects in the map part "default part"
+- peripheral information below the map content (map part "peripheral information"): the title
+  (`--title`, else the folder name), scale and contour interval, a bar scale, the attribution of the
+  data sources and the freemapper credit line
 - `data/osm-candidates.geojson` – the OSM features of the map area the candidates come from
 - `data/contours.geojson` – the contour lines from `derive`
 - `data/alkis-land-use.geojson` – the fetched ALKIS land use per parcel part
