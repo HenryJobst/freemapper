@@ -176,6 +176,11 @@ impl Rules {
                                 "condition {condition:?}: only `key<number` compares"
                             )));
                         }
+                        if values != "*" && values.split('|').any(|v| v.is_empty() || v == "*") {
+                            return Err(RulesError(format!(
+                                "condition {condition:?}: a value list has an empty or bare `*` entry"
+                            )));
+                        }
                         Ok(Condition {
                             key: key.to_string(),
                             test: Test::Values(
@@ -518,6 +523,15 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    #[test]
+    fn bare_star_in_a_value_list_is_rejected() {
+        for list in ["a|*", "*|a", "a||b"] {
+            let toml =
+                format!("[[rule]]\nwhen = [\"k={list}\"]\ndraw = \"line\"\nsprint = \"515\"");
+            assert!(Rules::from_toml(&toml).is_err(), "{list}");
         }
     }
 

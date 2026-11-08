@@ -2106,7 +2106,7 @@ fn stored_berlin_objects(
         .collect();
     // The building parts are in the buildings file (`bauart` is set by the Berlin source only).
     let parts = match (&project.buildings, dir.join(BUILDINGS_RELPATH)) {
-        (Some(record), path) if path.exists() && !layers.is_empty() => {
+        (Some(record), path) if path.exists() => {
             let text =
                 std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
             let features =
@@ -7536,6 +7536,112 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 body.as_bytes().to_vec(),
             );
         }
+    }
+
+    /// The stored buildings of `berlin_school` plus one passage part inside the map area.
+    fn add_passage_part(dir: &Path) {
+        let path = dir.join(BUILDINGS_RELPATH);
+        let mut collection: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let ring = [
+            [392_790.0, 5_820_840.0],
+            [392_800.0, 5_820_840.0],
+            [392_800.0, 5_820_850.0],
+            [392_790.0, 5_820_850.0],
+            [392_790.0, 5_820_840.0],
+        ];
+        collection["features"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "type": "Feature", "id": "DEBE00PASSAGE",
+                "geometry": {"type": "MultiPolygon", "coordinates": [[ring]]},
+                "properties": {"oid": "DEBE00PASSAGE", "gebnutzbez": "Bauteil",
+                               "bauart": "Durchfahrt im Gebäude"}
+            }));
+        std::fs::write(path, collection.to_string()).unwrap();
+    }
+
+    /// The Berlin candidates (symbol code, source tag) of the starter documents.
+    fn berlin_candidates(dir: &Path) -> Vec<(String, String)> {
+        let documents = starter_documents(dir).unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let code = |id| {
+            ["515", "522"]
+                .into_iter()
+                .find(|c| set.id_for_code(c) == Some(id))
+        };
+        documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .filter_map(|o| {
+                let source = o.tags.iter().find(|(k, _)| k == "freemapper:source")?;
+                source.1.starts_with("geoportal-berlin/").then(|| {
+                    (
+                        code(o.symbol_id).unwrap_or("other").to_string(),
+                        source.1.clone(),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn stored_berlin_layers_and_passages_reach_the_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        // One wall line inside the map area replaces the layer's contents.
+        let wall = serde_json::json!({"type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "bauwerkelinien.1",
+            "geometry": {"type": "MultiLineString",
+                "coordinates": [[[392_770.0, 5_820_830.0], [392_830.0, 5_820_830.0]]]},
+            "properties": {"bezbwf": "Mauer", "uuid": "DEBE00WALL"}}]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-linien.geojson"),
+            wall.to_string(),
+        )
+        .unwrap();
+        add_passage_part(dir.path());
+        let found = berlin_candidates(dir.path());
+        assert!(
+            found.contains(&("515".into(), "geoportal-berlin/bauwerke-linien".into())),
+            "{found:?}"
+        );
+        assert!(
+            found.contains(&("522".into(), "geoportal-berlin/building-parts".into())),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn passages_survive_without_any_extra_layer() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        // Every extra layer is gone, the buildings still carry the parts.
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        std::fs::remove_dir_all(dir.path().join("data/berlin")).unwrap();
+        assert!(
+            stored_berlin_layers(dir.path(), &project)
+                .unwrap()
+                .is_empty()
+        );
+        add_passage_part(dir.path());
+        let found = berlin_candidates(dir.path());
+        assert_eq!(
+            found,
+            [(
+                "522".to_string(),
+                "geoportal-berlin/building-parts".to_string()
+            )]
+        );
     }
 
     #[test]
