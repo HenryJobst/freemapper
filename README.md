@@ -22,6 +22,18 @@ in OOM oder OCAD.
 - Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
   [Beispiele](#beispiele).
 
+## Die freemapper-Suite
+
+freemapper ist der erste Schritt einer Werkzeugkette für Orientierungslauf-Karten. Zwei Folgeprojekte
+sind in Entwicklung:
+
+- freemapper liefert den Ausgangsstand der Karte,
+- die Karte zeichnet man in OOM,
+- [freemapper-courseplan](https://github.com/HenryJobst/freemapper-courseplan) legt die Bahnen in einem
+  Editor im Browser und prüft sie gegen die Wettkampfbestimmungen,
+- [freemapper-print](https://github.com/HenryJobst/freemapper-print) druckt die Kartenblätter, ein Blatt je
+  Bahn, mit Bahnaufdruck und Postenbeschreibung.
+
 ## Status
 
 Aktuelle Version ist [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) vom

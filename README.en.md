@@ -20,6 +20,18 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
   [Examples](#examples).
 
+## The freemapper suite
+
+freemapper is the first step of a tool chain for orienteering maps. Two follow-up projects are under
+development:
+
+- freemapper makes the starting point of the map,
+- the map is drawn in OOM,
+- [freemapper-courseplan](https://github.com/HenryJobst/freemapper-courseplan) sets the courses in an
+  editor in the browser and checks them against the competition rules,
+- [freemapper-print](https://github.com/HenryJobst/freemapper-print) prints the map sheets, one sheet per
+  course, with the course overprint and control descriptions.
+
 ## Status
 
 The current version is [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) of
