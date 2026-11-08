@@ -19,6 +19,8 @@ in OOM oder OCAD.
 - Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt und Hamburg (Open Data von LGB, Geoportal
   Berlin, GeoSN, LVermGeo und LGV);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
+- Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
+  [`examples/`](examples/).
 
 ## Status
 
@@ -167,7 +169,8 @@ freemapper run vorstadt
 
 An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
 Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
-[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete).
+[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Land liegt unter
+[`examples/`](examples/).
 
 ## Schnelle Trainingskarte (PDF)
 

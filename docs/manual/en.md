@@ -186,6 +186,9 @@ the candidates map and copy and paste the objects. Both maps have the same geore
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar, north
 lines and the attribution. Keep the attribution on printed maps (chapter 15).
 
+The example projects in the repository show what the result looks like, one per state:
+[`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF training map.
+
 ## 8. What the templates show
 
 The examples show the Kreuzgymnasium Dresden. Orthophoto, terrain and surface model: Quelle: GeoSN,

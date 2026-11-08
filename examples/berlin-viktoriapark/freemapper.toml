@@ -1,0 +1,70 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-08"
+buffer_m = 50.0
+crs = 25833
+provider = "lgb"
+title = "Viktoriapark, Berlin-Kreuzberg"
+
+[map_area]
+coordinates = [[[13.375099060633216, 52.48530506647503], [13.386900939366784, 52.48530506647503], [13.386900939366784, 52.49069493352497], [13.375099060633216, 52.49069493352497], [13.375099060633216, 52.48530506647503]]]
+type = "Polygon"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33389-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33389-5816.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33390-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33390-5816.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "dtm"
+tile = "33389-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33389-5816.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33390-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33390-5816.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33389-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33389-5816.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33390-5816"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33390-5816.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[buildings]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-08"
+count = 1199
+regions = ["berlin"]
+
+[land_use]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-08"
+count = 129
+regions = ["berlin"]
+
+[osm]
+extract = "2026-11-06"
+area = [52.48485591088753, 13.374361443212369, 52.49114408911247, 13.387638556787632]
+count = 692

@@ -74,6 +74,9 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
           cp "target/${{ matrix.target }}/release/freemapper$exe" "$dir/"
           cp README.md README.en.md LICENSE "$dir/"
+          # The user manual with its images, at the path the READMEs link to.
+          mkdir -p "$dir/docs"
+          cp -R docs/manual "$dir/docs/"
           if [ "${{ runner.os }}" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
             archive="$dir.zip"

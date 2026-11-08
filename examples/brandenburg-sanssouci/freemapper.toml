@@ -1,0 +1,106 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-08"
+buffer_m = 50.0
+crs = 25833
+provider = "lgb"
+title = "Park Sanssouci, Potsdam"
+
+[map_area]
+coordinates = [[[13.031374240432536, 52.40030506647503], [13.044625759567465, 52.40030506647503], [13.044625759567465, 52.40569493352497], [13.031374240432536, 52.40569493352497], [13.031374240432536, 52.40030506647503]]]
+type = "Polygon"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33366-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5807.zip"
+currency = "2024-04-30"
+published = "2024-10-01"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33366-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5808.zip"
+currency = "2024-04-30"
+published = "2024-10-01"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33367-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33367-5807.zip"
+currency = "2024-04-30"
+published = "2024-10-01"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33367-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33367-5808.zip"
+currency = "2024-04-30"
+published = "2024-10-01"
+
+[[tiles]]
+product = "dtm"
+tile = "33366-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33366-5807.zip"
+currency = "2024-04-30"
+published = "2025-04-08"
+
+[[tiles]]
+product = "dtm"
+tile = "33366-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33366-5808.zip"
+currency = "2024-04-30"
+published = "2025-04-08"
+
+[[tiles]]
+product = "dtm"
+tile = "33367-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33367-5807.zip"
+currency = "2024-04-30"
+published = "2025-04-08"
+
+[[tiles]]
+product = "dtm"
+tile = "33367-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33367-5808.zip"
+currency = "2024-04-30"
+published = "2025-04-08"
+
+[buildings]
+bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
+fetched = "2026-11-08"
+latest_update = "2026-07-13"
+count = 207
+regions = ["brandenburg"]
+
+[land_use]
+bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
+fetched = "2026-11-08"
+latest_update = "2026-05-28"
+count = 186
+regions = ["brandenburg"]
+
+[osm]
+extract = "2026-11-06"
+area = [52.39985591088753, 13.03063804492504, 52.406144089112466, 13.045361955074961]
+count = 932
+
+[[ndsm_tiles]]
+tile = "33366-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz"
+published = "2025-04-02"
+
+[[ndsm_tiles]]
+tile = "33366-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5808_LAS12.laz"
+published = "2025-04-02"
+
+[[ndsm_tiles]]
+tile = "33367-5807"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33367-5807_LAS12.laz"
+published = "2025-04-02"
+
+[[ndsm_tiles]]
+tile = "33367-5808"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33367-5808_LAS12.laz"
+published = "2025-04-02"

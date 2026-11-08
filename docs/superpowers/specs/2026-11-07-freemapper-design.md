@@ -146,7 +146,8 @@ provider; a provider change inside a zone drops the records like a zone change).
 metadata CSV. DGM1 and bDOM (2022, 1 m) read per 1 km tile by HTTP range out of the statewide zips (central directory
 from the archive's end, deflated members checked against their CRC, cached per tile and archive release; a
 server ignoring `Range` is refused, a clamped range is an error). ALKIS from the OGC API
-`alkis_vereinfacht` (`GebaeudeBauwerk`, `NutzungFlurstueck`, 25832) with the ASCII spellings normalised to the LGB ones.
+`alkis_vereinfacht` (`GebaeudeBauwerk`, `NutzungFlurstueck`, 25832) with the ASCII spellings normalised to the LGB ones. When the OGC API fails, the classic WFS
+`WFS_HH_ALKIS_vereinfacht` (the same data, GML) is asked instead.
 Attribution `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten
 geändert`.
 

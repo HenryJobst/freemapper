@@ -1,0 +1,63 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-08"
+buffer_m = 50.0
+crs = 25833
+provider = "geosn"
+title = "Altstadt Bautzen"
+
+[map_area]
+coordinates = [[[14.415267763213727, 51.17930506647503], [14.426732236786272, 51.17930506647503], [14.426732236786272, 51.18469493352497], [14.415267763213727, 51.18469493352497], [14.415267763213727, 51.17930506647503]]]
+type = "Polygon"
+
+[[tiles]]
+product = "saxonydtm"
+tile = "33458-5668"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33458_5668_2_sn_tiff.zip"
+currency = "2025-01-30"
+published = "2025-01-30"
+
+[[tiles]]
+product = "saxonydtm"
+tile = "33458-5670"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33458_5670_2_sn_tiff.zip"
+currency = "2025-01-30"
+published = "2025-01-30"
+
+[[tiles]]
+product = "saxonydsm"
+tile = "33458-5668"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33458_5668_2_sn_tiff.zip"
+currency = "2025-01-30"
+published = "2025-01-30"
+
+[[tiles]]
+product = "saxonydsm"
+tile = "33458-5670"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33458_5670_2_sn_tiff.zip"
+currency = "2025-01-30"
+published = "2025-01-30"
+
+[buildings]
+bbox = [459078.0, 5669870.0, 459985.0, 5670577.0]
+fetched = "2026-11-08"
+latest_update = "2026-10-05"
+count = 1083
+regions = ["saxony"]
+
+[land_use]
+bbox = [459078.0, 5669870.0, 459985.0, 5670577.0]
+fetched = "2026-11-08"
+latest_update = "2026-10-05"
+count = 1317
+regions = ["saxony"]
+
+[osm]
+extract = "2026-11-06"
+area = [51.178855910887535, 14.414551233615443, 51.18514408911247, 14.427448766384556]
+count = 423
+
+[orthophoto]
+flight = "20.03. +  26.03.2024"
+fetched = "2026-11-08"
+bbox = [459078.07003062754, 5669870.780502822, 459984.08699333546, 5670576.475613087]

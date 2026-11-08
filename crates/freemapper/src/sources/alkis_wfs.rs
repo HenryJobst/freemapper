@@ -54,6 +54,18 @@ pub const HVBG: WfsService = WfsService {
     square_bez: "ohne Unterart (Hessen)",
 };
 
+/// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
+/// the OGC API fails; its land use keeps squares without `bez` as they are (the OGC API path
+/// has no `square_bez` either), so `fetch_wfs` is called directly.
+pub const LGV: WfsService = WfsService {
+    name: "LGV ALKIS (WFS)",
+    url: "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm32,
+    square_bez: "ohne Unterart (Hamburg)",
+};
+
 /// Features per page; GeoSN returns at most 20 000 per request.
 #[cfg(not(test))]
 const PAGE_COUNT: usize = 10_000;
