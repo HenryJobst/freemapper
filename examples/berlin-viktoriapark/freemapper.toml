@@ -54,17 +54,59 @@ published = "2026-09-10"
 
 [buildings]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 count = 1199
 regions = ["berlin"]
 
 [land_use]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 count = 129
+regions = ["berlin"]
+
+[berlin_layers.anlagenbaeume]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 1486
+regions = ["berlin"]
+
+[berlin_layers.bauwerke-flaechen]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 143
+regions = ["berlin"]
+
+[berlin_layers.bauwerke-linien]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 895
+regions = ["berlin"]
+
+[berlin_layers.relief]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 182
+regions = ["berlin"]
+
+[berlin_layers.strassenbaeume]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 465
+regions = ["berlin"]
+
+[berlin_layers.vegetation-linien]
+bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
+fetched = "2026-11-09"
+count = 0
 regions = ["berlin"]
 
 [osm]
 extract = "2026-11-06"
 area = [52.48485591088753, 13.374361443212369, 52.49114408911247, 13.387638556787632]
 count = 710
+
+[k5]
+flight = "2026-01-02"
+flight_label = "K5 dataset"
+fetched = "2026-11-09"
+bbox = [389613.7730797059, 5816190.641999358, 390528.49653260794, 5816908.071356393]

@@ -1,5 +1,7 @@
 © OpenStreetMap contributors, ODbL
 © GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert
 © Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert
+Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0
+Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0
 
 Created with freemapper – https://github.com/HenryJobst/freemapper
