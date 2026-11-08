@@ -179,7 +179,7 @@ pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Str
                 Crs::Utm32,
             ),
             Region::Hessen => wfs_buildings(fetcher, &alkis_wfs::HVBG, &in_crs)?,
-            Region::SchleswigHolstein => (Vec::new(), Crs::Utm32), // Task 2: LVermGeo SH ALKIS
+            Region::SchleswigHolstein => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
         })
     })
 }
@@ -209,7 +209,7 @@ pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<Stri
                 Crs::Utm32,
             ),
             Region::Hessen => wfs_land_use(fetcher, &alkis_wfs::HVBG, &in_crs)?,
-            Region::SchleswigHolstein => (Vec::new(), Crs::Utm32), // Task 2: LVermGeo SH ALKIS
+            Region::SchleswigHolstein => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
         })
     })
 }
@@ -250,7 +250,7 @@ fn wfs_land_use(
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
-/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`).
+/// object ids of the states never collide (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`).
 fn merged(
     area: &FetchArea,
     mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
@@ -896,6 +896,58 @@ mod tests {
                 .borrow()
                 .iter()
                 .all(|u| u.starts_with(alkis_wfs::HVBG.url) && u.contains("EPSG::25832"))
+        );
+    }
+
+    #[test]
+    fn cross_border_alkis_reads_both_states() {
+        // A box over the Norderstedt / Hamburg-Langenhorn border (25832 E 565500 / N 5947700).
+        let centre = Crs::Utm33
+            .reproject(
+                Crs::Utm32,
+                crate::crs::ProjectedPoint {
+                    easting: 565_500.0,
+                    northing: 5_947_700.0,
+                },
+            )
+            .unwrap();
+        let region_bbox = BoundingBox {
+            min_e: centre.easting - 400.0,
+            min_n: centre.northing - 400.0,
+            max_e: centre.easting + 400.0,
+            max_n: centre.northing + 400.0,
+        };
+        assert_eq!(
+            regions_for(&region_bbox),
+            vec![Region::Hamburg, Region::SchleswigHolstein]
+        );
+        let area = FetchArea::new(region_bbox, Crs::Utm32);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            crate::sources::lgv::test_support::BUILDINGS
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis_wfs::LVERMGEO_SH.url,
+            alkis_wfs::test_support::SH_BUILDINGS.as_bytes().to_vec(),
+        );
+        let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
+        let oids: Vec<&str> = parsed.buildings.iter().map(|b| b.oid.as_str()).collect();
+        assert!(oids.iter().any(|o| o.starts_with("DEHH")), "{oids:?}");
+        assert!(oids.iter().any(|o| o.starts_with("DESH")), "{oids:?}");
+        let unique: std::collections::HashSet<&&str> = oids.iter().collect();
+        assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
+        // Both states are delivered in the map CRS (25832).
+        for b in &parsed.buildings {
+            let c = b.footprint.0[0].exterior().0[0];
+            assert!((560_000.0..570_000.0).contains(&c.x), "{} {c:?}", b.oid);
+        }
+        let log = fetcher.log.borrow();
+        assert!(
+            log.iter()
+                .any(|u| u.starts_with(alkis_wfs::LVERMGEO_SH.url) && u.contains("EPSG::25832"))
         );
     }
 

@@ -452,6 +452,38 @@ mod tests {
     }
 
     #[test]
+    fn straddling_area_has_both_regions() {
+        // 25832 E 565500 / N 5947700, on the Norderstedt / Hamburg-Langenhorn border.
+        let to_33 = |e: f64, n: f64| {
+            crate::crs::Crs::Utm33
+                .reproject(
+                    crate::crs::Crs::Utm32,
+                    crate::crs::ProjectedPoint {
+                        easting: e,
+                        northing: n,
+                    },
+                )
+                .unwrap()
+        };
+        // Centre in Schleswig-Holstein (north of the border), box reaching into Hamburg.
+        let c = to_33(565_500.0, 5_948_100.0);
+        let north = around(c.easting, c.northing, 700.0);
+        assert_eq!(
+            regions_for(&north),
+            vec![Region::Hamburg, Region::SchleswigHolstein]
+        );
+        assert_eq!(raster_region(&north), Some(Region::SchleswigHolstein));
+        // Centre in Hamburg (south of the border), box reaching into Schleswig-Holstein.
+        let c = to_33(565_500.0, 5_947_100.0);
+        let south = around(c.easting, c.northing, 700.0);
+        assert_eq!(
+            regions_for(&south),
+            vec![Region::Hamburg, Region::SchleswigHolstein]
+        );
+        assert_eq!(raster_region(&south), Some(Region::Hamburg));
+    }
+
+    #[test]
     fn langenhorn_stays_hamburg() {
         // A point in Hamburg-Langenhorn, 25832 E 566000 / N 5946500, about 2 km south of the border.
         let p = crate::crs::Crs::Utm33
