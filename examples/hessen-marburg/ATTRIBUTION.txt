@@ -1,0 +1,4 @@
+© OpenStreetMap contributors, ODbL
+Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert
+
+Created with freemapper – https://github.com/HenryJobst/freemapper
