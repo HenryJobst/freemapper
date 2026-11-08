@@ -47,3 +47,23 @@ fn osm_extract_boundaries_are_valid() {
     let checked = check_boundaries(&assets().join("osm"));
     assert!(checked >= 5, "{checked} assets");
 }
+
+#[test]
+fn niedersachsen_has_bremen_and_bremerhaven_as_holes() {
+    let text = std::fs::read_to_string(assets().join("niedersachsen.geojson")).unwrap();
+    let collection: geojson::FeatureCollection = text.parse().unwrap();
+    let holes: usize = collection
+        .features
+        .into_iter()
+        .map(
+            |f| match geo_types::Geometry::<f64>::try_from(f.geometry.unwrap()).unwrap() {
+                geo_types::Geometry::MultiPolygon(m) => {
+                    m.0.iter().map(|p| p.interiors().len()).sum()
+                }
+                geo_types::Geometry::Polygon(p) => p.interiors().len(),
+                other => panic!("not a polygon: {other:?}"),
+            },
+        )
+        .sum();
+    assert!(holes >= 2, "{holes} holes");
+}
