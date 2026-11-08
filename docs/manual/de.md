@@ -176,6 +176,7 @@ Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
   - den geschätzten Download;
   - den freien Speicherplatz und wie viel davon der Download braucht. Was nicht auf den Datenträger
     passt, trägt in der Liste „Was geladen wird“ den Vermerk „passt nicht auf den Datenträger“.
+    Darüber stehen die Meldungen aus Kapitel 14 und ob freemapper den Teil auslässt oder abbricht.
 - **Kartenart, Maßstab und Titel** einstellen, dann *Speichern* und *Fertig*.
 
 Die Seite läuft nur auf Ihrem Rechner. Ein Gebiet darf mit Puffer höchstens 4 km × 4 km groß sein.
@@ -408,6 +409,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
 | `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell oder Aktualisierung des OSM-Auszugs) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |
 | `not enough disk space for the …` | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
 | `the disk is full, so freemapper could not write …` | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
 | `warning: the disk is full, so freemapper uses the cached OSM extract from …` | Der neue OSM-Auszug passte nicht mehr auf den Datenträger. freemapper nimmt den älteren. | Platz schaffen und später erneut laden. |

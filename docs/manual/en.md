@@ -169,7 +169,8 @@ contributors.*
   - the data tiles that will be downloaded (thin lines on the map);
   - the estimated download;
   - the free disk space and how much of it the download needs. In the list "What is downloaded",
-    anything that does not fit is marked "does not fit on the disk".
+    anything that does not fit is marked "does not fit on the disk". Above it the page shows the
+    messages from chapter 14 and whether freemapper leaves the part out or stops.
 - Set **map kind, scale and title**, then click *Save* and *Done*.
 
 The page runs only on your computer. With its buffer, an area may be at most 4 km × 4 km.
@@ -400,6 +401,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
 | `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model or the update of the OSM extract) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so does the older OSM extract. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
+| `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
 | `not enough disk space for the …` | There is no room for the map data, the terrain model or the orthophoto. Without them there is no map, so freemapper stops before it downloads anything. | Free some space, or put the cache on another drive with `--cache-dir`, then start again. |
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |
 | `warning: the disk is full, so freemapper uses the cached OSM extract from …` | The new OSM extract no longer fitted on the disk. freemapper uses the older one. | Free some space and fetch again later. |
