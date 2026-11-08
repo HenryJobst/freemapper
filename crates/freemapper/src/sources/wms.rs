@@ -438,6 +438,33 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(fetcher.calls.get(), 1);
     }
 
+    #[test]
+    fn wrong_size_dop_piece_is_an_error() {
+        let grid = GridSpec {
+            west: 312_000.0,
+            north: 5_996_400.0,
+            pixel_size: ORTHOPHOTO_PIXEL_M,
+            width: 4000,
+            height: 100,
+        };
+        let fetcher = MapFetcher::default();
+        let (_, url) = &source_pieces(&dop_source(), &grid)[0];
+        fetcher.insert(url, solid_jpeg(3999, 100, [1, 2, 3]));
+        let dir = tempfile::tempdir().unwrap();
+        let error = fetch_orthophoto_from(
+            &fetcher,
+            &dop_source(),
+            &grid.bounds(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("3999 × 100 pixels instead of 4000 × 100"),
+            "{error}"
+        );
+    }
+
     fn mbbox() -> BoundingBox {
         BoundingBox {
             min_e: 312_057.0,
@@ -457,11 +484,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let image = image::open(&out).unwrap().into_rgb8();
         assert_eq!((image.width(), image.height()), (1000, 1000));
         let jgw = std::fs::read_to_string(out.with_extension("jgw")).unwrap();
-        eprintln!(
-            "{} bytes, jgw:\n{jgw}",
-            std::fs::metadata(&out).unwrap().len()
+        let v: Vec<f64> = jgw.lines().map(|l| l.trim().parse().unwrap()).collect();
+        let expected = GridSpec::covering(&mbbox(), ORTHOPHOTO_PIXEL_M).world_file();
+        eprintln!("jgw:\n{jgw}expected:\n{expected}");
+        assert!(
+            (v[0] - 0.2).abs() < 1e-9 && (v[3] + 0.2).abs() < 1e-9,
+            "{v:?}"
         );
-        std::fs::copy(&out, "/private/tmp/claude-502/-Users-henryprivat-Documents-gitrepos-freemapper/626dafd0-2cfb-4a8b-9864-ebf6d40c8bb0/scratchpad/dop_live.jpg").ok();
+        assert!(
+            (v[4] - 312_057.1).abs() < 0.001 && (v[5] - 5_996_416.9).abs() < 0.001,
+            "{v:?}"
+        );
     }
 
     #[test]
