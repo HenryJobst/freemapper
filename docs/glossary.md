@@ -139,9 +139,9 @@ Orienteering Maps 2019 (IOF).
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
 | Platzhaltersymbol | placeholder symbol | Symbol mit Nummer, Name und Hauptfarbe, aber vereinfachter Grafik; in OCAD durch den offiziellen Satz ersetzt. | `Placeholder` |
 | Gebietsauswahl | area selection | Kartengebiet auf einer lokalen Browserseite suchen oder zeichnen und speichern. | `select`, `Selector`, `open_area_selector` |
-| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
+| Region | region | Land mit eigenen Datenquellen (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern); ein Kartengebiet an der Landesgrenze gehört zu mehreren. | `Region`, `regions_for` |
 | Rasterregion | raster region | Die Region, in der die Mitte des Kartengebiets liegt; aus ihr kommen Luftbild, Geländemodell und nDOM. | `raster_region` |
-| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen) oder LVermGeo SH (Schleswig-Holstein). | `Provider` |
+| Anbieter | provider | Stelle, die die Rasterdaten einer Region liefert: LGB (Brandenburg, Berlin), GeoSN (Sachsen), LVermGeo (Sachsen-Anhalt), LGV (Hamburg), HVBG (Hessen), LVermGeo SH (Schleswig-Holstein) oder LAiV M-V (Mecklenburg-Vorpommern). | `Provider` |
 | Koordinatensystem (Zone) | CRS (zone) | ETRS89/UTM-Zone 32 (EPSG:25832) oder 33 (EPSG:25833); jede Karte bekommt die Zone ihrer Rasterregion. | `Crs`, `ProjectFile::crs` |
 | Landesgrenze (Berlin) | Berlin boundary | Umriss Berlins aus ALKIS (`alkis:land`), 25 m vereinfacht; entscheidet über die Region. | `BERLIN_BOUNDARY` |
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
