@@ -88,7 +88,7 @@ fn estimate_area(
     let mut items = match raster_region(bbox).map(Region::provider) {
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
         Some(Provider::LvermGeo) => lvermgeo_items(bbox),
-        Some(Provider::Lgv) => lgv_items(bbox),
+        Some(Provider::Lgv) => lgv_items(bbox, cache),
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         _ => lgb_items(&tiles, cache),
     };
@@ -194,22 +194,25 @@ fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
 }
 
 /// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide
-/// archives (≈2 MB DGM1 and ≈4 MB bDOM per 1 km tile touched).
-fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+/// archives (≈2 MB DGM1 and ≈4 MB bDOM per 1 km tile touched, those already cached left out).
+fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     use crate::sources::lgv::Model;
-    let tiles = zone_32_tiles(bbox).len() as f64;
+    let tiles = zone_32_tiles(bbox);
+    let model_item = |model: Model, mb_per_tile: f64| {
+        let open = tiles
+            .iter()
+            .filter(|t| !model.tile_cache_file(cache, **t).exists())
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        }
+    };
     vec![
         per_km2_item(bbox, "orthophoto (LGV WMS)", GEOSN_WMS_MB_PER_KM2),
-        EstimateItem {
-            what: Model::Dgm1.label().to_string(),
-            megabytes: tiles * 2.0,
-            cached: false,
-        },
-        EstimateItem {
-            what: Model::Bdom.label().to_string(),
-            megabytes: tiles * 4.0,
-            cached: false,
-        },
+        model_item(Model::Dgm1, 2.0),
+        model_item(Model::Bdom, 4.0),
     ]
 }
 
@@ -744,6 +747,46 @@ mod tests {
         assert!((dgm1.megabytes - 2.1 * (n - 1.0)).abs() < 1e-9 && !dgm1.cached);
         let dom1 = item("surface model (HVBG DOM1)", &cache);
         assert!((dom1.megabytes - 3.0 * n).abs() < 1e-9);
+    }
+
+    #[test]
+    fn hamburg_estimate_marks_cached_tiles() {
+        use crate::sources::lgv::Model;
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 168_078.0,
+            northing: 5_949_079.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let tiles = zone_32_tiles(&area.projected_bbox().buffered(20.0));
+        let item = |what: &str, cache: &Cache| {
+            preview_area(&area, 20.0, cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == what)
+                .unwrap()
+        };
+        let label = Model::Dgm1.label();
+        assert!(!item(label, &cache).cached);
+        // Every tile of the DGM1 in the cache, none of the bDOM.
+        let dir = cache.lgv_dir().join("dgm1").join(Model::Dgm1.release());
+        std::fs::create_dir_all(&dir).unwrap();
+        for (i, t) in tiles.iter().enumerate() {
+            std::fs::write(
+                dir.join(format!("dgm1_32_{:03}_{:04}_.tif", t.east_km, t.north_km)),
+                b"x",
+            )
+            .unwrap();
+            let dgm1 = item(label, &cache);
+            let open = (tiles.len() - i - 1) as f64;
+            assert!((dgm1.megabytes - 2.0 * open).abs() < 1e-9, "{dgm1:?}");
+            assert_eq!(dgm1.cached, open == 0.0);
+        }
+        let bdom = item(Model::Bdom.label(), &cache);
+        assert!(!bdom.cached && (bdom.megabytes - 4.0 * tiles.len() as f64).abs() < 1e-9);
     }
 
     #[test]
