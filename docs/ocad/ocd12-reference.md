@@ -597,10 +597,10 @@ official set is OCAD 2018+, which opens V12 files.
 | 101 | Contour (line) | 101000 | 101.000 Contour (line) | **101000** | 101.000 | high |
 | 102 | Index contour (line) | 102000 | 102.000 Index contour (line) | **102000** | 102.000 | high |
 | 201 | Impassable cliff (line) | 201000 | 201.000 Uncrossable cliff (line) | **201000** | 201.000 | high |
-| 321 | Hydrant (point) | 321000 | – (not in sprint set) | **321000** | 321.000 Hydrant (point) | medium |
 | 301 | Uncrossable body of water (combined → area) | 301000 | 301.000 Uncrossable body of water (Area & Line) (area) | **301000** | 301.000 | high |
 | 301.1 | Uncrossable body of water, fill (area) | 301100 ✗ (absent) | 301.001 Uncrossable body of water (Area) | **301001** | 301.001 | high |
 | 301.6 | Uncrossable body of water, bank line (line) | 301600 ✗ (absent) | 301.002 Uncrossable body of water (Line) | **301002** | 301.002 | high |
+| 321 | Hydrant (point) | 321000 | – (not in sprint set) | **321000** | 321.000 Hydrant (point) | medium |
 | 401 | Open land (area) | 401000 | 401.000 Open land (area) | **401000** | 401.000 | high |
 | 410.1 | Impassable veg., hedge (line) | 410001 ✗ = 410.001 "Vegetation: fight, one direction" (area) | **411.002** Uncrossable vegetation, hedge (line). 410.002 = "Vegetation: fight, hedge" | **411002** (sprint) / **410002** (school, 1st-edition numbering) | 410.002 | high / medium |
 | 418 | Prominent bush (point) | 418000 | 418.000 (point) | **418000** | 418.000 | high |
