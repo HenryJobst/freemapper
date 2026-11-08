@@ -33,7 +33,8 @@ that water or inside a kept OSM 301 area (mostly fountain jets in a basin) are d
 
 Addendum (2026-11-08, final review): holes get the same 2 m width cap as the water, so an island or mole of 2 m mean
 width keeps its bank line at 1:4000 (f43bf6b). Parcel parts are cut to the clip window plus 5 m after the width test
-and before the union, so a huge `Meer` parcel costs what the map needs (066a3ff). The water rules skip only the tunnel
+and before the union, so a huge `Meer` parcel costs what the map needs. The cut keeps the vertices inside exact, so a
+cut parcel still meets its neighbour (066a3ff, 51e2bb1). The water rules skip only the tunnel
 values, so `tunnel=no` keeps a stream or pond (ee21c5d).
 
 Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
