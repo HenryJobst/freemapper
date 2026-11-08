@@ -1422,11 +1422,59 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
+    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
+    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
+    pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::{alkis_wfs, hvbg};
+        serve_hessen_models(fetcher, bbox);
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!("{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap", hvbg::WMS.url),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                hvbg::WMS.url
+            ),
+            b"name = 'dop_476500_5552000'  land = 'he'  aufloesung = '20'  farbe = 'rgb'  \
+              bezug = 'BDOM'  flugjahr = '2025'  bildflug = '19-08-2025'  aenderung = '12-10-2026'\n"
+                .to_vec(),
+        );
+        let service = alkis_wfs::HVBG;
+        for (type_name, body) in [
+            (
+                service.buildings_type,
+                alkis_wfs::test_support::HE_BUILDINGS,
+            ),
+            (service.land_use_type, alkis_wfs::test_support::HE_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    service.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let extract = crate::sources::osm::ExtractSource::Hessen;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// Serves the HVBG height models of a Hesse project in `bbox` (EPSG:25832): the DGM1 and
     /// DOM1 product trees, the Frankfurt listings, the metadata list (every tile of `bbox` in
     /// Frankfurt am Main, flown 2023-02-28) and the municipal zips with the 1 km tiles (terrain
     /// 100 m rising 0.01 m per metre east, surface 12 m above).
-    pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+    pub fn serve_hessen_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use crate::sources::hvbg::{self, test_support as he};
         const DISTRICT: &str = "Kreisfreie Stadt Frankfurt am Main";
         let tiles = crate::tiles::tiles_covering(bbox);

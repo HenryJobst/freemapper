@@ -24,6 +24,7 @@ pub const WMS: WmsService = WmsService {
     layer: "dop_zeitreihe_unbelaubt",
     crs: Crs::Utm32,
     extra: "&TIME=2026",
+    max_px: 4000,
 };
 /// The flight dates of the DOP tiles, per vintage.
 pub const METADATA_URL: &str = "https://www.daten-hamburg.de/opendata/fernerkundung_luftbilder/dop_unbelaubt/DOP_unbelaubt_AdV-Metadaten_Hamburg.zip";

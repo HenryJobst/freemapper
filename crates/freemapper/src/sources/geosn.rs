@@ -23,6 +23,7 @@ pub const WMS: WmsService = WmsService {
     layer: WMS_LAYER,
     crs: Crs::Utm33,
     extra: "",
+    max_px: 4000,
 };
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";
 pub use crate::sources::wms::ORTHOPHOTO_PIXEL_M;

@@ -9,8 +9,6 @@ use crate::raster::GridSpec;
 
 /// Pixel size of the orthophoto template, as DOP20.
 pub const ORTHOPHOTO_PIXEL_M: f64 = 0.2;
-/// Largest side of one WMS request; the servers allow 4096.
-const WMS_MAX_PX: u32 = 4000;
 /// JPEG quality of the stitched orthophoto.
 const JPEG_QUALITY: u8 = 90;
 
@@ -22,12 +20,15 @@ pub struct WmsService {
     pub crs: Crs,
     /// More GetMap parameters, e.g. `&TIME=2026`.
     pub extra: &'static str,
+    /// Largest side of one GetMap request in pixels (the server's MaxWidth/MaxHeight).
+    pub max_px: u32,
 }
 
-/// The GetMap requests covering `grid` (in the service's CRS): pieces of at most [`WMS_MAX_PX`]
+/// The GetMap requests covering `grid` (in the service's CRS): pieces of at most `service.max_px`
 /// per side, each with its own grid inside `grid`.
 pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    let starts = |len: u32| (0..len.div_ceil(WMS_MAX_PX)).map(|i| i * WMS_MAX_PX);
+    let max = service.max_px;
+    let starts = |len: u32| (0..len.div_ceil(max)).map(|i| i * max);
     let mut pieces = Vec::new();
     for x0 in starts(grid.width) {
         for y0 in starts(grid.height) {
@@ -35,8 +36,8 @@ pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> 
                 west: mm(grid.west + f64::from(x0) * grid.pixel_size),
                 north: mm(grid.north - f64::from(y0) * grid.pixel_size),
                 pixel_size: grid.pixel_size,
-                width: WMS_MAX_PX.min(grid.width - x0),
-                height: WMS_MAX_PX.min(grid.height - y0),
+                width: max.min(grid.width - x0),
+                height: max.min(grid.height - y0),
             };
             let b = piece.bounds();
             let url = format!(
@@ -64,6 +65,23 @@ pub(crate) fn mm(v: f64) -> f64 {
     (v * 1000.0).round() / 1000.0
 }
 
+/// The message of a WMS ServiceException / MapServer error document; `None` when `text` is not
+/// XML.
+fn xml_message(text: &str) -> Option<String> {
+    let t = text.trim_start();
+    if !t.starts_with('<') {
+        return None;
+    }
+    let body = t
+        .find("Exception")
+        .and_then(|i| t[i..].find('>').map(|j| i + j + 1));
+    let inner = body.map_or(t, |b| &t[b..]);
+    let end = inner.find('<').unwrap_or(inner.len());
+    let message = inner[..end].trim();
+    let message = if message.is_empty() { t } else { message };
+    Some(message.chars().take(300).collect())
+}
+
 /// Downloads the orthophoto over `bbox` (in the service's CRS) at 0.2 m from the WMS, stitched, as
 /// `out` (JPEG) with its world file (`.jgw`), on the template grid of `bbox`.
 pub fn fetch_orthophoto(
@@ -80,11 +98,16 @@ pub fn fetch_orthophoto(
                 url: url.clone(),
                 message,
             };
+            if !bytes.starts_with(&[0xFF, 0xD8]) {
+                // A WMS reports errors as HTTP 200 with an XML document.
+                let text = String::from_utf8_lossy(&bytes[..bytes.len().min(600)]);
+                return Err(refused(match xml_message(&text) {
+                    Some(message) => format!("not a JPEG, the WMS answered: {message}"),
+                    None => format!("not a JPEG: {}", &text[..text.len().min(80)]),
+                }));
+            }
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
-                .map_err(|e| {
-                    let start = String::from_utf8_lossy(&bytes[..bytes.len().min(80)]).into_owned();
-                    refused(format!("not a JPEG ({e}): {start}"))
-                })?
+                .map_err(|e| refused(format!("not a JPEG ({e})")))?
                 .into_rgb8();
             if (image.width(), image.height()) != (piece.width, piece.height) {
                 return Err(refused(format!(
@@ -118,4 +141,104 @@ pub fn fetch_orthophoto(
     write_atomically(out, &jpeg)?;
     write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fetch::test_support::{MapFetcher, solid_jpeg};
+    use crate::sources::{geosn, hvbg, lgv, lvermgeo};
+
+    fn grid(width: u32, height: u32) -> GridSpec {
+        GridSpec {
+            west: 476_000.0,
+            north: 5_553_000.0,
+            pixel_size: ORTHOPHOTO_PIXEL_M,
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn hvbg_wms_pieces_are_at_most_3000_px() {
+        let pieces = pieces(&hvbg::WMS, &grid(7000, 3500));
+        let sizes: Vec<(u32, u32)> = pieces.iter().map(|(g, _)| (g.width, g.height)).collect();
+        assert_eq!(
+            sizes,
+            [
+                (3000, 3000),
+                (3000, 500),
+                (3000, 3000),
+                (3000, 500),
+                (1000, 3000),
+                (1000, 500)
+            ]
+        );
+        assert!(pieces[0].1.contains("LAYERS=he_dop20_rgb"));
+        assert!(pieces[0].1.contains("CRS=EPSG:25832"));
+        assert!(pieces[0].1.contains("WIDTH=3000&HEIGHT=3000"));
+    }
+
+    #[test]
+    fn other_wms_pieces_stay_4000_px() {
+        for service in [geosn::WMS, lvermgeo::WMS, lgv::WMS] {
+            let pieces = pieces(&service, &grid(9000, 5000));
+            assert_eq!(pieces.len(), 6, "{}", service.url);
+            assert!(
+                pieces
+                    .iter()
+                    .all(|(g, _)| g.width <= 4000 && g.height <= 4000),
+                "{}",
+                service.url
+            );
+            assert_eq!((pieces[0].0.width, pieces[0].0.height), (4000, 4000));
+        }
+    }
+
+    fn bbox() -> BoundingBox {
+        BoundingBox {
+            min_e: 476_000.0,
+            min_n: 5_552_800.0,
+            max_e: 476_200.0,
+            max_n: 5_553_000.0,
+        }
+    }
+
+    #[test]
+    fn xml_wms_answer_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            hvbg::WMS.url,
+            br#"<?xml version="1.0" encoding="UTF-8"?>
+<ServiceExceptionReport version="1.3.0"><ServiceException code="InvalidDimensionValue">
+msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HEIGHT must be between 1 and 3000 pixels.
+</ServiceException></ServiceExceptionReport>"#
+                .to_vec(),
+        );
+        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("Image size out of range") && !error.contains("JPEG decode"),
+            "{error}"
+        );
+        assert!(error.contains("the WMS answered"), "{error}");
+    }
+
+    #[test]
+    fn hung_wms_request_is_retried() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(hvbg::WMS.url, solid_jpeg(1000, 1000, [1, 2, 3]));
+        // A request that hangs surfaces as a timeout error from the client; the fetcher
+        // models it as a transient failure.
+        fetcher
+            .flaky
+            .borrow_mut()
+            .insert(hvbg::WMS.url.to_string(), 2);
+        let out = dir.path().join("o.jpg");
+        fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &out).unwrap();
+        assert!(out.exists());
+    }
 }

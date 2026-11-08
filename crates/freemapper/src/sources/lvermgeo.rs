@@ -15,6 +15,7 @@ pub const WMS: WmsService = WmsService {
     layer: "lsa_lvermgeo_dop20_2",
     crs: Crs::Utm32,
     extra: "",
+    max_px: 4000,
 };
 /// The tile index with flight dates (ArcGIS WFS, GeoJSON output).
 pub const INDEX_URL: &str = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis";

@@ -89,8 +89,7 @@ fn estimate_area(
         Some(Provider::GeoSn) => geosn_items(&tiles, bbox, cache),
         Some(Provider::LvermGeo) => lvermgeo_items(bbox),
         Some(Provider::Lgv) => lgv_items(bbox),
-        // Task 5: the HVBG download items.
-        Some(Provider::Hvbg) => Vec::new(),
+        Some(Provider::Hvbg) => hvbg_items(bbox),
         _ => lgb_items(&tiles, cache),
     };
     let mut sources: Vec<ExtractSource> = Vec::new();
@@ -181,6 +180,28 @@ fn lgv_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
         item("orthophoto (LGV WMS)".to_string(), GEOSN_WMS_MB_PER_KM2),
         item(Model::Dgm1.label().to_string(), 2.0),
         item(Model::Bdom.label().to_string(), 4.0),
+    ]
+}
+
+/// HVBG: the WMS orthophoto, the height models read out of the municipal zips (≈2.5 MB DGM1 and
+/// ≈3 MB DOM1 per km²) and the metadata list that finds the zips.
+fn hvbg_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
+    use crate::sources::hvbg::Model;
+    let km2 = bbox.width() * bbox.height() / 1e6;
+    let item = |what: String, mb_per_km2: f64| EstimateItem {
+        what,
+        megabytes: (km2 * mb_per_km2).max(0.1),
+        cached: false,
+    };
+    vec![
+        item("orthophoto (HVBG WMS)".to_string(), GEOSN_WMS_MB_PER_KM2),
+        item(Model::Dgm1.label().to_string(), 2.5),
+        item(Model::Dom1.label().to_string(), 3.0),
+        EstimateItem {
+            what: "tile metadata list (HVBG)".to_string(),
+            megabytes: 1.0,
+            cached: false,
+        },
     ]
 }
 
@@ -581,6 +602,45 @@ mod tests {
         assert!(
             what.contains(&"OSM extract Hamburg (shared by all projects)"),
             "{what:?}"
+        );
+    }
+
+    #[test]
+    fn hessen_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Lessing-Gymnasium in Frankfurt, 25833 E 47838 N 5571740.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: 47_838.0,
+            northing: 5_571_740.0,
+        })
+        .unwrap();
+        let area = square(p.lon, p.lat, 0.002);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let items = &preview.estimate.items;
+        let find = |what: &str| {
+            items
+                .iter()
+                .find(|i| i.what == what)
+                .unwrap_or_else(|| panic!("{what} in {items:?}"))
+        };
+        // The estimate counts in the region CRS (25833).
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        assert!(near(find("orthophoto (HVBG WMS)").megabytes, km2 * 8.0));
+        assert!(near(find("terrain model (HVBG DGM1)").megabytes, km2 * 2.5));
+        assert!(near(find("surface model (HVBG DOM1)").megabytes, km2 * 3.0));
+        assert!(near(find("tile metadata list (HVBG)").megabytes, 1.0));
+        assert!(near(
+            find("OSM extract Hesse (shared by all projects)").megabytes,
+            348.0
+        ));
+        assert!(
+            items
+                .iter()
+                .filter(|i| i.what.contains("HVBG"))
+                .all(|i| !i.cached)
         );
     }
 

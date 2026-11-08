@@ -8,11 +8,12 @@ use std::rc::Rc;
 
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::lvermgeo::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
+use crate::sources::wms::WmsService;
 use crate::sources::xlsx::{excel_date, xlsx_rows};
 use crate::sources::zip_range::{
     Member, cached_member, find_member, parse_directory, read_directory_bytes, refused,
@@ -22,6 +23,18 @@ use crate::tiles::{TileId, tiles_covering};
 /// The Downloadcenter's REST API (undocumented): the product tree and the files per district.
 pub const REST_URL: &str =
     "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter";
+/// The orthophoto WMS. `he_dop20_rgb` is only served below scale 1:9000, which is where the
+/// 0.2 m requests are; MaxWidth/MaxHeight is 3000 (an oversize request is an XML exception).
+pub const WMS: WmsService = WmsService {
+    url: "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows",
+    layer: "he_dop20_rgb",
+    crs: Crs::Utm32,
+    extra: "",
+    max_px: 3000,
+};
+/// The queryable info layer with the flight date per tile.
+const WMS_INFO_LAYER: &str = "he_dop_rgb_info";
+
 /// The host of the files and documents the REST answers link by path.
 const HOST: &str = "https://gds.hessen.de";
 /// Most listing pages read per district (20 files each; Marburg-Biedenkopf needs two).
@@ -147,7 +160,7 @@ impl TileIndex {
             if !place.municipality.is_empty() && !record.places.contains(&place) {
                 record.places.push(place);
             }
-            let date = flight_date(cell(date_at)).ok_or_else(|| {
+            let date = metadata_date(cell(date_at)).ok_or_else(|| {
                 format!(
                     "tile {}: Bildflugdatum \"{}\" is not a date",
                     cell(tile_at),
@@ -168,7 +181,7 @@ impl TileIndex {
 }
 
 /// A `Bildflugdatum` as `YYYY-MM-DD`: an Excel serial, or text `DD.MM.YYYY`.
-fn flight_date(cell: &str) -> Option<String> {
+fn metadata_date(cell: &str) -> Option<String> {
     excel_date(cell).or_else(|| {
         chrono::NaiveDate::parse_from_str(cell, "%d.%m.%Y")
             .ok()
@@ -777,6 +790,38 @@ impl<'a> Session<'a> {
             .collect();
         Ok(best_match(&keys, &place.municipality).map(|at| files[at].1.clone()))
     }
+}
+
+/// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
+/// GetFeatureInfo on the info layer; `None` outside the coverage or when the answer has none.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let url = format!(
+        "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
+         &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
+        WMS.url,
+        WMS.crs.epsg(),
+        crate::sources::wms::mm(e - 100.0),
+        crate::sources::wms::mm(n - 100.0),
+        crate::sources::wms::mm(e + 100.0),
+        crate::sources::wms::mm(n + 100.0),
+    );
+    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec())).ok()?;
+    parse_flight_date(&String::from_utf8_lossy(&bytes))
+}
+
+/// `bildflug = 'DD-MM-YYYY'` of a GetFeatureInfo text answer, as `DD.MM.YYYY`.
+fn parse_flight_date(text: &str) -> Option<String> {
+    let rest = text.split("bildflug").nth(1)?;
+    let value = rest.split('\'').nth(1)?;
+    let parts: Vec<&str> = value.split('-').collect();
+    let [d, m, y] = parts[..] else { return None };
+    let digits = |s: &str, n| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
 }
 
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), read out of the Downloadcenter's
@@ -1510,6 +1555,47 @@ mod tests {
         assert_eq!(raster.get(250, 250), 1.0, "445/5555 from Wiesbaden");
         assert_eq!(raster.get(250, 750), 2.0, "445/5554 from Taunusstein");
         assert_eq!(raster.get(750, 250), 2.0);
+    }
+
+    #[test]
+    fn flight_date_from_get_feature_info() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!("{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo", WMS.url),
+            b"name = 'dop_476500_5552000'  land = 'he'  aufloesung = '20'  farbe = 'rgb'  \
+              bezug = 'BDOM'  flugjahr = '2025'  bildflug = '19-08-2025'  aenderung = '12-10-2026'\n"
+                .to_vec(),
+        );
+        assert_eq!(
+            flight_date(&fetcher, &SCHOOL).as_deref(),
+            Some("19.08.2025")
+        );
+        let url = fetcher.log.borrow()[0].clone();
+        for part in [
+            "LAYERS=he_dop_rgb_info",
+            "QUERY_LAYERS=he_dop_rgb_info",
+            "CRS=EPSG:25832",
+            "WIDTH=100&HEIGHT=100&I=50&J=50",
+            "INFO_FORMAT=text/plain",
+        ] {
+            assert!(url.contains(part), "{part} in {url}");
+        }
+        let centre_box = format!(
+            "BBOX={},{},{},{}",
+            (SCHOOL.min_e + SCHOOL.max_e) / 2.0 - 100.0,
+            (SCHOOL.min_n + SCHOOL.max_n) / 2.0 - 100.0,
+            (SCHOOL.min_e + SCHOOL.max_e) / 2.0 + 100.0,
+            (SCHOOL.min_n + SCHOOL.max_n) / 2.0 + 100.0,
+        );
+        assert!(url.contains(&centre_box), "{centre_box} in {url}");
+
+        let none = MapFetcher::default();
+        none.insert_prefix(WMS.url, b"Search returned no results.\n".to_vec());
+        assert_eq!(flight_date(&none, &SCHOOL), None);
+        let xml = MapFetcher::default();
+        xml.insert_prefix(WMS.url, b"<ServiceExceptionReport/>".to_vec());
+        assert_eq!(flight_date(&xml, &SCHOOL), None);
+        assert_eq!(flight_date(&MapFetcher::default(), &SCHOOL), None);
     }
 
     #[test]
