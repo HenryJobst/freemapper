@@ -910,7 +910,7 @@ fn fetch_wms_orthophoto(
 
 /// The warning for a map area that reaches beyond the union of the supported states: abroad, into
 /// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
-/// Bavaria, Baden-Württemberg, Rhineland-Palatinate, Saarland). The states' services stop at
+/// Bavaria, Baden-Württemberg, Saarland). The states' services stop at
 /// their borders.
 const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
