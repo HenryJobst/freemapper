@@ -78,6 +78,18 @@ pub const LGV: WfsService = WfsService {
     square_bez: "ohne Unterart (Hamburg)",
 };
 
+/// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833; land use per parcel part): the classic WFS beside
+/// the OGC API, with the same data and the LGB spellings. Used when the OGC API fails. Only
+/// 25833 is accepted (25832 gives HTTP 400).
+pub const LAIV_MV: WfsService = WfsService {
+    name: "LAiV M-V ALKIS (WFS)",
+    url: "https://www.geodaten-mv.de/dienste/alkis_wfs_einfach",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm33,
+    square_bez: "ohne Unterart (Mecklenburg-Vorpommern)",
+};
+
 /// Features per page; GeoSN returns at most 20 000 per request.
 #[cfg(not(test))]
 const PAGE_COUNT: usize = 10_000;
