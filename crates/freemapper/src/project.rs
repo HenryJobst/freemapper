@@ -1149,10 +1149,7 @@ fn fetch_hvbg_rasters(
             collect(&found);
             project.surface = Some(record(&found, &project.surface));
         }
-        Err(e) => progress(&format!(
-            "warning: {} unavailable ({e}); no nDSM template",
-            Model::Dom1.label()
-        )),
+        Err(e) => keep_surface(dir, mode, project, bbox, Model::Dom1.label(), &e, progress),
     }
     for warning in &list_warnings {
         progress(&format!("warning: {warning}"));
@@ -1258,18 +1255,45 @@ fn fetch_sh_rasters(
             }
             project.surface = Some(record(&found, &project.surface));
         }
-        Err(e) => {
-            progress(&format!(
-                "warning: {} unavailable ({e}); no nDSM template",
-                Model::Bdom.label()
-            ));
-            // An older surface model would still make derive write an nDSM.
-            project.surface = None;
-            let _ = std::fs::remove_file(dir.join(SURFACE_RELPATH));
-        }
+        Err(e) => keep_surface(dir, mode, project, bbox, Model::Bdom.label(), &e, progress),
     }
     project.save(dir)?;
     Ok(())
+}
+
+/// After the surface model `label` of a per-area provider failed with `e`: the stored one is
+/// kept when its record still covers `bbox` (derive uses it), and dropped with its file when it
+/// does not; offline nothing is deleted (derive ignores a record that does not cover the area).
+fn keep_surface(
+    dir: &Path,
+    mode: FetchMode,
+    project: &mut ProjectFile,
+    bbox: &BoundingBox,
+    label: &str,
+    e: &dyn std::fmt::Display,
+    progress: &mut dyn FnMut(&str),
+) {
+    let stored = project
+        .surface
+        .as_ref()
+        .filter(|r| r.covers(bbox) && dir.join(SURFACE_RELPATH).exists());
+    if let Some(record) = stored {
+        progress(&format!(
+            "warning: {label} unavailable ({e}); kept the surface model fetched on {}",
+            record.fetched
+        ));
+        return;
+    }
+    progress(&format!(
+        "warning: {label} unavailable ({e}); no nDSM template"
+    ));
+    if mode == FetchMode::Online {
+        project.surface = None;
+        let surface = dir.join(SURFACE_RELPATH);
+        for file in [surface.clone(), surface.with_extension("tfw")] {
+            let _ = std::fs::remove_file(file);
+        }
+    }
 }
 
 /// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
@@ -3251,6 +3275,46 @@ mod tests {
     }
 
     #[test]
+    fn hessen_dom1_failure_keeps_a_covering_surface_and_drops_another() {
+        use crate::sources::hvbg::{self, Model};
+        for shrink in [false, true] {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
+            fetch(dir.path(), &fetcher, &cache);
+            if shrink {
+                let mut project = ProjectFile::load(dir.path()).unwrap();
+                project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+                project.save(dir.path()).unwrap();
+            }
+            // A fresh cache: the DOM1 must be read again, and its product tree fails.
+            let cache_dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(cache_dir.path().to_path_buf());
+            fetcher
+                .failing
+                .borrow_mut()
+                .push(hvbg::tree_url(Model::Dom1));
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
+            let warning = messages
+                .iter()
+                .find(|m| m.starts_with(&unavailable))
+                .unwrap_or_else(|| panic!("{messages:?}"));
+            if shrink {
+                assert!(warning.ends_with("no nDSM template"), "{warning}");
+                assert!(project.surface.is_none());
+                assert!(!dir.path().join(SURFACE_RELPATH).exists());
+            } else {
+                assert!(
+                    warning.contains("kept the surface model fetched on"),
+                    "{warning}"
+                );
+                assert!(project.surface.is_some());
+                assert!(dir.path().join(SURFACE_RELPATH).exists());
+            }
+        }
+    }
+
+    #[test]
     fn hessen_fetch_warns_about_unresolved_places() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
@@ -3474,35 +3538,95 @@ mod tests {
         );
     }
 
-    #[test]
-    fn schleswig_holstein_bdom_failure_on_a_refetch_drops_the_old_surface() {
+    /// The SH school fetched online once, then again in `mode` with the bDOM unavailable
+    /// (offline: its tiles gone from the cache; online: the tile list an error page and none
+    /// kept); `shrink` makes the stored surface record one of a smaller (another) area first.
+    fn refetch_with_bdom_failing(
+        mode: FetchMode,
+        shrink: bool,
+    ) -> (tempfile::TempDir, ProjectFile, Vec<String>) {
+        use crate::sources::lvermgeo_sh::{Product, overview_prefix};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         assert!(dir.path().join(SURFACE_RELPATH).exists());
-        // Offline without the bDOM tiles: the surface model cannot be read again.
-        std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("bdom")).unwrap();
+        if shrink {
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+            project.save(dir.path()).unwrap();
+        }
+        let again = MapFetcher::default();
+        let fetcher = match mode {
+            FetchMode::Offline => {
+                std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("bdom")).unwrap();
+                &again
+            }
+            FetchMode::Online => {
+                for entry in std::fs::read_dir(cache.lvermgeo_sh_dir().join("overview")).unwrap() {
+                    let path = entry.unwrap().path();
+                    if path
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with("bdom_")
+                    {
+                        std::fs::remove_file(path).unwrap();
+                    }
+                }
+                fetcher.insert_prefix(
+                    &overview_prefix(Product::Bdom),
+                    b"<html>maintenance</html>".to_vec(),
+                );
+                &fetcher
+            }
+        };
         let mut messages = Vec::new();
-        let project = fetch_project(
-            dir.path(),
-            &MapFetcher::default(),
-            &cache,
-            FetchMode::Offline,
-            &mut |m| messages.push(m.to_string()),
-        )
+        let project = fetch_project(dir.path(), fetcher, &cache, mode, &mut |m| {
+            messages.push(m.to_string())
+        })
         .unwrap();
+        // Derive needs a cache only for tile providers.
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        (dir, project, messages)
+    }
+
+    #[test]
+    fn schleswig_holstein_bdom_failure_on_a_refetch_keeps_the_old_surface() {
+        for mode in [FetchMode::Offline, FetchMode::Online] {
+            let (dir, project, messages) = refetch_with_bdom_failing(mode, false);
+            let surface = project.surface.as_ref().expect("the old surface record");
+            let kept = format!("kept the surface model fetched on {}", surface.fetched);
+            assert!(
+                messages.iter().any(|m| m
+                    .starts_with("warning: surface model (LVermGeo SH bDOM) unavailable")
+                    && m.ends_with(&kept)),
+                "{mode:?}: {messages:?}"
+            );
+            assert!(project.terrain.is_some());
+            assert!(dir.path().join(SURFACE_RELPATH).exists(), "{mode:?}");
+            assert!(dir.path().join(NDSM_RELPATH).exists(), "{mode:?}");
+        }
+    }
+
+    #[test]
+    fn schleswig_holstein_bdom_failure_drops_a_surface_of_another_area() {
+        // Online the surface of another area goes ...
+        let (dir, project, messages) = refetch_with_bdom_failing(FetchMode::Online, true);
         assert!(
             messages.iter().any(|m| m.ends_with("no nDSM template")),
             "{messages:?}"
         );
-        assert!(
-            project.terrain.is_some() && project.surface.is_none(),
-            "{:?} {:?} {messages:?}",
-            project.terrain,
-            project.surface
-        );
+        assert!(project.terrain.is_some() && project.surface.is_none());
         assert!(!dir.path().join(SURFACE_RELPATH).exists());
-        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(NDSM_RELPATH).exists());
+        // ... offline nothing is deleted, but derive does not use it.
+        let (dir, project, messages) = refetch_with_bdom_failing(FetchMode::Offline, true);
+        assert!(
+            messages.iter().any(|m| m.ends_with("no nDSM template")),
+            "{messages:?}"
+        );
+        assert!(project.surface.is_some());
+        assert!(dir.path().join(SURFACE_RELPATH).exists());
         assert!(!dir.path().join(NDSM_RELPATH).exists());
     }
 
