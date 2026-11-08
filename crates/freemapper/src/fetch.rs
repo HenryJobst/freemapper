@@ -884,7 +884,7 @@ pub(crate) fn get_range_with_retries(
         let result = fetcher.get_range(url, range).and_then(|bytes| {
             let fits = match range {
                 ByteRange::From { len, .. } => bytes.len() as u64 == len,
-                ByteRange::Last(n) => bytes.len() as u64 <= n,
+                ByteRange::Last(n) => !bytes.is_empty() && bytes.len() as u64 <= n,
             };
             if fits {
                 return Ok(bytes);
@@ -1579,6 +1579,7 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use std::cell::Cell;
 
     const TILE: TileId = TileId {
         east_km: 421,
@@ -2449,6 +2450,51 @@ mod tests {
         )
         .unwrap();
         assert_eq!(bytes, b"234");
+    }
+
+    /// Answers the tail range empty this many times, then with the real bytes.
+    struct EmptyTail {
+        empty_left: Cell<u32>,
+        calls: Cell<u32>,
+    }
+
+    impl Fetcher for EmptyTail {
+        fn get(&self, _url: &str) -> Result<Vec<u8>, FetchError> {
+            unreachable!()
+        }
+
+        fn get_range(&self, _url: &str, _range: ByteRange) -> Result<Vec<u8>, FetchError> {
+            self.calls.set(self.calls.get() + 1);
+            if self.empty_left.get() > 0 {
+                self.empty_left.set(self.empty_left.get() - 1);
+                return Ok(Vec::new());
+            }
+            Ok(b"tail".to_vec())
+        }
+    }
+
+    #[test]
+    fn empty_tail_answer_is_retried() {
+        let fetcher = EmptyTail {
+            empty_left: Cell::new(1),
+            calls: Cell::new(0),
+        };
+        let bytes = get_range_with_retries(&fetcher, "https://example.org/f", ByteRange::Last(100))
+            .unwrap();
+        assert_eq!(bytes, b"tail");
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn tail_answer_that_stays_empty_is_a_clear_error() {
+        let fetcher = EmptyTail {
+            empty_left: Cell::new(99),
+            calls: Cell::new(0),
+        };
+        let err = get_range_with_retries(&fetcher, "https://example.org/f", ByteRange::Last(100))
+            .unwrap_err();
+        assert!(err.to_string().contains("got 0 bytes"), "{err}");
+        assert_eq!(fetcher.calls.get(), 3);
     }
 
     #[test]
