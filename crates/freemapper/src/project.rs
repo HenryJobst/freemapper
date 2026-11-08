@@ -905,10 +905,11 @@ fn fetch_wms_orthophoto(
     Ok(())
 }
 
-/// The warning for a map area that reaches beyond the union of the supported states (abroad, into
-/// Bremen, which is no region yet, or into sea outside a state boundary). The states' services
-/// stop at their borders.
-const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states (abroad, in Bremen or at sea). The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
+/// The warning for a map area that reaches beyond the union of the supported states: abroad, into
+/// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
+/// Bavaria, Baden-Württemberg, Rhineland-Palatinate, Saarland). The states' services stop at
+/// their borders.
+const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
 /// How many days a stored orthophoto is reused while the service gives no flight date (none known,
 /// or the query failed) before the next online fetch downloads it again.
@@ -6470,6 +6471,33 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
             "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn ni_area_reaching_into_thuringia_names_unsupported_states() {
+        // East of Duderstadt on 51.50 N the NI/TH border crosses near 25832 E 590304: a 600 m
+        // area centred 150 m west of it lies in Niedersachsen and reaches into Thuringia.
+        let area = utm32_area_at(590_150.0, 5_706_232.0, 300.0);
+        assert_eq!(
+            raster_region(&area.projected_bbox()),
+            Some(Region::Niedersachsen)
+        );
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &area);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(Provider::Lgln));
+        let warnings: Vec<&String> = messages
+            .iter()
+            .filter(|m| {
+                m.starts_with("warning: part of the map area lies outside the supported states")
+            })
+            .collect();
+        assert_eq!(warnings, [BEYOND_COVERAGE_WARNING], "{messages:?}");
+        // Thuringia is a German state freemapper does not support yet: the text must say so.
+        assert!(
+            BEYOND_COVERAGE_WARNING.contains("a state freemapper does not support yet"),
+            "{BEYOND_COVERAGE_WARNING}"
         );
     }
 

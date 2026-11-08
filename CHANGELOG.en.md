@@ -13,7 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - Longer messages use plainer wording.
-- If a map area reaches beyond every supported state (abroad, into Bremen or out to sea), freemapper warns at fetch that the orthophoto and ALKIS can be missing there. This applies to all states.
+- If a map area reaches beyond every supported state (abroad, out to sea or into a state freemapper does not support yet, such as Bremen or Thuringia), freemapper warns at fetch that the orthophoto and ALKIS can be missing there. This applies to all states.
 
 ## [0.3.0] - 2026-11-08
 

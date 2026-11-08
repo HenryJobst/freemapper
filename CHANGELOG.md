@@ -13,7 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Längere Meldungen sind klarer formuliert.
-- Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, nach Bremen oder aufs Meer), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
+- Reicht ein Kartengebiet über alle unterstützten Länder hinaus (ins Ausland, aufs Meer oder in ein Land, das freemapper noch nicht unterstützt, etwa Bremen oder Thüringen), warnt freemapper beim Laden, dass dort Luftbild und ALKIS fehlen können. Das gilt für alle Länder.
 
 ## [0.3.0] - 2026-11-08
 

@@ -194,8 +194,8 @@ DOM1 is more than 24 months older than the orthophoto (ADR 0032); bDOM20 is not 
 `alkis_wfs_einfach` (`ave:GebaeudeBauwerk`, `ave:NutzungFlurstueck`, `COUNT` ≤ 10000, names trimmed, underground by
 `rellage`). OSM from `niedersachsen-latest` (510 MB), which includes Bremen; Bremen and Bremerhaven are holes in the
 boundary and stay outside the supported states until Bremen gets its own region (ADR 0035). At the Hamburg border both
-ALKIS services and both extracts are read. An area reaching more than 50 m beyond every supported state (abroad, Bremen,
-sea) is warned for every provider (ADR 0034). Attribution `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` plus
+ALKIS services and both extracts are read. An area reaching more than 50 m beyond every supported state (abroad, sea,
+or a German state not supported yet such as Bremen or Thuringia) is warned for every provider (ADR 0034). Attribution `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` plus
 the licence link.
 
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
