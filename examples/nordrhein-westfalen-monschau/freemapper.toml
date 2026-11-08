@@ -28,7 +28,7 @@ regions = ["nordrheinwestfalen"]
 [osm]
 extract = "2026-11-07"
 area = [50.55185591088753, 6.233637394198757, 50.55814408911247, 6.246362605801243]
-count = 182
+count = 200
 
 [orthophoto]
 flight = "07.03.2025"

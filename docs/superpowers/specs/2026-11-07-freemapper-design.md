@@ -312,6 +312,35 @@ reliability policy below**. It is not taken over literally.
 - *candidate:* OSM paths with no `surface` tag.
 - *dropped:* `footway=sidewalk|crossing` and paved OSM ways (ALKIS areas and the orthophoto cover them).
 
+**Water (both map kinds, `build/water.rs`; ADR 0036):**
+- *object 301.1 + 301.6:* ALKIS `nutzung` `Fließgewässer`, `Stehendes Gewässer`, `Hafenbecken` and `Meer`, any `bez`
+  (`WATER_LAND_USES`). ALKIS has no depth, so ALKIS water is always uncrossable (301), never 302. Parts with a mean
+  width (2·area/perimeter) of at least 2 m (`NARROW_WATER_M`, the ISSprOM 305 limit) are dissolved into one shape and
+  clipped to the map area plus buffer. Each piece becomes one 301.1 area (holes = islands) and its rings become 301.6
+  bank lines, minus the segments on the clip rectangle. The fill and the bank line are separate symbols because the
+  combined 301 would draw a line at every parcel boundary and along the map edge. Slivers under 1 mm on paper (2 m on
+  the ground at most) and gap holes of the same width are dropped. Tags (prefix `freemapper:`): `source=alkis-nutzung`,
+  `source_id` = sorted oids joined by `;`, `nutzart` = the distinct `nutzart / bez`, `currency` = the newest
+  `updated`.
+- *candidate 301.1 + 301.6:* ALKIS water parts with a mean width under 2 m, dissolved among themselves.
+- *candidate 301 (combined, OSM areas are not clipped):* `natural=water` (not `covered=yes`, not in a tunnel or culvert; `tunnel=no` is kept),
+  `waterway=riverbank`, `landuse=reservoir`, `landuse=basin` (not `basin=retention|infiltration|detention`),
+  `leisure=swimming_pool` (not indoor, covered, underground or on a roof), `amenity=fountain` areas. An OSM 301 area
+  is dropped when at least 50 % of its part inside the clip window lies in the ALKIS water (`OSM_WATER_COVERED`,
+  `drop_covered_water`).
+- *candidate points and lines:* 311 `amenity=fountain` nodes and `man_made=water_well`; 312 `natural=spring`; 313
+  `amenity=drinking_water` (schoolyard only); 305 `waterway=stream|drain` without `intermittent=yes`; 306
+  `waterway=ditch` and intermittent streams and drains. No line in a tunnel or culvert; `tunnel=no` is kept.
+- *candidate 501.5 bridge (sprint only):* `man_made=bridge` areas. ALKIS-vereinfacht `GebaeudeBauwerk` has no
+  bridges. The bank line runs across the bridge; the mapper cuts it.
+- *paint order* comes from the colour priorities, no object order: bank line 301.6 (black, 2) on top, then buildings
+  521.3 (9) and paved areas 501.5 (14), then water 301.1 (16), then out of bounds 520 (22). On the schoolyard,
+  water off the grounds stays inside the 520 candidates and is painted over them.
+- *OCAD numbers:* 301.1 → 301001 and 301.6 → 301002 (the decimal rule would give 301100 and 301600, which OCAD's set
+  lacks); 301, 305, 306, 311, 312 and 313 follow the rule (301000 … 313000). See `docs/ocad/ocd12-reference.md` §9.
+- *dropped / out of scope:* OSM relations (multipolygon rivers; ALKIS covers them), river and canal centre lines,
+  marsh 307–310 (`Moor`, `Sumpf`), `natural=coastline` (sea missing from ALKIS stays white).
+
 **Candidates (all map kinds), in `candidates.omap`:**
 - out-of-bounds 520: residential parcels minus buildings/traffic areas (sprint); for the schoolyard, the
   non-school parcels inside map area + buffer;

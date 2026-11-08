@@ -202,7 +202,6 @@ impl Rules {
             .map(Rules)
     }
 
-    /// Whether any rule's conditions hold for `tags` (used to filter the extract).
     /// Whether a rule with a symbol for `kind` holds for `tags` (used to filter the extract).
     pub fn wants(&self, tags: &[(String, String)], kind: MapKind) -> bool {
         let tags = tags.to_vec();
@@ -930,5 +929,265 @@ mod tests {
                 ("freemapper:currency", "2026-11-06")
             ]
         );
+    }
+
+    fn sprint_code(t: &[(&str, &str)], geometry: &OsmGeometry) -> Option<(String, Draw)> {
+        Rules::embedded()
+            .symbol_for(&tags(t), geometry, MapKind::Sprint)
+            .map(|m| (m.code, m.draw))
+    }
+
+    fn ring() -> OsmGeometry {
+        OsmGeometry::Line(square())
+    }
+
+    #[test]
+    fn water_tags_are_stored() {
+        let rules = Rules::embedded();
+        for kind in [MapKind::Schoolyard, MapKind::Sprint] {
+            for t in [
+                &[("natural", "water")][..],
+                &[("waterway", "riverbank")],
+                &[("landuse", "reservoir")],
+                &[("landuse", "basin")],
+                &[("leisure", "swimming_pool")],
+                &[("amenity", "fountain")],
+                &[("man_made", "water_well")],
+                &[("natural", "spring")],
+                &[("waterway", "stream")],
+                &[("waterway", "drain")],
+                &[("waterway", "ditch")],
+            ] {
+                assert!(rules.wants(&tags(t), kind), "{t:?} {kind:?}");
+            }
+        }
+        // Drinking water is a schoolyard symbol, bridges are sprint only.
+        let drinking = tags(&[("amenity", "drinking_water")]);
+        assert!(rules.wants(&drinking, MapKind::Schoolyard));
+        assert!(!rules.wants(&drinking, MapKind::Sprint));
+        let bridge = tags(&[("man_made", "bridge")]);
+        assert!(rules.wants(&bridge, MapKind::Sprint));
+        assert!(!rules.wants(&bridge, MapKind::Schoolyard));
+        // Rivers and canals are lines of the centre only: no rule.
+        assert!(!rules.wants(&tags(&[("waterway", "river")]), MapKind::Sprint));
+    }
+
+    #[test]
+    fn water_areas_are_candidates() {
+        for t in [
+            &[("natural", "water"), ("water", "pond")][..],
+            &[("waterway", "riverbank")],
+            &[("landuse", "reservoir")],
+            &[("landuse", "basin")],
+            &[("leisure", "swimming_pool")],
+            &[("amenity", "fountain")],
+        ] {
+            assert_eq!(
+                sprint_code(t, &ring()),
+                Some(("301".to_string(), Draw::Area)),
+                "{t:?}"
+            );
+        }
+        // A retention basin is dry most of the time.
+        assert_eq!(
+            sprint_code(&[("landuse", "basin"), ("basin", "retention")], &ring()),
+            None
+        );
+        // A covered or tunnelled water body is not on the surface.
+        assert_eq!(
+            sprint_code(&[("natural", "water"), ("covered", "yes")], &ring()),
+            None
+        );
+        assert_eq!(
+            sprint_code(&[("natural", "water"), ("tunnel", "culvert")], &ring()),
+            None
+        );
+        // An unclosed way is no area.
+        assert_eq!(sprint_code(&[("natural", "water")], &way()), None);
+        let (objects, set) = objects(
+            &[line("w1", &[("natural", "water")], square())],
+            MapKind::Sprint,
+        );
+        assert_eq!(objects.len(), 1);
+        assert_eq!(Some(objects[0].symbol_id), set.id_for_code("301"));
+    }
+
+    #[test]
+    fn indoor_pools_are_skipped() {
+        for extra in [
+            ("indoor", "yes"),
+            ("covered", "yes"),
+            ("location", "indoor"),
+            ("location", "underground"),
+            ("location", "roof"),
+        ] {
+            assert_eq!(
+                sprint_code(&[("leisure", "swimming_pool"), extra], &ring()),
+                None,
+                "{extra:?}"
+            );
+        }
+        assert_eq!(
+            sprint_code(
+                &[("leisure", "swimming_pool"), ("access", "private")],
+                &ring()
+            ),
+            Some(("301".to_string(), Draw::Area))
+        );
+    }
+
+    #[test]
+    fn streams_and_ditches_are_lines() {
+        let l = way();
+        let code = |t: &[(&str, &str)]| sprint_code(t, &l).map(|(c, _)| c);
+        assert_eq!(code(&[("waterway", "stream")]), Some("305".into()));
+        assert_eq!(code(&[("waterway", "drain")]), Some("305".into()));
+        assert_eq!(code(&[("waterway", "ditch")]), Some("306".into()));
+        // A stream that falls dry is a ditch.
+        assert_eq!(
+            code(&[("waterway", "stream"), ("intermittent", "yes")]),
+            Some("306".into())
+        );
+        let (objects, set) = objects(
+            &[line(
+                "s1",
+                &[("waterway", "stream")],
+                vec![at(0.0, 0.0), at(0.0004, 0.0004)],
+            )],
+            MapKind::Schoolyard,
+        );
+        assert_eq!(objects.len(), 1);
+        assert_eq!(Some(objects[0].symbol_id), set.id_for_code("305"));
+    }
+
+    #[test]
+    fn stream_tagged_tunnel_no_is_kept() {
+        let l = way();
+        let code = |t: &[(&str, &str)]| sprint_code(t, &l).map(|(c, _)| c);
+        assert_eq!(
+            code(&[("waterway", "stream"), ("tunnel", "no")]),
+            Some("305".into())
+        );
+        assert_eq!(
+            code(&[("waterway", "ditch"), ("tunnel", "no")]),
+            Some("306".into())
+        );
+        assert_eq!(
+            sprint_code(&[("natural", "water"), ("tunnel", "no")], &ring()),
+            Some(("301".to_string(), Draw::Area))
+        );
+    }
+
+    #[test]
+    fn culverts_are_skipped() {
+        let l = way();
+        for t in ["culvert", "yes", "flooded", "building_passage", "canal"] {
+            for waterway in ["stream", "drain", "ditch"] {
+                assert_eq!(
+                    sprint_code(&[("waterway", waterway), ("tunnel", t)], &l),
+                    None,
+                    "{waterway} {t}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn fountain_node_is_a_small_fountain() {
+        let p = OsmGeometry::Point(SCHOOL);
+        assert_eq!(
+            sprint_code(&[("amenity", "fountain")], &p),
+            Some(("311".to_string(), Draw::Point))
+        );
+        assert_eq!(
+            sprint_code(&[("man_made", "water_well")], &p),
+            Some(("311".to_string(), Draw::Point))
+        );
+        assert_eq!(
+            sprint_code(&[("natural", "spring")], &p),
+            Some(("312".to_string(), Draw::Point))
+        );
+        let drinking = [("amenity", "drinking_water")];
+        assert_eq!(
+            Rules::embedded()
+                .symbol_for(&tags(&drinking), &p, MapKind::Schoolyard)
+                .map(|m| m.code),
+            Some("313".to_string())
+        );
+        assert_eq!(sprint_code(&drinking, &p), None);
+        // The basin of a fountain drawn as an area stays 301.
+        assert_eq!(
+            sprint_code(&[("amenity", "fountain")], &ring()),
+            Some(("301".to_string(), Draw::Area))
+        );
+        let (objects, set) = objects(&[point("f1", &[("amenity", "fountain")])], MapKind::Sprint);
+        assert_eq!(objects.len(), 1);
+        assert_eq!(Some(objects[0].symbol_id), set.id_for_code("311"));
+    }
+
+    #[test]
+    fn river_centre_lines_are_not_candidates() {
+        let l = way();
+        for waterway in ["river", "canal", "tidal_channel"] {
+            for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+                assert!(
+                    Rules::embedded()
+                        .symbol_for(&tags(&[("waterway", waterway)]), &l, kind)
+                        .is_none(),
+                    "{waterway}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bridges_are_paved_candidates() {
+        assert_eq!(
+            sprint_code(&[("man_made", "bridge")], &ring()),
+            Some(("501.5".to_string(), Draw::Area))
+        );
+        // Not on the schoolyard map, and not as a line.
+        assert!(
+            Rules::embedded()
+                .symbol_for(
+                    &tags(&[("man_made", "bridge")]),
+                    &ring(),
+                    MapKind::Schoolyard
+                )
+                .is_none()
+        );
+        assert_eq!(sprint_code(&[("man_made", "bridge")], &way()), None);
+        let (objects, set) = objects(
+            &[line("b1", &[("man_made", "bridge")], square())],
+            MapKind::Sprint,
+        );
+        assert_eq!(objects.len(), 1);
+        assert_eq!(Some(objects[0].symbol_id), set.id_for_code("501.5"));
+    }
+
+    #[test]
+    fn water_is_a_schoolyard_symbol_too() {
+        let found = |t: &[(&str, &str)], g: &OsmGeometry| {
+            Rules::embedded()
+                .symbol_for(&tags(t), g, MapKind::Schoolyard)
+                .map(|m| (m.code, m.draw))
+        };
+        assert_eq!(
+            found(&[("natural", "water")], &ring()),
+            Some(("301".to_string(), Draw::Area))
+        );
+        assert_eq!(
+            found(&[("amenity", "fountain")], &OsmGeometry::Point(SCHOOL)),
+            Some(("311".to_string(), Draw::Point))
+        );
+        let (objects, set) = objects(
+            &[
+                line("w1", &[("natural", "water")], square()),
+                point("f1", &[("amenity", "fountain")]),
+            ],
+            MapKind::Schoolyard,
+        );
+        let ids: Vec<_> = objects.iter().map(|o| Some(o.symbol_id)).collect();
+        assert_eq!(ids, vec![set.id_for_code("301"), set.id_for_code("311")]);
     }
 }

@@ -13,6 +13,7 @@ use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
@@ -2286,10 +2287,12 @@ fn stored_osm_objects(
 }
 
 /// 101/102 candidate objects for the contour lines from `derive`; none when there are none.
+/// They stop at the drawn ALKIS `water`: ISSprOM shows no contours in uncrossable water.
 fn stored_contour_objects(
     dir: &Path,
     project: &ProjectFile,
     area: &MapArea,
+    water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
@@ -2317,6 +2320,8 @@ fn stored_contour_objects(
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
     let map_area = area.projected_polygon_in(project.crs());
+    // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
+    let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
     // DGM1 is interpolated under buildings: closed rings there are artefacts.
     let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
         .into_iter()
@@ -2335,15 +2340,20 @@ fn stored_contour_objects(
             let near = geo::Euclidean.distance(&ls, &map_area) <= project.buffer_m;
             near && !(ls.is_closed() && ls.0.len() > 3 && on_a_building(&ls))
         })
-        .map(|line| {
-            let coords: Vec<(i32, i32)> = line
-                .points
-                .iter()
-                .map(|(e, n)| {
+        .flat_map(|line| {
+            let ls = geo_types::LineString::from(line.points.clone());
+            outside_water(&ls, water, min_piece_m)
+                .into_iter()
+                .map(move |piece| (line, piece))
+        })
+        .map(|(line, piece)| {
+            let coords: Vec<(i32, i32)> = piece
+                .coords()
+                .map(|c| {
                     georef
                         .projected_to_map(ProjectedPoint {
-                            easting: *e,
-                            northing: *n,
+                            easting: c.x,
+                            northing: c.y,
                         })
                         .map(|c| (c.x, c.y))
                 })
@@ -2651,6 +2661,25 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
+    let clip = project.bbox()?;
+    let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
+    // OSM ponds inside the drawn ALKIS water would only duplicate it, and fountain points in
+    // water are mostly the jets of a basin.
+    let osm_objects = |target| -> Result<Vec<MapObject>, ProjectError> {
+        let kept = drop_covered_water(
+            stored_osm_objects(target, osm.as_ref(), &project, &area, &georef, &symbol_set)?,
+            &water.union,
+            &clip,
+            &georef,
+            &symbol_set,
+        );
+        Ok(drop_points_in_water(
+            kept,
+            &water.union,
+            &georef,
+            &symbol_set,
+        ))
+    };
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -2658,22 +2687,17 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(stored_osm_objects(
-                    Target::Candidates,
-                    osm.as_ref(),
-                    &project,
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(osm_objects(Target::Candidates)?)
                 .chain(stored_contour_objects(
                     dir,
                     &project,
                     &area,
+                    &water.union,
                     &georef,
                     &symbol_set,
                 )?)
                 .chain(paved.candidates)
+                .chain(water.candidates)
                 .chain(stored_out_of_bounds_objects(
                     &land_use,
                     &project,
@@ -2718,14 +2742,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     });
     let mut map_objects = building_objects;
     map_objects.extend(paved.map);
-    map_objects.extend(stored_osm_objects(
-        Target::Map,
-        osm.as_ref(),
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
+    map_objects.extend(water.map);
+    map_objects.extend(osm_objects(Target::Map)?);
     let buildings_part = MapPart {
         name: "default part".to_string(),
         objects: map_objects,
@@ -7316,6 +7334,134 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000031</t>"#));
     }
 
+    /// One 30 m lake parcel in the stored land use, and two OSM ponds as closed ways: one inside
+    /// the lake, one clear of it.
+    fn store_lake_and_ponds(dir: &Path) {
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let lake = land_use_feature(
+            "DEBBAL0100000040",
+            "Stehendes Gewässer",
+            None,
+            [421_560.0, 5_821_690.0, 30.0],
+        );
+        std::fs::write(dir.join(LAND_USE_RELPATH), page(&[lake], None)).unwrap();
+        let pond = |id: &str, e: f64, n: f64| crate::sources::osm::OsmFeature {
+            id: id.to_string(),
+            tags: [("natural".to_string(), "water".to_string())]
+                .into_iter()
+                .collect(),
+            geometry: crate::sources::osm::OsmGeometry::Line(
+                [
+                    (0.0, 0.0),
+                    (10.0, 0.0),
+                    (10.0, 10.0),
+                    (0.0, 10.0),
+                    (0.0, 0.0),
+                ]
+                .into_iter()
+                .map(|(de, dn)| lat_lon_at(e + de, n + dn))
+                .collect(),
+            ),
+        };
+        let features = [
+            pond("way/10", 421_570.0, 5_821_700.0),
+            pond("way/11", 421_620.0, 5_821_700.0),
+        ];
+        std::fs::write(
+            dir.join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn export_adds_water_to_both_map_kinds() {
+        let fetcher = MapFetcher::default();
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.map_kind = kind;
+            project.scale_denominator = if kind == MapKind::Sprint { 4000 } else { 1000 };
+            project.save(dir.path()).unwrap();
+            store_lake_and_ponds(dir.path());
+            let map = std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap())
+                .unwrap();
+            let set = kind.symbol_set();
+            let (fill, bank) = (
+                set.id_for_code("301.1").unwrap(),
+                set.id_for_code("301.6").unwrap(),
+            );
+            assert_eq!(symbols_of(&map, "DEBBAL0100000040").len(), 2, "{kind:?}");
+            assert!(map.contains(&format!(r#"symbol="{fill}""#)), "{kind:?}");
+            assert!(map.contains(&format!(r#"symbol="{bank}""#)), "{kind:?}");
+            let candidates =
+                std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+            let pond = set.id_for_code("301").unwrap();
+            assert_eq!(
+                symbols_of(&candidates, "way/10"),
+                Vec::<u32>::new(),
+                "{kind:?}: the pond inside the lake is dropped"
+            );
+            assert_eq!(symbols_of(&candidates, "way/11"), [pond], "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn fountain_jets_in_a_basin_are_left_out_of_the_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        // The ALKIS lake (421 560–590 E, 5 821 690–720 N) and the OSM pond way/11 outside it
+        // (421 620–630 E, 5 821 700–710 N), which stays a candidate.
+        store_lake_and_ponds(dir.path());
+        let path = dir.path().join(OSM_CANDIDATES_RELPATH);
+        let mut features =
+            crate::sources::osm::features_from_geojson(&std::fs::read_to_string(&path).unwrap())
+                .unwrap();
+        let node = |id: &str, tag: (&str, &str), e: f64, n: f64| crate::sources::osm::OsmFeature {
+            id: id.to_string(),
+            tags: [(tag.0.to_string(), tag.1.to_string())]
+                .into_iter()
+                .collect(),
+            geometry: crate::sources::osm::OsmGeometry::Point(lat_lon_at(e, n)),
+        };
+        features.extend([
+            node("node/20", ("amenity", "fountain"), 421_575.0, 5_821_705.0),
+            node("node/21", ("amenity", "fountain"), 421_625.0, 5_821_705.0),
+            node(
+                "node/22",
+                ("man_made", "water_well"),
+                421_626.0,
+                5_821_706.0,
+            ),
+            node("node/23", ("amenity", "fountain"), 421_605.0, 5_821_700.0),
+        ]);
+        std::fs::write(&path, crate::sources::osm::features_to_geojson(&features)).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let fountain = MapKind::Sprint.symbol_set().id_for_code("311").unwrap();
+        for jet in ["node/20", "node/21", "node/22"] {
+            assert_eq!(symbols_of(&candidates, jet), Vec::<u32>::new(), "{jet}");
+        }
+        assert_eq!(symbols_of(&candidates, "node/23"), [fountain]);
+    }
+
+    #[test]
+    fn osm_pond_without_alkis_water_stays_a_candidate() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        store_lake_and_ponds(dir.path());
+        // No water parcel: the same ponds, nothing to drop them.
+        store_traffic_areas(dir.path());
+        let candidates = {
+            export_starter_project(dir.path(), false).unwrap();
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap()
+        };
+        let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
+        assert_eq!(symbols_of(&candidates, "way/10"), [pond]);
+        assert_eq!(symbols_of(&candidates, "way/11"), [pond]);
+    }
+
     #[test]
     fn schoolyard_export_has_no_paved_areas() {
         let fetcher = MapFetcher::default();
@@ -8036,6 +8182,74 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             })
             .collect();
         assert_eq!(heights, ["63"]);
+    }
+
+    #[test]
+    fn contours_stop_at_water() {
+        use crate::derive::contours::ContourLine;
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        // A 30 m lake: 421 560–590 E, 5 821 690–720 N.
+        let lake = land_use_feature(
+            "DEBBAL0100000040",
+            "Stehendes Gewässer",
+            None,
+            [421_560.0, 5_821_690.0, 30.0],
+        );
+        std::fs::write(dir.path().join(LAND_USE_RELPATH), page(&[lake], None)).unwrap();
+        let lines = [
+            // Across the lake, with a vertex in the water.
+            ContourLine {
+                height: 63.0,
+                points: vec![
+                    (421_540.0, 5_821_705.0),
+                    (421_575.0, 5_821_705.0),
+                    (421_640.0, 5_821_705.0),
+                ],
+            },
+            // A ring inside the lake.
+            ContourLine {
+                height: 64.0,
+                points: vec![
+                    (421_570.0, 5_821_700.0),
+                    (421_580.0, 5_821_700.0),
+                    (421_580.0, 5_821_710.0),
+                    (421_570.0, 5_821_710.0),
+                    (421_570.0, 5_821_700.0),
+                ],
+            },
+        ];
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&lines),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let georef = &documents.candidates.georef;
+        let contours: Vec<&MapObject> = documents.candidates.parts[0]
+            .objects
+            .iter()
+            .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))
+            .collect();
+        let heights: Vec<&str> = contours
+            .iter()
+            .flat_map(|o| o.tags.iter().filter(|(k, _)| k == "freemapper:height"))
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(heights, ["63", "63"], "two pieces, no ring in the lake");
+        for contour in contours {
+            for c in &contour.coords {
+                let e = georef.map_to_projected(*c).easting;
+                assert!(!(421_560.1..421_589.9).contains(&e), "{e} in the lake");
+            }
+        }
+        // The training PDF paints the same candidates.
+        let (map, _) = training_objects(&documents);
+        let painted = map
+            .iter()
+            .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))
+            .count();
+        assert_eq!(painted, 2);
     }
 
     #[test]

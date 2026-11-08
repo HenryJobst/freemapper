@@ -32,10 +32,11 @@ Schulhofkarte (1:1000) oder Sprintkarte (1:4000). Zu den Geodaten gehören Luftb
 Gebäude und Flächennutzung aus dem Liegenschaftskataster (ALKIS). Dazu kommen Daten aus
 OpenStreetMap (OSM).
 
-- **Fertig gezeichnet** wird nur, was verlässlich ist: Gebäude, auf Sprintkarten auch befestigte Flächen
-  (Straßen, Plätze) und unbefestigte Wege mit bekannter Oberfläche.
+- **Fertig gezeichnet** wird nur, was verlässlich ist: Gebäude, Gewässer aus dem Kataster, auf
+  Sprintkarten auch befestigte Flächen (Straßen, Plätze) und unbefestigte Wege mit bekannter Oberfläche.
 - **Als Vorlage** kommt alles, was Sie selbst beurteilen müssen: Luftbild, Höhenschummerung, Hangneigung,
-  Höhe über Grund (nDOM), Höhenlinien, Zäune, Hecken, Bänke, Spielgeräte und Sperrgebiete.
+  Höhe über Grund (nDOM), Höhenlinien, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
+  Brunnen und Brücken.
 - Gezeichnet und im Gelände geprüft wird weiterhin von Ihnen, in **OpenOrienteering Mapper (OOM)** oder
   **OCAD**.
 
@@ -177,7 +178,7 @@ Im Projektordner liegen danach unter anderem:
 
 | Datei | Was sie ist |
 |---|---|
-| `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden und Randangaben |
+| `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Gewässern und Randangaben |
 | `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, nDOM und die Kandidaten-Karte |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die Trainingskarte |
@@ -186,9 +187,29 @@ Im Projektordner liegen danach unter anderem:
 
 Öffnen Sie die `.omap`-Datei in OOM. Die Vorlagen sind schon eingebunden; im Menü *Vorlagen* blenden Sie
 sie ein und aus. Die **Kandidaten** (`templates/candidates.omap`) liegen als eigene Karte darüber. Dort
-stehen Zäune, Hecken, Bänke, Höhenlinien und Sperrgebiete. Prüfen Sie sie und übernehmen Sie, was
-stimmt: abzeichnen, oder die Kandidaten-Karte öffnen und die Objekte kopieren und einfügen. Beide
-Karten haben dieselbe Georeferenz.
+stehen Zäune, Hecken, Bänke, Höhenlinien, Sperrgebiete, Gewässer aus OSM und Brücken. Prüfen Sie sie
+und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen und die Objekte kopieren
+und einfügen. Beide Karten haben dieselbe Georeferenz.
+
+**Gewässer** zeichnet freemapper auf beiden Kartenarten. Flüsse, Kanäle, Seen, Teiche, Hafenbecken und
+Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (301.1) mit schwarzer
+Uferlinie (301.6). Ein Fluss liegt im Kataster oft in vielen einzelnen Flächen. freemapper löst sie zu einer
+Fläche auf, damit keine Linien quer über das Wasser laufen. Wo das Wasser über Kartengebiet und Puffer
+hinausreicht, bekommt es an dieser Kante keine Uferlinie; Inseln behalten ihre. Gewässer, die im Mittel
+schmaler als 2 m sind, kommen nur in die Kandidaten. Die Höhenlinien enden am Ufer dieses Gewässers, in den
+Kandidaten wie auf der Trainingskarte.
+
+Aus OSM kommen weitere Kandidaten:
+
+- Teiche, Becken, Schwimmbecken im Freien und Brunnenbecken als Fläche (301). Liegt eine solche Fläche mindestens zur
+  Hälfte im Gewässer aus dem Kataster, lässt freemapper sie weg.
+- Bäche und Abzugsgräben (`drain`) als Linie: 305, wenn sie ganzjährig Wasser führen, sonst 306. Gräben
+  (`ditch`) sind immer 306. Verrohrte Abschnitte fehlen.
+- Brunnen (311) und Quellen (312) als Punkt, auf Schulhofkarten auch Trinkbrunnen (313). Brunnenpunkte, die
+  im Wasser stehen, lässt freemapper weg, denn meist sind es die Fontänen in einem Becken.
+- Brücken als befestigte Fläche (501.5), nur auf Sprintkarten. Sie liegen über dem Wasser.
+
+Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste, Nordlinien
 und die Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15).
@@ -224,6 +245,17 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   Baumstreifen am Rand. Plätze sind dort nur Kandidaten.
 - **Zäune, Mauern, Hecken:** Sie stammen aus OSM und dem nDOM. Sind sie passierbar? Gibt es Tore?
 - **Sperrgebiete:** Privatgrundstücke, Bahngelände, auf Schulhofkarten alles außerhalb des Schulgeländes.
+- **Ufer und Brücken:**
+  - Die Katasterfläche eines Gewässers kann die Uferböschung einschließen. Legen Sie die Uferlinie
+    nach dem Luftbild an die Wasserkante.
+  - Die Uferlinie läuft quer über Brücken. Schneiden Sie sie dort von Hand auf.
+  - Oft führt das Kataster eine Straßenbrücke als Straßenfläche. Dann endet das Wasser an der Brücke, und
+    eine Uferlinie läuft quer über den Fluss. Löschen Sie diese Linie in OOM und ziehen Sie die Fläche unter
+    der Brücke durch.
+  - Gewässer aus dem Kataster sind immer unpassierbar (301), denn das Kataster kennt keine Tiefe.
+    Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
+  - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben
+    Wasser?
 - **Möblierung und Spielgeräte:** Sie stammen aus OSM und sind oft unvollständig.
 - **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
 
@@ -289,6 +321,12 @@ Hamburger Ecke bei Harburg ab. freemapper meldet, wenn ein Gebiet über eine Gre
   nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude, weist
   freemapper darauf hin.
 - **Neu schreiben:** `--force` ersetzt die Karte. Die alte bleibt als `.omap.bak` erhalten.
+- **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
+  keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
+  mit Gewässern, wie bei allen anderen Kartenobjekten. Die alte Karte bleibt als `.omap.bak` erhalten,
+  die OCAD-Karte als `.ocd.bak`. Jedes `run` erneuert die Kandidaten und die Trainingskarte (`--pdf`).
+  Die Trainingskarte zeigt die Gewässer deshalb auch ohne `--force`, die Kandidaten die Gewässer aus
+  OSM und die schmalen aus dem Kataster.
 - **Gebiet ändern:** `select` auf den vorhandenen Ordner und dann erneut `run`.
 - **Ohne Internet:** `--offline` arbeitet mit den bereits geladenen Daten.
 - **Datenstand:** freemapper lädt nur neu, was neu veröffentlicht wurde. Ändert sich eine Kachel beim
