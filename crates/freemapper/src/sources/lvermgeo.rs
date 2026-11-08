@@ -232,6 +232,17 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
         return Err(format!("LZW: chunks of {chunk_width} x {chunk_height} px"));
     }
     let (across, down) = (width.div_ceil(chunk_width), height.div_ceil(chunk_height));
+    // The image rounded up to whole chunks: a hostile TileWidth/TileLength must not make one
+    // chunk larger than the image may be.
+    let padded = u64::from(across)
+        .checked_mul(u64::from(chunk_width))
+        .zip(u64::from(down).checked_mul(u64::from(chunk_height)))
+        .and_then(|(w, h)| w.checked_mul(h));
+    if !padded.is_some_and(|px| px <= MAX_PIXELS) {
+        return Err(format!(
+            "LZW: tiles of {chunk_width} x {chunk_height} px are too large"
+        ));
+    }
     let chunks = across as usize * down as usize;
     if offsets.len() != chunks || counts.len() != chunks {
         return Err(format!(
@@ -240,6 +251,10 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
             counts.len()
         ));
     }
+    let file_len = decoder
+        .inner()
+        .seek(std::io::SeekFrom::End(0))
+        .map_err(|e| format!("LZW: {e}"))?;
     let little = decoder.byte_order() == tiff::tags::ByteOrder::LittleEndian;
     let mut values = vec![f32::NAN; width as usize * height as usize];
     let mut compressed = Vec::new();
@@ -254,15 +269,27 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
         if count > MAX_CHUNK_BYTES {
             return Err(format!("LZW chunk {i}: {count} bytes are too large"));
         }
+        if !offset.checked_add(count).is_some_and(|end| end <= file_len) {
+            return Err(format!(
+                "LZW chunk {i}: {count} bytes at {offset} reach past the end of the file \
+                 ({file_len} bytes)"
+            ));
+        }
         compressed.resize(count as usize, 0);
         let reader = decoder.inner();
         reader
             .seek(std::io::SeekFrom::Start(offset))
             .and_then(|_| reader.read_exact(&mut compressed))
             .map_err(|e| format!("LZW chunk {i}: {e}"))?;
-        let row_bytes = chunk_width as usize * 4;
-        let mut bytes = lzw_decode(&compressed, row_bytes * rows as usize)
-            .map_err(|m| format!("LZW chunk {i}: {m}"))?;
+        // Bounded by MAX_PIXELS above; checked all the same.
+        let row_bytes = (chunk_width as usize)
+            .checked_mul(4)
+            .ok_or_else(|| format!("LZW chunk {i}: rows too large"))?;
+        let expected = row_bytes
+            .checked_mul(rows as usize)
+            .ok_or_else(|| format!("LZW chunk {i}: too large"))?;
+        let mut bytes =
+            lzw_decode(&compressed, expected).map_err(|m| format!("LZW chunk {i}: {m}"))?;
         for (y, row) in bytes.chunks_exact_mut(row_bytes).enumerate() {
             let row =
                 predicted_row(row, predictor, little).map_err(|m| format!("LZW chunk {i}: {m}"))?;
@@ -828,6 +855,79 @@ mod tests {
                 .unwrap_err()
                 .contains("of 4 bytes")
         );
+    }
+
+    /// A little-endian tiled Float32 LZW TIFF of `width` x `height` px with one tile of
+    /// `tile_width` x `tile_length` px whose data is `data`.
+    fn one_tile_tiff(
+        width: u32,
+        height: u32,
+        tile_width: u32,
+        tile_length: u32,
+        data: &[u8],
+    ) -> Vec<u8> {
+        // (tag, type, value): type 3 SHORT, 4 LONG; every value fits the entry.
+        let data_at = 8u32;
+        let entries: [(u16, u16, u32); 11] = [
+            (256, 4, width),
+            (257, 4, height),
+            (258, 3, 32),
+            (259, 3, u32::from(LZW)),
+            (262, 3, 1),
+            (277, 3, 1),
+            (322, 4, tile_width),
+            (323, 4, tile_length),
+            (324, 4, data_at),
+            (325, 4, data.len() as u32),
+            (339, 3, 3),
+        ];
+        let ifd = data_at + data.len() as u32;
+        let mut bytes = b"II*\0".to_vec();
+        bytes.extend(ifd.to_le_bytes());
+        bytes.extend(data);
+        bytes.extend((entries.len() as u16).to_le_bytes());
+        for (tag, kind, value) in entries {
+            bytes.extend(tag.to_le_bytes());
+            bytes.extend(kind.to_le_bytes());
+            bytes.extend(1u32.to_le_bytes());
+            if kind == 3 {
+                bytes.extend((value as u16).to_le_bytes());
+                bytes.extend([0, 0]);
+            } else {
+                bytes.extend(value.to_le_bytes());
+            }
+        }
+        bytes.extend(0u32.to_le_bytes());
+        bytes
+    }
+
+    #[test]
+    fn lenient_lzw_refuses_oversized_tiles() {
+        // A clear code and an end code: a few bytes that claim nothing.
+        let data = [0x80, 0x00, 0x40, 0x40];
+        let tiff = one_tile_tiff(16, 16, 16, 16, &data);
+        let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&tiff)).unwrap();
+        let err = lenient_lzw_values(&mut decoder, 16, 16).unwrap_err();
+        assert!(err.contains("LZW data for"), "{err}");
+        // One tile far larger than the image (16 GiB of pixels), and one whose size overflows.
+        for side in [65_536, u32::MAX - 15] {
+            let tiff = one_tile_tiff(256, 256, side, side, &data);
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&tiff)).unwrap();
+            assert_eq!(decoder.chunk_dimensions(), (side, side));
+            let err = lenient_lzw_values(&mut decoder, 256, 256).unwrap_err();
+            assert!(
+                err.contains("tiles of") && err.contains("too large"),
+                "{err}"
+            );
+        }
+        // A byte count beyond the end of the file is refused before it is allocated.
+        let mut tiff = one_tile_tiff(16, 16, 16, 16, &data);
+        let ifd = u32::from_le_bytes(tiff[4..8].try_into().unwrap()) as usize;
+        let counts = ifd + 2 + 12 * 9 + 8;
+        tiff[counts..counts + 4].copy_from_slice(&(100_000_000u32).to_le_bytes());
+        let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&tiff)).unwrap();
+        let err = lenient_lzw_values(&mut decoder, 16, 16).unwrap_err();
+        assert!(err.contains("past the end of the file"), "{err}");
     }
 
     #[test]
