@@ -34,17 +34,19 @@ development:
 
 ## Status
 
-The current version is [v0.3.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.3.0) of
+The current version is [v0.4.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.4.0) of
 8 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
-Rhineland-Palatinate. Each map comes with an OCAD starting point and a PDF training map. Lower
-Saxony, Rhineland-Palatinate and the water on the maps ship with the next version.
+Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
+2024. Each map comes with an OCAD starting point and a PDF training map.
 
-freemapper is still under development. The remaining states with open geodata come next:
-Baden-Württemberg, Bremen, Bavaria and Saarland. Thuringia follows once its height-data server is
-back.
-Forest maps and the neighbouring countries come later. Design:
+freemapper is still under development. Work in progress: more detailed sprint maps from further open
+data, first for Berlin (canopies, stairs, walls, fences, hedges, street trees), then for the other
+states, and a check of the free disk space. After that come gym maps for indoor orienteering,
+program texts in German and English, and the remaining states with open geodata
+(Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
+back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 ## User manual
