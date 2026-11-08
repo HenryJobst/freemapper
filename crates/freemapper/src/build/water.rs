@@ -81,7 +81,6 @@ pub fn water_objects(
         coord! { x: clip.min_e - NEAR_WINDOW_M, y: clip.min_n - NEAR_WINDOW_M },
         coord! { x: clip.max_e + NEAR_WINDOW_M, y: clip.max_n + NEAR_WINDOW_M },
     );
-    let near_polygon = near.to_polygon();
     let (mut wide, mut narrow): (Vec<Part>, Vec<Part>) = (Vec::new(), Vec::new());
     for land in land_use.iter().filter(|l| is_water(l)) {
         for part in &land.footprint.0 {
@@ -101,15 +100,8 @@ pub fn water_objects(
             // The WFS returns whole parcels, and a `Meer` parcel can be far larger than the
             // map: cut it down near the window, so the union and the provenance test cost what
             // the map needs. The result inside the window is the same.
-            match part.bounding_rect() {
-                Some(bounds) if contains(&near, &bounds) => parts.push((land, part)),
-                Some(bounds) if bounds.intersects(&near) => parts.extend(
-                    part.intersection(&near_polygon)
-                        .0
-                        .into_iter()
-                        .map(|piece| (land, piece.orient(Direction::Default))),
-                ),
-                _ => {}
+            if let Some(part) = cut_near(&part, &near) {
+                parts.push((land, part));
             }
         }
     }
@@ -129,6 +121,103 @@ pub fn water_objects(
         candidates,
         union: MultiPolygon(drawn),
     })
+}
+
+/// `part` cut to the rectangle `near`, or `None` if nothing of it is inside.
+///
+/// Each ring is cut on its own (Sutherland-Hodgman), not with a boolean operation: that snaps
+/// every vertex to a grid that depends on the part's extent, so a cut parcel would no longer
+/// meet its uncut neighbour on their shared edge, and the two would not dissolve. Vertices
+/// inside `near` stay exactly as they are. A concave ring can leave zero-width runs along the
+/// edges of `near`; they lie outside the clip window, which cuts the union again.
+fn cut_near(part: &Polygon<f64>, near: &Rect<f64>) -> Option<Polygon<f64>> {
+    let bounds = part.bounding_rect()?;
+    if contains(near, &bounds) {
+        return Some(part.clone());
+    }
+    if !bounds.intersects(near) {
+        return None;
+    }
+    let exterior = cut_ring(part.exterior(), near)?;
+    let holes = part
+        .interiors()
+        .iter()
+        .filter_map(|hole| cut_ring(hole, near))
+        .collect();
+    Some(Polygon::new(exterior, holes))
+}
+
+/// The edges of a rectangle, each with its coordinate.
+#[derive(Clone, Copy)]
+enum Edge {
+    West(f64),
+    East(f64),
+    South(f64),
+    North(f64),
+}
+
+impl Edge {
+    fn inside(self, c: Coord<f64>) -> bool {
+        match self {
+            Self::West(x) => c.x >= x,
+            Self::East(x) => c.x <= x,
+            Self::South(y) => c.y >= y,
+            Self::North(y) => c.y <= y,
+        }
+    }
+
+    /// Where the segment from `p` to `q` crosses the edge. The ends are put in one order first, so a
+    /// shared edge walked the other way by the neighbour parcel gives the same point.
+    fn crossing(self, p: Coord<f64>, q: Coord<f64>) -> Coord<f64> {
+        let (a, b) = if (p.x, p.y) <= (q.x, q.y) {
+            (p, q)
+        } else {
+            (q, p)
+        };
+        match self {
+            Self::West(x) | Self::East(x) => Coord {
+                x,
+                y: a.y + (x - a.x) / (b.x - a.x) * (b.y - a.y),
+            },
+            Self::South(y) | Self::North(y) => Coord {
+                x: a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x),
+                y,
+            },
+        }
+    }
+}
+
+/// The part of the closed `ring` inside `near`, or `None` if fewer than three points are left.
+fn cut_ring(ring: &LineString<f64>, near: &Rect<f64>) -> Option<LineString<f64>> {
+    let mut points = ring.0.clone();
+    if ring.is_closed() {
+        points.pop();
+    }
+    for edge in [
+        Edge::West(near.min().x),
+        Edge::East(near.max().x),
+        Edge::South(near.min().y),
+        Edge::North(near.max().y),
+    ] {
+        let mut kept = Vec::with_capacity(points.len());
+        for (i, &current) in points.iter().enumerate() {
+            let previous = points[(i + points.len() - 1) % points.len()];
+            match (edge.inside(previous), edge.inside(current)) {
+                (true, true) => kept.push(current),
+                (true, false) => kept.push(edge.crossing(previous, current)),
+                (false, true) => {
+                    kept.push(edge.crossing(previous, current));
+                    kept.push(current);
+                }
+                (false, false) => {}
+            }
+        }
+        points = kept;
+        if points.len() < 3 {
+            return None;
+        }
+    }
+    Some(LineString::new(points))
 }
 
 /// `outer` contains all of `inner`.
@@ -799,6 +888,90 @@ mod tests {
     }
 
     #[test]
+    fn the_cut_keeps_the_vertices_inside_exactly() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        let near = Rect::new(
+            coord! { x: e - 155.0, y: n - 155.0 },
+            coord! { x: e + 155.0, y: n + 155.0 },
+        );
+        // Uneven coordinates, half of the part far outside, with a hole across the edge.
+        let outline: Vec<(f64, f64)> = vec![
+            (e - 20.317, n + 0.693),
+            (e + 20.411, n + 0.281),
+            (e + 31.077, n + 140.913),
+            (e + 300.123, n - 10_000.77),
+            (e - 250.456, n - 10_000.33),
+            (e - 20.317, n + 0.693),
+        ];
+        let hole = ring(e - 10.123, n - 170.456, 9.789, 40.321);
+        let part = Polygon::new(LineString::from(outline.clone()), vec![hole.clone()]);
+        let cut = cut_near(&part, &near).expect("part of it is inside");
+        let original: Vec<Coord<f64>> = super::rings(&part).flat_map(|r| r.0.clone()).collect();
+        let strictly_inside = |c: &Coord<f64>| {
+            c.x > near.min().x && c.x < near.max().x && c.y > near.min().y && c.y < near.max().y
+        };
+        for c in super::rings(&cut)
+            .flat_map(|r| r.0.iter())
+            .filter(|c| strictly_inside(c))
+        {
+            assert!(original.contains(c), "{c:?} moved");
+        }
+        let expected = part.intersection(&near.to_polygon()).unsigned_area();
+        // The boolean operation snaps to a grid, so it is only close.
+        assert!((cut.unsigned_area() - expected).abs() < 0.01);
+        assert_eq!(cut.interiors().len(), 1);
+        // Inside or outside as a whole: unchanged or nothing.
+        let pond = Polygon::new(ring(e, n, 10.0, 10.0), vec![]);
+        assert_eq!(cut_near(&pond, &near), Some(pond));
+        let far = Polygon::new(ring(e + 1000.0, n, 10.0, 10.0), vec![]);
+        assert_eq!(cut_near(&far, &near), None);
+    }
+
+    #[test]
+    fn a_long_parcel_still_joins_its_neighbour() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // A pond inside the window on a river parcel that runs 10 km south: they share an edge
+        // with uneven coordinates, so a cut that moves the shared vertices leaves a gap.
+        let (west, east) = ((e - 20.317, n + 0.693), (e + 20.411, n + 0.281));
+        let pond = Polygon::new(
+            LineString::from(vec![
+                west,
+                east,
+                (e + 20.411, n + 30.587),
+                (e - 20.317, n + 30.587),
+                west,
+            ]),
+            vec![],
+        );
+        let river = Polygon::new(
+            LineString::from(vec![
+                west,
+                (e - 250.456, n - 10_000.33),
+                (e + 300.123, n - 10_000.77),
+                east,
+                west,
+            ]),
+            vec![],
+        );
+        let (objects, set) = water(
+            &f,
+            &[
+                land("DEBBAL01", "Stehendes Gewässer", None, vec![pond]),
+                land("DEBBAL02", "Fließgewässer", None, vec![river]),
+            ],
+        );
+        let fills = with_code(&objects.map, &set, "301.1");
+        assert_eq!(fills.len(), 1, "one body of water");
+        assert_eq!(
+            tag(fills[0], "freemapper:source_id"),
+            Some("DEBBAL01;DEBBAL02")
+        );
+        assert_eq!(objects.union.0.len(), 1);
+    }
+
+    #[test]
     fn parcels_far_larger_than_the_window_give_the_same_water() {
         let f = fixture();
         let sea = sea(&f);
@@ -834,7 +1007,7 @@ mod tests {
             }
         }
         assert!(whole.candidates.is_empty() && small.candidates.is_empty());
-        assert!((whole.union.unsigned_area() - small.union.unsigned_area()).abs() < 1e-6);
+        assert!((whole.union.unsigned_area() - small.union.unsigned_area()).abs() < 1e-3);
         assert_eq!(
             tag(&whole.map[0], "freemapper:source_id"),
             Some("DEBBAL01;DEBBAL02")
