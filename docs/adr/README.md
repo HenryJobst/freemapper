@@ -91,3 +91,9 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0043](0043-magnetic-north-lines-are-map-content.md) | Magnetic north lines are map content | Accepted | 2026-11-08 |
 | [0044](0044-iof-colours-rev-4.md) | Colours after IOF Printing and Colour Definitions Rev. 4, not OOM's bundled values | Accepted | 2026-11-08 |
 | [0045](0045-disk-space-check-before-fetching-and-disk-full-handling.md) | Disk space: checked before fetching, optional parts left out, a full disk reported plainly | Accepted | 2026-11-08 |
+| [0046](0046-alkis-canopies-are-map-objects.md) | ALKIS canopies in Berlin are map objects, not candidates | Accepted | 2026-11-09 |
+| [0047](0047-berlin-extra-layers-through-the-candidate-rule-engine.md) | Berlin extra layers become candidates through the candidate rule engine | Accepted | 2026-11-09 |
+| [0048](0048-stair-direction-from-dgm1-and-symbol-by-paper-width.md) | Stair direction from the DGM1, stair symbol by paper width | Accepted | 2026-11-09 |
+| [0049](0049-allotment-gardens-out-of-bounds-in-every-state.md) | Allotment gardens (Kleingarten) are out of bounds in every state | Accepted | 2026-11-09 |
+| [0050](0050-k5-template-at-0-25-m.md) | The Berlin K5 map is a WMS template at 0.25 m per pixel | Accepted | 2026-11-09 |
+| [0051](0051-tree-cadastre-417-418-and-osm-tree-dedup.md) | Berlin trees from the tree cadastre: 417 or 418 by crown, OSM trees nearby dropped | Accepted | 2026-11-09 |
