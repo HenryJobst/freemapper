@@ -2088,11 +2088,11 @@ pub(crate) mod test_support {
 
     /// The meta zip of Geobasis NRW: a CSV `csv_name` with the usual preamble and a row per
     /// `(tile name, date)`.
-    pub fn nrw_meta_zip(csv_name: &str, rows: &[(String, &str)]) -> Vec<u8> {
+    pub fn nrw_meta_zip(csv_name: &str, release: &str, rows: &[(String, &str)]) -> Vec<u8> {
         use std::io::Write;
-        let mut csv = String::from(
+        let mut csv = format!(
             "Kachelinformationen fuer die Datenabgabe\r\nLand;Nordrhein-Westfalen\r\n\
-             Aktualitaet_Kachelinformationen;2026-10-26\r\nVersion_Standard;3.3\r\n\
+             Aktualitaet_Kachelinformationen;{release}\r\nVersion_Standard;3.3\r\n\
              Kachelname;Aktualitaet;Erfassungsmethode\r\n",
         );
         for (name, date) in rows {
@@ -2117,7 +2117,7 @@ pub(crate) mod test_support {
             let rows: Vec<(String, &str)> = tiles.iter().map(|t| (name(t), "2022-02-12")).collect();
             fetcher.insert(
                 &meta_url(model),
-                nrw_meta_zip(&format!("{slug}_nw.csv"), &rows),
+                nrw_meta_zip(&format!("{slug}_nw.csv"), "2026-10-26", &rows),
             );
             for tile in &tiles {
                 let grid = crate::raster::GridSpec {

@@ -169,9 +169,16 @@ fn parse_meta_csv(model: Model, text: &str) -> Result<Meta, String> {
 
 /// The largest CSV read from the meta zip (the DGM1 one is 4 MB).
 const MAX_CSV_BYTES: u64 = 64 * 1024 * 1024;
+/// The largest meta zip accepted (110 KB expected).
+const MAX_ZIP_BYTES: usize = 8 * 1024 * 1024;
 
 /// The meta list in the zip `bytes`.
 fn parse_meta_zip(model: Model, bytes: &[u8]) -> Result<Meta, String> {
+    parse_meta_zip_limited(model, bytes, MAX_CSV_BYTES)
+}
+
+/// [`parse_meta_zip`] with a CSV of at most `limit` bytes.
+fn parse_meta_zip_limited(model: Model, bytes: &[u8], limit: u64) -> Result<Meta, String> {
     let mut archive =
         zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?;
     let index = (0..archive.len())
@@ -181,14 +188,21 @@ fn parse_meta_zip(model: Model, bytes: &[u8]) -> Result<Meta, String> {
                 .is_ok_and(|f| f.name().is_ok_and(|n| n.ends_with(".csv")))
         })
         .ok_or("no CSV in the zip")?;
-    let mut text = String::new();
+    let mut bytes = Vec::new();
     archive
         .by_index(index)
         .map_err(|e| e.to_string())?
-        .take(MAX_CSV_BYTES)
-        .read_to_string(&mut text)
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
-    parse_meta_csv(model, &text)
+    if bytes.len() as u64 > limit {
+        return Err(format!("the list is larger than {limit} bytes"));
+    }
+    // Only the ASCII columns matter. A stray byte (a Latin-1 umlaut in the preamble) becomes
+    // U+FFFD, which no tile name or date accepts, so it costs that row and nothing else.
+    let text = String::from_utf8_lossy(&bytes);
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    parse_meta_csv(model, text)
 }
 
 /// Where the zip of the list updated on `release` is kept.
@@ -234,6 +248,14 @@ fn meta_list(
         });
     }
     let answer = get_with_retries(fetcher, &url, |bytes| {
+        if bytes.len() > MAX_ZIP_BYTES {
+            return Err(FetchError::Http {
+                url: url.clone(),
+                message: format!(
+                    "the answer is larger than {MAX_ZIP_BYTES} bytes; this is not the tile list"
+                ),
+            });
+        }
         let meta = parse_meta_zip(model, bytes).map_err(|message| FetchError::Http {
             url: url.clone(),
             message: format!("not the tile list of the {}: {message}", model.label()),
@@ -241,6 +263,18 @@ fn meta_list(
         Ok((meta, bytes.to_vec()))
     });
     match answer {
+        Ok((meta, _)) if kept_meta(dir, model).is_some_and(|k| k.release > meta.release) => {
+            // A mirror or cache behind the origin: keep the newer list we have.
+            let kept = kept_meta(dir, model).expect("checked above");
+            warnings.push(format!(
+                "the server's tile list of the {} dates from {}, older than the kept one from \
+                 {}; used the kept one",
+                model.label(),
+                meta.release,
+                kept.release
+            ));
+            Ok(kept)
+        }
         Ok((meta, bytes)) => {
             let path = meta_path(dir, model, &meta.release);
             write_atomically(&path, &bytes)?;
@@ -379,7 +413,16 @@ pub fn fetch_model(
             ));
             None
         }
-        entry => entry.and_then(|e| e.date.clone()),
+        Some(entry) => entry.date.clone(),
+        None => {
+            warnings.push(format!(
+                "the tile list names no {} tile {} at the centre of the map area, so there is no \
+                 date",
+                model.label(),
+                short_name(centre)
+            ));
+            None
+        }
     };
     missing.sort();
     Ok(HeightModel {
@@ -454,7 +497,7 @@ mod tests {
         assert_eq!(meta.warnings.len(), 2, "{:?}", meta.warnings);
         // Through the zip, too.
         let rows = [("dgm1_32_354_5642_1_nw_2022".to_string(), "2022-02-12")];
-        let zip = nrw_meta_zip("dgm1_nw.csv", &rows);
+        let zip = nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &rows);
         assert_eq!(parse_meta_zip(Model::Dgm1, &zip).unwrap().tiles.len(), 1);
         assert!(parse_meta_zip(Model::Dgm1, b"<html>").is_err());
         assert!(parse_meta_csv(Model::Dgm1, "Kachelname;Aktualitaet\r\n").is_err());
@@ -551,7 +594,10 @@ mod tests {
             ("dgm1_32_354_5642_1_nw_2022".to_string(), "2021-01-02"),
             ("dgm1_32_355_5642_1_nw_2022".to_string(), "2022-03-04"),
         ];
-        fetcher.insert(&meta_url(Model::Dgm1), nrw_meta_zip("dgm1_nw.csv", &rows));
+        fetcher.insert(
+            &meta_url(Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &rows),
+        );
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let out = tempfile::tempdir().unwrap();
@@ -579,6 +625,162 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("offline and not cached"), "{err}");
+    }
+
+    fn zip_of(csv: &[u8]) -> Vec<u8> {
+        use std::io::Write;
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        zip.start_file("dgm1_nw.csv", zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(csv).unwrap();
+        zip.finish().unwrap().into_inner()
+    }
+
+    const HEAD: &str = "Aktualitaet_Kachelinformationen;2026-10-26\r\nKachelname;Aktualitaet\r\n";
+
+    #[test]
+    fn oversized_list_is_an_error_not_a_short_list() {
+        let rows: Vec<(String, &str)> = (0..50)
+            .map(|n| (format!("dgm1_32_{}_5642_1_nw_2022", 300 + n), "2022-02-12"))
+            .collect();
+        let zip = nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &rows);
+        assert_eq!(parse_meta_zip(Model::Dgm1, &zip).unwrap().tiles.len(), 50);
+        let err = parse_meta_zip_limited(Model::Dgm1, &zip, 500).unwrap_err();
+        assert!(err.contains("larger than"), "{err}");
+        // The download is capped too.
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&meta_url(Model::Dgm1), vec![0; MAX_ZIP_BYTES + 1]);
+        let cache_dir = tempfile::tempdir().unwrap();
+        let err = run(
+            &fetcher,
+            &Cache::new(cache_dir.path().to_path_buf()),
+            FetchMode::Online,
+            Model::Dgm1,
+            &cache_dir.path().join("x.tif"),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("larger than"), "{err}");
+    }
+
+    #[test]
+    fn bom_and_stray_bytes_do_not_reject_the_list() {
+        let mut csv = b"\xEF\xBB\xBFLand;K\xF6ln\r\n".to_vec();
+        csv.extend_from_slice(HEAD.as_bytes());
+        csv.extend_from_slice(b"dgm1_32_354_5642_1_nw_2022;2022-02-12\r\n");
+        csv.extend_from_slice(b"dgm1_32_355_56\xE442_1_nw_2022;2022-02-12\r\n");
+        let meta = parse_meta_zip(Model::Dgm1, &zip_of(&csv)).unwrap();
+        assert_eq!(meta.tiles.len(), 1);
+        assert_eq!(meta.warnings.len(), 1, "{:?}", meta.warnings);
+        // The BOM in front of the header line itself.
+        let mut csv = b"\xEF\xBB\xBF".to_vec();
+        csv.extend_from_slice(HEAD.as_bytes());
+        csv.extend_from_slice(b"dgm1_32_354_5642_1_nw_2022;2022-02-12\r\n");
+        assert_eq!(
+            parse_meta_zip(Model::Dgm1, &zip_of(&csv))
+                .unwrap()
+                .tiles
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn duplicate_row_resolves_to_the_newer_date() {
+        for rows in [
+            "dgm1_32_354_5642_1_nw_2022;2022-02-12\r\ndgm1_32_354_5642_1_nw_2023;2023-05-06\r\n",
+            "dgm1_32_354_5642_1_nw_2023;2023-05-06\r\ndgm1_32_354_5642_1_nw_2022;2022-02-12\r\n",
+        ] {
+            let meta = parse_meta_csv(Model::Dgm1, &format!("{HEAD}{rows}")).unwrap();
+            assert_eq!(meta.tiles.len(), 1);
+            assert_eq!(meta.tiles[&WEST].name, "dgm1_32_354_5642_1_nw_2023");
+            assert_eq!(meta.tiles[&WEST].date.as_deref(), Some("2023-05-06"));
+        }
+    }
+
+    #[test]
+    fn unlisted_tile_in_nrw_is_missing_and_an_unlisted_centre_warns() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        let rows = [("dgm1_32_354_5642_1_nw_2022".to_string(), "2022-02-12")];
+        fetcher.insert(
+            &meta_url(Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &rows),
+        );
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let tif = cache_dir.path().join("dgm1.tif");
+        let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert_eq!(found.missing, vec![EAST]);
+        // The centre of the area lies in the unlisted east tile.
+        assert_eq!(found.date, None);
+        assert!(
+            found.warnings.iter().any(|w| w.contains("32_355_5642")),
+            "{:?}",
+            found.warnings
+        );
+    }
+
+    #[test]
+    fn a_new_vintage_is_a_new_cache_file() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let tif = cache_dir.path().join("dgm1.tif");
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        let tiles = cache_dir.path().join("geobasis_nrw/dgm1");
+        let old = tiles.join("dgm1_32_354_5642_1_nw_2022.tif");
+        let old_bytes = std::fs::read(&old).unwrap();
+        // The west tile is flown again in 2024.
+        let rows = [
+            ("dgm1_32_354_5642_1_nw_2024".to_string(), "2024-03-01"),
+            ("dgm1_32_355_5642_1_nw_2022".to_string(), "2022-02-12"),
+        ];
+        fetcher.insert(
+            &meta_url(Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-11-20", &rows),
+        );
+        let grid = GridSpec {
+            west: 354_000.0,
+            north: 5_643_000.0,
+            pixel_size: 1.0,
+            width: 1000,
+            height: 1000,
+        };
+        fetcher.insert(
+            &tile_url(Model::Dgm1, "dgm1_32_354_5642_1_nw_2024"),
+            crate::fetch::test_support::geotiff(&grid, &vec![77.0; 1_000_000]),
+        );
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        assert!(tiles.join("dgm1_32_354_5642_1_nw_2024.tif").is_file());
+        assert_eq!(std::fs::read(&old).unwrap(), old_bytes);
+        assert_eq!(read_out(&tif).2[100 * 200 + 10], 77.0);
+    }
+
+    #[test]
+    fn an_older_list_from_the_server_does_not_replace_a_newer_kept_one() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let tif = cache_dir.path().join("dgm1.tif");
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        let rows = [("dgm1_32_354_5642_1_nw_2022".to_string(), "2022-02-12")];
+        fetcher.insert(
+            &meta_url(Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-09-01", &rows),
+        );
+        let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        let meta = cache_dir.path().join("geobasis_nrw/meta");
+        assert!(meta.join("dgm1_2026-10-26.zip").is_file());
+        assert!(!meta.join("dgm1_2026-09-01.zip").exists());
+        // The kept, newer list still names the east tile.
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+        assert!(
+            found.warnings.iter().any(|w| w.contains("2026-09-01")),
+            "{:?}",
+            found.warnings
+        );
     }
 
     /// Needs the network: the Köln school, tile 354/5642, 200 m box.
