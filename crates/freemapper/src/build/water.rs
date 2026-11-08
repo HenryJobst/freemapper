@@ -6,8 +6,11 @@
 
 use geo::algorithm::validation::Validation as _;
 use geo::orient::Direction;
-use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, Orient as _};
-use geo_types::{Coord, LineString, MultiPolygon, Polygon};
+use geo::{
+    Area as _, BooleanOps as _, BoundingRect as _, Euclidean, Intersects as _, Length as _,
+    Orient as _,
+};
+use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Polygon};
 
 use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
 use crate::crs::{BoundingBox, ProjectedPoint};
@@ -348,6 +351,47 @@ pub fn drop_covered_water(
             }
             visible.intersection(union).unsigned_area() / visible_area < OSM_WATER_COVERED
         })
+        .collect()
+}
+
+/// The parts of `line` outside `water`: ISSprOM draws no contours inside uncrossable water.
+///
+/// `water` is the drawn ALKIS water ([`WaterObjects::union`]). A line that does not touch it is
+/// returned unchanged; pieces of a cut line shorter than `min_piece_m` (stubs along the shore)
+/// are dropped.
+pub fn outside_water(
+    line: &LineString<f64>,
+    water: &MultiPolygon<f64>,
+    min_piece_m: f64,
+) -> Vec<LineString<f64>> {
+    if water.0.is_empty() || line.0.len() < 2 || !line.intersects(water) {
+        return vec![line.clone()];
+    }
+    let mut pieces: Vec<LineString<f64>> = water
+        .clip(&MultiLineString(vec![line.clone()]), true)
+        .0
+        .into_iter()
+        .filter(|piece| piece.0.len() >= 2)
+        .collect();
+    // A closed line is cut at its start point as well: join the pieces that meet there.
+    if line.is_closed() && pieces.len() > 1 {
+        let start = line.0[0];
+        let at = |c: Coord<f64>| (c.x - start.x).hypot(c.y - start.y) < EDGE_TOLERANCE_M;
+        let ending = pieces
+            .iter()
+            .position(|p| at(*p.0.last().expect("2 coords")));
+        let starting = pieces.iter().position(|p| at(p.0[0]));
+        if let (Some(ending), Some(starting)) = (ending, starting)
+            && ending != starting
+        {
+            let tail = pieces[starting].0[1..].to_vec();
+            pieces[ending].0.extend(tail);
+            pieces.remove(starting);
+        }
+    }
+    pieces
+        .into_iter()
+        .filter(|piece| Euclidean.length(piece) >= min_piece_m)
         .collect()
 }
 
@@ -1007,5 +1051,72 @@ mod tests {
         bow.coords.swap(1, 2);
         let kept = drop_covered_water(vec![bow.clone()], &union, &f.clip, &f.georef, &set);
         assert_eq!(kept, vec![bow]);
+    }
+
+    /// A 100 × 100 m lake around the origin.
+    fn lake() -> MultiPolygon<f64> {
+        MultiPolygon(vec![Polygon::new(ring(-50.0, -50.0, 100.0, 100.0), vec![])])
+    }
+
+    fn length(line: &LineString<f64>) -> f64 {
+        Euclidean.length(line)
+    }
+
+    #[test]
+    fn contours_stop_at_the_shore() {
+        // Across the lake from west to east, with a vertex in the water.
+        let line = LineString::from(vec![(-80.0, 10.0), (0.0, 10.0), (80.0, 10.0)]);
+        let pieces = outside_water(&line, &lake(), 1.0);
+        assert_eq!(pieces.len(), 2, "{pieces:?}");
+        for piece in &pieces {
+            assert!((length(piece) - 30.0).abs() < 1e-6, "{piece:?}");
+            assert!(
+                piece.coords().all(|c| c.x.abs() >= 50.0 - 1e-9),
+                "{piece:?}"
+            );
+        }
+        // A ring inside the water is gone.
+        let inside = ring(-20.0, -20.0, 40.0, 40.0);
+        assert!(outside_water(&inside, &lake(), 1.0).is_empty());
+    }
+
+    #[test]
+    fn contours_without_water_unchanged() {
+        let line = LineString::from(vec![(-80.0, 60.0), (0.0, 70.0), (80.0, 60.0)]);
+        assert_eq!(outside_water(&line, &lake(), 1.0), vec![line.clone()]);
+        assert_eq!(
+            outside_water(&line, &MultiPolygon(vec![]), 1.0),
+            vec![line.clone()]
+        );
+        // A closed ring around the lake stays one closed ring.
+        let around = ring(-60.0, -60.0, 120.0, 120.0);
+        assert_eq!(outside_water(&around, &lake(), 1.0), vec![around]);
+    }
+
+    #[test]
+    fn closed_contour_cut_by_water_is_one_line() {
+        // A 20 × 40 m ring starting at (60, 10); only its east part (x > 50) lies outside the
+        // lake, across the start point.
+        let closed = LineString::from(vec![
+            (60.0, 10.0),
+            (60.0, 30.0),
+            (40.0, 30.0),
+            (40.0, -10.0),
+            (60.0, -10.0),
+            (60.0, 10.0),
+        ]);
+        let pieces = outside_water(&closed, &lake(), 1.0);
+        assert_eq!(pieces.len(), 1, "{pieces:?}");
+        assert!((length(&pieces[0]) - 60.0).abs() < 1e-6, "{pieces:?}");
+        assert!(!pieces[0].is_closed());
+    }
+
+    #[test]
+    fn shore_stubs_are_dropped() {
+        // Crosses the lake and turns back on the east shore: a 0.6 m stub outside.
+        let line = LineString::from(vec![(-80.0, 0.0), (50.2, 0.0), (50.2, 0.2), (40.0, 0.2)]);
+        let pieces = outside_water(&line, &lake(), 1.0);
+        assert_eq!(pieces.len(), 1, "{pieces:?}");
+        assert!((length(&pieces[0]) - 30.0).abs() < 1e-6, "{pieces:?}");
     }
 }

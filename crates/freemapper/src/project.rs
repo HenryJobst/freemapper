@@ -13,7 +13,7 @@ use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::water::{drop_covered_water, water_objects};
+use crate::build::water::{drop_covered_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
@@ -2287,10 +2287,12 @@ fn stored_osm_objects(
 }
 
 /// 101/102 candidate objects for the contour lines from `derive`; none when there are none.
+/// They stop at the drawn ALKIS `water`: ISSprOM shows no contours in uncrossable water.
 fn stored_contour_objects(
     dir: &Path,
     project: &ProjectFile,
     area: &MapArea,
+    water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
@@ -2318,6 +2320,8 @@ fn stored_contour_objects(
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
     let map_area = area.projected_polygon_in(project.crs());
+    // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
+    let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
     // DGM1 is interpolated under buildings: closed rings there are artefacts.
     let footprints: Vec<geo_types::Polygon<f64>> = stored_buildings(dir)?
         .into_iter()
@@ -2336,15 +2340,20 @@ fn stored_contour_objects(
             let near = geo::Euclidean.distance(&ls, &map_area) <= project.buffer_m;
             near && !(ls.is_closed() && ls.0.len() > 3 && on_a_building(&ls))
         })
-        .map(|line| {
-            let coords: Vec<(i32, i32)> = line
-                .points
-                .iter()
-                .map(|(e, n)| {
+        .flat_map(|line| {
+            let ls = geo_types::LineString::from(line.points.clone());
+            outside_water(&ls, water, min_piece_m)
+                .into_iter()
+                .map(move |piece| (line, piece))
+        })
+        .map(|(line, piece)| {
+            let coords: Vec<(i32, i32)> = piece
+                .coords()
+                .map(|c| {
                     georef
                         .projected_to_map(ProjectedPoint {
-                            easting: *e,
-                            northing: *n,
+                            easting: c.x,
+                            northing: c.y,
                         })
                         .map(|c| (c.x, c.y))
                 })
@@ -2676,6 +2685,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                     dir,
                     &project,
                     &area,
+                    &water.union,
                     &georef,
                     &symbol_set,
                 )?)
@@ -8125,6 +8135,74 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             })
             .collect();
         assert_eq!(heights, ["63"]);
+    }
+
+    #[test]
+    fn contours_stop_at_water() {
+        use crate::derive::contours::ContourLine;
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        // A 30 m lake: 421 560–590 E, 5 821 690–720 N.
+        let lake = land_use_feature(
+            "DEBBAL0100000040",
+            "Stehendes Gewässer",
+            None,
+            [421_560.0, 5_821_690.0, 30.0],
+        );
+        std::fs::write(dir.path().join(LAND_USE_RELPATH), page(&[lake], None)).unwrap();
+        let lines = [
+            // Across the lake, with a vertex in the water.
+            ContourLine {
+                height: 63.0,
+                points: vec![
+                    (421_540.0, 5_821_705.0),
+                    (421_575.0, 5_821_705.0),
+                    (421_640.0, 5_821_705.0),
+                ],
+            },
+            // A ring inside the lake.
+            ContourLine {
+                height: 64.0,
+                points: vec![
+                    (421_570.0, 5_821_700.0),
+                    (421_580.0, 5_821_700.0),
+                    (421_580.0, 5_821_710.0),
+                    (421_570.0, 5_821_710.0),
+                    (421_570.0, 5_821_700.0),
+                ],
+            },
+        ];
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&lines),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let georef = &documents.candidates.georef;
+        let contours: Vec<&MapObject> = documents.candidates.parts[0]
+            .objects
+            .iter()
+            .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))
+            .collect();
+        let heights: Vec<&str> = contours
+            .iter()
+            .flat_map(|o| o.tags.iter().filter(|(k, _)| k == "freemapper:height"))
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(heights, ["63", "63"], "two pieces, no ring in the lake");
+        for contour in contours {
+            for c in &contour.coords {
+                let e = georef.map_to_projected(*c).easting;
+                assert!(!(421_560.1..421_589.9).contains(&e), "{e} in the lake");
+            }
+        }
+        // The training PDF paints the same candidates.
+        let (map, _) = training_objects(&documents);
+        let painted = map
+            .iter()
+            .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))
+            .count();
+        assert_eq!(painted, 2);
     }
 
     #[test]
