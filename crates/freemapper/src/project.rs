@@ -1395,7 +1395,10 @@ fn fetch_lgln_rasters(
                 None,
                 Some("the STAC lists no image at the centre of the map area".to_string()),
             ),
-            Err(e) => (None, Some(format!("the STAC search failed ({e})"))),
+            Err(e) => (
+                None,
+                Some(format!("the STAC search gave no usable answer ({e})")),
+            ),
         },
         FetchMode::Offline => (None, None),
     };
@@ -6377,7 +6380,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(found.len(), 1, "{messages:?}");
         assert!(
             found[0].starts_with(
-                "warning: orthophoto (LGLN WMS): no flight date, the STAC search failed ("
+                "warning: orthophoto (LGLN WMS): no flight date, the STAC search gave no usable answer ("
             ),
             "{messages:?}"
         );
@@ -6402,7 +6405,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         let kept: Vec<&String> = messages
             .iter()
-            .filter(|m| m.starts_with("warning: orthophoto (LGLN WMS): the STAC search failed ("))
+            .filter(|m| {
+                m.starts_with(
+                    "warning: orthophoto (LGLN WMS): the STAC search gave no usable answer (",
+                )
+            })
             .collect();
         assert_eq!(kept.len(), 1, "{messages:?}");
         assert!(
