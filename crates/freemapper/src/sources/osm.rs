@@ -258,6 +258,10 @@ const HAMBURG_EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf";
 const HAMBURG_STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt";
+const HESSEN_EXTRACT_URL: &str =
+    "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf";
+const HESSEN_STATE_URL: &str =
+    "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -270,6 +274,7 @@ pub enum ExtractSource {
     Saxony,
     SaxonyAnhalt,
     Hamburg,
+    Hessen,
 }
 
 impl ExtractSource {
@@ -280,6 +285,7 @@ impl ExtractSource {
             Region::Saxony => Self::Saxony,
             Region::SaxonyAnhalt => Self::SaxonyAnhalt,
             Region::Hamburg => Self::Hamburg,
+            Region::Hessen => Self::Hessen,
         }
     }
 
@@ -289,6 +295,7 @@ impl ExtractSource {
             Self::Saxony => SAXONY_EXTRACT_URL,
             Self::SaxonyAnhalt => SAXONY_ANHALT_EXTRACT_URL,
             Self::Hamburg => HAMBURG_EXTRACT_URL,
+            Self::Hessen => HESSEN_EXTRACT_URL,
         }
     }
 
@@ -298,6 +305,7 @@ impl ExtractSource {
             Self::Saxony => SAXONY_STATE_URL,
             Self::SaxonyAnhalt => SAXONY_ANHALT_STATE_URL,
             Self::Hamburg => HAMBURG_STATE_URL,
+            Self::Hessen => HESSEN_STATE_URL,
         }
     }
 
@@ -308,6 +316,7 @@ impl ExtractSource {
             Self::Saxony => "sachsen_",
             Self::SaxonyAnhalt => "sachsen-anhalt_",
             Self::Hamburg => "hamburg_",
+            Self::Hessen => "hessen_",
         }
     }
 
@@ -318,6 +327,7 @@ impl ExtractSource {
             Self::Saxony => 270.0,
             Self::SaxonyAnhalt => 177.0,
             Self::Hamburg => 54.0,
+            Self::Hessen => 348.0,
         }
     }
 
@@ -327,6 +337,7 @@ impl ExtractSource {
             Self::Saxony => "Saxony",
             Self::SaxonyAnhalt => "Saxony-Anhalt",
             Self::Hamburg => "Hamburg",
+            Self::Hessen => "Hesse",
         }
     }
 }
@@ -579,6 +590,21 @@ mod tests {
             "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt"
         );
         assert_eq!(hamburg.label(), "Hamburg");
+    }
+
+    #[test]
+    fn hessen_extract_urls() {
+        let hessen = ExtractSource::for_region(crate::sources::region::Region::Hessen);
+        assert_eq!(
+            hessen.url(),
+            "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+        );
+        assert_eq!(
+            hessen.state_url(),
+            "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
+        );
+        assert_eq!(hessen.label(), "Hesse");
+        assert_eq!(hessen.megabytes(), 348.0);
     }
 
     fn extracts(cache: &Cache) -> Vec<String> {

@@ -23,6 +23,7 @@ pub const WMS: WmsService = WmsService {
     layer: WMS_LAYER,
     crs: Crs::Utm33,
     extra: "",
+    max_px: 4000,
 };
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";
 pub use crate::sources::wms::ORTHOPHOTO_PIXEL_M;
@@ -343,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    fn xml_instead_of_jpeg_is_retried_then_an_error() {
+    fn xml_instead_of_jpeg_is_an_error_asked_once() {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = crate::fetch::test_support::MapFetcher::default();
         fetcher.insert_prefix(
@@ -357,8 +358,11 @@ mod tests {
             max_n: 5_656_000.0,
         };
         let err = fetch_orthophoto(&fetcher, &bbox, &dir.path().join("o.jpg")).unwrap_err();
-        assert!(err.to_string().contains("not a JPEG"), "{err}");
-        assert_eq!(fetcher.calls.get(), 3);
+        assert!(
+            err.to_string().contains("the WMS answered with an error"),
+            "{err}"
+        );
+        assert_eq!(fetcher.calls.get(), 1);
         assert!(!dir.path().join("o.jpg").exists());
     }
 

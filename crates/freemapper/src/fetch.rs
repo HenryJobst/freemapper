@@ -392,6 +392,11 @@ impl Cache {
         self.root.join("lgv")
     }
 
+    /// Folder of the HVBG Hesse tiles, zip directories and metadata list.
+    pub fn hvbg_dir(&self) -> PathBuf {
+        self.root.join("hvbg")
+    }
+
     /// The collected GeoSN tile index rows of `product`.
     pub fn currency_index_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.json")
@@ -517,7 +522,9 @@ fn currency_table(
         Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
         Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
         // LVermGeo rasters are fetched per area (WMS, WCS), not as tiles.
-        Provider::LvermGeo | Provider::Lgv => Err(FetchError::TilesNotCovered(tiles.to_vec())),
+        Provider::LvermGeo | Provider::Lgv | Provider::Hvbg => {
+            Err(FetchError::TilesNotCovered(tiles.to_vec()))
+        }
     }
 }
 
@@ -877,7 +884,7 @@ pub(crate) fn get_range_with_retries(
         let result = fetcher.get_range(url, range).and_then(|bytes| {
             let fits = match range {
                 ByteRange::From { len, .. } => bytes.len() as u64 == len,
-                ByteRange::Last(n) => bytes.len() as u64 <= n,
+                ByteRange::Last(n) => !bytes.is_empty() && bytes.len() as u64 <= n,
             };
             if fits {
                 return Ok(bytes);
@@ -1415,6 +1422,104 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
+    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
+    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
+    pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::{alkis_wfs, hvbg};
+        serve_hessen_models(fetcher, bbox);
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!("{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap", hvbg::WMS.url),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                hvbg::WMS.url
+            ),
+            b"name = 'dop_476500_5552000'  land = 'he'  aufloesung = '20'  farbe = 'rgb'  \
+              bezug = 'BDOM'  flugjahr = '2025'  bildflug = '19-08-2025'  aenderung = '12-10-2026'\n"
+                .to_vec(),
+        );
+        let service = alkis_wfs::HVBG;
+        for (type_name, body) in [
+            (
+                service.buildings_type,
+                alkis_wfs::test_support::HE_BUILDINGS,
+            ),
+            (service.land_use_type, alkis_wfs::test_support::HE_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    service.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let extract = crate::sources::osm::ExtractSource::Hessen;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
+    /// Serves the HVBG height models of a Hesse project in `bbox` (EPSG:25832): the DGM1 and
+    /// DOM1 product trees, the Frankfurt listings, the metadata list (every tile of `bbox` in
+    /// Frankfurt am Main, flown 2023-02-28) and the municipal zips with the 1 km tiles (terrain
+    /// 100 m rising 0.01 m per metre east, surface 12 m above).
+    pub fn serve_hessen_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        use crate::sources::hvbg::{self, test_support as he};
+        const DISTRICT: &str = "Kreisfreie Stadt Frankfurt am Main";
+        let tiles = crate::tiles::tiles_covering(bbox);
+        let rows: Vec<(TileId, u32, &str, &str)> = tiles
+            .iter()
+            .map(|&t| (t, 44985, "Frankfurt am Main", DISTRICT))
+            .collect();
+        fetcher.insert(he::METADATA_URL, he::metadata_xlsx(&rows));
+        for (model, code, lift) in [
+            (hvbg::Model::Dgm1, "DGM1", 100.0),
+            (hvbg::Model::Dom1, "DOM1", 112.0),
+        ] {
+            // Only the DGM1 description links the metadata list (the DOM1 one does too, but
+            // both models take it from DGM1).
+            let link = model == hvbg::Model::Dgm1;
+            fetcher.insert(&hvbg::tree_url(model), he::tree_answer(&[DISTRICT], link));
+            let uri = format!(
+                "/downloadcenter/20261108/{}/{DISTRICT}/Frankfurt_am_Main-{code}.zip",
+                model.product()
+            );
+            fetcher.insert(
+                &hvbg::listing_url(model.product(), DISTRICT, 1),
+                he::listing_answer(&[(&format!("Frankfurt_am_Main-{code}"), &uri)]),
+            );
+            let members: Vec<(String, Vec<u8>, bool)> = tiles
+                .iter()
+                .map(|&t| {
+                    (
+                        format!("{code}_32_{}_{}_1_he.tif", t.east_km, t.north_km),
+                        he::tile_tiff(t, lift, 0.01),
+                        true,
+                    )
+                })
+                .collect();
+            let members: Vec<(&str, Vec<u8>, bool)> = members
+                .iter()
+                .map(|(name, bytes, deflate)| (name.as_str(), bytes.clone(), *deflate))
+                .collect();
+            fetcher.insert(
+                &hvbg::file_url(&uri).expect("a server path"),
+                crate::sources::zip_range::test_support::archive(&members),
+            );
+        }
+    }
+
     /// An nDSM tile like LGB's: LAZ, 0.01 m scale; a 2 m hedge line north–south through the school.
     pub fn serve_synthetic_ndsm(fetcher: &MapFetcher, tile: TileId) {
         let dir = tempfile::tempdir().unwrap();
@@ -1474,6 +1579,7 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use std::cell::Cell;
 
     const TILE: TileId = TileId {
         east_km: 421,
@@ -2344,6 +2450,51 @@ mod tests {
         )
         .unwrap();
         assert_eq!(bytes, b"234");
+    }
+
+    /// Answers the tail range empty this many times, then with the real bytes.
+    struct EmptyTail {
+        empty_left: Cell<u32>,
+        calls: Cell<u32>,
+    }
+
+    impl Fetcher for EmptyTail {
+        fn get(&self, _url: &str) -> Result<Vec<u8>, FetchError> {
+            unreachable!()
+        }
+
+        fn get_range(&self, _url: &str, _range: ByteRange) -> Result<Vec<u8>, FetchError> {
+            self.calls.set(self.calls.get() + 1);
+            if self.empty_left.get() > 0 {
+                self.empty_left.set(self.empty_left.get() - 1);
+                return Ok(Vec::new());
+            }
+            Ok(b"tail".to_vec())
+        }
+    }
+
+    #[test]
+    fn empty_tail_answer_is_retried() {
+        let fetcher = EmptyTail {
+            empty_left: Cell::new(1),
+            calls: Cell::new(0),
+        };
+        let bytes = get_range_with_retries(&fetcher, "https://example.org/f", ByteRange::Last(100))
+            .unwrap();
+        assert_eq!(bytes, b"tail");
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn tail_answer_that_stays_empty_is_a_clear_error() {
+        let fetcher = EmptyTail {
+            empty_left: Cell::new(99),
+            calls: Cell::new(0),
+        };
+        let err = get_range_with_retries(&fetcher, "https://example.org/f", ByteRange::Last(100))
+            .unwrap_err();
+        assert!(err.to_string().contains("got 0 bytes"), "{err}");
+        assert_eq!(fetcher.calls.get(), 3);
     }
 
     #[test]

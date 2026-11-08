@@ -1,0 +1,29 @@
+{
+ "searchresult": {
+  "packages": [],
+  "product": {
+   "name": "Landkreis Marburg-Biedenkopf"
+  },
+  "downloads": [
+   {
+    "name": "Wetter (Hessen) - DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Wetter (Hessen) - DOP20.zip"
+    }
+   },
+   {
+    "name": "Wohratal - DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Wohratal - DOP20.zip"
+    }
+   }
+  ],
+  "paging": {
+   "total": 22,
+   "pageSize": 20,
+   "page": 2
+  }
+ }
+}

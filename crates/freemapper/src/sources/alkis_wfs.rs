@@ -1,5 +1,5 @@
-//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo; GML 3.2
-//! only), read into GeoJSON features with the LGB property schema (the attribute names are the
+//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG;
+//! GML 3.2 only), read into GeoJSON features with the LGB property schema (the attribute names are the
 //! same).
 
 use serde_json::Value;
@@ -41,6 +41,17 @@ pub const LVERMGEO: WfsService = WfsService {
     land_use_type: "ave:Nutzung",
     crs: Crs::Utm32,
     square_bez: "ohne Unterart (Sachsen-Anhalt)",
+};
+
+/// HVBG, Hesse (EPSG:25832; land use per parcel part). `ave:Nutzung` carries no `nutzart` in
+/// Hesse, so the parcel-part type is used.
+pub const HVBG: WfsService = WfsService {
+    name: "HVBG ALKIS",
+    url: "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs",
+    buildings_type: "ave:GebaeudeBauwerk",
+    land_use_type: "ave:NutzungFlurstueck",
+    crs: Crs::Utm32,
+    square_bez: "ohne Unterart (Hessen)",
 };
 
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
@@ -168,22 +179,7 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
             }
             Event::CData(t) => text_buf.push_str(&t.into_inner()),
             Event::Text(t) => text_buf.push_str(t.as_ref()),
-            Event::GeneralRef(r) => {
-                let name: &str = r.as_ref();
-                let resolved = match name {
-                    "amp" => Some('&'),
-                    "lt" => Some('<'),
-                    "gt" => Some('>'),
-                    "quot" => Some('"'),
-                    "apos" => Some('\''),
-                    _ => name
-                        .strip_prefix("#x")
-                        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
-                        .or_else(|| name.strip_prefix('#').and_then(|dec| dec.parse().ok()))
-                        .and_then(char::from_u32),
-                };
-                text_buf.extend(resolved);
-            }
+            Event::GeneralRef(r) => text_buf.extend(resolve_entity(r.as_ref())),
             Event::End(_) => {
                 let Some(name) = path.pop() else { continue };
                 if let Some(f) = feature.as_mut() {
@@ -266,6 +262,22 @@ impl GmlFeature {
             "geometry": geometry,
             "properties": self.properties,
         })
+    }
+}
+
+/// The character an XML entity reference (`amp`, `#228`, `#xE4`) stands for.
+pub(crate) fn resolve_entity(name: &str) -> Option<char> {
+    match name {
+        "amp" => Some('&'),
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        _ => name
+            .strip_prefix("#x")
+            .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+            .or_else(|| name.strip_prefix('#').and_then(|dec| dec.parse().ok()))
+            .and_then(char::from_u32),
     }
 }
 
@@ -372,6 +384,8 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/saxony-anhalt-buildings.gml");
     pub const ST_LAND_USE: &str =
         include_str!("../../../../tests/fixtures/saxony-anhalt-land-use.gml");
+    pub const HE_BUILDINGS: &str = include_str!("../../../../tests/fixtures/hessen-buildings.gml");
+    pub const HE_LAND_USE: &str = include_str!("../../../../tests/fixtures/hessen-land-use.gml");
 }
 
 #[cfg(test)]
@@ -685,6 +699,85 @@ mod tests {
             url.contains("BBOX=706350,5706800,706550,5707000,urn:ogc:def:crs:EPSG::25832"),
             "{url}"
         );
+    }
+
+    #[test]
+    fn hvbg_buildings_parse() {
+        let features = parse_gml(HE_BUILDINGS).unwrap();
+        let parsed = parse_buildings(&collection(&features)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        let school = parsed
+            .buildings
+            .iter()
+            .find(|b| b.oid == "DEHE06200002dyI4BL")
+            .unwrap();
+        assert_eq!(school.function, "Gebäude für öffentliche Zwecke");
+        // Native EPSG:25832 coordinates.
+        let corner = school.footprint.0[0].exterior().0[0];
+        assert!((476_000.0..477_000.0).contains(&corner.x), "{corner:?}");
+        let garage = parsed
+            .buildings
+            .iter()
+            .find(|b| b.function == "Tiefgarage")
+            .unwrap();
+        assert_eq!(garage.kind, "Bauteil");
+        assert!(garage.underground, "rellage marks it underground");
+        assert!(!school.underground);
+    }
+
+    #[test]
+    fn hvbg_land_use_from_nutzung_flurstueck() {
+        assert_eq!(HVBG.land_use_type, "ave:NutzungFlurstueck");
+        let features = parse_gml(HE_LAND_USE).unwrap();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        assert_eq!(land.len(), features.len());
+        let nutzarten: Vec<&str> = land.iter().map(|l| l.nutzart.as_str()).collect();
+        for want in ["Straßenverkehr", "Wohnbaufläche", "Platz"] {
+            assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
+        }
+        assert!(features.iter().all(|f| !f["geometry"].is_null()));
+    }
+
+    #[test]
+    fn hvbg_squares_without_bez_stay_candidates() {
+        let features: Vec<Value> = parse_gml(HE_LAND_USE)
+            .unwrap()
+            .into_iter()
+            .map(|f| normalise_land_use(f, HVBG.square_bez))
+            .collect();
+        let land = parse_land_use(&collection(&features)).unwrap();
+        let squares: Vec<Option<&str>> = land
+            .iter()
+            .filter(|l| l.nutzart == "Platz")
+            .map(|l| l.bez.as_deref())
+            .collect();
+        assert!(squares.contains(&Some("Parkplatz")), "{squares:?}");
+        assert!(
+            squares.contains(&Some("ohne Unterart (Hessen)")),
+            "{squares:?}"
+        );
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
+    }
+
+    #[test]
+    fn hvbg_urls_are_in_zone_32() {
+        let bbox = BoundingBox {
+            min_e: 476_320.0,
+            min_n: 5_552_421.5,
+            max_e: 476_817.2,
+            max_n: 5_552_753.0,
+        };
+        let url = HVBG.wfs_url(HVBG.land_use_type, &bbox, 0);
+        assert!(
+            url.starts_with("https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?"),
+            "{url}"
+        );
+        assert!(url.contains("TYPENAMES=ave:NutzungFlurstueck&"), "{url}");
+        assert!(
+            url.contains("BBOX=476320,5552421,476818,5552753,urn:ogc:def:crs:EPSG::25832"),
+            "{url}"
+        );
+        assert!(url.contains("SORTBY=oid"), "{url}");
     }
 
     #[test]

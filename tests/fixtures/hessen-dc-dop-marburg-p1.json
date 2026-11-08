@@ -1,0 +1,43 @@
+{
+ "searchresult": {
+  "packages": [],
+  "product": {
+   "name": "Landkreis Marburg-Biedenkopf"
+  },
+  "downloads": [
+   {
+    "name": "Amöneburg - DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Amöneburg - DOP20.zip"
+    }
+   },
+   {
+    "name": "Kirchhain-DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Kirchhain-DOP20.zip"
+    }
+   },
+   {
+    "name": "Neustadt_(Hessen)-DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Neustadt_(Hessen)-DOP20.zip"
+    }
+   },
+   {
+    "name": "Weimar (Lahn) - DOP20",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/Luftbildinformationen/Digitale Orthophotos DOP20/Landkreis Marburg-Biedenkopf/Weimar (Lahn) - DOP20.zip"
+    }
+   }
+  ],
+  "paging": {
+   "total": 22,
+   "pageSize": 20,
+   "page": 1
+  }
+ }
+}

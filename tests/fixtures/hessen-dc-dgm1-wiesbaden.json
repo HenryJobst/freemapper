@@ -1,0 +1,30 @@
+{
+ "searchresult": {
+  "packages": [
+   {
+    "name": "Alle Dateien zu Kreisfreie Stadt Wiesbaden herunterladen",
+    "downloadType": "Package",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Wiesbaden/PKT_Kreisfreie Stadt Wiesbaden.zip"
+    }
+   }
+  ],
+  "product": {
+   "name": "Kreisfreie Stadt Wiesbaden"
+  },
+  "downloads": [
+   {
+    "name": "Wiesbaden - DGM1",
+    "downloadType": "File",
+    "downloadLink": {
+     "uri": "/downloadcenter/20261108/3D-Daten/Digitales Geländemodell (DGM1)/Kreisfreie Stadt Wiesbaden/Wiesbaden - DGM1.zip"
+    }
+   }
+  ],
+  "paging": {
+   "total": 1,
+   "pageSize": 20,
+   "page": 1
+  }
+ }
+}
