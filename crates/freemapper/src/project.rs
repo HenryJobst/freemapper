@@ -2652,13 +2652,14 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
-    let water = water_objects(&land_use, &project.bbox()?, &georef, &symbol_set)?;
+    let clip = project.bbox()?;
+    let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
     // OSM ponds inside the drawn ALKIS water would only duplicate it.
     let osm_objects = |target| -> Result<Vec<MapObject>, ProjectError> {
         Ok(drop_covered_water(
             stored_osm_objects(target, osm.as_ref(), &project, &area, &georef, &symbol_set)?,
             &water.union,
-            &project.bbox()?,
+            &clip,
             &georef,
             &symbol_set,
         ))
@@ -7386,6 +7387,22 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             );
             assert_eq!(symbols_of(&candidates, "way/11"), [pond], "{kind:?}");
         }
+    }
+
+    #[test]
+    fn osm_pond_without_alkis_water_stays_a_candidate() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        store_lake_and_ponds(dir.path());
+        // No water parcel: the same ponds, nothing to drop them.
+        store_traffic_areas(dir.path());
+        let candidates = {
+            export_starter_project(dir.path(), false).unwrap();
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap()
+        };
+        let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
+        assert_eq!(symbols_of(&candidates, "way/10"), [pond]);
+        assert_eq!(symbols_of(&candidates, "way/11"), [pond]);
     }
 
     #[test]
