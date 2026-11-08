@@ -917,6 +917,37 @@ mod tests {
     }
 
     #[test]
+    fn nrw_estimate_on_a_district_border_lists_both_extracts() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Köln-Worringen on the Köln / Düsseldorf district border, 25833 E -70550 / N 5689830.
+        let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+            easting: -70_550.0,
+            northing: 5_689_830.0,
+        })
+        .unwrap();
+        let area = square(p.lon - 0.006, p.lat - 0.004, 0.012);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let items = &preview.estimate.items;
+        for (label, megabytes) in [("Köln", 225.2), ("Düsseldorf", 217.2)] {
+            let what =
+                format!("OSM extract North Rhine-Westphalia ({label}) (shared by all projects)");
+            let item = find_item(items, &what);
+            assert!(
+                (item.megabytes - megabytes).abs() < 1e-9 && !item.cached,
+                "{item:?}"
+            );
+        }
+        assert_eq!(
+            items
+                .iter()
+                .filter(|i| i.what.starts_with("OSM extract"))
+                .count(),
+            2
+        );
+    }
+
+    #[test]
     fn nrw_estimate_counts_tiles_and_marks_cached_ones() {
         use crate::sources::geobasis_nrw::{Model, cached_tiles};
         let cache_dir = tempfile::tempdir().unwrap();

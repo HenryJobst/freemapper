@@ -5872,7 +5872,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
             }
             // The rasters come from NRW alone.
-            assert!(!log.iter().any(|u| u.contains("hessen.de/INTERSHOP")));
+            // Neither the orthophoto WMS nor the Downloadcenter of Hesse is asked (its ALKIS
+            // WFS, on www.gds.hessen.de, is).
+            for host in ["https://www.gds-srv.hessen.de", "https://gds.hessen.de"] {
+                assert!(!log.iter().any(|u| u.starts_with(host)), "{host}");
+            }
         }
         assert!(
             messages
