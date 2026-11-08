@@ -53,6 +53,12 @@ Auf Wunsch erzeugt freemapper zusätzlich eine **druckfertige Trainingskarte als
     für Sachsen etwa 270 MB, für Sachsen-Anhalt etwa 180 MB, für Hamburg etwa 55 MB, für Hessen etwa 350 MB, für Schleswig-Holstein etwa 160 MB (ohne Hamburg), für Mecklenburg-Vorpommern etwa 130 MB, für Niedersachsen etwa 510 MB (mit Bremen), für Rheinland-Pfalz etwa 275 MB. In Nordrhein-Westfalen sind es die Auszüge der Regierungsbezirke mit je 140 bis 225 MB, bei einem Gebiet an einer Bezirksgrenze zwei davon. Der Auszug wird für
     alle Projekte wiederverwendet.
   - Dazu kommen je Karte meist 10–100 MB.
+  - Vor jedem Laden prüft freemapper den freien Platz im Zwischenspeicher und im Projektordner. Liegen
+    beide auf verschiedenen Laufwerken, prüft es jedes für sich. Auf jedem Laufwerk lässt es 1 GB frei.
+    Reicht der Platz nicht für alles, lässt freemapper das Oberflächenmodell (die nDOM-Vorlage) aus und,
+    wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
+    warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
+    freemapper ab, bevor es etwas lädt.
 - Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen oder Rheinland-Pfalz**. Bremen und weitere Länder folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
@@ -115,7 +121,7 @@ Der Assistent geht dann so vor:
 
 1. Er sucht den Ort und zeigt Ihnen die Treffer.
 2. Er legt das Projekt an.
-3. Er sagt Ihnen, wie viel heruntergeladen wird.
+3. Er sagt Ihnen, wie viel heruntergeladen wird und ob es auf den Datenträger passt.
 4. Er startet das Laden und Berechnen. Das dauert beim ersten Mal einige Minuten, später meist weniger
    als eine Minute.
 5. Er zeigt Ihnen Vorschaubilder der Vorlagen.
@@ -167,7 +173,9 @@ Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
 - **Rechts** sehen Sie:
   - die Größe mit Puffer;
   - die Datenkacheln, die geladen werden (dünne Linien in der Karte);
-  - den geschätzten Download.
+  - den geschätzten Download;
+  - den freien Speicherplatz und wie viel davon der Download braucht. Was nicht auf den Datenträger
+    passt, trägt in der Liste „Was geladen wird“ den Vermerk „passt nicht auf den Datenträger“.
 - **Kartenart, Maßstab und Titel** einstellen, dann *Speichern* und *Fertig*.
 
 Die Seite läuft nur auf Ihrem Rechner. Ein Gebiet darf mit Puffer höchstens 4 km × 4 km groß sein.
@@ -399,6 +407,11 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Es wurde noch nicht geladen, oder das Gebiet hat sich geändert. | `run` bzw. `fetch` ausführen. |
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
+| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell oder Aktualisierung des OSM-Auszugs) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `not enough disk space for the …` | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
+| `the disk is full, so freemapper could not write …` | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
+| `warning: the disk is full, so freemapper uses the cached OSM extract from …` | Der neue OSM-Auszug passte nicht mehr auf den Datenträger. freemapper nimmt den älteren. | Platz schaffen und später erneut laden. |
+| `warning: cannot read the free disk space of …` | Das System nennt den freien Platz nicht, etwa bei manchen Netzlaufwerken. freemapper lädt ohne Prüfung. | Nichts. Läuft der Datenträger voll, meldet freemapper `the disk is full`. |
 
 ## 15. Namensnennung
 
