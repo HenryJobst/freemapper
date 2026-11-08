@@ -95,6 +95,9 @@ Orienteering Maps 2019 (IOF).
 | Produkt | product | Einzelner Datensatztyp einer Quelle, z. B. DGM1, nDOM, DOP20. | `Product` |
 | Kachel | tile | Rechteckiges Teilstück eines Produkts (LGB: 1×1 km). | `Tile` |
 | Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt, bei LVermGeo RP die WFS-Ebene `Laserbefliegung` (Flugtage je Kachel, daraus das Jahr im Dateinamen). | `meta_list`, `lvermgeo_rp::tile_list` |
+| Befliegungsübersicht (Laserbefliegung) | laser-scan flight index | WFS-Ebene `Laserbefliegung` des LVermGeo RP: je 1-km-Kachel Flugjahr und Flugtage des Laserscans. freemapper bildet daraus den Dateinamen der DGM1- und DOM1-Kachel und nimmt den letzten Flugtag als Datum. | `lvermgeo_rp::TILE_LIST_URL`, `ListedTile` |
+| Metalink | Metalink | XML-Datei (`.meta4`), die Namen, Größen und Prüfsummen der Dateien eines Servers nennt. LVermGeo RP veröffentlicht je Produkt eine für das ganze Land (etwa 11 MB); freemapper liest sie nur für Kacheln, denen die Befliegungsübersicht kein Flugjahr gibt. | `lvermgeo_rp::metalink_url`, `parse_metalink` |
+| 404-Vermerk | missing-tile note | Datei `<Name>.missing` im Cache: Der Server hat für eine Kachel der Kachelliste mit 404 geantwortet. Spätere Läufe fragen nicht erneut, bei Geobasis NRW bis zur nächsten Ausgabe der Liste, bei LVermGeo RP 30 Tage lang. | `TileStore::marker_path`, `lvermgeo_rp::RECHECK_AFTER` |
 | Kachelschema | tile scheme | Regel für Lage und Benennung der Kacheln. | `TileScheme` |
 | Kachelkennung | tile id | Name einer Kachel, z. B. `33421-5821` (SW-Ecke in km). | `TileId` |
 | Datenstand / Aktualität | data currency | Erfassungs- bzw. Veröffentlichungsdatum eines Datensatzes. | `currency` |
@@ -112,6 +115,7 @@ Orienteering Maps 2019 (IOF).
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |
 | Digitales Orthophoto (DOP) | orthophoto | Entzerrtes, georeferenziertes Luftbild (DOP20 = 0,2 m). | `Orthophoto` |
 | Flugdatum | flight date | Tag, an dem das Luftbild beflogen wurde. | `WmsRecord::flight` |
+| Erstellungsdatum | date of creation | Feld `erstellung` des Luftbild-Kartendienstes von LVermGeo RP, ein Datum je 2-km-Block. freemapper nimmt es als Flugdatum (ein Schluss aus den Daten, kein Feld heißt „Bildflugdatum“) und vermerkt im Projekteintrag „Aktualität (Erstellung)“. | `lvermgeo_rp::FLIGHT_LABEL`, `DateLabel`, `WmsRecord::flight_label` |
 | Belaubung (belaubt / unbelaubt) | leaf state (leaf-on / leaf-off) | Ob die Bäume beim Bildflug Laub trugen; in Niedersachsen nach dem Flugmonat bestimmt (Mai bis Oktober belaubt). | `lgln::leaf_state` |
 | Kartendienst (WMS) | map service (WMS) | OGC Web Map Service: liefert ein Bild für einen Ausschnitt; freemapper setzt das Luftbild aus Stücken von höchstens 4000 px zusammen. | `WmsService` |
 | WCS-Dienst | WCS service | OGC Web Coverage Service: liefert die Rasterwerte für einen Ausschnitt, z. B. DGM1 und DOM1 in Sachsen-Anhalt, Mecklenburg-Vorpommern und Niedersachsen. | `WcsService` |
