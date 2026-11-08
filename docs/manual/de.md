@@ -211,8 +211,10 @@ Aus OSM kommen weitere Kandidaten:
 
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
-Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste, Nordlinien
-und die Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15).
+Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
+Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
+gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie sie in OOM, wo sie kleine Objekte
+verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Land:
 [`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte.
@@ -252,6 +254,9 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Oft führt das Kataster eine Straßenbrücke als Straßenfläche. Dann endet das Wasser an der Brücke, und
     eine Uferlinie läuft quer über den Fluss. Löschen Sie diese Linie in OOM und ziehen Sie die Fläche unter
     der Brücke durch.
+  - Stoßen zwei Gewässerflächen fast aneinander, etwa die zweier Länder an der Grenze mitten im Rhein,
+    schließt freemapper Lücken unter 0,5 m. Eine Uferlinie mitten im Fluss steht also für eine breitere
+    Lücke im Kataster. Prüfen Sie im Luftbild, ob dort Land ist.
   - Gewässer aus dem Kataster sind immer unpassierbar (301), denn das Kataster kennt keine Tiefe.
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben
@@ -270,6 +275,10 @@ gezeichnete Karte in A4 oder A3, druckfertig.
 
 Anders als im Ausgangsstand werden hier **alle Kandidaten zu Kartenobjekten**, auch die unsicheren.
 Die Karte ist gut für ein schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
+
+Die Farben sind CMYK-Werte nach den IOF-Druck- und Farbdefinitionen Rev. 4 (gültig ab 1.12.2024), dieselben
+wie in der OOM- und der OCAD-Datei. Druckt Ihr Drucker Braun oder Grün deutlich anders, vergleichen Sie mit dem
+IOF Print Test Sheet und passen Sie die Farben an.
 
 ## 11. OCAD
 

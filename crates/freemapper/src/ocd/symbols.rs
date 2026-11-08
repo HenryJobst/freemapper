@@ -526,6 +526,11 @@ mod tests {
             "Black 100%\tn2\tc0.0\tm0.0\ty0.0\tk100.0\to0\tt100"
         );
         assert_eq!(black.icon_index(), 0);
+        assert_eq!(
+            colours[8].parameter_string(),
+            "Brown 100%\tn8\tc25.0\tm75.0\ty100.0\tk0.0\to0\tt100",
+            "IOF Rev. 4"
+        );
         let white = &colours[1];
         assert_eq!(white.icon_index(), 124);
         assert!(colours.windows(2).all(|w| w[0].number < w[1].number));

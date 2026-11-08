@@ -2,8 +2,11 @@
 //!
 //! A river is split into many parcels, so the parts are dissolved into one shape first: the
 //! fill and the bank line are separate symbols, and the bank line runs only along the shore,
-//! never along a parcel boundary or the clip edge (the map edge).
+//! never along a parcel boundary or the clip edge (the map edge). Parcels that do not quite meet,
+//! such as two states' water at a border in mid-river, are closed up before the bank lines are
+//! drawn.
 
+use geo::algorithm::buffer::{Buffer as _, BufferStyle, LineJoin};
 use geo::algorithm::validation::Validation as _;
 use geo::orient::Direction;
 use geo::{
@@ -40,6 +43,16 @@ const NEAR_WINDOW_M: f64 = 5.0;
 /// A parcel part counts as a source of a dissolved piece above this overlap; neighbours that
 /// only touch the piece share no area.
 const MIN_OVERLAP_M2: f64 = 0.01;
+/// Gaps between water parcels narrower than this are closed: the parcels of two states rarely
+/// share their vertices at a border in mid-river. Real gaps are wider, the narrowest a bridge
+/// of 0.8 m.
+const SEAM_TOLERANCE_M: f64 = 0.5;
+/// Corners sharper than this get a bevel instead of a mitre while gaps are closed (radians,
+/// about 6°).
+const MITRE_MIN_ANGLE: f64 = 0.1;
+/// A closed gap is grown by this much before it joins the water, so it overlaps both sides; the
+/// growth is cut back to the closing.
+const GAP_OVERLAP_M: f64 = 0.01;
 
 pub fn is_water(land: &LandUse) -> bool {
     WATER_LAND_USES.contains(&land.nutzart.as_str())
@@ -228,9 +241,39 @@ fn contains(outer: &Rect<f64>, inner: &Rect<f64>) -> bool {
         && inner.max().y <= outer.max().y
 }
 
-/// The union of `parts`: one shape per connected body of water.
+/// The union of `parts`: one shape per connected body of water, with gaps narrower than
+/// [`SEAM_TOLERANCE_M`] closed.
 fn dissolve(parts: &[Part]) -> MultiPolygon<f64> {
-    geo::unary_union(parts.iter().map(|(_, part)| part))
+    close_gaps(&geo::unary_union(parts.iter().map(|(_, part)| part)))
+}
+
+/// `shape` with its gaps, inlets and holes narrower than [`SEAM_TOLERANCE_M`] filled.
+///
+/// The gaps are what a morphological closing adds: `shape` grown by half the tolerance and
+/// shrunk again. Only those pieces join `shape`, so every other vertex stays exactly where the
+/// union put it; the closing's own rounding leaves slivers below [`MIN_OVERLAP_M2`], which are
+/// dropped.
+fn close_gaps(shape: &MultiPolygon<f64>) -> MultiPolygon<f64> {
+    if shape.0.is_empty() {
+        return shape.clone();
+    }
+    let style = |distance| BufferStyle::new(distance).line_join(LineJoin::Miter(MITRE_MIN_ANGLE));
+    let closed = shape
+        .buffer_with_style(style(SEAM_TOLERANCE_M / 2.0))
+        .buffer_with_style(style(-SEAM_TOLERANCE_M / 2.0));
+    let gaps: Vec<Polygon<f64>> = closed
+        .difference(shape)
+        .0
+        .into_iter()
+        .filter(|gap| gap.unsigned_area() > MIN_OVERLAP_M2)
+        .collect();
+    if gaps.is_empty() {
+        return shape.clone();
+    }
+    // Grown so they overlap the water on both sides, then cut back to the closing, so they do
+    // not bulge out where a gap meets the shore.
+    let grown = MultiPolygon(gaps).buffer_with_style(style(GAP_OVERLAP_M));
+    shape.union(&grown.intersection(&closed))
 }
 
 fn rings(polygon: &Polygon<f64>) -> impl Iterator<Item = &LineString<f64>> {
@@ -747,6 +790,137 @@ mod tests {
             assert!(!(inside && at_boundary), "{p:?}");
         }
         assert_eq!(objects.union.0.len(), 1);
+    }
+
+    /// A river 80 m wide right across the clip window, split along its axis at the state border
+    /// (Rhineland-Palatinate south, Hesse north, as at Mainz), the halves `gap` m apart (negative:
+    /// overlapping).
+    fn river_halves(f: &Fixture, gap: f64) -> [LandUse; 2] {
+        let half = |oid: &str, dn: f64| {
+            land(
+                oid,
+                "Fließgewässer",
+                Some("Fluss"),
+                vec![rect(f, -1000.0, dn, 2000.0, 40.0 - gap / 2.0)],
+            )
+        };
+        [half("DERPAL01", -40.0), half("DEHEAL01", gap / 2.0)]
+    }
+
+    /// The bank lines of `objects`, and whether any of their points lies in the river's middle.
+    fn banks_and_seam(f: &Fixture, objects: &WaterObjects, set: &SymbolSet) -> (usize, bool) {
+        let banks = with_code(&objects.map, set, "301.6");
+        let seam = banks.iter().any(|bank| {
+            projected(f, bank)
+                .iter()
+                .any(|p| (p.northing - f.centre.1).abs() < 30.0)
+        });
+        (banks.len(), seam)
+    }
+
+    #[test]
+    fn no_bank_line_where_two_states_water_meets() {
+        let f = fixture();
+        for gap in [0.2, -0.2, 0.01, 0.45] {
+            let (objects, set) = water(&f, &river_halves(&f, gap));
+            assert_eq!(
+                with_code(&objects.map, &set, "301.1").len(),
+                1,
+                "gap {gap}: one fill"
+            );
+            assert_eq!(
+                banks_and_seam(&f, &objects, &set),
+                (2, false),
+                "gap {gap}: the north and the south bank only"
+            );
+            assert_eq!(objects.union.0.len(), 1, "gap {gap}");
+            assert_eq!(objects.union.0[0].interiors().len(), 0, "gap {gap}");
+        }
+    }
+
+    #[test]
+    fn no_bank_line_where_the_border_zigzags_between_gap_and_overlap() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // The south half reaches 0.2 m over the border in the west and stops 0.2 m short of it
+        // in the east; the north half starts at the border.
+        let south = Polygon::new(
+            LineString::from(vec![
+                (e - 1000.0, n - 40.0),
+                (e + 1000.0, n - 40.0),
+                (e + 1000.0, n - 0.2),
+                (e + 7.0, n - 0.2),
+                (e - 7.0, n + 0.2),
+                (e - 1000.0, n + 0.2),
+                (e - 1000.0, n - 40.0),
+            ]),
+            vec![],
+        );
+        let land_use = [
+            land("DERPAL01", "Fließgewässer", None, vec![south]),
+            land(
+                "DEHEAL01",
+                "Fließgewässer",
+                None,
+                vec![rect(&f, -1000.0, 0.0, 2000.0, 40.0)],
+            ),
+        ];
+        let (objects, set) = water(&f, &land_use);
+        assert_eq!(with_code(&objects.map, &set, "301.1").len(), 1);
+        assert_eq!(banks_and_seam(&f, &objects, &set), (2, false));
+    }
+
+    #[test]
+    fn a_gap_across_the_river_leaves_the_shore_straight() {
+        let f = fixture();
+        // A 40 m river split across its width, the two parcels 0.2 m apart: the closed gap meets
+        // both shores and must not bulge out of them.
+        let part = |oid: &str, de: f64, w: f64| {
+            land(
+                oid,
+                "Fließgewässer",
+                None,
+                vec![rect(&f, de, -20.0, w, 40.0)],
+            )
+        };
+        let land_use = [
+            part("DERPAL01", -1000.0, 999.9),
+            part("DEHEAL01", 0.1, 999.9),
+        ];
+        let (objects, set) = water(&f, &land_use);
+        assert_eq!(with_code(&objects.map, &set, "301.1").len(), 1);
+        let banks = with_code(&objects.map, &set, "301.6");
+        assert_eq!(banks.len(), 2, "the north and the south bank");
+        let n = f.centre.1;
+        for bank in banks {
+            for p in projected(&f, bank) {
+                let off = (p.northing - (n - 20.0))
+                    .abs()
+                    .min((p.northing - (n + 20.0)).abs());
+                // Map coordinates are 1 µm on paper, 4 mm on the ground at 1:4000.
+                assert!(off < 0.005, "{p:?} is {off} m off the shore");
+            }
+        }
+    }
+
+    #[test]
+    fn water_across_a_real_gap_keeps_both_banks() {
+        let f = fixture();
+        // 5 m of land between the halves, and a bridge of 0.8 m, the narrowest real gap.
+        for gap in [5.0, 0.8] {
+            let (objects, set) = water(&f, &river_halves(&f, gap));
+            assert_eq!(
+                with_code(&objects.map, &set, "301.1").len(),
+                2,
+                "gap {gap}: two fills"
+            );
+            assert_eq!(
+                banks_and_seam(&f, &objects, &set),
+                (4, true),
+                "gap {gap}: both banks of the land strip"
+            );
+            assert_eq!(objects.union.0.len(), 2, "gap {gap}");
+        }
     }
 
     #[test]

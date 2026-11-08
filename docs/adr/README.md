@@ -88,3 +88,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0040](0040-rhineland-palatinate-missing-tiles-checked-again-after-30-days.md) | Rhineland-Palatinate: missing tiles are reported and checked again after 30 days | Accepted | 2026-11-08 |
 | [0041](0041-rhineland-palatinate-alkis-from-ave-nutzung-on-the-origin-host.md) | Rhineland-Palatinate: ALKIS from `ave:Nutzung` on the origin host, dates from `gml:timePosition` | Accepted | 2026-11-08 |
 | [0042](0042-rhineland-palatinate-provider-name-and-attribution.md) | Rhineland-Palatinate: provider `LvermGeoRp` and the attribution line | Accepted | 2026-11-08 |
+| [0043](0043-magnetic-north-lines-are-map-content.md) | Magnetic north lines are map content | Accepted | 2026-11-08 |
+| [0044](0044-iof-colours-rev-4.md) | Colours after IOF Printing and Colour Definitions Rev. 4, not OOM's bundled values | Accepted | 2026-11-08 |

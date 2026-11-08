@@ -111,20 +111,21 @@ dash symbols, dash points, mid symbols on dashed lines, text framing. They are s
   areas would punch holes. Emit one fill per area renderable (merging strokes of equal
   width/cap/join is harmless).
 
-Priorities of the colours used (ISSprOM 2019), top to bottom:
+Priorities of the colours used (ISSprOM 2019 as bundled by freemapper, CMYK after IOF Printing and
+Colour Definitions Rev. 4, ADR 0044), top to bottom:
 
 | Prio | Name | C | M | Y | K |
 |---|---|---|---|---|---|
 | 2 | Black 100% | 0 | 0 | 0 | 1 |
-| 3 | Green 100% | 0.76 | 0 | 0.91 | 0 |
+| 3 | Green 100% | 0.8 | 0 | 1 | 0 |
 | 7 | Blue 100% | 1 | 0 | 0 | 0 |
-| 8 | Brown 100% | 0 | 0.56 | 1 | 0.18 |
-| 9 | Black 60% | 0 | 0 | 0 | 0.6 |
-| 13 | Lower brown 50% | 0 | 0.28 | 0.5 | 0.09 |
-| 14 | Lower brown 30% | 0 | 0.168 | 0.3 | 0.054 |
+| 8 | Brown 100% | 0.25 | 0.75 | 1 | 0 |
+| 10 | Black 50% (building fill 521.3, 521.1) | 0 | 0 | 0 | 0.5 |
+| 13 | Lower brown 50% | 0.1 | 0.35 | 0.5 | 0 |
+| 14 | Lower brown 30% | 0.06 | 0.23 | 0.33 | 0 |
 | 15 | Black below lower light brown | 0 | 0 | 0 | 1 |
 | 21 | White over green | 0 | 0 | 0 | 0 |
-| 22 | Green 50%/Yellow 100% | 0.38 | 0.27 | 0.886 | 0 |
+| 22 | Green 50%/Yellow 100% | 0.38 | 0.27 | 1 | 0 |
 | 30 | Yellow 100% | 0 | 0.27 | 0.79 | 0 |
 
 Consequences: 501.5/501.11 fills (14/13) cover the inner half of their own edge line (15);
