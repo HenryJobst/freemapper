@@ -36,6 +36,9 @@ const ALKIS_MB: f64 = 0.5;
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
 const SH_BDOM_TILE_MB: f64 = 105.0;
+/// A Geobasis NRW DGM1 tile (Float32, LZW) and a DOM1 tile.
+const NRW_DGM1_TILE_MB: f64 = 2.2;
+const NRW_DOM1_TILE_MB: f64 = 3.0;
 
 /// One download of a project.
 #[derive(Debug, Clone, PartialEq)]
@@ -102,8 +105,7 @@ fn estimate_area(
         Some(Provider::Hvbg) => hvbg_items(bbox, cache),
         Some(Provider::LvermGeoSh) => schleswig_holstein_items(bbox, cache),
         Some(Provider::LaivMv) => laiv_mv_items(bbox),
-        // Task 4: the Geobasis NRW download items (WMS orthophoto, DGM1/DOM1 tiles).
-        Some(Provider::GeobasisNrw) => Vec::new(),
+        Some(Provider::GeobasisNrw) => nrw_items(bbox, cache),
         Some(Provider::Lgb) | None => lgb_items(&tiles, cache),
     };
     // The estimate stays quiet; the fetch prints any extract warning.
@@ -266,6 +268,30 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
             megabytes: 1.0,
             cached: list_cached,
         },
+    ]
+}
+
+/// Geobasis NRW: the WMS orthophoto, and the DGM1 (≈2.2 MB) and DOM1 (≈3 MB) per whole 1 km tile
+/// that touches the state, those already cached left out.
+fn nrw_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
+    use crate::sources::geobasis_nrw::{Model, cached_tiles};
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, Region::NordrheinWestfalen))
+        .collect();
+    let model_item = |model: Model, mb_per_tile: f64| {
+        let cached = cached_tiles(cache, model);
+        let open = tiles.iter().filter(|t| !cached.contains(t)).count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+        }
+    };
+    vec![
+        per_km2_item(bbox, "orthophoto (Geobasis NRW WMS)", ORTHOPHOTO_MB_PER_KM2),
+        model_item(Model::Dgm1, NRW_DGM1_TILE_MB),
+        model_item(Model::Dom1, NRW_DOM1_TILE_MB),
     ]
 }
 
@@ -809,6 +835,146 @@ mod tests {
         assert!((dgm1.megabytes - 2.1 * (n - 1.0)).abs() < 1e-9 && !dgm1.cached);
         let dom1 = item("surface model (HVBG DOM1)", &cache);
         assert!((dom1.megabytes - 3.0 * n).abs() < 1e-9);
+    }
+
+    /// A square map area (0.002 degrees) whose corner is at EPSG:25832 `easting`/`northing`.
+    fn nrw_area(easting: f64, northing: f64) -> crate::area::MapArea {
+        let p = crate::crs::Crs::Utm32
+            .inverse(crate::crs::ProjectedPoint { easting, northing })
+            .unwrap();
+        square(p.lon, p.lat, 0.002)
+    }
+
+    fn find_item<'a>(items: &'a [EstimateItem], what: &str) -> &'a EstimateItem {
+        items
+            .iter()
+            .find(|i| i.what == what)
+            .unwrap_or_else(|| panic!("{what} in {items:?}"))
+    }
+
+    #[test]
+    fn nrw_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Hildegard-von-Bingen-Gymnasium, Köln: inside the tile 354/5642.
+        let area = nrw_area(354_600.0, 5_642_550.0);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        let items = &preview.estimate.items;
+        let bbox = area.projected_bbox().buffered(20.0);
+        let km2 = bbox.width() * bbox.height() / 1e6;
+        let near = |a: f64, b: f64| (a - b).abs() < 1e-6;
+        assert!(near(
+            find_item(items, "orthophoto (Geobasis NRW WMS)").megabytes,
+            km2 * 8.0
+        ));
+        // Whole 1 km tiles, however small the area: the school yard lies in one.
+        let dgm1 = find_item(items, "terrain model (Geobasis NRW DGM1)");
+        assert!(near(dgm1.megabytes, 2.2) && !dgm1.cached, "{dgm1:?}");
+        let dom1 = find_item(items, "surface model (Geobasis NRW DOM1)");
+        assert!(near(dom1.megabytes, 3.0) && !dom1.cached, "{dom1:?}");
+        assert!(near(
+            find_item(
+                items,
+                "OSM extract North Rhine-Westphalia (Köln) (shared by all projects)"
+            )
+            .megabytes,
+            225.2
+        ));
+        assert!(preview.estimate.tiles.is_empty());
+        assert!(!items.iter().any(|i| i.what.contains("LGB")));
+    }
+
+    #[test]
+    fn nrw_estimate_in_the_west_with_negative_eastings() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Aachen cathedral: 25833 E -128141, so far west that the eastings are negative.
+        let c = crate::crs::Crs::Utm32
+            .reproject(
+                crate::crs::Crs::Utm33,
+                crate::crs::ProjectedPoint {
+                    easting: -128_141.0,
+                    northing: 5_662_838.0,
+                },
+            )
+            .unwrap();
+        let area = nrw_area(c.easting, c.northing);
+        assert!(area.projected_bbox().min_e < 0.0);
+        let preview = preview_area(&area, 20.0, &cache, today());
+        assert!(
+            !preview.too_large && !preview.outside_coverage,
+            "{preview:?}"
+        );
+        let items = &preview.estimate.items;
+        assert!(find_item(items, "terrain model (Geobasis NRW DGM1)").megabytes >= 2.2);
+        assert!(find_item(items, "surface model (Geobasis NRW DOM1)").megabytes >= 3.0);
+        assert!(
+            items
+                .iter()
+                .any(|i| i.what.starts_with("OSM extract North Rhine-Westphalia")),
+            "{items:?}"
+        );
+    }
+
+    #[test]
+    fn nrw_estimate_counts_tiles_and_marks_cached_ones() {
+        use crate::sources::geobasis_nrw::{Model, cached_tiles};
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // Two tiles side by side: the tile border 355 km east lies inside the area.
+        let area = nrw_area(354_900.0, 5_642_400.0);
+        let item = |what: &str, cache: &Cache| {
+            let preview = preview_area(&area, 20.0, cache, today());
+            find_item(&preview.estimate.items, what).clone()
+        };
+        let before = item("terrain model (Geobasis NRW DGM1)", &cache);
+        assert!(before.megabytes > 2.2 * 1.9 && !before.cached, "{before:?}");
+        // Both tiles of the DGM1 in the cache, under the names the kept list gives.
+        let tiles = [(354, 5642), (355, 5642)];
+        let names: Vec<(String, &str)> = tiles
+            .iter()
+            .map(|(e, n)| (format!("dgm1_32_{e}_{n}_1_nw_2022"), "2022-02-12"))
+            .collect();
+        let dir = cache.geobasis_nrw_dir();
+        std::fs::create_dir_all(dir.join("meta")).unwrap();
+        std::fs::create_dir_all(dir.join("dgm1")).unwrap();
+        std::fs::write(
+            dir.join("meta/dgm1_2026-10-26.zip"),
+            crate::fetch::test_support::nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &names),
+        )
+        .unwrap();
+        let grid = |e: u32, n: u32| crate::raster::GridSpec {
+            west: f64::from(e) * 1000.0,
+            north: f64::from(n + 1) * 1000.0,
+            pixel_size: 1.0,
+            width: 1000,
+            height: 1000,
+        };
+        let (e, n) = tiles[0];
+        std::fs::write(
+            dir.join(format!("dgm1/dgm1_32_{e}_{n}_1_nw_2022.tif")),
+            crate::fetch::test_support::geotiff(&grid(e, n), &vec![1.0; 1_000_000]),
+        )
+        .unwrap();
+        assert_eq!(cached_tiles(&cache, Model::Dgm1).len(), 1);
+        let one_open = item("terrain model (Geobasis NRW DGM1)", &cache);
+        assert!(
+            (one_open.megabytes - 2.2).abs() < 1e-9 && !one_open.cached,
+            "{one_open:?}"
+        );
+        let (e, n) = tiles[1];
+        std::fs::write(
+            dir.join(format!("dgm1/dgm1_32_{e}_{n}_1_nw_2022.tif")),
+            crate::fetch::test_support::geotiff(&grid(e, n), &vec![1.0; 1_000_000]),
+        )
+        .unwrap();
+        let none_open = item("terrain model (Geobasis NRW DGM1)", &cache);
+        assert!(
+            none_open.megabytes == 0.0 && none_open.cached,
+            "{none_open:?}"
+        );
+        // The DOM1 is still open.
+        assert!(!item("surface model (Geobasis NRW DOM1)", &cache).cached);
     }
 
     /// 25832 E 565500 / N 5947100 as a map centre: Hamburg-Langenhorn, 600 m south of the border

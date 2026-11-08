@@ -28,7 +28,7 @@ const JOB_LINES: usize = 50;
 const PREVIEW_PX: u32 = 800;
 
 const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
-orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein and Mecklenburg-Vorpommern and OSM. \
+orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern and North Rhine-Westphalia and OSM. \
 Workflow: find_place (search the school or area by name; pick a result with has_area) → \
 create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user \
 how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \

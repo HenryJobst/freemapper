@@ -11,14 +11,74 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::height_model::HeightModel;
 use crate::sources::lvermgeo_sh::{is_plain, paste_tile, read_cached, whole_tile};
 use crate::sources::region::{Region, tile_centre_in};
+use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
+
+/// The orthophoto WMS (the tiles are JPEG 2000 only). MaxWidth/MaxHeight is 5000; a larger request
+/// is an HTTP 200 XML exception.
+pub const WMS: WmsService = WmsService {
+    url: "https://www.wms.nrw.de/geobasis/wms_nw_dop",
+    layer: "nw_dop_rgb",
+    crs: Crs::Utm32,
+    extra: "",
+    max_px: 4000,
+};
+/// The queryable layer with the flight date per tile.
+const WMS_INFO_LAYER: &str = "nw_dop_utm_info";
+
+/// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
+/// GetFeatureInfo on the metadata layer; `None` outside the coverage or when the answer has none.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let url = format!(
+        "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
+         &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
+        WMS.url,
+        WMS.crs.epsg(),
+        crate::sources::wms::mm(e - 100.0),
+        crate::sources::wms::mm(n - 100.0),
+        crate::sources::wms::mm(e + 100.0),
+        crate::sources::wms::mm(n + 100.0),
+    );
+    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec())).ok()?;
+    parse_flight_date(&String::from_utf8_lossy(&bytes))
+}
+
+/// `Bildflugdatum = 'DD.MM.YYYY'` of a GetFeatureInfo text answer.
+fn parse_flight_date(text: &str) -> Option<String> {
+    let rest = text.split("Bildflugdatum").nth(1)?;
+    let value = rest.split('\'').nth(1)?;
+    let parts: Vec<&str> = value.split('.').collect();
+    let [d, m, y] = parts[..] else { return None };
+    let digits = |s: &str, n| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
+}
+
+/// The tiles of `model` in the cache: those the newest kept tile list names whose file exists
+/// (files are written whole, atomically).
+pub fn cached_tiles(cache: &Cache, model: Model) -> std::collections::HashSet<TileId> {
+    let dir = cache.geobasis_nrw_dir();
+    kept_meta(&dir, model)
+        .map(|meta| {
+            meta.tiles
+                .into_values()
+                .filter(|entry| cache_path(&dir, model, &entry.name).exists())
+                .map(|entry| entry.tile)
+                .collect()
+        })
+        .unwrap_or_default()
+}
 
 /// The height model files; the product folder appears twice in the path.
 const HM: &str = "https://www.opengeodata.nrw.de/produkte/geobasis/hm";
@@ -464,6 +524,72 @@ mod tests {
             panic!("not float")
         };
         (width, height, values)
+    }
+
+    #[test]
+    fn flight_date_from_get_feature_info() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            crate::fetch::test_support::NRW_FLIGHT_INFO
+                .as_bytes()
+                .to_vec(),
+        );
+        assert_eq!(flight_date(&fetcher, &BBOX).as_deref(), Some("11.05.2025"));
+        let url = fetcher.log.borrow()[0].clone();
+        for part in [
+            "LAYERS=nw_dop_utm_info",
+            "QUERY_LAYERS=nw_dop_utm_info",
+            "CRS=EPSG:25832",
+            "BBOX=354900,5642400,355100,5642600",
+            "WIDTH=100&HEIGHT=100&I=50&J=50",
+            "INFO_FORMAT=text/plain",
+        ] {
+            assert!(url.contains(part), "{part} in {url}");
+        }
+    }
+
+    #[test]
+    fn flight_date_is_none_without_a_date() {
+        for answer in [
+            "GetFeatureInfo results:\n\n  Search returned no results.\n",
+            "Bildflugdatum = '2025-05-11'",
+            "Bildflugdatum = '1.5.2025'",
+            "Bildflugdatum = ''",
+            "<ServiceExceptionReport/>",
+        ] {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(WMS.url, answer.as_bytes().to_vec());
+            assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
+        }
+        // No answer at all.
+        assert_eq!(flight_date(&MapFetcher::default(), &BBOX), None);
+    }
+
+    #[test]
+    fn cached_tiles_are_those_of_the_kept_list_that_exist() {
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        assert!(cached_tiles(&cache, Model::Dgm1).is_empty());
+        serve_synthetic_nrw(&fetcher, &BBOX);
+        run(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &dir.path().join("o.tif"),
+        )
+        .unwrap();
+        assert_eq!(
+            cached_tiles(&cache, Model::Dgm1),
+            [WEST, EAST].into_iter().collect()
+        );
+        // The DOM1 was not read.
+        assert!(cached_tiles(&cache, Model::Dom1).is_empty());
     }
 
     fn run(

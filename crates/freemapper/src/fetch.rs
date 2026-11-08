@@ -2086,6 +2086,12 @@ pub(crate) mod test_support {
         }
     }
 
+    /// The GetFeatureInfo text answer of the NRW orthophoto WMS (flight 11.05.2025), as the
+    /// server gives it.
+    pub const NRW_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'nw_dop_utm_info'\n  \
+        Feature 20301: \n    Kachelname = '32354_5642'\n    Bildflugdatum = '11.05.2025'\n    \
+        Bodenauflösung = '0.10'\n    Photometrie = 'RGBI'\n    Bit_pro_Kanal = '8'\n";
+
     /// The meta zip of Geobasis NRW: a CSV `csv_name` with the usual preamble and a row per
     /// `(tile name, date)`.
     pub fn nrw_meta_zip(csv_name: &str, release: &str, rows: &[(String, &str)]) -> Vec<u8> {
@@ -2105,12 +2111,26 @@ pub(crate) mod test_support {
         zip.finish().unwrap().into_inner()
     }
 
-    /// Serves the Geobasis NRW height models of a project in `bbox` (EPSG:25832): the meta zips
+    /// Serves the Geobasis NRW rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
+    /// right size with the flight date 11.05.2025, the meta zips
     /// of DGM1 and DOM1 naming every tile of `bbox` (scanned 2022-02-12, file names with
     /// `_2022`) and the tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
     /// above).
     pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::geobasis_nrw::{Model, meta_url, tile_url};
+        use crate::sources::geobasis_nrw::{Model, WMS, meta_url, tile_url};
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        // The WMS allows 4000 px a side: a larger area comes in pieces, each of its own size.
+        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
+            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [0, 100, 200]));
+        }
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+                WMS.url
+            ),
+            NRW_FLIGHT_INFO.as_bytes().to_vec(),
+        );
         let tiles = crate::tiles::tiles_covering(bbox);
         for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
             let name = |t: &TileId| format!("{slug}_32_{}_{}_1_nw_2022", t.east_km, t.north_km);
