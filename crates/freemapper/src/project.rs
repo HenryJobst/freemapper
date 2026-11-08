@@ -13,7 +13,7 @@ use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::water::{drop_covered_water, outside_water, water_objects};
+use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
@@ -2663,12 +2663,19 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
     let clip = project.bbox()?;
     let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
-    // OSM ponds inside the drawn ALKIS water would only duplicate it.
+    // OSM ponds inside the drawn ALKIS water would only duplicate it, and fountain points in
+    // water are mostly the jets of a basin.
     let osm_objects = |target| -> Result<Vec<MapObject>, ProjectError> {
-        Ok(drop_covered_water(
+        let kept = drop_covered_water(
             stored_osm_objects(target, osm.as_ref(), &project, &area, &georef, &symbol_set)?,
             &water.union,
             &clip,
+            &georef,
+            &symbol_set,
+        );
+        Ok(drop_points_in_water(
+            kept,
+            &water.union,
             &georef,
             &symbol_set,
         ))
@@ -7397,6 +7404,46 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             );
             assert_eq!(symbols_of(&candidates, "way/11"), [pond], "{kind:?}");
         }
+    }
+
+    #[test]
+    fn fountain_jets_in_a_basin_are_left_out_of_the_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        // The ALKIS lake (421 560–590 E, 5 821 690–720 N) and the OSM pond way/11 outside it
+        // (421 620–630 E, 5 821 700–710 N), which stays a candidate.
+        store_lake_and_ponds(dir.path());
+        let path = dir.path().join(OSM_CANDIDATES_RELPATH);
+        let mut features =
+            crate::sources::osm::features_from_geojson(&std::fs::read_to_string(&path).unwrap())
+                .unwrap();
+        let node = |id: &str, tag: (&str, &str), e: f64, n: f64| crate::sources::osm::OsmFeature {
+            id: id.to_string(),
+            tags: [(tag.0.to_string(), tag.1.to_string())]
+                .into_iter()
+                .collect(),
+            geometry: crate::sources::osm::OsmGeometry::Point(lat_lon_at(e, n)),
+        };
+        features.extend([
+            node("node/20", ("amenity", "fountain"), 421_575.0, 5_821_705.0),
+            node("node/21", ("amenity", "fountain"), 421_625.0, 5_821_705.0),
+            node(
+                "node/22",
+                ("man_made", "water_well"),
+                421_626.0,
+                5_821_706.0,
+            ),
+            node("node/23", ("amenity", "fountain"), 421_605.0, 5_821_700.0),
+        ]);
+        std::fs::write(&path, crate::sources::osm::features_to_geojson(&features)).unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let fountain = MapKind::Sprint.symbol_set().id_for_code("311").unwrap();
+        for jet in ["node/20", "node/21", "node/22"] {
+            assert_eq!(symbols_of(&candidates, jet), Vec::<u32>::new(), "{jet}");
+        }
+        assert_eq!(symbols_of(&candidates, "node/23"), [fountain]);
     }
 
     #[test]

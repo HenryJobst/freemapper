@@ -24,6 +24,9 @@ const FILL_CODE: &str = "301.1";
 const BANK_CODE: &str = "301.6";
 /// ISSprOM 301 uncrossable body of water, the combined symbol the OSM rules use for areas.
 const OSM_AREA_CODE: &str = "301";
+/// ISSprOM 311 small fountain or well, the OSM rules' symbol for `amenity=fountain` nodes and
+/// `man_made=water_well`.
+const OSM_POINT_CODE: &str = "311";
 /// Land uses that are open water, with any `bez`. ALKIS has no depth: all of it is 301, never 302.
 pub const WATER_LAND_USES: [&str; 4] =
     ["Fließgewässer", "Stehendes Gewässer", "Hafenbecken", "Meer"];
@@ -321,25 +324,10 @@ pub fn drop_covered_water(
     objects
         .into_iter()
         .filter(|object| {
-            let from_osm = object
-                .tags
-                .iter()
-                .any(|(k, v)| k == "freemapper:source" && v == "osm");
-            if object.symbol_id != water_id || !from_osm || object.coords.len() < 4 {
+            if object.symbol_id != water_id || !from_osm(object) || object.coords.len() < 4 {
                 return true;
             }
-            let ring: Vec<Coord<f64>> = object
-                .coords
-                .iter()
-                .map(|&c| {
-                    let p = georef.map_to_projected(c);
-                    Coord {
-                        x: p.easting,
-                        y: p.northing,
-                    }
-                })
-                .collect();
-            let area = Polygon::new(LineString(ring), vec![]);
+            let area = projected_area(object, georef);
             // A self-intersecting ring (a bow tie) has no reliable area: keep it for the mapper.
             if !area.is_valid() {
                 return true;
@@ -393,6 +381,66 @@ pub fn outside_water(
         .into_iter()
         .filter(|piece| Euclidean.length(piece) >= min_piece_m)
         .collect()
+}
+
+/// `objects` without the OSM 311 points that stand in water: the jets of a fountain in its basin,
+/// or a well in a pond. Water is the drawn ALKIS water `union` and every OSM 301 area among
+/// `objects`, so call it after [`drop_covered_water`]. A fountain without a basin stays.
+pub fn drop_points_in_water(
+    objects: Vec<MapObject>,
+    union: &MultiPolygon<f64>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
+    let (Some(area_id), Some(point_id)) = (
+        symbol_set.id_for_code(OSM_AREA_CODE),
+        symbol_set.id_for_code(OSM_POINT_CODE),
+    ) else {
+        return objects;
+    };
+    let basins: Vec<Polygon<f64>> = objects
+        .iter()
+        .filter(|o| o.symbol_id == area_id && from_osm(o) && o.coords.len() >= 4)
+        .map(|o| projected_area(o, georef))
+        .collect();
+    objects
+        .into_iter()
+        .filter(|object| {
+            let is_point = matches!(object.kind, MapObjectKind::Point { .. });
+            if object.symbol_id != point_id || !is_point || !from_osm(object) {
+                return true;
+            }
+            let Some(&c) = object.coords.first() else {
+                return true;
+            };
+            let p = georef.map_to_projected(c);
+            let point = geo_types::Point::new(p.easting, p.northing);
+            !(point.intersects(union) || basins.iter().any(|b| point.intersects(b)))
+        })
+        .collect()
+}
+
+fn from_osm(object: &MapObject) -> bool {
+    object
+        .tags
+        .iter()
+        .any(|(k, v)| k == "freemapper:source" && v == "osm")
+}
+
+/// The ring of an area object in the map's CRS (no holes: OSM areas come from closed ways).
+fn projected_area(object: &MapObject, georef: &Georeferencing) -> Polygon<f64> {
+    let ring: Vec<Coord<f64>> = object
+        .coords
+        .iter()
+        .map(|&c| {
+            let p = georef.map_to_projected(c);
+            Coord {
+                x: p.easting,
+                y: p.northing,
+            }
+        })
+        .collect();
+    Polygon::new(LineString(ring), vec![])
 }
 
 #[cfg(test)]
@@ -1118,5 +1166,66 @@ mod tests {
         let pieces = outside_water(&line, &lake(), 1.0);
         assert_eq!(pieces.len(), 1, "{pieces:?}");
         assert!((length(&pieces[0]) - 30.0).abs() < 1e-6, "{pieces:?}");
+    }
+
+    fn osm_point(g: &Georeferencing, set: &SymbolSet, code: &str, e: f64, n: f64) -> MapObject {
+        let m = g
+            .projected_to_map(ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![MapCoord::new(m.x, m.y)],
+            tags: vec![("freemapper:source".into(), "osm".into())],
+        }
+    }
+
+    #[test]
+    fn fountain_jets_inside_a_basin_are_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        // An OSM fountain basin (20 × 20 m) and an ALKIS pond (x from 50 to 80 m).
+        let basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 50.0, n - 15.0, 30.0, 30.0),
+            vec![],
+        )]);
+        let jets = [(0.0, 0.0), (5.0, -5.0), (-8.0, 8.0)]
+            .map(|(de, dn)| osm_point(&f.georef, &set, "311", e + de, n + dn));
+        let well_in_pond = osm_point(&f.georef, &set, "311", e + 60.0, n);
+        let spring_in_pond = osm_point(&f.georef, &set, "312", e + 60.0, n);
+        let mut objects = vec![basin.clone(), well_in_pond, spring_in_pond.clone()];
+        objects.extend(jets);
+        let kept = drop_points_in_water(objects, &union, &f.georef, &set);
+        assert_eq!(kept, vec![basin, spring_in_pond]);
+    }
+
+    #[test]
+    fn free_standing_fountain_is_kept() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 50.0, n - 15.0, 30.0, 30.0),
+            vec![],
+        )]);
+        let fountain = osm_point(&f.georef, &set, "311", e - 40.0, n);
+        let well = osm_point(&f.georef, &set, "311", e + 30.0, n);
+        let objects = vec![basin, fountain, well];
+        assert_eq!(
+            drop_points_in_water(objects.clone(), &union, &f.georef, &set),
+            objects
+        );
+        // Without any water nothing is dropped either.
+        let lone = vec![osm_point(&f.georef, &set, "311", e, n)];
+        assert_eq!(
+            drop_points_in_water(lone.clone(), &MultiPolygon(vec![]), &f.georef, &set),
+            lone
+        );
     }
 }
