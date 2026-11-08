@@ -417,9 +417,15 @@ fn fetch_model_with(
             ),
         });
     }
+    // Reported after the tiles, as the paste closure holds the warnings.
+    let mut fallbacks = Vec::new();
     for (n, entry) in pending.iter().enumerate() {
         let part = match model {
-            Model::Dgm1 => dgm1_tile(fetcher, &dir, entry, xyz_cells, progress)?,
+            Model::Dgm1 => {
+                let (part, fallback) = dgm1_tile(fetcher, &dir, entry, xyz_cells, progress)?;
+                fallbacks.extend(fallback);
+                part
+            }
             Model::Bdom => {
                 progress(&format!(
                     "downloading bDOM tile {} ({BDOM_MB} MB, {} of {})",
@@ -432,6 +438,7 @@ fn fetch_model_with(
         };
         paste(&mut raster, entry, &part)?;
     }
+    warnings.extend(fallbacks);
     if found == 0 {
         return Err(FetchError::Http {
             url: overview_url(bbox, model),
@@ -606,15 +613,17 @@ fn whole_tile(raster: Raster<f32>, tile: TileId, pixels: &[f64]) -> Result<Raste
     }
 }
 
-/// The DGM1 of `entry` from the ATOM directory, or from the portal's XYZ when the directory
-/// lacks it (404); cached.
+/// The DGM1 of `entry` from the ATOM directory, or from the portal's XYZ when the ATOM answer
+/// is not a valid whole 1 m tile (404, an error page, a file that does not decode, another
+/// grid, a server error that stays after the retries); cached. The fallback comes with a
+/// warning naming the tile and the reason; when the XYZ fails too, the error names both.
 fn dgm1_tile(
     fetcher: &dyn Fetcher,
     dir: &Path,
     entry: &PortalTile,
     xyz_cells: u32,
     progress: &mut dyn FnMut(&str),
-) -> Result<Raster<f32>, FetchError> {
+) -> Result<(Raster<f32>, Option<String>), FetchError> {
     let path = cache_path(dir, Model::Dgm1, entry);
     let what = format!("{} tile {}", Model::Dgm1.label(), entry.name);
     let url = format!("{ATOM_DATA}/{}.tif", entry.name);
@@ -627,25 +636,32 @@ fn dgm1_tile(
                 message: format!("{what}: {message}"),
             })
     });
-    match atom {
+    let atom_failed = match atom {
         Ok((bytes, raster)) => {
             write_atomically(&path, &bytes)?;
-            Ok(raster)
+            return Ok((raster, None));
         }
-        Err(FetchError::NotFound(_)) => {
-            progress(&format!(
-                "DGM1 tile {} is not in the INSPIRE ATOM directory; downloading its XYZ \
-                 ({XYZ_MB} MB)",
-                short_name(entry.tile)
-            ));
-            let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
-                parse_xyz(reader, entry.tile, xyz_cells)
-            })?;
-            cache_raster(&path, &raster, &what)?;
-            Ok(raster)
-        }
-        Err(e) => Err(e),
-    }
+        Err(FetchError::NotFound(_)) => "is not in the INSPIRE ATOM directory".to_string(),
+        Err(e) => format!("from the INSPIRE ATOM directory does not read ({e})"),
+    };
+    let tile = format!("DGM1 tile {}", short_name(entry.tile));
+    progress(&format!(
+        "{tile} {atom_failed}; downloading its XYZ ({XYZ_MB} MB)"
+    ));
+    let raster = download_checked(fetcher, dir, entry, &what, progress, |reader| {
+        parse_xyz(reader, entry.tile, xyz_cells)
+    })
+    .map_err(|e| FetchError::Http {
+        url: entry.link.clone(),
+        message: format!("{what} {atom_failed}, and its XYZ does not read either: {e}"),
+    })?;
+    cache_raster(&path, &raster, &what)?;
+    Ok((
+        raster,
+        Some(format!(
+            "{tile} {atom_failed}; used its XYZ from the Downloadportal"
+        )),
+    ))
 }
 
 /// The bDOM of `entry`, streamed to a temporary file, decoded once, reduced to 1 m and cached.
@@ -1332,6 +1348,11 @@ mod tests {
                 found,
                 HeightModel {
                     date: Some("2022-03-10".to_string()),
+                    warnings: vec![
+                        "DGM1 tile 32_565_5949 is not in the INSPIRE ATOM directory; used its \
+                         XYZ from the Downloadportal"
+                            .to_string()
+                    ],
                     ..HeightModel::default()
                 }
             );
@@ -1379,7 +1400,13 @@ mod tests {
                 &mut messages,
             )
             .unwrap();
-            assert_eq!(offline, found);
+            assert_eq!(
+                offline,
+                HeightModel {
+                    warnings: Vec::new(),
+                    ..found
+                }
+            );
             assert_eq!(fetcher.calls.get(), calls);
             assert_eq!(read(&again), raster);
         }
@@ -1727,14 +1754,26 @@ mod tests {
             assert!(err.contains(DGM1_NAME), "{err}");
         }
 
-        #[test]
-        fn atom_tile_of_another_area_is_an_error() {
+        /// The DGM1 of the school tile with the ATOM directory answering `atom` (or failing
+        /// with a server error) and the XYZ link answering `xyz`.
+        fn dgm1_with(
+            atom: Option<Vec<u8>>,
+            xyz_body: Vec<u8>,
+        ) -> (
+            Result<HeightModel, FetchError>,
+            Cache,
+            tempfile::TempDir,
+            MapFetcher,
+        ) {
             let fetcher = serving("dgm1", DGM1);
-            // The fixture covers only the north-west 300 m of the tile.
-            fetcher.insert(&atom_url(DGM1_NAME), DGM1_TIF.to_vec());
+            match atom {
+                Some(body) => fetcher.insert(&atom_url(DGM1_NAME), body),
+                None => fetcher.failing.borrow_mut().push(atom_url(DGM1_NAME)),
+            }
+            fetcher.insert(&link(DGM1, Product::Dgm1), xyz_body);
             let dir = tempfile::tempdir().unwrap();
             let cache = Cache::new(dir.path().join("cache"));
-            let err = run(
+            let found = run(
                 &fetcher,
                 &cache,
                 FetchMode::Online,
@@ -1742,11 +1781,80 @@ mod tests {
                 &SCHOOL,
                 &dir.path().join("dgm1.tif"),
                 &mut Vec::new(),
-            )
-            .unwrap_err()
-            .to_string();
-            assert!(err.contains("not the whole tile"), "{err}");
+            );
+            (found, cache, dir, fetcher)
+        }
+
+        #[test]
+        fn atom_tile_of_another_area_falls_back_to_xyz() {
+            // The fixture covers only the north-west 300 m of the tile.
+            let (found, cache, dir, _) = dgm1_with(
+                Some(DGM1_TIF.to_vec()),
+                xyz(TILE, 10, |col, _| 20.0 + col as f32),
+            );
+            let found = found.unwrap();
+            assert_eq!(found.warnings.len(), 1, "{found:?}");
+            let warning = &found.warnings[0];
+            assert!(
+                warning.starts_with(
+                    "DGM1 tile 32_565_5949 from the INSPIRE ATOM directory does not read ("
+                ) && warning.contains("not the whole tile")
+                    && warning.ends_with("); used its XYZ from the Downloadportal"),
+                "{warning}"
+            );
+            // The XYZ heights (E 565100 is cell column 1), cached under the portal's name.
+            let raster = read(&dir.path().join("dgm1.tif"));
+            assert!(
+                (raster.get(0, 0) - 21.0).abs() < 1e-4,
+                "{}",
+                raster.get(0, 0)
+            );
+            assert!(cached(&cache).contains(&format!("dgm1/{DGM1_NAME}.tif")));
+        }
+
+        #[test]
+        fn unreadable_atom_tile_falls_back_to_xyz() {
+            let tile_xyz = || xyz(TILE, 10, |_, _| 20.0);
+            for (atom, reason) in [
+                // A file the decoder cannot read.
+                (Some(b"II*\0broken".to_vec()), "does not read ("),
+                // An error page with status 200.
+                (Some(b"<html>Wartung</html>".to_vec()), "does not read ("),
+                // A server error that stays after the retries.
+                (None, "503 Service Unavailable"),
+            ] {
+                let (found, _cache, dir, fetcher) = dgm1_with(atom.clone(), tile_xyz());
+                let found = found.unwrap_or_else(|e| panic!("{atom:?}: {e}"));
+                assert_eq!(found.warnings.len(), 1, "{found:?}");
+                assert!(
+                    found.warnings[0].contains("32_565_5949")
+                        && found.warnings[0].contains(reason)
+                        && found.warnings[0].contains("used its XYZ"),
+                    "{found:?}"
+                );
+                let raster = read(&dir.path().join("dgm1.tif"));
+                assert_eq!(raster.get(10, 10), 20.0);
+                // The ATOM file was asked for up to three times, then the XYZ once.
+                let log = fetcher.log.borrow();
+                let atom_asks = log.iter().filter(|u| **u == atom_url(DGM1_NAME)).count();
+                assert_eq!(atom_asks, 3, "{log:?}");
+            }
+        }
+
+        #[test]
+        fn failing_atom_tile_and_xyz_name_both_reasons() {
+            let (found, cache, _dir, _) = dgm1_with(
+                Some(DGM1_TIF.to_vec()),
+                b"<html><body>Folgender Datensatz: x</body></html>".to_vec(),
+            );
+            let err = found.unwrap_err().to_string();
             assert!(err.contains(DGM1_NAME), "{err}");
+            assert!(err.contains("not the whole tile"), "{err}");
+            assert!(err.contains("Folgender Datensatz"), "{err}");
+            assert_eq!(
+                cached(&cache),
+                ["overview/dgm1_565100_5949100_565300_5949300.json"]
+            );
         }
 
         #[test]

@@ -306,6 +306,7 @@ across the border, the templates stay empty on the other side. freemapper tells 
 | `warning: the … has no tile(s) … inside Schleswig-Holstein` | Single tiles are missing from the Downloadportal. | The templates stay empty there. |
 | `the Downloadportal lists at most … tiles per request` | The area needs more tiles than the Downloadportal lists per request. | Choose a smaller area. |
 | `the Downloadportal answered with an error page` | The Downloadportal (Schleswig-Holstein) sends an error page instead of the tile. | Try again later; freemapper retries the tile once itself. |
+| `warning: DGM1 tile … is not in the INSPIRE ATOM directory` / `… does not read (…); used its XYZ from the Downloadportal` | The GeoTIFF of the terrain tile is missing in the INSPIRE ATOM directory or does not read (error page, another grid, server error); freemapper took the same tile as XYZ from the Downloadportal. If that fails too, the error names both reasons. | Nothing; the heights are the same. |
 | `the Downloadportal's tile list … could not be read` | The tile list could not be read; the one from an earlier run is used. | Nothing, as long as the data is the same. |
 | `warning: the surface model (bDOM …) is older than the orthophoto (…)` | The bDOM is at least a year older than the orthophoto (in Schleswig-Holstein from the 2025 half on). | Check new buildings in the nDSM by hand if needed. |
 | `warning: surface model (LVermGeo SH bDOM) unavailable` | The bDOM could not be fetched; an error there is only a warning. | The nDSM template is missing; try again later. |
