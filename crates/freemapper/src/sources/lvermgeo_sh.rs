@@ -540,28 +540,30 @@ fn tile_list(
     }
 }
 
-/// The cache file of every tile named by the newest tile list kept from an earlier run (the
-/// file name carries the vintage); tiles only older lists name are not current. Used to tell
-/// what a fetch would download.
+/// The cache file of every tile named by the tile lists kept from earlier runs (of any area;
+/// the file name carries the vintage). The lists are merged oldest first, so a tile takes the
+/// name of the newest list that names it: a tile only another project's list names still
+/// counts, and an older vintage does not hide a newer one. Used to tell what a fetch would
+/// download.
 pub fn cached_tile_files(
     cache: &Cache,
     model: Model,
 ) -> std::collections::HashMap<TileId, PathBuf> {
     let dir = cache.lvermgeo_sh_dir();
     let prefix = format!("{}_", model.overview_type());
-    let newest = std::fs::read_dir(dir.join("overview"))
+    let mut lists: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir.join("overview"))
         .into_iter()
         .flatten()
         .flatten()
         .filter(|e| e.file_name().to_string_lossy().starts_with(&prefix))
         .filter_map(|e| Some((e.metadata().ok()?.modified().ok()?, e.path())))
-        .max();
-    let tiles = newest
-        .and_then(|(_, path)| std::fs::read(path).ok())
-        .and_then(|bytes| parse_overview("", &bytes, model).ok())
-        .unwrap_or_default();
-    tiles
+        .collect();
+    lists.sort();
+    lists
         .into_iter()
+        .filter_map(|(_, path)| std::fs::read(path).ok())
+        .filter_map(|bytes| parse_overview("", &bytes, model).ok())
+        .flatten()
         .map(|entry| (entry.tile, cache_path(&dir, model, &entry)))
         .collect()
 }

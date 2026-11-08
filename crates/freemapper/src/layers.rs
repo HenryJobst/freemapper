@@ -893,7 +893,7 @@ mod tests {
     }
 
     #[test]
-    fn schleswig_holstein_estimate_ignores_tiles_of_older_tile_lists() {
+    fn schleswig_holstein_estimate_merges_all_kept_tile_lists() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
@@ -905,27 +905,71 @@ mod tests {
         let root = cache.lvermgeo_sh_dir();
         std::fs::create_dir_all(root.join("overview")).unwrap();
         std::fs::create_dir_all(root.join("dgm1")).unwrap();
-        // The current tile 565/5949 is cached, but only an older list (of another area) names it;
-        // the newest list names other tiles.
         let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
-        std::fs::write(root.join("overview").join("dgm1_old.json"), list).unwrap();
+        let dgm1 = || {
+            preview_area(&area, 20.0, &cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+                .unwrap()
+        };
+        let keep = |file: &str, text: &str| {
+            std::fs::write(root.join("overview").join(file), text).unwrap();
+            // The lists are ordered by modification time.
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        // The school tile 565/5949 is named only by the list of another project's area, and
+        // its file is cached: the newest list (of other tiles) does not hide it.
+        keep("dgm1_other.json", list);
         std::fs::write(
             root.join("dgm1").join("dgm1_32_565_5949_1_sh_2022.tif"),
             b"x",
         )
         .unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        let newest = list
-            .replace("565_5949", "570_5949")
-            .replace("325655949", "325705949");
-        std::fs::write(root.join("overview").join("dgm1_new.json"), newest).unwrap();
-        let dgm1 = preview_area(&area, 20.0, &cache, today())
-            .estimate
-            .items
-            .into_iter()
-            .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
-            .unwrap();
-        assert!(!dgm1.cached && dgm1.megabytes == 1.5, "{dgm1:?}");
+        keep(
+            "dgm1_newest.json",
+            &list
+                .replace("565_5949", "570_5949")
+                .replace("325655949", "325705949"),
+        );
+        assert!(dgm1().cached, "{:?}", dgm1());
+        // An older list names an older vintage, the newer one the current: the newer wins, so
+        // the cached old file does not count.
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let root = cache.lvermgeo_sh_dir();
+        std::fs::create_dir_all(root.join("overview")).unwrap();
+        std::fs::create_dir_all(root.join("dgm1")).unwrap();
+        let keep = |file: &str, text: &str| {
+            std::fs::write(root.join("overview").join(file), text).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        let dgm1 = || {
+            preview_area(&area, 20.0, &cache, today())
+                .estimate
+                .items
+                .into_iter()
+                .find(|i| i.what == "terrain model (LVermGeo SH DGM1)")
+                .unwrap()
+        };
+        keep(
+            "dgm1_before.json",
+            &list.replace("565_5949_1_sh_2022", "565_5949_1_sh_2019"),
+        );
+        keep("dgm1_after.json", list);
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2019.tif"),
+            b"x",
+        )
+        .unwrap();
+        assert!(!dgm1().cached && dgm1().megabytes == 1.5, "{:?}", dgm1());
+        std::fs::write(
+            root.join("dgm1").join("dgm1_32_565_5949_1_sh_2022.tif"),
+            b"x",
+        )
+        .unwrap();
+        assert!(dgm1().cached, "{:?}", dgm1());
     }
 
     #[test]
