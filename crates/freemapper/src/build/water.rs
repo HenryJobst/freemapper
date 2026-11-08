@@ -10,7 +10,7 @@ use geo::{
     Area as _, BooleanOps as _, BoundingRect as _, Euclidean, Intersects as _, Length as _,
     Orient as _,
 };
-use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Polygon};
+use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Polygon, Rect, coord};
 
 use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
 use crate::crs::{BoundingBox, ProjectedPoint};
@@ -35,6 +35,8 @@ pub const WATER_LAND_USES: [&str; 4] =
 pub const NARROW_WATER_M: f64 = 2.0;
 /// A segment with both ends this close to the same edge of the clip rectangle lies on it.
 const EDGE_TOLERANCE_M: f64 = 0.01;
+/// Parcel parts are cut down to the clip window grown by this much before they are dissolved.
+const NEAR_WINDOW_M: f64 = 5.0;
 /// A parcel part counts as a source of a dissolved piece above this overlap; neighbours that
 /// only touch the piece share no area.
 const MIN_OVERLAP_M2: f64 = 0.01;
@@ -75,6 +77,11 @@ pub fn water_objects(
             .expect("ISSprOM defines 301.6"),
     };
     let land_clip = LandClip::new(clip, georef);
+    let near = Rect::new(
+        coord! { x: clip.min_e - NEAR_WINDOW_M, y: clip.min_n - NEAR_WINDOW_M },
+        coord! { x: clip.max_e + NEAR_WINDOW_M, y: clip.max_n + NEAR_WINDOW_M },
+    );
+    let near_polygon = near.to_polygon();
     let (mut wide, mut narrow): (Vec<Part>, Vec<Part>) = (Vec::new(), Vec::new());
     for land in land_use.iter().filter(|l| is_water(l)) {
         for part in &land.footprint.0 {
@@ -85,10 +92,24 @@ pub fn water_objects(
             if area.is_nan() || area <= 0.0 {
                 continue;
             }
-            if mean_width(&part) >= NARROW_WATER_M {
-                wide.push((land, part));
+            // Classified by the whole part, so a river does not turn narrow at the map edge.
+            let parts = if mean_width(&part) >= NARROW_WATER_M {
+                &mut wide
             } else {
-                narrow.push((land, part));
+                &mut narrow
+            };
+            // The WFS returns whole parcels, and a `Meer` parcel can be far larger than the
+            // map: cut it down near the window, so the union and the provenance test cost what
+            // the map needs. The result inside the window is the same.
+            match part.bounding_rect() {
+                Some(bounds) if contains(&near, &bounds) => parts.push((land, part)),
+                Some(bounds) if bounds.intersects(&near) => parts.extend(
+                    part.intersection(&near_polygon)
+                        .0
+                        .into_iter()
+                        .map(|piece| (land, piece.orient(Direction::Default))),
+                ),
+                _ => {}
             }
         }
     }
@@ -108,6 +129,14 @@ pub fn water_objects(
         candidates,
         union: MultiPolygon(drawn),
     })
+}
+
+/// `outer` contains all of `inner`.
+fn contains(outer: &Rect<f64>, inner: &Rect<f64>) -> bool {
+    outer.min().x <= inner.min().x
+        && outer.min().y <= inner.min().y
+        && inner.max().x <= outer.max().x
+        && inner.max().y <= outer.max().y
 }
 
 /// The union of `parts`: one shape per connected body of water.
@@ -727,6 +756,91 @@ mod tests {
         assert_eq!(rings(fills[0]), 2, "the island is a hole");
         assert_eq!(banks.len(), 2, "shore and island");
         assert!((objects.union.unsigned_area() - (8000.0 - 180.0)).abs() < 1e-6);
+    }
+
+    /// Two `Meer` parcels 100 × 50 km, split 10 m east of the centre, south of a coast with a
+    /// vertex every metre that waves through the clip window.
+    fn sea(f: &Fixture) -> Vec<LandUse> {
+        let (e, n) = f.centre;
+        let coast = |x: f64| n - 40.0 + 20.0 * (x / 30.0).sin();
+        let parcel = |oid: &str, from: f64, to: f64| {
+            let mut points: Vec<(f64, f64)> = (0..=(to - from) as i64)
+                .map(|k| {
+                    let x = from + k as f64;
+                    (e + x, coast(x))
+                })
+                .collect();
+            points.push((e + to, n - 50_000.0));
+            points.push((e + from, n - 50_000.0));
+            points.push((e + from, coast(from)));
+            land(oid, "Meer", None, vec![Polygon::new(points.into(), vec![])])
+        };
+        vec![
+            parcel("DEBBAL01", -50_000.0, 10.0),
+            parcel("DEBBAL02", 10.0, 50_000.0),
+        ]
+    }
+
+    /// An object's symbol, sorted coordinates and tags.
+    type Signature = (u32, Vec<(i32, i32)>, Vec<(String, String)>);
+
+    /// Every object's [`Signature`], in a comparable order.
+    fn signature(objects: &[MapObject]) -> Vec<Signature> {
+        let mut out: Vec<_> = objects
+            .iter()
+            .map(|o| {
+                let mut coords: Vec<_> = o.coords.iter().map(|c| (c.x, c.y)).collect();
+                coords.sort_unstable();
+                (o.symbol_id, coords, o.tags.clone())
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    #[test]
+    fn parcels_far_larger_than_the_window_give_the_same_water() {
+        let f = fixture();
+        let sea = sea(&f);
+        // The same parcels cut down to the window plus 50 m by hand.
+        let grown = geo_types::Rect::new(
+            geo_types::coord! { x: f.clip.min_e - 50.0, y: f.clip.min_n - 50.0 },
+            geo_types::coord! { x: f.clip.max_e + 50.0, y: f.clip.max_n + 50.0 },
+        )
+        .to_polygon();
+        let cut: Vec<LandUse> = sea
+            .iter()
+            .map(|l| LandUse {
+                footprint: l.footprint.intersection(&grown),
+                ..l.clone()
+            })
+            .collect();
+        let started = std::time::Instant::now();
+        let (whole, set) = water(&f, &sea);
+        let elapsed = started.elapsed();
+        let (small, _) = water(&f, &cut);
+        assert_eq!(with_code(&whole.map, &set, "301.1").len(), 1);
+        assert_eq!(with_code(&whole.map, &set, "301.6").len(), 1);
+        // Equal up to the rounding of the boolean operations: 1 map unit is 4 mm at 1:4000.
+        let (a, b) = (signature(&whole.map), signature(&small.map));
+        assert_eq!(a.len(), b.len());
+        for ((sa, ca, ta), (sb, cb, tb)) in a.iter().zip(&b) {
+            assert_eq!((sa, ta, ca.len()), (sb, tb, cb.len()));
+            for (p, q) in ca.iter().zip(cb) {
+                assert!(
+                    (p.0 - q.0).abs() <= 2 && (p.1 - q.1).abs() <= 2,
+                    "{p:?} {q:?}"
+                );
+            }
+        }
+        assert!(whole.candidates.is_empty() && small.candidates.is_empty());
+        assert!((whole.union.unsigned_area() - small.union.unsigned_area()).abs() < 1e-6);
+        assert_eq!(
+            tag(&whole.map[0], "freemapper:source_id"),
+            Some("DEBBAL01;DEBBAL02")
+        );
+        // About 0.1 s in a debug build; the whole parcels took twice as long before the cut.
+        assert!(elapsed < std::time::Duration::from_secs(3), "{elapsed:?}");
     }
 
     #[test]
