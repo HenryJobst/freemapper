@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, download_with_retries, get_with_retries,
     write_atomically,
@@ -23,6 +23,7 @@ use crate::sources::lvermgeo::{
     decode_float_tiff, decode_float_tiff_from, encode_float_geotiff, write_float_raster,
 };
 use crate::sources::region::{Region, tile_centre_in};
+use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
 
 /// The Downloadportal; its host is reached through the bundled D-TRUST anchors (see `fetch`).
@@ -240,6 +241,75 @@ fn excerpt(text: &str) -> String {
         Some((end, _)) => format!("{}…", &line[..end]),
         None => line,
     }
+}
+
+/// The orthophoto WMS (WMS 1.3.0, MaxWidth/MaxHeight 5000; an oversize request is an XML
+/// exception). The layer shows the current mosaic; its tones are processed, not the tiles'.
+pub const WMS: WmsService = WmsService {
+    url: "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
+    layer: "sh_dop20_rgb",
+    crs: Crs::Utm32,
+    extra: "",
+    max_px: 4000,
+};
+
+/// The metadata WMS of the orthophoto tiles (queryable; one polygon per 1 km tile).
+const WMS_INFO: &str = "https://service.gdi-sh.de/WMS_SH_MD_DOP";
+const WMS_INFO_LAYER: &str = "DOP20";
+
+/// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
+/// GetFeatureInfo on the metadata WMS; `None` outside the coverage or when the answer has none.
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let url = format!(
+        "{WMS_INFO}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
+         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
+         &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
+        Crs::Utm32.epsg(),
+        crate::sources::wms::mm(e - 100.0),
+        crate::sources::wms::mm(n - 100.0),
+        crate::sources::wms::mm(e + 100.0),
+        crate::sources::wms::mm(n + 100.0),
+    );
+    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec())).ok()?;
+    parse_flight_date(&String::from_utf8_lossy(&bytes))
+}
+
+/// `A_DATUM2` (`DD.MM.YYYY`, else `A_DATUM` as `YYYY-MM-DD`) of a semicolon-separated
+/// GetFeatureInfo text answer: the field names, then the values of the one tile, each ending
+/// in `;` (the server puts both on one line).
+fn parse_flight_date(text: &str) -> Option<String> {
+    let mut tokens: Vec<&str> = text.split(';').map(str::trim).collect();
+    if tokens.len() % 2 == 1 {
+        tokens.pop();
+    }
+    let (header, values) = tokens.split_at(tokens.len() / 2);
+    if header.is_empty() {
+        return None;
+    }
+    let column = |name: &str| {
+        header
+            .iter()
+            .position(|h| h.trim_start_matches("@DOP20 ") == name)
+            .map(|at| values[at])
+    };
+    let digits = |s: &str, n| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    if let Some(value) = column("A_DATUM2") {
+        let parts: Vec<&str> = value.split('.').collect();
+        if let [d, m, y] = parts[..]
+            && digits(d, 2)
+            && digits(m, 2)
+            && digits(y, 4)
+        {
+            return Some(value.to_string());
+        }
+    }
+    let parts: Vec<&str> = column("A_DATUM")?.split('-').collect();
+    let [y, m, d] = parts[..] else { return None };
+    (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
 }
 
 /// The INSPIRE ATOM data directory of the DGM1 GeoTIFFs (`<name>.tif`); a static server, valid
@@ -852,6 +922,50 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert(&url(product), body.as_bytes().to_vec());
         fetcher
+    }
+
+    const DOP_INFO: &[u8] =
+        include_bytes!("../../../../tests/fixtures/schleswig-holstein-dop-info.txt");
+
+    #[test]
+    fn flight_date_from_get_feature_info() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!("{WMS_INFO}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo"),
+            DOP_INFO.to_vec(),
+        );
+        assert_eq!(
+            flight_date(&fetcher, &SCHOOL).as_deref(),
+            Some("17.03.2025")
+        );
+        let url = fetcher.log.borrow()[0].clone();
+        for part in [
+            "LAYERS=DOP20",
+            "QUERY_LAYERS=DOP20",
+            "CRS=EPSG:25832",
+            "BBOX=565100,5949100,565300,5949300",
+            "INFO_FORMAT=text/plain",
+        ] {
+            assert!(url.contains(part), "{part} in {url}");
+        }
+        // Without A_DATUM2 the ISO date does.
+        let iso = MapFetcher::default();
+        iso.insert_prefix(
+            WMS_INFO,
+            b"@DOP20 FID;A_DATUM;E_DATUM;\n 1;2024-08-01;2024-09-01;\n".to_vec(),
+        );
+        assert_eq!(flight_date(&iso, &SCHOOL).as_deref(), Some("01.08.2024"));
+        for body in [
+            &b"Search returned no results.\n"[..],
+            b"<ServiceExceptionReport/>",
+            b"@DOP20 FID;A_DATUM2;\n 1;nonsense;\n",
+            b"@DOP20 FID;A_DATUM2;\n 1;17.03.2025;extra;\n",
+        ] {
+            let none = MapFetcher::default();
+            none.insert_prefix(WMS_INFO, body.to_vec());
+            assert_eq!(flight_date(&none, &SCHOOL), None, "{body:?}");
+        }
+        assert_eq!(flight_date(&MapFetcher::default(), &SCHOOL), None);
     }
 
     #[test]

@@ -1630,15 +1630,61 @@ pub(crate) mod test_support {
         }
     }
 
+    /// Serves everything a Schleswig-Holstein project in `bbox` (EPSG:25832) fetches: a WMS
+    /// orthophoto of the right size with the metadata GetFeatureInfo flight date (17.03.2025),
+    /// the SH ALKIS fixtures, the SH OSM extract and the height models (see below).
+    pub fn serve_synthetic_schleswig_holstein(
+        fetcher: &MapFetcher,
+        bbox: &crate::crs::BoundingBox,
+    ) {
+        use crate::sources::{alkis_wfs, lvermgeo_sh};
+        serve_schleswig_holstein_models(fetcher, bbox);
+        let photo =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        fetcher.insert_prefix(
+            &format!(
+                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap",
+                lvermgeo_sh::WMS.url
+            ),
+            solid_jpeg(photo.width, photo.height, [0, 100, 200]),
+        );
+        fetcher.insert_prefix(
+            "https://service.gdi-sh.de/WMS_SH_MD_DOP?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
+            include_bytes!("../../../tests/fixtures/schleswig-holstein-dop-info.txt").to_vec(),
+        );
+        let service = alkis_wfs::LVERMGEO_SH;
+        for (type_name, body) in [
+            (
+                service.buildings_type,
+                alkis_wfs::test_support::SH_BUILDINGS,
+            ),
+            (service.land_use_type, alkis_wfs::test_support::SH_LAND_USE),
+        ] {
+            fetcher.insert_prefix(
+                &format!(
+                    "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                    service.url
+                ),
+                body.as_bytes().to_vec(),
+            );
+        }
+        let extract = crate::sources::osm::ExtractSource::SchleswigHolstein;
+        fetcher.insert(
+            extract.state_url(),
+            b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
+        );
+        fetcher.insert(
+            extract.url(),
+            std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
+        );
+    }
+
     /// Serves the LVermGeo SH height models of a Schleswig-Holstein project in `bbox`
     /// (EPSG:25832): the Downloadportal overviews of every tile of `bbox` (DGM1 2022, flown
     /// 2022-03-10; bDOM 2023, flown 2023-04-07), the DGM1 GeoTIFFs of the INSPIRE ATOM directory
     /// (terrain 20 m rising 0.01 m per metre east) and the bDOM tiles at 1 m instead of 0.2 m
     /// (surface 12 m above; test builds accept that size, and the reduction passes it through).
-    pub fn serve_synthetic_schleswig_holstein(
-        fetcher: &MapFetcher,
-        bbox: &crate::crs::BoundingBox,
-    ) {
+    pub fn serve_schleswig_holstein_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use crate::sources::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
         let tiles = crate::tiles::tiles_covering(bbox);
         let feature = |tile: &TileId, product: Product| {
