@@ -17,11 +17,10 @@ use crate::crs::BoundingBox;
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_retries, one_line, write_atomically,
 };
-use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis_wfs::{number_matched, parse_gml};
-use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
-use crate::sources::height_model::HeightModel;
-use crate::sources::lvermgeo_sh::{paste_tile, read_cached, whole_tile};
+use crate::sources::height_model::{
+    AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
+};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::tiles::{TileId, tiles_covering};
 
@@ -396,11 +395,6 @@ pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<Ti
         .collect()
 }
 
-/// `32_400_5579`.
-fn short_name(tile: TileId) -> String {
-    format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
-}
-
 /// Whether `bytes` start like a TIFF (either byte order).
 fn is_tiff(bytes: &[u8]) -> bool {
     bytes.starts_with(b"II*\0") || bytes.starts_with(b"MM\0*")
@@ -427,132 +421,60 @@ pub fn fetch_model(
     let mut warnings = Vec::new();
     let list = tile_list(fetcher, &dir, mode, bbox, &mut warnings)?;
     warnings.extend(list.warnings.iter().cloned());
-    let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
-    let (mut found, mut missing, mut pending) = (0, Vec::new(), Vec::new());
-    let mut paste = |raster: &mut Raster<f32>, name: &str, part: &Raster<f32>| {
-        found += 1;
-        let empty = paste_tile(raster, part).map_err(|message| FetchError::Http {
-            url: tile_url(model, name),
-            message: format!("{} tile {name}: {message}", model.label()),
-        })?;
-        if empty > 0 {
-            warnings.push(format!(
-                "{} tile {name}: {empty} cells of the map area have no height",
-                model.label()
-            ));
-        }
-        Ok::<(), FetchError>(())
-    };
-    let mut unnamed = Vec::new();
+    let mut area = AreaTiles::default();
     for tile in tiles_covering(bbox) {
         let Some(entry) = list.tiles.get(&tile) else {
             if tile_centre_in(tile, Region::RheinlandPfalz) {
-                missing.push(tile);
+                area.missing
+                    .push((tile, "not in the tile list".to_string()));
             }
             continue;
         };
-        let Some(name) = entry.name(model) else {
-            unnamed.push(entry);
-            missing.push(tile);
-            continue;
-        };
-        match read_cached(&cache_path(&dir, model, &name), tile) {
-            Some(part) => paste(&mut raster, &name, &part)?,
-            None if known_missing(&marker_path(&dir, model, &name), mode) => missing.push(tile),
-            None => pending.push((tile, name)),
+        match entry.name(model) {
+            Some(name) => area.named.push((tile, name)),
+            None => {
+                warnings.push(format!(
+                    "{} tile {}: {}, so it has no file name",
+                    model.label(),
+                    short_name(tile),
+                    entry.note.as_deref().unwrap_or("no year")
+                ));
+                area.missing.push((tile, "no flight year".to_string()));
+            }
         }
     }
-    if let (FetchMode::Offline, Some((_, name))) = (mode, pending.first()) {
-        return Err(FetchError::Http {
-            url: tile_url(model, name),
-            message: format!(
-                "offline and not cached: {} tile {name}; run `freemapper fetch` online",
-                model.label()
-            ),
-        });
-    }
-    for (tile, name) in pending {
-        let url = tile_url(model, &name);
-        let downloaded = get_with_retries(fetcher, &url, |bytes| {
-            let refused = |message: String| FetchError::Http {
-                url: url.clone(),
-                message: format!("{} tile {name}: {message}", model.label()),
-            };
-            // The file server answers some errors with an HTML page.
-            if !is_tiff(bytes) {
-                let start = String::from_utf8_lossy(&bytes[..bytes.len().min(1000)]);
-                return Err(refused(format!("not a GeoTIFF: {}", one_line(&start, 200))));
+    let list_url = tile_list_url(bbox);
+    let store = TileStore {
+        label: model.label(),
+        list_url: &list_url,
+        source: DATA,
+        url: &|name| tile_url(model, name),
+        cache_path: &|name| cache_path(&dir, model, name),
+        marker_path: &|name| marker_path(&dir, model, name),
+        known_missing: &|path| known_missing(path, mode),
+        // The file server answers some errors with an HTML page.
+        precheck: &|bytes| {
+            if is_tiff(bytes) {
+                return Ok(());
             }
-            let part = decode_float_tiff(bytes)
-                .and_then(|r| whole_tile(r, tile, &[1.0]))
-                .map_err(refused)?;
-            Ok((part, bytes.to_vec()))
-        });
-        let marker = marker_path(&dir, model, &name);
-        match downloaded {
-            Ok((part, bytes)) => {
-                write_atomically(&cache_path(&dir, model, &name), &bytes)?;
-                let _ = std::fs::remove_file(&marker);
-                paste(&mut raster, &name, &part)?;
-            }
-            // Named by the list, not on the server. The note keeps later runs from asking
-            // again for a month, and offline runs from failing.
-            Err(FetchError::NotFound(_)) => {
-                write_atomically(&marker, b"")?;
-                missing.push(tile);
-            }
-            Err(e) => return Err(e),
-        }
-    }
-    for entry in unnamed {
-        warnings.push(format!(
-            "{} tile {}: {}, so it has no file name",
-            model.label(),
-            short_name(entry.tile),
-            entry.note.as_deref().unwrap_or("no year")
-        ));
-    }
-    if found == 0 {
-        return Err(FetchError::Http {
-            url: tile_list_url(bbox),
-            message: format!("no tile of the {} covers the map area", model.label()),
-        });
-    }
-    write_float_raster(&raster, out, DATA)?;
-    let centre = TileId {
-        east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
-        north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
+            let start = String::from_utf8_lossy(&bytes[..bytes.len().min(1000)]);
+            Err(format!("not a GeoTIFF: {}", one_line(&start, 200)))
+        },
+        explain_empty: false,
     };
-    let date = match list.tiles.get(&centre) {
-        Some(_) if missing.contains(&centre) => {
-            warnings.push(format!(
-                "the {} tile {} at the centre of the map area is missing, so there is no date",
-                model.label(),
-                short_name(centre)
-            ));
-            None
-        }
-        Some(entry) if entry.date.is_none() => {
-            warnings.push(format!(
+    let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, out, &mut warnings)?;
+    let centre = centre_tile(bbox);
+    let listed = list.tiles.get(&centre).map(|entry| {
+        entry.date.clone().ok_or_else(|| {
+            format!(
                 "the {} tile {}: {}, so there is no date",
                 model.label(),
                 short_name(centre),
                 entry.note.as_deref().unwrap_or("no flight days")
-            ));
-            None
-        }
-        Some(entry) => entry.date.clone(),
-        None => {
-            warnings.push(format!(
-                "the tile list names no {} tile {} at the centre of the map area, so there is no \
-                 date",
-                model.label(),
-                short_name(centre)
-            ));
-            None
-        }
-    };
-    missing.sort();
+            )
+        })
+    });
+    let date = centre_date(bbox, model.label(), listed, &missing, &mut warnings);
     Ok(HeightModel {
         missing,
         date,
