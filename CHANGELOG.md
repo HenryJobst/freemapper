@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.3.0] - 2026-11-08
+
 ### Hinzugefügt
 
 - Hamburg (LGV): Orthophoto aus dem WMS (Stand 2026), Gelände- und Oberflächenmodell aus den Archiven des Landes, Gebäude und Nutzung aus ALKIS. Die Karten nutzen UTM-Zone 32.
@@ -18,11 +20,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Das Repository enthält pro unterstütztem Bundesland ein Beispielprojekt mit OpenOrienteering-Mapper-Datei, OCAD-Datei, Trainings-PDF und Vorschaubild.
 - Die Release-Archive enthalten das Handbuch mit Bildern, am Pfad, auf den die READMEs verlinken.
 - Das README erklärt Handbuch, Beispielprojekte und die Gebietsauswahl im Browser.
+- Dieses Änderungsprotokoll und Architekturentscheidungen (ADRs) in `docs/adr/`.
 
 ### Geändert
 
 - Jedes Bundesland hat eine Zeile in der Regionentabelle des README. Die Einzelheiten stehen im Handbuch.
-- Die Größenschätzung vor dem Download zählt für Hessen und Hamburg ganze Kacheln und markiert Kacheln, die schon im Cache liegen.
+- Die Größenschätzung vor dem Download zählt bei Ländern mit Kacheln ganze Kacheln und markiert die, die schon im Cache liegen.
 - Ältere Projekte verwerfen ihre gespeicherten Objekte, wenn sich der Rasterdaten-Anbieter ändert, und speichern diese Änderung.
 - freemapper legt die Rust-Version in `rust-toolchain.toml` fest, damit lokale Builds und CI dieselbe Version nutzen.
 
@@ -35,7 +38,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Beschädigte oder ungewöhnliche LZW-komprimierte TIFF-Dateien liest freemapper so wie libtiff.
 - Schlägt der Download des Oberflächenmodells fehl, bleibt ein gespeichertes Modell erhalten, das das Gebiet abdeckt. Ein unlesbares Befliegungsdatum bricht den Lauf nicht mehr ab.
 - Fehlende Kacheln und Orte, die sich nicht auflösen lassen, erscheinen als Warnung mit Produkt und Kachel statt den Lauf zu beenden.
-- Ein Orthophoto ohne Befliegungsdatum wird nur 30 Tage wiederverwendet und danach neu geladen.
+- Ein Orthophoto ohne Befliegungsdatum wird nur 30 Tage wiederverwendet und danach neu geladen. Scheitert die Abfrage des Datums, behält freemapper ein passendes gespeichertes Orthophoto samt Datum.
 
 ## [0.2.0] - 2026-11-07
 

@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
 ### Added
 
 - Hamburg (LGV): orthophoto from the WMS (2026 vintage), terrain and surface models from the state's archives, buildings and land use from ALKIS. Maps use UTM zone 32.
@@ -18,11 +20,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - The repository contains one example project per supported state, each with the OpenOrienteering Mapper file, the OCAD file, the training PDF and a preview image.
 - The release archives include the user manual with its images, at the path the READMEs link to.
 - The README explains the user manual, the example projects and the area selection in the browser.
+- This changelog, and architecture decision records (ADRs) in `docs/adr/`.
 
 ### Changed
 
 - Every state has one row in the README regions table. Details moved to the user manual.
-- Before a download, the size estimate counts whole tiles for Hesse and Hamburg and marks tiles that are already cached.
+- Before a download, the size estimate counts whole tiles for states with tiled data and marks the ones already cached.
 - Older projects drop their stored records when the raster provider changes, and save that change.
 - freemapper pins its Rust toolchain in `rust-toolchain.toml`, so local builds and CI use the same version.
 
@@ -35,7 +38,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Damaged or unusual LZW-compressed TIFF files decode the way libtiff decodes them.
 - A failed surface model download keeps a stored model that covers the area. An unreadable flight date no longer aborts a run.
 - Missing tiles and places that cannot be resolved show up as warnings with the product and the affected tile instead of ending the run.
-- An orthophoto without a flight date is reused for 30 days only, then fetched again.
+- An orthophoto without a flight date is reused for 30 days only, then fetched again. If the flight-date query fails, freemapper keeps a matching stored orthophoto and its date.
 
 ## [0.2.0] - 2026-11-07
 
