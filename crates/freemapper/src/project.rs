@@ -852,12 +852,14 @@ fn fetch_wms_orthophoto(
         FetchMode::Online => {
             let flight = flight_date();
             // Reused while the stored image covers the area and the flight date is the same; where
-            // the service names no date (on either side), the stored image is kept too.
-            let unchanged = project
-                .orthophoto
-                .as_ref()
-                .is_some_and(|r| r.covers(bbox) && r.flight == flight)
-                && path.exists();
+            // the service names no date (on either side), only while the image is recent.
+            let today = chrono::Local::now().date_naive();
+            let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
+                r.covers(bbox)
+                    && r.flight == flight
+                    && (flight.is_some()
+                        || (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS)
+            }) && path.exists();
             if unchanged {
                 progress(&match flight.as_deref() {
                     Some(date) => format!("orthophoto unchanged (flight {date})"),
@@ -885,6 +887,10 @@ fn fetch_wms_orthophoto(
     }
     Ok(())
 }
+
+/// How many days a stored orthophoto without a known flight date (on either side) is reused
+/// before the next online fetch downloads it again.
+const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
 
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
 /// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
@@ -4444,12 +4450,24 @@ mod tests {
         assert_eq!(project.orthophoto.as_ref().unwrap().flight, None);
         let first = getcoverages(&fetcher);
         assert!(first >= 1);
+        let age = |days: i64| {
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.orthophoto.as_mut().unwrap().fetched =
+                chrono::Local::now().date_naive() - chrono::Duration::days(days);
+            project.save(dir.path()).unwrap();
+        };
+        // 29 days old: reused.
+        age(29);
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(getcoverages(&fetcher), first, "{messages:?}");
         assert!(
             messages.iter().any(|m| m == "orthophoto unchanged"),
             "{messages:?}"
         );
+        // 31 days old: fetched again.
+        age(31);
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(getcoverages(&fetcher) > first, "{messages:?}");
     }
 
     #[test]
