@@ -137,10 +137,9 @@ impl Clipper<'_> {
     /// the parcels of `sources` they come from, and the pieces drawn.
     ///
     /// Slivers are dropped (`LandClip::is_sliver`): pieces with the width limit capped at
-    /// `width_cap_m`, and holes with the paper limit alone. The hole test uses the mean width
-    /// 2·area/perimeter, which is the radius of a round island, so islands up to about 2 mm
-    /// across on paper (8 m at 1:4000) are filled. Such an island inside uncrossable water is
-    /// unreachable anyway; the test is meant for gaps between parcels that do not quite meet.
+    /// `width_cap_m`, and holes with it capped at [`NARROW_WATER_M`]. The hole test is meant for
+    /// gaps between parcels that do not quite meet (centimetres wide); an island or a mole of
+    /// 2 m mean width stays, even where that is under 1 mm on paper.
     fn objects(
         &self,
         shape: &MultiPolygon<f64>,
@@ -159,7 +158,7 @@ impl Clipper<'_> {
                 .filter(|hole| {
                     !self
                         .clip
-                        .is_sliver(&Polygon::new((*hole).clone(), vec![]), f64::INFINITY)
+                        .is_sliver(&Polygon::new((*hole).clone(), vec![]), NARROW_WATER_M)
                 })
                 .cloned()
                 .collect();
@@ -706,6 +705,28 @@ mod tests {
         assert_eq!(fills[0].coords.len(), 10);
         assert_eq!(banks.len(), 2, "shore and island");
         assert!(banks.iter().all(|b| is_closed(b)));
+    }
+
+    #[test]
+    fn three_metre_island_is_kept_at_sprint_scale() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // A 3 × 60 m island (a mole) is under 1 mm (4 m) on paper at 1:4000, but 2 m wide land
+        // is a visible feature, like 2 m wide water.
+        let lake = Polygon::new(
+            ring(e - 50.0, n - 40.0, 100.0, 80.0),
+            vec![ring(e - 1.5, n - 30.0, 3.0, 60.0)],
+        );
+        let (objects, set) = water(
+            &f,
+            &[land("DEBBAL01", "Stehendes Gewässer", None, vec![lake])],
+        );
+        let fills = with_code(&objects.map, &set, "301.1");
+        let banks = with_code(&objects.map, &set, "301.6");
+        assert_eq!(fills.len(), 1);
+        assert_eq!(rings(fills[0]), 2, "the island is a hole");
+        assert_eq!(banks.len(), 2, "shore and island");
+        assert!((objects.union.unsigned_area() - (8000.0 - 180.0)).abs() < 1e-6);
     }
 
     #[test]
