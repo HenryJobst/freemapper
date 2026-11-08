@@ -135,6 +135,35 @@ pub enum ByteRange {
     Last(u64),
 }
 
+/// A redirect answer as an error. Only the agents of [`PORTAL_HOST`] return one: they follow
+/// none, as a followed redirect would keep the portal's pinned trust.
+fn refuse_redirect(
+    url: &str,
+    response: &ureq::http::Response<ureq::Body>,
+) -> Result<(), FetchError> {
+    let status = response.status();
+    if !status.is_redirection() {
+        return Ok(());
+    }
+    let location: String = response
+        .headers()
+        .get("location")
+        .map(|v| String::from_utf8_lossy(v.as_bytes()).into_owned())
+        .unwrap_or_else(|| "nowhere".to_string())
+        .chars()
+        .filter(|c| !c.is_control())
+        .take(200)
+        .collect();
+    Err(FetchError::Http {
+        url: url.to_string(),
+        message: format!(
+            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; redirects of this \
+             host are not followed, as its certificates are pinned",
+            status.as_u16()
+        ),
+    })
+}
+
 /// [`FetchError::TooLarge`] for `url` over `max_bytes`.
 fn too_large(url: &str, max_bytes: u64) -> FetchError {
     FetchError::TooLarge {
@@ -186,6 +215,10 @@ const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 /// The LVermGeo SH Downloadportal. It sends its leaf certificate without the intermediate
 /// `D-TRUST BR CA 1-20-1 2020`, and rustls does not fetch missing intermediates, so this host
 /// is verified against the bundled intermediate and its root instead of the default roots.
+///
+/// The agents of this host follow no redirects: a followed redirect would keep the trust of the
+/// URL it started from (a redirect away from the portal checked against the D-TRUST anchors, one
+/// to the portal against the default roots). A redirect answer is an error naming this host.
 const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
 
 /// The only trust anchors for [`PORTAL_HOST`]: the intermediate `D-TRUST BR CA 1-20-1 2020`
@@ -265,7 +298,7 @@ impl HttpFetcher {
                 .timeout_recv_body(Some(body));
             match trust {
                 Trust::DefaultRoots => config,
-                Trust::PortalAnchors => config.tls_config(
+                Trust::PortalAnchors => config.max_redirects(0).tls_config(
                     ureq::tls::TlsConfig::builder()
                         .root_certs(ureq::tls::RootCerts::new_with_certs(&portal_anchors()))
                         .build(),
@@ -316,6 +349,7 @@ impl Fetcher for HttpFetcher {
             .header("Range", &header)
             .call()
             .map_err(|e| status_error(url, e))?;
+        refuse_redirect(url, &response)?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
@@ -355,6 +389,7 @@ impl Fetcher for HttpFetcher {
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| http_error(e.to_string()))?;
+        refuse_redirect(url, &response)?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -406,6 +441,7 @@ impl Fetcher for HttpFetcher {
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| status_error(url, e))?;
+        refuse_redirect(url, &response)?;
         Ok(response
             .headers()
             .get("last-modified")
@@ -423,6 +459,7 @@ impl Fetcher for HttpFetcher {
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(http_error)?;
+        refuse_redirect(url, &response)?;
         let mut bytes = Vec::new();
         response
             .body_mut()
@@ -2988,6 +3025,68 @@ mod tests {
                 format!("{:?}", plain.config().tls_config())
             );
         }
+    }
+
+    #[test]
+    fn portal_agents_follow_no_redirects() {
+        let fetcher = HttpFetcher::new();
+        for agent in [&fetcher.portal.normal, &fetcher.portal.large] {
+            assert_eq!(agent.config().max_redirects(), 0);
+        }
+        // The other hosts follow redirects as before.
+        let plain: ureq::Agent = ureq::Agent::config_builder().build().into();
+        for agent in [&fetcher.default.normal, &fetcher.default.large] {
+            assert_eq!(
+                agent.config().max_redirects(),
+                plain.config().max_redirects()
+            );
+        }
+        // A redirect the portal agents return is an error naming the host, for every kind of
+        // request (here a local server stands in for the portal).
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/massen.php", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 302 Found\r\nLocation: https://evil.example/x\r\n\
+                     Content-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+            }
+        });
+        let pinned = HttpFetcher {
+            default: Agents {
+                normal: fetcher.portal.normal.clone(),
+                large: fetcher.portal.large.clone(),
+            },
+            portal: fetcher.portal,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tile.part");
+        let errors = [
+            pinned.get(&url).unwrap_err(),
+            pinned
+                .get_range(&url, ByteRange::From { start: 0, len: 4 })
+                .unwrap_err(),
+            pinned.last_modified(&url).unwrap_err(),
+            pinned
+                .download_to(&url, &path, 1000, &mut |_| {})
+                .unwrap_err(),
+        ];
+        for err in errors {
+            let text = err.to_string();
+            assert!(matches!(err, FetchError::Http { .. }), "{text}");
+            assert!(text.contains(PORTAL_HOST), "{text}");
+            assert!(
+                text.contains("redirect (HTTP 302) to https://evil.example/x"),
+                "{text}"
+            );
+        }
+        assert!(!path.exists());
     }
 
     /// The portal's leaf-only chain verifies with the bundled anchors.
