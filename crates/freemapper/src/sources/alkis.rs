@@ -944,6 +944,32 @@ mod tests {
             let c = b.footprint.0[0].exterior().0[0];
             assert!((560_000.0..570_000.0).contains(&c.x), "{} {c:?}", b.oid);
         }
+        fetcher.insert_prefix(
+            crate::sources::lgv::LAND_USE_ENDPOINT,
+            crate::sources::lgv::test_support::LAND_USE
+                .as_bytes()
+                .to_vec(),
+        );
+        fetcher.insert_prefix(
+            alkis_wfs::LVERMGEO_SH.url,
+            alkis_wfs::test_support::SH_LAND_USE.as_bytes().to_vec(),
+        );
+        let raw: Value =
+            serde_json::from_str(&fetch_land_use_in(&fetcher, &area).unwrap()).unwrap();
+        let features = raw["features"].as_array().unwrap();
+        let ids: Vec<&str> = features
+            .iter()
+            .map(|f| f["properties"]["oid"].as_str().unwrap())
+            .collect();
+        assert!(ids.iter().any(|o| o.starts_with("DEHH")), "{ids:?}");
+        assert!(ids.iter().any(|o| o.starts_with("DESH")), "{ids:?}");
+        let unique: std::collections::HashSet<&&str> = ids.iter().collect();
+        assert_eq!(unique.len(), ids.len(), "no duplicate land use: {ids:?}");
+        let land = parse_land_use(&raw.to_string()).unwrap();
+        for l in &land {
+            let c = l.footprint.0[0].exterior().0[0];
+            assert!((560_000.0..570_000.0).contains(&c.x), "{} {c:?}", l.oid);
+        }
         let log = fetcher.log.borrow();
         assert!(
             log.iter()

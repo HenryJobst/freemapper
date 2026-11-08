@@ -1,6 +1,6 @@
-//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG, LVermGeo SH;
-//! GML 3.2 only), read into GeoJSON features with the LGB property schema (the attribute names are the
-//! same).
+//! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG,
+//! LVermGeo SH; GML 3.2 only), read into GeoJSON features with the LGB property schema (the
+//! attribute names are the same).
 
 use serde_json::Value;
 
@@ -820,7 +820,8 @@ mod tests {
             .filter(|l| l.nutzart == "Platz")
             .map(|l| l.bez.as_deref())
             .collect();
-        assert!(squares.contains(&Some("Rastplatz")), "{squares:?}");
+        assert_eq!(squares.len(), 2, "{squares:?}");
+        assert!(squares.iter().all(Option::is_some), "{squares:?}");
         assert!(
             squares.contains(&Some("ohne Unterart (Schleswig-Holstein)")),
             "{squares:?}"
