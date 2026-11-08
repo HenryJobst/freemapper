@@ -2,10 +2,41 @@
 //! Mecklenburg-Vorpommern): the request, the answer (a `multipart/related` answer or a plain
 //! TIFF), exception reports, and the mosaic of pieces.
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, ogc_exception, one_line};
-use crate::raster::Raster;
+use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::decode_float_tiff;
+
+/// A WCS coverage with the orthophoto: JPEG pieces on the exact 0.2 m grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WcsOrthophoto {
+    /// The endpoint, without a query.
+    pub url: &'static str,
+    /// `COVERAGEID`.
+    pub coverage: &'static str,
+    pub crs: Crs,
+    /// Largest side of one GetCoverage in pixels.
+    pub max_px: u32,
+}
+
+impl WcsOrthophoto {
+    /// The GetCoverage for `piece` (a grid of whole pixels): its edges as `SUBSET`s, so the
+    /// answer has the grid of the request.
+    pub fn piece_url(&self, piece: &GridSpec) -> String {
+        let b = piece.bounds();
+        let mm = crate::sources::wms::mm;
+        format!(
+            "{}?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID={}&FORMAT=image/jpeg\
+             &SUBSET=x({},{})&SUBSET=y({},{})",
+            self.url,
+            self.coverage,
+            mm(b.min_e),
+            mm(b.max_e),
+            mm(b.min_n),
+            mm(b.max_n)
+        )
+    }
+}
 
 /// A WCS serving one Float32 coverage at 1 m.
 #[derive(Debug, Clone, Copy, PartialEq)]

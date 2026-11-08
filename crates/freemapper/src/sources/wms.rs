@@ -1,11 +1,12 @@
-//! Orthophotos from a state's WMS (GeoSN, LVermGeo): GetMap pieces of at most 4000 px at 0.2 m,
-//! stitched on the template grid of the map area.
+//! Orthophotos from a state's WMS (GeoSN, LVermGeo) or WCS (LAiV M-V): JPEG pieces of at most
+//! 4000 px at 0.2 m, stitched on the template grid of the map area.
 
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, Fetcher, get_with_retries, write_atomically};
+use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, write_atomically};
 use crate::raster::GridSpec;
+use crate::sources::wcs::{WcsOrthophoto, exception_text};
 
 /// Pixel size of the orthophoto template, as DOP20.
 pub const ORTHOPHOTO_PIXEL_M: f64 = 0.2;
@@ -24,10 +25,77 @@ pub struct WmsService {
     pub max_px: u32,
 }
 
+impl WmsService {
+    /// The GetMap request for `piece`.
+    fn piece_url(&self, piece: &GridSpec) -> String {
+        let b = piece.bounds();
+        format!(
+            "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={}&STYLES=\
+             &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg{}",
+            self.url,
+            self.layer,
+            self.crs.epsg(),
+            mm(b.min_e),
+            mm(b.min_n),
+            mm(b.max_e),
+            mm(b.max_n),
+            piece.width,
+            piece.height,
+            self.extra
+        )
+    }
+}
+
+/// Where the orthophoto comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrthophotoSource {
+    /// GetMap of a WMS layer.
+    Wms(WmsService),
+    /// GetCoverage of a WCS coverage (a WMS that stamps a watermark is no source).
+    Wcs(WcsOrthophoto),
+}
+
+impl OrthophotoSource {
+    /// `WMS` or `WCS`.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Wms(_) => "WMS",
+            Self::Wcs(_) => "WCS",
+        }
+    }
+
+    fn url(&self) -> &'static str {
+        match self {
+            Self::Wms(s) => s.url,
+            Self::Wcs(s) => s.url,
+        }
+    }
+
+    fn max_px(&self) -> u32 {
+        match self {
+            Self::Wms(s) => s.max_px,
+            Self::Wcs(s) => s.max_px,
+        }
+    }
+
+    fn piece_url(&self, piece: &GridSpec) -> String {
+        match self {
+            Self::Wms(s) => s.piece_url(piece),
+            Self::Wcs(s) => s.piece_url(piece),
+        }
+    }
+}
+
 /// The GetMap requests covering `grid` (in the service's CRS): pieces of at most `service.max_px`
 /// per side, each with its own grid inside `grid`.
 pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    let max = service.max_px;
+    source_pieces(&OrthophotoSource::Wms(*service), grid)
+}
+
+/// The requests covering `grid` (in the source's CRS): pieces of at most the source's `max_px`
+/// per side, each with its own grid inside `grid`.
+pub fn source_pieces(source: &OrthophotoSource, grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    let max = source.max_px();
     let starts = |len: u32| (0..len.div_ceil(max)).map(|i| i * max);
     let mut pieces = Vec::new();
     for x0 in starts(grid.width) {
@@ -39,21 +107,7 @@ pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> 
                 width: max.min(grid.width - x0),
                 height: max.min(grid.height - y0),
             };
-            let b = piece.bounds();
-            let url = format!(
-                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={}&STYLES=\
-                 &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg{}",
-                service.url,
-                service.layer,
-                service.crs.epsg(),
-                mm(b.min_e),
-                mm(b.min_n),
-                mm(b.max_e),
-                mm(b.max_n),
-                piece.width,
-                piece.height,
-                service.extra
-            );
+            let url = source.piece_url(&piece);
             pieces.push((piece, url));
         }
     }
@@ -104,21 +158,36 @@ pub fn fetch_orthophoto(
     bbox: &BoundingBox,
     out: &Path,
 ) -> Result<(), FetchError> {
+    fetch_orthophoto_from(fetcher, &OrthophotoSource::Wms(*service), bbox, out)
+}
+
+/// [`fetch_orthophoto`] from a WMS or a WCS.
+pub fn fetch_orthophoto_from(
+    fetcher: &dyn Fetcher,
+    source: &OrthophotoSource,
+    bbox: &BoundingBox,
+    out: &Path,
+) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
     let mut mosaic = image::RgbImage::new(grid.width, grid.height);
-    for (piece, url) in pieces(service, &grid) {
-        // A WMS reports errors as HTTP 200 with an XML document. The inner `Err` is such an
-        // answer, which would come again, so it is not retried.
+    for (piece, url) in source_pieces(source, &grid) {
+        // A WMS reports errors as HTTP 200 with an XML document, a WCS with an exception report.
+        // The inner `Err` is such an answer, which would come again, so it is not retried.
         let answer = get_with_retries(fetcher, &url, |bytes| {
             let refused = |message: String| FetchError::Http {
                 url: url.clone(),
                 message,
             };
-            if let Some(message) = xml_message(&String::from_utf8_lossy(
-                &bytes[..bytes.len().min(XML_PROBE_BYTES)],
-            )) {
+            let exception = match source {
+                OrthophotoSource::Wms(_) => xml_message(&String::from_utf8_lossy(
+                    &bytes[..bytes.len().min(XML_PROBE_BYTES)],
+                )),
+                OrthophotoSource::Wcs(_) => is_ogc_report(bytes).then(|| exception_text(bytes)),
+            };
+            if let Some(message) = exception {
                 return Ok(Err(refused(format!(
-                    "the WMS answered with an error: {message}"
+                    "the {} answered with an error: {message}",
+                    source.kind()
                 ))));
             }
             let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Jpeg)
@@ -154,7 +223,7 @@ pub fn fetch_orthophoto(
             image::ExtendedColorType::Rgb8,
         )
         .map_err(|e| FetchError::Http {
-            url: service.url.to_string(),
+            url: source.url().to_string(),
             message: e.to_string(),
         })?;
     write_atomically(out, &jpeg)?;
@@ -280,6 +349,119 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(error.contains("not a JPEG"), "{error}");
         assert!(!error.contains("the WMS answered"), "{error}");
         assert!(error.contains("not a JPEG ("), "{error}");
+    }
+
+    fn dop_source() -> OrthophotoSource {
+        OrthophotoSource::Wcs(crate::sources::laiv_mv::DOP)
+    }
+
+    #[test]
+    fn dop_wcs_pieces_stitch_on_the_grid() {
+        // 4500 × 1000 px: two pieces side by side, 4000 and 500 px wide.
+        let grid = GridSpec {
+            west: 312_000.0,
+            north: 5_996_400.0,
+            pixel_size: ORTHOPHOTO_PIXEL_M,
+            width: 4500,
+            height: 1000,
+        };
+        let pieces = source_pieces(&dop_source(), &grid);
+        assert_eq!(pieces.len(), 2);
+        let base = "https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs?SERVICE=WCS&VERSION=2.0.1\
+                    &REQUEST=GetCoverage&COVERAGEID=mv_dop20&FORMAT=image/jpeg";
+        assert_eq!(
+            pieces[0].1,
+            format!("{base}&SUBSET=x(312000,312800)&SUBSET=y(5996200,5996400)")
+        );
+        assert_eq!(
+            pieces[1].1,
+            format!("{base}&SUBSET=x(312800,312900)&SUBSET=y(5996200,5996400)")
+        );
+        // Whole multiples of 0.2 m, no gap and no overlap.
+        assert_eq!((pieces[0].0.width, pieces[1].0.width), (4000, 500));
+        assert_eq!(pieces[1].0.west, pieces[0].0.bounds().max_e);
+        for (g, _) in &pieces {
+            let steps = g.west / ORTHOPHOTO_PIXEL_M;
+            assert!((steps - steps.round()).abs() < 1e-6, "{}", g.west);
+        }
+
+        // Stitch: a box of 4500 × 1000 px in the same grid, served as two JPEGs of distinct colours.
+        let bbox = grid.bounds();
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&pieces[0].1, solid_jpeg(4000, 1000, [200, 30, 30]));
+        fetcher.insert(&pieces[1].1, solid_jpeg(500, 1000, [30, 30, 200]));
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("o.jpg");
+        fetch_orthophoto_from(&fetcher, &dop_source(), &bbox, &out).unwrap();
+        let image = image::open(&out).unwrap().into_rgb8();
+        assert_eq!((image.width(), image.height()), (4500, 1000));
+        let near =
+            |p: &image::Rgb<u8>, c: [u8; 3]| p.0.iter().zip(c).all(|(a, b)| a.abs_diff(b) < 12);
+        for (x, c) in [
+            (0, [200, 30, 30]),
+            (3995, [200, 30, 30]),
+            (4005, [30, 30, 200]),
+            (4499, [30, 30, 200]),
+        ] {
+            assert!(
+                near(image.get_pixel(x, 500), c),
+                "x={x}: {:?}",
+                image.get_pixel(x, 500)
+            );
+        }
+        // The seam is at pixel 4000 exactly.
+        assert!(near(image.get_pixel(3999, 10), [200, 30, 30]));
+        assert!(near(image.get_pixel(4001, 10), [30, 30, 200]));
+        assert!(out.with_extension("jgw").exists());
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn xml_dop_wcs_answer_is_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            crate::sources::laiv_mv::DOP.url,
+            br#"<?xml version="1.0" encoding="UTF-8"?>
+<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="InvalidSubsetting"><ows:ExceptionText>subset out of range</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#
+                .to_vec(),
+        );
+        let error =
+            fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &dir.path().join("o.jpg"))
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("the WCS answered with an error"), "{error}");
+        assert!(
+            error.contains("InvalidSubsetting: subset out of range"),
+            "{error}"
+        );
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    fn mbbox() -> BoundingBox {
+        BoundingBox {
+            min_e: 312_057.0,
+            min_n: 5_996_217.0,
+            max_e: 312_257.0,
+            max_n: 5_996_417.0,
+        }
+    }
+
+    #[test]
+    #[ignore = "live: asks the LAiV M-V DOP WCS"]
+    fn live_rostock_school_orthophoto() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("o.jpg");
+        let fetcher = crate::fetch::HttpFetcher::new();
+        fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &out).unwrap();
+        let image = image::open(&out).unwrap().into_rgb8();
+        assert_eq!((image.width(), image.height()), (1000, 1000));
+        let jgw = std::fs::read_to_string(out.with_extension("jgw")).unwrap();
+        eprintln!(
+            "{} bytes, jgw:\n{jgw}",
+            std::fs::metadata(&out).unwrap().len()
+        );
+        std::fs::copy(&out, "/private/tmp/claude-502/-Users-henryprivat-Documents-gitrepos-freemapper/626dafd0-2cfb-4a8b-9864-ebf6d40c8bb0/scratchpad/dop_live.jpg").ok();
     }
 
     #[test]

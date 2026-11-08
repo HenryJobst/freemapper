@@ -12,7 +12,7 @@ use std::path::Path;
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
 };
@@ -20,7 +20,7 @@ use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::write_float_raster;
 use crate::sources::height_model::HeightModel;
 use crate::sources::region::{Region, contains_point};
-use crate::sources::wcs::WcsService;
+use crate::sources::wcs::{WcsOrthophoto, WcsService};
 use crate::tiles::{TileId, tiles_covering_grid};
 
 /// The Downloadportal's AJAX tile index.
@@ -40,6 +40,15 @@ const TILE_KM: u32 = 2;
 const OVERVIEW_ATTEMPTS: u32 = 5;
 /// Largest side of one GetCoverage (the WCS answered 8000 px; 4000 px take about a minute).
 const WCS_MAX_M: f64 = 4000.0;
+
+/// The orthophoto (DOP20 RGB, a 256-colour dithered palette) from the WCS: the WMS stamps a
+/// watermark into every image, the WCS gives JPEG pieces on the exact 0.2 m grid.
+pub const DOP: WcsOrthophoto = WcsOrthophoto {
+    url: "https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs",
+    coverage: "mv_dop20",
+    crs: Crs::Utm33,
+    max_px: 4000,
+};
 
 /// A height model served by the WCS at 1 m.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -272,6 +281,46 @@ fn tile_list(
     }
 }
 
+/// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25833), from
+/// the portal's `dop20` overview; `None` when the portal does not tell it. The overview is asked
+/// again when it comes back empty (a failed one costs a re-download of the orthophoto).
+pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    let centre = tile_at(e, n);
+    let url = format!(
+        "{OVERVIEW}?type[]=dop20&bbox={},{},{},{}&crs=EPSG:25833",
+        (e - 10.0).floor(),
+        (n - 10.0).floor(),
+        (e + 10.0).ceil(),
+        (n + 10.0).ceil()
+    );
+    get_with_attempts(fetcher, &url, OVERVIEW_ATTEMPTS, |bytes| {
+        let json: Value = serde_json::from_slice(bytes).map_err(|e| FetchError::Http {
+            url: url.clone(),
+            message: format!("not a tile overview: {e}"),
+        })?;
+        Ok(overview_flight_date(&json, centre))
+    })
+    .ok()
+    .flatten()
+}
+
+/// `aktualitaet` of `centre` in a `dop20` overview, as `DD.MM.YYYY`.
+fn overview_flight_date(json: &Value, centre: TileId) -> Option<String> {
+    json["result"]["features"]
+        .as_array()?
+        .iter()
+        .map(|feature| &feature["properties"])
+        .filter(|p| p["type"].as_str() == Some("dop20"))
+        .find(|p| p["kachel_nr"].as_str().and_then(parse_tile_key) == Some(centre))
+        .and_then(|p| p["aktualitaet"].as_str())
+        .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+        .map(|d| d.format("%d.%m.%Y").to_string())
+}
+
 /// The 2 km tile holding the point.
 fn tile_at(e: f64, n: f64) -> TileId {
     let km = |v: f64| ((v / 1000.0).floor() as u32) / TILE_KM * TILE_KM;
@@ -452,11 +501,22 @@ pub(crate) mod test_support {
         include_bytes!("../../../../tests/fixtures/mecklenburg-vorpommern-wcs-dom1.tif");
     pub const OVERVIEW_DGM1: &str =
         include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-overview-dgm1.json");
+    pub const OVERVIEW_DOP20: &str =
+        include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-overview-dop20.json");
     pub const OVERVIEW_DOM: &str =
         include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-overview-dom.json");
 
     /// An `overview.php` answer listing `tiles` of `model`, each dated `date`.
     pub fn overview_answer(model: Model, tiles: &[TileId], date: &str) -> Vec<u8> {
+        overview_answer_of(model.overview_type(), tiles, date)
+    }
+
+    /// An `overview.php` answer listing `tiles` of the `dop20` orthophoto.
+    pub fn dop20_overview_answer(tiles: &[TileId], date: &str) -> Vec<u8> {
+        overview_answer_of("dop20", tiles, date)
+    }
+
+    fn overview_answer_of(kind: &str, tiles: &[TileId], date: &str) -> Vec<u8> {
         let features: Vec<Value> = tiles
             .iter()
             .enumerate()
@@ -472,7 +532,7 @@ pub(crate) mod test_support {
                         "gid": (1000 + i).to_string(),
                         "aktualitaet": date,
                         "kachel_nr": format!("33_{:03}_{:04}", tile.east_km, tile.north_km),
-                        "type": model.overview_type(),
+                        "type": kind,
                     }
                 })
             })
@@ -546,6 +606,44 @@ mod tests {
             })
             .collect();
         fetcher.insert_prefix(model.wcs().url, plain_answer(&grid, &values));
+    }
+
+    #[test]
+    fn dop_flight_date_from_overview() {
+        // The school lies in tile 33_312_5996 (flown 14.08.2024), its eastern neighbour in 2023.
+        let school = BoundingBox {
+            min_e: 312_057.0,
+            min_n: 5_996_217.0,
+            max_e: 312_257.0,
+            max_n: 5_996_417.0,
+        };
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!("{OVERVIEW}?type[]=dop20&bbox="),
+            OVERVIEW_DOP20.as_bytes().to_vec(),
+        );
+        assert_eq!(
+            flight_date(&fetcher, &school).as_deref(),
+            Some("14.08.2024")
+        );
+        let east = BoundingBox {
+            min_e: 314_100.0,
+            max_e: 314_300.0,
+            ..school
+        };
+        assert_eq!(flight_date(&fetcher, &east).as_deref(), Some("02.05.2023"));
+        // A centre tile that is not listed has no date.
+        let far = BoundingBox {
+            min_e: 320_100.0,
+            max_e: 320_300.0,
+            ..school
+        };
+        assert_eq!(flight_date(&fetcher, &far), None);
+        // An empty answer is asked again; a portal that stays down gives no date.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(&format!("{OVERVIEW}?type[]=dop20"), Vec::new());
+        assert_eq!(flight_date(&fetcher, &school), None);
+        assert_eq!(fetcher.calls.get(), OVERVIEW_ATTEMPTS as usize);
     }
 
     #[test]

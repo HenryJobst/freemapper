@@ -46,7 +46,7 @@ use crate::sources::osm::{
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
-use crate::sources::wms::WmsService;
+use crate::sources::wms::OrthophotoSource;
 use crate::tiles::{TileId, tiles_covering_grid};
 
 pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
@@ -823,14 +823,18 @@ fn fetch_geosn_rasters(
         mode,
         project,
         bbox,
-        (&crate::sources::geosn::WMS, "GeoSN", &flight),
+        (
+            &OrthophotoSource::Wms(crate::sources::geosn::WMS),
+            "GeoSN",
+            &flight,
+        ),
         progress,
     )?;
     project.save(dir)?;
     Ok(())
 }
 
-/// The orthophoto of `bbox` from a WMS into [`WMS_ORTHOPHOTO_RELPATH`]: downloaded again only
+/// The orthophoto of `bbox` from a WMS or WCS into [`WMS_ORTHOPHOTO_RELPATH`]: downloaded again only
 /// when the flight date changed (the date tells whether the state flew the area again);
 /// offline, the stored image must cover `bbox`.
 fn fetch_wms_orthophoto(
@@ -839,7 +843,7 @@ fn fetch_wms_orthophoto(
     mode: FetchMode,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    (service, provider, flight_date): (&WmsService, &str, &dyn Fn() -> Option<String>),
+    (source, provider, flight_date): (&OrthophotoSource, &str, &dyn Fn() -> Option<String>),
     progress: &mut dyn FnMut(&str),
 ) -> Result<(), ProjectError> {
     let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
@@ -858,9 +862,10 @@ fn fetch_wms_orthophoto(
                 ));
             } else {
                 progress(&format!(
-                    "downloading the orthophoto from the {provider} WMS"
+                    "downloading the orthophoto from the {provider} {}",
+                    source.kind()
                 ));
-                crate::sources::wms::fetch_orthophoto(fetcher, service, bbox, &path)?;
+                crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, &path)?;
                 project.orthophoto = Some(WmsRecord {
                     flight,
                     fetched: chrono::Local::now().date_naive(),
@@ -900,7 +905,7 @@ fn fetch_lvermgeo_rasters(
         mode,
         project,
         bbox,
-        (&lvermgeo::WMS, "LVermGeo", &flight),
+        (&OrthophotoSource::Wms(lvermgeo::WMS), "LVermGeo", &flight),
         progress,
     )?;
     let record = |date: Option<String>| WcsRecord {
@@ -963,7 +968,7 @@ fn fetch_lgv_rasters(
         mode,
         project,
         bbox,
-        (&lgv::WMS, "LGV", &flight),
+        (&OrthophotoSource::Wms(lgv::WMS), "LGV", &flight),
         progress,
     )?;
     // Offline the tiles come from the cache: they were fetched when the record says.
@@ -1093,7 +1098,7 @@ fn fetch_hvbg_rasters(
         mode,
         project,
         bbox,
-        (&hvbg::WMS, "HVBG", &flight),
+        (&OrthophotoSource::Wms(hvbg::WMS), "HVBG", &flight),
         progress,
     )?;
     let record =
@@ -1201,7 +1206,11 @@ fn fetch_sh_rasters(
         mode,
         project,
         bbox,
-        (&lvermgeo_sh::WMS, "LVermGeo SH", &flight),
+        (
+            &OrthophotoSource::Wms(lvermgeo_sh::WMS),
+            "LVermGeo SH",
+            &flight,
+        ),
         progress,
     )?;
     let record =

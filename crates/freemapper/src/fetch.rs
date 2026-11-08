@@ -1721,6 +1721,17 @@ pub(crate) mod test_support {
                 .collect();
             fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
         }
+        // The dop20 overview (tiles dated 2024-08-14) and the DOP WCS: a flat JPEG per piece.
+        fetcher.insert_prefix(
+            &format!("{}?type[]=dop20&bbox=", laiv_mv::OVERVIEW),
+            laiv_mv::test_support::dop20_overview_answer(&tiles, "2024-08-14"),
+        );
+        let ortho =
+            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+        let source = crate::sources::wms::OrthophotoSource::Wcs(laiv_mv::DOP);
+        for (piece, url) in crate::sources::wms::source_pieces(&source, &ortho) {
+            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [120, 130, 110]));
+        }
     }
 
     /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
