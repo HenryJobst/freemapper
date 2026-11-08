@@ -6,10 +6,10 @@ Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem fr
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
 Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --ocad`.
 
-| Land | Gebiet | Kartenobjekte | OSM-Kandidaten | Symbole | Vorschau |
+| Land | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 435 | 804 | 22 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 706 | 787 | 24 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 435 | 805 | 22 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 780 | 2621 | 30 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
 | Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 1219 | 1220 | 25 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
 | Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 1605 | 1006 | 25 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
 | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 946 | 930 | 21 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
@@ -20,15 +20,24 @@ Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pd
 | Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 222 | 2251 | 24 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="niedersachsen-herrenhausen/preview.jpg" width="220" alt=""></a> |
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 1233 | 751 | 24 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
-**Kartenobjekte** sind die sicheren Objekte der OOM-Karte (ALKIS-Gebäude, -Flächen und -Gewässer). **OSM-Kandidaten**
-liegen als eigene Vorlage bei (`templates/candidates.omap`); im PDF sind sie mitgezeichnet. **Symbole** zählt die
-verschiedenen Symbole in beiden zusammen.
+**Kartenobjekte** sind die sicheren Objekte der OOM-Karte (ALKIS-Gebäude, -Flächen und -Gewässer, in Berlin auch die
+Überdachungen). **Kandidaten** liegen als eigene Vorlage bei (`templates/candidates.omap`); im PDF sind sie
+mitgezeichnet. Sie kommen aus OSM, aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin.
+**Symbole** zählt die verschiedenen Symbole in beiden zusammen.
 
 Flüsse, Kanäle, Teiche und Hafenbecken aus ALKIS stehen als unpassierbares Gewässer (301.1) mit Uferlinie (301.6) in
 der Karte. Teiche, Brunnen, Quellen, Bäche und Brücken aus OSM sind Kandidaten. Im Wasser gibt es keine Höhenlinien
 und keine Brunnenpunkte, denn die wären meist Fontänen in einem Becken. Wo ALKIS eine Brücke als
 Straßenfläche führt, endet das Gewässer an der Brücke mit einer Uferlinie quer zum Fluss; diese Linie entfernen Sie
 in OOM.
+
+In Berlin lädt freemapper weitere Ebenen aus dem Geoportal Berlin. Überdachungen und Carports aus ALKIS stehen als 522
+in der Karte. Treppen, Mauern, Zäune, Böschungskanten, Denkmäler und Durchfahrten sind Kandidaten, ebenso die Bäume
+aus dem Baumkataster. Im Viktoriapark sind das allein 1926 Bäume. Dazu kommt die Karte von Berlin 1:5000 (K5) als
+Vorlage `templates/k5.png`.
+
+Kleingärten sind in allen Ländern Kandidaten für verbotenes Gebiet (520). In Sanssouci betrifft das eine Anlage am
+Nordrand.
 
 ## Inhalt eines Beispiels
 
@@ -42,8 +51,8 @@ in OOM.
 | `freemapper.toml` | das Projekt: Gebiet, Maßstab und die abgerufenen Datenstände |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 
-Die Raster-Vorlagen (Luftbild, Schummerung, Hangneigung, nDOM) und die Rohdaten (`data/`) sind nicht im Repository,
-weil sie pro Beispiel über 20 MB groß sind. So holen Sie sie zurück:
+Die Raster-Vorlagen (Luftbild, Schummerung, Hangneigung, nDOM, in Berlin die K5) und die Rohdaten (`data/`) sind
+nicht im Repository, weil sie pro Beispiel über 20 MB groß sind. So holen Sie sie zurück:
 
 ```sh
 freemapper run --ocad --pdf examples/sachsen-anhalt-quedlinburg
@@ -60,7 +69,8 @@ Landes wurden dann an der Trainingskarte verglichen. Gewonnen haben die Gebiete,
 abwechslungsreiche Bebauung, Relief und viele OSM-Kandidaten.
 
 In Niedersachsen hat der Große Garten gewonnen, obwohl die Karte nur 222 sichere Objekte hat. Seine Hecken,
-Parterres, Baumreihen und Fontänen ergeben 2251 OSM-Kandidaten, mehr als jedes andere Beispiel.
+Parterres, Baumreihen und Fontänen ergeben 2251 Kandidaten, 2109 davon aus OSM. Kein anderes Beispiel hat so viele
+OSM-Kandidaten.
 
 In Rheinland-Pfalz liefen acht Rechtecke: Koblenz am Deutschen Eck, Trier, Speyer, Mainz, Bad Kreuznach und Cochem.
 Bad Kreuznach und Cochem liefen zweimal, denn das erste Rechteck in Bad Kreuznach verfehlte die Nahe, das in Cochem
