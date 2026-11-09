@@ -115,7 +115,7 @@ pub fn unpaved_streets(features: &[OsmFeature], crs: Crs) -> Vec<LineString<f64>
                     })
                     .collect::<Vec<_>>(),
             )),
-            OsmGeometry::Point(_) => None,
+            OsmGeometry::Point(_) | OsmGeometry::Area(_) => None,
         })
         .collect()
 }
