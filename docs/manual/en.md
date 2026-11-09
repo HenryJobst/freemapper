@@ -239,6 +239,36 @@ relation's own tags decide; its ways need none. A map made earlier gets these ar
 
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
+**OSM data on sprint maps.** Besides water, OSM supplies these candidates (rules in
+`assets/rules/osm-candidates.toml`; existing maps get them with `run --force`):
+
+- Passages through buildings and arcades (`tunnel=building_passage`, `covered=yes`) on sprint maps as a strip
+  along the way (522), 3 m wide or as wide as the `width` tag says. The building stays whole. Where ALKIS
+  also knows the passage, you see two strips; delete one. Check on site whether the passage can be used in the
+  race (ISSprOM 2.3 allows two running levels).
+- Private and closed ways and areas as areas that shall not be entered (520). A footway, path, pedestrian way
+  or steps with `access=private|no` or `foot=private|no`, and a service road, track or cycleway with
+  `access=private|no`, become a strip 2 m wide (3 m for roads), and the path line is gone. `foot=yes`,
+  `permissive` or `designated` keeps the way as it was, and so does `access=destination` or `customers`. Areas
+  with `access=private|no` (a land use, garden, pitch, car park, school grounds) are 520 in their own shape;
+  a private pool stays water. Check the 520 against the signs and fences on site, and keep the entrances
+  clear (ISSprOM 520).
+- Paths by surface. Compacted and fine gravel is firm ("hard gravel" in ISSprOM 501), so such a path is a
+  paved line (501.6 to 501.9 by `width`: 1.4, 2, 3, 4 m) among the candidates, no longer an unpaved path on the
+  map. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
+  3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm, grade3 to grade5 unpaved.
+- Control sites for course setters: bollards, street lamps, waste baskets, bicycle racks and benches as
+  points (531, prominent man-made feature) among the candidates, never on the map itself. Each has the tag
+  `freemapper:control` with its kind; select all objects of symbol 531 in OOM to find them. An object that has
+  one of its own kind within 25 m is left out: you cannot tell a bollard in a row, a pair of benches or one
+  lamp in a series from its neighbour. A control site also gives way to every other symbol. Before you use a
+  site, check on site that it is still there, and write the definition of 531 into the legend of the map, as
+  ISSprOM requires.
+- Memorials and boundary stones (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) as points
+  (526) among the candidates. Stolpersteine, plaques and memorials that are a bench, a tree or a mural are left
+  out, because 526 is for objects that are obvious on the ground (ISSprOM 526). Where the cadastre also knows the
+  monument, you see two points; keep one.
+
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
 in the map part "default part". Break them in OOM where they hide small objects, such as boulders, path ends

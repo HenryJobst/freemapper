@@ -15,6 +15,7 @@ use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 use crate::build::berlin::object_polygon;
 use crate::build::buildings::footprint_coords;
+use crate::build::control_sites::CONTROL_KEY;
 use crate::build::dedup::{Rank, rank};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
@@ -213,6 +214,8 @@ struct Spot {
     crown: f64,
     /// The source gives the crown.
     crown_measured: bool,
+    /// A control site (ADR 0074): it gives way to every other point.
+    weak: bool,
     rank: Option<Rank>,
     /// `<source>/<source_id>`.
     name: String,
@@ -234,12 +237,13 @@ impl Spot {
     }
 }
 
-/// The larger point first: map objects, then paper size, the rank, a measured crown before a
+/// The larger point first: map objects, then the points that are no control sites, then paper size, the rank, a measured crown before a
 /// default one, the crown, then the name and the position. The rank comes before the crown so
 /// that a default crown never beats a measured one of a better source, and the order stays total.
 fn larger_first(a: &Spot, b: &Spot) -> Ordering {
     b.on_map
         .cmp(&a.on_map)
+        .then(a.weak.cmp(&b.weak))
         .then(b.size.total_cmp(&a.size))
         .then(b.rank.cmp(&a.rank))
         .then(b.crown_measured.cmp(&a.crown_measured))
@@ -943,6 +947,7 @@ pub fn generalize_points(
             code,
             crown,
             crown_measured: measured.is_some(),
+            weak: tag(o, CONTROL_KEY).is_some(),
             rank: rank(o),
             name: format!(
                 "{}/{}",
@@ -2070,6 +2075,44 @@ mod tests {
             &[],
         );
         assert_eq!(ids(&found.candidates), ["node/1"]);
+    }
+
+    #[test]
+    fn control_site_gives_way_to_every_other_point() {
+        // A control site (ADR 0074) is the largest point symbol, but it must not knock out a
+        // tree or a fountain that stands next to it.
+        let f = fixture(MapKind::Sprint);
+        let site = |id: &str, at: (f64, f64)| {
+            f.point(
+                "531",
+                "osm",
+                id,
+                at,
+                &[("freemapper:control", "street_lamp")],
+            )
+        };
+        let found = f.run(
+            vec![
+                f.tree("418", REGISTER, "tree", (0.0, 0.0), None),
+                site("node/1", (3.0, 0.0)),
+                f.point("311", "osm", "node/2", (0.0, 20.0), &[]),
+                site("node/3", (3.0, 20.0)),
+            ],
+            vec![],
+            &[],
+            &[],
+            &[],
+        );
+        assert_eq!(ids(&found.candidates), ["tree", "node/2"]);
+        // Alone, or only beside another site, it stays; the first by name wins.
+        let found = f.run(
+            vec![site("node/9", (0.0, 0.0)), site("node/8", (3.0, 0.0))],
+            vec![],
+            &[],
+            &[],
+            &[],
+        );
+        assert_eq!(ids(&found.candidates), ["node/8"]);
     }
 
     #[test]

@@ -249,6 +249,38 @@ Karte bekommt diese Flächen erst mit `run --force`.
 
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
+**OSM-Daten auf Sprintkarten.** Neben dem Wasser liefert OSM diese Kandidaten (Regeln in
+`assets/rules/osm-candidates.toml`; bestehende Karten bekommen sie mit `run --force`):
+
+- Durchgänge durch Gebäude und Arkaden (`tunnel=building_passage`, `covered=yes`) als Streifen entlang des
+  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennt auch ALKIS
+  den Durchgang, sehen Sie zwei Streifen; löschen Sie einen. Prüfen Sie vor Ort, ob der Durchgang im Rennen
+  benutzt werden kann (ISSprOM 2.3 erlaubt zwei Laufebenen).
+- Private und gesperrte Wege und Flächen als Flächen, die nicht betreten werden dürfen (520). Ein Fußweg, Pfad,
+  eine Fußgängerzone oder Treppe mit `access=private|no` oder `foot=private|no` und eine Zufahrt, ein
+  Wirtschaftsweg oder Radweg mit `access=private|no` werden ein Streifen von 2 m (Straßen 3 m) Breite, die
+  Wegelinie entfällt. `foot=yes`, `permissive` oder `designated` lässt den Weg, wie er war, ebenso
+  `access=destination` oder `customers`. Flächen mit `access=private|no` (Landnutzung, Garten, Platz, Parkplatz,
+  Schulgelände) sind 520 in ihrer eigenen Form; ein privates Becken bleibt Wasser. Prüfen Sie die 520 vor Ort
+  an Schildern und Zäunen und halten Sie die Eingänge frei (ISSprOM 520).
+- Wege nach Oberfläche. Verdichteter Kies und Feinkies ist fest („hard gravel“ in ISSprOM 501), ein solcher Weg
+  ist daher eine befestigte Linie (501.6 bis 501.9 nach `width`: 1,4, 2, 3, 4 m) unter den Kandidaten und kein
+  unbefestigter Weg mehr in der Karte. Loser Kies, Sand, Erde und Gras bleiben unbefestigt in der Karte: 506
+  unter 1,5 m Breite, 505.1 und ab 3 m 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype`: grade1 ist
+  befestigt, grade2 fest, grade3 bis grade5 unbefestigt.
+- Kontrollstandorte für Bahnleger: Poller, Straßenlaternen, Papierkörbe, Fahrradständer und Bänke als Punkte
+  (531, auffälliges künstliches Objekt) unter den Kandidaten, nie in der Karte selbst. Jedes trägt das Tag
+  `freemapper:control` mit seiner Art; alle Objekte des Symbols 531 finden Sie in OOM mit „Alle Objekte mit
+  gleichem Symbol auswählen“. Ein Objekt, das ein gleichartiges innerhalb von 25 m hat, fehlt: Einen Poller in
+  einer Reihe, eine Bank in einem Paar oder eine Laterne in einer Folge erkennt man nicht von ihrem Nachbarn.
+  Ein Kontrollstandort weicht außerdem jedem anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
+  Standort noch da ist, und schreiben Sie die Definition von 531 in die Legende der Karte, wie ISSprOM es
+  verlangt.
+- Denkmäler und Grenzsteine (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) als Punkte (526)
+  unter den Kandidaten. Stolpersteine, Gedenktafeln und Gedenkstücke, die eine Bank, ein Baum oder ein Wandbild
+  sind, fehlen, denn 526 gilt für Objekte, die im Gelände auffallen (ISSprOM 526). Kennt auch das Kataster das
+  Denkmal, sehen Sie zwei Punkte; behalten Sie einen.
+
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
 gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie sie in OOM, wo sie kleine Objekte

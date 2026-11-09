@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
 
+use crate::build::control_sites::CONTROL_KEY;
 use crate::crs::{LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
@@ -29,6 +30,9 @@ pub enum Draw {
     /// A node drawn as a horizontal line of this length on paper (mm).
     ShortLine(f64),
     Line,
+    /// A way drawn as an area: a strip along it of this width on the ground (metres), or of its
+    /// `width` tag (see [`CORRIDOR_WIDTH_RANGE_M`]).
+    Corridor(f64),
     Area,
 }
 
@@ -70,6 +74,7 @@ struct RuleEntry {
     when: Vec<String>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    corridor_m: Option<f64>,
     #[serde(default)]
     target: Target,
     schoolyard: Option<String>,
@@ -99,6 +104,7 @@ struct Rule {
     when: Vec<Condition>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    corridor_m: Option<f64>,
     target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
@@ -220,6 +226,12 @@ impl Rules {
                     Some("has no symbol for any map kind")
                 } else if entry.point_as_short_line_mm.is_some() && entry.draw != DrawKind::Line {
                     Some("point_as_short_line_mm needs draw = \"line\"")
+                } else if entry.corridor_m.is_some() && entry.draw != DrawKind::Line {
+                    Some("corridor_m needs draw = \"line\"")
+                } else if entry.corridor_m.is_some_and(|w| !(w.is_finite() && w > 0.0)) {
+                    Some("corridor_m must be a positive number")
+                } else if entry.corridor_m.is_some() && entry.point_as_short_line_mm.is_some() {
+                    Some("corridor_m and point_as_short_line_mm exclude each other")
                 } else {
                     None
                 };
@@ -230,6 +242,7 @@ impl Rules {
                     when,
                     draw: entry.draw,
                     point_as_short_line_mm: entry.point_as_short_line_mm,
+                    corridor_m: entry.corridor_m,
                     target: entry.target,
                     schoolyard: entry.schoolyard,
                     sprint: entry.sprint,
@@ -262,18 +275,26 @@ impl Rules {
             .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
 
-    /// The symbol of the first rule whose conditions and geometry match; `None` when no rule
-    /// matches or the matching rule has no symbol for `kind`.
+    /// The symbol of the first rule with a symbol for `kind` whose conditions and geometry match;
+    /// `None` when no rule matches.
     pub fn symbol_for(&self, tags: &Tags, geometry: &OsmGeometry, kind: MapKind) -> Option<Match> {
         let closed =
             matches!(geometry, OsmGeometry::Line(p) if p.len() > 3 && p.first() == p.last());
         let rule = self.0.iter().find_map(|rule| {
-            if !rule.when.iter().all(|c| c.holds(tags)) {
+            // A rule without a symbol for this map kind does not take part (as in `wants`).
+            let has_symbol = match kind {
+                MapKind::Schoolyard => rule.schoolyard.is_some(),
+                MapKind::Sprint => rule.sprint.is_some(),
+            };
+            if !has_symbol || !rule.when.iter().all(|c| c.holds(tags)) {
                 return None;
             }
             let draw = match (rule.draw, geometry) {
                 (DrawKind::Point, OsmGeometry::Point(_)) => Draw::Point,
-                (DrawKind::Line, OsmGeometry::Line(_)) => Draw::Line,
+                (DrawKind::Line, OsmGeometry::Line(_)) => match rule.corridor_m {
+                    Some(width) => Draw::Corridor(width),
+                    None => Draw::Line,
+                },
                 (DrawKind::Line, OsmGeometry::Point(_)) => {
                     Draw::ShortLine(rule.point_as_short_line_mm?)
                 }
@@ -441,6 +462,33 @@ pub fn osm_objects(
                 };
                 vec![(MapObjectKind::Path, coords)]
             }
+            (OsmGeometry::Line(points), Draw::Corridor(default_width)) => {
+                let width = value(&feature.tags, "width")
+                    .and_then(number)
+                    .unwrap_or(default_width)
+                    .clamp(CORRIDOR_WIDTH_RANGE_M.0, CORRIDOR_WIDTH_RANGE_M.1);
+                let line: Vec<_> = points.iter().map(projected).collect();
+                let mut pieces = Vec::new();
+                for polygon in corridor(&line, width) {
+                    let mut coords = Vec::new();
+                    for ring in std::iter::once(polygon.exterior()).chain(polygon.interiors()) {
+                        let ring = ring
+                            .coords()
+                            .map(|c| {
+                                georef
+                                    .projected_to_map(ProjectedPoint {
+                                        easting: c.x,
+                                        northing: c.y,
+                                    })
+                                    .map(|c| (c.x, c.y))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        coords.extend(closed_ring(&ring));
+                    }
+                    pieces.push((MapObjectKind::Path, coords));
+                }
+                pieces
+            }
             (OsmGeometry::Line(points), Draw::Area) => {
                 let ring = points
                     .iter()
@@ -506,6 +554,14 @@ pub fn osm_objects(
                 tags.push((key.to_string(), v));
             }
         }
+        // A control site (ADR 0074) names its kind for the course planner.
+        if source == "osm"
+            && kind == MapKind::Sprint
+            && found.code == CONTROL_CODE
+            && let Some(site) = control_kind(&feature.tags)
+        {
+            tags.push((CONTROL_KEY.to_string(), site.to_string()));
+        }
         // An OSM tree may give its crown diameter (metres) for the point generalization.
         if source == "osm"
             && let Some(crown) = value(&feature.tags, "diameter_crown").and_then(number)
@@ -522,6 +578,37 @@ pub fn osm_objects(
         }
     }
     Ok(objects)
+}
+
+/// The symbol of the control sites ([`control_kind`]): 531 prominent man-made feature, x.
+const CONTROL_CODE: &str = "531";
+
+/// The kind of control site an OSM object is, from its tags: street furniture that a course
+/// setter can use as a control location.
+fn control_kind(tags: &Tags) -> Option<&'static str> {
+    [
+        ("barrier", "bollard", "bollard"),
+        ("highway", "street_lamp", "street_lamp"),
+        ("amenity", "waste_basket", "waste_basket"),
+        ("amenity", "bicycle_parking", "bicycle_parking"),
+        ("amenity", "bench", "bench"),
+    ]
+    .into_iter()
+    .find_map(|(key, v, kind)| (value(tags, key) == Some(v)).then_some(kind))
+}
+
+/// The full width of a [`Draw::Corridor`] on the ground (metres) is held within these limits: a
+/// `width` tag below the lower one still leaves the 1 m footprint of the norm's smallest area
+/// (ISSprOM 520, 522: minimum width 0.25 mm at 1:4000), and an absurd one the upper one.
+pub(crate) const CORRIDOR_WIDTH_RANGE_M: (f64, f64) = (1.5, 12.0);
+
+/// The strip along `points` (projected, metres) of the full width `width_m`, ends cut straight so
+/// that it stops where the way ends (a passage ends at the street).
+fn corridor(points: &[geo_types::Coord<f64>], width_m: f64) -> geo_types::MultiPolygon<f64> {
+    use geo::Buffer as _;
+    use geo::algorithm::buffer::{BufferStyle, LineCap};
+    let style = BufferStyle::new(width_m / 2.0).line_cap(LineCap::Butt);
+    geo_types::LineString(points.to_vec()).buffer_with_style(style)
 }
 
 /// Segments whose ends are within this distance (ground metres) touch.
@@ -1121,13 +1208,8 @@ mod tests {
     }
 
     #[test]
-    fn building_passages_and_area_ways_are_candidates() {
-        for extra in [
-            ("tunnel", "building_passage"),
-            ("covered", "yes"),
-            ("indoor", "yes"),
-            ("area", "yes"),
-        ] {
+    fn indoor_and_area_ways_are_candidates() {
+        for extra in [("indoor", "yes"), ("area", "yes")] {
             let found = sprint_way(&[("highway", "footway"), ("surface", "fine_gravel"), extra]);
             assert_eq!(
                 found,
@@ -1135,6 +1217,302 @@ mod tests {
                 "{extra:?}"
             );
         }
+    }
+
+    #[test]
+    fn building_passages_and_arcades_are_522_candidates() {
+        // ISSprOM 4.5, 522 canopy: "passages, gangways, courts"; ADR 0072. Paved or not, a
+        // passage decides routes, so the surface does not matter.
+        let passages: [&[(&str, &str)]; 6] = [
+            &[("highway", "footway"), ("tunnel", "building_passage")],
+            &[
+                ("highway", "service"),
+                ("tunnel", "building_passage"),
+                ("surface", "asphalt"),
+            ],
+            &[
+                ("highway", "footway"),
+                ("tunnel", "building_passage"),
+                ("surface", "paving_stones"),
+            ],
+            &[("highway", "footway"), ("covered", "yes")],
+            &[("highway", "pedestrian"), ("covered", "arcade")],
+            &[
+                ("highway", "footway"),
+                ("covered", "yes"),
+                ("surface", "fine_gravel"),
+            ],
+        ];
+        for tags in passages {
+            let found = Rules::embedded().symbol_for(&self::tags(tags), &way(), MapKind::Sprint);
+            let found = found.unwrap_or_else(|| panic!("{tags:?}"));
+            assert_eq!(found.code, "522", "{tags:?}");
+            assert_eq!(found.target, Target::Candidates, "{tags:?}");
+            assert!(matches!(found.draw, Draw::Corridor(_)), "{tags:?}");
+        }
+        // A real tunnel, an indoor way and a ring are no passage.
+        for extra in [("tunnel", "yes"), ("indoor", "yes"), ("area", "yes")] {
+            let found = sprint_way(&[("highway", "footway"), ("covered", "yes"), extra]);
+            assert_ne!(found.map(|f| f.0), Some("522".to_string()), "{extra:?}");
+        }
+        // A water tunnel under a building is no passage.
+        assert_eq!(
+            sprint_way(&[("waterway", "stream"), ("tunnel", "building_passage")]),
+            None
+        );
+    }
+
+    #[test]
+    fn passage_corridor_has_the_width_of_the_way() {
+        let passage = |extra: &[(&str, &str)]| {
+            let mut t = vec![("highway", "footway"), ("tunnel", "building_passage")];
+            t.extend_from_slice(extra);
+            // 6.8 m long, ends cut straight: the area is length times width.
+            let way = line("way/9", &t, vec![at(0.0, 0.0), at(0.0, 0.0001)]);
+            let (found, set) = objects(&[way], MapKind::Sprint);
+            assert_eq!(found.len(), 1);
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code("522"));
+            let last = found[0].coords.last().unwrap();
+            assert_eq!(last.flags, FLAG_HOLE | FLAG_CLOSE);
+            let c = &found[0].coords;
+            let twice: f64 = (0..c.len())
+                .map(|i| {
+                    let (a, b) = (&c[i], &c[(i + 1) % c.len()]);
+                    f64::from(a.x) * f64::from(b.y) - f64::from(b.x) * f64::from(a.y)
+                })
+                .sum();
+            // Map units are 1/1000 mm; the fixture scale is 1:1000, so 1 m is 1e3 units.
+            twice.abs() / 2.0 / 1e6
+        };
+        let default = passage(&[]);
+        assert!((default - 6.8 * 3.0).abs() < 2.0, "{default}");
+        let wide = passage(&[("width", "5")]);
+        assert!((wide - 6.8 * 5.0).abs() < 2.5, "{wide}");
+        // A width below the minimum of a 520/522 stays at the minimum.
+        let tiny = passage(&[("width", "0.2")]);
+        assert!(tiny > 6.8 * 1.0, "{tiny}");
+    }
+
+    fn corridor_520(t: &[(&str, &str)]) -> bool {
+        Rules::embedded()
+            .symbol_for(&tags(t), &way(), MapKind::Sprint)
+            .is_some_and(|m| {
+                m.code == "520"
+                    && m.target == Target::Candidates
+                    && matches!(m.draw, Draw::Corridor(_))
+            })
+    }
+
+    #[test]
+    fn private_and_closed_ways_are_520_not_paths() {
+        // ISSprOM 4.5, 520: "An area that shall not be entered such as a private area".
+        for t in [
+            &[("highway", "footway"), ("access", "private")][..],
+            &[("highway", "service"), ("access", "no")],
+            &[
+                ("highway", "path"),
+                ("access", "private"),
+                ("surface", "dirt"),
+            ],
+            &[
+                ("highway", "track"),
+                ("access", "private"),
+                ("surface", "gravel"),
+            ],
+            &[("highway", "pedestrian"), ("access", "private")],
+            &[("highway", "steps"), ("access", "no")],
+            &[("highway", "footway"), ("foot", "no")],
+            &[
+                ("highway", "path"),
+                ("foot", "private"),
+                ("surface", "ground"),
+            ],
+            &[("highway", "service"), ("foot", "private")],
+        ] {
+            assert!(corridor_520(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn foot_access_overrides_a_closed_way() {
+        for foot in ["yes", "permissive", "designated"] {
+            let t = [
+                ("highway", "footway"),
+                ("access", "private"),
+                ("foot", foot),
+            ];
+            assert!(!corridor_520(&t), "foot={foot}");
+        }
+        // The unpaved path stays a map object then.
+        let found = sprint_way(&[
+            ("highway", "path"),
+            ("access", "private"),
+            ("foot", "yes"),
+            ("surface", "dirt"),
+        ]);
+        assert_eq!(found, Some(("505.1".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn other_access_values_and_cycleways_stay_as_they_are() {
+        // `destination`, `customers` and `permit` let a visitor in; a cycleway with foot=no is a
+        // paved road a runner can cross.
+        for t in [
+            &[("highway", "service"), ("access", "destination")][..],
+            &[("highway", "footway"), ("access", "customers")],
+            &[("highway", "cycleway"), ("foot", "no")],
+            &[("highway", "service"), ("foot", "no")],
+        ] {
+            assert!(!corridor_520(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn private_areas_are_520() {
+        for t in [
+            &[("landuse", "residential"), ("access", "private")][..],
+            &[("landuse", "garages"), ("access", "no")],
+            &[("leisure", "garden"), ("access", "private")],
+            &[
+                ("leisure", "pitch"),
+                ("surface", "tartan"),
+                ("access", "private"),
+            ],
+            &[("amenity", "parking"), ("access", "private")],
+            &[("amenity", "school"), ("access", "no")],
+        ] {
+            assert_eq!(
+                sprint_code(t, &ring()).map(|c| c.0),
+                Some("520".to_string()),
+                "{t:?}"
+            );
+        }
+        // Public ones, permissive ones and water keep their rules.
+        assert_eq!(
+            sprint_code(&[("leisure", "park"), ("access", "yes")], &ring()).map(|c| c.0),
+            Some("401".to_string())
+        );
+        assert_eq!(
+            sprint_code(&[("leisure", "park"), ("access", "permissive")], &ring()).map(|c| c.0),
+            Some("401".to_string())
+        );
+        assert_eq!(
+            sprint_code(
+                &[("leisure", "swimming_pool"), ("access", "private")],
+                &ring()
+            )
+            .map(|c| c.0),
+            Some("301".to_string())
+        );
+        assert_eq!(
+            sprint_code(&[("landuse", "grass"), ("access", "private")], &ring()).map(|c| c.0),
+            Some("520".to_string())
+        );
+    }
+
+    #[test]
+    fn private_areas_are_not_schoolyard_symbols() {
+        let found = Rules::embedded().symbol_for(
+            &tags(&[
+                ("leisure", "pitch"),
+                ("surface", "tartan"),
+                ("access", "private"),
+            ]),
+            &ring(),
+            MapKind::Schoolyard,
+        );
+        assert_eq!(found.map(|m| m.code), Some("501.10".to_string()));
+    }
+
+    #[test]
+    fn firm_gravel_is_a_paved_line_by_width() {
+        // ISSprOM 4.5, 501: a paved area has "a firm surface such as asphalt, hard gravel"; 505 is
+        // "without a smooth, hard surface". Compacted and fine gravel are firm: 501.6 to 501.9 by
+        // footprint (1.4, 2, 3, 4 m), as a candidate to check against the orthophoto.
+        for (extra, code) in [
+            (
+                &[("highway", "footway"), ("surface", "compacted")][..],
+                "501.6",
+            ),
+            (&[("highway", "path"), ("surface", "fine_gravel")], "501.6"),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "2.5"),
+                ],
+                "501.7",
+            ),
+            (&[("highway", "track"), ("surface", "compacted")], "501.7"),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "3"),
+                ],
+                "501.8",
+            ),
+            (
+                &[
+                    ("highway", "bridleway"),
+                    ("surface", "fine_gravel"),
+                    ("width", "4,5"),
+                ],
+                "501.9",
+            ),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "1.2"),
+                ],
+                "501.6",
+            ),
+        ] {
+            assert_eq!(
+                sprint_way(extra),
+                Some((code.to_string(), Target::Candidates)),
+                "{extra:?}"
+            );
+        }
+        // Loose gravel is unpaved; wide unpaved ways are 505.2.
+        assert_eq!(
+            sprint_way(&[("highway", "footway"), ("surface", "gravel")]),
+            Some(("505.1".to_string(), Target::Map))
+        );
+        assert_eq!(
+            sprint_way(&[("highway", "path"), ("surface", "dirt"), ("width", "3")]),
+            Some(("505.2".to_string(), Target::Map))
+        );
+    }
+
+    #[test]
+    fn track_type_decides_a_track_without_surface() {
+        // grade1 is paved, grade2 mostly firm, grade3 to grade5 unpaved.
+        assert_eq!(
+            sprint_way(&[("highway", "track"), ("tracktype", "grade1")]),
+            None
+        );
+        assert_eq!(
+            sprint_way(&[("highway", "track"), ("tracktype", "grade2")]),
+            Some(("501.7".to_string(), Target::Candidates))
+        );
+        for grade in ["grade3", "grade4", "grade5"] {
+            assert_eq!(
+                sprint_way(&[("highway", "track"), ("tracktype", grade)]),
+                Some(("505.2".to_string(), Target::Candidates)),
+                "{grade}"
+            );
+        }
+        // A surface tag beats the grade.
+        assert_eq!(
+            sprint_way(&[
+                ("highway", "track"),
+                ("tracktype", "grade1"),
+                ("surface", "dirt")
+            ]),
+            Some(("505.2".to_string(), Target::Map))
+        );
     }
 
     #[test]
@@ -1347,6 +1725,121 @@ mod tests {
     }
 
     #[test]
+    fn control_sites_are_531_points_with_their_kind() {
+        // ISSprOM 4.5, 531: "a man-made feature which is significant or prominent. The
+        // definition of the symbol must be given on the map." ADR 0074.
+        for (tag, kind) in [
+            (("barrier", "bollard"), "bollard"),
+            (("highway", "street_lamp"), "street_lamp"),
+            (("amenity", "waste_basket"), "waste_basket"),
+            (("amenity", "bicycle_parking"), "bicycle_parking"),
+            (("amenity", "bench"), "bench"),
+        ] {
+            let (found, set) = objects(&[point("node/1", &[tag])], MapKind::Sprint);
+            assert_eq!(found.len(), 1, "{tag:?}");
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code("531"), "{tag:?}");
+            assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
+            assert_eq!(value(&found[0].tags, "freemapper:control"), Some(kind));
+        }
+    }
+
+    #[test]
+    fn control_sites_are_candidates_only_and_not_for_the_schoolyard() {
+        let rules = Rules::embedded();
+        let point_geometry = OsmGeometry::Point(SCHOOL);
+        for tag in [
+            ("barrier", "bollard"),
+            ("highway", "street_lamp"),
+            ("amenity", "waste_basket"),
+            ("amenity", "bicycle_parking"),
+            ("amenity", "bench"),
+        ] {
+            let found = rules
+                .symbol_for(&tags(&[tag]), &point_geometry, MapKind::Sprint)
+                .unwrap();
+            assert_eq!(found.target, Target::Candidates, "{tag:?}");
+        }
+        // The schoolyard keeps its own symbols, and a bollard is none there.
+        let lamp = rules.symbol_for(
+            &tags(&[("highway", "street_lamp")]),
+            &point_geometry,
+            MapKind::Schoolyard,
+        );
+        assert_eq!(lamp.map(|m| m.code), Some("545".to_string()));
+        let bench = rules.symbol_for(
+            &tags(&[("amenity", "bench")]),
+            &point_geometry,
+            MapKind::Schoolyard,
+        );
+        assert_eq!(
+            bench.map(|m| (m.code, m.draw)),
+            Some(("543".to_string(), Draw::ShortLine(1.5)))
+        );
+        assert!(!rules.wants(&tags(&[("barrier", "bollard")]), MapKind::Schoolyard));
+        let (found, _) = objects(
+            &[point("node/2", &[("amenity", "bench")])],
+            MapKind::Schoolyard,
+        );
+        assert_eq!(value(&found[0].tags, "freemapper:control"), None);
+    }
+
+    #[test]
+    fn a_bollard_or_bench_way_is_no_control_site() {
+        let rules = Rules::embedded();
+        for tag in [("barrier", "bollard"), ("amenity", "bench")] {
+            let found = rules.symbol_for(&tags(&[tag]), &way(), MapKind::Sprint);
+            assert_eq!(found, None, "{tag:?}");
+        }
+    }
+
+    #[test]
+    fn stolpersteine_and_plaques_are_no_memorial_points() {
+        // ISSprOM 4.5, 526: a memorial "that is obvious". A Stolperstein is flush with the
+        // pavement and a plaque hangs on a wall: neither is seen from a distance (ADR 0075).
+        let rules = Rules::embedded();
+        let node = OsmGeometry::Point(SCHOOL);
+        for t in [
+            &[("historic", "memorial"), ("memorial", "stolperstein")][..],
+            &[("historic", "memorial"), ("memorial", "stolperschwelle")],
+            &[("historic", "memorial"), ("memorial", "plaque")],
+            &[("historic", "memorial"), ("memorial", "plate")],
+            &[("historic", "memorial"), ("memorial", "ground_plaque")],
+            &[("historic", "memorial"), ("memorial:type", "stolperstein")],
+            &[("historic", "memorial"), ("memorial", "bench")],
+            &[("historic", "memorial"), ("memorial", "ghost_bike")],
+            &[("historic", "memorial"), ("memorial", "mural")],
+            &[("historic", "memorial"), ("memorial", "tree")],
+        ] {
+            assert!(!rules.wants(&tags(t), MapKind::Sprint), "{t:?}");
+            assert_eq!(rules.symbol_for(&tags(t), &node, MapKind::Sprint), None);
+        }
+    }
+
+    #[test]
+    fn obvious_memorials_are_526_candidates() {
+        let rules = Rules::embedded();
+        let node = OsmGeometry::Point(SCHOOL);
+        for t in [
+            &[("historic", "memorial")][..],
+            &[("historic", "memorial"), ("memorial", "statue")],
+            &[("historic", "memorial"), ("memorial", "stele")],
+            &[("historic", "memorial"), ("memorial", "war_memorial")],
+            &[("historic", "monument")],
+            &[("historic", "wayside_cross")],
+            &[("historic", "boundary_stone")],
+        ] {
+            let found = rules.symbol_for(&tags(t), &node, MapKind::Sprint).unwrap();
+            assert_eq!(found.code, "526", "{t:?}");
+            assert_eq!(found.target, Target::Candidates, "{t:?}");
+            assert_eq!(found.draw, Draw::Point, "{t:?}");
+        }
+        // Not for the schoolyard, and not for a way.
+        let t = tags(&[("historic", "memorial")]);
+        assert_eq!(rules.symbol_for(&t, &node, MapKind::Schoolyard), None);
+        assert_eq!(rules.symbol_for(&t, &way(), MapKind::Sprint), None);
+    }
+
+    #[test]
     fn closed_fence_becomes_a_closed_line() {
         let ring = line("way/5", &[("barrier", "fence")], square());
         let (objects, _) = objects(&[ring], MapKind::Sprint);
@@ -1414,6 +1907,7 @@ mod tests {
                 let symbol_type = set.symbol_type(set.id_for_code(code).unwrap());
                 let fits: &[u32] = match rule.draw {
                     DrawKind::Point => &[1],
+                    DrawKind::Line if rule.corridor_m.is_some() => &[4, 16],
                     DrawKind::Line => &[2, 16],
                     DrawKind::Area => &[4, 16],
                 };
