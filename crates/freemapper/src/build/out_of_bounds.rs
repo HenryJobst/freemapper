@@ -80,6 +80,15 @@ pub(crate) struct LandClip {
 
 impl LandClip {
     pub(crate) fn new(clip: &BoundingBox, georef: &Georeferencing) -> Self {
+        Self::with_min_side(clip, georef, MIN_SIDE_MM)
+    }
+
+    /// The clip window with slivers below `min_side_mm` on paper instead of [`MIN_SIDE_MM`].
+    pub(crate) fn with_min_side(
+        clip: &BoundingBox,
+        georef: &Georeferencing,
+        min_side_mm: f64,
+    ) -> Self {
         let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
         Self {
             polygon: geo_types::Rect::new(
@@ -87,8 +96,8 @@ impl LandClip {
                 geo_types::coord! { x: clip.max_e, y: clip.max_n },
             )
             .to_polygon(),
-            min_area: (MIN_SIDE_MM * metres_per_mm).powi(2),
-            min_width: MIN_SIDE_MM * metres_per_mm,
+            min_area: (min_side_mm * metres_per_mm).powi(2),
+            min_width: min_side_mm * metres_per_mm,
         }
     }
 
@@ -132,21 +141,6 @@ pub(crate) fn clipped_part_objects(
         if clip.is_sliver(&piece, f64::INFINITY) {
             continue;
         }
-        let mut coords = Vec::new();
-        for ring in std::iter::once(piece.exterior()).chain(piece.interiors()) {
-            let points = ring
-                .coords()
-                .map(|c| {
-                    georef
-                        .projected_to_map(ProjectedPoint {
-                            easting: c.x,
-                            northing: c.y,
-                        })
-                        .map(|m| (m.x, m.y))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            coords.extend(closed_ring(&points));
-        }
         let mut tags = vec![
             ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
             ("freemapper:source_id".to_string(), land.oid.clone()),
@@ -155,14 +149,39 @@ pub(crate) fn clipped_part_objects(
         if let Some(updated) = land.updated {
             tags.push(("freemapper:currency".to_string(), updated.to_string()));
         }
-        objects.push(MapObject {
-            symbol_id,
-            kind: MapObjectKind::Path,
-            coords,
-            tags,
-        });
+        objects.push(area_object(&piece, symbol_id, tags, georef)?);
     }
     Ok(objects)
+}
+
+/// The area object with `symbol_id` and `tags` for `polygon` (map CRS), holes kept.
+pub(crate) fn area_object(
+    polygon: &Polygon<f64>,
+    symbol_id: u32,
+    tags: Vec<(String, String)>,
+    georef: &Georeferencing,
+) -> Result<MapObject, GeorefError> {
+    let mut coords = Vec::new();
+    for ring in std::iter::once(polygon.exterior()).chain(polygon.interiors()) {
+        let points = ring
+            .coords()
+            .map(|c| {
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: c.x,
+                        northing: c.y,
+                    })
+                    .map(|m| (m.x, m.y))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        coords.extend(closed_ring(&points));
+    }
+    Ok(MapObject {
+        symbol_id,
+        kind: MapObjectKind::Path,
+        coords,
+        tags,
+    })
 }
 
 #[cfg(test)]

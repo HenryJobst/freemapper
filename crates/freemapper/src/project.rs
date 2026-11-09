@@ -16,7 +16,9 @@ use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
-use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
+use crate::build::paved::{
+    GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
+};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::build::stairs::{STEP_EDGE_LAYER, StairInput, has_stairs, stair_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
@@ -2594,10 +2596,12 @@ fn stored_out_of_bounds_objects(
     )?)
 }
 
-/// 501.5 paved areas from the stored land use; sprint maps only (spec §4.5).
+/// 501.5 paved areas from the stored land use; sprint maps only (spec §4.5). In Berlin the
+/// stored Straßenbefahrung cuts its green strips out and adds its paving as candidates.
 fn stored_paved_objects(
     land_use: &[LandUse],
     osm: Option<&(Vec<OsmFeature>, NaiveDate)>,
+    berlin_layers: &[StoredBerlinLayer],
     project: &ProjectFile,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
@@ -2606,9 +2610,18 @@ fn stored_paved_objects(
         return Ok(PavedObjects::default());
     }
     let streets = osm.map(|(features, _)| unpaved_streets(features, georef.crs()));
+    let layer = |file: &str| {
+        berlin_layers
+            .iter()
+            .find(|l| l.layer.file == file)
+            .map_or(&[][..], |l| l.features.as_slice())
+    };
+    let survey =
+        StreetSurvey::from_features(layer(GREEN_LAYER), layer(SURFACE_LAYER), georef.crs());
     Ok(paved_area_objects(
         land_use,
         streets.as_deref().unwrap_or_default(),
+        &survey,
         &project.bbox()?,
         georef,
         symbol_set,
@@ -3490,7 +3503,14 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     )?;
     let land_use = stored_land_use(dir, &project)?;
     let osm = stored_osm_features(dir, &project, &area)?;
-    let paved = stored_paved_objects(&land_use, osm.as_ref(), &project, &georef, &symbol_set)?;
+    let paved = stored_paved_objects(
+        &land_use,
+        osm.as_ref(),
+        &berlin_layers,
+        &project,
+        &georef,
+        &symbol_set,
+    )?;
     let clip = project.bbox()?;
     let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
     // OSM ponds inside the drawn ALKIS water would only duplicate it, and fountain points in
@@ -9683,6 +9703,85 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000031</t>"#));
+    }
+
+    #[test]
+    fn berlin_sprint_export_cuts_survey_green_and_adds_survey_paving() {
+        use crate::sources::alkis::test_support::{land_use_feature, page};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_kind = MapKind::Sprint;
+        project.scale_denominator = 4000;
+        project.save(dir.path()).unwrap();
+        serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.berlin_layers.contains_key(GREEN_LAYER));
+        assert!(project.berlin_layers.contains_key(SURFACE_LAYER));
+        // A 40 m street parcel; a 10 m green inside it, a sidewalk north of it.
+        let street = land_use_feature(
+            "DEBE00STRASSE",
+            "Straßenverkehr",
+            None,
+            [392_760.0, 5_820_810.0, 40.0],
+        );
+        std::fs::write(dir.path().join(LAND_USE_RELPATH), page(&[street], None)).unwrap();
+        let area = |layer: &str, gis_id: &str, (e, n): (f64, f64), (w, h): (f64, f64)| {
+            serde_json::json!({
+                "type": "Feature", "id": format!("{layer}.1"),
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [e, n], [e + w, n], [e + w, n + h], [e, n + h], [e, n]]]},
+                "properties": {"freemapper:layer": layer, "gis_id": gis_id,
+                    "survey_date": "2015-04-16"}})
+        };
+        for (file, feature) in [
+            (
+                GREEN_LAYER,
+                area(
+                    "ce_gruenflaeche",
+                    "Fl_20150416_1",
+                    (392_775.0, 5_820_825.0),
+                    (10.0, 10.0),
+                ),
+            ),
+            (
+                SURFACE_LAYER,
+                area(
+                    "cl_gehweg",
+                    "Fl_20150416_2",
+                    (392_770.0, 5_820_850.0),
+                    (20.0, 6.0),
+                ),
+            ),
+        ] {
+            let layer = serde_json::json!({"type": "FeatureCollection", "features": [feature]});
+            std::fs::write(berlin_layer_path(dir.path(), file), layer.to_string()).unwrap();
+        }
+        let documents = starter_documents(dir.path()).unwrap();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let street = documents.map.parts[0]
+            .objects
+            .iter()
+            .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00STRASSE"))
+            .expect("the street");
+        assert_eq!(
+            tag(street, "freemapper:cut_ids").as_deref(),
+            Some("Fl_20150416_1")
+        );
+        let sidewalk = documents.candidates.parts[0]
+            .objects
+            .iter()
+            .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("Fl_20150416_2"))
+            .expect("the sidewalk candidate");
+        assert_eq!(
+            tag(sidewalk, "freemapper:currency").as_deref(),
+            Some("2015-04-16")
+        );
     }
 
     /// One 30 m lake parcel in the stored land use, and two OSM ponds as closed ways: one inside

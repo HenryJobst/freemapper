@@ -11,9 +11,10 @@
 # Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stairs
 # (`build/stairs.rs`: the walking direction of a stair area comes from the DGM, and the
 # `Freitreppe` lines of `bauwerke-linien` are step edges that are joined into one stair per
-# flight) and Kleingarten (a land use, `build/out_of_bounds.rs`). ALKIS kerb lines are not taken
-# (Plan 2 brings the surveyed curbs). The height of a wall decides nothing; the ALKIS name picks
-# the symbol.
+# flight), Kleingarten (a land use, `build/out_of_bounds.rs`) and the surveyed green strips and
+# paving (`sb-gruenflaeche`, `sb-flaechen`: cut out of and added to the paved areas,
+# `build/paved.rs`). ALKIS kerb lines are not taken (Plan 2 brings the surveyed curbs). The
+# height of a wall decides nothing; the ALKIS name picks the symbol.
 
 # Walls, retaining walls and fences by the ALKIS name (the same symbols as the OSM rules).
 [[rule]]

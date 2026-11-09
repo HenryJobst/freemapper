@@ -185,6 +185,42 @@ pub(crate) fn provenance_tags(
     tags
 }
 
+/// The Straßenbefahrung codes a candidate carries as `berlin:<code>`. There is no code list, so no
+/// rule reads them; they are for the mapper (reference §14.5).
+const SURVEY_CODES: [&str; 8] = ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
+
+/// The survey date of a stored Straßenbefahrung feature (from its `gis_id`, stamped at download)
+/// and whether it is guessed. A feature without one gets the dataset date, guessed.
+pub(crate) fn survey_currency(feature: &Value) -> (NaiveDate, bool) {
+    let properties = &feature["properties"];
+    let date = properties["survey_date"]
+        .as_str()
+        .and_then(|d| d.parse().ok());
+    let guessed = properties["survey_date_guessed"] == "yes";
+    match date {
+        Some(date) => (date, guessed),
+        None => (crate::sources::berlin::SURVEY_DATASET_DATE, true),
+    }
+}
+
+/// The tags of an object built from a Straßenbefahrung feature directly: the provenance tags
+/// with the survey date as currency (and `freemapper:currency_guessed=yes` when the `gis_id`
+/// gave none), the survey type as `berlin:layer` and the survey codes.
+pub(crate) fn survey_tags(file: &str, feature: &Value) -> Vec<(String, String)> {
+    let (currency, guessed) = survey_currency(feature);
+    let mut tags = provenance_tags(file, feature, currency);
+    if guessed {
+        tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+    }
+    let codes = SURVEY_CODES.map(|code| format!("berlin:{code}"));
+    tags.extend(
+        feature_tags(file, feature)
+            .into_iter()
+            .filter(|(k, _)| k == "berlin:layer" || codes.contains(k)),
+    );
+    tags
+}
+
 /// The tags of a Berlin feature: `berlin:layer`, each string (not empty) and number property as
 /// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
 /// ALKIS name as `freemapper:alkis`).
@@ -208,7 +244,7 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
         tags.push((format!("berlin:{key}"), text));
     }
     let property = |key: &str| properties.and_then(|p| p.get(key)).and_then(Value::as_str);
-    let source_id = ["uuid", "gisid", "oid"]
+    let source_id = ["uuid", "gisid", "oid", "gis_id"]
         .iter()
         .find_map(|key| property(key).filter(|v| !v.is_empty()));
     if let Some(id) = source_id {
