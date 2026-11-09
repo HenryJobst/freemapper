@@ -45,7 +45,7 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) of
+The current version is [v0.7.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.7.0) of
 9 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
@@ -58,17 +58,17 @@ to 2016: the surveyed green strips are cut out of the street areas,
 curbs, railings, furniture, lamps and fountains come as candidates, and buildings carry their
 footprint date.
 
-New on the main branch since v0.6.2: canopies and carports from ALKIS are map objects in every state except
+In all states: canopies and carports from ALKIS are map objects in every state except
 Saxony and Saxony-Anhalt, and building passages are candidates there. Brandenburg maps get walls, fences,
 hedges, monuments, embankment tops and bridges from the full ALKIS as candidates, and around Potsdam the trees
 of the city map; the two edges of a wall become one line in the middle. Point symbols keep the gap the norm
 asks for, and dense tree groups on paving or open land become areas.
 
-freemapper is still under development. Work in progress: more detailed sprint maps from further open
-data of the other states, next Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of
-Leipzig and Dresden), then Saxony-Anhalt and Hamburg. After that come gym maps for indoor orienteering,
-program texts in German and English, and the remaining states with open geodata
-(Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
+freemapper is still under development. Next, the region adapters are rebuilt so that other developers
+can contribute adapters for their own country. Then come more detailed sprint maps for further states,
+first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
+Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, program texts in German and English,
+and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 

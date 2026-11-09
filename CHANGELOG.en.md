@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-09
+
 ### Added
 
 - Canopies and passages in more states. In every state except Saxony and Saxony-Anhalt, ALKIS canopies and carports become map objects (522) on both map kinds, cut at the buildings as in Berlin. Building passages and arcades become 522 candidates, and the building stays whole. freemapper reads them from the buildings it already fetches, so there is no extra download. The data currency is the date of the ALKIS object. An existing map gets the canopies only with `run --force` (ADR 0061).

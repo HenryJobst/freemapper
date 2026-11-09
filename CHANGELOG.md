@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.7.0] - 2026-11-09
+
 ### Hinzugefügt
 
 - Überdachungen und Durchfahrten in weiteren Ländern. In jedem Land außer Sachsen und Sachsen-Anhalt werden Überdachungen und Carports aus ALKIS Kartenobjekte (522) auf beiden Kartenarten, an den Gebäuden abgeschnitten wie in Berlin. Durchfahrten und Arkaden werden Kandidaten 522, das Gebäude bleibt ganz. freemapper liest sie aus den Gebäuden, die es ohnehin lädt, ein zusätzlicher Download entfällt. Datenstand ist das Datum des ALKIS-Objekts. Eine vorhandene Karte bekommt die Überdachungen erst mit `run --force` (ADR 0061).

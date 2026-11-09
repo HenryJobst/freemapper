@@ -46,7 +46,7 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) vom
+Aktuelle Version ist [v0.7.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.7.0) vom
 9. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
 Schulhof- und Sprintkarten für elf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
@@ -59,17 +59,18 @@ nutzen sie die Straßenbefahrung 2014 bis 2016: Die vermessenen
 Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und
 Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität.
 
-Neu im Hauptzweig seit v0.6.2: Überdachungen und Carports aus ALKIS sind in jedem Bundesland außer Sachsen und
+In allen Bundesländern: Überdachungen und Carports aus ALKIS sind in jedem Bundesland außer Sachsen und
 Sachsen-Anhalt Kartenobjekte, Durchfahrten dort Kandidaten. Brandenburger Karten bekommen Mauern, Zäune,
 Hecken, Denkmäler, Böschungsoberkanten und Brücken aus dem vollständigen ALKIS als Kandidaten, rund um Potsdam
 auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Linie in der Mitte. Punktsymbole
 halten den Abstand der Norm ein, und dichte Baumgruppen auf Pflaster oder offenem Gelände werden zu Flächen.
 
-Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
-Daten der anderen Bundesländer, als Nächstes Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM,
-die Bäume von Leipzig und Dresden), dann Sachsen-Anhalt und Hamburg. Danach folgen Hallenkarten
-für Hallen-OL, deutsche und englische Programmtexte und die übrigen Bundesländer mit offenen Geodaten
-(Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
+Das Programm ist noch in Entwicklung. Als Nächstes werden die Länder-Adapter so umgebaut, dass andere
+Entwickler eigene Adapter für ihr Land beitragen können. Danach folgen genauere Sprintkarten für weitere
+Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
+und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, deutsche und
+englische Programmtexte und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen, Bayern,
+Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
