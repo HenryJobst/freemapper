@@ -371,7 +371,8 @@ contributed objects or a template:
 - `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0`
 - `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0`
 - `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert`
-- `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0`
+- `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0` (as built:
+  only the registers that drew objects are named)
 - Not used: Grün Berlin tree layer (licence conflict, §5).
 
 ## 13. Risks

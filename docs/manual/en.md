@@ -566,8 +566,9 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
   `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0` when the K5 was fetched, and
   `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when trees came from the cadastre; further
   `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert` when street survey objects were
-  fetched, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0` when
-  one of these registers had objects, and `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when
+  fetched, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0`
+  naming only the registers that gave objects in the map or the candidates (e.g. `Geoportal Berlin /
+  Zierbrunnen, dl-de/zero-2-0` on a sprint map), and `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when
   building heights were fetched
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Saxony)
 - `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert` (Saxony-Anhalt)

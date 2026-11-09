@@ -12,7 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Berlin: Möblierung auf Schulhofkarten. Bänke, Hydranten, Poller, Masten, Fahnenmasten und Spielgeräte kommen aus der Straßenbefahrung, Laternen (nur die in Betrieb) aus dem Beleuchtungskataster, Zier- und Trinkbrunnen aus ihren Registern. Auf Sprintkarten bleibt die Möblierung weg.
 - Berlin: Ein Punkt aus einem Register ersetzt OSM- und vermessene Punkte derselben Art: eine Laterne OSM-Laternen bis 5 m und vermessene Masten bis 2 m Abstand, ein Brunnen Brunnen bis 3 m. Auf Schulhofkarten ersetzt ein vermessener Hydrant, eine Bank, ein Mast oder ein Spielgerät das OSM-Gegenstück bis 2 m. Liegt ein Brunnen aus einem Register oder der Straßenbefahrung in einem gezeichneten Gewässer, fällt er weg.
 - Berlin: Gebäude tragen als Datenstand ihre Grundrissaktualität aus den Gebäudehöhen 2022 des Umweltatlas. Ein Gebäude ohne Treffer bleibt ohne Datum.
-- Neue Zeilen in der Namensnennung für die Straßenbefahrung, die Register und die Gebäudehöhen, jeweils nur, wenn sie Objekte geliefert haben.
+- Neue Zeilen in der Namensnennung für die Straßenbefahrung, die Register und die Gebäudehöhen, jeweils nur, wenn sie Objekte geliefert haben. Die Registerzeile nennt nur die Register, deren Punkte in Karte oder Kandidaten stehen.
 
 ### Geändert
 

@@ -584,7 +584,8 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
   `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0`, wenn Bäume aus dem Kataster kamen; außerdem
   `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert`, wenn Objekte der
   Straßenbefahrung geladen wurden, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen,
-  Trinkwasserbrunnen, dl-de/zero-2-0`, wenn eines dieser Register Objekte hatte, und
+  Trinkwasserbrunnen, dl-de/zero-2-0` mit nur den Registern, die Objekte in Karte oder Kandidaten geliefert
+  haben (auf einer Sprintkarte etwa `Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0`), und
   `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0`, wenn Gebäudehöhen geladen wurden
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Sachsen)
 - `© GeoBasis-DE / LVermGeo ST <Jahr>, dl-de/by-2-0, Daten geändert` (Sachsen-Anhalt)

@@ -200,11 +200,12 @@ give each ALKIS building its footprint date: `grundrissaktualitaet` joins by `gm
 into `aktualit` when the stored buildings are read (`join_footprint_dates`), so the 521 objects get
 `freemapper:currency`. A building without a match, or without the stored layer (also outside Berlin), keeps no
 date. The building record's `latest_update` stays `None` in Berlin: it is the ALKIS change detection, and a date
-from a separate layer would raise false "changed upstream" warnings (ADR 0057). Attribution, each line only
-when its layers stored features: `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert`
-(any `sb-*` file), `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen,
-dl-de/zero-2-0` (any of the three registers) and `Geoportal Berlin / Gebäudehöhen (Umweltatlas),
-dl-de/zero-2-0`.
+from a separate layer would raise false "changed upstream" warnings (ADR 0057). Attribution:
+`Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert` when an `sb-*` file stored
+features; `Geoportal Berlin / <registers>, dl-de/zero-2-0` naming, in this order, `Öffentliche Beleuchtung`,
+`Zierbrunnen` and `Trinkwasserbrunnen`, each only when its points are among the candidates after the dedup
+(`drawn_registers`; a sprint map never draws lamps); and `Geoportal Berlin / Gebäudehöhen (Umweltatlas),
+dl-de/zero-2-0` when the heights layer stored features.
 
 **Saxony (verified live 2026-11-07, details `docs/regions/saxony-reference.md`):** regions are data
 (`sources/region.rs`, boundaries `assets/regions/{brandenburg,berlin,saxony}.geojson`). ALKIS comes from every region
