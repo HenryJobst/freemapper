@@ -2,6 +2,9 @@
 
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
+<!-- claude-cost:start -->
+<!-- claude-cost:end -->
+
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
 georeferenced map with the reliable map objects already symbolized, plus templates for everything
