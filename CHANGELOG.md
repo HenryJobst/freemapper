@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Berliner Kontrollstandorte auf Sprintkarten. Die Straßenbefahrung (Poller, Masten, Fahnenmasten, Bänke) und das Beleuchtungskataster (Laternen in Betrieb) liefern jetzt 531-Kandidaten mit `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, dazu `advertising_column` für die Werbesäulen der Befahrung), wie die aus OSM. Die Ausdünnung gilt für alle Quellen gemeinsam: Ein Standort, der ein gleichartiges innerhalb von 25 m hat, fehlt, gleich aus welcher Quelle, nachdem Doppel und Standorte in Gebäuden entfallen sind. Ein vermessener Poller ersetzt einen OSM-Poller bis 2 m. Hydranten und Spielgeräte bleiben Schulhof-Sache. Ein Berliner Sprintprojekt lädt sieben WFS-Anfragen mehr (33 statt 26); die Platzschätzung für die Berliner Ebenen steigt von 10,5 auf 12 MB je km². Bestehende Karten bekommen das mit `run --force` (ADR 0077).
+- Trinkbrunnen sind auf Sprintkarten 313, aus dem Berliner Register, der Befahrung und aus OSM `amenity=drinking_water`.
+
 ## [0.8.0] - 2026-11-09
 
 ### Hinzugefügt

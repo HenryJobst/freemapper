@@ -6,6 +6,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Berlin control sites on sprint maps. The street survey (bollards, masts, flag poles, benches) and the lighting cadastre (lamps in operation) now give 531 candidates with `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, plus `advertising_column` for the survey's advertising columns), like the OSM ones. Thinning is shared: a site of one kind within 25 m of another is left out, whichever source it comes from, after duplicates and sites in buildings are gone. A surveyed bollard replaces an OSM one within 2 m. Hydrants and play equipment stay schoolyard-only. A Berlin sprint project fetches seven more WFS requests (33 instead of 26); the disk estimate for the Berlin layers goes from 10.5 to 12 MB per km². Existing maps get this with `run --force` (ADR 0077).
+- Drinking fountains are 313 on sprint maps, from the Berlin register and survey and from OSM `amenity=drinking_water`.
+
 ## [0.8.0] - 2026-11-09
 
 ### Added

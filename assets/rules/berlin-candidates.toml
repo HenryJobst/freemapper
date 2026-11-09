@@ -113,13 +113,24 @@ draw = "line"
 schoolyard = "518"
 sprint = "518"
 
-# Street furniture of the schoolyard only: on a sprint map the 2 392 bollards of one km² would
-# flood the candidates.
+# Street furniture. The schoolyard map draws it (543, 321, 544, 541). The sprint map does not
+# draw it either (ISSprOM 2.1: waste baskets, fire hydrants and individual street lights are not
+# mapped), but bollards, masts, flag poles and benches are control sites for course setters as
+# the OSM ones are (ADR 0074): 531 candidates with `freemapper:control=<kind>`, which the build
+# adds from the layer (`build/candidates.rs`). `build/control_sites.rs` thins them, so the
+# 1 077 bollards of the Viktoriapark area leave the few that stand alone (ADR 0077). Hydrants
+# (undocumented type code, mostly flush covers) and play equipment stay schoolyard-only.
 [[rule]]
-when = ["berlin:layer=bj_sitzbank"]
+when = ["berlin:layer=bj_sitzbank", "berlin:point!=middle"]
 draw = "line"
 point_as_short_line_mm = 1.5
 schoolyard = "543"
+
+# The bench is a line in the survey; `build/berlin.rs` adds a point at its middle for this rule.
+[[rule]]
+when = ["berlin:layer=bj_sitzbank"]
+draw = "point"
+sprint = "531"
 
 [[rule]]
 when = ["berlin:layer=aq_hydrant"]
@@ -130,6 +141,7 @@ schoolyard = "321"
 when = ["berlin:layer=av_poller|as_mast|am_fahnenmast"]
 draw = "point"
 schoolyard = "544"
+sprint = "531"
 
 [[rule]]
 when = ["berlin:layer=aw_spielgeraet"]
@@ -137,7 +149,7 @@ draw = "line"
 point_as_short_line_mm = 1.8
 schoolyard = "541"
 
-# Advertising columns are a landmark on a sprint map.
+# Advertising columns are a landmark on a sprint map (and a control site).
 [[rule]]
 when = ["berlin:layer=ag_werbesaeule"]
 draw = "point"
@@ -157,19 +169,23 @@ draw = "point"
 schoolyard = "311"
 sprint = "311"
 
+# Drinking fountains: 313 prominent water feature (ISSprOM 4.3, "a small water feature which is
+# significant or prominent"). They are rare, so no thinning is needed.
 [[rule]]
 when = ["berlin:layer=ac_trinkwasserbrunnen_wasserspender"]
 draw = "point"
 schoolyard = "313"
+sprint = "313"
 
 # The registers (Berlin plus 2). Lamps of the lighting cadastre (only those in operation are
-# stored) are the schoolyard's 545; the survey masts (`as_mast`) give way to them
-# (`drop_points_near_registers`). The fountain registers give the 311 and 313 points; they win
+# stored) are the schoolyard's 545 and a sprint map's street lamp control site (531); the survey
+# masts (`as_mast`) give way to them (`drop_points_near_registers`). The fountain registers give the 311 and 313 points; they win
 # over the survey and OSM points within a few metres.
 [[rule]]
 when = ["berlin:layer=beleuchtung"]
 draw = "point"
 schoolyard = "545"
+sprint = "531"
 
 [[rule]]
 when = ["berlin:layer=bez_zierbrunnen"]
@@ -181,3 +197,4 @@ sprint = "311"
 when = ["berlin:layer=trinkwasserbrunnen"]
 draw = "point"
 schoolyard = "313"
+sprint = "313"

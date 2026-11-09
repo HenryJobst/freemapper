@@ -199,11 +199,11 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
     survey(
         "sb-moebel",
         &[
-            ty("strassenbefahrung:bj_sitzbank", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:bj_sitzbank", BOTH_KINDS),
             ty("strassenbefahrung:aq_hydrant", SCHOOLYARD_ONLY),
-            ty("strassenbefahrung:av_poller", SCHOOLYARD_ONLY),
-            ty("strassenbefahrung:as_mast", SCHOOLYARD_ONLY),
-            ty("strassenbefahrung:am_fahnenmast", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:av_poller", BOTH_KINDS),
+            ty("strassenbefahrung:as_mast", BOTH_KINDS),
+            ty("strassenbefahrung:am_fahnenmast", BOTH_KINDS),
             ty("strassenbefahrung:aw_spielgeraet", SCHOOLYARD_ONLY),
         ],
     ),
@@ -216,7 +216,7 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
             ty("strassenbefahrung:bv_springbrunnen_zierbrunnen", BOTH_KINDS),
             ty(
                 "strassenbefahrung:ac_trinkwasserbrunnen_wasserspender",
-                SCHOOLYARD_ONLY,
+                BOTH_KINDS,
             ),
         ],
     ),
@@ -226,7 +226,7 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
         ..plain(
             "beleuchtung",
             "https://gdi.berlin.de/services/wfs/beleuchtung",
-            &[ty("beleuchtung:beleuchtung", SCHOOLYARD_ONLY)],
+            &[ty("beleuchtung:beleuchtung", BOTH_KINDS)],
         )
     },
     ExtraLayer {
@@ -242,7 +242,7 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
         ..plain(
             "trinkwasserbrunnen",
             "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen",
-            &[ty("trinkwasserbrunnen:trinkwasserbrunnen", SCHOOLYARD_ONLY)],
+            &[ty("trinkwasserbrunnen:trinkwasserbrunnen", BOTH_KINDS)],
         )
     },
     plain(
@@ -861,7 +861,7 @@ mod tests {
                 "anlagenbaeume"
             ]
         );
-        assert_eq!(fetcher.calls.get(), 26);
+        assert_eq!(fetcher.calls.get(), 33);
         let fetcher = extra_fetcher();
         let schoolyard = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
         assert_eq!(schoolyard.len(), 14);
@@ -872,7 +872,7 @@ mod tests {
         // missing service, but they are asked for).
         let fetcher = MapFetcher::default();
         let border = fetch_extra_layers(&fetcher, &BORDER, MapKind::Sprint);
-        assert_eq!(border.len(), 15);
+        assert_eq!(border.len(), 18);
         assert!(border.iter().all(|l| l.features.is_err()));
     }
 
@@ -973,8 +973,9 @@ mod tests {
             ]
         );
 
-        // Sprint maps get the paved, curb and green layers, not the schoolyard furniture and
-        // lamps; schoolyard maps the reverse. A type of a shared file only goes to its kinds.
+        // Sprint maps get the paved, curb and green layers, and the furniture that gives control
+        // sites (bollards, masts, flag poles, benches, lamps) and the drinking fountains; they do
+        // not get hydrants and play equipment. A type of a shared file only goes to its kinds.
         let fetcher = extra_fetcher();
         let files = |kind| -> Vec<&'static str> {
             fetch_extra_layers(&fetcher, &SCHOOL, kind)
@@ -992,8 +993,11 @@ mod tests {
                 "sb-treppe",
                 "sb-mauer",
                 "sb-gelaender",
+                "sb-moebel",
                 "sb-objekte",
+                "beleuchtung",
                 "zierbrunnen",
+                "trinkwasserbrunnen",
                 "gebaeudehoehen"
             ]
         );
@@ -1013,8 +1017,8 @@ mod tests {
         );
         let requested: Vec<String> = fetcher.log.borrow().clone();
         let asked = |needle: &str| requested.iter().any(|u| u.contains(needle));
-        // Both calls above ran on one fetcher: the sprint-only type and the schoolyard-only type
-        // of the shared `sb-objekte` file were each asked for once, by their kind.
+        // Both calls above ran on one fetcher: the sprint-only type was asked for once, by its
+        // kind, and the drinking fountain, which both kinds use, once per kind.
         assert_eq!(
             requested
                 .iter()
@@ -1026,6 +1030,13 @@ mod tests {
             requested
                 .iter()
                 .filter(|u| u.contains("ac_trinkwasserbrunnen_wasserspender"))
+                .count(),
+            2
+        );
+        assert_eq!(
+            requested
+                .iter()
+                .filter(|u| u.contains("aq_hydrant"))
                 .count(),
             1
         );

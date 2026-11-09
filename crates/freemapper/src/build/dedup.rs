@@ -341,9 +341,9 @@ struct PointDedup {
 }
 
 /// In order: the registers beat the survey and OSM, the full ALKIS fountains beat OSM, then the
-/// survey furniture (schoolyard only) beats OSM. A point dropped by an earlier entry wins nothing
+/// survey furniture beats OSM (on a sprint map it is the control sites, ADR 0077). A point dropped by an earlier entry wins nothing
 /// later.
-const POINT_DEDUPS: [PointDedup; 9] = [
+const POINT_DEDUPS: [PointDedup; 10] = [
     PointDedup {
         winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
@@ -395,6 +395,12 @@ const POINT_DEDUPS: [PointDedup; 9] = [
             "emergency=fire_hydrant",
             FURNITURE_DEDUP_M,
         )],
+    },
+    // A surveyed bollard beats an OSM one (a control site on sprint maps, ADR 0077).
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "av_poller"),
+        losers: &[("freemapper:osm", "barrier=bollard", FURNITURE_DEDUP_M)],
     },
     PointDedup {
         winner_code: None,
