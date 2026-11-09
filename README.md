@@ -43,11 +43,13 @@ Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Nieders
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte. Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
-Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage.
+Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage. Auf dem
+Hauptzweig, noch ohne Version, nutzen sie auch die Straßenbefahrung 2014 bis 2016: Die vermessenen
+Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und
+Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität.
 
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
-Daten: für Berlin als Nächstes Bordsteine aus der Straßenbefahrung und kleine Objekte wie Poller,
-danach für die anderen Länder. Danach folgen Hallenkarten
+Daten der anderen Länder. Danach folgen Hallenkarten
 für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
 (Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
@@ -228,7 +230,7 @@ freemapper run vorstadt
 | Land | Daten | nDOM-Vorlage | Hinweise |
 |---|---|---|---|
 | Brandenburg | LGB | Laser-nDOM, 0,2 m | |
-| Berlin | LGB, ALKIS, Baumkataster und K5 vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken und Bäume als Kandidaten; Karte 1:5000 (K5) als Vorlage |
+| Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
 | Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026) |

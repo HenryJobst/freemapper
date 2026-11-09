@@ -251,10 +251,11 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - Are outline and passages right?
   - Are new buildings missing, or demolished ones still there?
   - Each building's data currency is in its object tags.
-- **Paved areas** (sprint): in Berlin and Saxony, street areas include the grass and tree strips at
-  their edges. Squares there are only candidates.
-- **Fences, walls, hedges:** they come from OSM and the nDSM, in Berlin also from ALKIS. Can they be
-  crossed? Are there gates?
+- **Paved areas** (sprint): in Saxony, street areas include the grass and tree strips at their edges. In
+  Berlin freemapper cuts out the surveyed green strips (chapter 12); tree pits and green that the street
+  survey does not know stay inside. In both states squares are only candidates.
+- **Fences, walls, hedges:** they come from OSM and the nDSM, in Berlin also from ALKIS and the street
+  survey. Can they be crossed? Are there gates?
 - **Out-of-bounds areas:** private grounds, allotment gardens, railway land, and on schoolyard maps
   everything outside the school grounds.
 - **Berlin** (chapter 12):
@@ -273,6 +274,17 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - Trees: species and crown are in the tag `freemapper:baum`, e.g. `Tilia cordata, Krone 12 m`. The tree
     cadastre can be older than the trees on the ground. Trees on school grounds and private land are mostly
     not in it.
+  - Street survey: it was recorded from 2014 to 2016, so it is about ten years old. Streets rebuilt since then
+    are in it as they were. Check curbs, railings, walls, furniture and green strips in the terrain. If a green
+    strip that freemapper cut out has been paved since, the paved area has a white spot. Fill it from the
+    orthophoto.
+  - Guessed survey dates: candidates with `freemapper:currency_guessed=yes` and paved areas with
+    `freemapper:cut_currency_guessed=yes` have no readable survey date. freemapper then sets 2014-01-01.
+    Check these places first.
+  - Railings, traffic barriers and crash barriers are 518 candidates (impassable). Where people can climb
+    over them, use 516.
+  - Buildings: a Berlin building's data currency is its footprint date from the building heights of 2022,
+    often years before the fetch. Buildings added since 2022 have no date.
 - **Banks and bridges:**
   - The cadastre area of a body of water can include the bank slope. Move the bank line to the water's
     edge, using the orthophoto.
@@ -286,7 +298,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
     carry water?
-- **Furniture and playground equipment:** it comes from OSM and is often incomplete.
+- **Furniture and playground equipment:** it comes from OSM, in Berlin on schoolyard maps also from the
+  street survey and the lighting cadastre. It is often incomplete.
 - **Contours:** small banks and steps show better in the hillshade or slope.
 
 ## 10. Quick training map (PDF)
@@ -329,7 +342,7 @@ version yet; feedback is welcome (chapter 16).
 | State | Data from | Particulars |
 |---|---|---|
 | Brandenburg | LGB | orthophoto, terrain and nDSM in 1 km tiles; the nDSM is a laser nDSM at 20 cm |
-| Berlin | LGB (rasters), Geoportal Berlin (ALKIS, tree cadastre, K5) | the nDSM is computed from the image-based surface model: a bit softer, without thin objects such as lamp posts, but with parked cars; also canopies as map objects, stairs, walls, fences, hedges and trees as candidates, and the K5 as a template (see below) |
+| Berlin | LGB (rasters), Geoportal Berlin (ALKIS, tree cadastre, K5, street survey, lighting, fountains, building heights) | the nDSM is computed from the image-based surface model: a bit softer, without thin objects such as lamp posts, but with parked cars; also canopies as map objects, stairs, walls, fences, hedges and trees as candidates, and the K5 as a template; the surveyed green strips are cut out of the street areas, curbs, railings, furniture, lamps and fountains come as candidates, and buildings carry their footprint date (see below) |
 | Saxony | GeoSN | orthophoto from the map service; the nDSM has only 1 m resolution, so hedges and narrow walls often show faintly; underground structures cannot be filtered out |
 | Saxony-Anhalt | LVermGeo | the map is in UTM zone 32 (EPSG:25832), like all of the state's data; orthophoto from the map service, terrain and surface model at 1 m; the nDSM is as coarse as in Saxony |
 | Hamburg | LGV | zone 32 like Saxony-Anhalt; orthophoto from 2026, but terrain and surface model from 2022: buildings of the last years are missing from the nDSM |
@@ -367,7 +380,52 @@ as wide as the edges are long and as long as the whole flight. A single edge giv
 Each candidate names its origin in the object tags: `freemapper:source=geoportal-berlin/<layer>`,
 `freemapper:alkis` with the ALKIS name (e.g. `Mauerkante, rechts`), and for trees `freemapper:baum` with
 species and crown. The layers have no date of their own, so the data currency (`freemapper:currency`) is the
-date of the fetch. freemapper does not take kerb lines from ALKIS.
+date of the fetch. freemapper does not take curb lines from ALKIS, but it takes those of the street survey.
+
+**Berlin: street survey, registers and building dates.** freemapper also fetches the street survey
+(Straßenbefahrung), the lighting cadastre, the registers of ornamental fountains and of drinking fountains, and
+the building heights of 2022 from the Umweltatlas, all under dl-de/zero-2-0. In the city centre that adds about
+5 MB per km². The street survey recorded Berlin's public street space from 2014 to 2016. There is no newer one,
+so the data is about ten years old. That is why it never replaces ALKIS. Apart from the green cut-out, it gives
+only candidates. From these layers come:
+
+- On sprint maps: freemapper cuts the surveyed green strips out of the paved areas (501.5) where the overlap is
+  at least 1 mm wide on paper, but at most 2 m in the terrain. Tree pits stay. Each green strip is also a 401
+  candidate. Surveyed sidewalks, carriageways, cycle paths, parking areas and squares outside the drawn ALKIS
+  areas become 501.5 candidates, such as park paths and forecourts. Here too, narrow pieces from 2 m wide stay.
+  Curbs become 501.1 candidates, advertising columns 531.
+- On both map kinds: stairs (532.6 to 532.9, like the ALKIS stairs; the field `trs`, probably the number of
+  steps, comes as `berlin:trs`), walls (515), railings, traffic barriers and crash barriers (518, like fences),
+  bus shelters (522) and fountains (311) from the street survey and the ornamental fountain register.
+- On schoolyard maps: benches (543), hydrants (321), bollards, masts and flag poles (544), play equipment
+  (541), drinking fountains (313) and the lamps of the lighting cadastre (545), only those in operation. Sprint
+  maps get none of this furniture: around the Helene-Haeusler-Schule one km² holds 2 392 bollards.
+- Buildings: each ALKIS building that the building heights of 2022 know gets its Grundrissaktualität
+  (footprint date) as data currency (`freemapper:currency`). It is the state of the outline in that data, not a
+  survey date. A building without a match keeps no date.
+
+When an object comes from several sources, the register wins over ALKIS, ALKIS over the street survey, and the
+survey over OSM. A lamp of the lighting cadastre replaces OSM lamps and surveyed masts up to 2 m away, a fountain
+of a register the OSM and surveyed fountains up to 3 m away. freemapper drops a surveyed line with at least 80 %
+of its length within 1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS
+stair by at least half. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
+object that stays names the dropped ones in `freemapper:also`, a surveyed one e.g. as
+`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. freemapper also leaves out a register fountain inside drawn
+water, as it does the OSM fountains.
+
+ALKIS and the street survey often split a wall or a railing into short pieces. Where pieces with the same symbol
+meet end to end, freemapper joins them into one line. Only then does freemapper drop lines under 1 mm on paper
+(4 m at 1:4000).
+
+Each Berlin candidate carries `berlin:layer`. For the street survey and the registers it holds the object type
+(e.g. `bd_bordstein`, `beleuchtung`), otherwise the layer name (e.g. `bauwerke-linien`). The street survey codes
+(`material`, `hms`, `pot`, `bor`, `gws`, `sre`, `hdt`, `trs`) come as `berlin:<code>`. What they mean is not
+published. A surveyed candidate has its survey date from the `gis_id` as data currency. If that is unreadable,
+it says 2014-01-01 with `freemapper:currency_guessed=yes`. A paved area that was cut keeps its ALKIS origin and
+names the green strips at its edge: `freemapper:cut=geoportal-berlin/sb-gruenflaeche`, `freemapper:cut_ids` and
+`freemapper:cut_currency`. The last one is the oldest real survey date. If there are only guessed ones,
+freemapper adds `freemapper:cut_currency_guessed=yes`. An existing map gets the green cut-out and the building dates
+only with `run --force`.
 
 The **K5** (Karte von Berlin 1:5000, the Berlin map in colour, dated 02.01.2026) comes as the template
 `templates/k5.png` with a world file, at 0.25 m per pixel. If the area with its buffer is longer than 1.5 km,
@@ -474,7 +532,8 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | The Metalink file could not be fetched. With the first message freemapper uses the kept one; with the second the tiles without a flight year stay empty. | Fetch again later. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | An LVermGeo RP server sent something other than the flight index, the tile or the Metalink file, usually an HTML error page; the cleaned start of the answer follows. The last message means the index arrived incomplete. | Try again later, report a bug if it persists. |
 | `orthophoto unchanged (date of creation …)` | Rhineland-Palatinate: freemapper keeps the stored orthophoto, because the map service gives the same date of creation (or none just now, and the image is less than 30 days old). That date counts as the flight date. | Nothing. |
-| `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | A Geoportal Berlin layer (e.g. `bauwerke-linien`) could not be fetched. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Progress message: freemapper fetches the Berlin layers, about 9 MB per km² in the city centre. | Wait. |
+| `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | A Geoportal Berlin layer (e.g. `bauwerke-linien` or `sb-moebel`) could not be fetched. A layer that holds several object types, as `sb-moebel` holds the benches, bollards and hydrants, is missing as a whole when one of them fails. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: no structures, trees or canopies are stored for the Berlin area. | Fetch once online. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | The area is no longer near Berlin. freemapper deletes the stored Berlin layers. | Nothing. |
 | `warning: the K5 map template is unavailable (…); skipped` | The K5 could not be fetched. The template is missing, the fetch goes on. | Fetch again later. |
@@ -485,7 +544,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
 | `The map lacks the Berlin canopies and carports (522) that are now map objects` | The map dates from before the Berlin canopies. freemapper kept it, and the canopies are not in it. | Write it again with `run --force`. The old map stays as `.omap.bak`. Or copy the canopies over by hand. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
-| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin structures and trees, or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and stored Berlin layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
+| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin layers with structures, trees, street survey and registers, or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and stored Berlin layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
 | `not enough disk space for the …` | There is no room for the map data, the terrain model or the orthophoto. Without them there is no map, so freemapper stops before it downloads anything. | Free some space, or put the cache on another drive with `--cache-dir`, then start again. |
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |
@@ -502,7 +561,11 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
   `© Geoportal Berlin, dl-de/zero-2-0` added)
 - `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` (Berlin, with ALKIS data); also
   `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0` when the K5 was fetched, and
-  `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when trees came from the cadastre
+  `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when trees came from the cadastre; further
+  `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert` when street survey objects were
+  fetched, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0` when
+  one of these registers had objects, and `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when
+  building heights were fetched
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Saxony)
 - `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert` (Saxony-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten geändert` (Hamburg)
