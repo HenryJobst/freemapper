@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Security
+
+- A project folder from someone else could make freemapper write outside it through links. If `ATTRIBUTION.txt` was a link, every `run` with an existing map overwrote the file it pointed to. With `--force`, the backups `.omap.bak` and `.ocd.bak` copied the project's map into the link's target, for example `~/.zshrc`. The image copies into `ocad/` followed links too, and so did every file written into a `data`, `templates` or `ocad` folder that was a link. freemapper now writes each file under a new name and renames it into place, which replaces a link instead of writing through it. A `data`, `templates` or `ocad` folder that leads out of the project stops the command (`…: a link leads out of the project folder, so freemapper writes nothing there`). Partial files get a fresh name each time and never take over an existing file or link (ADR 0060).
+
 ## [0.6.1] - 2026-11-09
 
 ### Security

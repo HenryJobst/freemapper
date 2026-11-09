@@ -105,3 +105,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0057](0057-berlin-building-dates-from-the-2022-building-heights.md) | Berlin building dates come from the 2022 building heights layer | Accepted | 2026-11-09 |
 | [0058](0058-berlin-layer-tag-and-the-freemapper-also-form.md) | Every Berlin candidate carries `berlin:layer`; `freemapper:also` names `<source>/<id>` | Accepted | 2026-11-09 |
 | [0059](0059-project-files-never-name-paths.md) | Project files never name paths | Accepted | 2026-11-09 |
+| [0060](0060-writes-never-follow-links.md) | Writes never follow links | Accepted | 2026-11-09 |
