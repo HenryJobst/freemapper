@@ -550,10 +550,13 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_survey_lines_near_alkis`), then OSM lines
   against ALKIS and the remaining survey lines. A survey stair covering at least 50 % of the smaller of it and an
   ALKIS stair area or step-edge flight is dropped. Survey walls (515) and ALKIS retaining walls (513.2) both
-  stay. Register points win within 2 m for lamps (OSM `highway=street_lamp`, survey `as_mast`) and within 3 m
-  for fountains (OSM `amenity=fountain`, survey `af_…`, `bv_…`) and drinking water (OSM
-  `amenity=drinking_water`, survey `ac_…`) (`drop_points_near_registers`). The winner names each dropped object
-  in `freemapper:also` as `<source>/<source_id>`: `osm/way/…`, `osm/node/…` or
+  stay. Register points win for lamps within 5 m of OSM `highway=street_lamp` and within 2 m of survey
+  `as_mast`, and within 3 m for fountains (OSM `amenity=fountain`, survey `af_…`, `bv_…`) and drinking water
+  (OSM `amenity=drinking_water`, survey `ac_…`). Then survey furniture wins within 2 m over OSM:
+  `aq_hydrant` over `emergency=fire_hydrant`, `bj_sitzbank` over `amenity=bench`, `as_mast` and
+  `am_fahnenmast` over `man_made=mast|flagpole`, `aw_spielgeraet` over `playground=*`; a short line counts by
+  the middle of its extent, and a point dropped earlier wins nothing (`drop_points_near_registers`). The
+  winner names each dropped object in `freemapper:also` as `<source>/<source_id>`: `osm/way/…`, `osm/node/…` or
   `geoportal-berlin/sb-gelaender/<gis_id>` (ADR 0058). Register fountains inside drawn water are dropped like
   the OSM ones (`drop_points_in_water`).
 

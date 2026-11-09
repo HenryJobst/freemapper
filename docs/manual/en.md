@@ -405,8 +405,10 @@ only candidates. From these layers come:
   survey date. A building without a match keeps no date.
 
 When an object comes from several sources, the register wins over ALKIS, ALKIS over the street survey, and the
-survey over OSM. A lamp of the lighting cadastre replaces OSM lamps and surveyed masts up to 2 m away, a fountain
-of a register the OSM and surveyed fountains up to 3 m away. freemapper drops a surveyed line with at least 80 %
+survey over OSM. A lamp of the lighting cadastre replaces OSM lamps up to 5 m away and surveyed masts up to 2 m
+away. Surveyed masts further off are mostly sign and signal masts. A fountain of a register replaces the OSM and
+surveyed fountains up to 3 m away. On schoolyard maps a surveyed hydrant, bench, mast, flag pole or play item
+replaces the OSM one up to 2 m away. freemapper drops a surveyed line with at least 80 %
 of its length within 1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS
 stair by at least half. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
 object that stays names the dropped ones in `freemapper:also`, a surveyed one e.g. as

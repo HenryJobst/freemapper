@@ -3569,7 +3569,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         georef.scale_denominator,
     );
     // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
-    // place; a register fountain in drawn water is a jet like an OSM one.
+    // place, and the survey furniture beats OSM; a register fountain in drawn water is a jet like
+    // an OSM one.
     let (osm_candidates, berlin_candidates) =
         drop_points_near_registers(osm_candidates, berlin_candidates, georef.scale_denominator);
     let berlin_candidates =

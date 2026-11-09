@@ -417,8 +417,10 @@ sie nur Kandidaten. Aus diesen Ebenen entstehen:
   Vermessungsdatum. Ein Gebäude ohne Treffer bleibt ohne Datum.
 
 Gibt es ein Objekt mehrfach, gewinnt das Register vor ALKIS, ALKIS vor der Straßenbefahrung und diese vor
-OSM. Eine Laterne aus dem Beleuchtungskataster ersetzt OSM-Laternen und vermessene Masten bis 2 m Abstand,
-ein Brunnen aus einem Register die OSM- und die vermessenen Brunnen bis 3 m. freemapper lässt eine
+OSM. Eine Laterne aus dem Beleuchtungskataster ersetzt OSM-Laternen bis 5 m Abstand und vermessene Masten
+bis 2 m. Weiter entfernte vermessene Masten tragen meist Schilder oder Ampeln. Ein Brunnen aus einem Register
+ersetzt die OSM- und die vermessenen Brunnen bis 3 m. Auf Schulhofkarten ersetzt ein vermessener Hydrant, eine
+Bank, ein Mast, ein Fahnenmast oder ein Spielgerät das OSM-Gegenstück bis 2 m. freemapper lässt eine
 vermessene Linie weg, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben einer ALKIS-Linie mit demselben
 Symbol liegt, ebenso eine vermessene Treppe, die sich mindestens zur Hälfte mit einer ALKIS-Treppe deckt. Eine
 vermessene Mauer neben einer ALKIS-Stützmauer bleibt, denn die Symbole sind verschieden. Das bleibende Objekt

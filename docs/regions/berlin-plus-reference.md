@@ -272,8 +272,9 @@ these refinements.
 
 As built (Berlin plus 2; ADR 0055): lamps (schoolyard), Zierbrunnen (both kinds) and Trinkwasserbrunnen
 (schoolyard) as listed. Lamps not `In Betrieb` are dropped at download, and MultiPoints are split. Register
-points win within 2 m (lamps) and 3 m (fountains, drinking water) over OSM and survey points. Every register
-category becomes 311. Schulen is not used.
+points win over OSM and survey points: lamps within 5 m of OSM lamps and 2 m of survey masts, fountains and
+drinking water within 3 m. The survey hydrants, benches, masts and play equipment win within 2 m over OSM.
+Every register category becomes 311. Schulen is not used.
 
 ## 8. Building currency (source 7)
 
