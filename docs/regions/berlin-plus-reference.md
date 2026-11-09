@@ -249,7 +249,8 @@ ISSprOM use:
 As built (Berlin plus 2, 2026-11-09; spec §4.1, §4.5; ADRs 0052 to 0056, 0058): the table above holds, with
 these refinements.
 - Cut, cut remnants and the 401 and surveyed paving candidates keep pieces down to min(1 mm on paper, 2 m on
-  the ground), so park paths stay at 1:4000 (ADR 0053).
+  the ground), so park paths stay at 1:4000 (ADR 0053). A 401 candidate leaves out the paving that was not
+  cut.
 - Surveyed paving is reduced by every parcel that `paved.rs` draws, not only by `Straßenverkehr`.
 - Curbs are sprint-only (user decision). Survey lines and stairs give way to ALKIS ones at the same place
   (1.5 m and 80 % for lines, 50 % footprint overlap for stairs).

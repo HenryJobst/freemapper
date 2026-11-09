@@ -16,7 +16,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- Berlin: the paved areas (501.5) no longer include the surveyed green strips; freemapper cuts them out. Tree pits stay inside. A cut area names the strips in `freemapper:cut`, `freemapper:cut_ids` and `freemapper:cut_currency`. An existing map changes only with `run --force`.
+- Berlin: the paved areas (501.5) no longer include the surveyed green strips; freemapper cuts them out. Tree pits stay inside. A green strip is a 401 candidate only where freemapper cut it out or where it lies off the paved areas. A cut area names the strips in `freemapper:cut`, `freemapper:cut_ids` and `freemapper:cut_currency`. An existing map changes only with `run --force`.
 - Berlin: short line pieces from ALKIS and the street survey that meet end to end are joined into one line. It names the other pieces in `freemapper:also` and carries the oldest survey date. Lines under 1 mm on paper are dropped after that, now for ALKIS too.
 - Berlin: when an object comes from several sources, the register wins over ALKIS, ALKIS over the street survey, and the survey over OSM. The object that stays names the others in `freemapper:also`, surveyed ones as `geoportal-berlin/<layer>/<gis_id>`. Each Berlin candidate carries the tag `berlin:layer`.
 - The download estimate counts 10.5 instead of 4 MB per km² for the Berlin layers (measured at Viktoriapark: 9.8).

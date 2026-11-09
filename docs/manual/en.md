@@ -391,7 +391,7 @@ from the green cut-out, it gives only candidates. From these layers come:
 
 - On sprint maps: freemapper cuts the surveyed green strips out of the paved areas (501.5) where the overlap is
   at least 1 mm wide on paper, but at most 2 m in the terrain. Tree pits stay. Each green strip is also a 401
-  candidate. Surveyed sidewalks, carriageways, cycle paths, parking areas and squares outside the drawn ALKIS
+  candidate, except where it lies on paving that freemapper did not cut. Surveyed sidewalks, carriageways, cycle paths, parking areas and squares outside the drawn ALKIS
   areas become 501.5 candidates, such as park paths and forecourts. Here too, narrow pieces from 2 m wide stay.
   Curbs become 501.1 candidates, advertising columns 531.
 - On both map kinds: stairs (532.6 to 532.9, like the ALKIS stairs; the field `trs`, probably the number of

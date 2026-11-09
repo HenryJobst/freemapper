@@ -18,7 +18,8 @@ published code list. freemapper draws the ALKIS street parcels as 501.5 map obje
 - The only change to map objects: the surveyed green strips (`ce_gruenflaeche`) are cut out of them. Tree pits
   (`bn_baumscheibe`, 2 to 5 m²) are not cut; they are below the ISSprOM minimum. The cut object keeps its ALKIS
   provenance and names the strips in `freemapper:cut`, `freemapper:cut_ids` and `freemapper:cut_currency`.
-- The green strips are also 401 candidates (plan table), built in `build/paved.rs` with the survey tags.
+- The green strips are also 401 candidates (plan table), built in `build/paved.rs` with the survey tags, where
+  they do not lie on paving that stays (ADR 0053).
 - Surveyed paving becomes 501.5 candidates where it lies outside every parcel that `paved.rs` draws (map objects
   and candidates that survive the sliver filter) and outside the cut-out strips. The plan said "minus
   `Straßenverkehr`"; `Platz` objects and `Weg` candidates are 501.5 too, so subtracting only `Straßenverkehr`

@@ -401,7 +401,8 @@ Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
 
 - Auf Sprintkarten: freemapper schneidet die vermessenen Grünstreifen aus den befestigten Flächen (501.5)
   aus, wenn die Überlappung mindestens 1 mm auf dem Papier breit ist, höchstens aber 2 m im Gelände.
-  Baumscheiben bleiben. Jeder Grünstreifen ist außerdem Kandidat 401. Vermessene Gehwege, Fahrbahnen,
+  Baumscheiben bleiben. Jeder Grünstreifen ist außerdem Kandidat 401, nur nicht dort, wo er auf einer nicht
+  beschnittenen befestigten Fläche liegt. Vermessene Gehwege, Fahrbahnen,
   Radwege, Parkflächen und Plätze außerhalb der gezeichneten ALKIS-Flächen werden Kandidaten 501.5, etwa
   Parkwege und Vorplätze. Auch hier bleiben schmale Stücke ab 2 m Breite. Bordsteine werden Kandidaten
   501.1, Werbesäulen 531.

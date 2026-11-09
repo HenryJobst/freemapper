@@ -16,7 +16,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- Berlin: Die befestigten Flächen (501.5) enthalten die vermessenen Grünstreifen nicht mehr, freemapper schneidet sie aus. Baumscheiben bleiben darin. Eine beschnittene Fläche nennt die Grünstreifen in `freemapper:cut`, `freemapper:cut_ids` und `freemapper:cut_currency`. Eine vorhandene Karte ändert sich erst mit `run --force`.
+- Berlin: Die befestigten Flächen (501.5) enthalten die vermessenen Grünstreifen nicht mehr, freemapper schneidet sie aus. Baumscheiben bleiben darin. Ein Grünstreifen wird nur dort Kandidat 401, wo freemapper ihn ausgeschnitten hat oder wo er neben den befestigten Flächen liegt. Eine beschnittene Fläche nennt die Grünstreifen in `freemapper:cut`, `freemapper:cut_ids` und `freemapper:cut_currency`. Eine vorhandene Karte ändert sich erst mit `run --force`.
 - Berlin: Kurze Linienstücke aus ALKIS und der Straßenbefahrung, die Ende an Ende aneinanderstoßen, fügt freemapper zu einer Linie zusammen. Sie nennt die übrigen Stücke in `freemapper:also` und trägt das älteste Aufnahmedatum. Danach fallen Linien unter 1 mm auf dem Papier weg, jetzt auch bei ALKIS.
 - Berlin: Gibt es ein Objekt mehrfach, gewinnt das Register vor ALKIS, ALKIS vor der Straßenbefahrung und diese vor OSM. Das bleibende Objekt nennt die anderen in `freemapper:also`, vermessene als `geoportal-berlin/<Ebene>/<gis_id>`. Jeder Berliner Kandidat trägt den Tag `berlin:layer`.
 - Die Download-Schätzung rechnet für die Berliner Ebenen mit 10,5 statt 4 MB je km² (gemessen am Viktoriapark: 9,8).

@@ -50,8 +50,9 @@ const SURFACE_TYPES: [&str; 7] = [
 const GREEN_CODE: &str = "401";
 /// Where a green strip and a paved object overlap by less than (1 mm)², or by a strip narrower
 /// than 1 mm on paper and than [`SURVEY_SLIVER_CAP_M`], nothing is cut: there the survey and the
-/// parcel boundary disagree, or the green is too narrow to show. The same limits apply to the
-/// 401 candidates, so a green candidate never lies on paving that was not cut.
+/// parcel boundary disagree, or the green is too narrow to show. The 401 candidates are the
+/// strips minus every 501.5 object and candidate that stays, so a green candidate never lies on
+/// paving that was not cut.
 const GREEN_MIN_SIDE_MM: f64 = 1.0;
 /// Surveyed paving outside the parcels smaller than (1 mm)² is a sliver.
 const SURVEYED_PAVED_MIN_SIDE_MM: f64 = 1.0;
@@ -209,7 +210,7 @@ fn survey_areas(file: &str, features: &[Value], types: &[&str], crs: Crs) -> Vec
 /// 501.5 objects for the traffic areas of `land_use`, clipped to `clip` (map area plus buffer,
 /// the map's CRS). A street parcel crossed by one of `unpaved_streets` (same CRS) is a candidate.
 /// The `survey` green strips are cut out of the map objects ([`subtract_green`]) and are 401
-/// candidates; its paved surfaces outside the parcels are 501.5 candidates
+/// candidates where no 501.5 object or candidate stays; its paved surfaces outside the parcels are 501.5 candidates
 /// ([`surveyed_paved_candidates`]).
 pub fn paved_area_objects(
     land_use: &[LandUse],
@@ -233,7 +234,9 @@ pub fn paved_area_objects(
             .map(|g| &g.polygon),
     );
     let mut objects = PavedObjects::default();
-    // What the 501.5 objects and candidates cover inside the window, and the strips cut out.
+    // What the 501.5 objects and candidates cover inside the window (`paved`), and that plus the
+    // strips cut out (`drawn`).
+    let mut paved = Vec::new();
     let mut drawn = Vec::new();
     for land in land_use {
         let reliable = match (land.nutzart.as_str(), land.bez.as_deref()) {
@@ -260,7 +263,7 @@ pub fn paved_area_objects(
                 };
                 for piece in clipped_pieces(part, &clip, f64::INFINITY) {
                     target.push(area_object(&piece, symbol_id, land_tags(land), georef)?);
-                    drawn.push(piece);
+                    paved.push(piece);
                 }
                 continue;
             };
@@ -281,14 +284,17 @@ pub fn paved_area_objects(
                 objects
                     .map
                     .push(area_object(&piece, symbol_id, tags, georef)?);
-                drawn.push(piece);
+                paved.push(piece);
             }
         }
     }
+    drawn.extend(paved.iter().cloned());
+    // A strip on paving that stays (not cut: too narrow an overlap, a `Weg` candidate) is no
+    // 401 candidate there.
     if let Some(open_land) = symbol_set.id_for_code(GREEN_CODE) {
         objects.candidates.extend(survey_candidates(
             &survey.green,
-            &[],
+            &paved,
             &green_clip,
             open_land,
             georef,
@@ -858,6 +864,73 @@ mod tests {
             Some("geoportal-berlin/sb-gruenflaeche")
         );
         assert_eq!(tag(greens[0], "freemapper:currency"), Some("2015-04-16"));
+    }
+
+    #[test]
+    fn green_candidates_lie_only_where_paving_was_cut() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        let green = [
+            // Cut out of the street: the 401 candidate is the cut part.
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_1",
+                "2015-04-16",
+                &ring(e - 30.0, n - 6.0, 40.0, 6.0),
+            ),
+            // A park lawn 0.3 m into the street: not cut, so the candidate stops at the street.
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_3",
+                "2015-04-16",
+                &ring(e - 50.0, n + 5.7, 30.0, 8.0),
+            ),
+            // A strip on a `Weg` parcel, which is a candidate and never cut: no 401 there.
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_6",
+                "2015-04-16",
+                &ring(e - 20.0, n - 60.0, 20.0, 6.0),
+            ),
+        ];
+        let survey = StreetSurvey::from_features(&green, &[], f.georef.crs());
+        let mut lane = land("Weg", None, &f);
+        lane.footprint = MultiPolygon(vec![Polygon::new(
+            ring(e - 30.0, n - 62.0, 40.0, 10.0),
+            vec![],
+        )]);
+        let (objects, set) = paved_with(&f, &[land("Straßenverkehr", None, &f), lane], &survey);
+        let open_land = set.id_for_code("401").unwrap();
+        let paved = set.id_for_code("501.5").unwrap();
+        let greens: Vec<&MapObject> = objects
+            .candidates
+            .iter()
+            .filter(|o| o.symbol_id == open_land)
+            .collect();
+        let ids: Vec<&str> = greens
+            .iter()
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .collect();
+        assert_eq!(ids, ["Fl_20150416_1", "Fl_20150416_3"]);
+        // The cut strip keeps its 240 m²; the lawn loses its 0.3 m in the street.
+        assert!((area_of(greens[0], &f.georef) - 240.0).abs() < 1.0);
+        assert!((area_of(greens[1], &f.georef) - 30.0 * 7.7).abs() < 1.0);
+        // No 401 candidate lies on a 501.5 object or candidate (map coordinates round to 4 mm on
+        // the ground; the lawn alone used to lie 9 m² on the street).
+        let pavings: Vec<Polygon<f64>> = objects
+            .map
+            .iter()
+            .chain(&objects.candidates)
+            .filter(|o| o.symbol_id == paved)
+            .map(|o| polygon_of(o, &f.georef))
+            .collect();
+        for green in &greens {
+            let green = polygon_of(green, &f.georef);
+            for paving in &pavings {
+                let overlap = green.intersection(paving).unsigned_area();
+                assert!(overlap < 0.5, "{overlap} m² of 401 on 501.5");
+            }
+        }
     }
 
     #[test]

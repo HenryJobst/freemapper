@@ -537,7 +537,8 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   `ac_trinkwasserbrunnen_wasserspender` and the register `trinkwasserbrunnen` → 313, the lighting cadastre
   `beleuchtung` → 545. On a sprint map one km² can hold 2 392 bollards, so the furniture stays off it. Lamps come
   from the lighting cadastre, not from the survey's `as_mast`;
-- *sprint only, in `build/paved.rs`:* each surveyed green strip → 401 candidate, and each surveyed surface of
+- *sprint only, in `build/paved.rs`:* each surveyed green strip minus the 501.5 objects and candidates that stay
+  (so only its cut part and what lies off the paving) → 401 candidate, and each surveyed surface of
   `sb-flaechen` minus the 501.5 parcels actually drawn (map objects and candidates after the sliver filter) and
   minus the cut-out strips → 501.5 candidate, one per survey feature (`surveyed_paved_candidates`). Both keep
   pieces down to min(1 mm on paper, 2 m on the ground), so 3 m park paths stay at 1:4000 (ADR 0053). No

@@ -14,7 +14,9 @@ carriageway and a 3.5 m sidewalk, which the paper limit would drop as a sliver.
 
 - Survey candidates (501.5 surveyed paving, 401 green strips) are slivers only below min(1 mm on paper,
   2 m on the ground) (`SURVEY_SLIVER_CAP_M = 2.0`), the cap of the wide-water rule (ADR 0036).
-- The same limit decides whether a green overlap is cut at all, so no 401 candidate lies on uncut paving.
+- The same limit decides whether a green overlap is cut at all. A 401 candidate is the strip minus the 501.5
+  objects and candidates that stay, so none lies on uncut paving: not on an overlap too narrow to cut, and not
+  on a `Weg` candidate parcel, which is never cut.
 - Remnants of a cut parcel that touch a strip use the same limit. Pieces that touch no strip keep the paper
   limit, as before.
 - The plan constants `GREEN_MIN_SIDE_MM` and `SURVEYED_PAVED_MIN_SIDE_MM` stay at 1.0 mm; the cap only lowers
