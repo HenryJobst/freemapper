@@ -41,7 +41,8 @@ The current version is [v0.6.2](https://github.com/HenryJobst/freemapper/release
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
-2024. Each map comes with an OCAD starting point and a PDF training map. Before downloading, freemapper
+2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF training map
+(`--pdf`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
 1:5000 map as a template from further Geoportal Berlin data. They also use the street survey of 2014
 to 2016: the surveyed green strips are cut out of the street areas,
