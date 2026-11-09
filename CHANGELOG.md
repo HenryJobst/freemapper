@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.5.0] - 2026-11-09
+
 ### Hinzugefügt
 
 - Speicherplatz: Vor jedem Laden prüft freemapper den freien Platz im Zwischenspeicher und im Projektordner, auf zwei Laufwerken jedes für sich, und lässt auf jedem 1 GB frei. Passt nicht alles, lässt es das Oberflächenmodell, die Aktualisierung eines älteren OSM-Auszugs und in Berlin die Bauwerke, Bäume und die K5 aus und warnt mit dem nötigen und dem freien Platz. Ohne Platz für Kartendaten, Geländemodell oder Luftbild bricht es ab, bevor es etwas lädt. Läuft der Datenträger beim Schreiben voll, meldet freemapper das klar, löscht die halbe Datei und versucht es nicht erneut. Die Download-Schätzung (MCP-Werkzeug `estimate_download`, Gebietsauswahl) zeigt den freien Platz und markiert, was nicht passt.
