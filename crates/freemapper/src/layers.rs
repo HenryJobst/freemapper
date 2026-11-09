@@ -2111,8 +2111,7 @@ mod tests {
             &estimate,
             cache_dir.path(),
             cache_dir.path(),
-            &crate::space::test_support::FixedSpace::default().with(
-                std::path::Path::new("/"),
+            &crate::space::test_support::FixedSpace::everywhere(
                 "disk",
                 crate::space::RESERVE_BYTES,
             ),
@@ -2193,8 +2192,7 @@ mod tests {
             &estimate,
             cache_dir.path(),
             cache_dir.path(),
-            &crate::space::test_support::FixedSpace::default().with(
-                std::path::Path::new("/"),
+            &crate::space::test_support::FixedSpace::everywhere(
                 "disk",
                 crate::space::RESERVE_BYTES,
             ),
