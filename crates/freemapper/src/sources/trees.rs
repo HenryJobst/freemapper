@@ -15,8 +15,9 @@ use chrono::NaiveDate;
 use serde_json::{Map, Value, json};
 
 use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
-use crate::fetch::{FetchError, Fetcher, get_with_retries};
+use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 use crate::sources::alkis::{AlkisError, FetchArea, invalid};
+use crate::sources::alkis_nas::PartFile;
 use crate::sources::region::{Region, touches_region};
 
 /// How a dataset is read.
@@ -62,7 +63,12 @@ pub struct TreeDataset {
     pub skipped_kinds: &'static [&'static str],
     /// The line for the attribution once a tree of the dataset is drawn.
     pub attribution: &'static str,
+    /// The largest answer of one endpoint (bytes); a larger one fails the dataset.
+    pub max_bytes: u64,
 }
+
+/// 256 MB, as for the NAS answers: the whole Potsdam envelope (283 772 points) is about 110 MB.
+const MAX_ANSWER_BYTES: u64 = 256 << 20;
 
 /// Potsdam, "Bäume der Stadtkarte" (`opendata.potsdam.de`, dl-de/zero-2-0): 283 772 points in
 /// three datasets, no crown diameter. The envelope is the data extent (E 359 000–375 000,
@@ -95,6 +101,7 @@ pub const POTSDAM: TreeDataset = TreeDataset {
     },
     skipped_kinds: &["Baumstumpf"],
     attribution: "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0",
+    max_bytes: MAX_ANSWER_BYTES,
 };
 
 /// The tree cadastres, one per city.
@@ -294,13 +301,19 @@ pub struct FetchedTreeLayer {
 
 /// The tree datasets for `area`; none, and no request, when the area is outside every envelope.
 /// A dataset whose endpoint fails fails as a whole (a half-filled file would pass for
-/// complete); the others go on.
-pub fn fetch_tree_layers(fetcher: &dyn Fetcher, area: &FetchArea) -> Vec<FetchedTreeLayer> {
+/// complete); the others go on. Each answer streams into a file `part` names right before the
+/// download (removed afterwards), so one over the dataset's `max_bytes` is stopped while it is
+/// read.
+pub fn fetch_tree_layers(
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    part: PartFile,
+) -> Vec<FetchedTreeLayer> {
     tree_datasets_for(&area.region_bbox)
         .into_iter()
         .map(|dataset| FetchedTreeLayer {
             dataset,
-            features: fetch_dataset(fetcher, dataset, area),
+            features: fetch_dataset(fetcher, dataset, area, part),
         })
         .collect()
 }
@@ -308,8 +321,9 @@ pub fn fetch_tree_layers(fetcher: &dyn Fetcher, area: &FetchArea) -> Vec<Fetched
 /// All endpoints of `dataset` for `area`, each point once (by tree number and position).
 fn fetch_dataset(
     fetcher: &dyn Fetcher,
-    dataset: &'static TreeDataset,
+    dataset: &TreeDataset,
     area: &FetchArea,
+    part: PartFile,
 ) -> Result<TreeFeatures, FetchError> {
     let mut seen = HashSet::new();
     let mut fetched = TreeFeatures {
@@ -321,14 +335,16 @@ fn fetch_dataset(
         let url = dataset.url(endpoint, &area.region_bbox).ok_or_else(|| {
             FetchError::Alkis(invalid(format!("{}: area out of range", dataset.name)))
         })?;
-        // An error page with status 200 is not a FeatureCollection and is asked again.
-        let answer = get_with_retries(fetcher, &url, |bytes| {
-            Ok(parse_trees(
-                &String::from_utf8_lossy(bytes),
-                dataset,
-                area.crs,
-            )?)
-        })?;
+        // An error page with status 200 is not a FeatureCollection and is asked again; an
+        // answer over the cap is not.
+        let answer =
+            get_limited_with_retries(fetcher, &url, &part()?, dataset.max_bytes, |bytes| {
+                Ok(parse_trees(
+                    &String::from_utf8_lossy(bytes),
+                    dataset,
+                    area.crs,
+                )?)
+            })?;
         for feature in answer.features {
             let c = &feature["geometry"]["coordinates"];
             let key = format!("{}@{},{}", feature["id"], c[0], c[1]);
@@ -349,6 +365,8 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::fetch::test_support::MapFetcher;
 
@@ -449,10 +467,15 @@ mod tests {
             max_e: 416_150.0,
             max_n: 5_655_900.0,
         };
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
         let fetcher = MapFetcher::default();
         for outside in [strausberg, mitte, kladow, dresden] {
             assert!(names(&outside).is_empty(), "{outside:?}");
-            assert!(fetch_tree_layers(&fetcher, &FetchArea::new(outside, Crs::Utm33)).is_empty());
+            assert!(
+                fetch_tree_layers(&fetcher, &FetchArea::new(outside, Crs::Utm33), &part).is_empty()
+            );
         }
         assert_eq!(fetcher.calls.get(), 0);
         // Inside: one request per endpoint.
@@ -468,12 +491,43 @@ mod tests {
             POTSDAM.endpoints[2],
             br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
         );
-        let layers = fetch_tree_layers(&fetcher, &FetchArea::new(sanssouci(), Crs::Utm33));
+        let layers = fetch_tree_layers(&fetcher, &FetchArea::new(sanssouci(), Crs::Utm33), &part);
         assert_eq!(fetcher.calls.get(), 3);
         assert_eq!(layers.len(), 1);
         let trees = layers[0].features.as_ref().unwrap();
         assert_eq!(trees.features.len(), 3);
         assert_eq!(trees.regions, [Region::Brandenburg]);
+    }
+
+    #[test]
+    fn tree_answer_over_the_size_cap_fails_the_dataset() {
+        assert_eq!(POTSDAM.max_bytes, 256 << 20);
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let area = FetchArea::new(sanssouci(), Crs::Utm33);
+        let size = test_support::POTSDAM.len() as u64;
+        let fetcher = MapFetcher::default();
+        for endpoint in POTSDAM.endpoints {
+            fetcher.insert_prefix(endpoint, test_support::POTSDAM.as_bytes().to_vec());
+        }
+        // One byte over the cap: stopped while it is read, not asked again.
+        let small = TreeDataset {
+            max_bytes: size - 1,
+            ..POTSDAM
+        };
+        let err = fetch_dataset(&fetcher, &small, &area, &part).unwrap_err();
+        assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+        assert_eq!(fetcher.calls.get(), 1);
+        assert!(!part_path.exists(), "the part file is removed");
+        // At the cap it is read.
+        let exact = TreeDataset {
+            max_bytes: size,
+            ..POTSDAM
+        };
+        let trees = fetch_dataset(&fetcher, &exact, &area, &part).unwrap();
+        assert_eq!(trees.features.len(), 3);
+        assert!(!part_path.exists());
     }
 
     #[test]

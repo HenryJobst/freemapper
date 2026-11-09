@@ -2795,6 +2795,20 @@ fn fetch_tree_layers_into(
         // The disk plan already said that the datasets are left out; stored ones stay.
         return previous.clone();
     }
+    // Answers stream into a part file beside the datasets, as for the NAS layers (ADR 0060).
+    let trees_dir = dir.join(TREE_LAYERS_DIR);
+    if crate::fsutil::check_folder_inside(dir, &trees_dir).is_err() {
+        progress(&format!(
+            "warning: city tree cadastres skipped ({TREE_LAYERS_DIR} leads out of the project folder)"
+        ));
+        return BTreeMap::new();
+    }
+    crate::fsutil::remove_stale_parts(&trees_dir, crate::fetch::STALE_PART_AGE);
+    let part = || -> Result<PathBuf, FetchError> {
+        let part = crate::fsutil::fresh_part_name(&trees_dir.join("answer.geojson"));
+        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
+        Ok(part)
+    };
     progress("downloading the city tree cadastres");
     let bbox = &area.bbox;
     let rounded = [
@@ -2804,7 +2818,7 @@ fn fetch_tree_layers_into(
         bbox.max_n.ceil(),
     ];
     let mut records = BTreeMap::new();
-    for fetched in trees::fetch_tree_layers(fetcher, area) {
+    for fetched in trees::fetch_tree_layers(fetcher, area, &part) {
         let id = fetched.dataset.id;
         let path = tree_layer_path(dir, fetched.dataset);
         let stored = fetched
