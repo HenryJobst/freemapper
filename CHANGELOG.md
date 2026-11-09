@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Sicherheit
+
+- Das Aufräumen alter `.part`-Dateien im Ordner `templates` folgt keinem Link mehr aus dem Projekt hinaus und löscht keine Dateien außerhalb. Ein `.part`-Eintrag, der selbst ein Link ist, wird übersprungen (ADR 0060).
+
 ## [0.6.2] - 2026-11-09
 
 ### Sicherheit
