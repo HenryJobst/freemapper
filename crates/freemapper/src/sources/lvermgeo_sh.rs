@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, STALE_PART_AGE, download_with_retries, get_with_retries,
-    write_atomically,
+    write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{
@@ -526,7 +526,7 @@ fn tile_list(
     });
     match answer {
         Ok((tiles, bytes)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             Ok(tiles)
         }
         // Unreachable or unreadable (an error page, broken JSON): the list kept from an
@@ -656,7 +656,7 @@ fn dgm1_tile(
     });
     let atom_failed = match atom {
         Ok((bytes, raster)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             return Ok((raster, None));
         }
         Err(FetchError::NotFound(_)) => "is not in the INSPIRE ATOM directory".to_string(),
@@ -805,7 +805,7 @@ fn cache_raster(path: &Path, raster: &Raster<f32>, what: &str) -> Result<(), Fet
         url: PORTAL.to_string(),
         message: format!("{what}: {message}"),
     })?;
-    write_atomically(path, &bytes)
+    write_cache_file(path, &bytes)
 }
 
 /// A DGM1 XYZ of the portal: `cells` x `cells` lines `565000.50 5949999.50 29.85`, the cell

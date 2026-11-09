@@ -9,7 +9,7 @@ use std::rc::Rc;
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::height_model::HeightModel;
@@ -637,7 +637,7 @@ fn metadata_list(
         }
     };
     // Kept only once it parsed, so a broken answer never replaces a good copy.
-    write_atomically(&file, &bytes)?;
+    write_cache_file(&file, &bytes)?;
     // Only the older lists go; whatever else lies there (another run's partial file) stays.
     for old in kept_lists(dir).into_iter().filter(|p| *p != file) {
         let _ = std::fs::remove_file(old);
@@ -862,13 +862,13 @@ impl<'a> Session<'a> {
                 let Some(url) = self.zip_url(place)? else {
                     // A cached directory is kept: the listing may lack the file only for a
                     // while, and offline runs prefer the directory over the marker.
-                    write_atomically(&no_zip, b"")?;
+                    write_cache_file(&no_zip, b"")?;
                     return Ok(None);
                 };
                 let (directory, count) = read_directory_bytes(self.fetcher, &url)?;
                 let members = parse_directory(&directory, count).map_err(|m| refused(&url, m))?;
                 // Kept only once it parsed, so a broken answer never replaces a good copy.
-                write_atomically(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
+                write_cache_file(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
                 remove(&no_zip)?;
                 Some(Zip { url, members })
             }

@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
+use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::lvermgeo_sh::{paste_tile, read_cached, whole_tile};
@@ -138,7 +138,7 @@ pub(crate) fn mosaic_tiles(
         let marker = (store.marker_path)(&name);
         match downloaded {
             Ok((part, bytes)) => {
-                write_atomically(&(store.cache_path)(&name), &bytes)?;
+                write_cache_file(&(store.cache_path)(&name), &bytes)?;
                 if marker.exists() {
                     let _ = std::fs::remove_file(&marker);
                 }
@@ -147,7 +147,7 @@ pub(crate) fn mosaic_tiles(
             // Named by the list, not on the server. The note keeps later runs from asking
             // again (for as long as `known_missing` says) and offline runs from failing.
             Err(FetchError::NotFound(_)) => {
-                write_atomically(&marker, b"")?;
+                write_cache_file(&marker, b"")?;
                 reasons.push((tile, NOT_ON_SERVER.to_string()));
             }
             Err(e) => return Err(e),

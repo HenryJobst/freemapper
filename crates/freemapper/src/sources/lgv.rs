@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_atomically};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
@@ -178,7 +178,7 @@ pub fn fetch_model(
             let members =
                 parse_directory(&directory, count).map_err(|message| refused(url, message))?;
             // Kept only once it parsed, so a broken answer never replaces a good copy.
-            write_atomically(
+            write_cache_file(
                 &directory_file,
                 &[&count.to_le_bytes()[..], &directory].concat(),
             )?;

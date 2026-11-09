@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::sources::height_model::{
     AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
 };
@@ -344,7 +344,7 @@ fn meta_list(
                 // A new release: the tiles the old one named but the server lacked may be there.
                 clear_markers(dir, model);
             }
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             // The older lists are not needed any more.
             for old in std::fs::read_dir(dir.join("meta"))
                 .into_iter()

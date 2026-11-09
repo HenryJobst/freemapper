@@ -16,7 +16,7 @@ use chrono::{Datelike, NaiveDate};
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, get_limited_with_retries, get_with_retries, one_line,
-    write_atomically,
+    write_cache_file,
 };
 use crate::sources::alkis_wfs::{number_matched, parse_gml};
 use crate::sources::height_model::{
@@ -377,7 +377,7 @@ fn tile_list(
     });
     match answer {
         Ok((list, bytes)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             Ok(list)
         }
         Err(e) => {
@@ -514,7 +514,7 @@ fn metalink_names(
                     Ok((names, bytes.to_vec()))
                 });
             match answer {
-                Ok((names, bytes)) => match write_atomically(&path, &bytes) {
+                Ok((names, bytes)) => match write_cache_file(&path, &bytes) {
                     Ok(()) => return Some(names),
                     Err(e) => {
                         warnings.push(format!("the LVermGeo RP Metalink was not kept: {e}"));

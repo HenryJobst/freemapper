@@ -22,16 +22,17 @@ pub(crate) const NOT_COPIED: &str =
 pub(crate) const OUTSIDE_PROJECT: &str =
     "a link leads out of the project folder, so freemapper writes nothing there";
 
-/// Writes `bytes` to `path` through a new partial file in the same folder and renames it, so
-/// `path` never holds a partial file. Never follows a link: the partial file is created new
-/// (a link or a file of that name is skipped), and the rename replaces a link at `path`
-/// instead of writing to its target. Folders on the way may be links (the cache can live on
-/// another drive). On failure, returns the path the error is about.
-pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), (PathBuf, io::Error)> {
+/// Writes the cache file `path`: `bytes` go into a new partial file in the same folder, which is
+/// then renamed, so `path` never holds a partial file. Never follows a link: the partial file
+/// is created new (a link or a file of that name is skipped), and the rename replaces a link at
+/// `path` instead of writing to its target. Folders on the way may be links (the cache can live
+/// on another drive), so this is for the cache only; project files go through
+/// [`write_inside`]. On failure, returns the path the error is about.
+pub(crate) fn write_cache_file(path: &Path, bytes: &[u8]) -> Result<(), (PathBuf, io::Error)> {
     write_files(None, &[(path, bytes)])
 }
 
-/// [`write_atomically`] for a file of the project in `root`: refused when the folder of `path`
+/// [`write_cache_file`] for a file of the project in `root`: refused when the folder of `path`
 /// leads out of `root` through a link (see [`check_inside`]).
 pub(crate) fn write_inside(
     root: &Path,
@@ -56,13 +57,97 @@ pub(crate) fn write_files_inside(
 /// into a new partial file and is renamed, so a link at `to` is replaced, never followed. The
 /// source must be a file of the project itself (see [`check_source`]).
 pub(crate) fn copy_inside(root: &Path, from: &Path, to: &Path) -> Result<(), (PathBuf, io::Error)> {
+    copy_inside_with(root, from, to, &|| {})
+}
+
+/// [`copy_inside`] that runs `between` after the checks, before the source is opened. Tests
+/// swap the source there, as a local attacker might.
+fn copy_inside_with(
+    root: &Path,
+    from: &Path,
+    to: &Path,
+    between: &dyn Fn(),
+) -> Result<(), (PathBuf, io::Error)> {
     check_source(root, from)?;
     check_inside(root, to)?;
+    between();
+    let mut source = open_source(root, from)?;
     let part = write_part_with(Some(root), to, &mut |file| {
-        let mut source = std::fs::File::open(from)?;
         io::copy(&mut source, file).map(|_| ())
     })?;
     rename_parts(&[(part, to)])
+}
+
+/// Opens the copy source `from` and makes sure the file opened is the one checked: a regular
+/// file, no link, still inside `root` after the open. Someone who swaps the file or its folder
+/// for a link between the check and the open gets [`NOT_COPIED`]. Errors name `from`.
+fn open_source(root: &Path, from: &Path) -> Result<std::fs::File, (PathBuf, io::Error)> {
+    let named = |e: io::Error| (from.to_path_buf(), e);
+    let before = std::fs::symlink_metadata(from).map_err(named)?;
+    let file = open_not_following(from).map_err(named)?;
+    let opened = file.metadata().map_err(named)?;
+    let inside = stays_inside(root, from);
+    let after = std::fs::symlink_metadata(from).map_err(named)?;
+    let unchanged = same_file(&before, &opened) && same_file(&after, &opened);
+    let is_link = before.file_type().is_symlink() || after.file_type().is_symlink();
+    if !opened.is_file() || is_reparse_point(&opened) || is_link || !unchanged || !inside {
+        return Err(named(io::Error::other(NOT_COPIED)));
+    }
+    Ok(file)
+}
+
+/// Opens `path` for reading. On Windows a link or junction at `path` is opened itself, not
+/// its target, so [`is_reparse_point`] sees it.
+fn open_not_following(path: &Path) -> io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // FILE_FLAG_OPEN_REPARSE_POINT
+        const OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(OPEN_REPARSE_POINT);
+    }
+    options.open(path)
+}
+
+/// Whether the metadata of an opened handle is that of a link or junction (Windows only; on
+/// Unix opening follows links, and [`same_file`] catches them).
+fn is_reparse_point(metadata: &std::fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt as _;
+        // FILE_ATTRIBUTE_REPARSE_POINT
+        const REPARSE_POINT: u32 = 0x0400;
+        metadata.file_attributes() & REPARSE_POINT != 0
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = metadata;
+        false
+    }
+}
+
+/// Whether `a` and `b` describe the same file (device and inode on Unix). Windows has no stable
+/// file id in std; there the reparse point check above stands in.
+fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt as _;
+        a.dev() == b.dev() && a.ino() == b.ino()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (a, b);
+        true
+    }
+}
+
+/// Renames the finished cache file `part` (a download created by [`create_new_file`]) to
+/// `path`, retrying like the other writes. The rename replaces a link at `path` instead of
+/// following it.
+pub(crate) fn rename_cache_file(part: &Path, path: &Path) -> Result<(), (PathBuf, io::Error)> {
+    retry(RENAME_ATTEMPTS, || std::fs::rename(part, path)).map_err(|e| (path.to_path_buf(), e))
 }
 
 /// Refuses `path` when its folder leads out of `root` once links are resolved (a linked
@@ -440,7 +525,7 @@ mod tests {
         let mut part = target.as_os_str().to_owned();
         part.push(format!(".{}.part", std::process::id()));
         std::os::unix::fs::symlink(&victim, &part).unwrap();
-        write_atomically(&target, b"image").unwrap();
+        write_cache_file(&target, b"image").unwrap();
         assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
         assert_eq!(std::fs::read(&target).unwrap(), b"image");
     }
@@ -588,5 +673,59 @@ mod tests {
             assert_eq!((&path, e.to_string()), (from, NOT_COPIED.to_string()));
             assert!(!to.exists(), "{from:?}");
         }
+    }
+
+    #[test]
+    fn a_missing_copy_source_is_named_in_the_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let from = dir.path().join("templates/hillshade.png");
+        let to = dir.path().join("ocad/hillshade.png");
+        let (path, e) = copy_inside(dir.path(), &from, &to).unwrap_err();
+        assert_eq!((path, e.kind()), (from, io::ErrorKind::NotFound));
+        assert!(!to.exists());
+    }
+
+    /// A project with `templates/x.png` and, outside it, a secret of the user.
+    #[cfg(unix)]
+    fn project_and_secret() -> (tempfile::TempDir, tempfile::TempDir, PathBuf) {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("templates")).unwrap();
+        std::fs::write(dir.path().join("templates/x.png"), "image").unwrap();
+        let secret = outside.path().join("x.png");
+        std::fs::write(&secret, "secret").unwrap();
+        (dir, outside, secret)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_source_swapped_for_a_link_before_the_copy_is_refused() {
+        let (dir, _outside, secret) = project_and_secret();
+        let (from, to) = (
+            dir.path().join("templates/x.png"),
+            dir.path().join("ocad/x.png"),
+        );
+        let swap = || {
+            std::fs::remove_file(&from).unwrap();
+            std::os::unix::fs::symlink(&secret, &from).unwrap();
+        };
+        let (path, e) = copy_inside_with(dir.path(), &from, &to, &swap).unwrap_err();
+        assert_eq!((path, e.to_string()), (from, NOT_COPIED.to_string()));
+        assert!(!to.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_source_folder_swapped_for_a_link_before_the_copy_is_refused() {
+        let (dir, outside, _secret) = project_and_secret();
+        let templates = dir.path().join("templates");
+        let (from, to) = (templates.join("x.png"), dir.path().join("ocad/x.png"));
+        let swap = || {
+            std::fs::remove_dir_all(&templates).unwrap();
+            std::os::unix::fs::symlink(outside.path(), &templates).unwrap();
+        };
+        let (path, e) = copy_inside_with(dir.path(), &from, &to, &swap).unwrap_err();
+        assert_eq!((path, e.to_string()), (from, NOT_COPIED.to_string()));
+        assert!(!to.exists());
     }
 }

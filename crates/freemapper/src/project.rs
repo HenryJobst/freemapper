@@ -3345,7 +3345,7 @@ fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf,
         if !force {
             return Err(ProjectError::MapExists(map_path));
         }
-        copy_inside(dir, &map_path, &map_path.with_extension("omap.bak"))?;
+        back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
     }
     write_document(dir, &candidates, &dir.join(CANDIDATES_RELPATH))?;
     if map_force.is_some() {
@@ -3355,6 +3355,9 @@ fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf,
     write_inside(dir, &dir.join("ATTRIBUTION.txt"), attribution.as_bytes())?;
     Ok(map_path)
 }
+
+/// What to do when the map to back up is a link; ends the error of [`back_up`].
+const LINKED_MAP_HINT: &str = "replace the link with the real file and run the command again";
 
 /// Folder of the OCAD starting point inside a project.
 pub const OCAD_DIR: &str = "ocad";
@@ -3418,7 +3421,7 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
     let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
     if !kept {
         if map.exists() {
-            copy_inside(dir, &map, &map.with_extension("ocd.bak"))?;
+            back_up(dir, &map, &map.with_extension("ocd.bak"))?;
         }
         write_inside(dir, &map, &bytes)?;
     }
@@ -4114,6 +4117,19 @@ fn write_document(dir: &Path, doc: &MapDocument, path: &Path) -> Result<(), Proj
 /// [`crate::fsutil::copy_inside`] with the error as [`ProjectError::Io`].
 fn copy_inside(dir: &Path, from: &Path, to: &Path) -> Result<(), ProjectError> {
     crate::fsutil::copy_inside(dir, from, to).map_err(|(path, e)| ProjectError::Io(path, e))
+}
+
+/// Copies the map `map` to its backup `backup` before it is replaced. A map that is a link is
+/// not copied; the error then says what to do.
+fn back_up(dir: &Path, map: &Path, backup: &Path) -> Result<(), ProjectError> {
+    crate::fsutil::copy_inside(dir, map, backup).map_err(|(path, e)| {
+        if e.to_string() == crate::fsutil::NOT_COPIED {
+            let message = format!("{}; {LINKED_MAP_HINT}", crate::fsutil::NOT_COPIED);
+            ProjectError::Io(path, std::io::Error::other(message))
+        } else {
+            ProjectError::Io(path, e)
+        }
+    })
 }
 
 /// Folders that receive files under fixed names from code that is not given the project
@@ -11812,7 +11828,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let error = export_starter_project(dir.path(), true)
             .unwrap_err()
             .to_string();
-        assert!(error.contains(crate::fsutil::NOT_COPIED), "{error}");
+        assert!(
+            error.ends_with(&format!("{}; {LINKED_MAP_HINT}", crate::fsutil::NOT_COPIED)),
+            "{error}"
+        );
         assert!(!map.with_extension("omap.bak").exists());
         assert_eq!(std::fs::read_to_string(&secret).unwrap(), "precious");
     }

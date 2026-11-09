@@ -945,7 +945,7 @@ fn lgb_currency_table(
     let table = parse_currency_csv(&String::from_utf8_lossy(&csv))?;
     if mode == FetchMode::Online {
         // Only a CSV that parsed replaces the cached one, so `--offline` keeps working.
-        write_atomically(&csv_path, &csv)?;
+        write_cache_file(&csv_path, &csv)?;
     }
     Ok(table
         .into_iter()
@@ -984,7 +984,7 @@ fn geosn_currency_table(
             cached.insert(row.tile.name(), (row.currency, download));
         }
         let json = serde_json::to_vec(&cached).expect("index table serialises");
-        write_atomically(&path, &json)?;
+        write_cache_file(&path, &json)?;
     } else if cached.is_empty() {
         return Err(FetchError::MissingOffline(product, tiles.to_vec()));
     }
@@ -1034,7 +1034,7 @@ fn fetch_tile(
             url: url.clone(),
             message,
         })?;
-        write_atomically(&zip, &bytes)?;
+        write_cache_file(&zip, &bytes)?;
         remove_older_versions(&zip, tile)?;
         crate::fsutil::remove_stale_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
     }
@@ -1138,7 +1138,7 @@ pub fn fetch_ndsm_tiles(
                     continue;
                 }
             };
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             for (_, older) in cached_ndsm(&dir, tile)
                 .into_iter()
                 .filter(|(_, p)| *p != path)
@@ -1377,9 +1377,9 @@ pub(crate) fn get_range_with_retries(
     }
 }
 
-/// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`]; for the cache.
-pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
-    crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
+/// [`crate::fsutil::write_cache_file`] with the error as [`FetchError::Io`]; for the cache.
+pub(crate) fn write_cache_file(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
+    crate::fsutil::write_cache_file(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
 }
 
 /// [`crate::fsutil::write_inside`] with the error as [`FetchError::Io`]; for project files.

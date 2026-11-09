@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
+    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{require_stored, write_float_raster};
@@ -264,7 +264,7 @@ fn tile_list(
     .and_then(|answer| answer);
     match answer {
         Ok((tiles, bytes)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             Ok(tiles)
         }
         Err(e) => {
