@@ -824,8 +824,18 @@ pub(crate) fn mark_stored(
         }
     }
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
-    let berlin_layers = !project.berlin_layers.is_empty();
-    let nas_layers = !project.nas_layers.is_empty();
+    // Stored layers count only when every record covers the area and its file is there: an
+    // area moved within the state is downloaded again.
+    let berlin_layers = !project.berlin_layers.is_empty()
+        && project.berlin_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_berlin_layer(key).is_some_and(|l| berlin_layer_path(dir, l).exists())
+        });
+    let nas_layers = !project.nas_layers.is_empty()
+        && project.nas_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_nas_layer(key).is_some_and(|l| nas_layer_path(dir, l).exists())
+        });
     if orthophoto || k5 || berlin_layers || nas_layers {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
@@ -10218,6 +10228,49 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let saved = ProjectFile::load(dir.path()).unwrap();
         assert!(saved.berlin_layers.keys().all(|k| !k.contains("..")));
         assert!(saved.berlin_layers.contains_key("bauwerke-flaechen"));
+    }
+
+    #[test]
+    fn stored_layers_count_as_downloaded_only_where_they_cover() {
+        let today = chrono::Local::now().date_naive();
+        let item = |dir: &Path, cache: &Cache, what: &str| {
+            crate::layers::estimate_download(dir, cache, today)
+                .unwrap()
+                .items
+                .into_iter()
+                .find(|i| i.what == what)
+                .unwrap_or_else(|| panic!("{what}"))
+        };
+        let moved = |records: &mut BTreeMap<String, AlkisRecord>| {
+            for record in records.values_mut() {
+                record.bbox = [0.0, 0.0, 1.0, 1.0];
+            }
+        };
+        // Brandenburg: the NAS layers of the fetch cover the area; moved elsewhere, they do not.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let nas = crate::layers::NAS_LAYERS_ITEM;
+        assert!(item(dir.path(), &cache, nas).cached);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        assert!(!project.nas_layers.is_empty());
+        moved(&mut project.nas_layers);
+        project.save(dir.path()).unwrap();
+        assert!(!item(dir.path(), &cache, nas).cached);
+        // The same for the Berlin layers.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let berlin = crate::layers::BERLIN_LAYERS_ITEM;
+        assert!(item(dir.path(), &cache, berlin).cached);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        moved(&mut project.berlin_layers);
+        project.save(dir.path()).unwrap();
+        assert!(!item(dir.path(), &cache, berlin).cached);
     }
 
     #[test]
