@@ -12,6 +12,9 @@
 #
 # `draw`: `point` (nodes), `line` (ways; with `point_as_short_line_mm` also nodes, drawn as a
 # short horizontal line of that length on paper for the mapper to rotate), `area` (closed ways).
+# `corridor_m`: with `draw = "line"`, a way becomes an area, a strip along it of this width in
+# metres (its `width` tag if it has one; 1.5 to 12 m). The symbol must be an area symbol.
+#
 # Codes refer to ISSprOM 2019 and the IOF school symbol set 2019.
 
 # Underground hydrants are not visible on the ground.
@@ -114,9 +117,26 @@ draw = "area"
 schoolyard = "401"
 sprint = "401"
 
+# Passages through buildings and arcades (sprint only, ADR 0072). ISSprOM 4.5, 522 canopy: "a
+# building construction (with a roof), normally supported by pillars, poles or walls, such as
+# passages, gangways, courts". The way is the centre line, the strip along it the candidate; the
+# building stays whole (as for the ALKIS passages, ADR 0061). The surface does not matter: a
+# passage decides routes whether it is paved or not. Real tunnels and indoor ways are no passage.
+[[rule]]
+when = ["highway=*", "tunnel=building_passage", "indoor!=yes", "area!=yes"]
+draw = "line"
+corridor_m = 3.0
+sprint = "522"
+
+[[rule]]
+when = ["highway=footway|path|pedestrian|cycleway|service|living_street|steps|track", "covered=yes|arcade|colonnade", "tunnel!=yes|culvert", "indoor!=yes", "area!=yes"]
+draw = "line"
+corridor_m = 3.0
+sprint = "522"
+
 # Unpaved ways (sprint only). Paved ways and sidewalks have no rule: the ALKIS traffic areas and the
-# orthophoto cover them. Map objects only in the open: passages through buildings, covered and
-# indoor ways and pedestrian areas (closed rings) fall through to the candidate rule below.
+# orthophoto cover them. Map objects only in the open: tunnels, covered and indoor ways and
+# pedestrian areas (closed rings) fall through to the candidate rule below.
 [[rule]]
 when = ["highway=track|path|footway|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|compacted|sand|woodchips", "width<1.5"]
 draw = "line"

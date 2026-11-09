@@ -239,6 +239,14 @@ relation's own tags decide; its ways need none. A map made earlier gets these ar
 
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
+**OSM data on sprint maps.** Besides water, OSM supplies these candidates (rules in
+`assets/rules/osm-candidates.toml`; existing maps get them with `run --force`):
+
+- Passages through buildings and arcades (`tunnel=building_passage`, `covered=yes`) on sprint maps as a strip
+  along the way (522), 3 m wide or as wide as the `width` tag says. The building stays whole. Where ALKIS
+  also knows the passage, you see two strips; delete one. Check on site whether the passage can be used in the
+  race (ISSprOM 2.3 allows two running levels).
+
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
 in the map part "default part". Break them in OOM where they hide small objects, such as boulders, path ends

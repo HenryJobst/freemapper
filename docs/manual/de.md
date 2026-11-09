@@ -249,6 +249,14 @@ Karte bekommt diese Flächen erst mit `run --force`.
 
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
+**OSM-Daten auf Sprintkarten.** Neben dem Wasser liefert OSM diese Kandidaten (Regeln in
+`assets/rules/osm-candidates.toml`; bestehende Karten bekommen sie mit `run --force`):
+
+- Durchgänge durch Gebäude und Arkaden (`tunnel=building_passage`, `covered=yes`) als Streifen entlang des
+  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennt auch ALKIS
+  den Durchgang, sehen Sie zwei Streifen; löschen Sie einen. Prüfen Sie vor Ort, ob der Durchgang im Rennen
+  benutzt werden kann (ISSprOM 2.3 erlaubt zwei Laufebenen).
+
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
 gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie sie in OOM, wo sie kleine Objekte

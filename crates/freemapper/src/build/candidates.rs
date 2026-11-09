@@ -29,6 +29,9 @@ pub enum Draw {
     /// A node drawn as a horizontal line of this length on paper (mm).
     ShortLine(f64),
     Line,
+    /// A way drawn as an area: a strip along it of this width on the ground (metres), or of its
+    /// `width` tag (see [`CORRIDOR_WIDTH_RANGE_M`]).
+    Corridor(f64),
     Area,
 }
 
@@ -70,6 +73,7 @@ struct RuleEntry {
     when: Vec<String>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    corridor_m: Option<f64>,
     #[serde(default)]
     target: Target,
     schoolyard: Option<String>,
@@ -99,6 +103,7 @@ struct Rule {
     when: Vec<Condition>,
     draw: DrawKind,
     point_as_short_line_mm: Option<f64>,
+    corridor_m: Option<f64>,
     target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
@@ -220,6 +225,12 @@ impl Rules {
                     Some("has no symbol for any map kind")
                 } else if entry.point_as_short_line_mm.is_some() && entry.draw != DrawKind::Line {
                     Some("point_as_short_line_mm needs draw = \"line\"")
+                } else if entry.corridor_m.is_some() && entry.draw != DrawKind::Line {
+                    Some("corridor_m needs draw = \"line\"")
+                } else if entry.corridor_m.is_some_and(|w| !(w.is_finite() && w > 0.0)) {
+                    Some("corridor_m must be a positive number")
+                } else if entry.corridor_m.is_some() && entry.point_as_short_line_mm.is_some() {
+                    Some("corridor_m and point_as_short_line_mm exclude each other")
                 } else {
                     None
                 };
@@ -230,6 +241,7 @@ impl Rules {
                     when,
                     draw: entry.draw,
                     point_as_short_line_mm: entry.point_as_short_line_mm,
+                    corridor_m: entry.corridor_m,
                     target: entry.target,
                     schoolyard: entry.schoolyard,
                     sprint: entry.sprint,
@@ -273,7 +285,10 @@ impl Rules {
             }
             let draw = match (rule.draw, geometry) {
                 (DrawKind::Point, OsmGeometry::Point(_)) => Draw::Point,
-                (DrawKind::Line, OsmGeometry::Line(_)) => Draw::Line,
+                (DrawKind::Line, OsmGeometry::Line(_)) => match rule.corridor_m {
+                    Some(width) => Draw::Corridor(width),
+                    None => Draw::Line,
+                },
                 (DrawKind::Line, OsmGeometry::Point(_)) => {
                     Draw::ShortLine(rule.point_as_short_line_mm?)
                 }
@@ -441,6 +456,33 @@ pub fn osm_objects(
                 };
                 vec![(MapObjectKind::Path, coords)]
             }
+            (OsmGeometry::Line(points), Draw::Corridor(default_width)) => {
+                let width = value(&feature.tags, "width")
+                    .and_then(number)
+                    .unwrap_or(default_width)
+                    .clamp(CORRIDOR_WIDTH_RANGE_M.0, CORRIDOR_WIDTH_RANGE_M.1);
+                let line: Vec<_> = points.iter().map(projected).collect();
+                let mut pieces = Vec::new();
+                for polygon in corridor(&line, width) {
+                    let mut coords = Vec::new();
+                    for ring in std::iter::once(polygon.exterior()).chain(polygon.interiors()) {
+                        let ring = ring
+                            .coords()
+                            .map(|c| {
+                                georef
+                                    .projected_to_map(ProjectedPoint {
+                                        easting: c.x,
+                                        northing: c.y,
+                                    })
+                                    .map(|c| (c.x, c.y))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        coords.extend(closed_ring(&ring));
+                    }
+                    pieces.push((MapObjectKind::Path, coords));
+                }
+                pieces
+            }
             (OsmGeometry::Line(points), Draw::Area) => {
                 let ring = points
                     .iter()
@@ -522,6 +564,20 @@ pub fn osm_objects(
         }
     }
     Ok(objects)
+}
+
+/// The full width of a [`Draw::Corridor`] on the ground (metres) is held within these limits: a
+/// `width` tag below the lower one still leaves the 1 m footprint of the norm's smallest area
+/// (ISSprOM 520, 522: minimum width 0.25 mm at 1:4000), and an absurd one the upper one.
+pub(crate) const CORRIDOR_WIDTH_RANGE_M: (f64, f64) = (1.5, 12.0);
+
+/// The strip along `points` (projected, metres) of the full width `width_m`, ends cut straight so
+/// that it stops where the way ends (a passage ends at the street).
+fn corridor(points: &[geo_types::Coord<f64>], width_m: f64) -> geo_types::MultiPolygon<f64> {
+    use geo::Buffer as _;
+    use geo::algorithm::buffer::{BufferStyle, LineCap};
+    let style = BufferStyle::new(width_m / 2.0).line_cap(LineCap::Butt);
+    geo_types::LineString(points.to_vec()).buffer_with_style(style)
 }
 
 /// Segments whose ends are within this distance (ground metres) touch.
@@ -1121,13 +1177,8 @@ mod tests {
     }
 
     #[test]
-    fn building_passages_and_area_ways_are_candidates() {
-        for extra in [
-            ("tunnel", "building_passage"),
-            ("covered", "yes"),
-            ("indoor", "yes"),
-            ("area", "yes"),
-        ] {
+    fn indoor_and_area_ways_are_candidates() {
+        for extra in [("indoor", "yes"), ("area", "yes")] {
             let found = sprint_way(&[("highway", "footway"), ("surface", "fine_gravel"), extra]);
             assert_eq!(
                 found,
@@ -1135,6 +1186,80 @@ mod tests {
                 "{extra:?}"
             );
         }
+    }
+
+    #[test]
+    fn building_passages_and_arcades_are_522_candidates() {
+        // ISSprOM 4.5, 522 canopy: "passages, gangways, courts"; ADR 0072. Paved or not, a
+        // passage decides routes, so the surface does not matter.
+        let passages: [&[(&str, &str)]; 6] = [
+            &[("highway", "footway"), ("tunnel", "building_passage")],
+            &[
+                ("highway", "service"),
+                ("tunnel", "building_passage"),
+                ("surface", "asphalt"),
+            ],
+            &[
+                ("highway", "footway"),
+                ("tunnel", "building_passage"),
+                ("surface", "paving_stones"),
+            ],
+            &[("highway", "footway"), ("covered", "yes")],
+            &[("highway", "pedestrian"), ("covered", "arcade")],
+            &[
+                ("highway", "footway"),
+                ("covered", "yes"),
+                ("surface", "fine_gravel"),
+            ],
+        ];
+        for tags in passages {
+            let found = Rules::embedded().symbol_for(&self::tags(tags), &way(), MapKind::Sprint);
+            let found = found.unwrap_or_else(|| panic!("{tags:?}"));
+            assert_eq!(found.code, "522", "{tags:?}");
+            assert_eq!(found.target, Target::Candidates, "{tags:?}");
+            assert!(matches!(found.draw, Draw::Corridor(_)), "{tags:?}");
+        }
+        // A real tunnel, an indoor way and a ring are no passage.
+        for extra in [("tunnel", "yes"), ("indoor", "yes"), ("area", "yes")] {
+            let found = sprint_way(&[("highway", "footway"), ("covered", "yes"), extra]);
+            assert_ne!(found.map(|f| f.0), Some("522".to_string()), "{extra:?}");
+        }
+        // A water tunnel under a building is no passage.
+        assert_eq!(
+            sprint_way(&[("waterway", "stream"), ("tunnel", "building_passage")]),
+            None
+        );
+    }
+
+    #[test]
+    fn passage_corridor_has_the_width_of_the_way() {
+        let passage = |extra: &[(&str, &str)]| {
+            let mut t = vec![("highway", "footway"), ("tunnel", "building_passage")];
+            t.extend_from_slice(extra);
+            // 6.8 m long, ends cut straight: the area is length times width.
+            let way = line("way/9", &t, vec![at(0.0, 0.0), at(0.0, 0.0001)]);
+            let (found, set) = objects(&[way], MapKind::Sprint);
+            assert_eq!(found.len(), 1);
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code("522"));
+            let last = found[0].coords.last().unwrap();
+            assert_eq!(last.flags, FLAG_HOLE | FLAG_CLOSE);
+            let c = &found[0].coords;
+            let twice: f64 = (0..c.len())
+                .map(|i| {
+                    let (a, b) = (&c[i], &c[(i + 1) % c.len()]);
+                    f64::from(a.x) * f64::from(b.y) - f64::from(b.x) * f64::from(a.y)
+                })
+                .sum();
+            // Map units are 1/1000 mm; the fixture scale is 1:1000, so 1 m is 1e3 units.
+            twice.abs() / 2.0 / 1e6
+        };
+        let default = passage(&[]);
+        assert!((default - 6.8 * 3.0).abs() < 2.0, "{default}");
+        let wide = passage(&[("width", "5")]);
+        assert!((wide - 6.8 * 5.0).abs() < 2.5, "{wide}");
+        // A width below the minimum of a 520/522 stays at the minimum.
+        let tiny = passage(&[("width", "0.2")]);
+        assert!(tiny > 6.8 * 1.0, "{tiny}");
     }
 
     #[test]
@@ -1414,6 +1539,7 @@ mod tests {
                 let symbol_type = set.symbol_type(set.id_for_code(code).unwrap());
                 let fits: &[u32] = match rule.draw {
                     DrawKind::Point => &[1],
+                    DrawKind::Line if rule.corridor_m.is_some() => &[4, 16],
                     DrawKind::Line => &[2, 16],
                     DrawKind::Area => &[4, 16],
                 };

@@ -90,7 +90,8 @@ Orienteering Maps 2019 (IOF).
 | Hecke | hedge | Linienhafte Barriere aus Pflanzen. | `Hedge` |
 | Stützmauer | retaining wall | Mauer, die einen Geländesprung abstützt; nur von einer Seite aus hoch (ISSprOM 513.2). In Berlin Kandidat aus ALKIS `Stützmauer*`. | `berlin-candidates.toml` |
 | Böschungsoberkante | top of an embankment | Obere Kante einer Böschung, ALKIS-Relief `Oberkante`; in Berlin auf Sprintkarten Kandidat für die Erdböschung (ISSprOM 104). | `berlin-candidates.toml` |
-| Durchfahrt | building passage | Weg durch oder unter einem Gebäude (ALKIS-Bauteile `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`, `Arkade`); in Berlin Kandidat für 522, das Gebäude bleibt ganz. | `building_part_features` |
+| Durchfahrt | building passage | Weg durch oder unter einem Gebäude (ALKIS-Bauteile `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`, `Arkade`); in Berlin Kandidat für 522, das Gebäude bleibt ganz. Aus OSM: `tunnel=building_passage` oder `covered=yes` am Weg, als Streifen 522 (ADR 0072). | `building_part_features` |
+| Streifen (Korridor) | corridor | Fläche entlang eines Weges mit fester Breite (Regelfeld `corridor_m`, oder das Tag `width`), Enden gerade abgeschnitten: Durchgang als 522, Privatweg als 520. | `Draw::Corridor` |
 | Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `berlin-candidates.toml` |
 | Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `berlin-candidates.toml` |
 | Busch oder kleiner Baum | prominent bush or small tree | Markanter Busch oder kleiner Baum (ISSprOM 418); OSM `natural=tree` und die Bäume des Berliner Baumkatasters mit Krone unter 10 m. | `osm-candidates.toml`, `berlin-candidates.toml` |
