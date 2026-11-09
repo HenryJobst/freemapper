@@ -24,7 +24,7 @@ pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 /// The tree cadastre layers.
 const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
 /// The CRS of all Geoportal Berlin layers.
-const LAYER_CRS: Crs = Crs::Utm33;
+pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
 
 /// One stored layer for [`berlin_objects`].
 pub struct LayerInput<'a> {

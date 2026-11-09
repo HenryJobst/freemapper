@@ -184,7 +184,7 @@ fn nas_label(nas_type: &str, properties: &serde_json::Map<String, Value>) -> Opt
 /// string property as `alkis:<name>` (the codes), and the provenance tags the objects carry on
 /// (`freemapper:source_id` = `gml:id`, `freemapper:currency` = `beginnt`, the code labels as
 /// `freemapper:alkis`).
-fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
+pub(crate) fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
     let empty = serde_json::Map::new();
     let properties = feature["properties"].as_object().unwrap_or(&empty);
     let text = |key: &str| {

@@ -58,6 +58,9 @@ long, some of them twice at the same place.
 - `data/terrain.tif` costs about 4 MB/km² in Berlin projects with stairs. The disk plan counts it as the derived
   share of the optional `Part::BerlinLayers` (as large as the layers, 4 MB/km²), not of the terrain part.
 - Cost if wrong (paper width): schoolyard stairs drawn wider than the field mapper would choose.
+- NAS stairs (AdV 1620/1621 areas, states plus 1) use the same builder. Their bottom edge (1630, linked by
+  `gehoert_zu`) gives the direction, which is then not `guessed`; without an edge the DGM1 decides as above, and
+  `data/terrain.tif` is kept for it.
 
 Source: ISSprOM 2019-2 symbol 532; `docs/regions/berlin-plus-reference.md` §3.6; branch `berlin-plus`, Task 3 and
 its fix round, the Task 5b live run and the final review.

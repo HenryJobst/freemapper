@@ -25,7 +25,8 @@ use crate::build::paved::{
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
 use crate::build::stairs::{
-    STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_stairs, stair_objects,
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
+    has_stairs, stair_objects,
 };
 use crate::build::state::{NasInput, nas_objects, state_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
@@ -2795,6 +2796,7 @@ fn stored_berlin_structures(
     dir: &Path,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
+    nas: &[StoredNasLayer],
     buildings: Option<&StoredBuildings>,
     footprints: &[geo_types::Polygon<f64>],
     area: &MapArea,
@@ -2805,6 +2807,8 @@ fn stored_berlin_structures(
     let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
     let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
     let survey = layers.iter().find(|l| l.layer.file == SURVEY_STAIR_LAYER);
+    // The NAS stair areas and bottom edges are in one layer.
+    let nas = nas.iter().find(|l| l.layer.file == NAS_STAIR_LAYER);
     let map_area = area.projected_polygon_in(project.crs());
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
     let mut canopies = match areas {
@@ -2822,7 +2826,7 @@ fn stored_berlin_structures(
     canopies.extend(stored_state_canopies(
         project, buildings, footprints, &map_area, georef, symbol_set,
     )?);
-    if areas.is_none() && edges.is_none() && survey.is_none() {
+    if areas.is_none() && edges.is_none() && survey.is_none() && nas.is_none() {
         return Ok(BerlinStructures {
             canopies,
             stairs: Vec::new(),
@@ -2832,12 +2836,14 @@ fn stored_berlin_structures(
     fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
         layer.map_or(&[], |l| &l.features)
     }
+    let nas_fetched = nas.map(|l| l.fetched);
     // Both layers come from one fetch; the later date stands for the currency.
     let fetched = areas
         .iter()
         .chain(edges.iter())
         .chain(survey.iter())
         .map(|l| l.fetched)
+        .chain(nas_fetched)
         .max()
         .expect("one of the layers is stored");
     let stairs = stair_objects(
@@ -2845,6 +2851,7 @@ fn stored_berlin_structures(
             features: features(areas),
             step_edges: features(edges),
             survey: features(survey),
+            nas: nas.map_or(&[], |l| &l.features),
             terrain: terrain.as_ref(),
             buildings: footprints,
         },
@@ -2909,13 +2916,12 @@ fn stored_state_objects(
 /// The candidates of the stored full ALKIS (NAS) layers: walls, fences, hedges, monuments,
 /// bridges, embankment tops and ditches; none outside the states with a NAS service.
 fn stored_nas_objects(
-    dir: &Path,
+    layers: &[StoredNasLayer],
     project: &ProjectFile,
     area: &MapArea,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    let layers = stored_nas_layers(dir, project)?;
     let inputs: Vec<NasInput<'_>> = layers
         .iter()
         .map(|l| NasInput {
@@ -3147,11 +3153,15 @@ pub fn derive_project(
     // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
     // the cache, so it is kept with the project where the Berlin layers have stairs.
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
-    let stairs = tile_products.is_some()
-        && !project.berlin_layers.is_empty()
+    let berlin_stairs = !project.berlin_layers.is_empty()
         && stored_berlin_layers(dir, &project)?
             .iter()
             .any(|l| has_stairs(&l.features));
+    // A NAS stair without a bottom edge goes by the terrain too.
+    let nas_stairs = stored_nas_layers(dir, &project)?
+        .iter()
+        .any(|l| l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features));
+    let stairs = tile_products.is_some() && (berlin_stairs || nas_stairs);
     if stairs {
         progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
         crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
@@ -3928,10 +3938,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
     )?;
     let berlin_layers = stored_berlin_layers(dir, &project)?;
+    let nas_layers = stored_nas_layers(dir, &project)?;
     let mut structures = stored_berlin_structures(
         dir,
         &project,
         &berlin_layers,
+        &nas_layers,
         stored_buildings.as_ref(),
         &footprints,
         &area,
@@ -3988,7 +4000,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
     )?);
     cadastre_candidates.extend(stored_nas_objects(
-        dir,
+        &nas_layers,
         &project,
         &area,
         &georef,
@@ -9708,6 +9720,56 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             roof_only.to_string(),
         )
         .unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+    }
+
+    #[test]
+    fn terrain_written_for_nas_stairs_without_edge() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        // The Berlin layers have no stairs; the stored NAS layer has one stair area.
+        let nas = |with_edge: bool| {
+            let (e, n) = (392_760.0, 5_820_835.0);
+            let mut features = vec![serde_json::json!({
+                "type": "Feature", "id": "DEMVHR030000STEP",
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [e, n], [e + 6.0, n], [e + 6.0, n + 3.0], [e, n + 3.0], [e, n]]]},
+                "properties": {"oid": "DEMVHR030000STEP", "nas_type":
+                    "AX_SonstigesBauwerkOderSonstigeEinrichtung", "bauwerksfunktion": "1620"}
+            })];
+            if with_edge {
+                features.push(serde_json::json!({
+                    "type": "Feature", "id": "DEMVHR030000EDGE",
+                    "geometry": {"type": "LineString", "coordinates": [[e, n], [e + 6.0, n]]},
+                    "properties": {"oid": "DEMVHR030000EDGE", "nas_type":
+                        "AX_SonstigesBauwerkOderSonstigeEinrichtung", "bauwerksfunktion": "1630",
+                        "gehoert_zu": "DEMVHR030000STEP"}
+                }));
+            }
+            serde_json::json!({"type": "FeatureCollection", "features": features}).to_string()
+        };
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.berlin_layers.clear();
+        project.nas_layers.insert(
+            "sonstiges-bauwerk".to_string(),
+            AlkisRecord {
+                bbox: [0.0, 0.0, 1e9, 1e9],
+                fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                latest_update: None,
+                count: 1,
+                regions: Vec::new(),
+            },
+        );
+        project.save(dir.path()).unwrap();
+        let layer = dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson");
+        std::fs::create_dir_all(layer.parent().unwrap()).unwrap();
+        std::fs::write(&layer, nas(false)).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+        // With its bottom edge the direction is known: `derive` keeps no terrain.
+        std::fs::write(&layer, nas(true)).unwrap();
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
     }
