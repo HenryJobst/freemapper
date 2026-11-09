@@ -651,6 +651,7 @@ dependencies = [
  "osmpbf",
  "pdf-writer",
  "quick-xml",
+ "same-file",
  "serde",
  "serde_json",
  "sha2",
@@ -660,6 +661,7 @@ dependencies = [
  "toml",
  "ureq",
  "weezl",
+ "winapi-util",
  "world_magnetic_model",
  "zip",
 ]

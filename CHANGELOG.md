@@ -6,6 +6,20 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Sicherheit
+
+- Ein Projektordner von jemand anderem konnte freemapper über Links außerhalb des Ordners schreiben lassen. War `ATTRIBUTION.txt` ein Link, überschrieb jeder `run` mit vorhandener Karte die Datei, auf die er zeigte. Mit `--force` kopierten die Sicherungen `.omap.bak` und `.ocd.bak` die Karte des Projekts in das Ziel des Links, etwa `~/.zshrc`. Auch die Bildkopien nach `ocad/` folgten Links, ebenso jede Datei in einem Ordner `data`, `templates` oder `ocad`, der selbst ein Link war. freemapper schreibt jede Datei jetzt unter einem neuen Namen und benennt sie dann um. Dabei ersetzt es einen Link, statt hindurchzuschreiben. Führt ein Ordner `data`, `templates` oder `ocad` aus dem Projekt hinaus, bricht der Befehl ab (`…: a link leads out of the project folder, so freemapper writes nothing there`). Teildateien bekommen jedes Mal einen neuen Namen und übernehmen nie eine vorhandene Datei oder einen Link (ADR 0060).
+- Kopien innerhalb eines Projekts konnten durch Links hindurch lesen. Ein Vorlagenbild, das ein Link auf eine Datei an anderer Stelle war, etwa `~/.ssh/id_rsa`, landete als Kopie in `ocad/`. freemapper kopiert jetzt nur noch Dateien des Projekts selbst. Der OCAD-Export lässt eine solche Vorlage weg und warnt (`warning: …: a link or outside the project folder, so freemapper does not copy it; …`). freemapper prüft jeden einzelnen Schreibvorgang, nicht mehr nur einmal je Lauf (ADR 0060).
+- Ein Wettlauf bleibt: Wer in einen Projektordner schreiben kann, während freemapper darauf läuft, und im richtigen Moment einen Ordner gegen einen Link tauscht, kann einen Schreibvorgang mit festem Dateinamen noch umlenken. freemapper also nicht auf Projektordnern laufen lassen, in die andere gleichzeitig schreiben können (ADR 0060).
+
+### Geändert
+
+- Bibliotheks-API (Crate `freemapper`): Die Funktionen, die Vorlagen und gespeicherte Daten schreiben, bekommen den Projektordner als zusätzliches Argument `root` vor dem Ausgabepfad. Das betrifft `write_gray_png`, `write_ndsm_png`, `build_orthophoto`, `build_orthophoto_from_image`, `wms::fetch_orthophoto`, `wms::fetch_orthophoto_from`, `wms::fetch_k5`, `geosn::fetch_orthophoto` und die `fetch_model`-Funktionen der Höhenmodell-Quellen. `OcadOutcome` hat das neue Feld `warnings`. Kommandozeile und MCP bleiben gleich.
+
+### Behoben
+
+- Windows: Die Prüfung des freien Speicherplatzes vor `fetch` erkennt Laufwerke jetzt an ihrer Seriennummer statt am Laufwerksbuchstaben. Bisher übersprang freemapper die Prüfung mit einer Warnung (`warning: cannot read the free disk space of …`), wenn Windows den Pfad nicht auflösen konnte, etwa auf manchen RAM- oder virtuellen Laufwerken. Ein Laufwerk, das in einen Ordner eines anderen Laufwerks eingebunden ist, zählte als dieses andere Laufwerk, sodass sein eigener Platz nicht geprüft wurde.
+
 ## [0.6.1] - 2026-11-09
 
 ### Sicherheit

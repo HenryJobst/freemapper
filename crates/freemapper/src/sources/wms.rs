@@ -4,9 +4,7 @@
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{
-    FetchError, Fetcher, get_with_retries, is_ogc_report, one_line, write_atomically,
-};
+use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, one_line, write_inside};
 use crate::raster::GridSpec;
 use crate::sources::wcs::{WcsOrthophoto, exception_text};
 
@@ -207,9 +205,10 @@ pub fn fetch_orthophoto(
     fetcher: &dyn Fetcher,
     service: &WmsService,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
-    fetch_orthophoto_from(fetcher, &OrthophotoSource::Wms(*service), bbox, out)
+    fetch_orthophoto_from(fetcher, &OrthophotoSource::Wms(*service), bbox, root, out)
 }
 
 /// [`fetch_orthophoto`] from a WMS or a WCS.
@@ -217,6 +216,7 @@ pub fn fetch_orthophoto_from(
     fetcher: &dyn Fetcher,
     source: &OrthophotoSource,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
@@ -279,8 +279,12 @@ pub fn fetch_orthophoto_from(
             url: source.url().to_string(),
             message: e.to_string(),
         })?;
-    write_atomically(out, &jpeg)?;
-    write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
+    write_inside(root, out, &jpeg)?;
+    write_inside(
+        root,
+        &out.with_extension("jgw"),
+        grid.world_file().as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -291,6 +295,7 @@ pub fn fetch_k5(
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
     pixel_size: f64,
+    root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
     let longest = bbox.width().max(bbox.height());
@@ -342,8 +347,12 @@ pub fn fetch_k5(
             url: K5_WMS.url.to_string(),
             message: e.to_string(),
         })?;
-    write_atomically(out, &png)?;
-    write_atomically(&out.with_extension("pgw"), grid.world_file().as_bytes())?;
+    write_inside(root, out, &png)?;
+    write_inside(
+        root,
+        &out.with_extension("pgw"),
+        grid.world_file().as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -420,9 +429,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 </ServiceException></ServiceExceptionReport>"#
                 .to_vec(),
         );
-        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
-            .unwrap_err()
-            .to_string();
+        let error = fetch_orthophoto(
+            &fetcher,
+            &hvbg::WMS,
+            &bbox(),
+            dir.path(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
         assert!(
             error.contains("Image size out of range") && !error.contains("JPEG decode"),
             "{error}"
@@ -459,9 +474,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         png.extend(b"PNG\r\n\x1a\n");
         png.extend([0x89u8; 60]);
         fetcher.insert_prefix(hvbg::WMS.url, png);
-        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
-            .unwrap_err()
-            .to_string();
+        let error = fetch_orthophoto(
+            &fetcher,
+            &hvbg::WMS,
+            &bbox(),
+            dir.path(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
         assert!(error.contains("not a JPEG"), "{error}");
         assert!(!error.contains("the WMS answered"), "{error}");
         assert!(error.contains("not a JPEG ("), "{error}");
@@ -508,7 +529,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         fetcher.insert(&pieces[1].1, solid_jpeg(500, 1000, [30, 30, 200]));
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("o.jpg");
-        fetch_orthophoto_from(&fetcher, &dop_source(), &bbox, &out).unwrap();
+        fetch_orthophoto_from(&fetcher, &dop_source(), &bbox, out.parent().unwrap(), &out).unwrap();
         let image = image::open(&out).unwrap().into_rgb8();
         assert_eq!((image.width(), image.height()), (4500, 1000));
         let near =
@@ -542,10 +563,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="InvalidSubsetting"><ows:ExceptionText>subset out of range</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#
                 .to_vec(),
         );
-        let error =
-            fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &dir.path().join("o.jpg"))
-                .unwrap_err()
-                .to_string();
+        let error = fetch_orthophoto_from(
+            &fetcher,
+            &dop_source(),
+            &mbbox(),
+            dir.path(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
         assert!(error.contains("the WCS answered with an error"), "{error}");
         assert!(
             error.contains("InvalidSubsetting: subset out of range"),
@@ -571,6 +597,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &fetcher,
             &dop_source(),
             &grid.bounds(),
+            dir.path(),
             &dir.path().join("o.jpg"),
         )
         .unwrap_err()
@@ -593,10 +620,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .as_bytes()
                 .to_vec(),
         );
-        let error =
-            fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &dir.path().join("o.jpg"))
-                .unwrap_err()
-                .to_string();
+        let error = fetch_orthophoto_from(
+            &fetcher,
+            &dop_source(),
+            &mbbox(),
+            dir.path(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
         assert!(error.contains("not a JPEG"), "{error}");
         assert!(
             !error.chars().any(|c| c.is_control() || c == '\u{202E}'),
@@ -614,9 +646,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .as_bytes()
                 .to_vec(),
         );
-        let error = fetch_orthophoto(&fetcher, &hvbg::WMS, &bbox(), &dir.path().join("o.jpg"))
-            .unwrap_err()
-            .to_string();
+        let error = fetch_orthophoto(
+            &fetcher,
+            &hvbg::WMS,
+            &bbox(),
+            dir.path(),
+            &dir.path().join("o.jpg"),
+        )
+        .unwrap_err()
+        .to_string();
         assert!(error.contains("the WMS answered"), "{error}");
         assert!(
             !error.chars().any(|c| c.is_control() || c == '\u{202E}'),
@@ -639,7 +677,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("o.jpg");
         let fetcher = crate::fetch::HttpFetcher::new();
-        fetch_orthophoto_from(&fetcher, &dop_source(), &mbbox(), &out).unwrap();
+        fetch_orthophoto_from(
+            &fetcher,
+            &dop_source(),
+            &mbbox(),
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         let image = image::open(&out).unwrap().into_rgb8();
         assert_eq!((image.width(), image.height()), (1000, 1000));
         let jgw = std::fs::read_to_string(out.with_extension("jgw")).unwrap();
@@ -685,7 +730,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (sender, receiver) = std::sync::mpsc::channel();
         let path = out.clone();
         std::thread::spawn(move || {
-            sender.send(fetch_orthophoto(&fetcher, &service, &bbox(), &path))
+            sender.send(fetch_orthophoto(
+                &fetcher,
+                &service,
+                &bbox(),
+                path.parent().unwrap(),
+                &path,
+            ))
         });
         receiver
             .recv_timeout(std::time::Duration::from_secs(10))
@@ -719,7 +770,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("k5.png");
-        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, out.parent().unwrap(), &out).unwrap();
         let png = image::open(&out).unwrap().into_rgb8();
         assert_eq!((png.width(), png.height()), (grid.width, grid.height));
         assert_eq!(png.get_pixel(grid.width - 1, 0).0, [200, 180, 160]);
@@ -735,7 +786,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 b"<ServiceExceptionReport>no layer</ServiceExceptionReport>".to_vec(),
             );
         }
-        let err = fetch_k5(&broken, &bbox, K5_PIXEL_M, &dir.path().join("x.png")).unwrap_err();
+        let err = fetch_k5(
+            &broken,
+            &bbox,
+            K5_PIXEL_M,
+            dir.path(),
+            &dir.path().join("x.png"),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("no layer"), "{err}");
     }
 
@@ -755,7 +813,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("k5.png");
-        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, out.parent().unwrap(), &out).unwrap();
         let png = image::open(&out).unwrap();
         assert_eq!(png.width(), 6000);
         let world = std::fs::read_to_string(out.with_extension("pgw")).unwrap();

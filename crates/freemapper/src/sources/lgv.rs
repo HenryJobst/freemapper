@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_atomically};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
@@ -154,6 +154,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<Vec<TileId>, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
@@ -177,7 +178,7 @@ pub fn fetch_model(
             let members =
                 parse_directory(&directory, count).map_err(|message| refused(url, message))?;
             // Kept only once it parsed, so a broken answer never replaces a good copy.
-            write_atomically(
+            write_cache_file(
                 &directory_file,
                 &[&count.to_le_bytes()[..], &directory].concat(),
             )?;
@@ -230,7 +231,7 @@ pub fn fetch_model(
             ),
         ));
     }
-    write_float_raster(&raster, out, url)?;
+    write_float_raster(&raster, root, out, url)?;
     Ok(missing)
 }
 
@@ -468,6 +469,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -483,6 +485,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -512,6 +515,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -548,6 +552,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -580,7 +585,15 @@ mod tests {
         bbox: &BoundingBox,
         out: &Path,
     ) -> Result<Vec<TileId>, FetchError> {
-        fetch_model(fetcher, cache, mode, Model::Dgm1, bbox, out)
+        fetch_model(
+            fetcher,
+            cache,
+            mode,
+            Model::Dgm1,
+            bbox,
+            out.parent().unwrap(),
+            out,
+        )
     }
 
     #[test]

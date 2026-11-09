@@ -110,9 +110,10 @@ pub fn wms_requests(grid: &GridSpec) -> Vec<(GridSpec, String)> {
 pub fn fetch_orthophoto(
     fetcher: &dyn Fetcher,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
-    wms::fetch_orthophoto(fetcher, &WMS, bbox, out)
+    wms::fetch_orthophoto(fetcher, &WMS, bbox, root, out)
 }
 
 /// `v` rounded to millimetres.
@@ -325,7 +326,7 @@ mod tests {
         let fetcher = Wms {
             calls: std::cell::Cell::new(0),
         };
-        fetch_orthophoto(&fetcher, &bbox, &out).unwrap();
+        fetch_orthophoto(&fetcher, &bbox, out.parent().unwrap(), &out).unwrap();
         assert_eq!(
             flight_date(&fetcher, &bbox).as_deref(),
             Some("19.03. + 07.04.2024")
@@ -357,7 +358,8 @@ mod tests {
             max_e: 415_100.0,
             max_n: 5_656_000.0,
         };
-        let err = fetch_orthophoto(&fetcher, &bbox, &dir.path().join("o.jpg")).unwrap_err();
+        let err =
+            fetch_orthophoto(&fetcher, &bbox, dir.path(), &dir.path().join("o.jpg")).unwrap_err();
         assert!(
             err.to_string().contains("the WMS answered with an error"),
             "{err}"

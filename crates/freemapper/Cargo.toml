@@ -22,6 +22,7 @@ crc32fast.workspace = true
 miniz_oxide.workspace = true
 pdf-writer.workspace = true
 quick-xml.workspace = true
+same-file.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -31,6 +32,9 @@ ureq.workspace = true
 weezl.workspace = true
 world_magnetic_model.workspace = true
 zip.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+winapi-util.workspace = true
 
 [lints]
 workspace = true

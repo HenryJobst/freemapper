@@ -11,8 +11,9 @@ freemapper writes to the cache (OSM extracts up to about 650 MB, tiles) and to t
 ## Decision
 
 - **Query:** `fs4 =0.13.1` (`statvfs`, `GetDiskFreeSpaceExW`; the workspace forbids `unsafe`) behind the trait
-  `space::DiskSpace`, carried by `Cache` (`with_disk_space` in tests). Same volume: equal `st_dev` (Unix) or drive
-  prefix (Windows). A folder not created yet is measured at its nearest existing parent.
+  `space::DiskSpace`, carried by `Cache` (`with_disk_space` in tests). Same volume: equal `st_dev` (Unix) or volume
+  serial number (Windows, `winapi-util`; since 2026-11-09, before the drive prefix of `canonicalize`, which failed
+  on some RAM and virtual drives and put a volume mounted into a folder on its drive). A folder not created yet is measured at its nearest existing parent.
 - **Parts**, kept in this order: map data (ALKIS, an OSM extract not cached), terrain, orthophoto (all three
   required: derive or the map needs them), surface model, update of a cached OSM extract (both optional).
 - **Need:** each download not cached on its own volume, plus derived files in the project folder (share 1.0 for
@@ -33,8 +34,7 @@ freemapper writes to the cache (OSM extracts up to about 650 MB, tiles) and to t
 
 - A tight disk costs the nDSM template first, never a part the map needs; a full disk leaves no partial files.
 - The need is an estimate; the write guard covers what it misses (another program writing, derived files of
-  cached parts). A volume mounted into an NTFS folder counts as its drive letter's volume, so its own space is not
-  checked; the write guard covers that, too.
+  cached parts). A volume mounted into an NTFS folder has its own serial number, so its own space is checked.
 - Cost if wrong: a share too large skips a surface model that fitted; too small leads to the disk-full message.
 
 Source: user request of 2026-11-08; branch `disk-space`.

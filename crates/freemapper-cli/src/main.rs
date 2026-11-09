@@ -214,6 +214,9 @@ fn report_pdf(path: &std::path::Path) {
 
 /// What the OCAD export wrote and what the user does next in OCAD.
 fn report_ocad(outcome: &OcadOutcome) {
+    for warning in &outcome.warnings {
+        eprintln!("{warning}");
+    }
     if outcome.kept {
         println!(
             "Kept {} (it may contain your work; --force replaces it and keeps the old one as .ocd.bak)",

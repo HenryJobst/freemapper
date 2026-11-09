@@ -6,6 +6,20 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Security
+
+- A project folder from someone else could make freemapper write outside it through links. If `ATTRIBUTION.txt` was a link, every `run` with an existing map overwrote the file it pointed to. With `--force`, the backups `.omap.bak` and `.ocd.bak` copied the project's map into the link's target, for example `~/.zshrc`. The image copies into `ocad/` followed links too, and so did every file written into a `data`, `templates` or `ocad` folder that was a link. freemapper now writes each file under a new name and renames it into place, which replaces a link instead of writing through it. A `data`, `templates` or `ocad` folder that leads out of the project stops the command (`…: a link leads out of the project folder, so freemapper writes nothing there`). Partial files get a fresh name each time and never take over an existing file or link (ADR 0060).
+- Copies inside a project could read through links. A template image that was a link to a file elsewhere, such as `~/.ssh/id_rsa`, ended up copied into `ocad/`. freemapper now copies only files of the project itself. The OCAD export leaves such a template out and warns (`warning: …: a link or outside the project folder, so freemapper does not copy it; …`). freemapper checks every single write, not just once per run (ADR 0060).
+- A remaining race: someone who can write to a project folder while freemapper runs on it, and who swaps a folder for a link at the right moment, can still redirect a write with a fixed name. Do not run freemapper on project folders that others can write to at the same time (ADR 0060).
+
+### Changed
+
+- Library API (`freemapper` crate): the writers of templates and stored data take the project folder as an extra `root` argument, placed before the output path. This covers `write_gray_png`, `write_ndsm_png`, `build_orthophoto`, `build_orthophoto_from_image`, `wms::fetch_orthophoto`, `wms::fetch_orthophoto_from`, `wms::fetch_k5`, `geosn::fetch_orthophoto` and the `fetch_model` functions of the height model sources. `OcadOutcome` has the new field `warnings`. The command line and MCP are unchanged.
+
+### Fixed
+
+- Windows: the free disk space check before `fetch` now tells volumes apart by their serial number instead of the drive letter. Until now freemapper skipped the check with a warning (`warning: cannot read the free disk space of …`) when Windows could not resolve the path, as on some RAM or virtual drives. A volume mounted into a folder of another drive counted as that other drive, so its own space went unchecked.
+
 ## [0.6.1] - 2026-11-09
 
 ### Security
