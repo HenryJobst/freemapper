@@ -94,15 +94,19 @@ forest or another area symbol that the map shows.
 - The training PDF draws point patterns of area symbols now (402's white dots, 501.3), with dots whose centre
   lies inside the area; before, a 402 printed as plain 401 yellow.
 
-Measured on the examples (candidates and map together, offline from the stored data):
+Measured on the examples (candidates and map together, offline from the stored data, with the trees on walls,
+fences and hedges of ADR 0068 also gone):
 
 | | before | after |
 |---|---:|---:|
-| Sanssouci tree points (visible) | 1 654 (1 540) | 880 (766) |
-| Sanssouci tree pairs closer than 5 m | 338 | 130 |
-| Sanssouci group areas | 0 | 51 × 402 |
-| Viktoriapark tree points (visible) | 1 660 (1 578) | 949 (867) |
-| Viktoriapark group areas | 0 | 44 × 405 (51 × 416), 9 × 402 |
+| Sanssouci tree points (visible) | 1 654 (1 540) | 782 (675) |
+| Sanssouci tree points per km² of the clip window (visible) | 2 059 (1 917) | 974 (840) |
+| Sanssouci tree pairs closer than 5 m | 338 | 139 |
+| Sanssouci group areas | 0 | 48 × 402 |
+| Viktoriapark tree points (visible) | 1 660 (1 578) | 942 (863) |
+| Viktoriapark tree points per km² (visible) | 2 119 (2 014) | 1 203 (1 102) |
+| Viktoriapark tree pairs closer than 5 m | 158 | 47 |
+| Viktoriapark group areas | 0 | 43 × 405 (49 × 416), 9 × 402 |
 
 Cost if wrong: a 402 over ground that is no lawn, a 405 where only a few large trees stand (the default crowns
 are small, the measured ones in Berlin often large), and many dotted 416 lines in a park full of tree stands.
