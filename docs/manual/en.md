@@ -391,9 +391,10 @@ from the green cut-out, it gives only candidates. From these layers come:
 
 - On sprint maps: freemapper cuts the surveyed green strips out of the paved areas (501.5) where the overlap is
   at least 1 mm wide on paper, but at most 2 m in the terrain. Tree pits stay. Each green strip is also a 401
-  candidate, except where it lies on paving that freemapper did not cut. Surveyed sidewalks, carriageways, cycle paths, parking areas and squares outside the drawn ALKIS
-  areas become 501.5 candidates, such as park paths and forecourts. Here too, narrow pieces from 2 m wide stay.
-  Curbs become 501.1 candidates, advertising columns 531.
+  candidate, except where it lies on paving that freemapper did not cut. Surveyed sidewalks, carriageways,
+  cycle paths, parking areas and squares outside the drawn ALKIS areas become 501.5 candidates, such as park
+  paths and forecourts. Here too, narrow pieces from 2 m wide stay. Curbs become 501.1 candidates, advertising
+  columns 531.
 - On both map kinds: stairs (532.6 to 532.9, like the ALKIS stairs; the field `trs`, probably the number of
   steps, comes as `berlin:trs`), walls (515), railings, traffic barriers and crash barriers (518, like fences),
   bus shelters (522) and fountains (311) from the street survey and the ornamental fountain register.
@@ -408,10 +409,10 @@ When an object comes from several sources, the register wins over ALKIS, ALKIS o
 survey over OSM. A lamp of the lighting cadastre replaces OSM lamps up to 5 m away and surveyed masts up to 2 m
 away. Surveyed masts further off are mostly sign and signal masts. A fountain of a register replaces the OSM and
 surveyed fountains up to 3 m away. On schoolyard maps a surveyed hydrant, bench, mast, flag pole or play item
-replaces the OSM one up to 2 m away. freemapper drops a surveyed line with at least 80 %
-of its length within 1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS
-stair by at least half. A surveyed bus shelter that lies at least half under an ALKIS canopy is dropped too,
-because the canopy is already on the map. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
+replaces the OSM one up to 2 m away. freemapper drops a surveyed line with at least 80 % of its length within
+1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS stair by at least half.
+It also drops a surveyed bus shelter that lies at least half under an ALKIS canopy, because the canopy is
+already on the map. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
 object that stays names the dropped ones in `freemapper:also`, a surveyed one e.g. as
 `geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. freemapper also leaves out a fountain of the register or of the
 street survey inside drawn water, as it does the OSM fountains.
@@ -568,9 +569,9 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
   `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when trees came from the cadastre; further
   `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert` when street survey objects were
   fetched, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0`
-  naming only the registers that gave objects in the map or the candidates (e.g. `Geoportal Berlin /
-  Zierbrunnen, dl-de/zero-2-0` on a sprint map), and `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when
-  building heights were fetched
+  naming only the registers that gave objects in the map or the candidates (on a sprint map e.g.
+  `Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0`), and
+  `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when building heights were fetched
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Saxony)
 - `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert` (Saxony-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten geändert` (Hamburg)
