@@ -6,6 +6,21 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Berlin: the street survey (Straßenbefahrung) of Geoportal Berlin, recorded from 2014 to 2016. On sprint maps, curbs (501.1), advertising columns (531), green strips (401) and surveyed sidewalks, squares and park paths outside the ALKIS street areas (501.5) become candidates. On both map kinds, stairs, walls, railings, traffic barriers and crash barriers (518), bus shelters and fountains are added. Each surveyed candidate carries its survey date; when that is unreadable, it says 2014-01-01 with `freemapper:currency_guessed=yes`.
+- Berlin: street furniture on schoolyard maps. Benches, hydrants, bollards, masts, flag poles and play equipment come from the street survey, lamps (only those in operation) from the lighting cadastre, ornamental and drinking fountains from their registers. Sprint maps get none of it.
+- Berlin: a register point replaces OSM and surveyed points of the same kind. A lamp replaces OSM lamps up to 5 m and surveyed masts up to 2 m away, a fountain other fountains up to 3 m away. On schoolyard maps a surveyed hydrant, bench, mast or play item replaces the OSM one up to 2 m away. A fountain of a register or of the street survey inside drawn water is dropped.
+- Berlin: buildings carry their footprint date (Grundrissaktualität) from the building heights of 2022 in the Umweltatlas as data currency. A building without a match keeps no date.
+- New attribution lines for the street survey, the registers and the building heights, each only when they gave objects. The register line names only the registers whose points are in the map or the candidates.
+
+### Changed
+
+- Berlin: the paved areas (501.5) no longer include the surveyed green strips; freemapper cuts them out. Tree pits stay inside. A green strip is a 401 candidate only where freemapper cut it out or where it lies off the paved areas. A cut area names the strips in `freemapper:cut`, `freemapper:cut_ids` and `freemapper:cut_currency`. An existing map changes only with `run --force`.
+- Berlin: short line pieces from ALKIS and the street survey that meet end to end are joined into one line. It names the other pieces in `freemapper:also` and carries the oldest survey date. Lines under 1 mm on paper are dropped after that, now for ALKIS too.
+- Berlin: when an object comes from several sources, the register wins over ALKIS, ALKIS over the street survey, and the survey over OSM. A surveyed bus shelter at least half under an ALKIS canopy is dropped. The object that stays names the others in `freemapper:also`, surveyed ones as `geoportal-berlin/<layer>/<gis_id>`. Each Berlin candidate carries the tag `berlin:layer`.
+- The download estimate counts 10.5 instead of 4 MB per km² for the Berlin layers (measured at Viktoriapark: 9.8).
+
 ## [0.5.0] - 2026-11-09
 
 ### Added

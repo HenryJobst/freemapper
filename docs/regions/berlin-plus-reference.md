@@ -246,6 +246,18 @@ ISSprOM use:
 | `aw_spielgeraet` | 541 | candidate (schoolyard) |
 | all others (signs, markings, manholes, cable boxes, …) | none | — |
 
+As built (Berlin plus 2, 2026-11-09; spec §4.1, §4.5; ADRs 0052 to 0056, 0058): the table above holds, with
+these refinements.
+- Cut, cut remnants and the 401 and surveyed paving candidates keep pieces down to min(1 mm on paper, 2 m on
+  the ground), so park paths stay at 1:4000 (ADR 0053). A 401 candidate leaves out the paving that was not
+  cut.
+- Surveyed paving is reduced by every parcel that `paved.rs` draws, not only by `Straßenverkehr`.
+- Curbs are sprint-only (user decision). Survey lines and stairs give way to ALKIS ones at the same place
+  (1.5 m and 80 % for lines, 50 % footprint overlap for stairs). A bus shelter at least half under an ALKIS
+  canopy (522 map object) is dropped.
+- Short segments are joined before the 1 mm length limit.
+- `gis_id` dates: 1 964 YYYYMMDD and 6 993 DDMMYYYY ids in the samples, all parsed.
+
 ## 7. Small point layers (source 6)
 
 - **Öffentliche Beleuchtung** `https://gdi.berlin.de/services/wfs/beleuchtung` · `beleuchtung:beleuchtung`,
@@ -260,6 +272,12 @@ ISSprOM use:
   2026-09-23): Viktoriapark 1 (Charlotte-Salomon-Grundschule). Could name the school or seed the schoolyard
   area picker; no grounds polygon.
 
+As built (Berlin plus 2; ADR 0055): lamps (schoolyard), Zierbrunnen (both kinds) and Trinkwasserbrunnen
+(schoolyard) as listed. Lamps not `In Betrieb` are dropped at download, and MultiPoints are split. Register
+points win over OSM and survey points: lamps within 5 m of OSM lamps and 2 m of survey masts, fountains and
+drinking water within 3 m. The survey hydrants, benches, masts and play equipment win within 2 m over OSM.
+Every register category becomes 311. Schulen is not used.
+
 ## 8. Building currency (source 7)
 
 - `https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen` · `ua_gebaeudehoehen:gebaeudehoehen` ("Gebäudehöhen 2022",
@@ -268,6 +286,9 @@ ISSprOM use:
   joined; dates 2015-08-27 (466), 2021-03-11 (329), 2018-09-18 (55) …
 - The LoD2 tiles carry the same `Grundrissaktualitaet` per building and are newer (creationDate 2026-03-02),
   but cost a 3.3 MB download per km² and a CityGML reader.
+
+As built (Berlin plus 2; ADR 0057): the WFS layer, joined by `gml_id` = building `oid` when the stored buildings
+are read. The building record's `latest_update` stays `None`.
 
 ## 9. Biotoptypen 2024 (source 8)
 
@@ -352,7 +373,8 @@ contributed objects or a template:
 - `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0`
 - `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0`
 - `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert`
-- `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0`
+- `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0` (as built:
+  only the registers that drew objects are named)
 - Not used: Grün Berlin tree layer (licence conflict, §5).
 
 ## 13. Risks

@@ -97,3 +97,10 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0049](0049-allotment-gardens-out-of-bounds-in-every-state.md) | Allotment gardens (Kleingarten) are out of bounds in every state | Accepted | 2026-11-09 |
 | [0050](0050-k5-template-at-0-25-m.md) | The Berlin K5 map is a WMS template at 0.25 m per pixel | Accepted | 2026-11-09 |
 | [0051](0051-tree-cadastre-417-418-and-osm-tree-dedup.md) | Berlin trees from the tree cadastre: 417 or 418 by crown, OSM trees nearby dropped | Accepted | 2026-11-09 |
+| [0052](0052-berlin-street-survey-only-for-candidates-and-green-cut-outs.md) | The Berlin street survey gives candidates and green cut-outs, never map objects | Accepted | 2026-11-09 |
+| [0053](0053-survey-pieces-down-to-2-m-on-the-ground.md) | Survey candidates and cut pieces are kept down to 2 m on the ground | Accepted | 2026-11-09 |
+| [0054](0054-street-furniture-on-the-schoolyard-only-curbs-on-sprint-maps.md) | Street furniture on schoolyard maps only, curbs on sprint maps only | Accepted | 2026-11-09 |
+| [0055](0055-berlin-duplicates-registers-alkis-survey-osm.md) | Berlin duplicates: registers win, then ALKIS, then the survey, then OSM | Accepted | 2026-11-09 |
+| [0056](0056-short-line-segments-joined-before-the-1-mm-limit.md) | Short line segments are joined before the 1 mm limit | Accepted | 2026-11-09 |
+| [0057](0057-berlin-building-dates-from-the-2022-building-heights.md) | Berlin building dates come from the 2022 building heights layer | Accepted | 2026-11-09 |
+| [0058](0058-berlin-layer-tag-and-the-freemapper-also-form.md) | Every Berlin candidate carries `berlin:layer`; `freemapper:also` names `<source>/<id>` | Accepted | 2026-11-09 |

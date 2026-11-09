@@ -543,9 +543,10 @@ pub fn outside_water(
         .collect()
 }
 
-/// `objects` without the OSM 311 points that stand in water: the jets of a fountain in its basin,
-/// or a well in a pond. Water is the drawn ALKIS water `union` and every OSM 301 area among
-/// `objects`, so call it after [`drop_covered_water`]. A fountain without a basin stays.
+/// `objects` without the 311 fountain points that stand in water: the jets of a fountain in its
+/// basin, or a well in a pond (OSM, the Berlin fountain register and the surveyed fountains).
+/// Water is the drawn ALKIS water `union` and every OSM 301 area among `objects`, so call it
+/// after [`drop_covered_water`]. A fountain without a basin, and a surveyed pump, stay.
 pub fn drop_points_in_water(
     objects: Vec<MapObject>,
     union: &MultiPolygon<f64>,
@@ -567,7 +568,10 @@ pub fn drop_points_in_water(
         .into_iter()
         .filter(|object| {
             let is_point = matches!(object.kind, MapObjectKind::Point { .. });
-            if object.symbol_id != point_id || !is_point || !from_osm(object) {
+            if object.symbol_id != point_id
+                || !is_point
+                || !(from_osm(object) || berlin_fountain(object))
+            {
                 return true;
             }
             let Some(&c) = object.coords.first() else {
@@ -578,6 +582,16 @@ pub fn drop_points_in_water(
             !(point.intersects(union) || basins.iter().any(|b| point.intersects(b)))
         })
         .collect()
+}
+
+/// A point of the Berlin fountain register (`zierbrunnen`) or a surveyed fountain
+/// (`bv_springbrunnen_zierbrunnen`): like an OSM fountain it stands in the basin the ALKIS water
+/// draws.
+fn berlin_fountain(object: &MapObject) -> bool {
+    object.tags.iter().any(|(k, v)| {
+        (k == "freemapper:source" && v == "geoportal-berlin/zierbrunnen")
+            || (k == "berlin:layer" && v == "bv_springbrunnen_zierbrunnen")
+    })
 }
 
 fn from_osm(object: &MapObject) -> bool {
@@ -1684,6 +1698,51 @@ mod tests {
         objects.extend(jets);
         let kept = drop_points_in_water(objects, &union, &f.georef, &set);
         assert_eq!(kept, vec![basin, spring_in_pond]);
+    }
+
+    #[test]
+    fn register_fountain_in_water_is_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 50.0, n - 15.0, 30.0, 30.0),
+            vec![],
+        )]);
+        // The Berlin fountain register and the surveyed fountain jets are treated like OSM; a
+        // surveyed pump in the pond stays.
+        let from = |source: &str, layer: Option<&str>, de: f64| {
+            let mut o = osm_point(&f.georef, &set, "311", e + de, n);
+            o.tags = vec![("freemapper:source".into(), source.into())];
+            if let Some(layer) = layer {
+                o.tags.push(("berlin:layer".into(), layer.into()));
+            }
+            o
+        };
+        let objects = vec![
+            from("geoportal-berlin/zierbrunnen", None, 60.0),
+            from("geoportal-berlin/zierbrunnen", None, -40.0),
+            from(
+                "geoportal-berlin/sb-objekte",
+                Some("af_wasserpumpen_brunnen"),
+                60.0,
+            ),
+            from(
+                "geoportal-berlin/sb-objekte",
+                Some("bv_springbrunnen_zierbrunnen"),
+                65.0,
+            ),
+            from(
+                "geoportal-berlin/sb-objekte",
+                Some("bv_springbrunnen_zierbrunnen"),
+                -45.0,
+            ),
+        ];
+        let kept = drop_points_in_water(objects.clone(), &union, &f.georef, &set);
+        assert_eq!(
+            kept,
+            vec![objects[1].clone(), objects[2].clone(), objects[4].clone()]
+        );
     }
 
     #[test]

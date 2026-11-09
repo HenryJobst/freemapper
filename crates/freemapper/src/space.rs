@@ -49,7 +49,9 @@ impl Part {
             Part::Surface => "the surface model for the nDSM template",
             Part::OsmUpdate => "the update of the cached OSM extract",
             Part::K5 => "the Berlin K5 map template",
-            Part::BerlinLayers => "the Berlin ALKIS structures and tree cadastre",
+            Part::BerlinLayers => {
+                "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
+            }
         }
     }
 

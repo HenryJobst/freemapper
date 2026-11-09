@@ -11,9 +11,15 @@
 # Not here: ALKIS Überdachung/Carport (522 map objects, `build/canopy.rs`), stairs
 # (`build/stairs.rs`: the walking direction of a stair area comes from the DGM, and the
 # `Freitreppe` lines of `bauwerke-linien` are step edges that are joined into one stair per
-# flight) and Kleingarten (a land use, `build/out_of_bounds.rs`). ALKIS kerb lines are not taken
-# (Plan 2 brings the surveyed curbs). The height of a wall decides nothing; the ALKIS name picks
-# the symbol.
+# flight), Kleingarten (a land use, `build/out_of_bounds.rs`) and the surveyed green strips and
+# paving (`sb-gruenflaeche`, `sb-flaechen`: cut out of and added to the paved areas,
+# `build/paved.rs`) and the surveyed stairs (`sb-treppe`, `build/stairs.rs`). ALKIS kerb lines
+# (`Fahrbahnbegrenzungslinie`) are not taken; the surveyed curbs are (below). The height of a
+# wall decides nothing; the ALKIS name picks the symbol.
+#
+# The Straßenbefahrung rules (Berlin plus 2) name the survey type in `berlin:layer`
+# (`bd_bordstein`, no namespace). Their candidates carry the survey date as
+# `freemapper:currency`. No rule reads an undocumented survey code (`material`, `hms`, `pot` …).
 
 # Walls, retaining walls and fences by the ALKIS name (the same symbols as the OSM rules).
 [[rule]]
@@ -83,3 +89,95 @@ when = ["berlin:layer=strassenbaeume|anlagenbaeume"]
 draw = "point"
 schoolyard = "418"
 sprint = "418"
+
+# --- Straßenbefahrung 2014-2016 (Berlin plus 2) -------------------------------------------------
+
+# Curbs: sprint maps only (a schoolyard map has no street space to speak of).
+[[rule]]
+when = ["berlin:layer=bd_bordstein"]
+draw = "line"
+sprint = "501.1"
+
+# Walls (the same symbol as the ALKIS ones).
+[[rule]]
+when = ["berlin:layer=bh_mauer"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+# Railings, traffic barriers and crash barriers are impassable like fences; the mapper downgrades
+# them to 516 where they can be crossed.
+[[rule]]
+when = ["berlin:layer=bf_gelaender|bb_verkehrsschutzgitter|bg_leitplanke"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+# Street furniture of the schoolyard only: on a sprint map the 2 392 bollards of one km² would
+# flood the candidates.
+[[rule]]
+when = ["berlin:layer=bj_sitzbank"]
+draw = "line"
+point_as_short_line_mm = 1.5
+schoolyard = "543"
+
+[[rule]]
+when = ["berlin:layer=aq_hydrant"]
+draw = "point"
+schoolyard = "321"
+
+[[rule]]
+when = ["berlin:layer=av_poller|as_mast|am_fahnenmast"]
+draw = "point"
+schoolyard = "544"
+
+[[rule]]
+when = ["berlin:layer=aw_spielgeraet"]
+draw = "line"
+point_as_short_line_mm = 1.8
+schoolyard = "541"
+
+# Advertising columns are a landmark on a sprint map.
+[[rule]]
+when = ["berlin:layer=ag_werbesaeule"]
+draw = "point"
+sprint = "531"
+
+# Bus shelters: the roof area.
+[[rule]]
+when = ["berlin:layer=br_fahrgastunterstand"]
+draw = "area"
+schoolyard = "522"
+sprint = "522"
+
+# Street pumps and ornamental fountains: a point.
+[[rule]]
+when = ["berlin:layer=af_wasserpumpen_brunnen|bv_springbrunnen_zierbrunnen"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+[[rule]]
+when = ["berlin:layer=ac_trinkwasserbrunnen_wasserspender"]
+draw = "point"
+schoolyard = "313"
+
+# The registers (Berlin plus 2). Lamps of the lighting cadastre (only those in operation are
+# stored) are the schoolyard's 545; the survey masts (`as_mast`) give way to them
+# (`drop_points_near_registers`). The fountain registers give the 311 and 313 points; they win
+# over the survey and OSM points within a few metres.
+[[rule]]
+when = ["berlin:layer=beleuchtung"]
+draw = "point"
+schoolyard = "545"
+
+[[rule]]
+when = ["berlin:layer=bez_zierbrunnen"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+[[rule]]
+when = ["berlin:layer=trinkwasserbrunnen"]
+draw = "point"
+schoolyard = "313"

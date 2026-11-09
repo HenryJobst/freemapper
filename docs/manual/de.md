@@ -258,10 +258,11 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Stimmen Umriss und Durchgänge?
   - Fehlen Neubauten, gibt es abgerissene Gebäude noch?
   - Der Datenstand steht bei jedem Gebäude in den Objekt-Tags.
-- **Befestigte Flächen** (Sprint): In Berlin und Sachsen enthalten Straßenflächen auch Grün- und
-  Baumstreifen am Rand. Plätze sind dort nur Kandidaten.
-- **Zäune, Mauern, Hecken:** Sie stammen aus OSM und dem nDOM, in Berlin auch aus ALKIS. Sind sie passierbar?
-  Gibt es Tore?
+- **Befestigte Flächen** (Sprint): In Sachsen enthalten Straßenflächen auch Grün- und Baumstreifen am Rand.
+  In Berlin schneidet freemapper die vermessenen Grünstreifen aus (Kapitel 12); Baumscheiben und Grün, das
+  die Straßenbefahrung nicht kennt, bleiben darin. In beiden Ländern sind Plätze nur Kandidaten.
+- **Zäune, Mauern, Hecken:** Sie stammen aus OSM und dem nDOM, in Berlin auch aus ALKIS und der
+  Straßenbefahrung. Sind sie passierbar? Gibt es Tore?
 - **Sperrgebiete:** Privatgrundstücke, Kleingärten, Bahngelände, auf Schulhofkarten alles außerhalb des
   Schulgeländes.
 - **Berlin** (Kapitel 12):
@@ -280,6 +281,17 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Bäume: Art und Krone stehen im Tag `freemapper:baum`, z. B. `Tilia cordata, Krone 12 m`. Das
     Baumkataster kann älter sein als der Bestand. Bäume auf Schulgeländen und Privatgrund stehen meist nicht
     darin.
+  - Straßenbefahrung: Sie wurde 2014 bis 2016 aufgenommen und ist damit rund zehn Jahre alt. Straßen, die
+    seither umgebaut wurden, stehen im alten Zustand darin. Prüfen Sie Bordsteine, Geländer, Mauern,
+    Möblierung und Grünstreifen im Gelände. Ist ein ausgeschnittener Grünstreifen inzwischen gepflastert,
+    bleibt in der befestigten Fläche ein weißer Fleck. Füllen Sie ihn nach dem Luftbild.
+  - Geschätzte Aufnahmedaten: Kandidaten mit `freemapper:currency_guessed=yes` und befestigte Flächen mit
+    `freemapper:cut_currency_guessed=yes` haben kein lesbares Aufnahmedatum. freemapper setzt dann
+    2014-01-01. Prüfen Sie diese Stellen zuerst.
+  - Geländer, Verkehrsschutzgitter und Leitplanken sind Kandidaten 518 (unpassierbar). Wo man sie
+    übersteigen kann, nehmen Sie 516.
+  - Gebäude: Der Datenstand eines Berliner Gebäudes ist seine Grundrissaktualität aus den Gebäudehöhen
+    2022, oft Jahre vor dem Laden. Gebäude, die seit 2022 dazugekommen sind, haben kein Datum.
 - **Ufer und Brücken:**
   - Die Katasterfläche eines Gewässers kann die Uferböschung einschließen. Legen Sie die Uferlinie
     nach dem Luftbild an die Wasserkante.
@@ -294,7 +306,8 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben
     Wasser?
-- **Möblierung und Spielgeräte:** Sie stammen aus OSM und sind oft unvollständig.
+- **Möblierung und Spielgeräte:** Sie stammen aus OSM, in Berlin auf Schulhofkarten auch aus der
+  Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
 - **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
 
 ## 10. Schnelle Trainingskarte (PDF)
@@ -336,7 +349,7 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Land | Daten von | Besonderheiten |
 |---|---|---|
 | Brandenburg | LGB | Luftbild, Gelände und nDOM in 1-km-Kacheln; das nDOM ist ein Laser-nDOM mit 20 cm Auflösung |
-| Berlin | LGB (Raster), Geoportal Berlin (ALKIS, Baumkataster, K5) | das nDOM wird aus dem Luftbild-Oberflächenmodell berechnet: etwas weicher, ohne dünne Objekte wie Laternen, dafür mit parkenden Autos; dazu Überdachungen als Kartenobjekte, Treppen, Mauern, Zäune, Hecken und Bäume als Kandidaten und die K5 als Vorlage (siehe unten) |
+| Berlin | LGB (Raster), Geoportal Berlin (ALKIS, Baumkataster, K5, Straßenbefahrung, Beleuchtung, Brunnen, Gebäudehöhen) | das nDOM wird aus dem Luftbild-Oberflächenmodell berechnet: etwas weicher, ohne dünne Objekte wie Laternen, dafür mit parkenden Autos; dazu Überdachungen als Kartenobjekte, Treppen, Mauern, Zäune, Hecken und Bäume als Kandidaten und die K5 als Vorlage; die vermessenen Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und Brunnen kommen als Kandidaten, Gebäude tragen ihre Grundrissaktualität (siehe unten) |
 | Sachsen | GeoSN | Luftbild aus dem Kartendienst; das nDOM hat nur 1 m Auflösung, Hecken und schmale Mauern sind oft nur angedeutet; unterirdische Bauwerke sind nicht ausfilterbar |
 | Sachsen-Anhalt | LVermGeo | Die Karte liegt in UTM-Zone 32 (EPSG:25832), wie alle Daten des Landes; Luftbild aus dem Kartendienst, Gelände- und Oberflächenmodell mit 1 m; das nDOM ist wie in Sachsen grob |
 | Hamburg | LGV | Zone 32 wie Sachsen-Anhalt; Luftbild von 2026, Gelände- und Oberflächenmodell aber von 2022: Neubauten der letzten Jahre fehlen im nDOM |
@@ -377,7 +390,62 @@ Kante ergibt keine Treppe.
 Jeder Kandidat nennt seine Herkunft in den Objekt-Tags: `freemapper:source=geoportal-berlin/<Ebene>`,
 `freemapper:alkis` mit der ALKIS-Bezeichnung (z. B. `Mauerkante, rechts`), bei Bäumen `freemapper:baum` mit
 Art und Krone. Die Ebenen haben kein eigenes Datum. Als Datenstand (`freemapper:currency`) steht deshalb das
-Datum des Ladens da. Bordsteine aus ALKIS übernimmt freemapper nicht.
+Datum des Ladens da. Bordsteine aus ALKIS übernimmt freemapper nicht, die der Straßenbefahrung schon.
+
+**Berlin: Straßenbefahrung, Register und Gebäudedaten.** Dazu lädt freemapper die Straßenbefahrung, das
+Beleuchtungskataster, die Register der Zier- und der Trinkwasserbrunnen und die Gebäudehöhen 2022 aus
+dem Umweltatlas, alle unter dl-de/zero-2-0. Zusammen sind das im Stadtzentrum etwa 6 MB je km² mehr (am
+Viktoriapark 5,9 MB). Die Straßenbefahrung hat den öffentlichen Straßenraum Berlins 2014 bis 2016 vermessen.
+Eine neuere gibt es nicht, die Daten sind also rund zehn Jahre alt. Deshalb ersetzt sie ALKIS nie. Bis auf den
+Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
+
+- Auf Sprintkarten: freemapper schneidet die vermessenen Grünstreifen aus den befestigten Flächen (501.5)
+  aus, wenn die Überlappung mindestens 1 mm auf dem Papier breit ist, höchstens aber 2 m im Gelände.
+  Baumscheiben bleiben. Jeder Grünstreifen ist außerdem Kandidat 401, nur nicht dort, wo er auf einer nicht
+  beschnittenen befestigten Fläche liegt. Vermessene Gehwege, Fahrbahnen,
+  Radwege, Parkflächen und Plätze außerhalb der gezeichneten ALKIS-Flächen werden Kandidaten 501.5, etwa
+  Parkwege und Vorplätze. Auch hier bleiben schmale Stücke ab 2 m Breite. Bordsteine werden Kandidaten
+  501.1, Werbesäulen 531.
+- Auf beiden Kartenarten: Treppen (532.6 bis 532.9, wie die ALKIS-Treppen; das Feld `trs`, vermutlich die
+  Stufenzahl, steht als `berlin:trs` dabei), Mauern (515), Geländer, Verkehrsschutzgitter und Leitplanken
+  (518, wie Zäune), Fahrgastunterstände (522) und Brunnen (311) aus der Straßenbefahrung und dem
+  Zierbrunnen-Register.
+- Auf Schulhofkarten: Bänke (543), Hydranten (321), Poller, Masten und Fahnenmasten (544), Spielgeräte
+  (541), Trinkbrunnen (313) und die Laternen des Beleuchtungskatasters (545), nur die in Betrieb. Auf
+  Sprintkarten fehlt diese Möblierung: Um die Helene-Haeusler-Schule stehen 2 392 Poller in einem km².
+- Gebäude: Jedes ALKIS-Gebäude, das die Gebäudehöhen 2022 kennen, bekommt dessen Grundrissaktualität als
+  Datenstand (`freemapper:currency`). Das ist der Stand des Grundrisses in diesen Daten, kein
+  Vermessungsdatum. Ein Gebäude ohne Treffer bleibt ohne Datum.
+
+Gibt es ein Objekt mehrfach, gewinnt das Register vor ALKIS, ALKIS vor der Straßenbefahrung und diese vor
+OSM. Eine Laterne aus dem Beleuchtungskataster ersetzt OSM-Laternen bis 5 m Abstand und vermessene Masten
+bis 2 m. Weiter entfernte vermessene Masten tragen meist Schilder oder Ampeln. Ein Brunnen aus einem Register
+ersetzt die OSM- und die vermessenen Brunnen bis 3 m. Auf Schulhofkarten ersetzt ein vermessener Hydrant, eine
+Bank, ein Mast, ein Fahnenmast oder ein Spielgerät das OSM-Gegenstück bis 2 m. freemapper lässt eine
+vermessene Linie weg, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben einer ALKIS-Linie mit demselben
+Symbol liegt, ebenso eine vermessene Treppe, die sich mindestens zur Hälfte mit einer ALKIS-Treppe deckt.
+Auch ein vermessener Fahrgastunterstand, der mindestens zur Hälfte unter einer ALKIS-Überdachung liegt, fällt
+weg, denn die Überdachung steht schon in der Karte. Eine
+vermessene Mauer neben einer ALKIS-Stützmauer bleibt, denn die Symbole sind verschieden. Das bleibende Objekt
+nennt die weggelassenen in `freemapper:also`, ein vermessenes etwa als
+`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. Liegt ein Brunnen aus einem Register oder der
+Straßenbefahrung in einem gezeichneten Gewässer, lässt freemapper ihn weg, wie die OSM-Brunnen.
+
+ALKIS und die Straßenbefahrung zerlegen eine Mauer oder ein Geländer oft in kurze Stücke. Stoßen Stücke mit
+demselben Symbol Ende an Ende aneinander, fügt freemapper sie zu einer Linie zusammen. Erst danach lässt es
+Linien unter 1 mm auf dem Papier weg (bei 1:4000 sind das 4 m). Die zusammengefügte Linie nennt die übrigen
+Stücke in `freemapper:also`. Eine vermessene trägt das älteste Aufnahmedatum ihrer Stücke.
+
+Jeder Berliner Kandidat trägt `berlin:layer`. Bei der Straßenbefahrung und den Registern steht dort der
+Objekttyp (z. B. `bd_bordstein`, `beleuchtung`), sonst der Name der Ebene (z. B. `bauwerke-linien`). Die
+Codes der Straßenbefahrung (`material`, `hms`, `pot`, `bor`, `gws`, `sre`, `hdt`, `trs`) stehen als
+`berlin:<Code>` dabei. Was sie bedeuten, ist nicht veröffentlicht. Ein vermessener Kandidat hat als
+Datenstand sein Aufnahmedatum aus der `gis_id`. Ist es nicht lesbar, steht dort 2014-01-01 mit
+`freemapper:currency_guessed=yes`. Eine beschnittene befestigte Fläche behält ihre ALKIS-Herkunft und nennt
+die Grünstreifen an ihrem Rand: `freemapper:cut=geoportal-berlin/sb-gruenflaeche`, `freemapper:cut_ids` und
+`freemapper:cut_currency`. Letzteres ist das älteste echte Aufnahmedatum. Gibt es nur geschätzte, kommt
+`freemapper:cut_currency_guessed=yes` dazu. Eine vorhandene Karte bekommt Grünausschnitt und Gebäudedaten
+erst mit `run --force`.
 
 Die **K5** (Karte von Berlin 1:5000, farbig, Stand 02.01.2026) liegt als Vorlage `templates/k5.png` mit Weltdatei
 bei, mit 0,25 m je Bildpunkt. Ist das Gebiet mit Puffer länger als 1,5 km, wird sie gröber. Sie zeigt Parkwege,
@@ -487,7 +555,8 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | Die Metalink-Datei ließ sich nicht laden. Bei der ersten Meldung nimmt freemapper die gespeicherte, bei der zweiten bleiben die Kacheln ohne Flugjahr leer. | Später erneut laden. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | Ein Server des LVermGeo RP hat statt der Befliegungsübersicht, der Kachel oder der Metalink-Datei etwas anderes geschickt, meist eine HTML-Fehlerseite; der bereinigte Anfang der Antwort steht dahinter. Die letzte Meldung heißt, dass die Übersicht unvollständig ankam. | Später erneut versuchen, bei Dauer einen Fehler melden. |
 | `orthophoto unchanged (date of creation …)` | Rheinland-Pfalz: freemapper verwendet das gespeicherte Luftbild weiter, weil der Kartendienst dasselbe Erstellungsdatum nennt (oder gerade keines und das Bild jünger als 30 Tage ist). Dieses Datum gilt als Flugdatum. | Nichts. |
-| `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des Geoportals Berlin (z. B. `bauwerke-linien`) ließ sich nicht laden. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Fortschrittsmeldung: freemapper lädt die Berliner Ebenen, im Stadtzentrum etwa 10 MB je km² (am Viktoriapark 9,8 MB). | Abwarten. |
+| `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des Geoportals Berlin (z. B. `bauwerke-linien` oder `sb-moebel`) ließ sich nicht laden. Fasst eine Ebene mehrere Objekttypen zusammen, wie `sb-moebel` die Bänke, Poller und Hydranten, fehlt sie ganz, wenn einer davon scheitert. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: Für das Berliner Gebiet sind keine Bauwerke, Bäume und Überdachungen gespeichert. | Einmal online laden. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | Das Gebiet liegt nicht mehr an Berlin. freemapper löscht die gespeicherten Berliner Ebenen. | Nichts. |
 | `warning: the K5 map template is unavailable (…); skipped` | Die K5 ließ sich nicht laden. Die Vorlage fehlt, das Laden geht weiter. | Später erneut laden. |
@@ -498,7 +567,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
 | `The map lacks the Berlin canopies and carports (522) that are now map objects` | Die Karte stammt aus der Zeit vor den Berliner Überdachungen. freemapper hat sie behalten, die Überdachungen fehlen darin. | Mit `run --force` neu schreiben. Die alte Karte bleibt als `.omap.bak`. Oder die Überdachungen aus den Kandidaten von Hand übernehmen. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
-| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Bauwerke und Bäume oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und gespeicherte Berliner Ebenen. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Ebenen mit Bauwerken, Bäumen, Straßenbefahrung und Registern oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und gespeicherte Berliner Ebenen. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |
 | `not enough disk space for the …` | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
 | `the disk is full, so freemapper could not write …` | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
@@ -515,7 +584,12 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
   `© Geoportal Berlin, dl-de/zero-2-0`)
 - `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` (Berlin, mit ALKIS-Daten); dazu
   `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0`, wenn die K5 geladen wurde, und
-  `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0`, wenn Bäume aus dem Kataster kamen
+  `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0`, wenn Bäume aus dem Kataster kamen; außerdem
+  `Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert`, wenn Objekte der
+  Straßenbefahrung geladen wurden, `Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen,
+  Trinkwasserbrunnen, dl-de/zero-2-0` mit nur den Registern, die Objekte in Karte oder Kandidaten geliefert
+  haben (auf einer Sprintkarte etwa `Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0`), und
+  `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0`, wenn Gebäudehöhen geladen wurden
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Sachsen)
 - `© GeoBasis-DE / LVermGeo ST <Jahr>, dl-de/by-2-0, Daten geändert` (Sachsen-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <Jahr>, dl-de/by-2-0, Daten geändert` (Hamburg)

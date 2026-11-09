@@ -9,7 +9,7 @@ made with `freemapper run --pdf --ocad`.
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
 | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 435 | 805 | 22 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 780 | 2692 | 30 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 783 | 2851 | 31 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
 | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1219 | 1220 | 25 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
 | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1605 | 1006 | 25 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
 | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 946 | 930 | 21 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
@@ -34,6 +34,15 @@ In Berlin, freemapper loads more layers from the Geoportal Berlin. Canopies and 
 as 522. Stairs, walls, fences, embankment edges, monuments and passages are candidates, and so are the trees from the
 tree cadastre. In the Viktoriapark that alone is 1926 trees. The Berlin 1:5000 map (K5) comes as the template
 `templates/k5.png`.
+
+Berlin projects also get the street survey (Straßenbefahrung, recorded 2014 to 2016), the registers of street
+lamps, ornamental fountains and drinking fountains, and the building heights from the Umweltatlas. The map itself
+barely changes. In the Viktoriapark freemapper cuts only five small green strips along the curb out of one ALKIS
+street area. The candidates gain 81 curbs (501.1) and 73 surveyed paved areas (501.5). Nearly all of them are
+sidewalks and the paved paths in the park, which the PDF now shows. Also new are traffic barriers (518), walls (515),
+bus shelters (522), advertising columns (531), and street pumps and ornamental fountains (311). Where a survey barrier
+lies on an OSM fence, only the barrier stays, and it names the fence in `freemapper:also`. Of the 602 buildings, 599
+carry the footprint date from the 2022 building heights as `freemapper:currency`.
 
 Allotment gardens (Kleingärten) are out-of-bounds candidates (520) in every state. In Sanssouci this covers one
 garden colony on the northern edge, in Wismar and Herrenhausen one more area each.

@@ -41,11 +41,13 @@ Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
 2024. Each map comes with an OCAD starting point and a PDF training map. Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
-1:5000 map as a template from further Geoportal Berlin data.
+1:5000 map as a template from further Geoportal Berlin data. On the main branch, not yet released, they
+also use the street survey of 2014 to 2016: the surveyed green strips are cut out of the street areas,
+curbs, railings, furniture, lamps and fountains come as candidates, and buildings carry their
+footprint date.
 
 freemapper is still under development. Work in progress: more detailed sprint maps from further open
-data, for Berlin next the kerbs from the street survey and small objects such as bollards, then for the
-other states. After that come gym maps for indoor orienteering,
+data of the other states. After that come gym maps for indoor orienteering,
 program texts in German and English, and the remaining states with open geodata
 (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
@@ -221,7 +223,7 @@ freemapper run vorstadt
 | State | Data | nDSM template | Notes |
 |---|---|---|---|
 | Brandenburg | LGB | laser nDSM, 0.2 m | |
-| Berlin | LGB, ALKIS, tree cadastre and K5 from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; street areas include verges; canopies as map objects; stairs, walls, fences, hedges and trees as candidates; the 1:5000 map (K5) as a template |
+| Berlin | LGB, ALKIS, tree cadastre, K5, street survey and registers from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; surveyed green strips cut out of the street areas; canopies as map objects; stairs, walls, fences, hedges, trees, curbs, railings, furniture, lamps and fountains as candidates; the 1:5000 map (K5) as a template |
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
 | Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |

@@ -185,22 +185,76 @@ pub(crate) fn provenance_tags(
     tags
 }
 
+/// The Straßenbefahrung codes a candidate carries as `berlin:<code>`. There is no code list, so no
+/// rule reads them; they are for the mapper (reference §14.5).
+pub(crate) const SURVEY_CODES: [&str; 8] =
+    ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
+
+/// The survey date of a stored Straßenbefahrung feature (from its `gis_id`, stamped at download)
+/// and whether it is guessed. A feature without one gets the dataset date, guessed.
+pub(crate) fn survey_currency(feature: &Value) -> (NaiveDate, bool) {
+    let properties = &feature["properties"];
+    let date = properties["survey_date"]
+        .as_str()
+        .and_then(|d| d.parse().ok());
+    let guessed = properties["survey_date_guessed"] == "yes";
+    match date {
+        Some(date) => (date, guessed),
+        None => (crate::sources::berlin::SURVEY_DATASET_DATE, true),
+    }
+}
+
+/// The tags of an object built from a Straßenbefahrung feature directly: the provenance tags
+/// with the survey date as currency (and `freemapper:currency_guessed=yes` when the `gis_id`
+/// gave none), the survey type as `berlin:layer` and the survey codes.
+pub(crate) fn survey_tags(file: &str, feature: &Value) -> Vec<(String, String)> {
+    let (currency, guessed) = survey_currency(feature);
+    let mut tags = provenance_tags(file, feature, currency);
+    if guessed {
+        tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+    }
+    let codes = SURVEY_CODES.map(|code| format!("berlin:{code}"));
+    tags.extend(
+        feature_tags(file, feature)
+            .into_iter()
+            .filter(|(k, _)| k == "berlin:layer" || codes.contains(k)),
+    );
+    tags
+}
+
 /// The tags of a Berlin feature: `berlin:layer`, each string (not empty) and number property as
 /// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
 /// ALKIS name as `freemapper:alkis`).
 fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
-    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     let properties = feature["properties"].as_object();
+    // A file with several WFS types names the type per feature.
+    let layer = properties
+        .and_then(|p| p.get(crate::sources::berlin::TYPE_KEY))
+        .and_then(Value::as_str)
+        .unwrap_or(layer);
+    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     for (key, value) in properties.into_iter().flatten() {
+        if key == crate::sources::berlin::TYPE_KEY || key == "layer" {
+            continue;
+        }
         let text = match value {
-            Value::String(s) if !s.is_empty() => s.clone(),
+            // `NULL` is the WFS's word for "no value".
+            Value::String(s) if !s.is_empty() && s != "NULL" => s.clone(),
             Value::Number(n) => n.to_string(),
             _ => continue,
         };
         tags.push((format!("berlin:{key}"), text));
     }
+    // A survey feature carries its own date, and a guessed one says so.
+    if properties.is_some_and(|p| p.contains_key("survey_date")) {
+        let (date, guessed) = survey_currency(feature);
+        tags.push(("freemapper:currency".to_string(), date.to_string()));
+        if guessed {
+            tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+        }
+    }
     let property = |key: &str| properties.and_then(|p| p.get(key)).and_then(Value::as_str);
-    let source_id = ["uuid", "gisid", "oid"]
+    let source_id = ["uuid", "gisid", "oid", "gis_id"]
         .iter()
         .find_map(|key| property(key).filter(|v| !v.is_empty()));
     if let Some(id) = source_id {
@@ -350,6 +404,61 @@ pub fn drop_osm_lines_near_alkis(
     symbol_set: &SymbolSet,
     scale_denominator: u32,
 ) -> Vec<MapObject> {
+    drop_lines_near(osm, berlin, |_| true, symbol_set, scale_denominator)
+}
+
+/// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
+pub(crate) fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
+    match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
+        Some((_, v)) if !v.split("; ").any(|x| x == also) => {
+            v.push_str("; ");
+            v.push_str(also);
+        }
+        Some(_) => {}
+        None => tags.push(("freemapper:also".to_string(), also.to_string())),
+    }
+}
+
+/// The surveyed (Straßenbefahrung) lines among the Berlin objects: `geoportal-berlin/sb-…`.
+fn from_survey(object: &MapObject) -> bool {
+    object
+        .tags
+        .iter()
+        .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/sb-"))
+}
+
+/// ALKIS wins over the survey: the surveyed fence, wall, retaining wall and hedge lines
+/// (`sb-mauer`, `sb-gelaender`) with at least [`LINE_DEDUP_SHARE`] of their length within
+/// [`LINE_DEDUP_M`] of an ALKIS line with the same symbol are dropped, and the ALKIS line names
+/// them in `freemapper:also` (`geoportal-berlin/sb-…/<gis_id>`). The order of the sources is
+/// ALKIS, survey, OSM: run [`drop_osm_lines_near_alkis`] on the result.
+pub fn drop_survey_lines_near_alkis(
+    berlin: Vec<MapObject>,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let (survey, mut alkis): (Vec<_>, Vec<_>) = berlin.into_iter().partition(from_survey);
+    let mut kept = drop_lines_near(
+        survey,
+        &mut alkis,
+        |o| !from_survey(o),
+        symbol_set,
+        scale_denominator,
+    );
+    alkis.append(&mut kept);
+    alkis
+}
+
+/// Drops the `candidates` lines (fence, wall, retaining wall, hedge symbols) that follow a
+/// `winners` line with the same symbol, and names them in the winner's `freemapper:also`.
+/// `winners` are the Berlin objects for which `is_winner` holds.
+fn drop_lines_near(
+    osm: Vec<MapObject>,
+    berlin: &mut [MapObject],
+    is_winner: impl Fn(&MapObject) -> bool,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
     let codes: Vec<u32> = LINE_DEDUP_CODES
         .iter()
         .filter_map(|c| symbol_set.id_for_code(c))
@@ -358,9 +467,10 @@ pub fn drop_osm_lines_near_alkis(
         matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
     };
     let from_berlin = |o: &MapObject| {
-        o.tags
-            .iter()
-            .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
+        is_winner(o)
+            && o.tags
+                .iter()
+                .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
     };
     let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
     // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
@@ -462,21 +572,20 @@ pub fn drop_osm_lines_near_alkis(
             .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
             .map(|(index, _)| index)
             .expect("some length is near");
-        let id = object
-            .tags
-            .iter()
-            .find(|(k, _)| k == "freemapper:source_id")
-            .map_or_else(String::new, |(_, v)| v.clone());
-        let also = format!("osm/{id}");
-        let tags = &mut berlin[winner].tags;
-        match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
-            Some((_, v)) if !v.split("; ").any(|x| x == also) => {
-                v.push_str("; ");
-                v.push_str(&also);
-            }
-            Some(_) => {}
-            None => tags.push(("freemapper:also".to_string(), also)),
-        }
+        // `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source and the id in it.
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        let also = format!(
+            "{}/{}",
+            tag("freemapper:source"),
+            tag("freemapper:source_id")
+        );
+        add_also(&mut berlin[winner].tags, &also);
     }
     kept
 }
@@ -535,6 +644,299 @@ pub fn drop_osm_trees_near_cadastre(
             !(osm_tree && near)
         })
         .collect()
+}
+
+/// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
+/// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
+/// to 30 m apart, so 5 m stays well under half the spacing.
+const OSM_LAMP_DEDUP_M: f64 = 5.0;
+/// A survey mast this close to a cadastre lamp is the lamp, and an OSM hydrant, bench, mast or
+/// play item this close to the survey one is that one. Survey masts 2 m or more from a lamp are
+/// mostly sign and signal masts.
+const FURNITURE_DEDUP_M: f64 = 2.0;
+/// The same for a fountain or drinking-water point of the fountain registers.
+const FOUNTAIN_DEDUP_M: f64 = 3.0;
+
+/// One kind of winning point and the points that give way to it.
+struct PointDedup {
+    /// `(tag key, value)` of the winners: a register's `freemapper:source` or a survey type's
+    /// `berlin:layer`.
+    winner: (&'static str, &'static str),
+    /// `(tag key, value, limit in ground metres)` of the losers: an OSM rule (`freemapper:osm`,
+    /// one of its `; `-separated parts; a value ending in `*` is a prefix) or a survey type
+    /// (`berlin:layer`).
+    losers: &'static [(&'static str, &'static str, f64)],
+}
+
+/// In order: the registers beat the survey and OSM, then the survey furniture (schoolyard only)
+/// beats OSM. A point dropped by an earlier entry wins nothing later.
+const POINT_DEDUPS: [PointDedup; 8] = [
+    PointDedup {
+        winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
+        losers: &[
+            ("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP_M),
+            ("berlin:layer", "as_mast", FURNITURE_DEDUP_M),
+        ],
+    },
+    PointDedup {
+        winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
+            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP_M),
+            (
+                "berlin:layer",
+                "bv_springbrunnen_zierbrunnen",
+                FOUNTAIN_DEDUP_M,
+            ),
+        ],
+    },
+    PointDedup {
+        winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP_M),
+            (
+                "berlin:layer",
+                "ac_trinkwasserbrunnen_wasserspender",
+                FOUNTAIN_DEDUP_M,
+            ),
+        ],
+    },
+    PointDedup {
+        winner: ("berlin:layer", "aq_hydrant"),
+        losers: &[(
+            "freemapper:osm",
+            "emergency=fire_hydrant",
+            FURNITURE_DEDUP_M,
+        )],
+    },
+    PointDedup {
+        winner: ("berlin:layer", "bj_sitzbank"),
+        losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP_M)],
+    },
+    PointDedup {
+        winner: ("berlin:layer", "as_mast"),
+        losers: SURVEY_MAST_LOSERS,
+    },
+    PointDedup {
+        winner: ("berlin:layer", "am_fahnenmast"),
+        losers: SURVEY_MAST_LOSERS,
+    },
+    PointDedup {
+        winner: ("berlin:layer", "aw_spielgeraet"),
+        losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP_M)],
+    },
+];
+
+/// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
+/// each source uses.
+const SURVEY_MAST_LOSERS: &[(&str, &str, f64)] = &[
+    ("freemapper:osm", "man_made=mast", FURNITURE_DEDUP_M),
+    ("freemapper:osm", "man_made=flagpole", FURNITURE_DEDUP_M),
+];
+
+/// Whether the tag value `value` holds `wanted`: one of its `; `-separated parts equals it, or
+/// starts with it when `wanted` ends in `*`.
+fn tag_holds(value: &str, wanted: &str) -> bool {
+    value
+        .split("; ")
+        .any(|part| match wanted.strip_suffix('*') {
+            Some(prefix) => part.starts_with(prefix),
+            None => part == wanted,
+        })
+}
+
+/// The registers win over the survey and OSM, and the survey furniture over OSM
+/// ([`POINT_DEDUPS`]): an OSM street lamp within [`OSM_LAMP_DEDUP_M`] or a survey mast within
+/// [`FURNITURE_DEDUP_M`] of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
+/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, and
+/// an OSM hydrant, bench, mast, flag pole or play item within [`FURNITURE_DEDUP_M`] of the
+/// survey one are dropped. A line (bench, play item) counts by the middle of its extent. The
+/// winner names each dropped object in `freemapper:also` (`osm/node/1`,
+/// `geoportal-berlin/sb-moebel/<gis_id>`). Returns the OSM and the Berlin candidates without
+/// them.
+pub fn drop_points_near_registers(
+    osm: Vec<MapObject>,
+    mut berlin: Vec<MapObject>,
+    scale_denominator: u32,
+) -> (Vec<MapObject>, Vec<MapObject>) {
+    let tag = |o: &MapObject, key: &str| -> Option<String> {
+        o.tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
+    let holds = |o: &MapObject, (key, value): (&str, &str)| {
+        tag(o, key).is_some_and(|v| tag_holds(&v, value))
+    };
+    // A point, or the middle of a short line's extent (benches, play equipment).
+    let position = |o: &MapObject| match (&o.kind, o.coords.first()) {
+        (MapObjectKind::Point { .. }, Some(c)) => Some((f64::from(c.x), f64::from(c.y))),
+        (MapObjectKind::Path, Some(_)) => {
+            let xs = o.coords.iter().map(|c| f64::from(c.x));
+            let ys = o.coords.iter().map(|c| f64::from(c.y));
+            let (min_x, max_x) = xs.fold((f64::MAX, f64::MIN), |(a, b), x| (a.min(x), b.max(x)));
+            let (min_y, max_y) = ys.fold((f64::MAX, f64::MIN), |(a, b), y| (a.min(y), b.max(y)));
+            Some(((min_x + max_x) / 2.0, (min_y + max_y) / 2.0))
+        }
+        _ => None,
+    };
+    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
+    let metre = 1e6 / f64::from(scale_denominator);
+    let mut dropped_osm = vec![false; osm.len()];
+    let mut dropped_berlin = vec![false; berlin.len()];
+    let mut also: Vec<(usize, String)> = Vec::new();
+    for rule in &POINT_DEDUPS {
+        let winners: Vec<(usize, (f64, f64))> = berlin
+            .iter()
+            .enumerate()
+            .filter(|&(i, o)| !dropped_berlin[i] && holds(o, rule.winner))
+            .filter_map(|(i, o)| position(o).map(|p| (i, p)))
+            .collect();
+        if winners.is_empty() {
+            continue;
+        }
+        let mut check = |object: &MapObject, gone: &mut bool| {
+            let Some(limit_m) = rule
+                .losers
+                .iter()
+                .find(|&&(key, value, _)| holds(object, (key, value)))
+                .map(|&(_, _, limit_m)| limit_m)
+            else {
+                return;
+            };
+            let Some((x, y)) = position(object).filter(|_| !*gone) else {
+                return;
+            };
+            let limit = limit_m * metre;
+            let nearest = winners
+                .iter()
+                .map(|&(i, (wx, wy))| (i, (x - wx).hypot(y - wy)))
+                .filter(|&(_, d)| d <= limit)
+                .min_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((winner, _)) = nearest {
+                *gone = true;
+                let name = format!(
+                    "{}/{}",
+                    tag(object, "freemapper:source").unwrap_or_default(),
+                    tag(object, "freemapper:source_id").unwrap_or_default()
+                );
+                also.push((winner, name));
+            }
+        };
+        for (object, gone) in osm.iter().zip(&mut dropped_osm) {
+            check(object, gone);
+        }
+        for (object, gone) in berlin.iter().zip(&mut dropped_berlin) {
+            check(object, gone);
+        }
+    }
+    for (winner, name) in also {
+        add_also(&mut berlin[winner].tags, &name);
+    }
+    let keep = |objects: Vec<MapObject>, dropped: Vec<bool>| -> Vec<MapObject> {
+        objects
+            .into_iter()
+            .zip(dropped)
+            .filter_map(|(o, gone)| (!gone).then_some(o))
+            .collect()
+    };
+    (keep(osm, dropped_osm), keep(berlin, dropped_berlin))
+}
+
+/// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
+const SHELTER_UNDER_CANOPY_SHARE: f64 = 0.5;
+
+/// The area of a map object in map coordinates: the first closed run of coordinates is the
+/// exterior, the others are holes. `None` for a point or a line too short for a ring.
+fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
+    use crate::omap::coord::FLAG_CLOSE;
+    if !matches!(object.kind, MapObjectKind::Path) {
+        return None;
+    }
+    let mut rings: Vec<geo_types::LineString<f64>> = Vec::new();
+    let mut ring = Vec::new();
+    for c in &object.coords {
+        ring.push((f64::from(c.x), f64::from(c.y)));
+        if c.flags & FLAG_CLOSE != 0 {
+            rings.push(std::mem::take(&mut ring).into());
+        }
+    }
+    if !ring.is_empty() {
+        rings.push(ring.into());
+    }
+    let mut rings = rings.into_iter().filter(|r| r.0.len() >= 3);
+    Some(geo_types::Polygon::new(rings.next()?, rings.collect()))
+}
+
+/// ALKIS wins over the survey for roofs too: a survey bus shelter (`br_fahrgastunterstand`, a
+/// 522 candidate) with at least [`SHELTER_UNDER_CANOPY_SHARE`] of its area under the ALKIS
+/// `canopies` (522 map objects) is dropped, and the canopy with the largest share names it in
+/// `freemapper:also`. Everything else stays.
+pub fn drop_shelters_under_canopies(
+    berlin: Vec<MapObject>,
+    canopies: &mut [MapObject],
+) -> Vec<MapObject> {
+    use geo::{Area as _, BooleanOps as _, Intersects as _};
+    let roofs: Vec<(usize, geo_types::Polygon<f64>, geo_types::Rect<f64>)> = canopies
+        .iter()
+        .enumerate()
+        .filter_map(|(i, o)| {
+            let polygon = object_polygon(o)?;
+            let bounds = polygon.bounding_rect()?;
+            Some((i, polygon, bounds))
+        })
+        .collect();
+    if roofs.is_empty() {
+        return berlin;
+    }
+    let is_shelter = |o: &MapObject| {
+        o.tags
+            .iter()
+            .any(|(k, v)| k == "berlin:layer" && v == "br_fahrgastunterstand")
+    };
+    let mut kept = Vec::with_capacity(berlin.len());
+    for object in berlin {
+        let shelter = is_shelter(&object)
+            .then(|| object_polygon(&object))
+            .flatten()
+            .and_then(|p| p.bounding_rect().map(|b| (p, b)));
+        let Some((shelter, bounds)) = shelter else {
+            kept.push(object);
+            continue;
+        };
+        let area = shelter.unsigned_area();
+        let shares: Vec<(usize, f64)> = roofs
+            .iter()
+            .filter(|(_, _, b)| b.intersects(&bounds))
+            .map(|(i, roof, _)| (*i, shelter.intersection(roof).unsigned_area()))
+            .filter(|&(_, share)| share > 0.0)
+            .collect();
+        // Canopies do not overlap each other (ALKIS areas), so the shares add up.
+        let covered: f64 = shares.iter().map(|(_, share)| share).sum();
+        if area <= 0.0 || covered < SHELTER_UNDER_CANOPY_SHARE * area {
+            kept.push(object);
+            continue;
+        }
+        let winner = shares
+            .iter()
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|&(i, _)| i)
+            .expect("some share is under a canopy");
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        let also = format!(
+            "{}/{}",
+            tag("freemapper:source"),
+            tag("freemapper:source_id")
+        );
+        add_also(&mut canopies[winner].tags, &also);
+    }
+    kept
 }
 
 #[cfg(test)]
@@ -627,6 +1029,357 @@ mod tests {
         berlin_objects(&[input], kind, &area, 20.0, &georef, &set).unwrap()
     }
 
+    /// A stored Straßenbefahrung feature: `freemapper:layer` and the survey date stamped as
+    /// the download does.
+    fn survey_feature(layer: &str, mut feature: Value) -> Value {
+        feature["properties"][crate::sources::berlin::TYPE_KEY] = layer.into();
+        crate::sources::berlin::stamp_survey_date(&mut feature);
+        feature
+    }
+
+    fn stored(layer: &str, collection: &str) -> Vec<Value> {
+        features(collection)
+            .into_iter()
+            .map(|f| survey_feature(layer, f))
+            .collect()
+    }
+
+    fn survey_objects(file: &str, features: &[Value], kind: MapKind) -> Vec<MapObject> {
+        let (georef, area, set) = setup(kind);
+        let input = LayerInput {
+            file,
+            features,
+            currency: "2026-11-09".parse().unwrap(),
+        };
+        berlin_objects(&[input], kind, &area, 20.0, &georef, &set).unwrap()
+    }
+
+    fn object_tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
+        object
+            .tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    fn survey_point(layer: &str, id: &str, (e, n): (f64, f64)) -> Value {
+        survey_feature(
+            layer,
+            serde_json::json!({
+                "type": "Feature", "id": format!("{layer}.{id}"),
+                "geometry": {"type": "Point", "coordinates": [e, n]},
+                "properties": {"gis_id": format!("Pk_2015-05-02_{id}"), "pot": 2}
+            }),
+        )
+    }
+
+    #[test]
+    fn curbs_are_edge_candidates_on_sprint_only() {
+        let curbs = stored("bd_bordstein", SB_BORDSTEIN);
+        let found = survey_objects("sb-bordstein", &curbs, MapKind::Sprint);
+        let set = MapKind::Sprint.symbol_set();
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(
+            found
+                .iter()
+                .all(|o| Some(o.symbol_id) == set.id_for_code("501.1")
+                    && matches!(o.kind, MapObjectKind::Path))
+        );
+        assert_eq!(
+            object_tag(&found[0], "freemapper:source"),
+            Some("geoportal-berlin/sb-bordstein")
+        );
+        // The survey date is the currency; the survey codes stay for the mapper, `NULL` does not.
+        assert_eq!(
+            object_tag(&found[0], "freemapper:source_id"),
+            Some("Li_16.04.2015_18991")
+        );
+        assert_eq!(
+            object_tag(&found[0], "freemapper:currency"),
+            Some("2015-04-16")
+        );
+        assert_eq!(
+            object_tag(&found[1], "freemapper:currency"),
+            Some("2014-07-16")
+        );
+        assert_eq!(object_tag(&found[0], "berlin:sre"), Some("0"));
+        assert_eq!(object_tag(&found[1], "berlin:sre"), None);
+        // A schoolyard map has no curb candidates.
+        assert!(survey_objects("sb-bordstein", &curbs, MapKind::Schoolyard).is_empty());
+        // A curb shorter than 1 mm on paper (1 m at 1:1000) is dropped.
+        let mut short = curbs[0].clone();
+        short["geometry"]["coordinates"] =
+            serde_json::json!([[[392_500.0, 5_820_500.0], [392_500.4, 5_820_500.0]]]);
+        assert!(survey_objects("sb-bordstein", &[short], MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn railings_are_impassable_fence_candidates() {
+        let mut railings = stored("bf_gelaender", SB_GELAENDER);
+        railings.extend(stored("bb_verkehrsschutzgitter", SB_VERKEHRSSCHUTZGITTER));
+        let mut barrier = railings[0].clone();
+        barrier["properties"][crate::sources::berlin::TYPE_KEY] = "bg_leitplanke".into();
+        railings.push(barrier);
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = survey_objects("sb-gelaender", &railings, kind);
+            let set = kind.symbol_set();
+            assert_eq!(found.len(), 5, "{found:?}");
+            assert!(
+                found
+                    .iter()
+                    .all(|o| Some(o.symbol_id) == set.id_for_code("518"))
+            );
+            assert_eq!(
+                object_tag(&found[0], "freemapper:currency"),
+                Some("2015-05-02")
+            );
+        }
+    }
+
+    #[test]
+    fn walls_of_the_survey_are_515() {
+        let wall = survey_feature(
+            "bh_mauer",
+            serde_json::json!({
+                "type": "Feature", "id": "bh_mauer.1",
+                "geometry": {"type": "MultiLineString", "coordinates": [[[392_500.0, 5_820_500.0], [392_520.0, 5_820_500.0]]]},
+                "properties": {"gis_id": "Li_25.09.2014_230", "hms": "2"}
+            }),
+        );
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = survey_objects("sb-mauer", std::slice::from_ref(&wall), kind);
+            assert_eq!(found.len(), 1);
+            assert_eq!(
+                Some(found[0].symbol_id),
+                kind.symbol_set().id_for_code("515")
+            );
+            assert_eq!(object_tag(&found[0], "berlin:hms"), Some("2"));
+            assert_eq!(
+                object_tag(&found[0], "freemapper:currency"),
+                Some("2014-09-25")
+            );
+        }
+    }
+
+    #[test]
+    fn bollards_only_on_schoolyard() {
+        let furniture: Vec<Value> = ["av_poller", "as_mast", "am_fahnenmast"]
+            .iter()
+            .enumerate()
+            .map(|(i, layer)| {
+                survey_point(layer, &i.to_string(), (392_500.0 + i as f64, 5_820_500.0))
+            })
+            .collect();
+        let found = survey_objects("sb-moebel", &furniture, MapKind::Schoolyard);
+        let set = MapKind::Schoolyard.symbol_set();
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert!(
+            found
+                .iter()
+                .all(|o| Some(o.symbol_id) == set.id_for_code("544"))
+        );
+        assert_eq!(object_tag(&found[0], "berlin:pot"), Some("2"));
+        // On a sprint map they would flood the candidates.
+        assert!(survey_objects("sb-moebel", &furniture, MapKind::Sprint).is_empty());
+        // The other schoolyard furniture: hydrant 321, play equipment 541.
+        let others = [
+            survey_point("aq_hydrant", "7", (392_510.0, 5_820_500.0)),
+            survey_point("aw_spielgeraet", "8", (392_520.0, 5_820_500.0)),
+        ];
+        let found = survey_objects("sb-moebel", &others, MapKind::Schoolyard);
+        let codes: Vec<_> = ["321", "541"].iter().map(|c| set.id_for_code(c)).collect();
+        assert_eq!(
+            found.iter().map(|o| Some(o.symbol_id)).collect::<Vec<_>>(),
+            codes
+        );
+        assert!(survey_objects("sb-moebel", &others, MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn advertising_column_is_531() {
+        let column = survey_point("ag_werbesaeule", "1", (392_500.0, 5_820_500.0));
+        let found = survey_objects("sb-objekte", &[column], MapKind::Sprint);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(
+            Some(found[0].symbol_id),
+            MapKind::Sprint.symbol_set().id_for_code("531")
+        );
+        assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
+        // The schoolyard set has no use for it and no layer fetches it there.
+        let column = survey_point("ag_werbesaeule", "1", (392_500.0, 5_820_500.0));
+        assert!(survey_objects("sb-objekte", &[column], MapKind::Schoolyard).is_empty());
+    }
+
+    #[test]
+    fn shelters_pumps_and_fountains_are_street_objects() {
+        let shelter = survey_feature(
+            "br_fahrgastunterstand",
+            serde_json::json!({
+                "type": "Feature", "id": "br_fahrgastunterstand.1",
+                "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                    [392_500.0, 5_820_500.0], [392_503.0, 5_820_500.0], [392_503.0, 5_820_502.0],
+                    [392_500.0, 5_820_502.0], [392_500.0, 5_820_500.0]]]]},
+                "properties": {"gis_id": "Fl_20150413_37"}
+            }),
+        );
+        let objects = [
+            shelter,
+            survey_point("af_wasserpumpen_brunnen", "2", (392_510.0, 5_820_500.0)),
+            survey_point(
+                "bv_springbrunnen_zierbrunnen",
+                "3",
+                (392_520.0, 5_820_500.0),
+            ),
+            survey_point(
+                "ac_trinkwasserbrunnen_wasserspender",
+                "4",
+                (392_530.0, 5_820_500.0),
+            ),
+        ];
+        let codes = |kind: MapKind| -> Vec<Option<u32>> {
+            survey_objects("sb-objekte", &objects, kind)
+                .iter()
+                .map(|o| Some(o.symbol_id))
+                .collect()
+        };
+        let set = MapKind::Sprint.symbol_set();
+        assert_eq!(
+            codes(MapKind::Sprint),
+            ["522", "311", "311"].map(|c| set.id_for_code(c)).to_vec()
+        );
+        let set = MapKind::Schoolyard.symbol_set();
+        assert_eq!(
+            codes(MapKind::Schoolyard),
+            ["522", "311", "311", "313"]
+                .map(|c| set.id_for_code(c))
+                .to_vec()
+        );
+    }
+
+    #[test]
+    fn survey_shelter_under_an_alkis_canopy_is_dropped() {
+        let kind = MapKind::Sprint;
+        let (georef, area, set) = setup(kind);
+        let rect = |e: f64, n: f64, w: f64, h: f64| {
+            serde_json::json!([[[e, n], [e + w, n], [e + w, n + h], [e, n + h], [e, n]]])
+        };
+        // An ALKIS canopy of 10 × 4 m.
+        let canopy = serde_json::json!({
+            "type": "Feature", "id": "bauwerkeflaechen.D",
+            "geometry": {"type": "Polygon", "coordinates": rect(392_500.0, 5_820_500.0, 10.0, 4.0)},
+            "properties": {"uuid": "DEBE00DACH", "bezbwf": "Überdachung"}
+        });
+        let mut canopies = crate::build::canopy::canopy_objects(
+            &[canopy],
+            &[],
+            &area,
+            20.0,
+            &georef,
+            &set,
+            "2026-11-09".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(canopies.len(), 1);
+        let shelter = |id: &str, e: f64, n: f64| {
+            survey_feature(
+                "br_fahrgastunterstand",
+                serde_json::json!({
+                    "type": "Feature", "id": format!("br_fahrgastunterstand.{id}"),
+                    "geometry": {"type": "Polygon", "coordinates": rect(e, n, 4.0, 2.0)},
+                    "properties": {"gis_id": format!("Fl_20150413_{id}")}
+                }),
+            )
+        };
+        let shelters = [
+            // Wholly under the canopy: the same roof.
+            shelter("1", 392_501.0, 5_820_501.0),
+            // A quarter under it: another roof beside it.
+            shelter("2", 392_509.0, 5_820_500.0),
+            // Far away.
+            shelter("3", 392_550.0, 5_820_500.0),
+        ];
+        let mut berlin = survey_objects("sb-objekte", &shelters, kind);
+        // Another 522 candidate under the canopy that is no shelter stays.
+        let mut passage = berlin[0].clone();
+        passage.tags = vec![("berlin:layer".into(), "building-parts".into())];
+        berlin.push(passage);
+        assert_eq!(berlin.len(), 4);
+        let kept = drop_shelters_under_canopies(berlin, &mut canopies);
+        let ids: Vec<&str> = kept
+            .iter()
+            .map(|o| object_tag(o, "freemapper:source_id").unwrap_or("passage"))
+            .collect();
+        assert_eq!(ids, ["Fl_20150413_2", "Fl_20150413_3", "passage"]);
+        assert_eq!(
+            object_tag(&canopies[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-objekte/Fl_20150413_1")
+        );
+        // Without canopies every shelter stays.
+        let berlin = survey_objects("sb-objekte", &shelters, kind);
+        assert_eq!(drop_shelters_under_canopies(berlin, &mut []).len(), 3);
+    }
+
+    /// A survey or ALKIS line of `symbol` at `n`, `e0`..`e1` (metres from Alexanderplatz).
+    fn line_object(
+        kind: MapKind,
+        code: &str,
+        source: &str,
+        id: &str,
+        (e0, e1, n): (f64, f64, f64),
+    ) -> MapObject {
+        let (georef, _, set) = setup(kind);
+        let p = |e: f64| {
+            georef
+                .projected_to_map(ProjectedPoint {
+                    easting: 392_400.0 + e,
+                    northing: 5_820_400.0 + n,
+                })
+                .unwrap()
+        };
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Path,
+            coords: vec![p(e0), p(e1)],
+            tags: vec![
+                ("freemapper:source".into(), source.into()),
+                ("freemapper:source_id".into(), id.into()),
+            ],
+        }
+    }
+
+    #[test]
+    fn survey_lines_near_alkis_are_dropped_and_named() {
+        let kind = MapKind::Sprint;
+        let set = kind.symbol_set();
+        let alkis = "geoportal-berlin/bauwerke-linien";
+        let survey = "geoportal-berlin/sb-gelaender";
+        let mut berlin = vec![
+            line_object(kind, "518", alkis, "A1", (0.0, 40.0, 0.0)),
+            // A wall: another symbol, stays.
+            line_object(kind, "515", alkis, "A2", (0.0, 40.0, 30.0)),
+        ];
+        berlin.extend([
+            // Along the ALKIS fence within 1 m: the same fence.
+            line_object(kind, "518", survey, "S1", (1.0, 39.0, 0.8)),
+            // 5 m away: another fence.
+            line_object(kind, "518", survey, "S2", (1.0, 39.0, 5.0)),
+            // Along the ALKIS wall but a railing: stays (different symbol).
+            line_object(kind, "518", survey, "S3", (1.0, 39.0, 30.5)),
+        ]);
+        let kept = drop_survey_lines_near_alkis(berlin, &set, 1000);
+        // The ALKIS objects are kept, the near survey fence is gone.
+        let ids: Vec<_> = kept
+            .iter()
+            .map(|o| object_tag(o, "freemapper:source_id").unwrap())
+            .collect();
+        assert_eq!(ids, ["A1", "A2", "S2", "S3"]);
+        assert_eq!(
+            object_tag(&kept[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-gelaender/S1")
+        );
+        assert_eq!(object_tag(&kept[1], "freemapper:also"), None);
+    }
+
     #[test]
     fn berlin_feature_becomes_tagged_feature() {
         let point = serde_json::json!({
@@ -647,6 +1400,22 @@ mod tests {
         // Empty strings and nulls are no tags.
         assert_eq!(tag(&tagged[0], "berlin:nam"), None);
         assert_eq!(tag(&tagged[0], "berlin:art"), None);
+
+        // A stored `layer` (the WFS type of a file with several types) is the `berlin:layer`.
+        let rail = serde_json::json!({
+            "type": "Feature", "id": "bf_gelaender.1",
+            "geometry": {"type": "Point", "coordinates": [392419.46, 5820118.05]},
+            "properties": {"freemapper:layer": "bf_gelaender", "layer": "native", "survey_date": "2015-05-02"}
+        });
+        let tagged = tagged_features("sb-gelaender", &[rail]);
+        let layers: Vec<&str> = tagged[0]
+            .tags
+            .iter()
+            .filter(|(k, _)| k == "berlin:layer")
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(layers, ["bf_gelaender"]);
+        assert_eq!(tag(&tagged[0], "berlin:survey_date"), Some("2015-05-02"));
 
         // Each part of a MultiLineString is a line.
         let lines = serde_json::json!({
@@ -973,6 +1742,233 @@ mod tests {
             drop_osm_trees_near_cadastre(vec![tree(0.0, 0.0)], &[], georef.scale_denominator).len(),
             1
         );
+    }
+
+    /// A point of a register (`beleuchtung`, `zierbrunnen`, `trinkwasserbrunnen`): stored with
+    /// the type name, no survey date.
+    fn register_point(layer: &str, id: &str, at: (f64, f64)) -> Value {
+        serde_json::json!({
+            "type": "Feature", "id": format!("{layer}.{id}"),
+            "geometry": {"type": "Point", "coordinates": [at.0, at.1]},
+            "properties": {"id": id, crate::sources::berlin::TYPE_KEY: layer}
+        })
+    }
+
+    /// An OSM point candidate `de`, `dn` metres from Alexanderplatz (392400, 5820400).
+    fn osm_point(kind: MapKind, code: &str, osm: &str, id: &str, de: f64, dn: f64) -> MapObject {
+        let (georef, _, set) = setup(kind);
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: 392_400.0 + de,
+                        northing: 5_820_400.0 + dn,
+                    })
+                    .unwrap(),
+            ],
+            tags: vec![
+                ("freemapper:source".into(), "osm".into()),
+                ("freemapper:source_id".into(), id.into()),
+                ("freemapper:osm".into(), osm.into()),
+            ],
+        }
+    }
+
+    fn ids(objects: &[MapObject]) -> Vec<&str> {
+        objects
+            .iter()
+            .filter_map(|o| object_tag(o, "freemapper:source_id"))
+            .collect()
+    }
+
+    #[test]
+    fn lamps_of_the_cadastre_are_schoolyard_candidates() {
+        let kind = MapKind::Schoolyard;
+        let lamps = [register_point("beleuchtung", "1", (392_400.0, 5_820_400.0))];
+        let set = kind.symbol_set();
+        let lamp = survey_objects("beleuchtung", &lamps, kind);
+        assert_eq!(lamp.len(), 1);
+        assert_eq!(Some(lamp[0].symbol_id), set.id_for_code("545"));
+        assert_eq!(
+            object_tag(&lamp[0], "freemapper:source"),
+            Some("geoportal-berlin/beleuchtung")
+        );
+        assert_eq!(object_tag(&lamp[0], "berlin:layer"), Some("beleuchtung"));
+        // Lamps are for the schoolyard only.
+        assert!(survey_objects("beleuchtung", &lamps, MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn lamp_cadastre_replaces_osm_lamp_nearby() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let lamps = [register_point("beleuchtung", "7", (392_400.0, 5_820_400.0))];
+        // A survey mast is the lamp only within 2 m; 2.5 m away it is a sign or signal mast.
+        let masts = [
+            survey_point("as_mast", "near", (392_401.5, 5_820_400.0)),
+            survey_point("as_mast", "far", (392_402.5, 5_820_400.0)),
+            survey_point("av_poller", "post", (392_400.5, 5_820_400.0)),
+        ];
+        let mut berlin = survey_objects("beleuchtung", &lamps, kind);
+        berlin.extend(survey_objects("sb-moebel", &masts, kind));
+        // An OSM lamp is the same lamp up to 5 m away (live data: 2 to 6.7 m off, lamps 20 to
+        // 30 m apart).
+        let osm = vec![
+            osm_point(kind, "545", "highway=street_lamp", "node/1", 1.0, 1.0), // 1.4 m
+            osm_point(kind, "545", "highway=street_lamp", "node/2", 0.0, 2.5), // 2.5 m
+            osm_point(kind, "545", "highway=street_lamp", "node/4", 3.0, 3.9), // 4.9 m
+            osm_point(kind, "545", "highway=street_lamp", "node/5", 0.0, 5.5), // 5.5 m
+            osm_point(kind, "544", "man_made=mast", "node/3", 0.0, 0.5),       // not a lamp
+        ];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/5", "node/3"]);
+        let layers: Vec<_> = berlin
+            .iter()
+            .filter_map(|o| object_tag(o, "berlin:layer"))
+            .collect();
+        assert_eq!(layers, ["beleuchtung", "as_mast", "av_poller"]);
+        let far = berlin
+            .iter()
+            .find(|o| object_tag(o, "freemapper:source_id").is_some_and(|i| i.contains("far")))
+            .map(|o| object_tag(o, "freemapper:source_id"));
+        assert!(far.is_some(), "the far mast stays");
+        // The lamp names what it replaced.
+        let also = object_tag(&berlin[0], "freemapper:also").unwrap();
+        assert!(also.contains("osm/node/1"), "{also}");
+        assert!(also.contains("geoportal-berlin/sb-moebel/"), "{also}");
+        assert!(
+            also.contains("osm/node/2") && also.contains("osm/node/4"),
+            "{also}"
+        );
+        assert!(!also.contains("node/5"), "{also}");
+    }
+
+    #[test]
+    fn survey_furniture_replaces_osm_furniture_nearby() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let (e, n) = (392_400.0, 5_820_400.0);
+        let furniture = [
+            survey_point("aq_hydrant", "hydrant", (e, n)),
+            survey_point("bj_sitzbank", "bench", (e + 20.0, n)),
+            survey_point("am_fahnenmast", "flag", (e + 40.0, n)),
+            survey_point("aw_spielgeraet", "swing", (e + 60.0, n)),
+            survey_point("av_poller", "post", (e + 80.0, n)),
+        ];
+        let berlin = survey_objects("sb-moebel", &furniture, kind);
+        assert_eq!(berlin.len(), 5);
+        // OSM benches and play equipment are short lines, like the survey ones.
+        let short_line = |mut o: MapObject| {
+            let c = o.coords[0];
+            o.kind = MapObjectKind::Path;
+            o.coords = vec![
+                crate::omap::MapCoord::new(c.x - 750, c.y),
+                crate::omap::MapCoord::new(c.x + 750, c.y),
+            ];
+            o
+        };
+        let hydrant = "emergency=fire_hydrant; fire_hydrant:type=pillar";
+        let osm = vec![
+            osm_point(kind, "321", hydrant, "node/1", 1.5, 0.0), // the same hydrant
+            osm_point(kind, "321", "emergency=fire_hydrant", "node/2", 0.0, 2.5), // another
+            short_line(osm_point(kind, "543", "amenity=bench", "node/3", 21.0, 1.0)),
+            osm_point(kind, "544", "man_made=flagpole", "node/4", 40.5, 0.0),
+            short_line(osm_point(
+                kind,
+                "541",
+                "playground=swing",
+                "node/5",
+                60.0,
+                1.5,
+            )),
+            // A bollard is no mast: the OSM mast beside it stays.
+            osm_point(kind, "544", "man_made=mast", "node/6", 80.5, 0.0),
+        ];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/2", "node/6"]);
+        assert_eq!(berlin.len(), 5, "the survey wins");
+        let also = |layer: &str| {
+            berlin
+                .iter()
+                .find(|o| object_tag(o, "berlin:layer") == Some(layer))
+                .and_then(|o| object_tag(o, "freemapper:also"))
+                .map(str::to_string)
+        };
+        assert_eq!(also("aq_hydrant").as_deref(), Some("osm/node/1"));
+        assert_eq!(also("bj_sitzbank").as_deref(), Some("osm/node/3"));
+        assert_eq!(also("am_fahnenmast").as_deref(), Some("osm/node/4"));
+        assert_eq!(also("aw_spielgeraet").as_deref(), Some("osm/node/5"));
+        assert_eq!(also("av_poller"), None);
+    }
+
+    #[test]
+    fn survey_mast_at_a_register_lamp_does_not_drop_osm_masts() {
+        // The register lamp drops the survey mast first; a dropped mast wins nothing.
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let lamps = [register_point("beleuchtung", "7", (392_400.0, 5_820_400.0))];
+        let masts = [survey_point("as_mast", "lamp", (392_401.0, 5_820_400.0))];
+        let mut berlin = survey_objects("beleuchtung", &lamps, kind);
+        berlin.extend(survey_objects("sb-moebel", &masts, kind));
+        let osm = vec![osm_point(kind, "544", "man_made=mast", "node/1", 2.5, 0.0)];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/1"]);
+        assert_eq!(berlin.len(), 1);
+    }
+
+    #[test]
+    fn fountains_from_both_sources_dedup() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let (e, n) = (392_400.0, 5_820_400.0);
+        let fountains = [register_point("bez_zierbrunnen", "ZB-1", (e, n))];
+        let drinking = [register_point("trinkwasserbrunnen", "TW-1", (e + 100.0, n))];
+        let objects = [
+            survey_point("bv_springbrunnen_zierbrunnen", "jet", (e + 2.0, n)),
+            survey_point("af_wasserpumpen_brunnen", "pump", (e + 30.0, n)),
+            survey_point("ac_trinkwasserbrunnen_wasserspender", "tap", (e + 101.0, n)),
+        ];
+        let mut berlin = survey_objects("zierbrunnen", &fountains, kind);
+        berlin.extend(survey_objects("trinkwasserbrunnen", &drinking, kind));
+        berlin.extend(survey_objects("sb-objekte", &objects, kind));
+        assert_eq!(berlin.len(), 5, "rules for both registers and the survey");
+        let osm = vec![
+            osm_point(kind, "311", "amenity=fountain", "node/10", 2.9, 0.0), // same fountain
+            osm_point(kind, "311", "amenity=fountain", "node/11", 3.5, 0.0), // another one
+            osm_point(kind, "313", "amenity=drinking_water", "node/12", 0.5, 0.0), // other kind
+            osm_point(kind, "313", "amenity=drinking_water", "node/13", 100.0, 2.0),
+        ];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/11", "node/12"]);
+        // The survey jet at the register fountain and the survey tap at the register tap go;
+        // the pump 30 m away stays.
+        let layers: Vec<_> = berlin
+            .iter()
+            .filter_map(|o| object_tag(o, "berlin:layer"))
+            .collect();
+        assert_eq!(
+            layers,
+            [
+                "bez_zierbrunnen",
+                "trinkwasserbrunnen",
+                "af_wasserpumpen_brunnen"
+            ]
+        );
+        let also = object_tag(&berlin[0], "freemapper:also").unwrap();
+        assert!(also.contains("osm/node/10"), "{also}");
+        // Without registers nothing is dropped.
+        let osm = vec![osm_point(
+            kind,
+            "311",
+            "amenity=fountain",
+            "node/1",
+            0.0,
+            0.0,
+        )];
+        let (osm, _) = drop_points_near_registers(osm, vec![], georef.scale_denominator);
+        assert_eq!(osm.len(), 1);
     }
 
     #[test]

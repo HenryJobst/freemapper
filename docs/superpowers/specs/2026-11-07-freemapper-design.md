@@ -145,7 +145,7 @@ Each layer is stored as served in `data/berlin/<file>.geojson` (EPSG:25833) and 
 layer never fails the fetch: a stored file that still covers the area stays, otherwise the layer is skipped, each
 with a warning. Offline the stored layers stay; outside Berlin no request is made and stored layers are removed.
 Building parts come from the stored `alkis_gebaeude:gebaeude` answer: `normalise_building` keeps `bezbat` as
-`bauart`. ALKIS kerb lines (`Fahrbahnbegrenzungslinie`) are not taken; plan 2 brings the surveyed curbs. Grün
+`bauart`. ALKIS curb lines (`Fahrbahnbegrenzungslinie`) are not taken; the surveyed curbs are (below). Grün
 Berlin's tree layer is left out for its licence.
 
 The K5 (Karte von Berlin 1:5000, colour) is a template: WMS `https://gdi.berlin.de/services/wms/k5_farbe`, layer
@@ -154,15 +154,59 @@ The K5 (Karte von Berlin 1:5000, colour) is a template: WMS `https://gdi.berlin.
 `templates/k5.png` + `.pgw`, recorded as `ProjectFile.k5` with the dataset date 2026-01-02 (catalogue
 `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`). Only for UTM 33 maps near Berlin. A failure is a warning; the
 disk plan treats K5 as an optional part (`Part::K5`). The starter map lists it hidden, opacity 0.7, behind the map;
-the OCAD file gets it as a background map. The download estimate adds 4 MB/km² for the vector layers
-(`Part::BerlinLayers`, optional like K5; its derived share of 1.0 covers `data/terrain.tif`) and 15 MB/km² for K5, measured in the live run of 2026-11-09 (Viktoriapark 3.7 and 9.1 MB/km²,
-Helene-Haeusler-Schule 4.6 and 17.4 MB/km²).
+the OCAD file gets it as a background map. The download estimate adds 10.5 MB/km² for the vector layers
+(`Part::BerlinLayers`, optional like K5; its derived share of 1.0 covers `data/terrain.tif`): 4 for the six
+layers above, measured in the live run of 2026-11-09 (Viktoriapark 3.7, Helene-Haeusler-Schule 4.6 MB/km²),
+plus 3.5 for the street survey and point layers and 3 for the building heights. These two are the Viktoriapark
+live run of plan 2 (3.2 and 2.7 MB/km², 9.8 in all), rounded up to the next half MB.
+K5 adds 15 MB/km² (live run: Viktoriapark 9.1, Helene-Haeusler-Schule 17.4 MB/km²).
 
 For the stair direction, `derive` keeps the DTM mosaic of a tile provider (LGB) in `data/terrain.tif` (+ `.tfw`)
 when a stored Berlin layer has a `Treppe` or `Freitreppe` area, and removes it otherwise, so the export stays
 offline and needs no cache. Attribution adds `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0`
 when the K5 template was written and `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when a tree layer
 with trees is stored.
+
+**Berlin street survey and registers (Berlin plus 2, verified live 2026-11-08, details
+`docs/regions/berlin-plus-reference.md` §6 to §8; ADRs 0052 to 0058):** the `EXTRA_LAYERS` table gets twelve
+more files. An entry now holds one or more feature types (`LayerType { name, kinds }`), each with its own map
+kinds; a file is fetched with the types that apply to the map kind. Those types are fetched one by one and
+stored together, each feature with `freemapper:layer` = its type name without the namespace (the
+plus 1 files keep their file name there). One failing type fails its whole file, with the warning of the plus
+1 layers.
+
+| file | service | types (kinds) |
+|---|---|---|
+| `sb-gruenflaeche` | `https://gdi.berlin.de/services/wfs/strassenbefahrung` | `ce_gruenflaeche` (sprint) |
+| `sb-flaechen` | same | `cm_fahrbahn`, `cl_gehweg`, `ch_radweg`, `ck_parkflaeche`, `ci_oeffentlicher_platz`, `cj_fussgaengerzone`, `by_gehwegueberfahrt` (sprint) |
+| `sb-bordstein` | same | `bd_bordstein` (sprint) |
+| `sb-treppe` | same | `cc_treppe` (both) |
+| `sb-mauer` | same | `bh_mauer` (both) |
+| `sb-gelaender` | same | `bf_gelaender`, `bb_verkehrsschutzgitter`, `bg_leitplanke` (both) |
+| `sb-moebel` | same | `bj_sitzbank`, `aq_hydrant`, `av_poller`, `as_mast`, `am_fahnenmast`, `aw_spielgeraet` (schoolyard) |
+| `sb-objekte` | same | `ag_werbesaeule` (sprint), `br_fahrgastunterstand`, `af_wasserpumpen_brunnen`, `bv_springbrunnen_zierbrunnen` (both), `ac_trinkwasserbrunnen_wasserspender` (schoolyard) |
+| `beleuchtung` | `https://gdi.berlin.de/services/wfs/beleuchtung` | `beleuchtung:beleuchtung` (schoolyard) |
+| `zierbrunnen` | `https://gdi.berlin.de/services/wfs/zierbrunnen` | `zierbrunnen:bez_zierbrunnen` (both) |
+| `trinkwasserbrunnen` | `https://gdi.berlin.de/services/wfs/trinkwasserbrunnen` | `trinkwasserbrunnen:trinkwasserbrunnen` (schoolyard) |
+| `gebaeudehoehen` | `https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen` | `ua_gebaeudehoehen:gebaeudehoehen` (both) |
+
+The survey types carry the namespace `strassenbefahrung:`. The Straßenbefahrung recorded the public street
+space from 2014 to 2016 and has no newer edition; its attributes are codes without a published code list.
+Each survey feature gets `survey_date` from its `gis_id` (`Fl_20150413_37`, `Li_25.09.2014_230`,
+`FL_16072014_03142`, `Pk_2015-05-02_3121`; eight digits are DDMMYYYY when the first four are no year from 2010
+to 2020). An unreadable id gives the dataset date 2014-01-01 and `survey_date_guessed=yes`. The lighting
+cadastre is a MultiPoint layer: each member becomes a point (ids `id`, `id#2`, …), and lamps whose `status`
+does not start with `In Betrieb` are dropped at download. The building heights (`gebaeudehoehen`, data of 2022)
+give each ALKIS building its footprint date: `grundrissaktualitaet` joins by `gml_id` = the building `oid`
+into `aktualit` when the stored buildings are read (`join_footprint_dates`), so the 521 objects get
+`freemapper:currency`. A building without a match, or without the stored layer (also outside Berlin), keeps no
+date. The building record's `latest_update` stays `None` in Berlin: it is the ALKIS change detection, and a date
+from a separate layer would raise false "changed upstream" warnings (ADR 0057). Attribution:
+`Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert` when an `sb-*` file stored
+features; `Geoportal Berlin / <registers>, dl-de/zero-2-0` naming, in this order, `Öffentliche Beleuchtung`,
+`Zierbrunnen` and `Trinkwasserbrunnen`, each only when its points are among the candidates after the dedup
+(`drawn_registers`; a sprint map never draws lamps); and `Geoportal Berlin / Gebäudehöhen (Umweltatlas),
+dl-de/zero-2-0` when the heights layer stored features.
 
 **Saxony (verified live 2026-11-07, details `docs/regions/saxony-reference.md`):** regions are data
 (`sources/region.rs`, boundaries `assets/regions/{brandenburg,berlin,saxony}.geojson`). ALKIS comes from every region
@@ -380,6 +424,18 @@ reliability policy below**. It is not taken over literally.
   additionally `width < 1.5` or `highway=path` with `trail_visibility` below good. 507 is not used.
 - *candidate:* OSM paths with no `surface` tag.
 - *dropped:* `footway=sidewalk|crossing` and paved OSM ways (ALKIS areas and the orthophoto cover them).
+- **Amended for Berlin (Berlin plus 2, ADRs 0052, 0053):** the surveyed green strips of the Straßenbefahrung
+  (`ce_gruenflaeche`, §4.1) are cut out of the 501.5 map objects (`build/paved.rs`, `subtract_green`). Only
+  that type is cut; tree pits (`bn_baumscheibe`, 2 to 5 m²) are not. An overlap is cut when it is no sliver
+  under min(1 mm on paper, 2 m on the ground) (`GREEN_MIN_SIDE_MM`, `SURVEY_SLIVER_CAP_M`); a strip inside a
+  parcel becomes a hole. Remnants that touch a strip keep the same 2 m cap, so a 3.5 m sidewalk beyond a verge
+  stays; other pieces keep the paper limit. Candidates (`Weg`, streets crossed by unpaved OSM ways) are not cut.
+  A cut object keeps its ALKIS provenance and adds, per piece and for the strips within 0.01 m of it,
+  `freemapper:cut=geoportal-berlin/sb-gruenflaeche`, `freemapper:cut_ids` (gis_ids, `;`) and
+  `freemapper:cut_currency` (the oldest survey date that is not guessed; if all are guessed, the oldest guessed
+  one plus `freemapper:cut_currency_guessed=yes`). The survey never replaces ALKIS: 10 to 27 % of the ALKIS
+  street area is not surveyed (verges, places rebuilt since 2014). Outside Berlin and on schoolyard maps the
+  result is unchanged.
 
 **Water (both map kinds, `build/water.rs`; ADR 0036):**
 - *object 301.1 + 301.6:* ALKIS `nutzung` `Fließgewässer`, `Stehendes Gewässer`, `Hafenbecken` and `Meer`, any `bez`
@@ -465,6 +521,50 @@ Provenance: `freemapper:source=geoportal-berlin/<file>`, `freemapper:source_id` 
 `freemapper:currency` = the fetch date (the layers carry no feature dates), and `bezbwf`/`bezart`/`bezbws`/`bauart`
 copied as `freemapper:alkis`; the object id is `berlin/<file>/<GeoServer id>`. Berlin candidates follow the OSM
 candidates in `candidates.omap`, the stairs follow the rule candidates.
+
+**Berlin street survey and registers (Berlin plus 2, ADRs 0052 to 0058):** the survey and register files (§4.1)
+run through the same rules, keyed by `berlin:layer` = the type name (`bd_bordstein`). Every Berlin candidate now
+also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 files), so the mapper can tell
+`as_mast` from `av_poller`. No rule reads an undocumented survey code; `material`, `hms`, `pot`, `bor`, `gws`,
+`sre`, `hdt` and `trs` are copied as `berlin:<code>` (the WFS string `NULL` is skipped).
+- *per symbol:* `bd_bordstein` → 501.1 (sprint only); `bh_mauer` → 515; `bf_gelaender`,
+  `bb_verkehrsschutzgitter`, `bg_leitplanke` → 518 (impassable like the OSM fences; the mapper downgrades to
+  516); `br_fahrgastunterstand` → 522 area; `af_wasserpumpen_brunnen`, `bv_springbrunnen_zierbrunnen` and the
+  register `bez_zierbrunnen` → 311; `ag_werbesaeule` → 531 (sprint only); `cc_treppe` areas → 532.6 to 532.9 in
+  `build/stairs.rs` like the ALKIS stair areas, with `trs` (probably the number of steps) as `berlin:trs`;
+- *schoolyard only (ADR 0054):* `bj_sitzbank` → 543 (a point becomes a 1.5 mm line), `aq_hydrant` → 321,
+  `av_poller`, `as_mast`, `am_fahnenmast` → 544, `aw_spielgeraet` → 541 (1.8 mm line),
+  `ac_trinkwasserbrunnen_wasserspender` and the register `trinkwasserbrunnen` → 313, the lighting cadastre
+  `beleuchtung` → 545. On a sprint map one km² can hold 2 392 bollards, so the furniture stays off it. Lamps come
+  from the lighting cadastre, not from the survey's `as_mast`;
+- *sprint only, in `build/paved.rs`:* each surveyed green strip minus the 501.5 objects and candidates that stay
+  (so only its cut part and what lies off the paving) → 401 candidate, and each surveyed surface of
+  `sb-flaechen` minus the 501.5 parcels actually drawn (map objects and candidates after the sliver filter) and
+  minus the cut-out strips → 501.5 candidate, one per survey feature (`surveyed_paved_candidates`). Both keep
+  pieces down to min(1 mm on paper, 2 m on the ground), so 3 m park paths stay at 1:4000 (ADR 0053). No
+  candidate overlaps a 501.5 map object. The difference is computed in map CRS against the union of the nearby
+  parcels only;
+- *currency:* survey candidates carry their survey date as `freemapper:currency` and
+  `freemapper:currency_guessed=yes` when it was guessed; `freemapper:source_id` is the `gis_id`;
+- *short lines (ADR 0056):* for every non-OSM source, line features that the rules draw with the same symbol
+  and that touch end to end (within 0.1 m, bend up to about 30°) are joined first; then a line shorter than
+  1 mm on paper (`MIN_LINE_MM`) is dropped. The chain keeps the tags of its first segment, names the others
+  in `freemapper:also` and takes the oldest survey date (guessed when one segment is);
+- *duplicates (ADR 0055), order register > ALKIS > survey > OSM:* a survey line with at least 80 % of its length
+  within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_survey_lines_near_alkis`), then OSM lines
+  against ALKIS and the remaining survey lines. A survey stair covering at least 50 % of the smaller of it and an
+  ALKIS stair area or step-edge flight is dropped, and so is a survey bus shelter with at least 50 % of its
+  area under ALKIS canopies (`drop_shelters_under_canopies`). Survey walls (515) and ALKIS retaining walls
+  (513.2) both stay. Register points win for lamps within 5 m of OSM `highway=street_lamp` and within 2 m of survey
+  `as_mast`, and within 3 m for fountains (OSM `amenity=fountain`, survey `af_…`, `bv_…`) and drinking water
+  (OSM `amenity=drinking_water`, survey `ac_…`). Then survey furniture wins within 2 m over OSM:
+  `aq_hydrant` over `emergency=fire_hydrant`, `bj_sitzbank` over `amenity=bench`, `as_mast` and
+  `am_fahnenmast` over `man_made=mast|flagpole`, `aw_spielgeraet` over `playground=*`; a short line counts by
+  the middle of its extent, and a point dropped earlier wins nothing (`drop_points_near_registers`). The
+  winner names each dropped object in `freemapper:also` as `<source>/<source_id>`: `osm/way/…`, `osm/node/…` or
+  `geoportal-berlin/sb-gelaender/<gis_id>` (ADR 0058). Register fountains and survey
+  `bv_springbrunnen_zierbrunnen` points inside drawn water are dropped like the OSM ones
+  (`drop_points_in_water`); a survey pump stays.
 
 Generalization: drop buildings below the minimum size and simplify outlines (≈0.1 mm map tolerance; at 1:1000
 that is 0.1 m).
