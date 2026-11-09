@@ -630,7 +630,7 @@ pub fn fetch_extract(
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Extract, FetchError> {
-    crate::fsutil::remove_stale_cache_parts(&cache.osm_dir(), STALE_PART_AGE);
+    freemapper_fs::remove_stale_cache_parts(&cache.osm_dir(), STALE_PART_AGE);
     let newest = cached_extracts(cache, source).into_iter().next();
     if mode == FetchMode::Offline {
         return newest.ok_or(FetchError::OsmExtractMissing);
@@ -700,7 +700,7 @@ fn refresh_extract(
             return Err(e);
         }
     };
-    crate::fsutil::rename_cache_file(&part, &path).map_err(|(path, e)| FetchError::Io(path, e))?;
+    freemapper_fs::rename_cache_file(&part, &path).map_err(|(path, e)| FetchError::Io(path, e))?;
     for older in cached_extracts(cache, source)
         .into_iter()
         .filter(|e| e.path != path)

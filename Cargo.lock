@@ -641,6 +641,7 @@ dependencies = [
  "contour",
  "crc32fast",
  "dirs",
+ "freemapper-fs",
  "fs4",
  "geo",
  "geo-types",
@@ -651,7 +652,6 @@ dependencies = [
  "osmpbf",
  "pdf-writer",
  "quick-xml",
- "same-file",
  "serde",
  "serde_json",
  "sha2",
@@ -686,6 +686,14 @@ dependencies = [
  "tempfile",
  "tokio",
  "ureq",
+]
+
+[[package]]
+name = "freemapper-fs"
+version = "0.2.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.2.0#ae442f5967491d054d489f34f5d721b136d96172"
+dependencies = [
+ "same-file",
 ]
 
 [[package]]

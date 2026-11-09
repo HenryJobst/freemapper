@@ -391,7 +391,7 @@ impl ProjectFile {
     /// characters.
     fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(&str)) {
         let mut keep = |what: &str, key: &str, known: bool| {
-            let reason = if !crate::fsutil::is_plain_name(key) {
+            let reason = if !freemapper_fs::is_plain_name(key) {
                 "not a plain file name"
             } else if !known {
                 "no layer freemapper knows"
@@ -470,7 +470,7 @@ impl ProjectFile {
                 path.with_extension("pgw"),
                 path.with_extension("tfw"),
             ] {
-                crate::fsutil::remove_inside(dir, &file);
+                freemapper_fs::remove_inside(dir, &file);
             }
         }
         self.tiles.clear();
@@ -1097,7 +1097,7 @@ fn drop_wms_orthophoto(dir: &Path, project: &mut ProjectFile) {
     project.orthophoto = None;
     let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
     for stale in [wms.clone(), wms.with_extension("jgw")] {
-        crate::fsutil::remove_inside(dir, &stale);
+        freemapper_fs::remove_inside(dir, &stale);
     }
 }
 
@@ -1282,7 +1282,7 @@ fn fetch_k5_into(
     let path = dir.join(K5_RELPATH);
     let remove = |project: &mut ProjectFile| {
         for file in [path.clone(), path.with_extension("pgw")] {
-            crate::fsutil::remove_inside(dir, &file);
+            freemapper_fs::remove_inside(dir, &file);
         }
         project.k5 = None;
     };
@@ -2102,7 +2102,7 @@ fn stored_surface_or_drop(
         project.surface = None;
         let surface = dir.join(SURFACE_RELPATH);
         for file in [surface.clone(), surface.with_extension("tfw")] {
-            crate::fsutil::remove_inside(dir, &file);
+            freemapper_fs::remove_inside(dir, &file);
         }
     }
     None
@@ -2386,7 +2386,7 @@ fn fetch_land_use_into(
                 progress(&format!(
                     "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area, so freemapper removed it"
                 ));
-                crate::fsutil::remove_inside(dir, &path);
+                freemapper_fs::remove_inside(dir, &path);
                 Some(None)
             }
             None => {
@@ -2418,7 +2418,7 @@ fn remove_nas_layer(dir: &Path, key: &str) {
     let Some(layer) = known_nas_layer(key) else {
         return;
     };
-    crate::fsutil::remove_inside(dir, &nas_layer_path(dir, layer));
+    freemapper_fs::remove_inside(dir, &nas_layer_path(dir, layer));
 }
 
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
@@ -2441,7 +2441,7 @@ fn remove_berlin_layer(dir: &Path, key: &str) {
         return;
     };
     let path = berlin_layer_path(dir, layer);
-    crate::fsutil::remove_inside(dir, &path);
+    freemapper_fs::remove_inside(dir, &path);
 }
 
 /// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
@@ -2498,7 +2498,7 @@ fn fetch_berlin_layers_into(
             .features
             .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|features| {
-                if !crate::fsutil::stays_inside(dir, &path) {
+                if !freemapper_fs::stays_inside(dir, &path) {
                     return Err(format!(
                         "{BERLIN_LAYERS_DIR} leads out of the project folder"
                     ));
@@ -2621,7 +2621,7 @@ fn fetch_nas_layers_into(
             .features
             .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|fetched| {
-                if !crate::fsutil::stays_inside(dir, &path) {
+                if !freemapper_fs::stays_inside(dir, &path) {
                     return Err(format!("{NAS_LAYERS_DIR} leads out of the project folder"));
                 }
                 let geojson = berlin::layer_to_geojson(&fetched.features);
@@ -2752,7 +2752,7 @@ fn remove_tree_layer(dir: &Path, key: &str) {
     let Some(dataset) = known_tree_dataset(key) else {
         return;
     };
-    crate::fsutil::remove_inside(dir, &tree_layer_path(dir, dataset));
+    freemapper_fs::remove_inside(dir, &tree_layer_path(dir, dataset));
 }
 
 /// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
@@ -2825,7 +2825,7 @@ fn fetch_tree_layers_into(
             .features
             .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|fetched| {
-                if !crate::fsutil::stays_inside(dir, &path) {
+                if !freemapper_fs::stays_inside(dir, &path) {
                     return Err(format!("{TREE_LAYERS_DIR} leads out of the project folder"));
                 }
                 let geojson = berlin::layer_to_geojson(&fetched.features);
@@ -3429,7 +3429,7 @@ pub fn derive_project(
         crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
     } else {
         for file in [mosaic.clone(), mosaic.with_extension("tfw")] {
-            crate::fsutil::remove_inside(dir, &file);
+            freemapper_fs::remove_inside(dir, &file);
         }
     }
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
@@ -3518,7 +3518,7 @@ pub fn derive_project(
     if ndsm_files.is_empty() && dsm.is_none() {
         // An older nDSM template would no longer match the map area: remove it.
         for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
-            crate::fsutil::remove_inside(dir, &stale);
+            freemapper_fs::remove_inside(dir, &stale);
         }
     } else {
         progress(&format!("writing {NDSM_RELPATH}"));
