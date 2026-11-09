@@ -1,6 +1,6 @@
 //! File system helpers.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Attempts to replace a file; a viewer holding it open (OOM on Windows) blocks only briefly.
 const RENAME_ATTEMPTS: u32 = 3;
@@ -102,6 +102,43 @@ pub(crate) fn remove_stale_parts(dir: &Path, max_age: std::time::Duration) {
     }
 }
 
+/// Whether `name`, read from a project file or a server, is one plain file name: no path
+/// separator, no `..`, no drive prefix (`C:`), no NUL or other control character, not absolute
+/// and not empty. Names that fail are never put into a path.
+pub(crate) fn is_plain_name(name: &str) -> bool {
+    !name.is_empty()
+        && !name.contains("..")
+        && !name.contains(['/', '\\', ':'])
+        && !name.chars().any(char::is_control)
+        && matches!(
+            Path::new(name).components().collect::<Vec<_>>()[..],
+            [Component::Normal(_)]
+        )
+}
+
+/// Whether `path` stays inside the folder `root` once links and `..` are resolved. `path` need
+/// not exist: its nearest existing folder is resolved, and the rest must be plain names. A
+/// `root` that does not exist holds nothing. Checked before a file named by a project file is
+/// written or removed, so a link in the project folder cannot lead the write elsewhere.
+pub(crate) fn stays_inside(root: &Path, path: &Path) -> bool {
+    let Ok(root) = std::fs::canonicalize(root) else {
+        return false;
+    };
+    let (Some(parent), Some(Component::Normal(_))) = (path.parent(), path.components().next_back())
+    else {
+        return false;
+    };
+    for folder in parent.ancestors() {
+        let Ok(resolved) = std::fs::canonicalize(folder) else {
+            continue;
+        };
+        let rest = parent.strip_prefix(folder).unwrap_or(parent);
+        return resolved.starts_with(&root)
+            && rest.components().all(|c| matches!(c, Component::Normal(_)));
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +215,79 @@ mod tests {
             Err::<(), _>(std::io::Error::other("busy"))
         });
         assert!(always.is_err());
+    }
+
+    #[test]
+    fn plain_names_are_single_file_names() {
+        for name in [
+            "relief",
+            "sb-gelaender",
+            "bauwerke-flaechen",
+            "a.b",
+            "trinkwasserbrunnen",
+        ] {
+            assert!(is_plain_name(name), "{name}");
+        }
+        for name in [
+            "",
+            ".",
+            "..",
+            "../evil",
+            "../../evil",
+            "a/b",
+            r"a\b",
+            "/etc/evil",
+            r"\\server\share",
+            "C:evil",
+            "C:",
+            "a..b",
+            "nul\0x",
+            "tab\tx",
+            "line\nx",
+        ] {
+            assert!(!is_plain_name(name), "{name:?}");
+        }
+    }
+
+    #[test]
+    fn paths_below_the_root_stay_inside() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("project");
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        assert!(stays_inside(&root, &root.join("data/a.geojson")));
+        // Folders that do not exist yet are fine.
+        assert!(stays_inside(&root, &root.join("data/berlin/a.geojson")));
+        assert!(!stays_inside(&root, &root.join("data/../../a.geojson")));
+        assert!(!stays_inside(
+            &root,
+            &root.join("data/berlin/../../../a.geojson")
+        ));
+        assert!(!stays_inside(&root, &dir.path().join("a.geojson")));
+        assert!(!stays_inside(&root, &root.join("data/..")));
+        // A root that does not exist holds nothing.
+        assert!(!stays_inside(
+            &dir.path().join("none"),
+            &dir.path().join("none/a")
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn links_out_of_the_root_do_not_stay_inside() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = dir.path().join("project");
+        std::fs::create_dir_all(root.join("data")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), root.join("data/berlin")).unwrap();
+        assert!(!stays_inside(&root, &root.join("data/berlin/a.geojson")));
+        assert!(!stays_inside(
+            &root,
+            &root.join("data/berlin/new/a.geojson")
+        ));
+        // A root reached through a link is still the same folder.
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&root, &link).unwrap();
+        assert!(stays_inside(&link, &link.join("data/a.geojson")));
+        assert!(stays_inside(&link, &root.join("data/a.geojson")));
     }
 }
