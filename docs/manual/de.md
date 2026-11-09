@@ -157,6 +157,12 @@ Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
 ./freemapper run kreuzgymnasium
 ```
 
+Besteht das Gelände in OSM aus mehreren getrennten Flächen (eine Multipolygon-Relation mit mehreren äußeren
+Ringen), nennt freemapper die Teile mit ihrer Größe. Mit `--part 1` nehmen Sie die größte, mit `--part 2` die
+nächste. Die äußeren Wege einer solchen Relation tragen oft keine Tags. Nominatim kennt sie dann nicht, und
+`--osm way/…` findet nichts. Nehmen Sie dann die Relation (`--osm relation/…`) oder speichern Sie den Umriss
+als GeoJSON und nutzen Sie `--geojson`.
+
 ## 6. Das Kartengebiet im Browser wählen
 
 ![Gebietsauswahl im Browser](images/area-selector.jpg)
@@ -424,7 +430,11 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 |---|---|---|
 | `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen oder Rheinland-Pfalz. Bremen gehört noch nicht dazu. | Ein anderes Gebiet wählen; weitere Länder folgen. |
 | `map area plus buffer is … more than 4000 m per side` | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
-| `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, oder das Gebiet im Browser zeichnen. |
+| `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, das Gebiet im Browser zeichnen, oder mit `--osm <id> --part <n>` einen Teil wählen. |
+| `… is an area of … separate parts (…)` | Das OSM-Objekt besteht aus mehreren getrennten Flächen. In Klammern stehen ihre Größen, die größte zuerst. | Mit `--part <n>` einen Teil wählen (1 ist der größte), im MCP mit `part`. Oder den Umriss als GeoJSON speichern und `--geojson` nutzen. |
+| `… has … parts; there is no part …` | Die Nummer bei `--part` ist größer als die Zahl der Teile. | Eine kleinere Nummer wählen. |
+| `… not found. Nominatim lists only tagged OSM objects …` | Nominatim kennt das OSM-Objekt nicht. Oft ist es ein äußerer Weg einer Multipolygon-Relation ohne eigene Tags. | Die Relation nehmen (`--osm relation/…`), oder den Umriss als GeoJSON speichern und `--geojson` nutzen. |
+| `--part picks a part of an OSM area and needs --osm` | `--part` gilt nur zusammen mit `--osm`. | Die OSM-Kennung suchen und `--osm <id> --part <n>` angeben. |
 | `MultiPolygon with … parts` | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |
 | `warning: no ALKIS buildings found in the map area` | Im Gebiet gibt es keine Gebäude, z. B. im Wald. | Nichts, wenn das stimmt. Sonst später erneut laden. |
 | `the map area reaches beyond the state border` | Ein Teil des Gebiets liegt im Nachbarland. Luftbild und Höhenmodelle kommen aus dem Land der Gebietsmitte, ALKIS und OSM aus beiden Ländern. | Die Vorlagen bleiben leer, wo Luftbild und Höhenmodelle dieses Landes enden. Den Teil von Hand zeichnen. |

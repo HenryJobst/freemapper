@@ -257,7 +257,10 @@ of the centre; the LVermGeo RP height tiles reach across the Rhine, its WMS does
 
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
-(e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
+(e.g. the school polygon) through the OSM API or Nominatim when the user names a place. A lookup that returns
+several separate polygons needs `--part <n>` (MCP `part`; parts sorted by area, 1 the largest); without it the
+error lists the part sizes and names `--geojson`. An empty lookup names untagged outer ways (Nominatim does not
+index them) and suggests the relation or `--geojson`.
 
 Attribution, written to the map notes, a text object outside the map area, and `ATTRIBUTION.txt`:
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and `© OpenStreetMap contributors, ODbL`.

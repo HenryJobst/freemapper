@@ -421,7 +421,8 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
     crate::nominatim::wait_turn().await;
     let osm_id = query.osm_id.clone();
     let found =
-        tokio::task::spawn_blocking(move || place_area(&HttpFetcher::new(), &query.osm_id)).await;
+        tokio::task::spawn_blocking(move || place_area(&HttpFetcher::new(), &query.osm_id, None))
+            .await;
     match found {
         Ok(Ok(area)) => {
             Json(json!({ "area": area.to_geojson_value(), "source_id": osm_id })).into_response()

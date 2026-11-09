@@ -36,6 +36,9 @@ enum Commands {
         dir: PathBuf,
         #[command(flatten)]
         area: AreaArgs,
+        /// Which part of an OSM area of several separate parts to use (1 is the largest).
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+        part: Option<u32>,
         /// Map kind.
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
@@ -145,7 +148,14 @@ struct AreaArgs {
 }
 
 impl AreaArgs {
-    fn area(self) -> anyhow::Result<MapArea> {
+    /// `part` picks one part of an OSM area of several separate parts (`--osm` only).
+    fn area(self, part: Option<usize>) -> anyhow::Result<MapArea> {
+        if part.is_some() && self.osm.is_none() {
+            anyhow::bail!(
+                "--part picks a part of an OSM area and needs --osm; with --place, look up the \
+                 id first and use --osm <id> --part <n>"
+            );
+        }
         if let Some(geojson) = self.geojson {
             let text = std::fs::read_to_string(&geojson)
                 .with_context(|| format!("reading {}", geojson.display()))?;
@@ -153,18 +163,20 @@ impl AreaArgs {
         }
         let fetcher = HttpFetcher::new();
         if let Some(osm) = self.osm {
-            return Ok(place_area(&fetcher, &osm)?);
+            return Ok(place_area(&fetcher, &osm, part)?);
         }
         let query = self.place.expect("clap requires one area source");
         let places = find_places(&fetcher, &query)?;
-        let place = places
-            .iter()
-            .find(|p| p.has_area)
-            .with_context(|| format!("no area found for {query:?}"))?;
+        let place = places.iter().find(|p| p.has_area).with_context(|| {
+            format!(
+                "no area found for {query:?}. If the place is an area of several separate \
+                     parts, pick one with --osm <id> --part <n>, or use --geojson"
+            )
+        })?;
         eprintln!("Using {} ({})", place.display_name, place.osm_id);
         // Nominatim allows one request per second.
         std::thread::sleep(std::time::Duration::from_secs(1));
-        Ok(place_area(&fetcher, &place.osm_id)?)
+        Ok(place_area(&fetcher, &place.osm_id, None)?)
     }
 }
 
@@ -253,11 +265,12 @@ fn main() -> anyhow::Result<()> {
         Commands::Init {
             dir,
             area,
+            part,
             kind,
             scale,
             title,
         } => {
-            let area = area.area()?;
+            let area = area.area(part.map(|p| p as usize))?;
             let today = chrono::Local::now().date_naive();
             init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());

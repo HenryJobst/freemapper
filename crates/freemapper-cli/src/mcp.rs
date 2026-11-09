@@ -169,6 +169,8 @@ struct CreateProject {
     osm_id: Option<String>,
     /// Instead of osm_id: a GeoJSON file with the map area polygon (EPSG:4326).
     geojson: Option<String>,
+    /// With osm_id: which part of an area of several separate parts to use (1 is the largest).
+    part: Option<usize>,
     /// "schoolyard" (default, 1:1000) or "sprint" (1:4000).
     kind: Option<String>,
     /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the kind).
@@ -498,11 +500,14 @@ impl FreemapperServer {
             Ok(kind) => kind,
             Err(e) => return failure(e),
         };
+        let part = req.part;
         let area = match (req.osm_id, req.geojson) {
             (Some(osm_id), None) => {
                 crate::nominatim::wait_turn().await;
-                blocking(move || place_area(&HttpFetcher::new(), &osm_id).map_err(|e| describe(&e)))
-                    .await
+                blocking(move || {
+                    place_area(&HttpFetcher::new(), &osm_id, part).map_err(|e| describe(&e))
+                })
+                .await
             }
             (None, Some(geojson)) => resolve(&geojson).and_then(|path| {
                 let text = std::fs::read_to_string(&path)

@@ -148,7 +148,8 @@ freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule
 freemapper run clara-zetkin-schule
 ```
 
-Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`) oder der Name
+Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`, bei mehreren getrennten Flächen
+mit `--part <n>`) oder der Name
 (`--place "Clara-Zetkin-Schule Strausberg"`; genommen wird der beste Treffer mit Fläche, gesucht über
 Nominatim von OpenStreetMap).
 
