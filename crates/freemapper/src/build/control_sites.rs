@@ -16,7 +16,7 @@ pub const CONTROL_KEY: &str = "freemapper:control";
 
 /// Two control sites of one kind closer than this (ground metres) are a row, a pair or a series,
 /// not a site. Neither the norm nor the IOF competition rules give a figure for the distance
-/// between controls on identical features; 25 m is 6 mm on a 1:4000 sheet, the width of a fingertip,
+/// between controls on identical features; 25 m is 6 mm on a 1:4000 sheet,
 /// and keeps a bollard row (posts 1 to 5 m apart) and a street lamp series (20 to 25 m) out. A
 /// ruling (2026-11-10).
 pub const SAME_KIND_M: f64 = 25.0;
