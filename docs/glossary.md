@@ -92,6 +92,8 @@ Orienteering Maps 2019 (IOF).
 | Böschungsoberkante | top of an embankment | Obere Kante einer Böschung, ALKIS-Relief `Oberkante`; in Berlin auf Sprintkarten Kandidat für die Erdböschung (ISSprOM 104). | `berlin-candidates.toml` |
 | Durchfahrt | building passage | Weg durch oder unter einem Gebäude (ALKIS-Bauteile `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`, `Arkade`); in Berlin Kandidat für 522, das Gebäude bleibt ganz. Aus OSM: `tunnel=building_passage` oder `covered=yes` am Weg, als Streifen 522 (ADR 0072). | `building_part_features` |
 | Streifen (Korridor) | corridor | Fläche entlang eines Weges mit fester Breite (Regelfeld `corridor_m`, oder das Tag `width`), Enden gerade abgeschnitten: Durchgang als 522, Privatweg als 520. | `Draw::Corridor` |
+| Sperrfläche | area that shall not be entered | ISSprOM 520: Fläche, die nicht betreten werden darf (Privatgelände, Beet, Bahngelände). Aus OSM: `access=private\|no` an Fläche oder Weg (ADR 0073). | `520`, `OUT_OF_BOUNDS_CODE` |
+| Fester Kies | firm gravel | `surface=compacted\|fine_gravel`: nach ISSprOM 501 („hard gravel“) befestigt, Kandidat 501.6 bis 501.9 statt 505 (ADR 0073). | – |
 | Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `berlin-candidates.toml` |
 | Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `berlin-candidates.toml` |
 | Busch oder kleiner Baum | prominent bush or small tree | Markanter Busch oder kleiner Baum (ISSprOM 418); OSM `natural=tree` und die Bäume des Berliner Baumkatasters mit Krone unter 10 m. | `osm-candidates.toml`, `berlin-candidates.toml` |

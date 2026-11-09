@@ -274,13 +274,18 @@ impl Rules {
             .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
 
-    /// The symbol of the first rule whose conditions and geometry match; `None` when no rule
-    /// matches or the matching rule has no symbol for `kind`.
+    /// The symbol of the first rule with a symbol for `kind` whose conditions and geometry match;
+    /// `None` when no rule matches.
     pub fn symbol_for(&self, tags: &Tags, geometry: &OsmGeometry, kind: MapKind) -> Option<Match> {
         let closed =
             matches!(geometry, OsmGeometry::Line(p) if p.len() > 3 && p.first() == p.last());
         let rule = self.0.iter().find_map(|rule| {
-            if !rule.when.iter().all(|c| c.holds(tags)) {
+            // A rule without a symbol for this map kind does not take part (as in `wants`).
+            let has_symbol = match kind {
+                MapKind::Schoolyard => rule.schoolyard.is_some(),
+                MapKind::Sprint => rule.sprint.is_some(),
+            };
+            if !has_symbol || !rule.when.iter().all(|c| c.holds(tags)) {
                 return None;
             }
             let draw = match (rule.draw, geometry) {
@@ -1260,6 +1265,228 @@ mod tests {
         // A width below the minimum of a 520/522 stays at the minimum.
         let tiny = passage(&[("width", "0.2")]);
         assert!(tiny > 6.8 * 1.0, "{tiny}");
+    }
+
+    fn corridor_520(t: &[(&str, &str)]) -> bool {
+        Rules::embedded()
+            .symbol_for(&tags(t), &way(), MapKind::Sprint)
+            .is_some_and(|m| {
+                m.code == "520"
+                    && m.target == Target::Candidates
+                    && matches!(m.draw, Draw::Corridor(_))
+            })
+    }
+
+    #[test]
+    fn private_and_closed_ways_are_520_not_paths() {
+        // ISSprOM 4.5, 520: "An area that shall not be entered such as a private area".
+        for t in [
+            &[("highway", "footway"), ("access", "private")][..],
+            &[("highway", "service"), ("access", "no")],
+            &[
+                ("highway", "path"),
+                ("access", "private"),
+                ("surface", "dirt"),
+            ],
+            &[
+                ("highway", "track"),
+                ("access", "private"),
+                ("surface", "gravel"),
+            ],
+            &[("highway", "pedestrian"), ("access", "private")],
+            &[("highway", "steps"), ("access", "no")],
+            &[("highway", "footway"), ("foot", "no")],
+            &[
+                ("highway", "path"),
+                ("foot", "private"),
+                ("surface", "ground"),
+            ],
+            &[("highway", "service"), ("foot", "private")],
+        ] {
+            assert!(corridor_520(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn foot_access_overrides_a_closed_way() {
+        for foot in ["yes", "permissive", "designated"] {
+            let t = [
+                ("highway", "footway"),
+                ("access", "private"),
+                ("foot", foot),
+            ];
+            assert!(!corridor_520(&t), "foot={foot}");
+        }
+        // The unpaved path stays a map object then.
+        let found = sprint_way(&[
+            ("highway", "path"),
+            ("access", "private"),
+            ("foot", "yes"),
+            ("surface", "dirt"),
+        ]);
+        assert_eq!(found, Some(("505.1".to_string(), Target::Map)));
+    }
+
+    #[test]
+    fn other_access_values_and_cycleways_stay_as_they_are() {
+        // `destination`, `customers` and `permit` let a visitor in; a cycleway with foot=no is a
+        // paved road a runner can cross.
+        for t in [
+            &[("highway", "service"), ("access", "destination")][..],
+            &[("highway", "footway"), ("access", "customers")],
+            &[("highway", "cycleway"), ("foot", "no")],
+            &[("highway", "service"), ("foot", "no")],
+        ] {
+            assert!(!corridor_520(t), "{t:?}");
+        }
+    }
+
+    #[test]
+    fn private_areas_are_520() {
+        for t in [
+            &[("landuse", "residential"), ("access", "private")][..],
+            &[("landuse", "garages"), ("access", "no")],
+            &[("leisure", "garden"), ("access", "private")],
+            &[
+                ("leisure", "pitch"),
+                ("surface", "tartan"),
+                ("access", "private"),
+            ],
+            &[("amenity", "parking"), ("access", "private")],
+            &[("amenity", "school"), ("access", "no")],
+        ] {
+            assert_eq!(
+                sprint_code(t, &ring()).map(|c| c.0),
+                Some("520".to_string()),
+                "{t:?}"
+            );
+        }
+        // Public ones, permissive ones and water keep their rules.
+        assert_eq!(
+            sprint_code(&[("leisure", "park"), ("access", "yes")], &ring()).map(|c| c.0),
+            Some("401".to_string())
+        );
+        assert_eq!(
+            sprint_code(&[("leisure", "park"), ("access", "permissive")], &ring()).map(|c| c.0),
+            Some("401".to_string())
+        );
+        assert_eq!(
+            sprint_code(
+                &[("leisure", "swimming_pool"), ("access", "private")],
+                &ring()
+            )
+            .map(|c| c.0),
+            Some("301".to_string())
+        );
+        assert_eq!(
+            sprint_code(&[("landuse", "grass"), ("access", "private")], &ring()).map(|c| c.0),
+            Some("520".to_string())
+        );
+    }
+
+    #[test]
+    fn private_areas_are_not_schoolyard_symbols() {
+        let found = Rules::embedded().symbol_for(
+            &tags(&[
+                ("leisure", "pitch"),
+                ("surface", "tartan"),
+                ("access", "private"),
+            ]),
+            &ring(),
+            MapKind::Schoolyard,
+        );
+        assert_eq!(found.map(|m| m.code), Some("501.10".to_string()));
+    }
+
+    #[test]
+    fn firm_gravel_is_a_paved_line_by_width() {
+        // ISSprOM 4.5, 501: a paved area has "a firm surface such as asphalt, hard gravel"; 505 is
+        // "without a smooth, hard surface". Compacted and fine gravel are firm: 501.6 to 501.9 by
+        // footprint (1.4, 2, 3, 4 m), as a candidate to check against the orthophoto.
+        for (extra, code) in [
+            (
+                &[("highway", "footway"), ("surface", "compacted")][..],
+                "501.6",
+            ),
+            (&[("highway", "path"), ("surface", "fine_gravel")], "501.6"),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "2.5"),
+                ],
+                "501.7",
+            ),
+            (&[("highway", "track"), ("surface", "compacted")], "501.7"),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "3"),
+                ],
+                "501.8",
+            ),
+            (
+                &[
+                    ("highway", "bridleway"),
+                    ("surface", "fine_gravel"),
+                    ("width", "4,5"),
+                ],
+                "501.9",
+            ),
+            (
+                &[
+                    ("highway", "footway"),
+                    ("surface", "compacted"),
+                    ("width", "1.2"),
+                ],
+                "501.6",
+            ),
+        ] {
+            assert_eq!(
+                sprint_way(extra),
+                Some((code.to_string(), Target::Candidates)),
+                "{extra:?}"
+            );
+        }
+        // Loose gravel is unpaved; wide unpaved ways are 505.2.
+        assert_eq!(
+            sprint_way(&[("highway", "footway"), ("surface", "gravel")]),
+            Some(("505.1".to_string(), Target::Map))
+        );
+        assert_eq!(
+            sprint_way(&[("highway", "path"), ("surface", "dirt"), ("width", "3")]),
+            Some(("505.2".to_string(), Target::Map))
+        );
+    }
+
+    #[test]
+    fn track_type_decides_a_track_without_surface() {
+        // grade1 is paved, grade2 mostly firm, grade3 to grade5 unpaved.
+        assert_eq!(
+            sprint_way(&[("highway", "track"), ("tracktype", "grade1")]),
+            None
+        );
+        assert_eq!(
+            sprint_way(&[("highway", "track"), ("tracktype", "grade2")]),
+            Some(("501.7".to_string(), Target::Candidates))
+        );
+        for grade in ["grade3", "grade4", "grade5"] {
+            assert_eq!(
+                sprint_way(&[("highway", "track"), ("tracktype", grade)]),
+                Some(("505.2".to_string(), Target::Candidates)),
+                "{grade}"
+            );
+        }
+        // A surface tag beats the grade.
+        assert_eq!(
+            sprint_way(&[
+                ("highway", "track"),
+                ("tracktype", "grade1"),
+                ("surface", "dirt")
+            ]),
+            Some(("505.2".to_string(), Target::Map))
+        );
     }
 
     #[test]
