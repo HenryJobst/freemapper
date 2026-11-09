@@ -87,22 +87,15 @@ experience needed. The chapters people use most:
 ## Examples
 
 The repository holds a finished sprint map project for every supported state, with the OOM map, the OCAD
-file and the PDF training map. Clicking a picture opens the PDF. How the areas were chosen and how many
-objects each map has is in [`examples/README.en.md`](examples/README.en.md).
+file and the PDF training map. Two of them here; clicking a picture opens the PDF:
 
 | State | Area | Preview |
 |---|---|---|
-| Brandenburg | [Park Sanssouci, Potsdam](examples/brandenburg-sanssouci/) | <a href="examples/brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="examples/brandenburg-sanssouci/preview.jpg" width="160" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="160" alt=""></a> |
-| Saxony | [Bautzen old town](examples/sachsen-bautzen/) | <a href="examples/sachsen-bautzen/sachsen-bautzen.pdf"><img src="examples/sachsen-bautzen/preview.jpg" width="160" alt=""></a> |
-| Saxony-Anhalt | [Schlossberg Quedlinburg](examples/sachsen-anhalt-quedlinburg/) | <a href="examples/sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="examples/sachsen-anhalt-quedlinburg/preview.jpg" width="160" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](examples/hamburg-blankenese/) | <a href="examples/hamburg-blankenese/hamburg-blankenese.pdf"><img src="examples/hamburg-blankenese/preview.jpg" width="160" alt=""></a> |
-| Hesse | [Marburg old town and castle](examples/hessen-marburg/) | <a href="examples/hessen-marburg/hessen-marburg.pdf"><img src="examples/hessen-marburg/preview.jpg" width="160" alt=""></a> |
-| Schleswig-Holstein | [Lübeck old town](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
-| Mecklenburg-Vorpommern | [Wismar old town](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
-| North Rhine-Westphalia | [Monschau old town](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
-| Lower Saxony | [Großer Garten Herrenhausen, Hanover](examples/niedersachsen-herrenhausen/) | <a href="examples/niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="examples/niedersachsen-herrenhausen/preview.jpg" width="160" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="160" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+
+All examples with previews, how the areas were chosen and how many objects each map has are in the
+[examples overview](examples/README.en.md).
 
 ## Choosing the area in the browser
 

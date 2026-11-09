@@ -88,22 +88,15 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 ## Beispiele
 
 Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
-OCAD-Datei und PDF-Trainingskarte. Ein Klick auf das Bild öffnet das PDF. Wie die Gebiete ausgewählt
-wurden und wie viele Objekte jede Karte hat, steht in [`examples/README.md`](examples/README.md).
+OCAD-Datei und PDF-Trainingskarte. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF:
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Brandenburg | [Park Sanssouci, Potsdam](examples/brandenburg-sanssouci/) | <a href="examples/brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="examples/brandenburg-sanssouci/preview.jpg" width="160" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="160" alt=""></a> |
-| Sachsen | [Altstadt Bautzen](examples/sachsen-bautzen/) | <a href="examples/sachsen-bautzen/sachsen-bautzen.pdf"><img src="examples/sachsen-bautzen/preview.jpg" width="160" alt=""></a> |
-| Sachsen-Anhalt | [Schlossberg Quedlinburg](examples/sachsen-anhalt-quedlinburg/) | <a href="examples/sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="examples/sachsen-anhalt-quedlinburg/preview.jpg" width="160" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](examples/hamburg-blankenese/) | <a href="examples/hamburg-blankenese/hamburg-blankenese.pdf"><img src="examples/hamburg-blankenese/preview.jpg" width="160" alt=""></a> |
-| Hessen | [Altstadt und Landgrafenschloss Marburg](examples/hessen-marburg/) | <a href="examples/hessen-marburg/hessen-marburg.pdf"><img src="examples/hessen-marburg/preview.jpg" width="160" alt=""></a> |
-| Schleswig-Holstein | [Altstadt Lübeck](examples/schleswig-holstein-luebeck/) | <a href="examples/schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="examples/schleswig-holstein-luebeck/preview.jpg" width="160" alt=""></a> |
-| Mecklenburg-Vorpommern | [Altstadt Wismar](examples/mecklenburg-vorpommern-wismar/) | <a href="examples/mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="examples/mecklenburg-vorpommern-wismar/preview.jpg" width="160" alt=""></a> |
-| Nordrhein-Westfalen | [Altstadt Monschau](examples/nordrhein-westfalen-monschau/) | <a href="examples/nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="examples/nordrhein-westfalen-monschau/preview.jpg" width="160" alt=""></a> |
-| Niedersachsen | [Großer Garten Herrenhausen, Hannover](examples/niedersachsen-herrenhausen/) | <a href="examples/niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="examples/niedersachsen-herrenhausen/preview.jpg" width="160" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="160" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+
+Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
+der [Beispielübersicht](examples/README.md).
 
 ## Gebiet im Browser wählen
 
