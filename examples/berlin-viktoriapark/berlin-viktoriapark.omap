@@ -6,7 +6,7 @@
 Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0
 Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0
 Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert
-Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0
+Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0
 Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0
 Created with freemapper – https://github.com/HenryJobst/freemapper</notes>
 <georeferencing scale="4000" grid_scale_factor="0.999748" auxiliary_scale_factor="1" declination="5.18" grivation="6.46">
@@ -1379,7 +1379,7 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 140496;</coords><text>Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 142996;</coords><text>Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 145496;</coords><text>Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert</text></object>
-<object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 147996;</coords><text>Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0</text></object>
+<object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 147996;</coords><text>Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 150496;</coords><text>Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 152996;</coords><text>Erstellt mit freemapper – https://github.com/HenryJobst/freemapper</text></object>
 </objects></part>
