@@ -2555,18 +2555,19 @@ fn fetch_nas_layers_into(
     // Answers stream into a part file beside the layers with a fresh name, its folder checked
     // right before each download (ADR 0060), removed after each one.
     let layers_dir = dir.join(NAS_LAYERS_DIR);
-    crate::fsutil::remove_stale_parts(&layers_dir, crate::fetch::STALE_PART_AGE);
-    let part = || -> Result<PathBuf, FetchError> {
-        let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
-        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
-        Ok(part)
-    };
     if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
         progress(&format!(
             "warning: full ALKIS layers skipped ({NAS_LAYERS_DIR} leads out of the project folder)"
         ));
         return BTreeMap::new();
     }
+    // Only after the check: a linked folder never has its part files removed.
+    crate::fsutil::remove_stale_parts(&layers_dir, crate::fetch::STALE_PART_AGE);
+    let part = || -> Result<PathBuf, FetchError> {
+        let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
+        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
+        Ok(part)
+    };
     progress("downloading the full ALKIS structures (NAS)");
     let bbox = &area.bbox;
     let rounded = [
@@ -10347,6 +10348,38 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .filter(|n| n.ends_with(".part"))
             .collect();
         assert_eq!(parts, ["answer.gml.part"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nas_stale_parts_behind_a_linked_folder_survive() {
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        // The NAS folder is a link to a folder outside the project that holds an old part file.
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("x.part");
+        let file = std::fs::File::create(&victim).unwrap();
+        file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(86_400))
+            .unwrap();
+        drop(file);
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join(NAS_LAYERS_DIR)).unwrap();
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            victim.exists(),
+            "the part file outside the project was removed"
+        );
+        assert!(project.nas_layers.is_empty());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("leads out of the project folder")),
+            "{messages:?}"
+        );
     }
 
     #[test]
