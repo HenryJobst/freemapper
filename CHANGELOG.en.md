@@ -6,6 +6,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-09
+
+### Security
+
+- A crafted `freemapper.toml` could make freemapper delete files outside the project. A `berlin_layers` entry named like `../../../x` made `fetch` delete the file `x.geojson` next to the project folder. freemapper now builds the paths of the Berlin layers only from its own layer list. When it loads a project, it drops entries with an unknown name or with `/`, `\`, `..`, a drive letter or control characters, and warns (`warning: freemapper.toml: ignored the Berlin layer entry …`). If the folder `data/berlin` leads out of the project through a link, freemapper writes and deletes nothing there (ADR 0059).
+
 ## [0.6.0] - 2026-11-09
 
 ### Added

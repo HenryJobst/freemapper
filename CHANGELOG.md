@@ -6,6 +6,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.6.1] - 2026-11-09
+
+### Sicherheit
+
+- Eine präparierte `freemapper.toml` konnte beim Laden Dateien außerhalb des Projekts löschen. Ein Eintrag unter `berlin_layers` mit einem Namen wie `../../../x` ließ `fetch` die Datei `x.geojson` neben dem Projektordner löschen. freemapper bildet die Pfade der Berliner Ebenen jetzt nur noch aus seiner eigenen Ebenenliste. Einträge mit unbekanntem Namen oder mit `/`, `\`, `..`, Laufwerksbuchstaben oder Steuerzeichen lässt es beim Laden weg und warnt (`warning: freemapper.toml: ignored the Berlin layer entry …`). Führt der Ordner `data/berlin` über einen Link aus dem Projekt hinaus, schreibt und löscht freemapper dort nichts (ADR 0059).
+
 ## [0.6.0] - 2026-11-09
 
 ### Hinzugefügt

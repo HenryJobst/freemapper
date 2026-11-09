@@ -356,10 +356,43 @@ pub struct TileRecord {
 }
 
 impl ProjectFile {
+    /// The project file in `dir`, without the entries [`ProjectFile::load_reporting`] warns
+    /// about.
     pub fn load(dir: &Path) -> Result<Self, ProjectError> {
+        Self::load_reporting(dir, &mut |_| {})
+    }
+
+    /// The project file in `dir`. Entries whose name would become part of a file path but is
+    /// not one freemapper knows (a hand-edited or crafted file: `../../x`, `/etc/x`) are left out
+    /// with a warning through `progress`; the rest of the project loads (ADR 0059).
+    pub fn load_reporting(
+        dir: &Path,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<Self, ProjectError> {
         let path = dir.join(PROJECT_FILE_NAME);
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
-        toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))
+        let mut project: Self =
+            toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
+        project.drop_unknown_names(progress);
+        Ok(project)
+    }
+
+    /// Leaves out the Berlin layer records whose key is no plain file name or no layer of the
+    /// table, each with a warning. The key is shown escaped, as it may hold control characters.
+    fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(&str)) {
+        self.berlin_layers.retain(|key, _| {
+            let reason = if !crate::fsutil::is_plain_name(key) {
+                "not a plain file name"
+            } else if known_berlin_layer(key).is_none() {
+                "no layer freemapper knows"
+            } else {
+                return true;
+            };
+            progress(&format!(
+                "warning: freemapper.toml: ignored the Berlin layer entry {key:?}: {reason}"
+            ));
+            false
+        });
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -428,8 +461,8 @@ impl ProjectFile {
         self.ndsm_tiles.clear();
         self.buildings = None;
         self.land_use = None;
-        for file in self.berlin_layers.keys() {
-            let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+        for key in self.berlin_layers.keys() {
+            remove_berlin_layer(dir, key);
         }
         self.berlin_layers.clear();
         for file in self.nas_layers.keys() {
@@ -622,7 +655,7 @@ pub fn fetch_project(
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<ProjectFile, ProjectError> {
-    let mut project = ProjectFile::load(dir)?;
+    let mut project = ProjectFile::load_reporting(dir, progress)?;
     let region_bbox = project.region_bbox()?;
     check_area(&region_bbox)?;
     // The stored CRS may be stale (written by hand, or by a version that only knew zone 33).
@@ -2316,9 +2349,29 @@ fn nas_layer_path(dir: &Path, file: &str) -> PathBuf {
     dir.join(NAS_LAYERS_DIR).join(format!("{file}.geojson"))
 }
 
-/// Path of the stored extra Berlin layer `file` (without extension).
-fn berlin_layer_path(dir: &Path, file: &str) -> PathBuf {
-    dir.join(BERLIN_LAYERS_DIR).join(format!("{file}.geojson"))
+/// The extra Berlin layer the project file records under `key`, from the static table; `None`
+/// for a key no layer has.
+fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
+    berlin::EXTRA_LAYERS.iter().find(|layer| layer.file == key)
+}
+
+/// Path of the stored extra Berlin `layer`. It takes a layer of the table, never a name read from
+/// the project file, so the path is always one freemapper built (ADR 0059).
+fn berlin_layer_path(dir: &Path, layer: &berlin::ExtraLayer) -> PathBuf {
+    dir.join(BERLIN_LAYERS_DIR)
+        .join(format!("{}.geojson", layer.file))
+}
+
+/// Removes the stored layer the project file records under `key`: only a layer of the table, and
+/// only when its file lies inside the project folder (no link leads out of it).
+fn remove_berlin_layer(dir: &Path, key: &str) {
+    let Some(layer) = known_berlin_layer(key) else {
+        return;
+    };
+    let path = berlin_layer_path(dir, layer);
+    if crate::fsutil::stays_inside(dir, &path) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
@@ -2350,8 +2403,8 @@ fn fetch_berlin_layers_into(
     if !berlin::near_berlin(region_bbox) {
         if !previous.is_empty() {
             progress("removing the stored Berlin layers: the map area is no longer near Berlin");
-            for file in previous.keys() {
-                let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+            for key in previous.keys() {
+                remove_berlin_layer(dir, key);
             }
         }
         return BTreeMap::new();
@@ -2370,11 +2423,16 @@ fn fetch_berlin_layers_into(
     let mut records = BTreeMap::new();
     for fetched in berlin::fetch_extra_layers(fetcher, region_bbox, kind) {
         let file = fetched.layer.file;
-        let path = berlin_layer_path(dir, file);
+        let path = berlin_layer_path(dir, fetched.layer);
         let stored = fetched
             .features
             .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|features| {
+                if !crate::fsutil::stays_inside(dir, &path) {
+                    return Err(format!(
+                        "{BERLIN_LAYERS_DIR} leads out of the project folder"
+                    ));
+                }
                 let parent = path.parent().expect("a file below the project folder");
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 write_atomically(&path, berlin::layer_to_geojson(&features).as_bytes())
@@ -2415,8 +2473,8 @@ fn fetch_berlin_layers_into(
         }
     }
     // Layers the map kind no longer uses.
-    for file in previous.keys().filter(|f| !records.contains_key(*f)) {
-        let _ = std::fs::remove_file(berlin_layer_path(dir, file));
+    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
+        remove_berlin_layer(dir, key);
     }
     records
 }
@@ -2612,7 +2670,7 @@ pub(crate) fn stored_berlin_layers(
     let region_bbox = project.region_bbox()?;
     let mut layers = Vec::new();
     for layer in berlin::extra_layers(project.map_kind) {
-        let path = berlin_layer_path(dir, layer.file);
+        let path = berlin_layer_path(dir, layer);
         let Some(record) = project
             .berlin_layers
             .get(layer.file)
@@ -2895,7 +2953,7 @@ pub fn derive_project(
     cache: &Cache,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Vec<PathBuf>, ProjectError> {
-    let project = ProjectFile::load(dir)?;
+    let project = ProjectFile::load_reporting(dir, progress)?;
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
     }
@@ -3256,7 +3314,8 @@ fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings>, ProjectE
     })?;
     // Berlin buildings carry no date; the 2022 height layer, if stored, gives their footprint
     // date. It is an optional source: an unreadable file leaves the buildings undated.
-    if let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, "gebaeudehoehen"))
+    if let Some(layer) = known_berlin_layer("gebaeudehoehen")
+        && let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, layer))
         && let Ok(heights) = berlin::parse_layer(&text)
     {
         berlin::join_footprint_dates(&mut features, &heights);
@@ -9257,7 +9316,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 })
                 .collect();
             let layer = serde_json::json!({"type": "FeatureCollection", "features": features});
-            std::fs::write(berlin_layer_path(dir.path(), file), layer.to_string()).unwrap();
+            std::fs::write(layer_path(dir.path(), file), layer.to_string()).unwrap();
         };
         store("beleuchtung", &[]);
         store("trinkwasserbrunnen", &[]);
@@ -9316,7 +9375,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // The height fixture is for another place: no building matches.
         assert!(dates(dir.path()).iter().all(Option::is_none));
         // A height feature of the school gymnasium gives its footprint date; the others stay.
-        let path = berlin_layer_path(dir.path(), "gebaeudehoehen");
+        let path = layer_path(dir.path(), "gebaeudehoehen");
         let heights = serde_json::json!({"type": "FeatureCollection", "features": [{
             "type": "Feature", "id": "gebaeudehoehen.1", "geometry": null,
             "properties": {"gml_id": "DEBE03YY600004AR", "grundrissaktualitaet": "2015-08-27"}
@@ -9995,7 +10054,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     #[test]
     fn leaving_berlin_deletes_stored_layers_only_online() {
         let dir = tempfile::tempdir().unwrap();
-        let path = berlin_layer_path(dir.path(), "relief");
+        let path = layer_path(dir.path(), "relief");
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, b"{}").unwrap();
         let record = AlkisRecord {
@@ -10045,6 +10104,231 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             messages,
             ["removing the stored Berlin layers: the map area is no longer near Berlin"]
         );
+    }
+
+    /// Path of the stored extra Berlin layer `file` of the table.
+    fn layer_path(dir: &Path, file: &str) -> PathBuf {
+        berlin_layer_path(dir, known_berlin_layer(file).expect("a layer of the table"))
+    }
+
+    /// Removes a file a test put outside its temporary folder, also when the test fails.
+    struct RemovedAtEnd(PathBuf);
+
+    impl Drop for RemovedAtEnd {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    /// A Berlin layer record under `key`, as a crafted project file would hold it.
+    fn layer_record_toml(key: &str) -> String {
+        // TOML spells NUL `\u0000`, Rust `\0`.
+        let key = format!("{key:?}").replace(r"\0", r"\u0000");
+        format!(
+            "\n[berlin_layers.{key}]\nbbox = [0.0, 0.0, 1.0, 1.0]\nfetched = \"2026-11-08\"\ncount = 1\n"
+        )
+    }
+
+    fn some_layer_record() -> AlkisRecord {
+        AlkisRecord {
+            bbox: [0.0; 4],
+            fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
+            latest_update: None,
+            count: 0,
+            regions: vec![Region::Berlin],
+        }
+    }
+
+    const IGNORED_LAYER_WARNING: &str = "warning: freemapper.toml: ignored the Berlin layer entry";
+
+    #[test]
+    fn berlin_layer_keys_never_delete_files_outside_the_layers_folder() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        // `../../evil` leads to the project folder itself, three steps up out of it.
+        let inside = dir.path().join("evil.geojson");
+        std::fs::write(&inside, b"{}").unwrap();
+        let name = format!("{}-evil", dir.path().file_name().unwrap().to_str().unwrap());
+        let outside = dir.path().parent().unwrap().join(format!("{name}.geojson"));
+        std::fs::write(&outside, b"{}").unwrap();
+        let _outside = RemovedAtEnd(outside.clone());
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        text.push_str(&layer_record_toml("../../evil"));
+        text.push_str(&layer_record_toml(&format!("../../../{name}")));
+        std::fs::write(&file, text).unwrap();
+        // The layers folder exists, so the system would resolve the `..`.
+        std::fs::create_dir_all(dir.path().join(BERLIN_LAYERS_DIR)).unwrap();
+
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+
+        assert!(outside.exists(), "the file outside the project is kept");
+        assert!(inside.exists(), "the file in the project folder is kept");
+        let warnings: Vec<&String> = messages
+            .iter()
+            .filter(|m| m.starts_with(IGNORED_LAYER_WARNING))
+            .collect();
+        assert_eq!(warnings.len(), 2, "{messages:?}");
+        assert!(
+            warnings.iter().any(|w| w.contains(r#""../../evil""#)),
+            "{warnings:?}"
+        );
+        assert!(project.berlin_layers.keys().all(|k| !k.contains("..")));
+        let saved = ProjectFile::load(dir.path()).unwrap();
+        assert!(saved.berlin_layers.keys().all(|k| !k.contains("..")));
+        assert!(saved.berlin_layers.contains_key("bauwerke-flaechen"));
+    }
+
+    #[test]
+    fn leaving_berlin_deletes_only_known_layers() {
+        let dir = tempfile::tempdir().unwrap();
+        let relief = layer_path(dir.path(), "relief");
+        std::fs::create_dir_all(relief.parent().unwrap()).unwrap();
+        std::fs::write(&relief, b"{}").unwrap();
+        let victim = dir.path().join("evil.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        let previous = BTreeMap::from([
+            ("relief".to_string(), some_layer_record()),
+            ("../../evil".to_string(), some_layer_record()),
+        ]);
+        // Strausberg, Brandenburg.
+        let away = BoundingBox {
+            min_e: 421_490.0,
+            min_n: 5_821_580.0,
+            max_e: 421_736.0,
+            max_n: 5_821_896.0,
+        };
+        let kept = fetch_berlin_layers_into(
+            dir.path(),
+            &MapFetcher::default(),
+            &away,
+            MapKind::Sprint,
+            FetchMode::Online,
+            false,
+            &previous,
+            &mut |_| {},
+        );
+        assert!(kept.is_empty());
+        assert!(!relief.exists());
+        assert!(victim.exists());
+    }
+
+    #[test]
+    fn forgetting_fetched_data_deletes_only_known_layers() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = berlin_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let relief = layer_path(dir.path(), "relief");
+        std::fs::create_dir_all(relief.parent().unwrap()).unwrap();
+        std::fs::write(&relief, b"{}").unwrap();
+        let victim = dir.path().join("evil.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        for key in ["relief", "../../evil"] {
+            project
+                .berlin_layers
+                .insert(key.to_string(), some_layer_record());
+        }
+        project.drop_fetched(dir.path());
+        assert!(project.berlin_layers.is_empty());
+        assert!(!relief.exists());
+        assert!(victim.exists());
+    }
+
+    #[test]
+    fn project_file_with_unsafe_layer_keys_loads_without_them() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = berlin_school(&fetcher);
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        let keys = [
+            "relief",
+            "../../evil",
+            "/etc/evil",
+            "a/b",
+            r"a\b",
+            "C:evil",
+            "..",
+            "nul\u{0}x",
+            "no-such-layer",
+        ];
+        for key in keys {
+            text.push_str(&layer_record_toml(key));
+        }
+        std::fs::write(&file, text).unwrap();
+        let mut warnings = Vec::new();
+        let project =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert_eq!(project.berlin_layers.keys().collect::<Vec<_>>(), ["relief"]);
+        assert_eq!(warnings.len(), keys.len() - 1, "{warnings:?}");
+        assert!(
+            warnings
+                .iter()
+                .all(|w| w.starts_with(IGNORED_LAYER_WARNING)),
+            "{warnings:?}"
+        );
+        assert!(
+            warnings.iter().any(|w| w.contains(r#""nul\0x""#)),
+            "control characters are shown escaped: {warnings:?}"
+        );
+        // `load` drops them too, silently.
+        assert_eq!(ProjectFile::load(dir.path()).unwrap(), project);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn layers_folder_leading_out_of_the_project_is_left_alone() {
+        let outside = tempfile::tempdir().unwrap();
+        let relief = outside.path().join("relief.geojson");
+        std::fs::write(&relief, b"{}").unwrap();
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join(BERLIN_LAYERS_DIR)).unwrap();
+
+        // No layer is written through the link.
+        serve_berlin_layers(&fetcher, &region_bbox);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        let written: Vec<_> = std::fs::read_dir(outside.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(written, ["relief.geojson"], "{messages:?}");
+        assert!(project.berlin_layers.is_empty());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.starts_with("warning: Berlin bauwerke-flaechen unavailable")),
+            "{messages:?}"
+        );
+
+        // No layer is deleted through it.
+        let previous = BTreeMap::from([("relief".to_string(), some_layer_record())]);
+        let away = BoundingBox {
+            min_e: 421_490.0,
+            min_n: 5_821_580.0,
+            max_e: 421_736.0,
+            max_n: 5_821_896.0,
+        };
+        fetch_berlin_layers_into(
+            dir.path(),
+            &fetcher,
+            &away,
+            MapKind::Sprint,
+            FetchMode::Online,
+            false,
+            &previous,
+            &mut |_| {},
+        );
+        assert!(relief.exists());
     }
 
     #[test]
@@ -10589,7 +10873,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ),
         ] {
             let layer = serde_json::json!({"type": "FeatureCollection", "features": [feature]});
-            std::fs::write(berlin_layer_path(dir.path(), file), layer.to_string()).unwrap();
+            std::fs::write(layer_path(dir.path(), file), layer.to_string()).unwrap();
         }
         let documents = starter_documents(dir.path()).unwrap();
         let tag = |o: &MapObject, key: &str| {
