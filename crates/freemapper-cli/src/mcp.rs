@@ -387,7 +387,7 @@ fn summary(outcome: &RunOutcome) -> String {
             }
             if *missing_canopies {
                 lines.push(
-                    "The map lacks the Berlin canopies and carports (522) that are now map \
+                    "The map lacks the ALKIS canopies and carports (522) that are now map \
                      objects. Start the pipeline with force to add them; it replaces the map and \
                      keeps the old one as .omap.bak."
                         .to_string(),
@@ -794,6 +794,25 @@ pub async fn serve(cache: Cache) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_canopies_message_names_no_state() {
+        let outcome = RunOutcome {
+            templates: Vec::new(),
+            map: MapOutcome::Kept {
+                map: PathBuf::from("/tmp/x/x.omap"),
+                references_images: true,
+                missing_buildings: false,
+                missing_canopies: true,
+            },
+        };
+        let text = summary(&outcome);
+        assert!(
+            text.contains("The map lacks the ALKIS canopies and carports (522)"),
+            "{text}"
+        );
+        assert!(!text.contains("Berlin"), "{text}");
+    }
 
     #[test]
     fn only_one_pipeline_runs_at_a_time() {
