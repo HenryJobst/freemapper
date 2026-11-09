@@ -30,7 +30,8 @@ building or partly under it, and some ALKIS canopies repeat a building outline.
 ## Consequences
 
 - Berlin sprint and schoolyard maps start with the canopies drawn. An existing map gets them only with
-  `run --force`.
+  `run --force`. `run` says so when it keeps a map without them while the stored layer has some
+  (`MapOutcome::Kept::missing_canopies`, final review).
 - The mapper still checks the outlines in the terrain; the cut at a building can leave a small sliver part.
 - Cost if wrong: a demolished or mis-surveyed canopy is a map object the mapper has to delete, not a candidate
   to ignore.

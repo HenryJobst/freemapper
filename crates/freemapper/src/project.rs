@@ -2891,6 +2891,9 @@ pub enum MapOutcome {
         references_images: bool,
         /// Buildings are stored for the project, but the kept map has none.
         missing_buildings: bool,
+        /// Berlin canopies (522 map objects) are stored for the project, but the kept map has
+        /// none (it was written before them).
+        missing_canopies: bool,
     },
 }
 
@@ -2920,6 +2923,7 @@ pub fn run_project(
         MapOutcome::Kept {
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
+            missing_canopies: map_lacks_canopies(dir, &text)?,
             map: existing,
         }
     } else {
@@ -3188,6 +3192,42 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
 
 /// How a building object's provenance appears in the map file.
 const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"#;
+
+/// Whether the stored Berlin layers give 522 canopy map objects that the map at `map_text`
+/// lacks (it was written before them, or without the layers).
+fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
+    if map_text.contains(CANOPY_SOURCE_TAG) {
+        return Ok(false);
+    }
+    let project = ProjectFile::load(dir)?;
+    let layers = stored_berlin_layers(dir, &project)?;
+    let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER) else {
+        return Ok(false);
+    };
+    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let georef = Georeferencing::new_in(
+        project.crs(),
+        area.centroid(),
+        project.scale_denominator,
+        project.declination_date,
+    )?;
+    let symbol_set = project.map_kind.symbol_set();
+    let footprints = read_stored_buildings(dir)?.map_or_else(Vec::new, |b| b.footprints());
+    Ok(!canopy_objects(
+        &layer.features,
+        &footprints,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        &georef,
+        &symbol_set,
+        layer.fetched,
+    )?
+    .is_empty())
+}
+
+/// How a canopy object's provenance appears in the map file.
+const CANOPY_SOURCE_TAG: &str =
+    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#;
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
@@ -6245,7 +6285,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             MapOutcome::Kept {
                 map: map.clone(),
                 references_images: false,
-                missing_buildings: true
+                missing_buildings: true,
+                missing_canopies: false,
             }
         );
         assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
@@ -6259,7 +6300,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             MapOutcome::Kept {
                 map,
                 references_images: true,
-                missing_buildings: false
+                missing_buildings: false,
+                missing_canopies: false,
             }
         );
     }
@@ -8802,6 +8844,66 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00ZAUN"))
             .expect("the ALKIS fence");
         assert_eq!(tag(alkis, "freemapper:also").as_deref(), Some("osm/way/1"));
+    }
+
+    #[test]
+    fn run_says_when_the_kept_map_lacks_the_canopies() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let roof = serde_json::json!({"type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "bauwerkeflaechen.DEBE00ROOF",
+            "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                [392_760.0, 5_820_860.0], [392_766.0, 5_820_860.0], [392_766.0, 5_820_864.0],
+                [392_760.0, 5_820_864.0], [392_760.0, 5_820_860.0]]]]},
+            "properties": {"uuid": "DEBE00ROOF", "bezbwf": "Überdachung"}}]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-flaechen.geojson"),
+            roof.to_string(),
+        )
+        .unwrap();
+        // A map from before the canopies: it has the ALKIS buildings, but no 522.
+        let map = map_path(dir.path());
+        std::fs::write(
+            &map,
+            format!("edited in OOM {ALKIS_SOURCE_TAG} {ORTHOPHOTO_RELPATH}"),
+        )
+        .unwrap();
+        let run = |force: bool| {
+            run_project(
+                dir.path(),
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                force,
+                &mut |_| {},
+            )
+            .unwrap()
+            .map
+        };
+        assert_eq!(
+            run(false),
+            MapOutcome::Kept {
+                map: map.clone(),
+                references_images: true,
+                missing_buildings: false,
+                missing_canopies: true,
+            }
+        );
+        // Written again with force, the map has them.
+        assert_eq!(run(true), MapOutcome::Written(map.clone()));
+        assert!(matches!(
+            run(false),
+            MapOutcome::Kept {
+                missing_canopies: false,
+                ..
+            }
+        ));
     }
 
     #[test]

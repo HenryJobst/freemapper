@@ -326,6 +326,7 @@ fn main() -> anyhow::Result<()> {
                     map,
                     references_images,
                     missing_buildings,
+                    missing_canopies,
                 } => {
                     println!("Kept {} (it may contain your work)", map.display());
                     if !references_images {
@@ -339,6 +340,13 @@ fn main() -> anyhow::Result<()> {
                         println!(
                             "The map has no ALKIS buildings yet. To add them, replace it with \
                              --force, which keeps the old one as .omap.bak."
+                        );
+                    }
+                    if missing_canopies {
+                        println!(
+                            "The map lacks the Berlin canopies and carports (522) that are now \
+                             map objects. To add them, run with --force, which keeps the old map \
+                             as .omap.bak."
                         );
                     }
                 }

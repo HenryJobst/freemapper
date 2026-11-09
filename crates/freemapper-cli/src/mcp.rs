@@ -363,6 +363,7 @@ fn summary(outcome: &RunOutcome) -> String {
             map,
             references_images,
             missing_buildings,
+            missing_canopies,
         } => {
             lines.push(format!(
                 "Kept the existing map {} (it may contain the mapper's work)",
@@ -379,6 +380,14 @@ fn summary(outcome: &RunOutcome) -> String {
                 lines.push(
                     "The map has no ALKIS buildings yet. Start the pipeline with force to add \
                      them; it replaces the map and keeps the old one as .omap.bak."
+                        .to_string(),
+                );
+            }
+            if *missing_canopies {
+                lines.push(
+                    "The map lacks the Berlin canopies and carports (522) that are now map \
+                     objects. Start the pipeline with force to add them; it replaces the map and \
+                     keeps the old one as .omap.bak."
                         .to_string(),
                 );
             }

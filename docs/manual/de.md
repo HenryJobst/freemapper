@@ -402,8 +402,8 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 ## 13. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
-  nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude, weist
-  freemapper darauf hin.
+  nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder in Berlin
+  die Überdachungen, weist freemapper darauf hin.
 - **Neu schreiben:** `--force` ersetzt die Karte. Die alte bleibt als `.omap.bak` erhalten.
 - **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
   keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
@@ -486,6 +486,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `offline and not cached` / `no OSM extract cached` | Mit `--offline` fehlen Daten. | Einmal mit Internet laden. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Es wurde noch nicht geladen, oder das Gebiet hat sich geändert. | `run` bzw. `fetch` ausführen. |
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
+| `The map lacks the Berlin canopies and carports (522) that are now map objects` | Die Karte stammt aus der Zeit vor den Berliner Überdachungen. freemapper hat sie behalten, die Überdachungen fehlen darin. | Mit `run --force` neu schreiben. Die alte Karte bleibt als `.omap.bak`. Oder die Überdachungen aus den Kandidaten von Hand übernehmen. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
 | `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Bauwerke und Bäume oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und gespeicherte Berliner Ebenen. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |

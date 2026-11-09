@@ -393,8 +393,8 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 ## 13. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
-  It only updates the templates and candidates. If buildings are missing from the map, freemapper
-  tells you.
+  It only updates the templates and candidates. If buildings are missing from the map, or in
+  Berlin the canopies, freemapper tells you.
 - **Write it again:** `--force` replaces the map. The old one is kept as `.omap.bak`.
 - **Water in an older map:** a map made before this version has no water yet. Running `run` again does
   not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
@@ -474,6 +474,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `offline and not cached` / `no OSM extract cached` | Data is missing for `--offline`. | Fetch once with internet. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Nothing was fetched yet, or the area changed. | Run `run` or `fetch`. |
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
+| `The map lacks the Berlin canopies and carports (522) that are now map objects` | The map dates from before the Berlin canopies. freemapper kept it, and the canopies are not in it. | Write it again with `run --force`. The old map stays as `.omap.bak`. Or copy the canopies over by hand. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
 | `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin structures and trees, or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and stored Berlin layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
