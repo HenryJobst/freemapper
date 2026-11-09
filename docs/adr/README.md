@@ -106,3 +106,9 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0058](0058-berlin-layer-tag-and-the-freemapper-also-form.md) | Every Berlin candidate carries `berlin:layer`; `freemapper:also` names `<source>/<id>` | Accepted | 2026-11-09 |
 | [0059](0059-project-files-never-name-paths.md) | Project files never name paths | Accepted | 2026-11-09 |
 | [0060](0060-writes-never-follow-links.md) | Writes never follow links | Accepted | 2026-11-09 |
+| [0061](0061-alkis-canopies-and-passages-in-every-state.md) | ALKIS canopies and passages in every state | Accepted | 2026-11-09 |
+| [0062](0062-full-alkis-from-the-nas-wfs.md) | Full ALKIS from the NAS WFS, Brandenburg first | Accepted | 2026-11-09 |
+| [0063](0063-adv-code-rules-and-a-shared-duplicate-rank.md) | AdV code rules for the states and one duplicate rank for every state | Accepted | 2026-11-09 |
+| [0064](0064-nas-stairs-from-the-bottom-edge.md) | NAS stairs run up from their bottom edge | Accepted | 2026-11-09 |
+| [0065](0065-city-tree-cadastres-through-one-reader-potsdam-first.md) | City tree cadastres through one reader, Potsdam first | Accepted | 2026-11-09 |
+| [0066](0066-point-symbol-generalization.md) | Point symbols keep the norm's gap; dense tree groups become areas | Accepted | 2026-11-09 |

@@ -6,6 +6,21 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Canopies and passages in more states. In every state except Saxony and Saxony-Anhalt, ALKIS canopies and carports become map objects (522) on both map kinds, cut at the buildings as in Berlin. Building passages and arcades become 522 candidates, and the building stays whole. freemapper reads them from the buildings it already fetches, so there is no extra download. The data currency is the date of the ALKIS object. An existing map gets the canopies only with `run --force` (ADR 0061).
+- Brandenburg: the full ALKIS from the LGB's NAS service. Walls and wall edges, fences, hedges, monuments, fountains, ditches and brooks become candidates, on sprint maps also embankment tops and bridges. The code in the cadastre picks the symbol, and `freemapper:alkis` gives its name, e.g. `Mauerkante, rechts`. The data currency is the date the object version entered the cadastre. The layers are stored in `data/alkis-nas/`, about 2 MB per km² (ADRs 0062, 0063).
+- Potsdam: the trees of the city map (Bäume der Stadtkarte) become 418 candidates, each with its own survey date. The data has no crown size, and stumps are left out. OSM trees within 2 m of a Potsdam tree are dropped. The new attribution line `Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0` appears when Potsdam trees are among the candidates (ADR 0065).
+- Point symbol generalization. Point symbols keep the gap of 0.15 mm that ISSprOM sets for lines. Three or more trees that crowd each other become an area: paved area with scattered trees (501.3) on paving, forest (405) when the crowns cover at least half of the group, otherwise open land with scattered trees (402). Rows of trees stay single tree symbols. The area carries `freemapper:source=generalization` and lists its trees in `freemapper:source_id` (ADR 0066).
+
+### Changed
+
+- Points too close together are thinned. Where two point symbols would come closer on paper than the norm allows, freemapper keeps the larger one, then the one from the better source, then the one with the larger crown. The kept point names the others in `freemapper:generalized`. This changes the candidates and the training map in every state, Berlin included. The map objects stay the same (ADR 0066).
+- Trees and other points in out-of-bounds candidates (520) stay in the candidates with `freemapper:hidden=520`, but the training map leaves them out. On schoolyard maps the PDF therefore shows no point off the school grounds (ADR 0066).
+- Duplicates: register before ALKIS before the street survey before OSM now applies in every state, and also to brooks and ditches (305, 306). An OSM line with at least 80 % of its length within 1.5 m of a full ALKIS line with the same symbol is dropped and named in `freemapper:also` (ADR 0063).
+- The download estimate and the disk check count the full ALKIS and the city tree cadastres as an optional part (2 and 1 MB per km²). Without room, freemapper leaves them out and keeps the stored ones.
+- `run` now reports a kept map without the ALKIS canopies in every state with canopies. The message still reads `The map lacks the Berlin canopies and carports (522) …`.
+
 ## [0.6.2] - 2026-11-09
 
 ### Security
