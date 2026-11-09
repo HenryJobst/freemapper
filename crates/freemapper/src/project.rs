@@ -2599,7 +2599,7 @@ fn fetch_nas_layers_into(
         return BTreeMap::new();
     }
     // Only after the check: a linked folder never has its part files removed.
-    crate::fsutil::remove_stale_parts(&layers_dir, crate::fetch::STALE_PART_AGE);
+    crate::fsutil::remove_stale_parts_inside(dir, &layers_dir, crate::fetch::STALE_PART_AGE);
     let part = || -> Result<PathBuf, FetchError> {
         let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
         crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
@@ -2803,7 +2803,7 @@ fn fetch_tree_layers_into(
         ));
         return BTreeMap::new();
     }
-    crate::fsutil::remove_stale_parts(&trees_dir, crate::fetch::STALE_PART_AGE);
+    crate::fsutil::remove_stale_parts_inside(dir, &trees_dir, crate::fetch::STALE_PART_AGE);
     let part = || -> Result<PathBuf, FetchError> {
         let part = crate::fsutil::fresh_part_name(&trees_dir.join("answer.geojson"));
         crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
