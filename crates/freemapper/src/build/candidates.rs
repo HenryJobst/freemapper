@@ -380,6 +380,16 @@ pub fn osm_objects(
                     ],
                 )]
             }
+            // A cadastre or survey line shorter than 1 mm on paper is not worth a candidate (the
+            // clipped pieces above are held to the same limit).
+            (OsmGeometry::Line(points), Draw::Line)
+                if source != "osm"
+                    && Euclidean.length(&geo_types::LineString(
+                        points.iter().map(projected).collect(),
+                    )) < min_length =>
+            {
+                continue;
+            }
             (OsmGeometry::Line(points), Draw::Line) => {
                 let coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
                 let closed = coords.len() > 3 && coords.first() == coords.last();
@@ -416,8 +426,21 @@ pub fn osm_objects(
         if source == "osm" {
             tags.push(("freemapper:osm".to_string(), found.matched));
         }
-        tags.push(("freemapper:currency".to_string(), currency.to_string()));
-        for key in ["freemapper:alkis", "freemapper:size", "freemapper:baum"] {
+        // A feature with a date of its own (Straßenbefahrung) is as old as that.
+        tags.push((
+            "freemapper:currency".to_string(),
+            own("freemapper:currency").unwrap_or_else(|| currency.to_string()),
+        ));
+        let codes = crate::build::berlin::SURVEY_CODES.map(|code| format!("berlin:{code}"));
+        for key in [
+            "freemapper:alkis",
+            "freemapper:size",
+            "freemapper:baum",
+            "freemapper:currency_guessed",
+        ]
+        .into_iter()
+        .chain(codes.iter().map(String::as_str))
+        {
             if let Some(v) = own(key) {
                 tags.push((key.to_string(), v));
             }

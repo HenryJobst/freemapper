@@ -187,7 +187,8 @@ pub(crate) fn provenance_tags(
 
 /// The Straßenbefahrung codes a candidate carries as `berlin:<code>`. There is no code list, so no
 /// rule reads them; they are for the mapper (reference §14.5).
-const SURVEY_CODES: [&str; 8] = ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
+pub(crate) const SURVEY_CODES: [&str; 8] =
+    ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
 
 /// The survey date of a stored Straßenbefahrung feature (from its `gis_id`, stamped at download)
 /// and whether it is guessed. A feature without one gets the dataset date, guessed.
@@ -237,11 +238,20 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
             continue;
         }
         let text = match value {
-            Value::String(s) if !s.is_empty() => s.clone(),
+            // `NULL` is the WFS's word for "no value".
+            Value::String(s) if !s.is_empty() && s != "NULL" => s.clone(),
             Value::Number(n) => n.to_string(),
             _ => continue,
         };
         tags.push((format!("berlin:{key}"), text));
+    }
+    // A survey feature carries its own date, and a guessed one says so.
+    if properties.is_some_and(|p| p.contains_key("survey_date")) {
+        let (date, guessed) = survey_currency(feature);
+        tags.push(("freemapper:currency".to_string(), date.to_string()));
+        if guessed {
+            tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+        }
     }
     let property = |key: &str| properties.and_then(|p| p.get(key)).and_then(Value::as_str);
     let source_id = ["uuid", "gisid", "oid", "gis_id"]
@@ -394,6 +404,49 @@ pub fn drop_osm_lines_near_alkis(
     symbol_set: &SymbolSet,
     scale_denominator: u32,
 ) -> Vec<MapObject> {
+    drop_lines_near(osm, berlin, |_| true, symbol_set, scale_denominator)
+}
+
+/// The surveyed (Straßenbefahrung) lines among the Berlin objects: `geoportal-berlin/sb-…`.
+fn from_survey(object: &MapObject) -> bool {
+    object
+        .tags
+        .iter()
+        .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/sb-"))
+}
+
+/// ALKIS wins over the survey: the surveyed fence, wall, retaining wall and hedge lines
+/// (`sb-mauer`, `sb-gelaender`) with at least [`LINE_DEDUP_SHARE`] of their length within
+/// [`LINE_DEDUP_M`] of an ALKIS line with the same symbol are dropped, and the ALKIS line names
+/// them in `freemapper:also` (`geoportal-berlin/sb-…/<gis_id>`). The order of the sources is
+/// ALKIS, survey, OSM: run [`drop_osm_lines_near_alkis`] on the result.
+pub fn drop_survey_lines_near_alkis(
+    berlin: Vec<MapObject>,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let (survey, mut alkis): (Vec<_>, Vec<_>) = berlin.into_iter().partition(from_survey);
+    let mut kept = drop_lines_near(
+        survey,
+        &mut alkis,
+        |o| !from_survey(o),
+        symbol_set,
+        scale_denominator,
+    );
+    alkis.append(&mut kept);
+    alkis
+}
+
+/// Drops the `candidates` lines (fence, wall, retaining wall, hedge symbols) that follow a
+/// `winners` line with the same symbol, and names them in the winner's `freemapper:also`.
+/// `winners` are the Berlin objects for which `is_winner` holds.
+fn drop_lines_near(
+    osm: Vec<MapObject>,
+    berlin: &mut [MapObject],
+    is_winner: impl Fn(&MapObject) -> bool,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
     let codes: Vec<u32> = LINE_DEDUP_CODES
         .iter()
         .filter_map(|c| symbol_set.id_for_code(c))
@@ -402,9 +455,10 @@ pub fn drop_osm_lines_near_alkis(
         matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
     };
     let from_berlin = |o: &MapObject| {
-        o.tags
-            .iter()
-            .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
+        is_winner(o)
+            && o.tags
+                .iter()
+                .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
     };
     let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
     // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
@@ -506,12 +560,19 @@ pub fn drop_osm_lines_near_alkis(
             .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
             .map(|(index, _)| index)
             .expect("some length is near");
-        let id = object
-            .tags
-            .iter()
-            .find(|(k, _)| k == "freemapper:source_id")
-            .map_or_else(String::new, |(_, v)| v.clone());
-        let also = format!("osm/{id}");
+        // `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source and the id in it.
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        let also = format!(
+            "{}/{}",
+            tag("freemapper:source"),
+            tag("freemapper:source_id")
+        );
         let tags = &mut berlin[winner].tags;
         match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
             Some((_, v)) if !v.split("; ").any(|x| x == also) => {
@@ -669,6 +730,294 @@ mod tests {
             currency: "2026-11-09".parse().unwrap(),
         };
         berlin_objects(&[input], kind, &area, 20.0, &georef, &set).unwrap()
+    }
+
+    /// A stored Straßenbefahrung feature: `freemapper:layer` and the survey date stamped as
+    /// the download does.
+    fn survey_feature(layer: &str, mut feature: Value) -> Value {
+        feature["properties"][crate::sources::berlin::TYPE_KEY] = layer.into();
+        crate::sources::berlin::stamp_survey_date(&mut feature);
+        feature
+    }
+
+    fn stored(layer: &str, collection: &str) -> Vec<Value> {
+        features(collection)
+            .into_iter()
+            .map(|f| survey_feature(layer, f))
+            .collect()
+    }
+
+    fn survey_objects(file: &str, features: &[Value], kind: MapKind) -> Vec<MapObject> {
+        let (georef, area, set) = setup(kind);
+        let input = LayerInput {
+            file,
+            features,
+            currency: "2026-11-09".parse().unwrap(),
+        };
+        berlin_objects(&[input], kind, &area, 20.0, &georef, &set).unwrap()
+    }
+
+    fn object_tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
+        object
+            .tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    }
+
+    fn survey_point(layer: &str, id: &str, (e, n): (f64, f64)) -> Value {
+        survey_feature(
+            layer,
+            serde_json::json!({
+                "type": "Feature", "id": format!("{layer}.{id}"),
+                "geometry": {"type": "Point", "coordinates": [e, n]},
+                "properties": {"gis_id": format!("Pk_2015-05-02_{id}"), "pot": 2}
+            }),
+        )
+    }
+
+    #[test]
+    fn curbs_are_edge_candidates_on_sprint_only() {
+        let curbs = stored("bd_bordstein", SB_BORDSTEIN);
+        let found = survey_objects("sb-bordstein", &curbs, MapKind::Sprint);
+        let set = MapKind::Sprint.symbol_set();
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(
+            found
+                .iter()
+                .all(|o| Some(o.symbol_id) == set.id_for_code("501.1")
+                    && matches!(o.kind, MapObjectKind::Path))
+        );
+        assert_eq!(
+            object_tag(&found[0], "freemapper:source"),
+            Some("geoportal-berlin/sb-bordstein")
+        );
+        // The survey date is the currency; the survey codes stay for the mapper, `NULL` does not.
+        assert_eq!(
+            object_tag(&found[0], "freemapper:source_id"),
+            Some("Li_16.04.2015_18991")
+        );
+        assert_eq!(
+            object_tag(&found[0], "freemapper:currency"),
+            Some("2015-04-16")
+        );
+        assert_eq!(
+            object_tag(&found[1], "freemapper:currency"),
+            Some("2014-07-16")
+        );
+        assert_eq!(object_tag(&found[0], "berlin:sre"), Some("0"));
+        assert_eq!(object_tag(&found[1], "berlin:sre"), None);
+        // A schoolyard map has no curb candidates.
+        assert!(survey_objects("sb-bordstein", &curbs, MapKind::Schoolyard).is_empty());
+        // A curb shorter than 1 mm on paper (1 m at 1:1000) is dropped.
+        let mut short = curbs[0].clone();
+        short["geometry"]["coordinates"] =
+            serde_json::json!([[[392_500.0, 5_820_500.0], [392_500.4, 5_820_500.0]]]);
+        assert!(survey_objects("sb-bordstein", &[short], MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn railings_are_impassable_fence_candidates() {
+        let mut railings = stored("bf_gelaender", SB_GELAENDER);
+        railings.extend(stored("bb_verkehrsschutzgitter", SB_VERKEHRSSCHUTZGITTER));
+        let mut barrier = railings[0].clone();
+        barrier["properties"][crate::sources::berlin::TYPE_KEY] = "bg_leitplanke".into();
+        railings.push(barrier);
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = survey_objects("sb-gelaender", &railings, kind);
+            let set = kind.symbol_set();
+            assert_eq!(found.len(), 5, "{found:?}");
+            assert!(
+                found
+                    .iter()
+                    .all(|o| Some(o.symbol_id) == set.id_for_code("518"))
+            );
+            assert_eq!(
+                object_tag(&found[0], "freemapper:currency"),
+                Some("2015-05-02")
+            );
+        }
+    }
+
+    #[test]
+    fn walls_of_the_survey_are_515() {
+        let wall = survey_feature(
+            "bh_mauer",
+            serde_json::json!({
+                "type": "Feature", "id": "bh_mauer.1",
+                "geometry": {"type": "MultiLineString", "coordinates": [[[392_500.0, 5_820_500.0], [392_520.0, 5_820_500.0]]]},
+                "properties": {"gis_id": "Li_25.09.2014_230", "hms": "2"}
+            }),
+        );
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = survey_objects("sb-mauer", std::slice::from_ref(&wall), kind);
+            assert_eq!(found.len(), 1);
+            assert_eq!(
+                Some(found[0].symbol_id),
+                kind.symbol_set().id_for_code("515")
+            );
+            assert_eq!(object_tag(&found[0], "berlin:hms"), Some("2"));
+            assert_eq!(
+                object_tag(&found[0], "freemapper:currency"),
+                Some("2014-09-25")
+            );
+        }
+    }
+
+    #[test]
+    fn bollards_only_on_schoolyard() {
+        let furniture: Vec<Value> = ["av_poller", "as_mast", "am_fahnenmast"]
+            .iter()
+            .enumerate()
+            .map(|(i, layer)| {
+                survey_point(layer, &i.to_string(), (392_500.0 + i as f64, 5_820_500.0))
+            })
+            .collect();
+        let found = survey_objects("sb-moebel", &furniture, MapKind::Schoolyard);
+        let set = MapKind::Schoolyard.symbol_set();
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert!(
+            found
+                .iter()
+                .all(|o| Some(o.symbol_id) == set.id_for_code("544"))
+        );
+        assert_eq!(object_tag(&found[0], "berlin:pot"), Some("2"));
+        // On a sprint map they would flood the candidates.
+        assert!(survey_objects("sb-moebel", &furniture, MapKind::Sprint).is_empty());
+        // The other schoolyard furniture: hydrant 321, play equipment 541.
+        let others = [
+            survey_point("aq_hydrant", "7", (392_510.0, 5_820_500.0)),
+            survey_point("aw_spielgeraet", "8", (392_520.0, 5_820_500.0)),
+        ];
+        let found = survey_objects("sb-moebel", &others, MapKind::Schoolyard);
+        let codes: Vec<_> = ["321", "541"].iter().map(|c| set.id_for_code(c)).collect();
+        assert_eq!(
+            found.iter().map(|o| Some(o.symbol_id)).collect::<Vec<_>>(),
+            codes
+        );
+        assert!(survey_objects("sb-moebel", &others, MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn advertising_column_is_531() {
+        let column = survey_point("ag_werbesaeule", "1", (392_500.0, 5_820_500.0));
+        let found = survey_objects("sb-objekte", &[column], MapKind::Sprint);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(
+            Some(found[0].symbol_id),
+            MapKind::Sprint.symbol_set().id_for_code("531")
+        );
+        assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
+        // The schoolyard set has no use for it and no layer fetches it there.
+        let column = survey_point("ag_werbesaeule", "1", (392_500.0, 5_820_500.0));
+        assert!(survey_objects("sb-objekte", &[column], MapKind::Schoolyard).is_empty());
+    }
+
+    #[test]
+    fn shelters_pumps_and_fountains_are_street_objects() {
+        let shelter = survey_feature(
+            "br_fahrgastunterstand",
+            serde_json::json!({
+                "type": "Feature", "id": "br_fahrgastunterstand.1",
+                "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                    [392_500.0, 5_820_500.0], [392_503.0, 5_820_500.0], [392_503.0, 5_820_502.0],
+                    [392_500.0, 5_820_502.0], [392_500.0, 5_820_500.0]]]]},
+                "properties": {"gis_id": "Fl_20150413_37"}
+            }),
+        );
+        let objects = [
+            shelter,
+            survey_point("af_wasserpumpen_brunnen", "2", (392_510.0, 5_820_500.0)),
+            survey_point(
+                "bv_springbrunnen_zierbrunnen",
+                "3",
+                (392_520.0, 5_820_500.0),
+            ),
+            survey_point(
+                "ac_trinkwasserbrunnen_wasserspender",
+                "4",
+                (392_530.0, 5_820_500.0),
+            ),
+        ];
+        let codes = |kind: MapKind| -> Vec<Option<u32>> {
+            survey_objects("sb-objekte", &objects, kind)
+                .iter()
+                .map(|o| Some(o.symbol_id))
+                .collect()
+        };
+        let set = MapKind::Sprint.symbol_set();
+        assert_eq!(
+            codes(MapKind::Sprint),
+            ["522", "311", "311"].map(|c| set.id_for_code(c)).to_vec()
+        );
+        let set = MapKind::Schoolyard.symbol_set();
+        assert_eq!(
+            codes(MapKind::Schoolyard),
+            ["522", "311", "311", "313"]
+                .map(|c| set.id_for_code(c))
+                .to_vec()
+        );
+    }
+
+    /// A survey or ALKIS line of `symbol` at `n`, `e0`..`e1` (metres from Alexanderplatz).
+    fn line_object(
+        kind: MapKind,
+        code: &str,
+        source: &str,
+        id: &str,
+        (e0, e1, n): (f64, f64, f64),
+    ) -> MapObject {
+        let (georef, _, set) = setup(kind);
+        let p = |e: f64| {
+            georef
+                .projected_to_map(ProjectedPoint {
+                    easting: 392_400.0 + e,
+                    northing: 5_820_400.0 + n,
+                })
+                .unwrap()
+        };
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Path,
+            coords: vec![p(e0), p(e1)],
+            tags: vec![
+                ("freemapper:source".into(), source.into()),
+                ("freemapper:source_id".into(), id.into()),
+            ],
+        }
+    }
+
+    #[test]
+    fn survey_lines_near_alkis_are_dropped_and_named() {
+        let kind = MapKind::Sprint;
+        let set = kind.symbol_set();
+        let alkis = "geoportal-berlin/bauwerke-linien";
+        let survey = "geoportal-berlin/sb-gelaender";
+        let mut berlin = vec![
+            line_object(kind, "518", alkis, "A1", (0.0, 40.0, 0.0)),
+            // A wall: another symbol, stays.
+            line_object(kind, "515", alkis, "A2", (0.0, 40.0, 30.0)),
+        ];
+        berlin.extend([
+            // Along the ALKIS fence within 1 m: the same fence.
+            line_object(kind, "518", survey, "S1", (1.0, 39.0, 0.8)),
+            // 5 m away: another fence.
+            line_object(kind, "518", survey, "S2", (1.0, 39.0, 5.0)),
+            // Along the ALKIS wall but a railing: stays (different symbol).
+            line_object(kind, "518", survey, "S3", (1.0, 39.0, 30.5)),
+        ]);
+        let kept = drop_survey_lines_near_alkis(berlin, &set, 1000);
+        // The ALKIS objects are kept, the near survey fence is gone.
+        let ids: Vec<_> = kept
+            .iter()
+            .map(|o| object_tag(o, "freemapper:source_id").unwrap())
+            .collect();
+        assert_eq!(ids, ["A1", "A2", "S2", "S3"]);
+        assert_eq!(
+            object_tag(&kept[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-gelaender/S1")
+        );
+        assert_eq!(object_tag(&kept[1], "freemapper:also"), None);
     }
 
     #[test]

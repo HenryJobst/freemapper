@@ -10,7 +10,7 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre,
+    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_survey_lines_near_alkis,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -20,7 +20,9 @@ use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::stairs::{STEP_EDGE_LAYER, StairInput, has_stairs, stair_objects};
+use crate::build::stairs::{
+    STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_stairs, stair_objects,
+};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -2492,7 +2494,8 @@ fn stored_berlin_structures(
     // The stair areas are in the same layer as the canopies; the step edges are lines.
     let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
     let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
-    if areas.is_none() && edges.is_none() {
+    let survey = layers.iter().find(|l| l.layer.file == SURVEY_STAIR_LAYER);
+    if areas.is_none() && edges.is_none() && survey.is_none() {
         return Ok(BerlinStructures {
             canopies: Vec::new(),
             stairs: Vec::new(),
@@ -2520,6 +2523,7 @@ fn stored_berlin_structures(
     let fetched = areas
         .iter()
         .chain(edges.iter())
+        .chain(survey.iter())
         .map(|l| l.fetched)
         .max()
         .expect("one of the layers is stored");
@@ -2527,6 +2531,7 @@ fn stored_berlin_structures(
         &StairInput {
             features: features(areas),
             step_edges: features(edges),
+            survey: features(survey),
             terrain: terrain.as_ref(),
             buildings: footprints,
         },
@@ -3532,7 +3537,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     };
     // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree. ALKIS
     // surveyed the fences, walls and hedges: an OSM line along one with its symbol is the same.
-    let mut berlin_candidates = stored_berlin_objects(
+    let berlin_candidates = stored_berlin_objects(
         &project,
         &berlin_layers,
         stored_buildings.as_ref(),
@@ -3540,6 +3545,10 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     )?;
+    // The order of the sources is ALKIS, survey, OSM: a survey line along an ALKIS line goes
+    // first, then an OSM line along either.
+    let mut berlin_candidates =
+        drop_survey_lines_near_alkis(berlin_candidates, &symbol_set, georef.scale_denominator);
     let osm_candidates = drop_osm_trees_near_cadastre(
         osm_objects(Target::Candidates)?,
         &berlin_candidates,
@@ -8539,6 +8548,79 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
+    #[test]
+    fn survey_railing_along_an_alkis_fence_is_named_by_it() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let line = |id: &str, n: f64, props: serde_json::Value| {
+            serde_json::json!({
+                "type": "Feature", "id": id,
+                "geometry": {"type": "MultiLineString",
+                    "coordinates": [[[392_770.0, n], [392_830.0, n]]]},
+                "properties": props})
+        };
+        let write = |file: &str, features: Vec<serde_json::Value>| {
+            std::fs::write(
+                dir.path().join(format!("data/berlin/{file}.geojson")),
+                serde_json::json!({"type": "FeatureCollection", "features": features}).to_string(),
+            )
+            .unwrap();
+        };
+        write(
+            "bauwerke-linien",
+            vec![line(
+                "bauwerkelinien.1",
+                5_820_830.0,
+                serde_json::json!({"bezbwf": "Zaun", "uuid": "DEBE00FENCE"}),
+            )],
+        );
+        // One railing 0.7 m beside the fence (the same object), one 8 m away.
+        let railing = |id: &str, n: f64| {
+            line(
+                &format!("bf_gelaender.{id}"),
+                n,
+                serde_json::json!({"gis_id": format!("Li_2015-05-02_{id}"),
+                    "freemapper:layer": "bf_gelaender", "survey_date": "2015-05-02"}),
+            )
+        };
+        write(
+            "sb-gelaender",
+            vec![railing("1", 5_820_830.7), railing("2", 5_820_838.0)],
+        );
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let fences: Vec<&MapObject> = documents.candidates.parts[0]
+            .objects
+            .iter()
+            .filter(|o| Some(o.symbol_id) == set.id_for_code("518"))
+            .collect();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let ids: Vec<_> = fences
+            .iter()
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .collect();
+        assert_eq!(ids, ["DEBE00FENCE", "Li_2015-05-02_2"], "{fences:?}");
+        assert_eq!(
+            tag(fences[0], "freemapper:also").as_deref(),
+            Some("geoportal-berlin/sb-gelaender/Li_2015-05-02_1")
+        );
+        assert_eq!(
+            tag(fences[1], "freemapper:currency").as_deref(),
+            Some("2015-05-02")
+        );
+    }
+
     /// Serves a K5 map for the template area of a Berlin project (the pieces `fetch_k5` asks for).
     fn serve_k5(fetcher: &MapFetcher, project: &ProjectFile) {
         let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
@@ -8770,7 +8852,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "uphill to the east"
         );
 
-        // Without stair areas `derive` keeps no terrain.
+        // Without stair areas (the surveyed ones included) `derive` keeps no terrain.
+        std::fs::write(
+            dir.path().join("data/berlin/sb-treppe.geojson"),
+            r#"{"type":"FeatureCollection","features":[]}"#,
+        )
+        .unwrap();
         let roof_only = serde_json::json!({"type": "FeatureCollection", "features": [
             area("DEBE00ROOF", "Überdachung", (392_760.0, 5_820_860.0), (6.0, 4.0))]});
         std::fs::write(

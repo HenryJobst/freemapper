@@ -12,16 +12,22 @@
 //! [`STEP_GAP_M`] apart that overlap along their length form one flight (exact duplicates are
 //! dropped), and the flight is one stair whose walking direction runs across the edges.
 //!
+//! The surveyed stairs (`sb-treppe`, Straßenbefahrung `cc_treppe` polygons) go the same way. ALKIS
+//! wins: a surveyed stair that covers an ALKIS stair area or flight by at least
+//! [`DUPLICATE_STAIR_SHARE`] of the smaller one is the same stair and is dropped; the ALKIS
+//! stair names it in `freemapper:also`. The survey's `trs` (probably the number of steps) stays
+//! as `berlin:trs`.
+//!
 //! The width across the walking direction, as paper width at the map scale, picks the footprint
 //! symbol nearest to it. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest footprint (a
 //! stadium stand) is drawn as parallel 532.9 lines across its width.
 
 use chrono::NaiveDate;
-use geo::{Distance as _, Euclidean, MinimumRotatedRect as _};
+use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRect as _};
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags};
+use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags, survey_tags};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -61,6 +67,10 @@ const STEP_GAP_M: f64 = 2.0;
 const STEP_PARALLEL_SIN: f64 = 0.26;
 /// Step edges whose ends are this close are the same edge (ALKIS has some twice).
 const DUPLICATE_EDGE_M: f64 = 0.05;
+/// The layer file of the surveyed stairs.
+pub const SURVEY_STAIR_LAYER: &str = "sb-treppe";
+/// A surveyed stair covering this share of the smaller of it and an ALKIS stair is the same.
+const DUPLICATE_STAIR_SHARE: f64 = 0.5;
 
 /// The ISSprOM footprint symbol (532.6 … 532.9) nearest to a stair `paper_mm` wide on paper,
 /// measured at 100 % symbol size (the ground width over metres per mm and the enlargement).
@@ -81,9 +91,14 @@ fn is_step_edge(feature: &Value) -> bool {
     feature["properties"]["bezbwf"] == STEP_EDGE_KIND
 }
 
-/// Whether any of the `features` of a layer is a stair area (`derive` keeps the terrain then).
+fn is_survey_stair(feature: &Value) -> bool {
+    feature["properties"][crate::sources::berlin::TYPE_KEY] == "cc_treppe"
+}
+
+/// Whether any of the `features` of a layer is a stair area, ALKIS or surveyed (`derive` keeps
+/// the terrain then).
 pub fn has_stairs(features: &[Value]) -> bool {
-    features.iter().any(is_stair)
+    features.iter().any(|f| is_stair(f) || is_survey_stair(f))
 }
 
 /// What the stairs are built from.
@@ -92,6 +107,9 @@ pub struct StairInput<'a> {
     pub features: &'a [Value],
     /// The `bauwerke-linien` features (EPSG:25833); only the `Freitreppe` step edges are used.
     pub step_edges: &'a [Value],
+    /// The stored `sb-treppe` features (EPSG:25833, stamped with `freemapper:layer` and the
+    /// survey date); they are dropped where an ALKIS stair is.
+    pub survey: &'a [Value],
     /// The DGM1 in the map's CRS, if one is stored.
     pub terrain: Option<&'a Raster<f32>>,
     /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
@@ -398,6 +416,8 @@ pub fn stair_objects(
                 .flat_map(|f| feature_polygons(f, crs)),
         )
         .collect();
+    // The ALKIS stairs: footprint and the objects drawn for it.
+    let mut alkis: Vec<(Polygon<f64>, std::ops::Range<usize>)> = Vec::new();
     for feature in input.features.iter().filter(|f| is_stair(f)) {
         for part in feature_polygons(feature, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
@@ -411,7 +431,9 @@ pub fn stair_objects(
             if guessed {
                 tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
             }
+            let start = stairs.objects.len();
             stairs.push(&axis, tags)?;
+            alkis.push((part, start..stairs.objects.len()));
         }
     }
     let edges = step_edges(input.step_edges, crs);
@@ -420,12 +442,64 @@ pub fn stair_objects(
         if Euclidean.distance(&outline, map_area) > buffer_m {
             continue;
         }
+        let start = stairs.objects.len();
         stairs.push(
             &axis,
             provenance_tags(STEP_EDGE_LAYER, flight[0].feature, currency),
         )?;
+        alkis.push((outline, start..stairs.objects.len()));
+    }
+    for feature in input.survey.iter().filter(|f| is_survey_stair(f)) {
+        for part in feature_polygons(feature, crs) {
+            if Euclidean.distance(&part, map_area) > buffer_m {
+                continue;
+            }
+            let Some(axes) = axes(&part) else {
+                continue;
+            };
+            let tags = survey_tags(SURVEY_STAIR_LAYER, feature);
+            let id = tags
+                .iter()
+                .find(|(k, _)| k == "freemapper:source_id")
+                .map_or("", |(_, v)| v.as_str());
+            // ALKIS wins; it names the surveyed stair it stands for.
+            if let Some((_, drawn)) = alkis
+                .iter()
+                .find(|(footprint, _)| same_stair(footprint, &part))
+            {
+                let also = format!("geoportal-berlin/{SURVEY_STAIR_LAYER}/{id}");
+                for object in &mut stairs.objects[drawn.clone()] {
+                    add_also(&mut object.tags, &also);
+                }
+                continue;
+            }
+            let (axis, guessed) = walking_axis(axes, input.terrain, &facades);
+            let mut tags = tags;
+            if guessed {
+                tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
+            }
+            stairs.push(&axis, tags)?;
+        }
     }
     Ok(stairs.objects)
+}
+
+/// Whether two stair footprints overlap by [`DUPLICATE_STAIR_SHARE`] of the smaller one.
+fn same_stair(a: &Polygon<f64>, b: &Polygon<f64>) -> bool {
+    let smaller = a.unsigned_area().min(b.unsigned_area());
+    smaller > 0.0 && a.intersection(b).unsigned_area() >= DUPLICATE_STAIR_SHARE * smaller
+}
+
+/// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
+fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
+    match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
+        Some((_, v)) if !v.split("; ").any(|x| x == also) => {
+            v.push_str("; ");
+            v.push_str(also);
+        }
+        Some(_) => {}
+        None => tags.push(("freemapper:also".to_string(), also.to_string())),
+    }
 }
 
 /// Writes the lines of the stairs.
@@ -582,11 +656,23 @@ mod tests {
         terrain: Option<&Raster<f32>>,
         buildings: &[Polygon<f64>],
     ) -> Vec<MapObject> {
+        objects_with_survey(kind, features, step_edges, &[], terrain, buildings)
+    }
+
+    fn objects_with_survey(
+        kind: MapKind,
+        features: &[Value],
+        step_edges: &[Value],
+        survey: &[Value],
+        terrain: Option<&Raster<f32>>,
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
         let (georef, area, set) = setup(kind);
         stair_objects(
             &StairInput {
                 features,
                 step_edges,
+                survey,
                 terrain,
                 buildings,
             },
@@ -908,6 +994,114 @@ mod tests {
         let mut fence2 = step_edge("Z2", (0.0, 0.3), (3.0, 0.3));
         fence2["properties"]["bezbwf"] = "Zaun".into();
         assert!(objects_with_edges(kind, &[], &[fence, fence2], None, &[]).is_empty());
+    }
+
+    /// A Straßenbefahrung `cc_treppe` feature as it is stored (type and survey date stamped), with
+    /// the corners `points` (metres from the reference point).
+    fn survey_stair(gis_id: &str, trs: &str, points: &[(f64, f64)]) -> Value {
+        let mut ring: Vec<[f64; 2]> = points.iter().map(|(e, n)| [E + e, N + n]).collect();
+        ring.push(ring[0]);
+        let mut feature = serde_json::json!({
+            "type": "Feature", "id": format!("cc_treppe.{gis_id}"),
+            "geometry": {"type": "MultiPolygon", "coordinates": [[ring]]},
+            "properties": {"bezeichnun": "Treppe", "gis_id": gis_id, "trs": trs, "material": "08",
+                           "freemapper:layer": "cc_treppe"}
+        });
+        crate::sources::berlin::stamp_survey_date(&mut feature);
+        feature
+    }
+
+    fn rect_points(e: f64, n: f64, w: f64, h: f64) -> [(f64, f64); 4] {
+        [(e, n), (e + w, n), (e + w, n + h), (e, n + h)]
+    }
+
+    #[test]
+    fn surveyed_stairs_keep_step_count() {
+        let kind = MapKind::Sprint;
+        let survey = [
+            survey_stair("Fl_20150416_163", "5", &rect_points(0.0, 0.0, 2.0, 4.0)),
+            // `NULL` is the WFS's word for "no value": no tag.
+            survey_stair(
+                "FL_16072014_03142",
+                "NULL",
+                &rect_points(20.0, 0.0, 2.0, 4.0),
+            ),
+            survey_stair("unreadable", "7", &rect_points(40.0, 0.0, 2.0, 4.0)),
+        ];
+        let found = objects_with_survey(kind, &[], &[], &survey, None, &[]);
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert_eq!(tag(&found[0], "berlin:trs"), Some("5"));
+        assert_eq!(tag(&found[1], "berlin:trs"), None);
+        assert_eq!(tag(&found[0], "berlin:layer"), Some("cc_treppe"));
+        assert_eq!(
+            tag(&found[0], "freemapper:source"),
+            Some("geoportal-berlin/sb-treppe")
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:source_id"),
+            Some("Fl_20150416_163")
+        );
+        // The survey date is the currency; an unreadable id gives the dataset date, guessed.
+        assert_eq!(tag(&found[0], "freemapper:currency"), Some("2015-04-16"));
+        assert_eq!(tag(&found[1], "freemapper:currency"), Some("2014-07-16"));
+        assert_eq!(tag(&found[2], "freemapper:currency"), Some("2014-01-01"));
+        assert_eq!(tag(&found[2], "freemapper:currency_guessed"), Some("yes"));
+        assert_eq!(tag(&found[0], "freemapper:currency_guessed"), None);
+        // Width 2 m at 1:4000, 125 % symbols: the same footprint rule as the ALKIS stairs.
+        assert_eq!(
+            code(kind, &found[0]),
+            code(kind, &objects(kind, &[rect_stair(2.0, 4.0)], None)[0])
+        );
+    }
+
+    #[test]
+    fn survey_stair_on_alkis_stair_is_dropped() {
+        let kind = MapKind::Sprint;
+        // ALKIS wins: a surveyed stair on an ALKIS stair area or on a flight of step edges is
+        // the same stair; one beside them stays. The ALKIS stair names the survey one.
+        let alkis = [rect_stair(2.0, 4.0)];
+        let edges: Vec<Value> = (0..4)
+            .map(|i| {
+                let n = 0.3 * f64::from(i);
+                step_edge(&format!("A{i}"), (20.0, n), (23.0, n))
+            })
+            .collect();
+        let survey = [
+            survey_stair("Fl_20150416_1", "5", &rect_points(0.3, 0.2, 2.0, 4.0)),
+            survey_stair("Fl_20150416_2", "4", &rect_points(20.1, -0.1, 3.0, 1.2)),
+            survey_stair("Fl_20150416_3", "6", &rect_points(40.0, 0.0, 2.0, 4.0)),
+        ];
+        let found = objects_with_survey(kind, &alkis, &edges, &survey, None, &[]);
+        assert_eq!(found.len(), 3, "{found:?}");
+        let sources: Vec<_> = found
+            .iter()
+            .map(|o| tag(o, "freemapper:source").unwrap())
+            .collect();
+        assert_eq!(
+            sources,
+            [
+                "geoportal-berlin/bauwerke-flaechen",
+                "geoportal-berlin/bauwerke-linien",
+                "geoportal-berlin/sb-treppe"
+            ]
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-treppe/Fl_20150416_1")
+        );
+        assert_eq!(
+            tag(&found[1], "freemapper:also"),
+            Some("geoportal-berlin/sb-treppe/Fl_20150416_2")
+        );
+        assert_eq!(
+            tag(&found[2], "freemapper:source_id"),
+            Some("Fl_20150416_3")
+        );
+        // Without the ALKIS stairs the survey ones stay.
+        assert_eq!(
+            objects_with_survey(kind, &[], &[], &survey, None, &[]).len(),
+            3
+        );
     }
 
     #[test]
