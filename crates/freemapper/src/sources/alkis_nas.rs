@@ -7,11 +7,14 @@
 //! `COUNT=max_count`, and an answer cut at the cap is asked again in four quadrants.
 
 use std::collections::HashSet;
+use std::path::Path;
 
 use serde_json::{Map, Value};
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, ogc_exception, one_line};
+use crate::fetch::{
+    FetchError, Fetcher, get_limited_with_retries, is_ogc_report, ogc_exception, one_line,
+};
 use crate::project::MapKind;
 use crate::sources::alkis::{AlkisError, FetchArea, invalid, reproject_feature};
 use crate::sources::alkis_wfs::resolve_entity;
@@ -29,7 +32,17 @@ pub struct NasService {
     pub crs: Crs,
     /// Features per GetFeature (`COUNT`); the service has no paging.
     pub max_count: usize,
+    /// The largest answer read; a larger one is stopped and asked again in quadrants.
+    pub max_bytes: u64,
+    /// The files of the [`NAS_LAYERS`] the service serves; `None`: all of them. A type the state
+    /// does not serve answers an exception report, which would warn on every fetch.
+    pub layers: Option<&'static [&'static str]>,
+    /// The `NAMESPACES` parameter, for a server that wants the `adv` prefix declared.
+    pub namespaces: Option<&'static str>,
 }
+
+/// 256 MB: 100 000 features of about 1.1 KB (Sanssouci) and room to spare.
+const MAX_ANSWER_BYTES: u64 = 256 << 20;
 
 /// LGB, Brandenburg: "WFS BB ALKIS NAS-konform" (GID 7.1, EPSG:25833; `CountDefault` 100 000,
 /// `ImplementsResultPaging` FALSE).
@@ -39,6 +52,9 @@ pub const LGB_NAS: NasService = NasService {
     region: Region::Brandenburg,
     crs: Crs::Utm33,
     max_count: 100_000,
+    max_bytes: MAX_ANSWER_BYTES,
+    layers: None,
+    namespaces: None,
 };
 
 /// The NAS services, one per state.
@@ -114,6 +130,11 @@ pub fn nas_services_for(region_bbox: &BoundingBox) -> Vec<&'static NasService> {
 }
 
 impl NasService {
+    /// Whether the service serves `layer`.
+    pub fn serves(&self, layer: &NasLayer) -> bool {
+        self.layers.is_none_or(|files| files.contains(&layer.file))
+    }
+
     /// The GetFeature of `type_name` features in `bbox` (in [`NasService::crs`]), rounded
     /// outward, with `COUNT` = [`NasService::max_count`].
     pub fn get_feature_url(&self, type_name: &str, bbox: &BoundingBox) -> String {
@@ -121,13 +142,16 @@ impl NasService {
         format!(
             "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
              &SRSNAME=urn:ogc:def:crs:EPSG::{epsg}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::{epsg}\
-             &COUNT={}",
+             &COUNT={}{}",
             self.url,
             bbox.min_e.floor(),
             bbox.min_n.floor(),
             bbox.max_e.ceil(),
             bbox.max_n.ceil(),
-            self.max_count
+            self.max_count,
+            self.namespaces
+                .map(|n| format!("&NAMESPACES={n}"))
+                .unwrap_or_default()
         )
     }
 }
@@ -622,20 +646,43 @@ pub struct FetchedNasLayer {
 /// The NAS layers of `kind` for `area`; none at all, and no request, when the area touches no
 /// state with a NAS service. A layer that fails does not stop the others; one service that fails
 /// fails the layer (a half-filled file would pass for complete). Features two services or two
-/// quadrants both return (same `gml:id`) are kept once.
+/// quadrants both return (same `gml:id`) are kept once. Each answer streams into the file `part`
+/// first (removed afterwards), so an oversized one is stopped while it is read.
 pub fn fetch_nas_layers(
     fetcher: &dyn Fetcher,
     area: &FetchArea,
     kind: MapKind,
+    part: &Path,
 ) -> Vec<FetchedNasLayer> {
-    let services = nas_services_for(&area.region_bbox);
-    if services.is_empty() {
-        return Vec::new();
-    }
+    fetch_layers_from(
+        fetcher,
+        &nas_services_for(&area.region_bbox),
+        area,
+        kind,
+        part,
+    )
+}
+
+/// [`fetch_nas_layers`] from `services`: the layers of `kind` that at least one of them serves,
+/// each from the services that serve it.
+fn fetch_layers_from(
+    fetcher: &dyn Fetcher,
+    services: &[&NasService],
+    area: &FetchArea,
+    kind: MapKind,
+    part: &Path,
+) -> Vec<FetchedNasLayer> {
     nas_layers(kind)
-        .map(|layer| FetchedNasLayer {
-            layer,
-            features: fetch_layer(fetcher, &services, layer, area),
+        .filter_map(|layer| {
+            let serving: Vec<&NasService> = services
+                .iter()
+                .copied()
+                .filter(|s| s.serves(layer))
+                .collect();
+            (!serving.is_empty()).then(|| FetchedNasLayer {
+                layer,
+                features: fetch_layer(fetcher, &serving, layer, area, part),
+            })
         })
         .collect()
 }
@@ -646,6 +693,7 @@ fn fetch_layer(
     services: &[&NasService],
     layer: &NasLayer,
     area: &FetchArea,
+    part: &Path,
 ) -> Result<NasFeatures, FetchError> {
     let mut seen = HashSet::new();
     let mut fetched = NasFeatures {
@@ -654,23 +702,22 @@ fn fetch_layer(
         regions: Vec::new(),
     };
     for service in services {
-        let mut part = NasAnswer::default();
-        let bbox = area.bbox_for(service.crs);
-        fetch_split(
+        let request = Request {
             fetcher,
             service,
-            layer.type_name,
-            &bbox,
-            0,
-            &mut seen,
-            &mut part,
-        )?;
+            type_name: layer.type_name,
+            part,
+        };
+        let mut answer = NasAnswer::default();
+        let bbox = area.bbox_for(service.crs);
+        fetch_split(&request, &bbox, 0, &mut seen, &mut answer)?;
         fetched.features.extend(
-            part.features
+            answer
+                .features
                 .into_iter()
                 .map(|f| reproject_feature(f, service.crs, area.crs)),
         );
-        fetched.skipped.extend(part.skipped);
+        fetched.skipped.extend(answer.skipped);
         fetched.regions.push(service.region);
     }
     Ok(fetched)
@@ -679,40 +726,55 @@ fn fetch_layer(
 /// All `type_name` features of `service` in `bbox` (in the service's CRS) and the skipped ones.
 /// An answer cut at the cap (`numberReturned < numberMatched`, or `numberMatched` unknown and
 /// `numberReturned >= max_count`) is asked again in four quadrants, at most
-/// [`NAS_SPLIT_MAX_DEPTH`] levels deep.
+/// [`NAS_SPLIT_MAX_DEPTH`] levels deep, and so is an answer larger than `max_bytes`. Answers
+/// stream into the file `part`.
 pub fn fetch_nas_type(
     fetcher: &dyn Fetcher,
     service: &NasService,
     type_name: &str,
     bbox: &BoundingBox,
+    part: &Path,
 ) -> Result<NasAnswer, FetchError> {
-    let mut answer = NasAnswer::default();
-    fetch_split(
+    let request = Request {
         fetcher,
         service,
         type_name,
-        bbox,
-        0,
-        &mut HashSet::new(),
-        &mut answer,
-    )?;
+        part,
+    };
+    let mut answer = NasAnswer::default();
+    fetch_split(&request, bbox, 0, &mut HashSet::new(), &mut answer)?;
     answer.matched = Some(answer.features.len() + answer.skipped.len());
     answer.returned = answer.features.len() + answer.skipped.len();
     Ok(answer)
 }
 
+/// What one type is asked for, and where its answers stream to.
+struct Request<'a> {
+    fetcher: &'a dyn Fetcher,
+    service: &'a NasService,
+    type_name: &'a str,
+    part: &'a Path,
+}
+
 /// [`fetch_nas_type`] for `bbox` at split level `depth`, adding to `out` the features whose
 /// `gml:id` is not in `seen` yet.
 fn fetch_split(
-    fetcher: &dyn Fetcher,
-    service: &NasService,
-    type_name: &str,
+    request: &Request,
     bbox: &BoundingBox,
     depth: u32,
     seen: &mut HashSet<String>,
     out: &mut NasAnswer,
 ) -> Result<(), FetchError> {
-    let answer = get_answer(fetcher, service, type_name, bbox)?;
+    let service = request.service;
+    let answer = match get_answer(request, bbox) {
+        Err(FetchError::TooLarge { .. }) if depth < NAS_SPLIT_MAX_DEPTH => {
+            for quadrant in quadrants(bbox) {
+                fetch_split(request, &quadrant, depth + 1, seen, out)?;
+            }
+            return Ok(());
+        }
+        answer => answer?,
+    };
     let cut = match answer.matched {
         Some(matched) => answer.returned < matched,
         None => answer.returned >= service.max_count,
@@ -728,7 +790,7 @@ fn fetch_split(
             ))));
         }
         for quadrant in quadrants(bbox) {
-            fetch_split(fetcher, service, type_name, &quadrant, depth + 1, seen, out)?;
+            fetch_split(request, &quadrant, depth + 1, seen, out)?;
         }
         return Ok(());
     }
@@ -746,17 +808,18 @@ fn fetch_split(
     Ok(())
 }
 
-/// One GetFeature of `type_name` in `bbox`, read: retried like every download, but an exception
-/// report (the type has no geometry, the request is refused) is not asked again.
-fn get_answer(
-    fetcher: &dyn Fetcher,
-    service: &NasService,
-    type_name: &str,
-    bbox: &BoundingBox,
-) -> Result<NasAnswer, FetchError> {
+/// One GetFeature in `bbox`, read: retried like every download, but an exception report (the type
+/// has no geometry, the request is refused) and an answer over `max_bytes` are not asked again.
+fn get_answer(request: &Request, bbox: &BoundingBox) -> Result<NasAnswer, FetchError> {
+    let Request {
+        fetcher,
+        service,
+        type_name,
+        part,
+    } = *request;
     let url = service.get_feature_url(type_name, bbox);
     let name = service.name;
-    get_with_retries(fetcher, &url, |bytes| {
+    get_limited_with_retries(fetcher, &url, part, service.max_bytes, |bytes| {
         if is_ogc_report(bytes) {
             return Err(FetchError::Refused {
                 url: url.clone(),
@@ -1111,6 +1174,8 @@ mod tests {
             max_count: 3,
             ..LGB_NAS
         };
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("answer.gml.part");
         assert_eq!(
             service.get_feature_url(TYPE, &SANSSOUCI),
             "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0\
@@ -1145,7 +1210,7 @@ mod tests {
                 let part = answer(&ids.len().to_string(), ids);
                 fetcher.insert(&service.get_feature_url(TYPE, bbox), part.into_bytes());
             }
-            let fetched = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI).unwrap();
+            let fetched = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap();
             let mut ids: Vec<&str> = fetched
                 .features
                 .iter()
@@ -1166,14 +1231,14 @@ mod tests {
             &service.get_feature_url(TYPE, &SANSSOUCI),
             below.into_bytes(),
         );
-        let fetched = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI).unwrap();
+        let fetched = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap();
         assert_eq!(fetched.features.len(), 2);
         assert_eq!(fetcher.calls.get(), 1);
         // Cut on every level: an error after 4 splits.
         let fetcher = MapFetcher::default();
         let cut = answer("5", &["DEBBAL01", "DEBBAL02", "DEBBAL03"]);
         fetcher.insert_prefix(service.url, cut.into_bytes());
-        let err = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI).unwrap_err();
+        let err = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap_err();
         assert_eq!(
             err.to_string(),
             "invalid ALKIS data: LGB ALKIS (NAS) returned 3 of 5 features; choose a smaller area"
@@ -1186,7 +1251,10 @@ mod tests {
         let files = |kind: MapKind, bbox: BoundingBox| {
             let fetcher = MapFetcher::default();
             fetcher.insert_prefix(LGB_NAS.url, EMPTY.as_bytes().to_vec());
-            let fetched = fetch_nas_layers(&fetcher, &FetchArea::new(bbox, Crs::Utm33), kind);
+            let scratch = tempfile::tempdir().unwrap();
+            let part = scratch.path().join("answer.gml.part");
+            let area = FetchArea::new(bbox, Crs::Utm33);
+            let fetched = fetch_nas_layers(&fetcher, &area, kind, &part);
             let files: Vec<&str> = fetched
                 .iter()
                 .map(|l| {
@@ -1248,5 +1316,75 @@ mod tests {
                 assert_eq!(files(kind, bbox), (Vec::new(), 0));
             }
         }
+    }
+
+    #[test]
+    fn nas_answer_over_the_size_cap_is_split() {
+        const TYPE: &str = "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        let whole = answer("3", &["DEBBAL01", "DEBBAL02", "DEBBAL03"]);
+        let half = answer("2", &["DEBBAL01", "DEBBAL02"]);
+        // Complete by count, but larger than the service reads at once.
+        let service = NasService {
+            max_bytes: half.len() as u64,
+            ..LGB_NAS
+        };
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("answer.gml.part");
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &service.get_feature_url(TYPE, &SANSSOUCI),
+            whole.clone().into_bytes(),
+        );
+        let [a, b, c, d] = quadrants(&SANSSOUCI);
+        for (bbox, ids) in [
+            (a, &["DEBBAL01", "DEBBAL02"][..]),
+            (b, &["DEBBAL03"][..]),
+            (c, &[][..]),
+            (d, &[][..]),
+        ] {
+            let text = answer(&ids.len().to_string(), ids);
+            fetcher.insert(&service.get_feature_url(TYPE, &bbox), text.into_bytes());
+        }
+        let fetched = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap();
+        assert_eq!(fetched.features.len(), 3);
+        assert_eq!(fetcher.calls.get(), 5, "the area, then its quadrants");
+        assert!(!part.exists(), "the part file is removed");
+        // Too large on every level: an error after 4 splits, not asked again.
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(service.url, whole.into_bytes());
+        let err = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap_err();
+        assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
+        assert_eq!(fetcher.calls.get(), 1 + NAS_SPLIT_MAX_DEPTH as usize);
+    }
+
+    #[test]
+    fn nas_service_asks_only_its_layers() {
+        // A state whose service lacks most types, and needs the prefix declared.
+        static ONLY_WALLS: [&str; 1] = ["sonstiges-bauwerk"];
+        let service = NasService {
+            layers: Some(&ONLY_WALLS),
+            namespaces: Some("xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"),
+            ..LGB_NAS
+        };
+        assert!(
+            service
+                .get_feature_url(NAS_LAYERS[0].type_name, &SANSSOUCI)
+                .ends_with("&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)")
+        );
+        assert!(service.serves(&NAS_LAYERS[0]) && !service.serves(&NAS_LAYERS[1]));
+        assert!(LGB_NAS.serves(&NAS_LAYERS[5]), "LGB serves every layer");
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(service.url, EMPTY.as_bytes().to_vec());
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("answer.gml.part");
+        let area = FetchArea::new(SANSSOUCI, Crs::Utm33);
+        let fetched = fetch_layers_from(&fetcher, &[&service], &area, MapKind::Sprint, &part);
+        let files: Vec<&str> = fetched.iter().map(|l| l.layer.file).collect();
+        assert_eq!(files, ["sonstiges-bauwerk"]);
+        assert_eq!(
+            fetcher.calls.get(),
+            1,
+            "no request for a type the service lacks"
+        );
     }
 }

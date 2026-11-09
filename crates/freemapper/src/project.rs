@@ -2546,6 +2546,14 @@ fn fetch_nas_layers_into(
         // The disk plan already said that the layers are left out; stored ones stay.
         return previous.clone();
     }
+    // Answers stream into a part file beside the layers, removed after each one.
+    let part = dir.join(NAS_LAYERS_DIR).join("answer.gml.part");
+    if !crate::fsutil::stays_inside(dir, &part) {
+        progress(&format!(
+            "warning: full ALKIS layers skipped ({NAS_LAYERS_DIR} leads out of the project folder)"
+        ));
+        return BTreeMap::new();
+    }
     progress("downloading the full ALKIS structures (NAS)");
     let bbox = &area.bbox;
     let rounded = [
@@ -2555,7 +2563,7 @@ fn fetch_nas_layers_into(
         bbox.max_n.ceil(),
     ];
     let mut records = BTreeMap::new();
-    for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind) {
+    for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind, &part) {
         let file = fetched.layer.file;
         let path = nas_layer_path(dir, fetched.layer);
         let stored = fetched
