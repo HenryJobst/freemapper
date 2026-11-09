@@ -438,7 +438,8 @@ numbers. Height decides nothing: the ALKIS name picks the symbol, the same symbo
   bilinearly in the DTM (map CRS: `data/dgm1.tif` when it covers the area, else `data/terrain.tif`). The axis with
   the larger height difference wins when it rises at least 0.3 m (`STAIR_MIN_RISE_M`); the line runs uphill.
   Otherwise, or without terrain, an axis end within 0.5 m of a 521 footprint or a monument area picks the axis
-  running towards it, else the short axis is used (a flat stair is most likely wide), and the line is tagged
+  running towards it (ties, e.g. a stair inside a monument area, go to the end nearest the area's centre), else
+  the short axis is used (a flat stair is most likely wide), and the line is tagged
   `freemapper:direction=guessed`. The width across the
   walking direction picks the footprint symbol by paper width: ground width / (scale/1000 × symbol enlargement)
   against 0.4/0.5/0.75/1.0 mm (532.6 to 532.9), nearest wins (bounds 0.45/0.625/0.875 mm; sprint 1:4000:

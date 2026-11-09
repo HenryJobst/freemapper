@@ -48,6 +48,8 @@ const WIDE_STAIR_FACTOR: f64 = 3.0;
 const MAX_WIDE_LINES: usize = 100;
 /// A flat stair whose side lies this close to a building or monument faces it.
 const FACADE_DISTANCE_M: f64 = 0.5;
+/// Axis ends this much farther from a facade than the nearest end count as touching it too.
+const FACADE_TIE_M: f64 = 0.05;
 /// `bezbwf` of the monument areas (flat stairs at them face them).
 const MONUMENT_KIND: &str = "Denkmal, Denkstein, Standbild";
 /// The layer and `bezbwf` of the step edges.
@@ -179,17 +181,27 @@ fn walking_axis(
 
 /// Of the four axis ends, the one nearest to a building or monument within
 /// [`FACADE_DISTANCE_M`] gives the walking axis, towards it (across the edge the stair lies
-/// at); without one, the short (second) axis.
+/// at); without one, the short (second) axis. Ends about as near as the nearest one (a stair
+/// inside a monument area that covers its plinth touches it with every end) are told apart by
+/// their distance to the centre of the area they are nearest to.
 fn facing_facade([long, short]: [Axis; 2], facades: &[Polygon<f64>]) -> Axis {
+    use geo::Centroid as _;
     let ends = geo_types::MultiPoint::from(vec![long.from, long.to, short.from, short.to]);
-    let near: Vec<&Polygon<f64>> = facades
+    let near: Vec<(&Polygon<f64>, Option<geo_types::Point<f64>>)> = facades
         .iter()
         .filter(|b| Euclidean.distance(&ends, *b) <= FACADE_DISTANCE_M)
+        .map(|b| (b, b.centroid()))
         .collect();
+    // The distance to the nearest facade, and to that facade's centre.
     let distance = |c: Coord<f64>| {
+        let p = geo_types::Point(c);
         near.iter()
-            .map(|b| Euclidean.distance(&geo_types::Point(c), *b))
-            .fold(f64::INFINITY, f64::min)
+            .map(|(b, centre)| {
+                let to_centre = centre.map_or(f64::INFINITY, |m| Euclidean.distance(&p, &m));
+                (Euclidean.distance(&p, *b), to_centre)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)))
+            .unwrap_or((f64::INFINITY, f64::INFINITY))
     };
     let ends = [
         (distance(long.to), 0, false),
@@ -197,11 +209,19 @@ fn facing_facade([long, short]: [Axis; 2], facades: &[Polygon<f64>]) -> Axis {
         (distance(short.to), 1, false),
         (distance(short.from), 1, true),
     ];
-    let nearest = ends
+    let Some(nearest) = ends
+        .iter()
+        .map(|((d, _), _, _)| *d)
+        .filter(|d| *d <= FACADE_DISTANCE_M)
+        .min_by(f64::total_cmp)
+    else {
+        return short;
+    };
+    let chosen = ends
         .into_iter()
-        .filter(|(d, _, _)| *d <= FACADE_DISTANCE_M)
-        .min_by(|a, b| a.0.total_cmp(&b.0));
-    match nearest {
+        .filter(|((d, _), _, _)| *d <= nearest + FACADE_TIE_M)
+        .min_by(|a, b| a.0.1.total_cmp(&b.0.1));
+    match chosen {
         Some((_, 0, true)) => long.reversed(),
         Some((_, 0, false)) => long,
         Some((_, _, true)) => short.reversed(),
@@ -765,6 +785,33 @@ mod tests {
             "{from:?} → {to:?}"
         );
         assert_eq!(direction(&found[0]), Some("guessed"));
+    }
+
+    #[test]
+    fn flat_stair_inside_a_monument_area_faces_its_centre() {
+        // ALKIS draws the Nationaldenkmal as one area over the plinth and its stairs: every
+        // axis end of a plinth stair touches it, so the end nearest its centre decides.
+        let kind = MapKind::Sprint;
+        let flat = terrain(|_, _| 30.0);
+        let monument = |w: f64, e: f64| {
+            stair(
+                "Denkmal, Denkstein, Standbild",
+                &[(w, -5.0), (e, -5.0), (e, 7.0), (w, 7.0)],
+            )
+        };
+        for (area, (from_e, to_e)) in [
+            (monument(0.0, 30.0), (0.0, 8.0)),
+            (monument(-22.0, 8.0), (8.0, 0.0)),
+        ] {
+            let found = objects(kind, &[rect_stair(8.0, 2.0), area], Some(&flat));
+            assert_eq!(found.len(), 1);
+            let [from, to] = ends(kind, &found[0]);
+            assert!(
+                close(from, (from_e, 1.0)) && close(to, (to_e, 1.0)),
+                "{from:?} → {to:?}"
+            );
+            assert_eq!(direction(&found[0]), Some("guessed"));
+        }
     }
 
     #[test]

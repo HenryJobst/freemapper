@@ -21,7 +21,9 @@ long, some of them twice at the same place.
   when it rises at least 0.3 m (`STAIR_MIN_RISE_M`); the line runs uphill, low end first.
 - Otherwise, or without terrain: if an axis end lies within 0.5 m of a 521 footprint or an ALKIS monument area
   (`Denkmal, Denkstein, Standbild`, `FACADE_DISTANCE_M`), that axis is used, running towards it; else the short
-  axis. Both cases are tagged `freemapper:direction=guessed`.
+  axis. Both cases are tagged `freemapper:direction=guessed`. ALKIS draws the Nationaldenkmal as one area over
+  the plinth and its stairs, so every end of a plinth stair touches it. Ends within 5 cm of the nearest one are
+  then told apart by their distance to the centre of that area, and the stair leads up to the monument.
 - Ruling (final review): the guessed default is the short axis, not the long one. A flight long enough to be
   the long axis of a stair 3 m or more wide rises at least 1 m and shows in DGM1. A stair that reads flat is
   most likely wide. Before the change, the 8 plinth stairs of the Nationaldenkmal in Viktoriapark (14.6 × 1.7 m)
