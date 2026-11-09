@@ -545,7 +545,8 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   `freemapper:currency_guessed=yes` when it was guessed; `freemapper:source_id` is the `gis_id`;
 - *short lines (ADR 0056):* for every non-OSM source, line features that the rules draw with the same symbol
   and that touch end to end (within 0.1 m, bend up to about 30°) are joined first; then a line shorter than
-  1 mm on paper (`MIN_LINE_MM`) is dropped. The chain keeps the tags of its first segment;
+  1 mm on paper (`MIN_LINE_MM`) is dropped. The chain keeps the tags of its first segment, names the others
+  in `freemapper:also` and takes the oldest survey date (guessed when one segment is);
 - *duplicates (ADR 0055), order register > ALKIS > survey > OSM:* a survey line with at least 80 % of its length
   within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_survey_lines_near_alkis`), then OSM lines
   against ALKIS and the remaining survey lines. A survey stair covering at least 50 % of the smaller of it and an

@@ -430,7 +430,8 @@ Gewässer, lässt freemapper ihn weg, wie die OSM-Brunnen.
 
 ALKIS und die Straßenbefahrung zerlegen eine Mauer oder ein Geländer oft in kurze Stücke. Stoßen Stücke mit
 demselben Symbol Ende an Ende aneinander, fügt freemapper sie zu einer Linie zusammen. Erst danach lässt es
-Linien unter 1 mm auf dem Papier weg (bei 1:4000 sind das 4 m).
+Linien unter 1 mm auf dem Papier weg (bei 1:4000 sind das 4 m). Die zusammengefügte Linie nennt die übrigen
+Stücke in `freemapper:also`. Eine vermessene trägt das älteste Aufnahmedatum ihrer Stücke.
 
 Jeder Berliner Kandidat trägt `berlin:layer`. Bei der Straßenbefahrung und den Registern steht dort der
 Objekttyp (z. B. `bd_bordstein`, `beleuchtung`), sonst der Name der Ebene (z. B. `bauwerke-linien`). Die

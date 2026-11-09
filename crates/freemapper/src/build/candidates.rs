@@ -322,7 +322,7 @@ pub fn osm_objects(
     let features = if source == "osm" {
         features
     } else {
-        joined = join_touching_lines(features, rules, target, kind, symbol_set, georef);
+        joined = join_touching_lines(features, rules, target, kind, symbol_set, georef, source);
         &joined
     };
     for feature in features {
@@ -444,6 +444,7 @@ pub fn osm_objects(
         let codes = crate::build::berlin::SURVEY_CODES.map(|code| format!("berlin:{code}"));
         for key in [
             "berlin:layer",
+            "freemapper:also",
             "freemapper:alkis",
             "freemapper:size",
             "freemapper:baum",
@@ -475,8 +476,10 @@ const JOIN_MIN_COS: f64 = 0.866;
 
 /// Chains the line features that the rules draw as lines with the same symbol and touch end to
 /// end (within [`JOIN_TOUCH_M`], bend up to about 30 degrees) into one line each. The chain keeps
-/// the tags of its first segment. Other features, and lines that no rule draws as lines, are
-/// passed on unchanged.
+/// the tags of its first segment and names the other segments in `freemapper:also`
+/// (`<source>/<source_id>`). A chain of dated segments (the survey) is as old as its oldest
+/// segment, and guessed when one of them is. Other features, and lines that no rule draws as
+/// lines, are passed on unchanged.
 fn join_touching_lines(
     features: &[OsmFeature],
     rules: &Rules,
@@ -484,6 +487,7 @@ fn join_touching_lines(
     kind: MapKind,
     symbol_set: &SymbolSet,
     georef: &Georeferencing,
+    source: &str,
 ) -> Vec<OsmFeature> {
     let projected = |p: &LatLon| {
         let q = georef.crs().forward(*p);
@@ -566,10 +570,12 @@ fn join_touching_lines(
             continue;
         };
         let mut chain = points.clone();
+        let mut members = vec![i];
         // Grow at the end, turn the chain round, grow at the other end.
         for _ in 0..2 {
             while let Some((j, reversed)) = next(&chain, &used, symbol) {
                 used[j] = true;
+                members.push(j);
                 let OsmGeometry::Line(more) = &features[j].geometry else {
                     unreachable!("indexed as a line");
                 };
@@ -584,11 +590,40 @@ fn join_touching_lines(
         }
         out.push(OsmFeature {
             id: f.id.clone(),
-            tags: f.tags.clone(),
+            tags: chain_tags(features, &members, source),
             geometry: OsmGeometry::Line(chain),
         });
     }
     out
+}
+
+/// The tags of a chain of `members` (indices into `features`, the first one first): those of
+/// the first segment, the others named in `freemapper:also`, the oldest `freemapper:currency` of
+/// the segments and `freemapper:currency_guessed=yes` when one of them is guessed.
+fn chain_tags(features: &[OsmFeature], members: &[usize], source: &str) -> Tags {
+    let first = &features[members[0]];
+    let mut tags = first.tags.clone();
+    if members.len() == 1 {
+        return tags;
+    }
+    for &j in &members[1..] {
+        let other = &features[j];
+        let id = value(&other.tags, "freemapper:source_id").unwrap_or(&other.id);
+        crate::build::berlin::add_also(&mut tags, &format!("{source}/{id}"));
+    }
+    let segments = || members.iter().map(|&j| &features[j].tags);
+    let oldest = segments()
+        .filter_map(|t| value(t, "freemapper:currency")?.parse::<NaiveDate>().ok())
+        .min();
+    if let Some(oldest) = oldest {
+        tags.retain(|(k, _)| k != "freemapper:currency");
+        tags.push(("freemapper:currency".to_string(), oldest.to_string()));
+    }
+    let guessed = segments().any(|t| value(t, "freemapper:currency_guessed") == Some("yes"));
+    if guessed && value(&tags, "freemapper:currency_guessed").is_none() {
+        tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+    }
+    tags
 }
 
 #[cfg(test)]
@@ -741,6 +776,91 @@ mod tests {
         .unwrap();
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].coords.len(), 4);
+    }
+
+    #[test]
+    fn joined_survey_line_names_all_segments_and_the_oldest_date() {
+        // A survey wall of three 2 m pieces surveyed on different days, one with a guessed date.
+        let date = "2026-11-07".parse().unwrap();
+        let georef = Georeferencing::new(SCHOOL, 4000, date).unwrap();
+        let (e, n) = (georef.ref_projected.easting, georef.ref_projected.northing);
+        let area = geo_types::Polygon::new(
+            vec![
+                (e - 60.0, n - 60.0),
+                (e + 60.0, n - 60.0),
+                (e + 60.0, n + 60.0),
+                (e - 60.0, n + 60.0),
+                (e - 60.0, n - 60.0),
+            ]
+            .into(),
+            vec![],
+        );
+        let step = 2.0 * 1.475e-5; // 2 m of longitude
+        let piece = |id: &str, currency: &str, guessed: bool, from: f64, to: f64| {
+            let mut t = vec![
+                ("berlin:layer", "bh_mauer"),
+                ("freemapper:source_id", id),
+                ("freemapper:currency", currency),
+            ];
+            if guessed {
+                t.push(("freemapper:currency_guessed", "yes"));
+            }
+            line(id, &t, vec![at(0.0, from * step), at(0.0, to * step)])
+        };
+        let features = [
+            piece("Li_20150413_1", "2015-04-13", false, 0.0, 1.0),
+            piece("Li_20141006_2", "2014-10-06", false, 1.0, 2.0),
+            piece("Li_x_3", "2014-01-01", true, 2.0, 3.0),
+        ];
+        let set = MapKind::Sprint.symbol_set();
+        let joined = |features: &[OsmFeature]| {
+            osm_objects(
+                features,
+                &Rules::berlin(),
+                Target::Candidates,
+                MapKind::Sprint,
+                &area,
+                20.0,
+                &georef,
+                &set,
+                "geoportal-berlin/sb-mauer",
+                "2026-11-06".parse().unwrap(),
+            )
+            .unwrap()
+        };
+        let found = joined(&features);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let tag = |key: &str| value(&found[0].tags, key).map(str::to_string);
+        assert_eq!(
+            tag("freemapper:source_id").as_deref(),
+            Some("Li_20150413_1")
+        );
+        let also = tag("freemapper:also").expect("the other segments are named");
+        let mut also: Vec<&str> = also.split("; ").collect();
+        also.sort();
+        assert_eq!(
+            also,
+            [
+                "geoportal-berlin/sb-mauer/Li_20141006_2",
+                "geoportal-berlin/sb-mauer/Li_x_3"
+            ]
+        );
+        // The oldest date stands for the line; one guessed piece marks it as guessed.
+        assert_eq!(tag("freemapper:currency").as_deref(), Some("2014-01-01"));
+        assert_eq!(tag("freemapper:currency_guessed").as_deref(), Some("yes"));
+        // Only real dates: the oldest, no flag.
+        let features = [
+            piece("Li_20150413_1", "2015-04-13", false, 0.0, 1.0),
+            piece("Li_20141006_2", "2014-10-06", false, 1.0, 2.0),
+            piece("Li_20150502_3", "2015-05-02", false, 2.0, 3.0),
+        ];
+        let found = joined(&features);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(
+            value(&found[0].tags, "freemapper:currency"),
+            Some("2014-10-06")
+        );
+        assert_eq!(value(&found[0].tags, "freemapper:currency_guessed"), None);
     }
 
     #[test]

@@ -417,7 +417,8 @@ water, as it does the OSM fountains.
 
 ALKIS and the street survey often split a wall or a railing into short pieces. Where pieces with the same symbol
 meet end to end, freemapper joins them into one line. Only then does freemapper drop lines under 1 mm on paper
-(4 m at 1:4000).
+(4 m at 1:4000). The joined line names the other pieces in `freemapper:also`. A surveyed one carries the oldest
+survey date of its pieces.
 
 Each Berlin candidate carries `berlin:layer`. For the street survey and the registers it holds the object type
 (e.g. `bd_bordstein`, `beleuchtung`), otherwise the layer name (e.g. `bauwerke-linien`). The street survey codes
