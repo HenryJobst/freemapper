@@ -34,10 +34,12 @@ const ORTHOPHOTO_MB_PER_KM2: f64 = 8.0;
 /// A 1 m Float32 height model from a WCS (LVermGeo, LAiV M-V, LGLN) per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
-/// The Berlin ALKIS structure layers, relief, hedges and the tree cadastre (4 MB per km²,
-/// measured 3.7 MB in Kreuzberg and 4.6 MB in Prenzlauer Berg, 2026-11-09), the street survey and
-/// point layers (+4 MB) and the building heights (+1.3 MB), in the centre; per km².
-const BERLIN_LAYERS_MB_PER_KM2: f64 = 9.3;
+/// The Berlin vector layers in the centre, per km²: the ALKIS structure layers, relief, hedges
+/// and the tree cadastre 4 MB (measured 3.7 to 3.8 MB in Kreuzberg and 4.6 MB in Prenzlauer Berg),
+/// the street survey and point layers 3.5 MB (measured 3.2 MB at Viktoriapark) and the building
+/// heights 3 MB (measured 2.7 MB there), live runs of 2026-11-09. Each share is rounded up to the
+/// next half MB, so the disk check errs on the safe side; Viktoriapark measured 9.8 MB in all.
+const BERLIN_LAYERS_MB_PER_KM2: f64 = 10.5;
 /// The K5 map (1:5000) PNG template at 0.25 m per pixel, per km² (measured 9.1 MB around a park
 /// and 17 MB in dense blocks, 2026-11-09).
 const K5_MB_PER_KM2: f64 = 15.0;
@@ -2010,11 +2012,11 @@ mod tests {
         let km2 = 1.5;
         let estimate = estimate_area(&mitte, &mitte, &cache, today(), false);
         let find = |what: &str| estimate.items.iter().find(|i| i.what == what).cloned();
-        // +9.3 MB per km² for the vector layers (4 plus-1 layers, 4 street survey and point
-        // layers, 1.3 building heights; the centre), +15 MB per km² for the K5 template (live runs
-        // 2026-11-09: Viktoriapark 3.7 and 9.1 MB per km², Helene-Haeusler-Schule 4.6 and 17).
+        // +10.5 MB per km² for the vector layers (4 plus-1 layers, 3.5 street survey and point
+        // layers, 3 building heights; the centre), +15 MB per km² for the K5 template (live runs
+        // 2026-11-09: Viktoriapark 9.8 and 9.1 MB per km², Helene-Haeusler-Schule 4.6 and 17).
         let layers = find(BERLIN_LAYERS_ITEM).expect("Berlin layers");
-        assert!((layers.megabytes - km2 * 9.3).abs() < 1e-9, "{layers:?}");
+        assert!((layers.megabytes - km2 * 10.5).abs() < 1e-9, "{layers:?}");
         assert!(!layers.cached);
         let k5 = find(BERLIN_K5_ITEM).expect("K5 template");
         assert!((k5.megabytes - km2 * 15.0).abs() < 1e-9, "{k5:?}");
@@ -2032,7 +2034,7 @@ mod tests {
             .filter(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
             .map(|i| i.megabytes)
             .sum();
-        assert!((estimate.total_megabytes - other - km2 * 24.3).abs() < 1e-6);
+        assert!((estimate.total_megabytes - other - km2 * 25.5).abs() < 1e-6);
         // Outside Berlin the estimate has neither.
         let strausberg = BoundingBox {
             min_e: 421_000.0,

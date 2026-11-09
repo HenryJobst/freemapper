@@ -394,10 +394,10 @@ Datum des Ladens da. Bordsteine aus ALKIS übernimmt freemapper nicht, die der S
 
 **Berlin: Straßenbefahrung, Register und Gebäudedaten.** Dazu lädt freemapper die Straßenbefahrung, das
 Beleuchtungskataster, die Register der Zier- und der Trinkwasserbrunnen und die Gebäudehöhen 2022 aus
-dem Umweltatlas, alle unter dl-de/zero-2-0. Zusammen sind das im Stadtzentrum etwa 5 MB je km² mehr. Die
-Straßenbefahrung hat den öffentlichen Straßenraum Berlins 2014 bis 2016 vermessen. Eine neuere gibt es nicht,
-die Daten sind also rund zehn Jahre alt. Deshalb ersetzt sie ALKIS nie. Bis auf den Grünausschnitt liefert
-sie nur Kandidaten. Aus diesen Ebenen entstehen:
+dem Umweltatlas, alle unter dl-de/zero-2-0. Zusammen sind das im Stadtzentrum etwa 6 MB je km² mehr (am
+Viktoriapark 5,9 MB). Die Straßenbefahrung hat den öffentlichen Straßenraum Berlins 2014 bis 2016 vermessen.
+Eine neuere gibt es nicht, die Daten sind also rund zehn Jahre alt. Deshalb ersetzt sie ALKIS nie. Bis auf den
+Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
 
 - Auf Sprintkarten: freemapper schneidet die vermessenen Grünstreifen aus den befestigten Flächen (501.5)
   aus, wenn die Überlappung mindestens 1 mm auf dem Papier breit ist, höchstens aber 2 m im Gelände.
@@ -552,7 +552,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | Die Metalink-Datei ließ sich nicht laden. Bei der ersten Meldung nimmt freemapper die gespeicherte, bei der zweiten bleiben die Kacheln ohne Flugjahr leer. | Später erneut laden. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | Ein Server des LVermGeo RP hat statt der Befliegungsübersicht, der Kachel oder der Metalink-Datei etwas anderes geschickt, meist eine HTML-Fehlerseite; der bereinigte Anfang der Antwort steht dahinter. Die letzte Meldung heißt, dass die Übersicht unvollständig ankam. | Später erneut versuchen, bei Dauer einen Fehler melden. |
 | `orthophoto unchanged (date of creation …)` | Rheinland-Pfalz: freemapper verwendet das gespeicherte Luftbild weiter, weil der Kartendienst dasselbe Erstellungsdatum nennt (oder gerade keines und das Bild jünger als 30 Tage ist). Dieses Datum gilt als Flugdatum. | Nichts. |
-| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Fortschrittsmeldung: freemapper lädt die Berliner Ebenen, im Stadtzentrum etwa 9 MB je km². | Abwarten. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Fortschrittsmeldung: freemapper lädt die Berliner Ebenen, im Stadtzentrum etwa 10 MB je km² (am Viktoriapark 9,8 MB). | Abwarten. |
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des Geoportals Berlin (z. B. `bauwerke-linien` oder `sb-moebel`) ließ sich nicht laden. Fasst eine Ebene mehrere Objekttypen zusammen, wie `sb-moebel` die Bänke, Poller und Hydranten, fehlt sie ganz, wenn einer davon scheitert. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: Für das Berliner Gebiet sind keine Bauwerke, Bäume und Überdachungen gespeichert. | Einmal online laden. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | Das Gebiet liegt nicht mehr an Berlin. freemapper löscht die gespeicherten Berliner Ebenen. | Nichts. |

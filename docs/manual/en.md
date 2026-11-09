@@ -385,9 +385,9 @@ date of the fetch. freemapper does not take curb lines from ALKIS, but it takes 
 **Berlin: street survey, registers and building dates.** freemapper also fetches the street survey
 (Straßenbefahrung), the lighting cadastre, the registers of ornamental fountains and of drinking fountains, and
 the building heights of 2022 from the Umweltatlas, all under dl-de/zero-2-0. In the city centre that adds about
-5 MB per km². The street survey recorded Berlin's public street space from 2014 to 2016. There is no newer one,
-so the data is about ten years old. That is why it never replaces ALKIS. Apart from the green cut-out, it gives
-only candidates. From these layers come:
+6 MB per km² (5.9 MB at Viktoriapark). The street survey recorded Berlin's public street space from 2014 to
+2016. There is no newer one, so the data is about ten years old. That is why it never replaces ALKIS. Apart
+from the green cut-out, it gives only candidates. From these layers come:
 
 - On sprint maps: freemapper cuts the surveyed green strips out of the paved areas (501.5) where the overlap is
   at least 1 mm wide on paper, but at most 2 m in the terrain. Tree pits stay. Each green strip is also a 401
@@ -535,7 +535,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | The Metalink file could not be fetched. With the first message freemapper uses the kept one; with the second the tiles without a flight year stay empty. | Fetch again later. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | An LVermGeo RP server sent something other than the flight index, the tile or the Metalink file, usually an HTML error page; the cleaned start of the answer follows. The last message means the index arrived incomplete. | Try again later, report a bug if it persists. |
 | `orthophoto unchanged (date of creation …)` | Rhineland-Palatinate: freemapper keeps the stored orthophoto, because the map service gives the same date of creation (or none just now, and the image is less than 30 days old). That date counts as the flight date. | Nothing. |
-| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Progress message: freemapper fetches the Berlin layers, about 9 MB per km² in the city centre. | Wait. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Progress message: freemapper fetches the Berlin layers, about 10 MB per km² in the city centre (9.8 MB at Viktoriapark). | Wait. |
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | A Geoportal Berlin layer (e.g. `bauwerke-linien` or `sb-moebel`) could not be fetched. A layer that holds several object types, as `sb-moebel` holds the benches, bollards and hydrants, is missing as a whole when one of them fails. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: no structures, trees or canopies are stored for the Berlin area. | Fetch once online. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | The area is no longer near Berlin. freemapper deletes the stored Berlin layers. | Nothing. |

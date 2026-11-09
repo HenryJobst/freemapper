@@ -154,10 +154,11 @@ The K5 (Karte von Berlin 1:5000, colour) is a template: WMS `https://gdi.berlin.
 `templates/k5.png` + `.pgw`, recorded as `ProjectFile.k5` with the dataset date 2026-01-02 (catalogue
 `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`). Only for UTM 33 maps near Berlin. A failure is a warning; the
 disk plan treats K5 as an optional part (`Part::K5`). The starter map lists it hidden, opacity 0.7, behind the map;
-the OCAD file gets it as a background map. The download estimate adds 9.3 MB/km² for the vector layers
+the OCAD file gets it as a background map. The download estimate adds 10.5 MB/km² for the vector layers
 (`Part::BerlinLayers`, optional like K5; its derived share of 1.0 covers `data/terrain.tif`): 4 for the six
 layers above, measured in the live run of 2026-11-09 (Viktoriapark 3.7, Helene-Haeusler-Schule 4.6 MB/km²),
-plus 4 for the street survey and point layers and 1.3 for the building heights (estimates for the centre, plan 2).
+plus 3.5 for the street survey and point layers and 3 for the building heights. These two are the Viktoriapark
+live run of plan 2 (3.2 and 2.7 MB/km², 9.8 in all), rounded up to the next half MB.
 K5 adds 15 MB/km² (live run: Viktoriapark 9.1, Helene-Haeusler-Schule 17.4 MB/km²).
 
 For the stair direction, `derive` keeps the DTM mosaic of a tile provider (LGB) in `data/terrain.tif` (+ `.tfw`)
