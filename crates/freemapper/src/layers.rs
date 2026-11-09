@@ -47,13 +47,16 @@ const K5_MB_PER_KM2: f64 = 15.0;
 pub(crate) const BERLIN_LAYERS_ITEM: &str =
     "Berlin ALKIS structures, tree cadastre, street survey and point layers";
 pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
-/// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched: Sanssouci
-/// measured 761 KB of GML for 0.54 km² (1.4 MB per km², 2026-11-09), rounded up.
+/// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched. The live run
+/// at Sanssouci (0.74 km² fetch box, 2026-11-09) stored 0.58 MB of GeoJSON (0.8 MB per km²); the
+/// GML answers were 1.79 MB, the largest 0.87 MB, and each lies on the disk as a part file until
+/// it is read. Stored layers plus the largest answer are 2 MB per km².
 const NAS_MB_PER_KM2: f64 = 2.0;
 /// Name of the NAS item in the estimate.
 pub(crate) const NAS_LAYERS_ITEM: &str = "full ALKIS structures (NAS)";
-/// The tree cadastres per km² where a dataset envelope is touched: Potsdam is about 390 bytes a
-/// tree in the stored GeoJSON and about 1 460 trees per km², 0.57 MB.
+/// The tree cadastres per km² where a dataset envelope is touched: Potsdam stored 424 KB for
+/// 1 964 trees in the 0.74 km² fetch box at Sanssouci (0.57 MB per km²), rounded up; the
+/// answers of the three endpoints (0.26 to 0.28 MB each) pass through a part file one by one.
 const TREES_MB_PER_KM2: f64 = 1.0;
 /// Name of the tree cadastre item in the estimate.
 pub(crate) const TREE_LAYERS_ITEM: &str = "city tree cadastres";

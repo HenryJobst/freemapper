@@ -35,7 +35,9 @@ GML 3.2 only, with curves, arcs, points and surfaces built from curve rings, whi
   survey date. The fetch date applies only when it is missing or no date.
 - Paths follow ADR 0059: layer files come only from `NAS_LAYERS` (`data/alkis-nas/<file>.geojson`), unknown or
   unsafe keys are dropped on load. Writes and the part files of each answer follow ADR 0060.
-- The layers form the optional disk part `Part::StateLayers` with the tree cadastres (2 MB per km² for NAS).
+- The layers form the optional disk part `Part::StateLayers` with the tree cadastres. The estimate counts 2 MB
+  per km² for NAS: the stored layers (0.8 MB per km² at Sanssouci, 0.58 MB for the 0.74 km² fetch box) plus the
+  largest answer, which lies on the disk as a part file until it is read.
 
 ## Consequences
 

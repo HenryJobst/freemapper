@@ -49,8 +49,8 @@ footprint date.
 New on the main branch since v0.6.2: canopies and carports from ALKIS are map objects in every state except
 Saxony and Saxony-Anhalt, and building passages are candidates there. Brandenburg maps get walls, fences,
 hedges, monuments, embankment tops and bridges from the full ALKIS as candidates, and around Potsdam the trees
-of the city map. Point symbols keep the gap the norm asks for, and dense tree groups become forest or
-open land with scattered trees.
+of the city map; the two edges of a wall become one line in the middle. Point symbols keep the gap the norm
+asks for, and dense tree groups on paving or open land become areas.
 
 freemapper is still under development. Work in progress: more detailed sprint maps from further open
 data of the other states, next Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of

@@ -33,8 +33,8 @@ sonstige Einrichtung` with `funktion` `Überdachung` or `Carport`, and `Bauteil`
 ## Consequences
 
 - Every state except Saxony and Saxony-Anhalt starts with canopies drawn and passages as candidates, with no
-  new download. An existing map gets the canopies only with `run --force`, and `run` says so (its message still
-  names "the Berlin canopies").
+  new download. An existing map gets the canopies only with `run --force`, and `run` says so ("The map lacks the
+  ALKIS canopies and carports (522) …", state-neutral since the final fix pass).
 - Cost if wrong: as in ADR 0046, a demolished canopy is a map object the mapper has to delete.
 
 Source: plan `docs/superpowers/plans/2026-11-09-states-plus-1.md` (Rulings, Task 1);

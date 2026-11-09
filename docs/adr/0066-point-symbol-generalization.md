@@ -27,9 +27,13 @@ candidate as a map object, so the overlaps print. ISSprOM 2019-2 (January 2022) 
 - Tree groups: 3 or more trees (`GROUP_MIN_TREES`) chained by single linkage. A row, whose centres lie in a
   corridor narrower than 2 symbol sizes or which is at least 3 times as long as wide, is only thinned, so
   avenues stay rows of tree symbols. Any other group: the crown discs (`freemapper:crown_m`, else 12 m for 417
-  and 5 m for 418), united and closed by 0.5 mm. At least half of it on a drawn 501.x → 501.3 (§4.5); else a
-  crown cover of at least 50 % → 405, because the 402 screen itself leaves half the area white; else 402
-  (§4.4). The norm gives no canopy share, so 50 % is a ruling.
+  and 5 m for 418), united and closed by 0.5 mm. At least half of it on a drawn 501.x → 501.3 (§4.5). Else
+  only on open land: at least half of it on 401 to 404 among the map objects, the candidates and the green
+  strips of the paved build (`OPEN_LAND_SHARE`, measured before the cuts; the generalization's own areas never
+  count). There a crown cover of at least 50 % → 405, because the 402 screen itself leaves half the area
+  white; else 402 (§4.4). Off paving and open land the trees stay points and are thinned: a 405 is white and
+  invisible on the white base, and a 402 asserts open land the map does not know (ruling of 2026-11-09). The
+  norm gives no canopy share, so 50 % is a ruling.
 - The area is cut at the clip window, 520, 521 and water, then each piece must reach the minimum: 402 and 501.3
   6.25 mm² and 2.2 mm wide, 405 1 mm² and 0.3 mm. Width means a disc of that width fits (an opening), because
   2·area/perimeter halves the width of compact shapes. A piece below the minimum is left out and its trees go
@@ -47,9 +51,12 @@ candidate as a map object, so the overlaps print. ISSprOM 2019-2 (January 2022) 
 
 - Berlin map objects stay unchanged; the Viktoriapark candidates and the PDF change. There, 80 of 84 tree
   clusters are rows and stay points, and 82 points in residential 520 candidates are hidden in the PDF.
+- Few parks have open land on the map today (OSM grass pitches, the Berlin green strips). Viktoriapark (4 group
+  areas, 84 trees) and Sanssouci (2 areas, 58 trees) therefore have no group area: those trees are thinned
+  points, which the PDF shows.
 - On the schoolyard the 520 covers everything off the grounds, so the PDF shows no point there.
-- Cost if wrong: a thinned point the mapper wanted, an area over distinct trees, or a hidden point under a wrong
-  520 that the PDF lacks. A cluster that is half row, half grove is judged as a whole.
+- Cost if wrong: a thinned point the mapper wanted, an area over distinct trees, fewer areas where open land
+  is missing from the map, or a hidden point under a wrong 520 that the PDF lacks. A cluster that is half row, half grove is judged as a whole.
 
 Source: user decisions of 2026-11-09; ISSprOM 2019-2 §3.1, §3.3, §4.4, §4.5; plan
 `docs/superpowers/plans/2026-11-09-states-plus-1.md` (Task 5b); branch `states-plus-1`, Task 5b, its review and

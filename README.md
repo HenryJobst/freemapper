@@ -51,8 +51,8 @@ Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität
 Neu im Hauptzweig seit v0.6.2: Überdachungen und Carports aus ALKIS sind in jedem Land außer Sachsen und
 Sachsen-Anhalt Kartenobjekte, Durchfahrten dort Kandidaten. Brandenburger Karten bekommen Mauern, Zäune,
 Hecken, Denkmäler, Böschungsoberkanten und Brücken aus dem vollständigen ALKIS als Kandidaten, rund um Potsdam
-auch die Bäume der Stadtkarte. Punktsymbole halten den Abstand der Norm ein, und dichte Baumgruppen werden zu
-Wald oder zu offenem Gelände mit verstreuten Bäumen.
+auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Linie in der Mitte. Punktsymbole
+halten den Abstand der Norm ein, und dichte Baumgruppen auf Pflaster oder offenem Gelände werden zu Flächen.
 
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
 Daten der anderen Länder, als Nächstes Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM,

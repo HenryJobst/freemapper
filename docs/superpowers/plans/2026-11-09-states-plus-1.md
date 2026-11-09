@@ -253,7 +253,7 @@ lists `cl-*.json` and the Capabilities `caps-*.xml`.
    - no request outside Brandenburg or the Potsdam envelope;
    - the bbox order in `in_bbox` is lat/lon;
    - stumps skipped;
-   - OSM trees within 2 m dropped and named;
+   - OSM trees within 2 m dropped, unnamed as in ADR 0051 (ADR 0063);
    - attribution only when drawn;
    - the disk part and the estimate.
 

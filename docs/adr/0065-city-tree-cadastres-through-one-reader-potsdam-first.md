@@ -34,8 +34,12 @@ crown diameter. Licence dl-de/zero-2-0.
 
 ## Consequences
 
-- Potsdam maps get street and park trees with their own date; the live check at Sanssouci gave 1 467 trees with
-  unique point numbers and 9 real stumps.
+- Potsdam maps get street and park trees with their own date. The controller's probe box at Sanssouci gave
+  1 467 trees with unique point numbers and 9 real stumps; the example's fetch box (map area plus 50 m) gave
+  1 964 trees, 1 646 of them inside the clip, of which 1 267 stay points after the thinning (ADR 0066).
+- Each endpoint answer streams into a part file beside `data/trees/` and stops at `max_bytes` (256 MB, as for
+  the NAS answers; the whole Potsdam envelope is about 110 MB), so a misbehaving server fails the dataset with
+  a warning instead of filling the memory.
 - Without a crown, a large Potsdam tree is a 418. The mapper upgrades it to 417 from the nDSM or the terrain.
 - Cost if wrong: a dataset that changes its field names gives no trees until its row is updated.
 
