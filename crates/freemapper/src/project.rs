@@ -3096,6 +3096,12 @@ fn stored_contour_objects(
             .expect("symbol set defines contours")
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
+    // The contours come from the terrain model of the area's raster provider.
+    let provider = match project.provider {
+        Some(provider) => provider,
+        None => raster_region(&project.region_bbox()?).map_or(Provider::Lgb, Region::provider),
+    };
+    let source = provider.terrain_source();
     let map_area = area.projected_polygon_in(project.crs());
     // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
@@ -3132,7 +3138,7 @@ fn stored_contour_objects(
                 .collect::<Result<_, _>>()?;
             let closed = coords.len() > 3 && coords.first() == coords.last();
             let mut tags = vec![
-                ("freemapper:source".to_string(), "lgb-dgm1".to_string()),
+                ("freemapper:source".to_string(), source.to_string()),
                 ("freemapper:height".to_string(), format!("{}", line.height)),
             ];
             if let Some(currency) = currency {
@@ -5409,6 +5415,36 @@ mod tests {
             .to_rgba8();
         let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
         assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    #[test]
+    fn mv_contours_name_the_mv_terrain_model() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        // One contour line through the map area, whatever the synthetic terrain gives.
+        let p = |de: f64| {
+            let c = (312_157.0 + de, 5_996_317.0 + 10.0);
+            (c.0, c.1)
+        };
+        let line = crate::derive::contours::ContourLine {
+            height: 10.0,
+            points: vec![p(-40.0), p(40.0)],
+        };
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&[line]),
+        )
+        .unwrap();
+        export_starter_project(dir.path(), true).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(
+            candidates.contains(r#"<t k="freemapper:source">laiv-mv-dgm1</t>"#),
+            "the contours come from the LAiV M-V DGM1"
+        );
+        assert!(!candidates.contains("lgb-dgm1"));
     }
 
     #[test]

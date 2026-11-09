@@ -15,6 +15,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Kleingärten (ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche“ mit `bez` „Kleingarten“) sind in jedem Land Kandidaten für verbotenes Gebiet (520). Parks, Sportanlagen und Spielplätze bleiben offen.
 
+### Behoben
+
+- Die Höhenlinien-Kandidaten nennen in `freemapper:source` das Geländemodell ihres Landes, z. B. `laiv-mv-dgm1` oder `hvbg-dgm1`. Bisher stand in jedem Land `lgb-dgm1` da.
+
 ## [0.4.0] - 2026-11-08
 
 ### Hinzugefügt

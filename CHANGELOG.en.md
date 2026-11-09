@@ -15,6 +15,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Allotment gardens (ALKIS land use "Sport-, Freizeit- und Erholungsfläche" with `bez` "Kleingarten") are out-of-bounds candidates (520) in every state. Parks, sports grounds and playgrounds stay open.
 
+### Fixed
+
+- Contour candidates name the terrain model of their state in `freemapper:source`, e.g. `laiv-mv-dgm1` or `hvbg-dgm1`. Before, every state said `lgb-dgm1`.
+
 ## [0.4.0] - 2026-11-08
 
 ### Added
