@@ -58,8 +58,15 @@ to 2016: the surveyed green strips are cut out of the street areas,
 curbs, railings, furniture, lamps and fountains come as candidates, and buildings carry their
 footprint date.
 
+New on the main branch since v0.6.2: canopies and carports from ALKIS are map objects in every state except
+Saxony and Saxony-Anhalt, and building passages are candidates there. Brandenburg maps get walls, fences,
+hedges, monuments, embankment tops and bridges from the full ALKIS as candidates, and around Potsdam the trees
+of the city map; the two edges of a wall become one line in the middle. Point symbols keep the gap the norm
+asks for, and dense tree groups on paving or open land become areas.
+
 freemapper is still under development. Work in progress: more detailed sprint maps from further open
-data of the other states. After that come gym maps for indoor orienteering,
+data of the other states, next Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of
+Leipzig and Dresden), then Saxony-Anhalt and Hamburg. After that come gym maps for indoor orienteering,
 program texts in German and English, and the remaining states with open geodata
 (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
@@ -239,7 +246,7 @@ freemapper run vorstadt
 
 | State | Data | nDSM template | Notes |
 |---|---|---|---|
-| Brandenburg | LGB | laser nDSM, 0.2 m | |
+| Brandenburg | LGB, also the full ALKIS; Potsdam city trees | laser nDSM, 0.2 m | walls, fences, hedges and bridges from the full ALKIS and the Potsdam trees as candidates |
 | Berlin | LGB, ALKIS, tree cadastre, K5, street survey and registers from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; surveyed green strips cut out of the street areas; canopies as map objects; stairs, walls, fences, hedges, trees, curbs, railings, furniture, lamps and fountains as candidates; the 1:5000 map (K5) as a template |
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
@@ -251,7 +258,8 @@ freemapper run vorstadt
 | Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; Bremen not included yet |
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 
-At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
+In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
+candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the
 [user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas). One example project per state is in
 [`examples/`](examples/README.en.md).
@@ -264,7 +272,7 @@ freemapper export clara-zetkin-schule --pdf      # or: freemapper run clara-zetk
 
 writes `<name>.pdf`: a fully generated map ready to print (A4 or A3, CMYK). Unlike the starter
 project, **every candidate becomes a map object** here: furniture, barriers, paths without a surface
-tag, contours, out-of-bounds areas and ALKIS ways. It is drawn with the project's symbol set the way
+tag, contours, out-of-bounds areas and ALKIS ways. Points inside out-of-bounds candidates are left out. It is drawn with the project's symbol set the way
 OOM draws it (dashes, symbols along lines, colour order), with the peripheral information, the data
 credits and the freemapper credit line. The orthophoto is not part of it. Because uncertain data is
 drawn too, check the map in the terrain before training.
@@ -339,5 +347,6 @@ sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
 `© OpenStreetMap contributors, ODbL`. In Berlin the LGB line reads, as LGB requires,
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
 Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added,
-and the K5 and the tree cadastre get a line each (see the [user manual, chapter 15](docs/manual/en.md#15-attribution)).
+and the K5 and the tree cadastre get a line each. The Potsdam trees add `Landeshauptstadt Potsdam / Bäume der
+Stadtkarte, dl-de/zero-2-0` (see the [user manual, chapter 15](docs/manual/en.md#15-attribution)).
 In Saxony the line is `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

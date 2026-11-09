@@ -1,4 +1,5 @@
-//! ALKIS canopies (Berlin `Überdachung`, `Carport`) → 522 map objects (Berlin plus 1).
+//! ALKIS canopies (`Überdachung`, `Carport`) → 522 map objects (Berlin plus 1, every state in
+//! states plus 1).
 //!
 //! They are cadastral survey data, as trustworthy as the 521 buildings, so they become map
 //! objects on both map kinds (this amends the "candidate 522" of spec §4.5). The 522 fill
@@ -15,15 +16,17 @@ use serde_json::Value;
 
 use crate::build::berlin::{feature_polygons, provenance_tags};
 use crate::build::buildings::footprint_coords;
+use crate::build::state::{SOURCE, STRUCTURE, vereinfacht_function};
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+use crate::sources::alkis::parse_building_features;
 
 /// ISSprOM 522 canopy.
 const CANOPY_SYMBOL_CODE: &str = "522";
 /// The layer the canopies come from.
 pub const CANOPY_LAYER: &str = "bauwerke-flaechen";
-/// `bezbwf` of the canopies.
+/// `bezbwf` of the Berlin canopies, `funktion` of the vereinfacht ones.
 const CANOPY_KINDS: [&str; 2] = ["Überdachung", "Carport"];
 /// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)² on paper are dropped, as in
 /// `buildings.rs`.
@@ -33,11 +36,27 @@ const SIMPLIFY_MM: f64 = 0.1;
 /// A canopy of which at least this share lies in building footprints is inside a building.
 const INSIDE_BUILDING_SHARE: f64 = 0.9;
 
-/// 522 area objects for the canopies among the `bauwerke-flaechen` features within `buffer_m` of
-/// `map_area`, generalized for the map scale. `buildings` are the 521 footprints and `map_area`
-/// is in the map's CRS; `currency` is the fetch date of the layer.
+/// The provenance tags of a canopy.
+type Tags = Vec<(String, String)>;
+
+/// Where the canopy features come from.
+#[derive(Debug, Clone, Copy)]
+pub enum CanopyInput<'a> {
+    /// The Berlin `bauwerke-flaechen` features (EPSG:25833, `bezbwf`).
+    Berlin(&'a [Value]),
+    /// The stored ALKIS vereinfacht `GebaeudeBauwerk` features of any state (map CRS): the
+    /// `Sonstiges Bauwerk oder sonstige Einrichtung` with `funktion` `Überdachung` or `Carport`.
+    /// Everything else in the slice, and every feature with a `bauart` (a Berlin building part),
+    /// is ignored.
+    Buildings(&'a [Value]),
+}
+
+/// 522 area objects for the canopies among the `inputs` within `buffer_m` of `map_area`,
+/// generalized for the map scale. `buildings` are the 521 footprints and `map_area` is in the
+/// map's CRS; `currency` is the fetch date of the data, which stands in where a feature has no
+/// date of its own.
 pub fn canopy_objects(
-    features: &[Value],
+    inputs: &[CanopyInput<'_>],
     buildings: &[Polygon<f64>],
     map_area: &Polygon<f64>,
     buffer_m: f64,
@@ -53,29 +72,65 @@ pub fn canopy_objects(
     let min_area = (CANOPY_MIN_SIDE_MM * metres_per_mm).powi(2);
     let tolerance = SIMPLIFY_MM * metres_per_mm;
 
+    // Every canopy, with its tags, in the map's CRS.
+    let mut canopies: Vec<(Polygon<f64>, Tags)> = Vec::new();
+    for input in inputs {
+        match input {
+            CanopyInput::Berlin(features) => {
+                for feature in features.iter().filter(|f| {
+                    f["properties"]["bezbwf"]
+                        .as_str()
+                        .is_some_and(|kind| CANOPY_KINDS.contains(&kind))
+                }) {
+                    let tags = provenance_tags(CANOPY_LAYER, feature, currency);
+                    canopies.extend(
+                        feature_polygons(feature, crs)
+                            .into_iter()
+                            .map(|p| (p, tags.clone())),
+                    );
+                }
+            }
+            CanopyInput::Buildings(features) => {
+                for feature in *features {
+                    let Some(function) = vereinfacht_function(feature, STRUCTURE, &CANOPY_KINDS)
+                    else {
+                        continue;
+                    };
+                    let parsed = parse_building_features(std::slice::from_ref(feature));
+                    for part in parsed.buildings {
+                        // The feature's own date is better than the fetch date.
+                        let tags = vec![
+                            ("freemapper:source".to_string(), SOURCE.to_string()),
+                            ("freemapper:source_id".to_string(), part.oid),
+                            (
+                                "freemapper:currency".to_string(),
+                                part.updated.unwrap_or(currency).to_string(),
+                            ),
+                            ("freemapper:alkis".to_string(), function.to_string()),
+                        ];
+                        canopies.extend(part.footprint.0.into_iter().map(|p| (p, tags.clone())));
+                    }
+                }
+            }
+        }
+    }
+
     let mut objects = Vec::new();
-    for feature in features.iter().filter(|f| {
-        f["properties"]["bezbwf"]
-            .as_str()
-            .is_some_and(|kind| CANOPY_KINDS.contains(&kind))
-    }) {
-        let tags = provenance_tags(CANOPY_LAYER, feature, currency);
-        for canopy in feature_polygons(feature, crs) {
-            if Euclidean.distance(&canopy, map_area) > buffer_m {
+    for (canopy, tags) in canopies {
+        if Euclidean.distance(&canopy, map_area) > buffer_m {
+            continue;
+        }
+        // What is left beside the buildings must still reach the minimum size.
+        for part in outside_buildings(canopy, buildings) {
+            if part.unsigned_area() < min_area {
                 continue;
             }
-            // What is left beside the buildings must still reach the minimum size.
-            for part in outside_buildings(canopy, buildings) {
-                if part.unsigned_area() < min_area {
-                    continue;
-                }
-                objects.push(MapObject {
-                    symbol_id,
-                    kind: MapObjectKind::Path,
-                    coords: footprint_coords(&part, min_area, tolerance, georef)?,
-                    tags: tags.clone(),
-                });
-            }
+            objects.push(MapObject {
+                symbol_id,
+                kind: MapObjectKind::Path,
+                coords: footprint_coords(&part, min_area, tolerance, georef)?,
+                tags: tags.clone(),
+            });
         }
     }
     Ok(objects)
@@ -158,7 +213,7 @@ mod tests {
     fn objects(kind: MapKind, features: &[Value], buildings: &[Polygon<f64>]) -> Vec<MapObject> {
         let (georef, map_area, set) = setup(kind);
         canopy_objects(
-            features,
+            &[CanopyInput::Berlin(features)],
             buildings,
             &map_area,
             20.0,
@@ -289,5 +344,140 @@ mod tests {
         )];
         assert!(objects(MapKind::Sprint, &narrow, std::slice::from_ref(&building)).is_empty());
         assert_eq!(objects(MapKind::Sprint, &narrow, &[]).len(), 1);
+    }
+
+    use crate::build::state::test_support::mv_features;
+
+    /// A map of `kind` around the fixture features (EPSG:25833), and its map area.
+    fn mv_setup(kind: MapKind) -> (Georeferencing, Polygon<f64>, SymbolSet) {
+        let (e, n) = (312_350.0, 5_996_335.0);
+        let centre = Crs::Utm33
+            .inverse(ProjectedPoint {
+                easting: e,
+                northing: n,
+            })
+            .unwrap();
+        let scale = if kind == MapKind::Schoolyard {
+            1000
+        } else {
+            4000
+        };
+        let georef = Georeferencing::new(centre, scale, "2026-11-09".parse().unwrap()).unwrap();
+        (
+            georef,
+            rect(e - 2000.0, n - 2000.0, 4000.0, 4000.0),
+            kind.symbol_set(),
+        )
+    }
+
+    fn state_canopies(
+        kind: MapKind,
+        features: &[Value],
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
+        let (georef, map_area, set) = mv_setup(kind);
+        canopy_objects(
+            &[CanopyInput::Buildings(features)],
+            buildings,
+            &map_area,
+            20.0,
+            &georef,
+            &set,
+            "2026-11-09".parse().unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn vereinfacht_canopies_are_map_objects() {
+        let features = mv_features();
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let set = kind.symbol_set();
+            let found = state_canopies(kind, &features, &[]);
+            // The roof is 3.7 m²: below the 0.5 mm minimum side (4 m²) at 1:4000.
+            let expected = if kind == MapKind::Sprint { 1 } else { 2 };
+            assert_eq!(found.len(), expected, "{kind:?}");
+            assert!(
+                found
+                    .iter()
+                    .all(|o| Some(o.symbol_id) == set.id_for_code("522")
+                        && o.kind == MapObjectKind::Path)
+            );
+            let tag = |o: &MapObject, key: &str| {
+                o.tags
+                    .iter()
+                    .find(|(k, _)| k == key)
+                    .map(|(_, v)| v.as_str())
+                    .map(str::to_string)
+            };
+            let mut kinds: Vec<_> = found
+                .iter()
+                .map(|o| tag(o, "freemapper:alkis").unwrap())
+                .collect();
+            kinds.sort();
+            assert_eq!(kinds, ["Carport", "Überdachung"][..expected]);
+            for o in &found {
+                assert_eq!(tag(o, "freemapper:source").as_deref(), Some("alkis"));
+                assert!(tag(o, "freemapper:source_id").unwrap().starts_with("DEMV"));
+                // The feature's own `aktualit`, not the fetch date 2026-11-09.
+                let currency = tag(o, "freemapper:currency").unwrap();
+                assert!(
+                    currency.starts_with("20") && currency != "2026-11-09",
+                    "{currency}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hamburg_structure_spelling_is_normalised() {
+        let feature = |bez: &str, function: &str, rellage: Option<&str>| {
+            let mut properties = serde_json::json!({
+                "oid": "DEHHAL0000000001", "aktualit": "2021-03-04T12:00:00Z",
+                "gebnutzbez": bez, "funktion": function});
+            if let Some(rellage) = rellage {
+                properties["rellage"] = rellage.into();
+            }
+            serde_json::json!({"type": "Feature", "id": "x",
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [312_350.0, 5_996_335.0], [312_356.0, 5_996_335.0],
+                    [312_356.0, 5_996_341.0], [312_350.0, 5_996_341.0],
+                    [312_350.0, 5_996_335.0]]]},
+                "properties": properties})
+        };
+        // Hamburg: title case, ASCII umlauts; LGB: no-break space; all the same structure.
+        for (bez, function) in [
+            (
+                "Sonstiges Bauwerk Oder Sonstige Einrichtung",
+                "Ueberdachung",
+            ),
+            ("Sonstiges Bauwerk Oder Sonstige Einrichtung", "Überdachung"),
+            (
+                "Sonstiges\u{a0}Bauwerk oder sonstige Einrichtung",
+                "ÜBERDACHUNG",
+            ),
+            ("Sonstiges Bauwerk oder sonstige Einrichtung", "carport"),
+        ] {
+            let found = state_canopies(MapKind::Schoolyard, &[feature(bez, function, None)], &[]);
+            assert_eq!(found.len(), 1, "{bez} / {function}");
+        }
+        // Stored Hamburg data is read by key, and the Hamburg fetch writes the LGB spelling.
+        let normalised = crate::sources::lgv::normalise_building(feature(
+            "Sonstiges Bauwerk Oder Sonstige Einrichtung",
+            "Überdachung",
+            None,
+        ));
+        assert_eq!(
+            normalised["properties"]["gebnutzbez"],
+            "Sonstiges Bauwerk oder sonstige Einrichtung"
+        );
+        // Other structures and buildings are no canopies.
+        for (bez, function) in [
+            ("Sonstiges Bauwerk oder sonstige Einrichtung", "Sonstiges"),
+            ("Gebäude", "Überdachung"),
+        ] {
+            let found = state_canopies(MapKind::Schoolyard, &[feature(bez, function, None)], &[]);
+            assert!(found.is_empty(), "{bez} / {function}");
+        }
     }
 }

@@ -1,4 +1,5 @@
 © OpenStreetMap contributors, ODbL
 © GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert
+Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

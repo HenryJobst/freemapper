@@ -360,7 +360,7 @@ fn main() -> anyhow::Result<()> {
                     }
                     if missing_canopies {
                         println!(
-                            "The map lacks the Berlin canopies and carports (522) that are now \
+                            "The map lacks the ALKIS canopies and carports (522) that are now \
                              map objects. To add them, run with --force, which keeps the old map \
                              as .omap.bak."
                         );

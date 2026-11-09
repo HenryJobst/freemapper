@@ -1599,6 +1599,13 @@ pub(crate) mod test_support {
             land_use_feature("DEBBAL0100000011", "Wohnbaufläche", None, SCHOOL_NEIGHBOUR),
         ];
         fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&land_use, None));
+        // The full ALKIS (NAS) has nothing there.
+        fetcher.insert_prefix(
+            crate::sources::alkis_nas::LGB_NAS.url,
+            crate::sources::alkis_nas::test_support::EMPTY
+                .as_bytes()
+                .to_vec(),
+        );
         fetcher.insert(
             crate::sources::osm::STATE_URL,
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),

@@ -97,7 +97,7 @@ impl FetchArea {
 
     /// The area in `crs`: exact for the map's CRS and EPSG:25833, else the envelope of the
     /// region box's outline in `crs`.
-    fn bbox_for(&self, crs: Crs) -> BoundingBox {
+    pub(crate) fn bbox_for(&self, crs: Crs) -> BoundingBox {
         if crs == self.crs {
             self.bbox
         } else {
@@ -330,7 +330,7 @@ fn merged(
 }
 
 /// `feature` with its geometry's coordinates moved from `from` into `to`.
-fn reproject_feature(mut feature: Value, from: Crs, to: Crs) -> Value {
+pub(crate) fn reproject_feature(mut feature: Value, from: Crs, to: Crs) -> Value {
     fn walk(v: &mut Value, from: Crs, to: Crs) {
         let Some(items) = v.as_array_mut() else {
             return;

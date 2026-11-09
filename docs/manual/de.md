@@ -193,7 +193,7 @@ Im Projektordner liegen danach unter anderem:
 
 | Datei | Was sie ist |
 |---|---|
-| `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Gewässern und Randangaben |
+| `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
 | `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die Trainingskarte |
@@ -205,6 +205,11 @@ sie ein und aus. Die **Kandidaten** (`templates/candidates.omap`) liegen als eig
 stehen Zäune, Hecken, Bänke, Höhenlinien, Sperrgebiete, Gewässer aus OSM und Brücken. Prüfen Sie sie
 und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen und die Objekte kopieren
 und einfügen. Beide Karten haben dieselbe Georeferenz.
+
+Punktsymbole wie Bäume, Brunnen oder Poller halten den Abstand ein, den die ISSprOM verlangt. Würden sich
+zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe auf Pflaster oder offenem
+Gelände wird zu einer Fläche: befestigte Fläche, Wald oder offenes Gelände mit verstreuten Bäumen. Was Sie dort
+prüfen, steht in Kapitel 9.
 
 **Gewässer** zeichnet freemapper auf beiden Kartenarten. Flüsse, Kanäle, Seen, Teiche, Hafenbecken und
 Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (301.1) mit schwarzer
@@ -261,8 +266,11 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
 - **Befestigte Flächen** (Sprint): In Sachsen enthalten Straßenflächen auch Grün- und Baumstreifen am Rand.
   In Berlin schneidet freemapper die vermessenen Grünstreifen aus (Kapitel 12); Baumscheiben und Grün, das
   die Straßenbefahrung nicht kennt, bleiben darin. In beiden Ländern sind Plätze nur Kandidaten.
+- **Überdachungen und Durchfahrten:** In jedem Land außer Sachsen und Sachsen-Anhalt sind Überdachungen und
+  Carports aus ALKIS Kartenobjekte (522), Durchfahrten und Arkaden Kandidaten (Kapitel 12). Gibt es die
+  Überdachungen noch? Ist eine Durchfahrt offen, oder hat sie ein Tor?
 - **Zäune, Mauern, Hecken:** Sie stammen aus OSM und dem nDOM, in Berlin auch aus ALKIS und der
-  Straßenbefahrung. Sind sie passierbar? Gibt es Tore?
+  Straßenbefahrung, in Brandenburg auch aus dem vollständigen ALKIS. Sind sie passierbar? Gibt es Tore?
 - **Sperrgebiete:** Privatgrundstücke, Kleingärten, Bahngelände, auf Schulhofkarten alles außerhalb des
   Schulgeländes.
 - **Berlin** (Kapitel 12):
@@ -306,6 +314,37 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben
     Wasser?
+- **Brandenburg** (Kapitel 12):
+  - Das vollständige ALKIS führt eine Mauer oft als ihre zwei Kanten (`Mauerkante, links` und `Mauerkante,
+    rechts`). Wo beide Kanten einander zugewandt sind, fast parallel laufen und auf dem Papier näher als
+    0,55 mm liegen (2,2 m bei 1:4000), zeichnet freemapper eine Linie 515 in der Mitte. Sie trägt
+    `freemapper:alkis=Mauer (Mauerkanten gepaart)` und nennt die andere Kante in `freemapper:also`. Dickere
+    Mauern bleiben zwei Linien: Behalten Sie eine oder zeichnen Sie die Mauer als Fläche. Ein Tor in nur
+    einer Kante unterbricht auch die Mittellinie, prüfen Sie Lücken also im Luftbild.
+  - Der Datenstand dieser Kandidaten ist das Datum, seit dem die Objektversion im Kataster steht, kein
+    Vermessungsdatum. Ein Zaun kann sich seitdem geändert haben.
+  - Die Potsdamer Bäume sind alle 418, denn die Daten der Stadt kennen keine Krone. Große Bäume machen Sie
+    selbst zu 417. Jeder Baum trägt sein eigenes Aufnahmedatum, manche von 1993.
+- **Ausgedünnte Punkte:** Kämen sich zwei Punktsymbole auf dem Papier näher, als die Norm erlaubt, behält
+  freemapper das größere. Der bleibende Punkt nennt die anderen in `freemapper:generalized`. Straßenbäume in
+  einer Reihe bleiben einzelne Baumsymbole. Stehen sie enger, als die Symbole erlauben, fallen einige weg.
+  Prüfen Sie die Lücken im Gelände und rücken Sie Symbole auseinander, wo beide Objekte wichtig sind.
+- **Baumgruppen als Flächen:** Drei oder mehr Bäume, die einander zu nahe stehen, werden nur dort zu einer
+  Fläche, wo die Karte den Boden darunter schon zeigt. Mindestens die Hälfte der geschlossenen Kronen muss auf
+  Pflaster oder auf offenem Gelände liegen (401 bis 404 unter den Kartenobjekten oder Kandidaten, etwa ein
+  Rasenplatz aus OSM oder ein Grünstreifen aus der Berliner Straßenbefahrung). Auf Pflaster wird die Gruppe
+  befestigte Fläche mit verstreuten Bäumen (501.3). Auf offenem Gelände wird sie Wald (405), wenn die Kronen
+  mindestens die Hälfte der Gruppe decken, sonst offenes Gelände mit verstreuten Bäumen (402). Überall sonst,
+  etwa in den meisten Parks, bleiben die Bäume einzelne Symbole und werden ausgedünnt, denn ein weißer Wald 405
+  auf dem weißen Grund würde sie verstecken. Die Fläche trägt `freemapper:source=generalization` und nennt die
+  Bäume in `freemapper:source_id`. Ihr Tag `freemapper:generalized` gibt die Zahl der Bäume und die
+  Kronendeckung an. Große Bäume (417) bleiben auf einer 402-Fläche Punkte. Ohne gemessene Krone nimmt
+  freemapper 12 m für 417 und 5 m für 418 an. Vergleichen Sie den Umriss mit dem Luftbild.
+- **Verborgene Punkte in Sperrgebieten:** Die ISSprOM erlaubt in verbotenem Gebiet (520) nur sehr markante
+  Objekte. Ein Punktkandidat in einem 520-Kandidaten bleibt in den Kandidaten, mit dem Tag
+  `freemapper:hidden=520`, aber die Trainingskarte lässt ihn weg. Auf Schulhofkarten verbirgt das jeden Punkt
+  außerhalb des Schulgeländes. Ist das Gebiet doch kein Sperrgebiet oder steht dort ein sehr großer Baum,
+  übernehmen Sie den Punkt aus den Kandidaten.
 - **Möblierung und Spielgeräte:** Sie stammen aus OSM, in Berlin auf Schulhofkarten auch aus der
   Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
 - **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
@@ -319,8 +358,8 @@ gezeichnete Karte in A4 oder A3, druckfertig.
 
 *Die Trainingskarte des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
 
-Anders als im Ausgangsstand werden hier **alle Kandidaten zu Kartenobjekten**, auch die unsicheren.
-Die Karte ist gut für ein schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
+Anders als im Ausgangsstand werden hier **alle Kandidaten zu Kartenobjekten**, auch die unsicheren. Nur
+Punkte in einem Sperrgebiet-Kandidaten fehlen (Kapitel 9). Die Karte ist gut für ein schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
 
 Die Farben sind CMYK-Werte nach den IOF-Druck- und Farbdefinitionen Rev. 4 (gültig ab 1.12.2024), dieselben
 wie in der OOM- und der OCAD-Datei. Druckt Ihr Drucker Braun oder Grün deutlich anders, vergleichen Sie mit dem
@@ -348,7 +387,7 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 
 | Land | Daten von | Besonderheiten |
 |---|---|---|
-| Brandenburg | LGB | Luftbild, Gelände und nDOM in 1-km-Kacheln; das nDOM ist ein Laser-nDOM mit 20 cm Auflösung |
+| Brandenburg | LGB (auch das vollständige ALKIS), Landeshauptstadt Potsdam (Bäume) | Luftbild, Gelände und nDOM in 1-km-Kacheln; das nDOM ist ein Laser-nDOM mit 20 cm Auflösung; Überdachungen als Kartenobjekte; Zäune, Mauerkanten, Hecken, Denkmäler, Brunnen und Gräben als Kandidaten, auf Sprintkarten auch Böschungsoberkanten und Brücken; in Potsdam die Bäume der Stadtkarte (siehe unten) |
 | Berlin | LGB (Raster), Geoportal Berlin (ALKIS, Baumkataster, K5, Straßenbefahrung, Beleuchtung, Brunnen, Gebäudehöhen) | das nDOM wird aus dem Luftbild-Oberflächenmodell berechnet: etwas weicher, ohne dünne Objekte wie Laternen, dafür mit parkenden Autos; dazu Überdachungen als Kartenobjekte, Treppen, Mauern, Zäune, Hecken und Bäume als Kandidaten und die K5 als Vorlage; die vermessenen Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und Brunnen kommen als Kandidaten, Gebäude tragen ihre Grundrissaktualität (siehe unten) |
 | Sachsen | GeoSN | Luftbild aus dem Kartendienst; das nDOM hat nur 1 m Auflösung, Hecken und schmale Mauern sind oft nur angedeutet; unterirdische Bauwerke sind nicht ausfilterbar |
 | Sachsen-Anhalt | LVermGeo | Die Karte liegt in UTM-Zone 32 (EPSG:25832), wie alle Daten des Landes; Luftbild aus dem Kartendienst, Gelände- und Oberflächenmodell mit 1 m; das nDOM ist wie in Sachsen grob |
@@ -359,6 +398,43 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Nordrhein-Westfalen | Geobasis NRW (Bezirksregierung Köln) | Zone 32 (EPSG:25832) für das ganze Land; das Land reicht weit nach Westen, aber die Karte nutzt nie Zone 33. Das Luftbild kommt aus dem WMS-Dienst, weil die Kacheln nur als JPEG 2000 vorliegen. Beflogen 2022 und 2024 bis 2026, teils unbelaubt, teils belaubt; das Flugdatum gilt je Kachel. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus Laserkacheln von 1 km, beide vom selben Flug; Namen und Daten kommen aus der Kachelliste, nicht aus dem Verzeichnis. Der Laserscan pausiert bis Winter 2026/27, der neueste Stand ist Februar 2025; das nDOM ist DOM1 − DGM1. ALKIS aus dem WFS mit den Schreibweisen der LGB und genauerer Nutzungsangabe, Schulgebäude heißen „Allgemein bildende Schule“. OSM aus den Auszügen der fünf Regierungsbezirke (Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des 917 MB großen Landesauszugs; ein Gebiet an einer Bezirksgrenze liest beide. An der Grenze zu Hessen liest freemapper ALKIS beider Länder; die Rasterdaten kommen aus dem Land, in dem die Mitte des Kartengebiets liegt |
 | Niedersachsen | LGLN | Zone 32 (EPSG:25832) für das ganze Land. Das Luftbild kommt aus dem Kartendienst (WMS), Gelände und Oberfläche (DGM1 und DOM1 mit 1 m) kommen aus dem WCS-Dienst. Der WCS-Dienst liefert die Höhenmodelle in Stücken von 2 km. Ein Gebiet von 4 km braucht damit vier Anfragen je Modell und lädt mit dem Luftbild zusammen einige Minuten. Den Datenstand nennt die STAC-Suche des LGLN: das Flugdatum des neuesten Luftbilds und das Datum des neuesten Höhenmodells in der Mitte des Kartengebiets. Beflogen 2024 bis 2026, zu drei Vierteln im Frühjahr (Februar bis April, unbelaubt), sonst von Mai bis Oktober (belaubt). freemapper meldet mit dem Flugdatum, ob die Bäume belaubt waren; Hannover-Südstadt z. B. wurde am 06.03.2025 unbelaubt beflogen. Das nDOM ist DOM1 − DGM1 aus dem Laserscan, beide Modelle vom selben Flug. Der Scan stammt meist von 2016 oder 2017 (an der Küste, an Elbe und Weser von 2025) und ist damit oft 5 bis 9 Jahre älter als das Luftbild (Hannover-Südstadt: Scan 18.04.2016). Ist das DOM1 mehr als zwei Jahre älter, warnt freemapper mit beiden Daten, denn Neubauten und junge Bäume können im nDOM fehlen. ALKIS aus dem WFS mit den Schreibweisen der LGB; Tiefgaragen erkennt freemapper an ihrer Lage unter der Erdoberfläche; Plätze ohne `bez` nur als Kandidaten; Schulgebäude heißen „Allgemein bildende Schule“, Schulflächen „Bildung und Wissenschaft“. Bremen und Bremerhaven gehören noch nicht dazu. Ein Gebiet mit der Mitte in Bremen lehnt freemapper ab. Reicht ein Gebiet aus Niedersachsen nach Bremen hinein, ist das Luftbild dort weiß und ALKIS liefert dort keine Gebäude; freemapper warnt. Der OSM-Auszug Niedersachsen enthält Bremen. An der Hamburger Grenze liest freemapper ALKIS und OSM-Auszug beider Seiten; die Rasterdaten kommen aus dem Land, in dem die Mitte des Kartengebiets liegt |
 | Rheinland-Pfalz | LVermGeo RP | Zone 32 (EPSG:25832) für das ganze Land. Das Luftbild kommt aus dem Kartendienst (WMS), denn die Kacheln gibt es nur als JPEG 2000 mit 105 bis 155 MB je 2-km-Block. Der Dienst endet an der Landesgrenze, dahinter ist das Luftbild weiß. Ein Bildflugdatum nennt der Dienst nicht, nur je Block ein Erstellungsdatum. freemapper nimmt es als Flugdatum, denn alle diese Daten liegen zwischen Mai und September, gehäuft an aufeinanderfolgenden Tagen, und die Bilder zeigen belaubte Bäume. Im Projekteintrag steht deshalb „Aktualität (Erstellung)“ beim Datum, in den Meldungen `date of creation`. Beflogen 2022 bis 2025, alle zwei Jahre, immer im Sommer und damit belaubt; das Görres-Gymnasium in Koblenz z. B. am 25.08.2025. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus Laserkacheln von 1 km, beide vom selben Flug. Gescannt wurde 2022 bis 2025, jeweils von Februar bis April ohne Laub. Der Dateiname jeder Kachel enthält das Jahr des Scans. freemapper liest es aus der Befliegungsübersicht `Laserbefliegung` des LVermGeo RP, die je Kachel die Flugtage nennt; der letzte Flugtag ist das Datum im Projekteintrag (Koblenz: 06.04.2024). 14 Kacheln nördlich von Trier haben dort kein Flugjahr (Stand November 2026). Für sie liest freemapper die Metalink-Datei des Landes (etwa 11 MB je Modell), aber nur, wenn das Gebiet eine solche Kachel enthält. freemapper behält die Datei und nutzt sie online 30 Tage lang weiter; danach lädt es sie neu. Offline nutzt es die gespeicherte Datei in jedem Alter. Bleibt eine Kachel ohne Namen, bleibt sie leer, und freemapper sagt, warum. Antwortet der Server für eine Kachel der Übersicht mit 404, meldet freemapper sie als fehlend und fragt erst nach 30 Tagen wieder. Die Größenschätzung rechnet mit 1,5 MB je DGM1- und 3 MB je DOM1-Kachel und zählt die Metalink-Datei mit, wenn sie nötig ist. Das nDOM ist DOM1 − DGM1. Scan und Luftbild liegen höchstens drei Jahre auseinander, in einem Viertel der Kacheln ist der Scan sogar neuer. Weil der Scan ohne Laub geflogen wurde, können die Kronen von Laubbäumen im nDOM niedriger erscheinen als im Luftbild. ALKIS aus dem WFS mit den Schreibweisen der LGB; die Nutzung hat genauere Unterarten, z. B. Wohnbaufläche „Offen“ und „Geschlossen“. Tiefgaragen erkennt freemapper an ihrer Lage unter der Erdoberfläche; Plätze ohne `bez` nur als Kandidaten; hat ein Gebäude mehrere Namen, stehen sie mit `;` verbunden in einem Feld. Schulgebäude heißen „Allgemein bildende Schule“, Schulflächen „Bildung und Wissenschaft“. An der Grenze zu Hessen (Mainz und Wiesbaden) liest freemapper ALKIS und OSM-Auszug beider Länder; Wiesbaden und Mainz-Kastel gehören zu Hessen und fehlen im OSM-Auszug Rheinland-Pfalz. Die Rasterdaten kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Liegt sie in Mainz, ist das Luftbild jenseits des Rheins weiß, die Höhenmodelle reichen aber hinüber |
+
+**Überdachungen und Durchfahrten in jedem Land.** ALKIS führt Überdachungen und Carports als Bauwerke neben
+den Gebäuden, Durchfahrten und Arkaden als Bauteile. freemapper liest sie aus den Gebäuden, die es ohnehin
+lädt, ohne zusätzlichen Download. Überdachungen und Carports werden Kartenobjekte (522) auf beiden
+Kartenarten, an den Gebäuden abgeschnitten wie in Berlin. Durchfahrten und Arkaden werden Kandidaten 522, das
+Gebäude bleibt ganz. Unterirdische lässt freemapper weg. Datenstand ist das Datum des ALKIS-Objekts. Sachsen
+und Sachsen-Anhalt führen in diesen Daten keine Überdachungen und Durchfahrten, Karten dort bekommen also
+keine. Berlin nimmt sie aus seinen eigenen Ebenen (unten). Eine vorhandene Karte bekommt die Überdachungen
+erst mit `run --force`.
+
+**Brandenburg: vollständiges ALKIS und Potsdamer Bäume.** In Brandenburg liest freemapper zusätzlich das
+vollständige ALKIS aus dem NAS-Dienst der LGB (dl-de/by-2-0). Es enthält, was dem vereinfachten ALKIS fehlt:
+vermessene Mauern und Mauerkanten, Zäune, Hecken, Denkmäler, Brunnen, Gräben und Bäche, auf Sprintkarten auch
+Böschungsoberkanten und Brücken. Daraus werden Kandidaten: Mauern 515, Zäune 518, Hecken 410.1, Denkmäler 526,
+Brunnen 311, Gräben 306, Bäche 305, Böschungsoberkanten 104 und Brücken 501.5. Das Symbol wählt der Code im
+Kataster, nie die Höhe. Die Ebenen liegen in `data/alkis-nas/`, etwa 1 MB je km². Im Park Sanssouci (0,74 km²
+mit Puffer) enthalten die sechs Ebenen 780, 146, 315, 4, 1 und 0 Objekte in 0,6 MB.
+Jeder Kandidat trägt `freemapper:source=alkis-nas/<Ebene>` und `freemapper:alkis` mit der Bezeichnung des
+Katasters, z. B. `Mauerkante, rechts`. Sein Datenstand ist das Datum, seit dem die Objektversion im Kataster
+steht (`beginnt`). Zwei Kanten einer Mauer, die auf dem Papier näher als 0,55 mm liegen, werden eine Linie 515
+in der Mitte (Kapitel 9). Überdachungen und Bauteile nimmt freemapper nur aus dem vereinfachten ALKIS, damit sie
+nicht doppelt erscheinen. Treppen, Stützmauern und Einzelbäume führt Brandenburg im vollständigen ALKIS
+nicht. Schickt der Dienst mehr Objekte, als er in einer Antwort erlaubt, teilt freemapper das Gebiet in
+Viertel, höchstens vier Stufen tief.
+
+Liegt eine OSM-Linie (Zaun, Mauer, Hecke, Bach oder Graben) zu mindestens 80 % ihrer Länge höchstens 1,5 m
+neben einer Linie des vollständigen ALKIS mit demselben Symbol, lässt freemapper die OSM-Linie weg, wie in
+Berlin. Die Reihenfolge ist in jedem Land dieselbe: Register vor ALKIS vor Straßenbefahrung vor OSM.
+
+In und um Potsdam lädt freemapper die Bäume der Stadtkarte (dl-de/zero-2-0). Sie liegen in `data/trees/`; die
+Größenschätzung rechnet 1 MB je km². Die Daten kennen keine Krone, deshalb wird jeder Baum Kandidat 418.
+Baumstümpfe fallen weg. Jeder Baum trägt sein eigenes Aufnahmedatum als Datenstand, von 1993 bis 2026, und
+seine Art in `freemapper:baum`, z. B. `Laubbaum`. Ein OSM-Baum weniger als 2 m neben einem Potsdamer Baum fällt
+weg. Ein Berliner Gebiet fragt dort nichts ab, auch innerhalb der Ausdehnung der Potsdamer Daten. Im Park
+Sanssouci lädt freemapper 1964 Bäume; 1646 davon liegen im Kartengebiet mit Puffer, und 1267 bleiben nach dem
+Ausdünnen Punkte. Reicht der Platz auf dem Datenträger nicht, lässt freemapper das vollständige ALKIS und die
+Bäume zusammen weg. Die gespeicherten bleiben dann. Eine Antwort über 256 MB bricht freemapper beim Lesen ab.
 
 **Berlin: Bauwerke, Bäume und die K5.** Berührt ein Kartengebiet Berlin, lädt freemapper sechs weitere
 Ebenen des Geoportals Berlin (dl-de/zero-2-0): die ALKIS-Bauwerke als Flächen und als Linien, die
@@ -476,8 +552,8 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 ## 13. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
-  nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder in Berlin
-  die Überdachungen, weist freemapper darauf hin.
+  nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder
+  Überdachungen, weist freemapper darauf hin.
 - **Neu schreiben:** `--force` ersetzt die Karte. Die alte bleibt als `.omap.bak` erhalten.
 - **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
   keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
@@ -510,7 +586,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `download of … failed` oder `invalid ALKIS data` | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | `… refused the request (HTTP 400)` | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
 | `… ignored the byte range` | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
-| `download of … is larger than … MB; stopped` | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. | Später erneut versuchen, sonst einen Fehler melden. |
+| `download of … is larger than … MB; stopped` | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |
 | `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein und Mecklenburg-Vorpommern: Das Downloadportal hat sich vermutlich geändert. Nordrhein-Westfalen: Die Kachelliste von Geobasis NRW nennt keine Kachel für das Gebiet. Rheinland-Pfalz: Nach dem Doppelpunkt steht für jede Kachel der Grund, z. B. `not on the server (404)`, `not in LVermGeo RP's tile list` oder `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Einen Fehler melden. |
 | `warning: the … has no tile(s) … inside Hamburg` | Im Archiv fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `warning: the … has no tile(s) … inside Hesse` | Im Downloadcenter-Archiv der Gemeinde fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
@@ -559,19 +635,31 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des Geoportals Berlin (z. B. `bauwerke-linien` oder `sb-moebel`) ließ sich nicht laden. Fasst eine Ebene mehrere Objekttypen zusammen, wie `sb-moebel` die Bänke, Poller und Hydranten, fehlt sie ganz, wenn einer davon scheitert. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: Für das Berliner Gebiet sind keine Bauwerke, Bäume und Überdachungen gespeichert. | Einmal online laden. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | Das Gebiet liegt nicht mehr an Berlin. freemapper löscht die gespeicherten Berliner Ebenen. | Nichts. |
-| `warning: freemapper.toml: ignored the Berlin layer entry` | Die Projektdatei nennt eine Berliner Ebene, die freemapper nicht kennt, oder einen Namen, der auf einen anderen Ordner zeigt (`../`, `/`, `\`, Laufwerksbuchstabe, Steuerzeichen). Jemand hat die Datei von Hand geändert, oder sie stammt von anderswo. freemapper übergeht den Eintrag, löscht keine Datei dafür und lässt ihn beim nächsten Speichern weg. | Nichts. Haben Sie die Datei nicht selbst geändert, prüfen Sie, woher das Projekt stammt. |
+| `warning: freemapper.toml: ignored the Berlin layer entry` / `… the NAS layer entry` / `… the tree layer entry` | Die Projektdatei nennt eine Berliner Ebene, eine Ebene des vollständigen ALKIS oder ein Stadtbaumkataster unter einem Namen, den freemapper nicht kennt, oder unter einem Namen, der auf einen anderen Ordner zeigt (`../`, `/`, `\`, Laufwerksbuchstabe, Steuerzeichen). Jemand hat die Datei von Hand geändert, oder sie stammt von anderswo. freemapper übergeht den Eintrag, löscht keine Datei dafür und lässt ihn beim nächsten Speichern weg. | Nichts. Haben Sie die Datei nicht selbst geändert, prüfen Sie, woher das Projekt stammt. |
 | `warning: Berlin … unavailable (data/berlin leads out of the project folder)` | Der Ordner `data/berlin` im Projekt ist ein Link auf einen Ort außerhalb des Projektordners. freemapper schreibt und löscht dort keine Berliner Ebene, also fehlen die Berliner Kandidaten. | Den Link durch einen normalen Ordner ersetzen und erneut laden. |
 | `…: a link leads out of the project folder, so freemapper writes nothing there` | Der genannte Ordner (`data`, `templates` oder `ocad`) oder der Ordner der genannten Datei ist ein Link auf einen Ort außerhalb des Projektordners. Das kommt bei Projektordnern von anderen vor. freemapper bricht ab, bevor es dort etwas schreibt. Ist nur eine einzelne Datei im Projekt ein Link, ersetzt freemapper ihn durch eine normale Datei und macht weiter. | Den Link durch einen normalen Ordner ersetzen und den Befehl erneut ausführen. |
 | `…: a link or outside the project folder, so freemapper does not copy it` | Eine Datei, die freemapper kopieren würde, ist ein Link oder liegt außerhalb des Projektordners. Als Warnung (`…; the OCAD map gets no background from it`) betrifft es ein Vorlagenbild oder seine World-Datei: Der OCAD-Karte fehlt diese Hintergrundkarte, der Rest wird geschrieben. Als Fehler betrifft es die Kartendatei vor ihrer Sicherung `.omap.bak` oder `.ocd.bak`. | Den Link durch die echte Datei ersetzen und den Befehl erneut ausführen. |
+| `downloading the full ALKIS structures (NAS)` | Fortschrittsmeldung: In Brandenburg lädt freemapper das vollständige ALKIS, etwa 1 MB je km². Danach nennt jede Ebene ihre Zahl, z. B. `780 ALKIS NAS sonstiges-bauwerk features` im Park Sanssouci. | Warten. |
+| `warning: ALKIS NAS … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des vollständigen ALKIS (z. B. `sonstiges-bauwerk`) ließ sich nicht laden. In der Klammer steht der Grund, z. B. `LGB ALKIS (NAS) answered adv:AX_… with an exception report: …`. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
+| `… returned … of … features; choose a smaller area` | Steht in der Klammer der Warnung davor. Das Gebiet enthält mehr Objekte, als der Dienst in einer Antwort schickt, auch nachdem freemapper es vier Stufen tief geviertelt hat. | Das Gebiet kleiner zeichnen oder auf mehrere Karten aufteilen. |
+| `skipped … ALKIS NAS … features: …` | Einzelne Objekte einer Ebene des vollständigen ALKIS haben eine Geometrie, die freemapper nicht lesen kann, z. B. `unsupported GML element Clothoid` oder `no geometry`. freemapper nennt sie und lässt sie weg. | Nichts. Fehlen viele, einen Fehler melden. |
+| ``no full ALKIS structures stored; run `freemapper fetch` online …`` | Offline: Für das Brandenburger Gebiet sind keine Ebenen des vollständigen ALKIS gespeichert. | Einmal online laden. |
+| `removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service` | Das Gebiet liegt nicht mehr in Brandenburg. freemapper löscht die gespeicherten Ebenen des vollständigen ALKIS. | Nichts. |
+| `warning: full ALKIS layers skipped (data/alkis-nas leads out of the project folder)` | Der Ordner `data/alkis-nas` im Projekt ist ein Link auf einen Ort außerhalb des Projektordners. freemapper schreibt und löscht dort keine Ebene, also fehlen die Kandidaten des vollständigen ALKIS. Derselbe Grund kann in der Klammer von `warning: ALKIS NAS … unavailable` stehen. | Den Link durch einen normalen Ordner ersetzen und erneut laden. |
+| `downloading the city tree cadastres` | Fortschrittsmeldung: freemapper lädt die Potsdamer Bäume. Danach nennt `… potsdam trees` ihre Zahl, z. B. `1964 potsdam trees` im Park Sanssouci. | Warten. |
+| `warning: potsdam tree cadastre unavailable (…); keeping the stored one` / `…; trees skipped` | Die Potsdamer Bäume ließen sich nicht laden. Es reicht, wenn einer der drei Datensätze fehlschlägt. Mit `keeping the stored one` bleiben die gespeicherten Bäume, die das Gebiet noch abdecken. Mit `trees skipped` fehlen die Baumkandidaten. Steht `data/trees leads out of the project folder` in der Klammer, ist dieser Ordner ein Link auf einen Ort außerhalb des Projekts. | Später erneut laden. Einen verlinkten Ordner vorher durch einen normalen ersetzen. |
+| `skipped … potsdam trees: …` | Einzelne Bäume ließen sich nicht lesen, z. B. `no point`. freemapper nennt sie und lässt sie weg. | Nichts. |
+| ``no city tree cadastre stored; run `freemapper fetch` online …`` | Offline: Für das Gebiet sind keine Potsdamer Bäume gespeichert. | Einmal online laden. |
+| `removing the stored tree cadastres: the map area is no longer in a city with one` | Das Gebiet liegt nicht mehr in Potsdam. freemapper löscht die gespeicherten Bäume. | Nichts. |
 | `warning: the K5 map template is unavailable (…); skipped` | Die K5 ließ sich nicht laden. Die Vorlage fehlt, das Laden geht weiter. | Später erneut laden. |
 | `k5 is not made yet; run freemapper fetch or run …` | Assistent oder Vorschau fragen nach der K5-Vorlage, aber es gibt sie nicht: Das Gebiet liegt nicht in Berlin, es wurde noch nicht geladen, oder das Laden schlug fehl. | In Berlin `fetch` oder `run` ausführen. |
 | `warning: the map area now lies in another state's data` | Das Gebiet liegt jetzt bei einem anderen Anbieter. | Nichts; freemapper lädt alles neu. |
 | `offline and not cached` / `no OSM extract cached` | Mit `--offline` fehlen Daten. | Einmal mit Internet laden. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Es wurde noch nicht geladen, oder das Gebiet hat sich geändert. | `run` bzw. `fetch` ausführen. |
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
-| `The map lacks the Berlin canopies and carports (522) that are now map objects` | Die Karte stammt aus der Zeit vor den Berliner Überdachungen. freemapper hat sie behalten, die Überdachungen fehlen darin. | Mit `run --force` neu schreiben. Die alte Karte bleibt als `.omap.bak`. Oder die Überdachungen aus den Kandidaten von Hand übernehmen. |
+| `The map lacks the ALKIS canopies and carports (522) that are now map objects` | Die Karte stammt aus der Zeit vor den ALKIS-Überdachungen. freemapper hat die Karte behalten, die Überdachungen fehlen darin. | Mit `run --force` neu schreiben. Die alte Karte bleibt als `.omap.bak`. Oder die Überdachungen aus den Kandidaten von Hand übernehmen. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
-| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Ebenen mit Bauwerken, Bäumen, Straßenbefahrung und Registern oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und gespeicherte Berliner Ebenen. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Ebenen mit Bauwerken, Bäumen, Straßenbefahrung und Registern, die Berliner K5 oder in Brandenburg das vollständige ALKIS und die Stadtbaumkataster) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und die gespeicherten Berliner Ebenen, Ebenen des vollständigen ALKIS und Bäume. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |
 | `not enough disk space for the …` | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
 | `the disk is full, so freemapper could not write …` | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
@@ -594,6 +682,9 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
   Trinkwasserbrunnen, dl-de/zero-2-0` mit nur den Registern, die Objekte in Karte oder Kandidaten geliefert
   haben (auf einer Sprintkarte etwa `Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0`), und
   `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0`, wenn Gebäudehöhen geladen wurden
+- `Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0` (Potsdam, wenn seine Bäume unter den
+  Kandidaten oder in einer als Fläche gezeichneten Baumgruppe stehen). Das vollständige ALKIS Brandenburgs
+  braucht keine eigene Zeile, die LGB-Zeile deckt es ab.
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Sachsen)
 - `© GeoBasis-DE / LVermGeo ST <Jahr>, dl-de/by-2-0, Daten geändert` (Sachsen-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <Jahr>, dl-de/by-2-0, Daten geändert` (Hamburg)

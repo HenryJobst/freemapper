@@ -1,6 +1,7 @@
 //! Data sources.
 
 pub mod alkis;
+pub mod alkis_nas;
 pub mod alkis_wfs;
 pub mod berlin;
 pub mod float_tiff;
@@ -17,6 +18,7 @@ pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
 pub mod osm;
 pub mod region;
+pub mod trees;
 pub mod wcs;
 pub mod wms;
 pub mod xlsx;

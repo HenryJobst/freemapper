@@ -293,6 +293,12 @@ fn write_part_with(
     Ok(part)
 }
 
+/// A partial file name for `path` no other write of any run uses: `<path>.<process id>.<number>.part`.
+/// For a download that streams into a file of its own ([`create_new_file`] opens it).
+pub(crate) fn fresh_part_name(path: &Path) -> PathBuf {
+    part_name(path, NEXT_PART.fetch_add(1, Relaxed))
+}
+
 /// `<path>.<process id>.<number>.part`: the process id keeps concurrent runs apart.
 fn part_name(path: &Path, number: u64) -> PathBuf {
     let mut part = path.as_os_str().to_owned();
@@ -603,6 +609,18 @@ mod tests {
         std::os::unix::fs::symlink(&root, &link).unwrap();
         assert!(stays_inside(&link, &link.join("data/a.geojson")));
         assert!(stays_inside(&link, &root.join("data/a.geojson")));
+    }
+
+    #[test]
+    fn fresh_part_names_never_repeat() {
+        let path = Path::new("data/alkis-nas/answer.gml");
+        let (a, b) = (fresh_part_name(path), fresh_part_name(path));
+        assert_ne!(a, b);
+        let pid = format!("answer.gml.{}.", std::process::id());
+        for name in [&a, &b] {
+            let name = name.file_name().unwrap().to_string_lossy();
+            assert!(name.starts_with(&pid) && name.ends_with(".part"), "{name}");
+        }
     }
 
     #[cfg(unix)]

@@ -242,7 +242,11 @@ pub const LAND_USE_ENDPOINT: &str =
     "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/NutzungFlurstueck/items";
 
 /// The LGB spellings of `gebnutzbez` the build rules know.
-const BUILDING_KINDS: [&str; 2] = ["Gebäude", "Bauteil"];
+pub(crate) const BUILDING_KINDS: [&str; 3] = [
+    "Gebäude",
+    "Bauteil",
+    "Sonstiges Bauwerk oder sonstige Einrichtung",
+];
 /// The LGB spellings of `nutzart` (the AdV class names).
 const LAND_USE_CLASSES: [&str; 26] = [
     "Wohnbaufläche",
@@ -303,7 +307,7 @@ fn normalise(mut feature: Value, property: &str, names: &[&str]) -> Value {
 
 /// A key equal for "Industrie- und Gewerbefläche" and "Industrie Und Gewerbeflaeche": lower
 /// case, umlauts and ß written out, punctuation dropped, single spaces.
-fn spelling_key(text: &str) -> String {
+pub(crate) fn spelling_key(text: &str) -> String {
     let mut key = String::new();
     for c in text.to_lowercase().chars() {
         match c {

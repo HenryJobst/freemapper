@@ -6,38 +6,25 @@
 //! rule an OSM tag. The building parts are parsed from the stored buildings in one place
 //! ([`building_part_features`]).
 
-use std::collections::HashMap;
-
 use chrono::NaiveDate;
-use geo::{BoundingRect as _, Centroid as _};
+use geo::BoundingRect as _;
 use serde_json::Value;
 
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::crs::{Crs, LatLon, ProjectedPoint};
+use crate::build::dedup::add_also;
+use crate::build::tagged::{self, position};
+use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
-use crate::sources::osm::{OsmFeature, OsmGeometry};
+use crate::sources::osm::OsmFeature;
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
-/// A monument area with a side longer than this is tagged `freemapper:size=large`: the mapper
-/// can draw its outline instead of the 526 point.
-const LARGE_MONUMENT_M: f64 = 3.0;
-/// An OSM `natural=tree` this close to a cadastre tree is the same tree and is dropped.
-const TREE_DEDUP_M: f64 = 2.0;
-/// An OSM line candidate with at least this share of its length within [`LINE_DEDUP_M`] of an
-/// ALKIS line with the same symbol is the same object and is dropped.
-const LINE_DEDUP_SHARE: f64 = 0.8;
-const LINE_DEDUP_M: f64 = 1.5;
-/// The OSM line is measured in pieces of at most this length (ground metres).
-const LINE_DEDUP_STEP_M: f64 = 0.5;
-/// Fence, wall, retaining wall and hedge: the line symbols both sources give.
-const LINE_DEDUP_CODES: [&str; 4] = ["515", "513.2", "518", "410.1"];
 /// The tree cadastre layers.
 const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
 /// The CRS of all Geoportal Berlin layers.
-const LAYER_CRS: Crs = Crs::Utm33;
+pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
 
 /// One stored layer for [`berlin_objects`].
 pub struct LayerInput<'a> {
@@ -60,33 +47,8 @@ pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
         .collect()
 }
 
-fn position(c: &Value) -> Option<(f64, f64)> {
-    Some((c.get(0)?.as_f64()?, c.get(1)?.as_f64()?))
-}
-
-fn latlon((easting, northing): (f64, f64)) -> Option<LatLon> {
-    LAYER_CRS.inverse(ProjectedPoint { easting, northing })
-}
-
-fn line_of(coordinates: &Value) -> Option<Vec<LatLon>> {
-    coordinates
-        .as_array()?
-        .iter()
-        .map(|c| position(c).and_then(latlon))
-        .collect()
-}
-
-/// The exterior ring of a polygon as a closed line (holes are dropped: candidates only) and a
-/// point at its centroid. A ring longer than [`LARGE_MONUMENT_M`] sets `large`.
-fn polygon_parts(rings: &Value) -> Option<(Vec<LatLon>, LatLon, bool)> {
-    let exterior = rings.get(0)?.as_array()?;
-    let points: Vec<(f64, f64)> = exterior.iter().filter_map(position).collect();
-    let polygon = geo_types::Polygon::new(geo_types::LineString::from(points.clone()), Vec::new());
-    let centroid = polygon.centroid()?;
-    let rect = polygon.bounding_rect()?;
-    let large = rect.width().max(rect.height()) > LARGE_MONUMENT_M;
-    let ring = points.iter().map(|p| latlon(*p)).collect::<Option<_>>()?;
-    Some((ring, latlon((centroid.x(), centroid.y()))?, large))
+fn latlon(p: (f64, f64)) -> Option<LatLon> {
+    tagged::latlon(LAYER_CRS, p)
 }
 
 /// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
@@ -276,6 +238,15 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
     {
         tags.push(("freemapper:baum".to_string(), tree));
     }
+    // The crown diameter for the point generalization (`build/points.rs`).
+    if TREE_LAYERS.contains(&layer)
+        && let Some(crown) = properties
+            .and_then(|p| p.get("kronedurch"))
+            .and_then(Value::as_f64)
+            .filter(|c| *c > 0.0)
+    {
+        tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
+    }
     tags.sort();
     tags
 }
@@ -307,61 +278,13 @@ fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<Str
 /// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
 /// centroid (a rule picks one by its `draw`). Id: `berlin/<layer>/<GeoServer id>`.
 pub fn tagged_features(layer: &str, features: &[Value]) -> Vec<OsmFeature> {
-    let mut out = Vec::new();
-    for feature in features {
-        let id = format!(
-            "berlin/{layer}/{}",
-            feature["id"].as_str().unwrap_or_default()
-        );
-        let tags = feature_tags(layer, feature);
-        let coordinates = &feature["geometry"]["coordinates"];
-        let mut push = |tags: Vec<(String, String)>, geometry| {
-            out.push(OsmFeature {
-                id: id.clone(),
-                tags,
-                geometry,
-            });
-        };
-        let polygon = |rings: &Value, push: &mut dyn FnMut(Vec<(String, String)>, OsmGeometry)| {
-            let Some((ring, centre, large)) = polygon_parts(rings) else {
-                return;
-            };
-            let mut point_tags = tags.clone();
-            if large {
-                point_tags.push(("freemapper:size".to_string(), "large".to_string()));
-                point_tags.sort();
-            }
-            push(tags.clone(), OsmGeometry::Line(ring));
-            push(point_tags, OsmGeometry::Point(centre));
-        };
-        match feature["geometry"]["type"].as_str() {
-            Some("Point") => {
-                if let Some(p) = position(coordinates).and_then(latlon) {
-                    push(tags.clone(), OsmGeometry::Point(p));
-                }
-            }
-            Some("LineString") => {
-                if let Some(line) = line_of(coordinates) {
-                    push(tags.clone(), OsmGeometry::Line(line));
-                }
-            }
-            Some("MultiLineString") => {
-                for line in coordinates.as_array().into_iter().flatten() {
-                    if let Some(line) = line_of(line) {
-                        push(tags.clone(), OsmGeometry::Line(line));
-                    }
-                }
-            }
-            Some("Polygon") => polygon(coordinates, &mut push),
-            Some("MultiPolygon") => {
-                for rings in coordinates.as_array().into_iter().flatten() {
-                    polygon(rings, &mut push);
-                }
-            }
-            _ => {}
-        }
-    }
-    out
+    tagged::tagged_features(
+        &format!("berlin/{layer}"),
+        features,
+        LAYER_CRS,
+        tagged::PointOn::Centroid,
+        |feature| feature_tags(layer, feature),
+    )
 }
 
 /// The candidate objects of the stored Berlin layers within `buffer_m` of `map_area`
@@ -393,462 +316,12 @@ pub fn berlin_objects(
     Ok(objects)
 }
 
-/// Drops the OSM fence, wall, retaining wall and hedge candidates (515, 513.2, 518, 410.1) with
-/// at least [`LINE_DEDUP_SHARE`] of their length within [`LINE_DEDUP_M`] of a Berlin (ALKIS)
-/// line candidate with the same symbol: the cadastre surveyed them, so ALKIS wins, as for trees.
-/// The ALKIS object nearest to most of the dropped line names it in `freemapper:also`
-/// (`osm/way/…`, several joined by `; `), so a difference in currency stays visible.
-pub fn drop_osm_lines_near_alkis(
-    osm: Vec<MapObject>,
-    berlin: &mut [MapObject],
-    symbol_set: &SymbolSet,
-    scale_denominator: u32,
-) -> Vec<MapObject> {
-    drop_lines_near(osm, berlin, |_| true, symbol_set, scale_denominator)
-}
-
-/// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
-pub(crate) fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
-    match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
-        Some((_, v)) if !v.split("; ").any(|x| x == also) => {
-            v.push_str("; ");
-            v.push_str(also);
-        }
-        Some(_) => {}
-        None => tags.push(("freemapper:also".to_string(), also.to_string())),
-    }
-}
-
-/// The surveyed (Straßenbefahrung) lines among the Berlin objects: `geoportal-berlin/sb-…`.
-fn from_survey(object: &MapObject) -> bool {
-    object
-        .tags
-        .iter()
-        .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/sb-"))
-}
-
-/// ALKIS wins over the survey: the surveyed fence, wall, retaining wall and hedge lines
-/// (`sb-mauer`, `sb-gelaender`) with at least [`LINE_DEDUP_SHARE`] of their length within
-/// [`LINE_DEDUP_M`] of an ALKIS line with the same symbol are dropped, and the ALKIS line names
-/// them in `freemapper:also` (`geoportal-berlin/sb-…/<gis_id>`). The order of the sources is
-/// ALKIS, survey, OSM: run [`drop_osm_lines_near_alkis`] on the result.
-pub fn drop_survey_lines_near_alkis(
-    berlin: Vec<MapObject>,
-    symbol_set: &SymbolSet,
-    scale_denominator: u32,
-) -> Vec<MapObject> {
-    let (survey, mut alkis): (Vec<_>, Vec<_>) = berlin.into_iter().partition(from_survey);
-    let mut kept = drop_lines_near(
-        survey,
-        &mut alkis,
-        |o| !from_survey(o),
-        symbol_set,
-        scale_denominator,
-    );
-    alkis.append(&mut kept);
-    alkis
-}
-
-/// Drops the `candidates` lines (fence, wall, retaining wall, hedge symbols) that follow a
-/// `winners` line with the same symbol, and names them in the winner's `freemapper:also`.
-/// `winners` are the Berlin objects for which `is_winner` holds.
-fn drop_lines_near(
-    osm: Vec<MapObject>,
-    berlin: &mut [MapObject],
-    is_winner: impl Fn(&MapObject) -> bool,
-    symbol_set: &SymbolSet,
-    scale_denominator: u32,
-) -> Vec<MapObject> {
-    let codes: Vec<u32> = LINE_DEDUP_CODES
-        .iter()
-        .filter_map(|c| symbol_set.id_for_code(c))
-        .collect();
-    let line = |o: &MapObject| {
-        matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
-    };
-    let from_berlin = |o: &MapObject| {
-        is_winner(o)
-            && o.tags
-                .iter()
-                .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
-    };
-    let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let metre = 1e6 / f64::from(scale_denominator);
-    let limit = LINE_DEDUP_M * metre;
-    let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
-    // The ALKIS segments by symbol, in a grid of `limit`-sized cells along each segment.
-    type Segment = (usize, (f64, f64), (f64, f64));
-    let mut segments: Vec<(u32, Segment)> = Vec::new();
-    let mut grid: HashMap<(u32, i64, i64), Vec<usize>> = HashMap::new();
-    for (index, object) in berlin.iter().enumerate() {
-        if !(line(object) && from_berlin(object)) {
-            continue;
-        }
-        for pair in object.coords.windows(2) {
-            let (a, b) = (xy(&pair[0]), xy(&pair[1]));
-            let id = segments.len();
-            segments.push((object.symbol_id, (index, a, b)));
-            let steps = ((b.0 - a.0).hypot(b.1 - a.1) / (limit / 2.0))
-                .ceil()
-                .max(1.0) as usize;
-            let mut cells: Vec<(i64, i64)> = (0..=steps)
-                .map(|i| {
-                    let t = i as f64 / steps as f64;
-                    cell((a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1)))
-                })
-                .collect();
-            cells.dedup();
-            for (cx, cy) in cells {
-                let list = grid.entry((object.symbol_id, cx, cy)).or_default();
-                if list.last() != Some(&id) {
-                    list.push(id);
-                }
-            }
-        }
-    }
-    if segments.is_empty() {
-        return osm;
-    }
-    let distance = |p: (f64, f64), a: (f64, f64), b: (f64, f64)| {
-        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-        let length2 = dx * dx + dy * dy;
-        let t = if length2 > 0.0 {
-            (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
-    };
-    // The ALKIS object nearest to `p` within `limit`, among the segments with `symbol`. A segment
-    // within `limit` of `p` has a sample cell within two cells of `p`'s.
-    let nearest = |symbol: u32, p: (f64, f64)| -> Option<usize> {
-        let (cx, cy) = cell(p);
-        let mut best: Option<(f64, usize)> = None;
-        for i in cx - 2..=cx + 2 {
-            for j in cy - 2..=cy + 2 {
-                for &id in grid.get(&(symbol, i, j)).into_iter().flatten() {
-                    let (_, (index, a, b)) = segments[id];
-                    let d = distance(p, a, b);
-                    if d <= limit && best.is_none_or(|(e, _)| d < e) {
-                        best = Some((d, index));
-                    }
-                }
-            }
-        }
-        best.map(|(_, index)| index)
-    };
-    let step = LINE_DEDUP_STEP_M * metre;
-    let mut kept = Vec::with_capacity(osm.len());
-    for object in osm {
-        if !line(&object) {
-            kept.push(object);
-            continue;
-        }
-        // Length near each ALKIS object, from the middle of pieces at most `step` long.
-        let mut near: HashMap<usize, f64> = HashMap::new();
-        let mut total = 0.0;
-        for pair in object.coords.windows(2) {
-            let (a, b) = (xy(&pair[0]), xy(&pair[1]));
-            let length = (b.0 - a.0).hypot(b.1 - a.1);
-            let pieces = (length / step).ceil().max(1.0) as usize;
-            let piece = length / pieces as f64;
-            total += length;
-            for i in 0..pieces {
-                let t = (i as f64 + 0.5) / pieces as f64;
-                let p = (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1));
-                if let Some(index) = nearest(object.symbol_id, p) {
-                    *near.entry(index).or_default() += piece;
-                }
-            }
-        }
-        let covered: f64 = near.values().sum();
-        if total <= 0.0 || covered < LINE_DEDUP_SHARE * total {
-            kept.push(object);
-            continue;
-        }
-        let winner = near
-            .into_iter()
-            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
-            .map(|(index, _)| index)
-            .expect("some length is near");
-        // `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source and the id in it.
-        let tag = |key: &str| {
-            object
-                .tags
-                .iter()
-                .find(|(k, _)| k == key)
-                .map_or_else(String::new, |(_, v)| v.clone())
-        };
-        let also = format!(
-            "{}/{}",
-            tag("freemapper:source"),
-            tag("freemapper:source_id")
-        );
-        add_also(&mut berlin[winner].tags, &also);
-    }
-    kept
-}
-
-/// Drops the OSM `natural=tree` candidates within [`TREE_DEDUP_M`] of a cadastre tree (a point
-/// object of a tree cadastre layer): the cadastre knows the crown, so it wins. Everything else
-/// stays.
-pub fn drop_osm_trees_near_cadastre(
-    osm: Vec<MapObject>,
-    objects: &[MapObject],
-    scale_denominator: u32,
-) -> Vec<MapObject> {
-    let has_tag = |o: &MapObject, key: &str, test: &dyn Fn(&str) -> bool| {
-        o.tags.iter().any(|(k, v)| k == key && test(v))
-    };
-    let is_cadastre_tree = |o: &MapObject| {
-        has_tag(o, "freemapper:source", &|v| {
-            v.strip_prefix("geoportal-berlin/")
-                .is_some_and(|layer| TREE_LAYERS.contains(&layer))
-        })
-    };
-    let position = |o: &MapObject| match (&o.kind, o.coords.first()) {
-        (MapObjectKind::Point { .. }, Some(c)) => Some((f64::from(c.x), f64::from(c.y))),
-        _ => None,
-    };
-    let trees: Vec<(f64, f64)> = objects
-        .iter()
-        .filter(|o| is_cadastre_tree(o))
-        .filter_map(position)
-        .collect();
-    if trees.is_empty() {
-        return osm;
-    }
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let limit = TREE_DEDUP_M * 1e6 / f64::from(scale_denominator);
-    // A grid of `limit`-sized cells: a tree within `limit` lies in the same or a neighbouring cell.
-    let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
-    let mut grid: std::collections::HashMap<(i64, i64), Vec<(f64, f64)>> =
-        std::collections::HashMap::new();
-    for tree in trees {
-        grid.entry(cell(tree)).or_default().push(tree);
-    }
-    osm.into_iter()
-        .filter(|o| {
-            let osm_tree = has_tag(o, "freemapper:osm", &|v| v == "natural=tree");
-            let near = position(o).is_some_and(|p @ (x, y)| {
-                let (cx, cy) = cell(p);
-                (cx - 1..=cx + 1).any(|i| {
-                    (cy - 1..=cy + 1).any(|j| {
-                        grid.get(&(i, j)).is_some_and(|ts| {
-                            ts.iter().any(|(tx, ty)| (x - tx).hypot(y - ty) <= limit)
-                        })
-                    })
-                })
-            });
-            !(osm_tree && near)
-        })
-        .collect()
-}
-
-/// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
-/// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
-/// to 30 m apart, so 5 m stays well under half the spacing.
-const OSM_LAMP_DEDUP_M: f64 = 5.0;
-/// A survey mast this close to a cadastre lamp is the lamp, and an OSM hydrant, bench, mast or
-/// play item this close to the survey one is that one. Survey masts 2 m or more from a lamp are
-/// mostly sign and signal masts.
-const FURNITURE_DEDUP_M: f64 = 2.0;
-/// The same for a fountain or drinking-water point of the fountain registers.
-const FOUNTAIN_DEDUP_M: f64 = 3.0;
-
-/// One kind of winning point and the points that give way to it.
-struct PointDedup {
-    /// `(tag key, value)` of the winners: a register's `freemapper:source` or a survey type's
-    /// `berlin:layer`.
-    winner: (&'static str, &'static str),
-    /// `(tag key, value, limit in ground metres)` of the losers: an OSM rule (`freemapper:osm`,
-    /// one of its `; `-separated parts; a value ending in `*` is a prefix) or a survey type
-    /// (`berlin:layer`).
-    losers: &'static [(&'static str, &'static str, f64)],
-}
-
-/// In order: the registers beat the survey and OSM, then the survey furniture (schoolyard only)
-/// beats OSM. A point dropped by an earlier entry wins nothing later.
-const POINT_DEDUPS: [PointDedup; 8] = [
-    PointDedup {
-        winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
-        losers: &[
-            ("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP_M),
-            ("berlin:layer", "as_mast", FURNITURE_DEDUP_M),
-        ],
-    },
-    PointDedup {
-        winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
-        losers: &[
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
-            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP_M),
-            (
-                "berlin:layer",
-                "bv_springbrunnen_zierbrunnen",
-                FOUNTAIN_DEDUP_M,
-            ),
-        ],
-    },
-    PointDedup {
-        winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
-        losers: &[
-            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP_M),
-            (
-                "berlin:layer",
-                "ac_trinkwasserbrunnen_wasserspender",
-                FOUNTAIN_DEDUP_M,
-            ),
-        ],
-    },
-    PointDedup {
-        winner: ("berlin:layer", "aq_hydrant"),
-        losers: &[(
-            "freemapper:osm",
-            "emergency=fire_hydrant",
-            FURNITURE_DEDUP_M,
-        )],
-    },
-    PointDedup {
-        winner: ("berlin:layer", "bj_sitzbank"),
-        losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP_M)],
-    },
-    PointDedup {
-        winner: ("berlin:layer", "as_mast"),
-        losers: SURVEY_MAST_LOSERS,
-    },
-    PointDedup {
-        winner: ("berlin:layer", "am_fahnenmast"),
-        losers: SURVEY_MAST_LOSERS,
-    },
-    PointDedup {
-        winner: ("berlin:layer", "aw_spielgeraet"),
-        losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP_M)],
-    },
-];
-
-/// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
-/// each source uses.
-const SURVEY_MAST_LOSERS: &[(&str, &str, f64)] = &[
-    ("freemapper:osm", "man_made=mast", FURNITURE_DEDUP_M),
-    ("freemapper:osm", "man_made=flagpole", FURNITURE_DEDUP_M),
-];
-
-/// Whether the tag value `value` holds `wanted`: one of its `; `-separated parts equals it, or
-/// starts with it when `wanted` ends in `*`.
-fn tag_holds(value: &str, wanted: &str) -> bool {
-    value
-        .split("; ")
-        .any(|part| match wanted.strip_suffix('*') {
-            Some(prefix) => part.starts_with(prefix),
-            None => part == wanted,
-        })
-}
-
-/// The registers win over the survey and OSM, and the survey furniture over OSM
-/// ([`POINT_DEDUPS`]): an OSM street lamp within [`OSM_LAMP_DEDUP_M`] or a survey mast within
-/// [`FURNITURE_DEDUP_M`] of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
-/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, and
-/// an OSM hydrant, bench, mast, flag pole or play item within [`FURNITURE_DEDUP_M`] of the
-/// survey one are dropped. A line (bench, play item) counts by the middle of its extent. The
-/// winner names each dropped object in `freemapper:also` (`osm/node/1`,
-/// `geoportal-berlin/sb-moebel/<gis_id>`). Returns the OSM and the Berlin candidates without
-/// them.
-pub fn drop_points_near_registers(
-    osm: Vec<MapObject>,
-    mut berlin: Vec<MapObject>,
-    scale_denominator: u32,
-) -> (Vec<MapObject>, Vec<MapObject>) {
-    let tag = |o: &MapObject, key: &str| -> Option<String> {
-        o.tags
-            .iter()
-            .find(|(k, _)| k == key)
-            .map(|(_, v)| v.clone())
-    };
-    let holds = |o: &MapObject, (key, value): (&str, &str)| {
-        tag(o, key).is_some_and(|v| tag_holds(&v, value))
-    };
-    // A point, or the middle of a short line's extent (benches, play equipment).
-    let position = |o: &MapObject| match (&o.kind, o.coords.first()) {
-        (MapObjectKind::Point { .. }, Some(c)) => Some((f64::from(c.x), f64::from(c.y))),
-        (MapObjectKind::Path, Some(_)) => {
-            let xs = o.coords.iter().map(|c| f64::from(c.x));
-            let ys = o.coords.iter().map(|c| f64::from(c.y));
-            let (min_x, max_x) = xs.fold((f64::MAX, f64::MIN), |(a, b), x| (a.min(x), b.max(x)));
-            let (min_y, max_y) = ys.fold((f64::MAX, f64::MIN), |(a, b), y| (a.min(y), b.max(y)));
-            Some(((min_x + max_x) / 2.0, (min_y + max_y) / 2.0))
-        }
-        _ => None,
-    };
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let metre = 1e6 / f64::from(scale_denominator);
-    let mut dropped_osm = vec![false; osm.len()];
-    let mut dropped_berlin = vec![false; berlin.len()];
-    let mut also: Vec<(usize, String)> = Vec::new();
-    for rule in &POINT_DEDUPS {
-        let winners: Vec<(usize, (f64, f64))> = berlin
-            .iter()
-            .enumerate()
-            .filter(|&(i, o)| !dropped_berlin[i] && holds(o, rule.winner))
-            .filter_map(|(i, o)| position(o).map(|p| (i, p)))
-            .collect();
-        if winners.is_empty() {
-            continue;
-        }
-        let mut check = |object: &MapObject, gone: &mut bool| {
-            let Some(limit_m) = rule
-                .losers
-                .iter()
-                .find(|&&(key, value, _)| holds(object, (key, value)))
-                .map(|&(_, _, limit_m)| limit_m)
-            else {
-                return;
-            };
-            let Some((x, y)) = position(object).filter(|_| !*gone) else {
-                return;
-            };
-            let limit = limit_m * metre;
-            let nearest = winners
-                .iter()
-                .map(|&(i, (wx, wy))| (i, (x - wx).hypot(y - wy)))
-                .filter(|&(_, d)| d <= limit)
-                .min_by(|a, b| a.1.total_cmp(&b.1));
-            if let Some((winner, _)) = nearest {
-                *gone = true;
-                let name = format!(
-                    "{}/{}",
-                    tag(object, "freemapper:source").unwrap_or_default(),
-                    tag(object, "freemapper:source_id").unwrap_or_default()
-                );
-                also.push((winner, name));
-            }
-        };
-        for (object, gone) in osm.iter().zip(&mut dropped_osm) {
-            check(object, gone);
-        }
-        for (object, gone) in berlin.iter().zip(&mut dropped_berlin) {
-            check(object, gone);
-        }
-    }
-    for (winner, name) in also {
-        add_also(&mut berlin[winner].tags, &name);
-    }
-    let keep = |objects: Vec<MapObject>, dropped: Vec<bool>| -> Vec<MapObject> {
-        objects
-            .into_iter()
-            .zip(dropped)
-            .filter_map(|(o, gone)| (!gone).then_some(o))
-            .collect()
-    };
-    (keep(osm, dropped_osm), keep(berlin, dropped_berlin))
-}
-
 /// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
 const SHELTER_UNDER_CANOPY_SHARE: f64 = 0.5;
 
 /// The area of a map object in map coordinates: the first closed run of coordinates is the
 /// exterior, the others are holes. `None` for a point or a line too short for a ring.
-fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
+pub(crate) fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
     use crate::omap::coord::FLAG_CLOSE;
     if !matches!(object.kind, MapObjectKind::Path) {
         return None;
@@ -942,8 +415,14 @@ pub fn drop_shelters_under_canopies(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build::dedup::{
+        drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
+        drop_trees_by_rank,
+    };
+    use crate::crs::ProjectedPoint;
     use crate::sources::berlin::normalise_building;
     use crate::sources::berlin::test_support::*;
+    use crate::sources::osm::OsmGeometry;
 
     fn features(collection: &str) -> Vec<Value> {
         serde_json::from_str::<Value>(collection).unwrap()["features"]
@@ -1270,7 +749,7 @@ mod tests {
             "properties": {"uuid": "DEBE00DACH", "bezbwf": "Überdachung"}
         });
         let mut canopies = crate::build::canopy::canopy_objects(
-            &[canopy],
+            &[crate::build::canopy::CanopyInput::Berlin(&[canopy])],
             &[],
             &area,
             20.0,
@@ -1366,7 +845,7 @@ mod tests {
             // Along the ALKIS wall but a railing: stays (different symbol).
             line_object(kind, "518", survey, "S3", (1.0, 39.0, 30.5)),
         ]);
-        let kept = drop_survey_lines_near_alkis(berlin, &set, 1000);
+        let kept = drop_cadastre_lines_by_rank(berlin, &set, 1000);
         // The ALKIS objects are kept, the near survey fence is gone.
         let ids: Vec<_> = kept
             .iter()
@@ -1701,6 +1180,12 @@ mod tests {
             "freemapper:source".into(),
             "geoportal-berlin/anlagenbaeume".into()
         )));
+        // The crown diameter is the generalization's (`build/points.rs`).
+        assert!(
+            first
+                .tags
+                .contains(&("freemapper:crown_m".into(), "10".into()))
+        );
     }
 
     #[test]
@@ -1725,21 +1210,24 @@ mod tests {
             ],
         };
         let tree = |de, dn| osm("418", "natural=tree", de, dn);
-        let kept = drop_osm_trees_near_cadastre(
+        let (kept, _) = drop_trees_by_rank(
             vec![
                 tree(1.0, 1.0),                          // 1.4 m away: the same tree
                 tree(0.0, 1.99),                         // just inside 2 m
                 tree(0.0, 2.5),                          // 2.5 m: another tree
                 osm("526", "tourism=artwork", 0.0, 0.5), // not a tree
             ],
-            &cadastre,
+            cadastre,
+            &set,
             georef.scale_denominator,
         );
         let osm_tags: Vec<&str> = kept.iter().map(|o| o.tags[1].1.as_str()).collect();
         assert_eq!(osm_tags, ["natural=tree", "tourism=artwork"]);
         // Without cadastre trees every OSM tree stays.
         assert_eq!(
-            drop_osm_trees_near_cadastre(vec![tree(0.0, 0.0)], &[], georef.scale_denominator).len(),
+            drop_trees_by_rank(vec![tree(0.0, 0.0)], vec![], &set, georef.scale_denominator)
+                .0
+                .len(),
             1
         );
     }
@@ -1822,7 +1310,8 @@ mod tests {
             osm_point(kind, "545", "highway=street_lamp", "node/5", 0.0, 5.5), // 5.5 m
             osm_point(kind, "544", "man_made=mast", "node/3", 0.0, 0.5),       // not a lamp
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/5", "node/3"]);
         let layers: Vec<_> = berlin
             .iter()
@@ -1886,7 +1375,8 @@ mod tests {
             // A bollard is no mast: the OSM mast beside it stays.
             osm_point(kind, "544", "man_made=mast", "node/6", 80.5, 0.0),
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/2", "node/6"]);
         assert_eq!(berlin.len(), 5, "the survey wins");
         let also = |layer: &str| {
@@ -1913,7 +1403,8 @@ mod tests {
         let mut berlin = survey_objects("beleuchtung", &lamps, kind);
         berlin.extend(survey_objects("sb-moebel", &masts, kind));
         let osm = vec![osm_point(kind, "544", "man_made=mast", "node/1", 2.5, 0.0)];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/1"]);
         assert_eq!(berlin.len(), 1);
     }
@@ -1940,7 +1431,8 @@ mod tests {
             osm_point(kind, "313", "amenity=drinking_water", "node/12", 0.5, 0.0), // other kind
             osm_point(kind, "313", "amenity=drinking_water", "node/13", 100.0, 2.0),
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/11", "node/12"]);
         // The survey jet at the register fountain and the survey tap at the register tap go;
         // the pump 30 m away stays.
@@ -1967,7 +1459,8 @@ mod tests {
             0.0,
             0.0,
         )];
-        let (osm, _) = drop_points_near_registers(osm, vec![], georef.scale_denominator);
+        let (osm, _) =
+            drop_points_near_registers(osm, vec![], &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(osm.len(), 1);
     }
 
@@ -2030,7 +1523,7 @@ mod tests {
         };
         let mut all = candidates;
         all.push(tree);
-        let kept = drop_osm_lines_near_alkis(all, &mut alkis, &set, georef.scale_denominator);
+        let kept = drop_osm_lines_near_cadastre(all, &mut alkis, &set, georef.scale_denominator);
         let id = |o: &MapObject| {
             o.tags
                 .iter()
@@ -2052,7 +1545,7 @@ mod tests {
         // Without ALKIS lines every OSM line stays.
         let lone = vec![osm("way/1", "518", (0.0, 1.0), (50.0, 1.0))];
         assert_eq!(
-            drop_osm_lines_near_alkis(lone, &mut [], &set, georef.scale_denominator).len(),
+            drop_osm_lines_near_cadastre(lone, &mut [], &set, georef.scale_denominator).len(),
             1
         );
     }

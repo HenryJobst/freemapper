@@ -18,6 +18,12 @@
 //! stair names it in `freemapper:also`. The survey's `trs` (probably the number of steps) stays
 //! as `berlin:trs`.
 //!
+//! NAS stairs (Mecklenburg-Vorpommern, Hesse; the full ALKIS of any state) come the same way:
+//! the areas 1620 and 1621 of `AX_SonstigesBauwerkOderSonstigeEinrichtung`. The bottom edge
+//! (1630, linked to its stair by `gehoert_zu`) gives the walking direction, across it and away
+//! from it, and the direction is not guessed. A stair without an edge goes by the DGM1 as above.
+//! An edge draws nothing on its own.
+//!
 //! The width across the walking direction, as paper width at the map scale, picks the footprint
 //! symbol nearest to it. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest footprint (a
 //! stadium stand) is drawn as parallel 532.9 lines across its width.
@@ -28,8 +34,10 @@ use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
 use crate::build::berlin::{
-    add_also, feature_lines, feature_polygons, provenance_tags, survey_tags,
+    LAYER_CRS, feature_lines, feature_polygons, provenance_tags, survey_tags,
 };
+use crate::build::dedup::add_also;
+use crate::build::state::{NAS_SOURCE, nas_feature_tags};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -60,6 +68,11 @@ const FACADE_DISTANCE_M: f64 = 0.5;
 const FACADE_TIE_M: f64 = 0.05;
 /// `bezbwf` of the monument areas (flat stairs at them face them).
 const MONUMENT_KIND: &str = "Denkmal, Denkstein, Standbild";
+/// The NAS layer file the stair areas and bottom edges come from (`sources/alkis_nas.rs`).
+pub const NAS_STAIR_LAYER: &str = "sonstiges-bauwerk";
+/// `bauwerksfunktion` of the NAS stair areas (`Treppe`, `Freitreppe`) and of the bottom edge.
+const NAS_STAIR_CODES: [&str; 2] = ["1620", "1621"];
+const NAS_BOTTOM_EDGE_CODE: &str = "1630";
 /// The layer and `bezbwf` of the step edges.
 pub const STEP_EDGE_LAYER: &str = "bauwerke-linien";
 const STEP_EDGE_KIND: &str = "Freitreppe";
@@ -97,6 +110,34 @@ fn is_survey_stair(feature: &Value) -> bool {
     feature["properties"][crate::sources::berlin::TYPE_KEY] == "cc_treppe"
 }
 
+fn nas_code(feature: &Value) -> Option<&str> {
+    feature["properties"]["bauwerksfunktion"].as_str()
+}
+
+fn is_nas_stair(feature: &Value) -> bool {
+    nas_code(feature).is_some_and(|c| NAS_STAIR_CODES.contains(&c))
+}
+
+fn is_nas_bottom_edge(feature: &Value) -> bool {
+    nas_code(feature) == Some(NAS_BOTTOM_EDGE_CODE)
+}
+
+/// Whether any NAS stair area among the `sonstiges-bauwerk` `features` has no bottom edge: its
+/// direction comes from the terrain model, so `derive` keeps the terrain then.
+pub fn has_nas_stairs_without_edge(features: &[Value]) -> bool {
+    features.iter().filter(|f| is_nas_stair(f)).any(|stair| {
+        !features
+            .iter()
+            .any(|e| is_nas_bottom_edge(e) && names_stair(e, stair))
+    })
+}
+
+/// Whether the bottom `edge` belongs to the `stair` (`gehoert_zu` names its oid).
+fn names_stair(edge: &Value, stair: &Value) -> bool {
+    let oid = &stair["properties"]["oid"];
+    oid.is_string() && edge["properties"]["gehoert_zu"] == *oid
+}
+
 /// Whether any of the `features` of a layer is a stair area, ALKIS or surveyed (`derive` keeps
 /// the terrain then).
 pub fn has_stairs(features: &[Value]) -> bool {
@@ -112,6 +153,9 @@ pub struct StairInput<'a> {
     /// The stored `sb-treppe` features (EPSG:25833, stamped with `freemapper:layer` and the
     /// survey date); they are dropped where an ALKIS stair is.
     pub survey: &'a [Value],
+    /// The stored NAS `sonstiges-bauwerk` features (the map's CRS); only the stair areas
+    /// (1620, 1621) and their bottom edges (1630, by `gehoert_zu`) are used.
+    pub nas: &'a [Value],
     /// The DGM1 in the map's CRS, if one is stored.
     pub terrain: Option<&'a Raster<f32>>,
     /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
@@ -119,6 +163,7 @@ pub struct StairInput<'a> {
 }
 
 /// One axis of a stair rectangle: the centre line from side to side, and the width across it.
+#[derive(Clone)]
 struct Axis {
     from: Coord<f64>,
     to: Coord<f64>,
@@ -197,6 +242,47 @@ fn walking_axis(
         }
         _ => (facing_facade([long, short], facades), true),
     }
+}
+
+/// The walking axis of a stair from its bottom `edge` lines: the axis across the edge (the one
+/// less parallel to the principal direction of its points), starting at the end nearest to the edge.
+fn axis_from_edge([long, short]: [Axis; 2], edge: &[geo_types::LineString<f64>]) -> Option<Axis> {
+    let points: Vec<Coord<f64>> = edge.iter().flat_map(|l| l.0.iter().copied()).collect();
+    if points.len() < 2 {
+        return None;
+    }
+    let centre = points.iter().fold(Coord { x: 0.0, y: 0.0 }, |s, p| s + *p) / points.len() as f64;
+    // The principal direction of all edge points: a bent or multi-part edge runs the way most
+    // of it does, whatever its first and last point.
+    let (mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0);
+    for p in &points {
+        let d = *p - centre;
+        (sxx, syy, sxy) = (sxx + d.x * d.x, syy + d.y * d.y, sxy + d.x * d.y);
+    }
+    if sxx + syy <= 0.0 {
+        return None;
+    }
+    let angle = 0.5 * (2.0 * sxy).atan2(sxx - syy);
+    let along = Coord {
+        x: angle.cos(),
+        y: angle.sin(),
+    };
+    let parallel = |axis: &Axis| {
+        let d = (axis.to - axis.from) / axis.length();
+        (d.x * along.y - d.y * along.x).abs()
+    };
+    // The sine of the angle to the edge: the larger one runs across it.
+    let axis = if parallel(&long) >= parallel(&short) {
+        long
+    } else {
+        short
+    };
+    let distance = |c: Coord<f64>| (c - centre).x.hypot((c - centre).y);
+    Some(if distance(axis.from) <= distance(axis.to) {
+        axis
+    } else {
+        axis.reversed()
+    })
 }
 
 /// Of the four axis ends, the one nearest to a building or monument within
@@ -438,6 +524,40 @@ pub fn stair_objects(
             alkis.push((part, start..stairs.objects.len()));
         }
     }
+    // The NAS stairs. They are stored in the map's CRS: no reprojection (`feature_polygons`
+    // takes the layer CRS as given).
+    for feature in input.nas.iter().filter(|f| is_nas_stair(f)) {
+        let bottom: Vec<_> = input
+            .nas
+            .iter()
+            .filter(|e| is_nas_bottom_edge(e) && names_stair(e, feature))
+            .flat_map(|e| feature_lines(e, LAYER_CRS))
+            .collect();
+        for part in feature_polygons(feature, LAYER_CRS) {
+            if Euclidean.distance(&part, map_area) > buffer_m {
+                continue;
+            }
+            let Some(axes) = axes(&part) else {
+                continue;
+            };
+            let from_edge = if bottom.is_empty() {
+                None
+            } else {
+                axis_from_edge(axes.clone(), &bottom)
+            };
+            let (axis, guessed) = match from_edge {
+                Some(axis) => (axis, false),
+                None => walking_axis(axes, input.terrain, &facades),
+            };
+            let mut tags = nas_stair_tags(feature, currency);
+            if guessed {
+                tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
+            }
+            let start = stairs.objects.len();
+            stairs.push(&axis, tags)?;
+            alkis.push((part, start..stairs.objects.len()));
+        }
+    }
     let edges = step_edges(input.step_edges, crs);
     for flight in flights(&edges) {
         let (axis, outline) = flight_axis(&flight, input.terrain);
@@ -484,6 +604,21 @@ pub fn stair_objects(
         }
     }
     Ok(stairs.objects)
+}
+
+/// The tags of a NAS stair: `freemapper:source=alkis-nas/<file>`, then the tags of every NAS
+/// object (`state::nas_feature_tags`); `currency` stands in for a missing `beginnt`.
+fn nas_stair_tags(feature: &Value, currency: NaiveDate) -> Vec<(String, String)> {
+    let mut tags = vec![(
+        "freemapper:source".to_string(),
+        format!("{NAS_SOURCE}/{NAS_STAIR_LAYER}"),
+    )];
+    let own = nas_feature_tags(feature);
+    if !own.iter().any(|(k, _)| k == "freemapper:currency") {
+        tags.push(("freemapper:currency".to_string(), currency.to_string()));
+    }
+    tags.extend(own);
+    tags
 }
 
 /// Whether two stair footprints overlap by [`DUPLICATE_STAIR_SHARE`] of the smaller one.
@@ -657,12 +792,25 @@ mod tests {
         terrain: Option<&Raster<f32>>,
         buildings: &[Polygon<f64>],
     ) -> Vec<MapObject> {
+        objects_with_nas(kind, features, step_edges, survey, &[], terrain, buildings)
+    }
+
+    fn objects_with_nas(
+        kind: MapKind,
+        features: &[Value],
+        step_edges: &[Value],
+        survey: &[Value],
+        nas: &[Value],
+        terrain: Option<&Raster<f32>>,
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
         let (georef, area, set) = setup(kind);
         stair_objects(
             &StairInput {
                 features,
                 step_edges,
                 survey,
+                nas,
                 terrain,
                 buildings,
             },
@@ -674,6 +822,29 @@ mod tests {
             "2026-11-09".parse().unwrap(),
         )
         .unwrap()
+    }
+
+    /// A stored NAS stair area 1620 with the corners `points` (metres from the reference point).
+    fn nas_stair(oid: &str, points: &[(f64, f64)]) -> Value {
+        let mut ring: Vec<[f64; 2]> = points.iter().map(|(e, n)| [E + e, N + n]).collect();
+        ring.push(ring[0]);
+        serde_json::json!({
+            "type": "Feature", "id": oid,
+            "geometry": {"type": "Polygon", "coordinates": [ring]},
+            "properties": {"oid": oid, "nas_type": "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                           "bauwerksfunktion": "1620", "beginnt": "2018-03-19T13:09:16Z"}
+        })
+    }
+
+    /// The bottom edge 1630 of the stair `stair_oid` along `points`.
+    fn nas_edge(oid: &str, stair_oid: &str, points: &[(f64, f64)]) -> Value {
+        let line: Vec<[f64; 2]> = points.iter().map(|(e, n)| [E + e, N + n]).collect();
+        serde_json::json!({
+            "type": "Feature", "id": oid,
+            "geometry": {"type": "LineString", "coordinates": line},
+            "properties": {"oid": oid, "nas_type": "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                           "bauwerksfunktion": "1630", "gehoert_zu": stair_oid}
+        })
     }
 
     fn code(kind: MapKind, object: &MapObject) -> String {
@@ -1157,5 +1328,268 @@ mod tests {
         let mut wall = rect_stair(8.0, 2.0);
         wall["properties"]["bezbwf"] = "Mauer".into();
         assert!(objects(MapKind::Sprint, &[wall], None).is_empty());
+    }
+
+    /// The Rostock stairs of the Mecklenburg-Vorpommern fixture: the stair area `DxDD`
+    /// (about 2.3 m long from south-south-east to north-north-west), its bottom edge on the
+    /// south side, and an edge of a stair that is not in the file.
+    fn rostock() -> Vec<Value> {
+        let text = include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-nas-stairs.gml");
+        crate::sources::alkis_nas::parse_nas_gml(text)
+            .unwrap()
+            .features
+    }
+
+    /// The oid of a stored NAS feature.
+    fn is_oid(feature: &Value, oid: &str) -> bool {
+        feature["properties"]["oid"] == oid
+    }
+
+    /// The stairs built from NAS `features` around the Rostock fixture (map area 200 m square).
+    /// The DGM1 gets the height `h(e, n)` (metres from the fixture's south-west corner).
+    fn nas_stairs(
+        features: &[Value],
+        terrain: Option<&dyn Fn(f64, f64) -> f32>,
+    ) -> (Vec<MapObject>, Georeferencing) {
+        nas_stairs_in(Crs::Utm33, features, terrain)
+    }
+
+    /// As [`nas_stairs`] for a map in `crs`; `features` are stored in that CRS. A terrain model
+    /// is placed in EPSG:25833 only, so it goes with `Crs::Utm33`.
+    fn nas_stairs_in(
+        crs: Crs,
+        features: &[Value],
+        terrain: Option<&dyn Fn(f64, f64) -> f32>,
+    ) -> (Vec<MapObject>, Georeferencing) {
+        let (e0, n0) = (312_090.0, 5_996_807.0);
+        let kind = MapKind::Sprint;
+        let centre = Crs::Utm33
+            .inverse(ProjectedPoint {
+                easting: e0,
+                northing: n0,
+            })
+            .unwrap();
+        let georef = Georeferencing::new_in(
+            crs,
+            centre,
+            kind.default_scale(),
+            "2026-11-09".parse().unwrap(),
+        )
+        .unwrap();
+        let (e, n) = (georef.ref_projected.easting, georef.ref_projected.northing);
+        let ring = vec![
+            (e - 100.0, n - 100.0),
+            (e + 100.0, n - 100.0),
+            (e + 100.0, n + 100.0),
+            (e - 100.0, n + 100.0),
+            (e - 100.0, n - 100.0),
+        ];
+        let area = Polygon::new(ring.into(), vec![]);
+        let grid = GridSpec {
+            west: e0 - 150.0,
+            north: n0 + 150.0,
+            pixel_size: 1.0,
+            width: 300,
+            height: 300,
+        };
+        let raster = terrain.map(|h| {
+            let mut raster = Raster::filled(grid, f32::NAN);
+            for y in 0..grid.height {
+                for x in 0..grid.width {
+                    let (de, dn) = (
+                        grid.west + f64::from(x) + 0.5 - e0,
+                        grid.north - f64::from(y) - 0.5 - n0,
+                    );
+                    raster.set(x, y, h(de, dn));
+                }
+            }
+            raster
+        });
+        let objects = stair_objects(
+            &StairInput {
+                features: &[],
+                step_edges: &[],
+                survey: &[],
+                nas: features,
+                terrain: raster.as_ref(),
+                buildings: &[],
+            },
+            kind,
+            &area,
+            20.0,
+            &georef,
+            &kind.symbol_set(),
+            "2026-11-09".parse().unwrap(),
+        )
+        .unwrap();
+        (objects, georef)
+    }
+
+    /// The northing of the line ends, from the first to the last.
+    fn northings(object: &MapObject, georef: &Georeferencing) -> [f64; 2] {
+        let n = |i: usize| georef.map_to_projected(object.coords[i]).northing;
+        [n(0), n(1)]
+    }
+
+    #[test]
+    fn nas_stair_runs_up_from_its_bottom_edge() {
+        // The ground falls to the north, so the DGM1 alone would send the stair south. The edge
+        // on the south side is the bottom: the line starts there and runs north.
+        let down = |_: f64, n: f64| 30.0 - 0.5 * n as f32;
+        let (found, georef) = nas_stairs(&rostock(), Some(&down));
+        assert_eq!(found.len(), 1, "the edge itself is no stair");
+        let [from, to] = northings(&found[0], &georef);
+        assert!(from < 5_996_808.2 && to > 5_996_809.8, "{from} → {to}");
+        assert_eq!(direction(&found[0]), None);
+        let tags: Vec<(&str, &str)> = found[0]
+            .tags
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        for expected in [
+            ("freemapper:source", "alkis-nas/sonstiges-bauwerk"),
+            ("freemapper:source_id", "DEMVHR030000DxDD"),
+            ("freemapper:currency", "2018-03-19"),
+            ("freemapper:alkis", "Treppe"),
+            ("alkis:type", "AX_SonstigesBauwerkOderSonstigeEinrichtung"),
+        ] {
+            assert!(tags.contains(&expected), "{expected:?} in {tags:?}");
+        }
+        // 1.2 m wide at 1:4000 (0.3 mm): the narrowest footprint.
+        assert_eq!(code(MapKind::Sprint, &found[0]), "532.6");
+    }
+
+    #[test]
+    fn nas_stair_without_edge_uses_the_dtm() {
+        let stair: Vec<Value> = rostock()
+            .into_iter()
+            .filter(|f| is_oid(f, "DEMVHR030000DxDD"))
+            .collect();
+        assert_eq!(stair.len(), 1);
+        // Rising to the south: the stair runs south. Not guessed.
+        let south = |_: f64, n: f64| 30.0 - 0.5 * n as f32;
+        let (found, georef) = nas_stairs(&stair, Some(&south));
+        assert_eq!(found.len(), 1);
+        let [from, to] = northings(&found[0], &georef);
+        assert!(from > to, "{from} → {to}");
+        assert_eq!(direction(&found[0]), None);
+        // Rising to the north: the other way.
+        let north = |_: f64, n: f64| 30.0 + 0.5 * n as f32;
+        let (found, georef) = nas_stairs(&stair, Some(&north));
+        let [from, to] = northings(&found[0], &georef);
+        assert!(from < to, "{from} → {to}");
+        // No terrain model: the short axis (across the 1.2 m), guessed.
+        let (found, georef) = nas_stairs(&stair, None);
+        assert_eq!(found.len(), 1);
+        assert_eq!(direction(&found[0]), Some("guessed"));
+        let [from, to] = northings(&found[0], &georef);
+        assert!((from - to).abs() < 0.6, "{from} → {to}");
+    }
+
+    #[test]
+    fn edge_of_a_stair_outside_the_area_is_ignored() {
+        assert_eq!(nas_stairs(&rostock(), None).0.len(), 1, "inside the area");
+        // The stair and its edge 1 km east: outside the map area plus buffer, nothing is drawn.
+        fn shift(v: &mut Value) {
+            match v {
+                Value::Array(a) if a.len() == 2 && a.iter().all(Value::is_f64) => {
+                    a[0] = serde_json::json!(a[0].as_f64().unwrap() + 1000.0);
+                }
+                Value::Array(a) => a.iter_mut().for_each(shift),
+                Value::Object(o) => o.values_mut().for_each(shift),
+                _ => {}
+            }
+        }
+        let mut far = rostock();
+        far.iter_mut().for_each(|f| shift(&mut f["geometry"]));
+        assert!(nas_stairs(&far, None).0.is_empty());
+        // An edge whose stair is not stored (the file's `xCDF`) draws nothing either.
+        let orphan: Vec<Value> = rostock()
+            .into_iter()
+            .filter(|f| is_oid(f, "DEMVHR030000xCDF"))
+            .collect();
+        assert_eq!(orphan.len(), 1);
+        assert!(nas_stairs(&orphan, None).0.is_empty());
+    }
+
+    #[test]
+    fn survey_stair_on_nas_stair_is_dropped() {
+        let kind = MapKind::Sprint;
+        // The same ALKIS-wins rule as for the Berlin areas: the surveyed stair on the NAS
+        // stair is named in `freemapper:also`; the one beside it stays.
+        let nas = [nas_stair(
+            "DEMVHR030000AAAA",
+            &rect_points(0.0, 0.0, 2.0, 4.0),
+        )];
+        let survey = [
+            survey_stair("Fl_20150416_1", "5", &rect_points(0.3, 0.2, 2.0, 4.0)),
+            survey_stair("Fl_20150416_3", "6", &rect_points(40.0, 0.0, 2.0, 4.0)),
+        ];
+        let found = objects_with_nas(kind, &[], &[], &survey, &nas, None, &[]);
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(
+            tag(&found[0], "freemapper:source"),
+            Some("alkis-nas/sonstiges-bauwerk")
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-treppe/Fl_20150416_1")
+        );
+        assert_eq!(
+            tag(&found[1], "freemapper:source_id"),
+            Some("Fl_20150416_3")
+        );
+    }
+
+    #[test]
+    fn nas_bent_bottom_edge_still_gives_the_axis_across_it() {
+        let kind = MapKind::Sprint;
+        // 6 m east x 3 m north. The edge runs along the south side and returns (a kink): its
+        // first and last point lie 0.3 m apart, but the edge as a whole runs east-west.
+        let features = [
+            nas_stair("DEMVHR030000BBBB", &rect_points(0.0, 0.0, 6.0, 3.0)),
+            nas_edge(
+                "DEMVHR030000BBBC",
+                "DEMVHR030000BBBB",
+                &[(0.0, 0.0), (6.0, 0.0), (0.0, 0.3)],
+            ),
+        ];
+        let found = objects_with_nas(kind, &[], &[], &[], &features, None, &[]);
+        assert_eq!(found.len(), 1);
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            close(from, (3.0, 0.0)) && close(to, (3.0, 3.0)),
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), None);
+    }
+
+    #[test]
+    fn nas_stair_lands_in_the_same_place_in_a_utm32_map() {
+        // A project in EPSG:25832 (Hesse) stores NAS geometry reprojected into it
+        // (`fetch_nas_type` → `reproject_feature`), so it is built without moving it again.
+        // The same stair built in both CRSs ends at the same geographic place.
+        let spot = |crs: Crs, features: &[Value]| {
+            let (found, georef) = nas_stairs_in(crs, features, None);
+            assert_eq!(found.len(), 1);
+            [0, 1].map(|i| {
+                let p = georef.map_to_projected(found[0].coords[i]);
+                georef.crs().inverse(p).unwrap()
+            })
+        };
+        let utm33 = rostock();
+        let utm32: Vec<Value> = utm33
+            .iter()
+            .cloned()
+            .map(|f| crate::sources::alkis::reproject_feature(f, Crs::Utm33, Crs::Utm32))
+            .collect();
+        assert_ne!(utm32[0]["geometry"], utm33[0]["geometry"]);
+        let (a, b) = (spot(Crs::Utm33, &utm33), spot(Crs::Utm32, &utm32));
+        for (p, q) in a.iter().zip(&b) {
+            assert!(
+                (p.lat - q.lat).abs() < 2e-7 && (p.lon - q.lon).abs() < 3e-7,
+                "{p:?} vs {q:?}"
+            );
+        }
     }
 }

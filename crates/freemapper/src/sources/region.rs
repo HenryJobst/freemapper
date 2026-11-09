@@ -240,6 +240,12 @@ pub(crate) fn within_margin(boundary: &MultiPolygon<f64>, bbox: &BoundingBox) ->
     boundary.intersects(&rectangle(&bbox.buffered(MARGIN_M)))
 }
 
+/// Whether `region`'s boundary lies within [`MARGIN_M`] of `bbox` (EPSG:25833): [`regions_for`]
+/// for one region.
+pub(crate) fn touches_region(region: Region, bbox: &BoundingBox) -> bool {
+    within_margin(region.boundary(), bbox)
+}
+
 /// Whether the point (EPSG:25833) lies inside `region`'s boundary itself (no margin).
 pub fn contains_point(region: Region, easting: f64, northing: f64) -> bool {
     region.boundary().contains(&Point::new(easting, northing))

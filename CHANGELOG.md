@@ -6,6 +6,22 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Überdachungen und Durchfahrten in weiteren Ländern. In jedem Land außer Sachsen und Sachsen-Anhalt werden Überdachungen und Carports aus ALKIS Kartenobjekte (522) auf beiden Kartenarten, an den Gebäuden abgeschnitten wie in Berlin. Durchfahrten und Arkaden werden Kandidaten 522, das Gebäude bleibt ganz. freemapper liest sie aus den Gebäuden, die es ohnehin lädt, ein zusätzlicher Download entfällt. Datenstand ist das Datum des ALKIS-Objekts. Eine vorhandene Karte bekommt die Überdachungen erst mit `run --force` (ADR 0061).
+- Brandenburg: das vollständige ALKIS aus dem NAS-Dienst der LGB. Mauern und Mauerkanten, Zäune, Hecken, Denkmäler, Brunnen, Gräben und Bäche werden Kandidaten, auf Sprintkarten auch Böschungsoberkanten und Brücken. Das Symbol wählt der Code im Kataster, `freemapper:alkis` nennt seine Bezeichnung, z. B. `Mauerkante, rechts`. Datenstand ist das Datum, seit dem die Objektversion im Kataster steht. Liegen die zwei Kanten einer Mauer einander zugewandt und auf dem Papier näher als 0,55 mm (2,2 m bei 1:4000), zeichnet freemapper eine Linie 515 in der Mitte mit `freemapper:alkis=Mauer (Mauerkanten gepaart)`, und `freemapper:also` nennt die andere Kante. Im Park Sanssouci sind es 264 statt 271 Mauerlinien. Die Ebenen liegen in `data/alkis-nas/`, etwa 1 MB je km² (ADRs 0062, 0063).
+- Potsdam: Die Bäume der Stadtkarte werden Kandidaten 418, jeder mit seinem eigenen Aufnahmedatum. Die Daten kennen keine Krone, Baumstümpfe fallen weg. OSM-Bäume bis 2 m neben einem Potsdamer Baum fallen weg. Eine Antwort über 256 MB bricht freemapper beim Lesen ab. Die neue Namensnennung `Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0` erscheint, wenn Potsdamer Bäume unter den Kandidaten sind (ADR 0065).
+- Punktgeneralisierung. Punktsymbole halten den Abstand von 0,15 mm ein, den die ISSprOM für Linien setzt. Drei oder mehr Bäume, die einander zu nahe stehen, werden eine Fläche, wenn mindestens die Hälfte ihrer Kronen auf Pflaster oder auf offenem Gelände (401 bis 404) liegt: auf Pflaster befestigte Fläche mit verstreuten Bäumen (501.3), auf offenem Gelände Wald (405), wenn die Kronen mindestens die Hälfte der Gruppe decken, sonst offenes Gelände mit verstreuten Bäumen (402). Anderswo bleiben die Bäume Punkte und werden ausgedünnt, denn ein weißer Wald auf weißem Grund würde sie verstecken. Baumreihen bleiben einzelne Baumsymbole. Die Fläche trägt `freemapper:source=generalization` und nennt ihre Bäume in `freemapper:source_id` (ADR 0066).
+
+### Geändert
+
+- Zu dicht stehende Punkte werden ausgedünnt. Kämen sich zwei Punktsymbole auf dem Papier näher, als die Norm erlaubt, behält freemapper das größere, dann das aus der besseren Quelle, dann das mit der größeren Krone. Der bleibende Punkt nennt die anderen in `freemapper:generalized`. Das ändert Kandidaten und Trainingskarte in jedem Land, auch in Berlin. Die Kartenobjekte bleiben gleich (ADR 0066).
+- Bäume und andere Punkte in Sperrgebiet-Kandidaten (520) bleiben in den Kandidaten mit `freemapper:hidden=520`, die Trainingskarte lässt sie aber weg. Auf Schulhofkarten zeigt das PDF deshalb keinen Punkt außerhalb des Schulgeländes (ADR 0066).
+- Doppel: Register vor ALKIS vor Straßenbefahrung vor OSM gilt jetzt in jedem Land und auch für Bäche und Gräben (305, 306). Eine OSM-Linie, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben einer Linie des vollständigen ALKIS mit demselben Symbol liegt, fällt weg, und `freemapper:also` nennt sie (ADR 0063).
+- Größenschätzung und Platzprüfung rechnen das vollständige ALKIS und die Stadtbaumkataster als optionalen Teil (2 und 1 MB je km²). Fehlt der Platz, lässt freemapper sie weg und behält die gespeicherten.
+- `run` meldet eine behaltene Karte ohne die ALKIS-Überdachungen jetzt in jedem Land mit Überdachungen. Die Meldung lautet nun `The map lacks the ALKIS canopies and carports (522) …`.
+- Teilstücke einer Linie mit Seite (Böschung 104, Felswand 201, Stützmauer 513.2, die rechten und linken Kanten im vollständigen ALKIS) verbindet freemapper nur noch in ihrer eigenen Richtung und nie über zwei Seiten hinweg, damit die Seite der Striche stimmt. Im Viktoriapark bleiben dadurch zwei Böschungslinien mehr getrennt (ADR 0063).
+
 ### Sicherheit
 
 - Das Aufräumen alter `.part`-Dateien im Ordner `templates` folgt keinem Link mehr aus dem Projekt hinaus und löscht keine Dateien außerhalb. Ein `.part`-Eintrag, der selbst ein Link ist, wird übersprungen (ADR 0060).

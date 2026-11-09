@@ -111,6 +111,45 @@ Tiles are 1×1 km in EPSG:25833, named `<prod>_33EEE-NNNN`, where EEE/NNNN give 
 
 ALS LAZ (≈100 MB/tile, flown 2018), bDOM and DOP RGBI are not needed for the MVP.
 
+**Brandenburg full ALKIS and Potsdam trees (states plus 1, verified live 2026-11-09, details
+`docs/regions/states-plus-reference.md`; ADRs 0062, 0063, 0065):** the full ALKIS comes from the LGB NAS WFS
+`https://isk.geobasis-bb.de/ows/alkis_nas_wfs` (WFS 2.0.0, GML 3.2 only, namespace
+`http://www.adv-online.de/namespaces/adv/gid/7.1`, `SRSNAME`/`BBOX` `urn:ogc:def:crs:EPSG::25833`). The service
+table `alkis_nas::NAS_SERVICES` holds one row per state (plan 1: `LGB_NAS`); an area that touches no state in it
+makes no request. The NAS services do not page (`ImplementsResultPaging=FALSE`): one GetFeature per type with
+`COUNT` = the service's `CountDefault` (LGB 100 000), and the box is split into quadrants when the answer is cut
+(`numberReturned < numberMatched`, or `numberMatched="unknown"` at the cap) or passes 256 MB, at most 4 levels
+deep; then `<service> returned <n> of <m> features; choose a smaller area`. Duplicates by `gml:id` are dropped.
+`parse_nas_gml` reads points, curves (line segments, arcs densified at 10°, circles), `OrientableCurve`, surfaces
+of curve rings and polygons; 3D drops the height, and an unknown element skips the feature with a note. Layers
+(`NAS_LAYERS`, stored in the map CRS as `data/alkis-nas/<file>.geojson`, records `ProjectFile.nas_layers`):
+
+| file | type | kinds | Sanssouci 0.54 km² |
+|---|---|---|---|
+| `sonstiges-bauwerk` | `adv:AX_SonstigesBauwerkOderSonstigeEinrichtung` | both | 295 (1740 ×136, 1702 ×84, 1701 ×69, 1610 ×6) |
+| `vegetationsmerkmal` | `adv:AX_Vegetationsmerkmal` | both | 96 (1100 Hecke) |
+| `strukturlinie` | `adv:AX_Strukturlinie3D` | sprint | 97 (1220 ×47, 1230 ×47, 1240 ×3) |
+| `bauwerk-verkehr` | `adv:AX_BauwerkImVerkehrsbereich` | sprint | 4 (1800 Brücke) |
+| `bauwerk-gewaesser` | `adv:AX_BauwerkImGewaesserbereich` | both | 1 (2050 Wehr) |
+| `untergeordnetes-gewaesser` | `adv:AX_UntergeordnetesGewaesser` | both | 0 |
+
+Each feature keeps `oid` (= `gml:id`), `nas_type`, its codes as strings, `beginnt` (the object version's start,
+the currency) and `gehoert_zu`. `AX_Bauteil` is not fetched: the vereinfacht `oid` is the NAS `gml:id` plus
+`BL`, and the canopies and passages come from vereinfacht (§4.5). Brandenburg NAS has no stairs, retaining walls
+or single trees (0 statewide). A failing layer is a warning; offline the stored layers stay; outside a NAS state
+they are removed. Paths come only from the layer table (ADR 0059).
+
+The Potsdam city map trees (`sources/trees.rs`, table `TREE_DATASETS`, row `POTSDAM`) are three ODS datasets
+`baeume-{1,2,3}-stadtkarte-potsdam` (283 772 points), fetched as
+`https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/<id>/exports/geojson?where=in_bbox(geo_point_2d,<lat_min>,<lon_min>,<lat_max>,<lon_max>)`
+for the region bbox plus 1 m, only when the area touches Brandenburg and the envelope E 359 000 to 375 000,
+N 5 801 000 to 5 820 000 (EPSG:25833). Fields `ggartbez` (kind), `pktnr` (id), `datum` (date); no crown diameter.
+Stumps (`Baumstumpf`) are not stored. Stored as `data/trees/potsdam.geojson` (map CRS), records
+`ProjectFile.tree_layers`. Both live in the optional disk part `Part::StateLayers` ("the full ALKIS structures and
+the tree cadastres"), estimated at 2 MB per km² for NAS and 1 MB per km² for the trees. Attribution: the LGB line
+covers the NAS data; `Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0` is added only when a
+Potsdam tree is among the candidates or in a generalized tree group.
+
 **Berlin (verified live 2026-11-07, details `docs/regions/berlin-reference.md`):** LGB serves DOP20, DGM1 and
 bDOM for all of Berlin in the same tile scheme; the nDOM LAZ is 404 inside Berlin, so there the nDSM template is
 bDOM (0.2 m GeoTIFF, `bdom/tif/bdom_33EEE-NNNN.zip`, currency `bb_bdom_aktualitaet.csv`) minus DGM1 (bilinear),
@@ -408,6 +447,12 @@ reliability policy below**. It is not taken over literally.
   least 90 % of its area inside 521 footprints is dropped (not doubled); otherwise the footprints are cut out, so no
   522 outline crosses a building. Parts below `(0.5 mm × scale)²` are dropped and outlines simplified at 0.1 mm,
   as for buildings. The 522 fill lies under the 521 fill by colour priority.
+  **Extended to every state (states plus 1, ADR 0061):** the stored vereinfacht buildings give `Sonstiges Bauwerk
+  oder sonstige Einrichtung` with `funktion` `Überdachung` or `Carport` as the same 522 objects
+  (`CanopyInput::Buildings`), underground ones skipped, tagged `freemapper:source=alkis`, `source_id` = oid,
+  `currency` = `aktualit`. The `Bauteil` passages `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`
+  and `Arkade` are 522 candidates through the state rules; the 521 stays whole. Values compare by
+  `lgv::spelling_key`. Saxony and Saxony-Anhalt have none (statewide count 2026-11-09).
 - *dropped:* underground buildings, buildings under construction or planned, ruins, non-building structures
   (bridges, towers, tanks, walls). Walls may become impassable-feature candidates if the attribute is clear.
 - Verify the exact attribute values against live data for tile `33421-5821` and list them in the rule file.
@@ -551,7 +596,7 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   1 mm on paper (`MIN_LINE_MM`) is dropped. The chain keeps the tags of its first segment, names the others
   in `freemapper:also` and takes the oldest survey date (guessed when one segment is);
 - *duplicates (ADR 0055), order register > ALKIS > survey > OSM:* a survey line with at least 80 % of its length
-  within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_survey_lines_near_alkis`), then OSM lines
+  within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_cadastre_lines_by_rank`), then OSM lines
   against ALKIS and the remaining survey lines. A survey stair covering at least 50 % of the smaller of it and an
   ALKIS stair area or step-edge flight is dropped, and so is a survey bus shelter with at least 50 % of its
   area under ALKIS canopies (`drop_shelters_under_canopies`). Survey walls (515) and ALKIS retaining walls
@@ -566,8 +611,66 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   `bv_springbrunnen_zierbrunnen` points inside drawn water are dropped like the OSM ones
   (`drop_points_in_water`); a survey pump stays.
 
+**State candidates (states plus 1, ADRs 0062 to 0065):** `assets/rules/state-candidates.toml` (`Rules::states`)
+runs on the same engine. Tags are `alkis:<property>`, `alkis:type` (NAS with `AX_`, vereinfacht
+`GebaeudeBauwerk`), `alkis:geom` = `point` | `line` | `area` and `tree:<field>` with `tree:dataset`. Rules match
+AdV codes, never labels; `assets/rules/adv-codes.toml` gives the label for `freemapper:alkis`. Height decides
+nothing.
+
+| type | property | codes | symbol | draw | kinds |
+|---|---|---|---|---|---|
+| SonstigesBauwerkOderSonstigeEinrichtung | bauwerksfunktion | 1700–1703 | 515 | line | both |
+| 〃 | 〃 | 1720–1723 | 513.2 | line | both |
+| 〃 | 〃 | 1740 | 518 | line | both |
+| 〃 | 〃 | 1750, 1760–1763, 1770 | 526 (point on surface) | point | both |
+| 〃 | 〃 | 1780–1783 | 311 | point | both |
+| 〃 | 〃 | 1620, 1621 (+ 1630 edges) | 532.6–532.9 | `build/stairs.rs` | both |
+| Vegetationsmerkmal | bewuchs | 1100–1103 | 410.1 | line | both |
+| 〃 | 〃 | 1011, 1012 | 418 | point | both |
+| Strukturlinie3D | art | 1220 | 104 | line | sprint |
+| BauwerkImVerkehrsbereich | bauwerksfunktion | 1800–1808, 1820 (area) | 501.5 | area | sprint |
+| BauwerkImGewaesserbereich | bauwerksfunktion | 2136 | 515 | line | both |
+| UntergeordnetesGewaesser | funktion | 1010, 1013; 1030 with `hydrologischesMerkmal` 2000/3000 (line) | 306 | line | both |
+| 〃 | 〃 | 1030 otherwise (line) | 305 | line | both |
+| GebaeudeBauwerk (vereinfacht) | gebnutzbez=Bauteil, funktion | the three passages (area) | 522 | area | both |
+| tree points | `tree:kind!=Baumstumpf`, `tree:crown_m>=10` | — | 417 | point | both |
+| 〃 | `tree:kind!=Baumstumpf` | — | 418 | point | both |
+
+Everything else is skipped (1610/1611 canopies, 1622, 1640 to 1670, 1790, 1791, 9999, Strukturlinie 1230/1240).
+Every area rule needs `alkis:geom=area`. Both edges of a wall stay. A NAS stair runs uphill away from its bottom
+edge (1630, linked by `gehoert_zu`) and is then not `guessed`; without an edge the DGM1 decides as for Berlin (ADR
+0064). Provenance: `freemapper:source=alkis-nas/<file>`, `source_id` = `gml:id`, `currency` = `beginnt` (else the
+fetch date), `freemapper:alkis` = the label, e.g. `Mauerkante, rechts`; trees `freemapper:source=trees/<id>`,
+`source_id` = `pktnr`, `currency` = the tree's `datum`, `freemapper:baum` = species or kind. Cadastre lines are
+joined before the 1 mm drop (ADR 0056). Duplicates in every state (`build/dedup.rs`, ADR 0063): rank by
+`freemapper:source`, register (Berlin registers, tree layers, `trees/*`) > ALKIS (`alkis`, `alkis-nas/*`, other
+`geoportal-berlin/*`) > survey (`geoportal-berlin/sb-*`) > OSM. A lower line (515, 513.2, 518, 410.1, 305, 306)
+with 80 % within 1.5 m of a higher one with the same symbol is dropped and named in `freemapper:also`; a lower
+417/418 within 2 m of a higher tree is dropped; a NAS 311 beats OSM fountains and wells within 3 m.
+
+**Point symbol generalization (states plus 1, ADR 0066; `build/points.rs`, `generalize_points`):** runs in
+`starter_documents` after the dedup chain, on the point candidates and the point map objects, so OOM, OCAD and the
+PDF agree.
+- *gap:* `POINT_GAP_MM = 0.15` between the outer edges of two point symbols (ISSprOM §3.3 for lines, set for
+  points), × the symbol enlargement on the schoolyard (§3.1). Sizes (`POINT_SIZES_MM`, 1:4000): 311 0.90, 312
+  1.20, 313 1.45, 417 1.40, 418 0.80, 526 1.00, 531 1.27 mm; native school symbols 321 1.30, 542 1.72, 544 1.10,
+  545 1.40 mm. Minimum centre distance = mean size + gap: two 418 3.8 m, 417 and 418 5.0 m, two 417 6.2 m at 1:4000.
+- *520:* a 520 map object removes every point in it. Candidate points under a 520 candidate stay in the
+  candidates with `freemapper:hidden=520` and are left out of the training PDF only; a 520 candidate never
+  touches a map point.
+- *tree groups:* single-linkage clusters of 3 or more candidate trees. A row (corridor under 2 symbol sizes, or at
+  least 3 times as long as wide) is only thinned. Otherwise the crown discs (`freemapper:crown_m` from Berlin
+  `kronedurch`, `tree:crown_m` or OSM `diameter_crown`; default 417 12 m, 418 5 m) are united and closed by
+  0.5 mm: half or more on a drawn 501.x → 501.3, crown cover ≥ 50 % → 405, else 402 (the 417 stay points). Cut at
+  the clip window, 520, 521 and water; each piece must hold a disc of the minimum width and reach the minimum
+  area (402, 501.3: 2.2 mm, 6.25 mm²; 405: 0.3 mm, 1 mm²), else its trees go back to the thinning. Tags
+  `freemapper:source=generalization`, `source_id` = the merged trees, `currency` = the oldest,
+  `freemapper:generalized=<n> trees, cover <p> %`.
+- *thinning:* greedy; map points first, then size, duplicate rank, measured crown before default, crown, source
+  and id, x, y. The kept point names the dropped ones in `freemapper:generalized`.
+
 Generalization: drop buildings below the minimum size and simplify outlines (≈0.1 mm map tolerance; at 1:1000
-that is 0.1 m).
+that is 0.1 m). Point symbols follow the rules above.
 
 ### 4.6 Interfaces
 

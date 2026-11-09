@@ -10,20 +10,26 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_points_near_registers,
-    drop_shelters_under_canopies, drop_survey_lines_near_alkis,
+    drop_shelters_under_canopies,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
+use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::dedup::{
+    drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
+    drop_trees_by_rank,
+};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
 use crate::build::stairs::{
-    STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_stairs, stair_objects,
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
+    has_stairs, stair_objects,
 };
+use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -48,7 +54,6 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::berlin;
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
@@ -57,7 +62,9 @@ use crate::sources::osm::{
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
+use crate::sources::trees;
 use crate::sources::wms::{DateLabel, OrthophotoSource};
+use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::{TileId, tiles_covering_grid};
 
@@ -226,6 +233,16 @@ pub struct ProjectFile {
     /// the area is recorded with count 0.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub berlin_layers: BTreeMap<String, AlkisRecord>,
+    /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
+    /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
+    /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub nas_layers: BTreeMap<String, AlkisRecord>,
+    /// The city tree cadastres of the last online `fetch`, by dataset id under
+    /// [`TREE_LAYERS_DIR`]; empty outside the cities of the table. A dataset without trees in the
+    /// area is recorded with count 0, and `latest_update` is the newest tree survey date.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tree_layers: BTreeMap<String, AlkisRecord>,
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
@@ -369,22 +386,29 @@ impl ProjectFile {
         Ok(project)
     }
 
-    /// Leaves out the Berlin layer records whose key is no plain file name or no layer of the
-    /// table, each with a warning. The key is shown escaped, as it may hold control characters.
+    /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
+    /// of the table, each with a warning. The key is shown escaped, as it may hold control
+    /// characters.
     fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(&str)) {
-        self.berlin_layers.retain(|key, _| {
+        let mut keep = |what: &str, key: &str, known: bool| {
             let reason = if !crate::fsutil::is_plain_name(key) {
                 "not a plain file name"
-            } else if known_berlin_layer(key).is_none() {
+            } else if !known {
                 "no layer freemapper knows"
             } else {
                 return true;
             };
             progress(&format!(
-                "warning: freemapper.toml: ignored the Berlin layer entry {key:?}: {reason}"
+                "warning: freemapper.toml: ignored the {what} layer entry {key:?}: {reason}"
             ));
             false
-        });
+        };
+        self.berlin_layers
+            .retain(|key, _| keep("Berlin", key, known_berlin_layer(key).is_some()));
+        self.nas_layers
+            .retain(|key, _| keep("NAS", key, known_nas_layer(key).is_some()));
+        self.tree_layers
+            .retain(|key, _| keep("tree", key, known_tree_dataset(key).is_some()));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -457,6 +481,14 @@ impl ProjectFile {
             remove_berlin_layer(dir, key);
         }
         self.berlin_layers.clear();
+        for key in self.nas_layers.keys() {
+            remove_nas_layer(dir, key);
+        }
+        self.nas_layers.clear();
+        for key in self.tree_layers.keys() {
+            remove_tree_layer(dir, key);
+        }
+        self.tree_layers.clear();
         self.osm = None;
         self.orthophoto = None;
         self.k5 = None;
@@ -513,6 +545,8 @@ pub fn init_project(
         buildings: None,
         land_use: None,
         berlin_layers: BTreeMap::new(),
+        nas_layers: BTreeMap::new(),
+        tree_layers: BTreeMap::new(),
         osm: None,
         orthophoto: None,
         k5: None,
@@ -566,6 +600,11 @@ pub(crate) const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 const SKIPPED_SHOWN: usize = 5;
 /// Folder of the extra Berlin layers, one `<file>.geojson` per layer (GeoJSON as served, EPSG:25833).
 pub(crate) const BERLIN_LAYERS_DIR: &str = "data/berlin";
+/// Folder of the NAS layers (full ALKIS), one `<file>.geojson` per layer (GeoJSON in the map's CRS).
+pub(crate) const NAS_LAYERS_DIR: &str = "data/alkis-nas";
+/// Folder of the city tree cadastres, one `<dataset id>.geojson` per dataset (point features in
+/// the map's CRS, `sources::trees`).
+pub(crate) const TREE_LAYERS_DIR: &str = "data/trees";
 /// ALKIS buildings around the map area, as fetched (GeoJSON in the map's CRS).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
@@ -745,6 +784,27 @@ pub fn fetch_project(
         progress,
     );
     project.save(dir)?;
+    project.nas_layers = fetch_nas_layers_into(
+        dir,
+        fetcher,
+        &area,
+        project.map_kind,
+        mode,
+        skips(Part::StateLayers),
+        &project.nas_layers,
+        progress,
+    );
+    project.save(dir)?;
+    project.tree_layers = fetch_tree_layers_into(
+        dir,
+        fetcher,
+        &area,
+        mode,
+        skips(Part::StateLayers),
+        &project.tree_layers,
+        progress,
+    );
+    project.save(dir)?;
     fetch_k5_into(
         dir,
         fetcher,
@@ -795,13 +855,31 @@ pub(crate) fn mark_stored(
         }
     }
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
-    let berlin_layers = !project.berlin_layers.is_empty();
-    if orthophoto || k5 || berlin_layers {
+    // Stored layers count only when every record covers the area and its file is there: an
+    // area moved within the state is downloaded again.
+    let berlin_layers = !project.berlin_layers.is_empty()
+        && project.berlin_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_berlin_layer(key).is_some_and(|l| berlin_layer_path(dir, l).exists())
+        });
+    let nas_layers = !project.nas_layers.is_empty()
+        && project.nas_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_nas_layer(key).is_some_and(|l| nas_layer_path(dir, l).exists())
+        });
+    let tree_layers = !project.tree_layers.is_empty()
+        && project.tree_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_tree_dataset(key).is_some_and(|d| tree_layer_path(dir, d).exists())
+        });
+    if orthophoto || k5 || berlin_layers || nas_layers || tree_layers {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
                 (Part::BerlinLayers, _) => berlin_layers,
+                (Part::StateLayers, crate::layers::NAS_LAYERS_ITEM) => nas_layers,
+                (Part::StateLayers, crate::layers::TREE_LAYERS_ITEM) => tree_layers,
                 _ => false,
             };
             if stored && item.store == crate::space::Store::Project {
@@ -2321,6 +2399,28 @@ fn fetch_land_use_into(
     }
 }
 
+/// The NAS layer the project file records under `key`, from the static table; `None` for a key
+/// no layer has.
+fn known_nas_layer(key: &str) -> Option<&'static alkis_nas::NasLayer> {
+    alkis_nas::NAS_LAYERS.iter().find(|layer| layer.file == key)
+}
+
+/// Path of the stored NAS `layer`: from a layer of the table, never from a name read from the
+/// project file (ADR 0059).
+fn nas_layer_path(dir: &Path, layer: &alkis_nas::NasLayer) -> PathBuf {
+    dir.join(NAS_LAYERS_DIR)
+        .join(format!("{}.geojson", layer.file))
+}
+
+/// Removes the stored NAS layer the project file records under `key`: only a layer of the
+/// table, and only when its file lies inside the project folder.
+fn remove_nas_layer(dir: &Path, key: &str) {
+    let Some(layer) = known_nas_layer(key) else {
+        return;
+    };
+    crate::fsutil::remove_inside(dir, &nas_layer_path(dir, layer));
+}
+
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
 /// for a key no layer has.
 fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
@@ -2447,6 +2547,415 @@ fn fetch_berlin_layers_into(
     records
 }
 
+/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
+/// the records that replace `previous`, as [`fetch_berlin_layers_into`] does for the Berlin
+/// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
+/// covers the area stays), a layer without objects is stored as an empty collection, outside the
+/// states with a NAS service nothing is requested and stored layers of an earlier area are
+/// removed. Offline, or when the disk plan left the state layers out (`skip`), nothing is
+/// downloaded and `previous` stays.
+#[allow(clippy::too_many_arguments)]
+fn fetch_nas_layers_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    kind: MapKind,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(&str),
+) -> BTreeMap<String, AlkisRecord> {
+    let in_nas_state = !alkis_nas::nas_services_for(&area.region_bbox).is_empty();
+    if mode == FetchMode::Offline {
+        if in_nas_state && previous.is_empty() {
+            progress(
+                "no full ALKIS structures stored; run `freemapper fetch` online for walls, fences, hedges and bridges",
+            );
+        }
+        return previous.clone();
+    }
+    if !in_nas_state {
+        if !previous.is_empty() {
+            progress(
+                "removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service",
+            );
+            for key in previous.keys() {
+                remove_nas_layer(dir, key);
+            }
+        }
+        return BTreeMap::new();
+    }
+    if skip {
+        // The disk plan already said that the layers are left out; stored ones stay.
+        return previous.clone();
+    }
+    // Answers stream into a part file beside the layers with a fresh name, its folder checked
+    // right before each download (ADR 0060), removed after each one.
+    let layers_dir = dir.join(NAS_LAYERS_DIR);
+    if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
+        progress(&format!(
+            "warning: full ALKIS layers skipped ({NAS_LAYERS_DIR} leads out of the project folder)"
+        ));
+        return BTreeMap::new();
+    }
+    // Only after the check: a linked folder never has its part files removed.
+    crate::fsutil::remove_stale_parts_inside(dir, &layers_dir, crate::fetch::STALE_PART_AGE);
+    let part = || -> Result<PathBuf, FetchError> {
+        let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
+        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
+        Ok(part)
+    };
+    progress("downloading the full ALKIS structures (NAS)");
+    let bbox = &area.bbox;
+    let rounded = [
+        bbox.min_e.floor(),
+        bbox.min_n.floor(),
+        bbox.max_e.ceil(),
+        bbox.max_n.ceil(),
+    ];
+    let mut records = BTreeMap::new();
+    for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind, &part) {
+        let file = fetched.layer.file;
+        let path = nas_layer_path(dir, fetched.layer);
+        let stored = fetched
+            .features
+            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
+            .and_then(|fetched| {
+                if !crate::fsutil::stays_inside(dir, &path) {
+                    return Err(format!("{NAS_LAYERS_DIR} leads out of the project folder"));
+                }
+                let geojson = berlin::layer_to_geojson(&fetched.features);
+                write_inside(dir, &path, geojson.as_bytes()).map_err(|e| e.to_string())?;
+                Ok(fetched)
+            });
+        match stored {
+            Ok(fetched) => {
+                let count = fetched.features.len();
+                progress(&format!("{count} ALKIS NAS {file} features"));
+                if !fetched.skipped.is_empty() {
+                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
+                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
+                    progress(&format!(
+                        "skipped {} ALKIS NAS {file} features: {}{}",
+                        fetched.skipped.len(),
+                        shown
+                            .map(|s| crate::fetch::one_line(s, 120))
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                        if more { "; …" } else { "" }
+                    ));
+                }
+                let latest_update = fetched
+                    .features
+                    .iter()
+                    .filter_map(|f| f["properties"]["beginnt"].as_str()?.parse().ok())
+                    .max();
+                records.insert(
+                    file.to_string(),
+                    AlkisRecord {
+                        bbox: rounded,
+                        fetched: chrono::Local::now().date_naive(),
+                        latest_update,
+                        count,
+                        regions: fetched.regions,
+                    },
+                );
+            }
+            Err(e) => match previous
+                .get(file)
+                .filter(|r| path.exists() && r.covers(bbox))
+            {
+                Some(record) => {
+                    progress(&format!(
+                        "warning: ALKIS NAS {file} unavailable ({e}); keeping the stored layer"
+                    ));
+                    records.insert(file.to_string(), record.clone());
+                }
+                None => {
+                    // Nothing was written for it; a stale file is removed with the unused layers.
+                    progress(&format!(
+                        "warning: ALKIS NAS {file} unavailable ({e}); layer skipped"
+                    ));
+                }
+            },
+        }
+    }
+    // Layers the map kind no longer uses, and failed ones that no longer cover the area.
+    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
+        remove_nas_layer(dir, key);
+    }
+    records
+}
+
+/// One stored NAS layer (full ALKIS).
+#[derive(Debug, Clone)]
+pub struct StoredNasLayer {
+    pub layer: &'static alkis_nas::NasLayer,
+    /// The features in the map's CRS, as [`alkis_nas::parse_nas_gml`] reads them (`oid`,
+    /// `nas_type`, the codes, `beginnt`, `gehoert_zu`).
+    pub features: Vec<serde_json::Value>,
+    /// The fetch date, the currency of features without `beginnt`.
+    pub fetched: NaiveDate,
+}
+
+/// The stored NAS layers of the map kind that cover the map area plus buffer, in table order. A
+/// layer that was not fetched, is missing or does not cover the area is left out (optional
+/// sources: `fetch` reports this, the export goes on without them). Empty outside the states
+/// with a NAS service.
+pub fn stored_nas_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<StoredNasLayer>, ProjectError> {
+    let bbox = project.bbox()?;
+    let mut layers = Vec::new();
+    for layer in alkis_nas::nas_layers(project.map_kind) {
+        let path = nas_layer_path(dir, layer);
+        let Some(record) = project
+            .nas_layers
+            .get(layer.file)
+            .filter(|r| path.exists() && r.covers(&bbox))
+        else {
+            continue;
+        };
+        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        layers.push(StoredNasLayer {
+            layer,
+            features,
+            fetched: record.fetched,
+        });
+    }
+    Ok(layers)
+}
+
+/// The tree dataset the project file records under `key`, from the static table; `None` for a
+/// key no dataset has.
+fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
+    trees::TREE_DATASETS
+        .iter()
+        .find(|dataset| dataset.id == key)
+}
+
+/// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
+/// the project file (ADR 0059).
+fn tree_layer_path(dir: &Path, dataset: &trees::TreeDataset) -> PathBuf {
+    dir.join(TREE_LAYERS_DIR)
+        .join(format!("{}.geojson", dataset.id))
+}
+
+/// Removes the stored tree dataset the project file records under `key`: only a dataset of the
+/// table, and only when its file lies inside the project folder.
+fn remove_tree_layer(dir: &Path, key: &str) {
+    let Some(dataset) = known_tree_dataset(key) else {
+        return;
+    };
+    crate::fsutil::remove_inside(dir, &tree_layer_path(dir, dataset));
+}
+
+/// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
+/// that replace `previous`, as [`fetch_nas_layers_into`] does for the NAS layers: a dataset that
+/// fails is a warning and never fails the fetch (a stored file that still covers the area
+/// stays), a dataset without trees is stored as an empty collection, outside the envelopes of
+/// the table nothing is requested and stored datasets of an earlier area are removed. Offline,
+/// or when the disk plan left the state layers out (`skip`), nothing is downloaded and
+/// `previous` stays.
+fn fetch_tree_layers_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(&str),
+) -> BTreeMap<String, AlkisRecord> {
+    let in_city = !trees::tree_datasets_for(&area.region_bbox).is_empty();
+    if mode == FetchMode::Offline {
+        if in_city && previous.is_empty() {
+            progress(
+                "no city tree cadastre stored; run `freemapper fetch` online for the single trees",
+            );
+        }
+        return previous.clone();
+    }
+    if !in_city {
+        if !previous.is_empty() {
+            progress(
+                "removing the stored tree cadastres: the map area is no longer in a city with one",
+            );
+            for key in previous.keys() {
+                remove_tree_layer(dir, key);
+            }
+        }
+        return BTreeMap::new();
+    }
+    if skip {
+        // The disk plan already said that the datasets are left out; stored ones stay.
+        return previous.clone();
+    }
+    // Answers stream into a part file beside the datasets, as for the NAS layers (ADR 0060).
+    let trees_dir = dir.join(TREE_LAYERS_DIR);
+    if crate::fsutil::check_folder_inside(dir, &trees_dir).is_err() {
+        progress(&format!(
+            "warning: city tree cadastres skipped ({TREE_LAYERS_DIR} leads out of the project folder)"
+        ));
+        return BTreeMap::new();
+    }
+    crate::fsutil::remove_stale_parts_inside(dir, &trees_dir, crate::fetch::STALE_PART_AGE);
+    let part = || -> Result<PathBuf, FetchError> {
+        let part = crate::fsutil::fresh_part_name(&trees_dir.join("answer.geojson"));
+        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
+        Ok(part)
+    };
+    progress("downloading the city tree cadastres");
+    let bbox = &area.bbox;
+    let rounded = [
+        bbox.min_e.floor(),
+        bbox.min_n.floor(),
+        bbox.max_e.ceil(),
+        bbox.max_n.ceil(),
+    ];
+    let mut records = BTreeMap::new();
+    for fetched in trees::fetch_tree_layers(fetcher, area, &part) {
+        let id = fetched.dataset.id;
+        let path = tree_layer_path(dir, fetched.dataset);
+        let stored = fetched
+            .features
+            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
+            .and_then(|fetched| {
+                if !crate::fsutil::stays_inside(dir, &path) {
+                    return Err(format!("{TREE_LAYERS_DIR} leads out of the project folder"));
+                }
+                let geojson = berlin::layer_to_geojson(&fetched.features);
+                write_inside(dir, &path, geojson.as_bytes()).map_err(|e| e.to_string())?;
+                Ok(fetched)
+            });
+        match stored {
+            Ok(fetched) => {
+                let count = fetched.features.len();
+                progress(&format!("{count} {id} trees"));
+                if !fetched.skipped.is_empty() {
+                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
+                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
+                    progress(&format!(
+                        "skipped {} {id} trees: {}{}",
+                        fetched.skipped.len(),
+                        shown
+                            .map(|s| crate::fetch::one_line(s, 120))
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                        if more { "; …" } else { "" }
+                    ));
+                }
+                let latest_update = fetched
+                    .features
+                    .iter()
+                    .filter_map(|f| f["properties"]["tree_date"].as_str()?.parse().ok())
+                    .max();
+                records.insert(
+                    id.to_string(),
+                    AlkisRecord {
+                        bbox: rounded,
+                        fetched: chrono::Local::now().date_naive(),
+                        latest_update,
+                        count,
+                        regions: fetched.regions,
+                    },
+                );
+            }
+            Err(e) => match previous.get(id).filter(|r| path.exists() && r.covers(bbox)) {
+                Some(record) => {
+                    progress(&format!(
+                        "warning: {id} tree cadastre unavailable ({e}); keeping the stored one"
+                    ));
+                    records.insert(id.to_string(), record.clone());
+                }
+                None => {
+                    progress(&format!(
+                        "warning: {id} tree cadastre unavailable ({e}); trees skipped"
+                    ));
+                }
+            },
+        }
+    }
+    // Datasets of an earlier area, and failed ones that no longer cover the area.
+    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
+        remove_tree_layer(dir, key);
+    }
+    records
+}
+
+/// One stored tree dataset.
+#[derive(Debug, Clone)]
+pub struct StoredTreeLayer {
+    pub dataset: &'static trees::TreeDataset,
+    /// The trees as [`trees::parse_trees`] stores them: points in the map's CRS with the
+    /// `tree_*` properties.
+    pub features: Vec<serde_json::Value>,
+    /// The fetch date, the currency of a tree without `tree_date`.
+    pub fetched: NaiveDate,
+}
+
+/// The stored tree datasets that cover the map area plus buffer, in table order. A dataset that
+/// was not fetched, is missing or does not cover the area is left out (optional sources: `fetch`
+/// reports this, the export goes on without them).
+pub fn stored_tree_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<StoredTreeLayer>, ProjectError> {
+    let bbox = project.bbox()?;
+    let mut layers = Vec::new();
+    for dataset in &trees::TREE_DATASETS {
+        let path = tree_layer_path(dir, dataset);
+        let Some(record) = project
+            .tree_layers
+            .get(dataset.id)
+            .filter(|r| path.exists() && r.covers(&bbox))
+        else {
+            continue;
+        };
+        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        layers.push(StoredTreeLayer {
+            dataset,
+            features,
+            fetched: record.fetched,
+        });
+    }
+    Ok(layers)
+}
+
+/// The tree candidates of the stored city tree cadastres; none outside the cities of the table.
+fn stored_tree_objects(
+    layers: &[StoredTreeLayer],
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let inputs: Vec<TreeInput<'_>> = layers
+        .iter()
+        .map(|l| TreeInput {
+            dataset: l.dataset.id,
+            features: &l.features,
+            fetched: l.fetched,
+        })
+        .collect();
+    Ok(tree_objects(
+        &inputs,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
+}
+
 /// One stored extra Berlin layer.
 // Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1).
 #[derive(Debug, Clone)]
@@ -2540,10 +3049,13 @@ struct BerlinStructures {
     stairs: Vec<MapObject>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn stored_berlin_structures(
     dir: &Path,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
+    nas: &[StoredNasLayer],
+    buildings: Option<&StoredBuildings>,
     footprints: &[geo_types::Polygon<f64>],
     area: &MapArea,
     georef: &Georeferencing,
@@ -2553,17 +3065,13 @@ fn stored_berlin_structures(
     let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
     let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
     let survey = layers.iter().find(|l| l.layer.file == SURVEY_STAIR_LAYER);
-    if areas.is_none() && edges.is_none() && survey.is_none() {
-        return Ok(BerlinStructures {
-            canopies: Vec::new(),
-            stairs: Vec::new(),
-        });
-    }
+    // The NAS stair areas and bottom edges are in one layer.
+    let nas = nas.iter().find(|l| l.layer.file == NAS_STAIR_LAYER);
     let map_area = area.projected_polygon_in(project.crs());
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
-    let canopies = match areas {
+    let mut canopies = match areas {
         Some(layer) => canopy_objects(
-            &layer.features,
+            &[CanopyInput::Berlin(&layer.features)],
             footprints,
             &map_area,
             project.buffer_m,
@@ -2573,16 +3081,27 @@ fn stored_berlin_structures(
         )?,
         None => Vec::new(),
     };
+    canopies.extend(stored_state_canopies(
+        project, buildings, footprints, &map_area, georef, symbol_set,
+    )?);
+    if areas.is_none() && edges.is_none() && survey.is_none() && nas.is_none() {
+        return Ok(BerlinStructures {
+            canopies,
+            stairs: Vec::new(),
+        });
+    }
     let terrain = stored_stair_terrain(dir, project)?;
     fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
         layer.map_or(&[], |l| &l.features)
     }
+    let nas_fetched = nas.map(|l| l.fetched);
     // Both layers come from one fetch; the later date stands for the currency.
     let fetched = areas
         .iter()
         .chain(edges.iter())
         .chain(survey.iter())
         .map(|l| l.fetched)
+        .chain(nas_fetched)
         .max()
         .expect("one of the layers is stored");
     let stairs = stair_objects(
@@ -2590,6 +3109,7 @@ fn stored_berlin_structures(
             features: features(areas),
             step_edges: features(edges),
             survey: features(survey),
+            nas: nas.map_or(&[], |l| &l.features),
             terrain: terrain.as_ref(),
             buildings: footprints,
         },
@@ -2601,6 +3121,81 @@ fn stored_berlin_structures(
         fetched,
     )?;
     Ok(BerlinStructures { canopies, stairs })
+}
+
+/// The 522 canopy map objects among the stored ALKIS vereinfacht features of any state
+/// (`Überdachung`, `Carport`); none without stored buildings.
+fn stored_state_canopies(
+    project: &ProjectFile,
+    stored: Option<&StoredBuildings>,
+    footprints: &[geo_types::Polygon<f64>],
+    map_area: &geo_types::Polygon<f64>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
+        return Ok(Vec::new());
+    };
+    Ok(canopy_objects(
+        &[CanopyInput::Buildings(&stored.features)],
+        footprints,
+        map_area,
+        project.buffer_m,
+        georef,
+        symbol_set,
+        record.fetched,
+    )?)
+}
+
+/// 522 candidates for the building passages of the stored ALKIS vereinfacht features of any
+/// state; none without stored buildings. Berlin building parts (`bauart`) go through the Berlin
+/// rules instead.
+fn stored_state_objects(
+    project: &ProjectFile,
+    stored: Option<&StoredBuildings>,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
+        return Ok(Vec::new());
+    };
+    Ok(state_objects(
+        &stored.features,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+        record.fetched,
+    )?)
+}
+
+/// The candidates of the stored full ALKIS (NAS) layers: walls, fences, hedges, monuments,
+/// bridges, embankment tops and ditches; none outside the states with a NAS service.
+fn stored_nas_objects(
+    layers: &[StoredNasLayer],
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let inputs: Vec<NasInput<'_>> = layers
+        .iter()
+        .map(|l| NasInput {
+            file: l.layer.file,
+            features: &l.features,
+            fetched: l.fetched,
+        })
+        .collect();
+    Ok(nas_objects(
+        &inputs,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
 }
 
 /// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area
@@ -2816,11 +3411,19 @@ pub fn derive_project(
     // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
     // the cache, so it is kept with the project where the Berlin layers have stairs.
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
-    let stairs = tile_products.is_some()
-        && !project.berlin_layers.is_empty()
-        && stored_berlin_layers(dir, &project)?
-            .iter()
-            .any(|l| has_stairs(&l.features));
+    // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
+    // when the Berlin layers have no stairs.
+    let stairs = tile_products.is_some() && {
+        let berlin_stairs = !project.berlin_layers.is_empty()
+            && stored_berlin_layers(dir, &project)?
+                .iter()
+                .any(|l| has_stairs(&l.features));
+        // A NAS stair without a bottom edge goes by the terrain too.
+        berlin_stairs
+            || stored_nas_layers(dir, &project)?.iter().any(|l| {
+                l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features)
+            })
+    };
     if stairs {
         progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
         crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
@@ -2968,7 +3571,7 @@ pub enum MapOutcome {
         references_images: bool,
         /// Buildings are stored for the project, but the kept map has none.
         missing_buildings: bool,
-        /// Berlin canopies (522 map objects) are stored for the project, but the kept map has
+        /// ALKIS canopies (522 map objects) are stored for the project, but the kept map has
         /// none (it was written before them).
         missing_canopies: bool,
     },
@@ -3284,17 +3887,14 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
 /// How a building object's provenance appears in the map file.
 const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"#;
 
-/// Whether the stored Berlin layers give 522 canopy map objects that the map at `map_text`
-/// lacks (it was written before them, or without the layers).
+/// Whether the stored layers and buildings give 522 canopy map objects that the map at
+/// `map_text` lacks (it was written before them, or without the layers).
 fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
-    if map_text.contains(CANOPY_SOURCE_TAG) {
+    if CANOPY_SOURCE_TAGS.iter().any(|tag| map_text.contains(tag)) {
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
     let layers = stored_berlin_layers(dir, &project)?;
-    let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER) else {
-        return Ok(false);
-    };
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
     let georef = Georeferencing::new_in(
         project.crs(),
@@ -3303,22 +3903,42 @@ fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> 
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set();
-    let footprints = read_stored_buildings(dir)?.map_or_else(Vec::new, |b| b.footprints());
-    Ok(!canopy_objects(
-        &layer.features,
+    let stored = read_stored_buildings(dir)?;
+    let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
+    let map_area = area.projected_polygon_in(project.crs());
+    if let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER)
+        && !canopy_objects(
+            &[CanopyInput::Berlin(&layer.features)],
+            &footprints,
+            &map_area,
+            project.buffer_m,
+            &georef,
+            &symbol_set,
+            layer.fetched,
+        )?
+        .is_empty()
+    {
+        return Ok(true);
+    }
+    Ok(!stored_state_canopies(
+        &project,
+        stored.as_ref(),
         &footprints,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
+        &map_area,
         &georef,
         &symbol_set,
-        layer.fetched,
     )?
     .is_empty())
 }
 
-/// How a canopy object's provenance appears in the map file.
-const CANOPY_SOURCE_TAG: &str =
-    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#;
+/// How a canopy object's provenance appears in the map file: a Berlin canopy, or an ALKIS
+/// vereinfacht one (the buildings share `freemapper:source` = `alkis`, so the kind tells them
+/// apart).
+const CANOPY_SOURCE_TAGS: [&str; 3] = [
+    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#,
+    r#"<t k="freemapper:alkis">Überdachung</t>"#,
+    r#"<t k="freemapper:alkis">Carport</t>"#,
+];
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
@@ -3490,7 +4110,8 @@ fn copy_backgrounds(
 const SHEET_PART: &str = "peripheral information";
 
 /// The objects of the training map: everything of the map and every candidate except the map
-/// area outline (the first candidate), and separately the sheet objects, which are not clipped.
+/// area outline (the first candidate) and the points hidden under a 520 candidate
+/// (`freemapper:hidden`), and separately the sheet objects, which are not clipped.
 fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapObject>) {
     let (sheet, own): (Vec<&MapPart>, Vec<&MapPart>) = documents
         .map
@@ -3505,7 +4126,8 @@ fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapO
                 .candidates
                 .parts
                 .iter()
-                .flat_map(|p| p.objects.iter().skip(1)),
+                .flat_map(|p| p.objects.iter().skip(1))
+                .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY)),
         )
         .collect();
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
@@ -3580,10 +4202,13 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
     )?;
     let berlin_layers = stored_berlin_layers(dir, &project)?;
+    let nas_layers = stored_nas_layers(dir, &project)?;
     let mut structures = stored_berlin_structures(
         dir,
         &project,
         &berlin_layers,
+        &nas_layers,
+        stored_buildings.as_ref(),
         &footprints,
         &area,
         &georef,
@@ -3618,9 +4243,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             &symbol_set,
         ))
     };
-    // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree. ALKIS
-    // surveyed the fences, walls and hedges: an OSM line along one with its symbol is the same.
-    let berlin_candidates = stored_berlin_objects(
+    // The candidates of the cadastres, registers and the survey: Berlin first, then the state
+    // passages and the full ALKIS (NAS). Duplicates go by rank (`build/dedup.rs`): register >
+    // ALKIS > survey > OSM. A register knows the crown: an OSM tree at a register tree is the
+    // same tree. ALKIS surveyed the fences, walls and hedges: an OSM line along one with its
+    // symbol is the same.
+    let mut cadastre_candidates = stored_berlin_objects(
         &project,
         &berlin_layers,
         stored_buildings.as_ref(),
@@ -3628,33 +4256,83 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     )?;
-    // The order of the sources is ALKIS, survey, OSM: a survey line along an ALKIS line goes
-    // first, then an OSM line along either.
-    let mut berlin_candidates =
-        drop_survey_lines_near_alkis(berlin_candidates, &symbol_set, georef.scale_denominator);
-    let osm_candidates = drop_osm_trees_near_cadastre(
+    cadastre_candidates.extend(stored_state_objects(
+        &project,
+        stored_buildings.as_ref(),
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
+    cadastre_candidates.extend(stored_nas_objects(
+        &nas_layers,
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
+    cadastre_candidates.extend(stored_tree_objects(
+        &stored_tree_layers(dir, &project)?,
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
+    // A survey line along an ALKIS line goes first, then an OSM line along either.
+    let mut cadastre_candidates =
+        drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
+    let (osm_candidates, cadastre_candidates_kept) = drop_trees_by_rank(
         osm_objects(Target::Candidates)?,
-        &berlin_candidates,
+        cadastre_candidates,
+        &symbol_set,
         georef.scale_denominator,
     );
-    let osm_candidates = drop_osm_lines_near_alkis(
+    cadastre_candidates = cadastre_candidates_kept;
+    let osm_candidates = drop_osm_lines_near_cadastre(
         osm_candidates,
-        &mut berlin_candidates,
+        &mut cadastre_candidates,
         &symbol_set,
         georef.scale_denominator,
     );
     // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
-    // place, and the survey furniture beats OSM; a register or survey fountain in drawn water is a
-    // jet like an OSM one.
-    let (osm_candidates, berlin_candidates) =
-        drop_points_near_registers(osm_candidates, berlin_candidates, georef.scale_denominator);
-    let berlin_candidates =
-        drop_points_in_water(berlin_candidates, &water.union, &georef, &symbol_set);
+    // place, and the survey furniture beats OSM; a cadastre, register or survey fountain in drawn
+    // water is a jet like an OSM one.
+    let (osm_candidates, cadastre_candidates) = drop_points_near_registers(
+        osm_candidates,
+        cadastre_candidates,
+        &symbol_set,
+        georef.scale_denominator,
+    );
+    let cadastre_candidates =
+        drop_points_in_water(cadastre_candidates, &water.union, &georef, &symbol_set);
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
-    let berlin_candidates =
-        drop_shelters_under_canopies(berlin_candidates, &mut structures.canopies);
-    // A register is named once its points are among the candidates.
-    let registers = drawn_registers(&berlin_candidates);
+    let cadastre_candidates =
+        drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
+    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving and 402
+    // or 405 on open land (the 401 green strips of the paved build, the OSM pitches among the
+    // candidates), and no point stands in a 520 area (`build/points.rs`). The OSM candidates
+    // stay before the others.
+    let out_of_bounds =
+        stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
+    let mut points = osm_candidates;
+    points.extend(cadastre_candidates);
+    let generalized = generalize_points(
+        points,
+        osm_objects(Target::Map)?,
+        &out_of_bounds,
+        &paved.map,
+        &paved.candidates,
+        &footprints,
+        &water.union,
+        &clip,
+        project.map_kind,
+        &georef,
+        &symbol_set,
+    )?;
+    let mut point_candidates = generalized.candidates;
+    point_candidates.extend(generalized.areas);
+    // A register is named once its points (or trees merged into a group area) are among the
+    // candidates; OSM is named anyway.
+    let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
     let candidates = MapDocument {
@@ -3664,8 +4342,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(osm_candidates)
-                .chain(berlin_candidates)
+                .chain(point_candidates)
                 .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
@@ -3678,13 +4355,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                 )?)
                 .chain(paved.candidates)
                 .chain(water.candidates)
-                .chain(stored_out_of_bounds_objects(
-                    &land_use,
-                    &project,
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(out_of_bounds)
                 .collect(),
         }],
         templates: Vec::new(),
@@ -3730,7 +4401,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(structures.canopies);
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
-    map_objects.extend(osm_objects(Target::Map)?);
+    map_objects.extend(generalized.map);
     let buildings_part = MapPart {
         name: "default part".to_string(),
         objects: map_objects,
@@ -3738,6 +4409,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(lgb_attribution(&project));
     attribution.extend(berlin_attribution(&project, &registers));
+    attribution.extend(tree_attribution(&registers));
     attribution.extend(geosn_attribution(&project));
     attribution.extend(lvermgeo_attribution(&project));
     attribution.extend(lgv_attribution(&project));
@@ -3809,29 +4481,57 @@ const FREEMAPPER_CREDIT_DE: &str =
 /// Names the tool and where to get it, in every generated project.
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
-/// The files of the Berlin registers ([`BERLIN_REGISTERS`]) whose points are among `objects`.
+/// The registers whose points are among `objects`: the files of the Berlin registers
+/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`). A
+/// group area of the point generalization draws the sources of the trees it merged
+/// (`freemapper:source_id` = `<source>/<source_id>; …`).
 fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
-    BERLIN_REGISTERS
+    let tag = |o: &'_ MapObject, key: &str| {
+        o.tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
+    let drawn = |source: String| {
+        let prefix = format!("{source}/");
+        objects
+            .iter()
+            .any(|o| match tag(o, "freemapper:source").as_deref() {
+                Some(GENERALIZATION_SOURCE) => tag(o, "freemapper:source_id")
+                    .is_some_and(|ids| ids.split("; ").any(|id| id.starts_with(&prefix))),
+                Some(own) => own == source,
+                None => false,
+            })
+    };
+    let berlin = BERLIN_REGISTERS
         .iter()
         .map(|&(file, _)| file)
-        .filter(|file| {
-            let source = format!("geoportal-berlin/{file}");
-            objects.iter().any(|o| {
-                o.tags
-                    .iter()
-                    .any(|(k, v)| k == "freemapper:source" && *v == source)
-            })
-        })
+        .filter(|file| drawn(format!("geoportal-berlin/{file}")));
+    let cities = trees::TREE_DATASETS
+        .iter()
+        .map(|d| d.id)
+        .filter(|id| drawn(format!("trees/{id}")));
+    berlin.chain(cities).collect()
+}
+
+/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
+/// for each dataset that drew trees.
+fn tree_attribution(registers: &[&str]) -> Vec<String> {
+    trees::TREE_DATASETS
+        .iter()
+        .filter(|d| registers.contains(&d.id))
+        .map(|d| d.attribution.to_string())
         .collect()
 }
 
 /// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
-/// Geoportal Berlin. `registers` are the Berlin registers that drew objects
-/// ([`drawn_registers`]).
+/// Geoportal Berlin. `registers` are the Berlin registers and city tree cadastres that drew
+/// objects ([`drawn_registers`]).
 fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
     lines.extend(lgb_attribution(project));
     lines.extend(berlin_attribution(project, registers));
+    lines.extend(tree_attribution(registers));
     lines.extend(geosn_attribution(project));
     lines.extend(lvermgeo_attribution(project));
     lines.extend(lgv_attribution(project));
@@ -6112,6 +6812,26 @@ mod tests {
                 regions: Vec::new(),
             }),
             berlin_layers: BTreeMap::new(),
+            nas_layers: BTreeMap::from([(
+                "sonstiges-bauwerk".to_string(),
+                AlkisRecord {
+                    bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
+                    fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                    latest_update: NaiveDate::from_ymd_opt(2020, 11, 24),
+                    count: 4,
+                    regions: vec![Region::Brandenburg],
+                },
+            )]),
+            tree_layers: BTreeMap::from([(
+                "potsdam".to_string(),
+                AlkisRecord {
+                    bbox: [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0],
+                    fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                    latest_update: NaiveDate::from_ymd_opt(2026, 3, 2),
+                    count: 3,
+                    regions: vec![Region::Brandenburg],
+                },
+            )]),
             k5: None,
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
@@ -6456,6 +7176,135 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
         assert!(!candidates.objects.is_empty());
         assert!(outcome.objects > 0);
+    }
+
+    /// Adds a vereinfacht carport and a passage, 10 m east of the first stored building, to the
+    /// stored buildings of a fetched project: the way every state but Berlin stores them.
+    fn add_state_structures(dir: &Path) {
+        let path = dir.join(BUILDINGS_RELPATH);
+        let mut collection: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let points: Vec<(f64, f64)> = collection["features"][0]["geometry"]["coordinates"]
+            .to_string()
+            .trim_matches(['[', ']'])
+            .split("],[")
+            .map(|p| {
+                let (e, n) = p.split_once(',').unwrap();
+                (e.parse().unwrap(), n.parse().unwrap())
+            })
+            .collect();
+        let east = points.iter().map(|p| p.0).fold(f64::MIN, f64::max);
+        let north = points.iter().map(|p| p.1).fold(f64::MAX, f64::min);
+        let square = |id: &str, kind: &str, function: &str, offset: f64| {
+            let (e, n) = (east + offset, north);
+            serde_json::json!({
+                "type": "Feature", "id": id,
+                "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                    [e, n], [e + 6.0, n], [e + 6.0, n + 6.0], [e, n + 6.0], [e, n]]]]},
+                "properties": {"oid": id, "aktualit": "2024-04-22T07:00:00Z",
+                               "gebnutzbez": kind, "funktion": function}})
+        };
+        let features = collection["features"].as_array_mut().unwrap();
+        features.push(square(
+            "DEBBAL0000CARPORT",
+            "Sonstiges Bauwerk oder sonstige Einrichtung",
+            "Carport",
+            10.0,
+        ));
+        features.push(square(
+            "DEBBAL00PASSAGE",
+            "Bauteil",
+            "Durchfahrt im Gebäude",
+            20.0,
+        ));
+        std::fs::write(path, collection.to_string()).unwrap();
+    }
+
+    #[test]
+    fn ocad_export_has_state_canopies() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        add_state_structures(dir.path());
+        let outcome = export_ocad(dir.path(), true).unwrap();
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        assert!(map.objects.iter().any(|o| o.symbol == 521_000), "building");
+        assert_eq!(
+            map.objects.iter().filter(|o| o.symbol == 522_000).count(),
+            1,
+            "the carport is a map object"
+        );
+        // The passage is a candidate, in both OCAD and OOM.
+        let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
+        assert_eq!(
+            candidates
+                .objects
+                .iter()
+                .filter(|o| o.symbol == 522_000)
+                .count(),
+            1,
+            "the passage is a candidate"
+        );
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let sources: Vec<(String, String)> = documents
+            .map
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .filter(|o| Some(o.symbol_id) == set.id_for_code("522"))
+            .flat_map(|o| o.tags.clone())
+            .filter(|(k, _)| k == "freemapper:source" || k == "freemapper:currency")
+            .collect();
+        assert_eq!(
+            sources,
+            [
+                ("freemapper:source".to_string(), "alkis".to_string()),
+                ("freemapper:currency".to_string(), "2024-04-22".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn kept_map_without_state_canopies_is_reported() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        add_state_structures(dir.path());
+        // A map from before the canopies: it has the ALKIS buildings, but no 522.
+        let map = map_path(dir.path());
+        std::fs::write(
+            &map,
+            format!("edited in OOM {ALKIS_SOURCE_TAG} {ORTHOPHOTO_RELPATH}"),
+        )
+        .unwrap();
+        let run = |force: bool| {
+            run_project(
+                dir.path(),
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                force,
+                &mut |_| {},
+            )
+            .unwrap()
+            .map
+        };
+        assert!(matches!(
+            run(false),
+            MapOutcome::Kept {
+                missing_buildings: false,
+                missing_canopies: true,
+                ..
+            }
+        ));
+        // Written again with force, the map has them.
+        assert_eq!(run(true), MapOutcome::Written(map.clone()));
+        assert!(matches!(
+            run(false),
+            MapOutcome::Kept {
+                missing_canopies: false,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -9203,6 +10052,56 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
+    fn terrain_written_for_nas_stairs_without_edge() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        // The Berlin layers have no stairs; the stored NAS layer has one stair area.
+        let nas = |with_edge: bool| {
+            let (e, n) = (392_760.0, 5_820_835.0);
+            let mut features = vec![serde_json::json!({
+                "type": "Feature", "id": "DEMVHR030000STEP",
+                "geometry": {"type": "Polygon", "coordinates": [[
+                    [e, n], [e + 6.0, n], [e + 6.0, n + 3.0], [e, n + 3.0], [e, n]]]},
+                "properties": {"oid": "DEMVHR030000STEP", "nas_type":
+                    "AX_SonstigesBauwerkOderSonstigeEinrichtung", "bauwerksfunktion": "1620"}
+            })];
+            if with_edge {
+                features.push(serde_json::json!({
+                    "type": "Feature", "id": "DEMVHR030000EDGE",
+                    "geometry": {"type": "LineString", "coordinates": [[e, n], [e + 6.0, n]]},
+                    "properties": {"oid": "DEMVHR030000EDGE", "nas_type":
+                        "AX_SonstigesBauwerkOderSonstigeEinrichtung", "bauwerksfunktion": "1630",
+                        "gehoert_zu": "DEMVHR030000STEP"}
+                }));
+            }
+            serde_json::json!({"type": "FeatureCollection", "features": features}).to_string()
+        };
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.berlin_layers.clear();
+        project.nas_layers.insert(
+            "sonstiges-bauwerk".to_string(),
+            AlkisRecord {
+                bbox: [0.0, 0.0, 1e9, 1e9],
+                fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                latest_update: None,
+                count: 1,
+                regions: Vec::new(),
+            },
+        );
+        project.save(dir.path()).unwrap();
+        let layer = dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson");
+        std::fs::create_dir_all(layer.parent().unwrap()).unwrap();
+        std::fs::write(&layer, nas(false)).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+        // With its bottom edge the direction is known: `derive` keeps no terrain.
+        std::fs::write(&layer, nas(true)).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+    }
+
+    #[test]
     fn step_edges_of_the_stored_lines_become_one_stair() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
@@ -9315,6 +10214,93 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00ZAUN"))
             .expect("the ALKIS fence");
         assert_eq!(tag(alkis, "freemapper:also").as_deref(), Some("osm/way/1"));
+    }
+
+    #[test]
+    fn nas_fence_beats_the_osm_fence_in_the_export() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = fetched_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert!(project.nas_layers.contains_key("sonstiges-bauwerk"));
+        let bbox = project.bbox().unwrap();
+        let (e, n) = (
+            (bbox.min_e + bbox.max_e) / 2.0,
+            (bbox.min_n + bbox.max_n) / 2.0,
+        );
+        // A stored NAS fence (map CRS) in the middle of the map, cut into two segments.
+        let segment = |id: &str, from: f64, to: f64| {
+            serde_json::json!({"type": "Feature", "id": id,
+                "geometry": {"type": "LineString", "coordinates": [[e + from, n], [e + to, n]]},
+                "properties": {"oid": id, "nas_type": "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                    "beginnt": "2019-05-06", "bauwerksfunktion": "1740"}})
+        };
+        let layer = serde_json::json!({"type": "FeatureCollection", "features": [
+            segment("DEBBAL00ZAUN1", 0.0, 2.0), segment("DEBBAL00ZAUN2", 2.0, 30.0)]});
+        std::fs::write(
+            dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"),
+            layer.to_string(),
+        )
+        .unwrap();
+        // OSM has the same fence 1 m off, and another one 10 m away.
+        let fence = |id: &str, dn: f64| {
+            let p = |de: f64| {
+                crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                    easting: e + de,
+                    northing: n + dn,
+                })
+                .unwrap()
+            };
+            OsmFeature {
+                id: id.to_string(),
+                tags: vec![("barrier".to_string(), "fence".to_string())],
+                geometry: crate::sources::osm::OsmGeometry::Line(vec![p(0.0), p(30.0)]),
+            }
+        };
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[fence("way/1", 1.0), fence("way/2", 10.0)]),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let objects: Vec<&MapObject> = documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .collect();
+        let osm_ids: Vec<_> = objects
+            .iter()
+            .filter(|o| tag(o, "freemapper:source").as_deref() == Some("osm"))
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .filter(|id| id == "way/1" || id == "way/2")
+            .collect();
+        assert_eq!(osm_ids, ["way/2"]);
+        let nas: Vec<&&MapObject> = objects
+            .iter()
+            .filter(|o| {
+                tag(o, "freemapper:source").as_deref() == Some("alkis-nas/sonstiges-bauwerk")
+            })
+            .collect();
+        assert_eq!(nas.len(), 1, "the two segments are one fence");
+        assert_eq!(
+            Some(nas[0].symbol_id),
+            project.map_kind.symbol_set().id_for_code("518")
+        );
+        assert_eq!(tag(nas[0], "freemapper:alkis").as_deref(), Some("Zaun"));
+        assert_eq!(
+            tag(nas[0], "freemapper:currency").as_deref(),
+            Some("2019-05-06")
+        );
+        assert_eq!(
+            tag(nas[0], "freemapper:also").as_deref(),
+            Some("alkis-nas/sonstiges-bauwerk/DEBBAL00ZAUN2; osm/way/1")
+        );
     }
 
     #[test]
@@ -9579,6 +10565,103 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
+    fn nas_exception_report_skips_the_layer() {
+        use crate::sources::alkis_nas::{LGB_NAS, test_support};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        // Every other NAS layer is empty there.
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        let url = |type_name: &str| LGB_NAS.get_feature_url(type_name, &bbox);
+        let serve = |type_name: &str, answer: &str| {
+            fetcher.insert(&url(type_name), answer.as_bytes().to_vec());
+        };
+        const WALLS: &str = "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        const HEDGES: &str = "adv:AX_Vegetationsmerkmal";
+        serve(WALLS, test_support::SONSTIGES_BAUWERK);
+        serve(HEDGES, test_support::EXCEPTION);
+        let calls = fetcher.log.borrow().len();
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+
+        // Schoolyard map: four layers asked once each; the hedges answer an exception report,
+        // which is not asked again, and the layer is left out with a warning.
+        let asked: Vec<String> = fetcher.log.borrow()[calls..]
+            .iter()
+            .filter(|u| u.starts_with(LGB_NAS.url))
+            .cloned()
+            .collect();
+        assert_eq!(asked.len(), 4, "{asked:?}");
+        let files: Vec<&str> = project.nas_layers.keys().map(String::as_str).collect();
+        assert_eq!(
+            files,
+            [
+                "bauwerk-gewaesser",
+                "sonstiges-bauwerk",
+                "untergeordnetes-gewaesser"
+            ]
+        );
+        let warning = messages
+            .iter()
+            .find(|m| m.starts_with("warning: ALKIS NAS vegetationsmerkmal unavailable ("))
+            .unwrap_or_else(|| panic!("{messages:?}"));
+        assert!(
+            warning.contains("InvalidParameterValue: no geometry property")
+                && warning.ends_with("; layer skipped"),
+            "{warning}"
+        );
+        let walls = &project.nas_layers["sonstiges-bauwerk"];
+        assert_eq!(walls.count, 5);
+        assert_eq!(walls.latest_update, NaiveDate::from_ymd_opt(2013, 1, 29));
+        assert_eq!(walls.regions, [Region::Brandenburg]);
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
+                .unwrap();
+        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 5);
+        assert!(
+            !dir.path()
+                .join("data/alkis-nas/vegetationsmerkmal.geojson")
+                .exists()
+        );
+        assert_eq!(ProjectFile::load(dir.path()).unwrap(), project);
+
+        // Next time the walls fail and the hedges answer: the stored walls stay.
+        serve(WALLS, test_support::EXCEPTION);
+        serve(HEDGES, test_support::VEGETATION);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                .starts_with("warning: ALKIS NAS sonstiges-bauwerk unavailable (")
+                && m.ends_with("; keeping the stored layer")),
+            "{messages:?}"
+        );
+        assert_eq!(project.nas_layers["sonstiges-bauwerk"], *walls);
+        assert_eq!(project.nas_layers["vegetationsmerkmal"].count, 3);
+        assert_eq!(project.nas_layers.len(), 4);
+
+        // Offline nothing is asked and every stored layer stays.
+        let calls = fetcher.log.borrow().len();
+        let mut messages = Vec::new();
+        let offline = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Offline, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(offline.nas_layers, project.nas_layers);
+        assert!(
+            !fetcher.log.borrow()[calls..]
+                .iter()
+                .any(|u| u.starts_with(LGB_NAS.url))
+        );
+        assert!(
+            dir.path()
+                .join("data/alkis-nas/vegetationsmerkmal.geojson")
+                .exists()
+        );
+    }
+
+    #[test]
     fn leaving_berlin_deletes_stored_layers_only_online() {
         let dir = tempfile::tempdir().unwrap();
         let path = layer_path(dir.path(), "relief");
@@ -9709,6 +10792,450 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let saved = ProjectFile::load(dir.path()).unwrap();
         assert!(saved.berlin_layers.keys().all(|k| !k.contains("..")));
         assert!(saved.berlin_layers.contains_key("bauwerke-flaechen"));
+    }
+
+    #[test]
+    fn stored_layers_count_as_downloaded_only_where_they_cover() {
+        let today = chrono::Local::now().date_naive();
+        let item = |dir: &Path, cache: &Cache, what: &str| {
+            crate::layers::estimate_download(dir, cache, today)
+                .unwrap()
+                .items
+                .into_iter()
+                .find(|i| i.what == what)
+                .unwrap_or_else(|| panic!("{what}"))
+        };
+        let moved = |records: &mut BTreeMap<String, AlkisRecord>| {
+            for record in records.values_mut() {
+                record.bbox = [0.0, 0.0, 1.0, 1.0];
+            }
+        };
+        // Brandenburg: the NAS layers of the fetch cover the area; moved elsewhere, they do not.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let nas = crate::layers::NAS_LAYERS_ITEM;
+        assert!(item(dir.path(), &cache, nas).cached);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        assert!(!project.nas_layers.is_empty());
+        moved(&mut project.nas_layers);
+        project.save(dir.path()).unwrap();
+        assert!(!item(dir.path(), &cache, nas).cached);
+        // The same for the Berlin layers.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let berlin = crate::layers::BERLIN_LAYERS_ITEM;
+        assert!(item(dir.path(), &cache, berlin).cached);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        moved(&mut project.berlin_layers);
+        project.save(dir.path()).unwrap();
+        assert!(!item(dir.path(), &cache, berlin).cached);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nas_part_file_link_is_not_followed() {
+        use crate::sources::alkis_nas::{LGB_NAS, test_support};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        fetcher.insert(
+            &LGB_NAS.get_feature_url("adv:AX_SonstigesBauwerkOderSonstigeEinrichtung", &bbox),
+            test_support::SONSTIGES_BAUWERK.as_bytes().to_vec(),
+        );
+        // A part file of the old fixed name that is a link to a file outside the project.
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.geojson");
+        std::fs::write(&victim, b"secret").unwrap();
+        let layers = dir.path().join(NAS_LAYERS_DIR);
+        std::fs::create_dir_all(&layers).unwrap();
+        std::os::unix::fs::symlink(&victim, layers.join("answer.gml.part")).unwrap();
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(std::fs::read(&victim).unwrap(), b"secret");
+        assert_eq!(project.nas_layers["sonstiges-bauwerk"].count, 5);
+        // The downloads used fresh names of their own, removed after each answer; the link is
+        // not freemapper's and stays.
+        let parts: Vec<String> = std::fs::read_dir(&layers)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".part"))
+            .collect();
+        assert_eq!(parts, ["answer.gml.part"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn nas_stale_parts_behind_a_linked_folder_survive() {
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        // The NAS folder is a link to a folder outside the project that holds an old part file.
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("x.part");
+        let file = std::fs::File::create(&victim).unwrap();
+        file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(86_400))
+            .unwrap();
+        drop(file);
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        std::os::unix::fs::symlink(outside.path(), dir.path().join(NAS_LAYERS_DIR)).unwrap();
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            victim.exists(),
+            "the part file outside the project was removed"
+        );
+        assert!(project.nas_layers.is_empty());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("leads out of the project folder")),
+            "{messages:?}"
+        );
+    }
+
+    /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.
+    fn sanssouci_area() -> FetchArea {
+        FetchArea::new(
+            BoundingBox {
+                min_e: 366_200.0,
+                min_n: 5_807_100.0,
+                max_e: 367_100.0,
+                max_n: 5_807_700.0,
+            },
+            Crs::Utm33,
+        )
+    }
+
+    fn serve_potsdam_trees(fetcher: &MapFetcher) {
+        use crate::sources::trees::{POTSDAM, test_support};
+        fetcher.insert_prefix(
+            POTSDAM.endpoints[0],
+            test_support::POTSDAM.as_bytes().to_vec(),
+        );
+        for endpoint in &POTSDAM.endpoints[1..] {
+            fetcher.insert_prefix(
+                endpoint,
+                br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+            );
+        }
+    }
+
+    #[test]
+    fn tree_layers_are_fetched_stored_and_kept() {
+        let fetcher = MapFetcher::default();
+        serve_potsdam_trees(&fetcher);
+        let dir = tempfile::tempdir().unwrap();
+        let mut messages = Vec::new();
+        let records = fetch_tree_layers_into(
+            dir.path(),
+            &fetcher,
+            &sanssouci_area(),
+            FetchMode::Online,
+            false,
+            &BTreeMap::new(),
+            &mut |m| messages.push(m.to_string()),
+        );
+        assert_eq!(fetcher.calls.get(), 3, "{messages:?}");
+        let record = &records["potsdam"];
+        assert_eq!(record.count, 3);
+        assert_eq!(record.latest_update, NaiveDate::from_ymd_opt(2009, 6, 10));
+        assert_eq!(record.regions, [Region::Brandenburg]);
+        assert_eq!(
+            record.bbox,
+            [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0]
+        );
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/potsdam.geojson")).unwrap();
+        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 3);
+
+        // The endpoints fail next time: the stored file stays, with a warning.
+        let failing = MapFetcher::default();
+        let kept = fetch_tree_layers_into(
+            dir.path(),
+            &failing,
+            &sanssouci_area(),
+            FetchMode::Online,
+            false,
+            &records,
+            &mut |m| messages.push(m.to_string()),
+        );
+        assert_eq!(kept, records);
+        assert!(
+            messages.iter().any(
+                |m| m.starts_with("warning: potsdam tree cadastre unavailable (")
+                    && m.ends_with("; keeping the stored one")
+            ),
+            "{messages:?}"
+        );
+        // Offline asks nothing and keeps it too; with the disk plan against it, so does online.
+        let calls = fetcher.calls.get();
+        for (mode, skip) in [(FetchMode::Offline, false), (FetchMode::Online, true)] {
+            let same = fetch_tree_layers_into(
+                dir.path(),
+                &fetcher,
+                &sanssouci_area(),
+                mode,
+                skip,
+                &records,
+                &mut |_| {},
+            );
+            assert_eq!(same, records);
+        }
+        assert_eq!(fetcher.calls.get(), calls);
+
+        // The area leaves Potsdam: nothing is asked and the file goes.
+        let strausberg = FetchArea::new(
+            BoundingBox {
+                min_e: 421_000.0,
+                min_n: 5_821_000.0,
+                max_e: 422_500.0,
+                max_n: 5_822_000.0,
+            },
+            Crs::Utm33,
+        );
+        let none = fetch_tree_layers_into(
+            dir.path(),
+            &fetcher,
+            &strausberg,
+            FetchMode::Online,
+            false,
+            &records,
+            &mut |_| {},
+        );
+        assert!(none.is_empty());
+        assert_eq!(fetcher.calls.get(), calls);
+        assert!(!dir.path().join("data/trees/potsdam.geojson").exists());
+    }
+
+    #[test]
+    fn tree_layer_keys_never_name_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let victim = dir.path().join("victim.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let far = elsewhere.path().join("victim.geojson");
+        std::fs::write(&far, b"{}").unwrap();
+        let far_key = far.with_extension("").display().to_string();
+        let unsafe_keys = ["../../victim", far_key.as_str(), "no-such-city"];
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        for key in unsafe_keys {
+            text.push_str(&format!(
+                "\n[tree_layers.{key:?}]\nbbox = [0.0, 0.0, 1.0, 1.0]\nfetched = \"2026-11-08\"\ncount = 1\n"
+            ));
+        }
+        std::fs::write(&file, text).unwrap();
+        let mut warnings = Vec::new();
+        let mut project =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(project.tree_layers.is_empty(), "{:?}", project.tree_layers);
+        assert_eq!(
+            warnings
+                .iter()
+                .filter(|w| w.starts_with("warning: freemapper.toml: ignored the tree layer entry"))
+                .count(),
+            3,
+            "{warnings:?}"
+        );
+        // Forgetting the fetched data deletes only datasets of the table.
+        project.tree_layers = unsafe_keys
+            .iter()
+            .map(|k| (k.to_string(), some_layer_record()))
+            .collect();
+        project.drop_fetched(dir.path());
+        assert!(project.tree_layers.is_empty());
+        assert!(victim.exists(), "the file in the project folder is kept");
+        assert!(far.exists(), "the file outside the project is kept");
+    }
+
+    #[test]
+    fn hidden_candidates_stay_out_of_the_training_pdf() {
+        use crate::build::points::test_support::fixture;
+        let f = fixture(MapKind::Sprint);
+        let outline = f.rect("520", (0.0, 0.0), (1.0, 1.0));
+        let mut hidden = f.tree("418", "osm", "node/1", (0.0, 0.0), None);
+        hidden.tags.push((HIDDEN_KEY.into(), "520".into()));
+        let shown = f.tree("418", "osm", "node/2", (10.0, 0.0), None);
+        let document = |objects: Vec<MapObject>| MapDocument {
+            notes: String::new(),
+            georef: f.georef.clone(),
+            symbol_set: f.set.clone(),
+            parts: vec![MapPart {
+                name: "candidates".into(),
+                objects,
+            }],
+            templates: Vec::new(),
+        };
+        let documents = StarterDocuments {
+            map: document(Vec::new()),
+            candidates: document(vec![outline, hidden.clone(), shown.clone()]),
+            attribution_text: String::new(),
+        };
+        let (map, _) = training_objects(&documents);
+        assert_eq!(map, [&shown]);
+        // The candidates map keeps it.
+        assert!(documents.candidates.parts[0].objects.contains(&hidden));
+    }
+
+    #[test]
+    fn generalized_area_provenance_and_attribution() {
+        use crate::build::points::test_support::{fixture, ids};
+        const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";
+        let f = fixture(MapKind::Sprint);
+        let mut trees = f.grid("trees/potsdam", (3, 3), 3.5, 6.0);
+        for (i, tree) in trees.iter_mut().enumerate() {
+            let date = format!("2024-05-{:02}", 9 - i);
+            tree.tags
+                .iter_mut()
+                .find(|(k, _)| k == "freemapper:currency")
+                .unwrap()
+                .1 = date;
+        }
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
+        assert!(ids(&found.candidates).is_empty());
+        assert_eq!(found.areas.len(), 1);
+        let tags: Vec<(&str, &str)> = found.areas[0]
+            .tags
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        let merged: Vec<String> = (0..9).map(|i| format!("trees/potsdam/t{i:02}")).collect();
+        assert_eq!(tags.len(), 4, "{tags:?}");
+        assert_eq!(tags[0], ("freemapper:source", "generalization"));
+        assert_eq!(
+            tags[1],
+            ("freemapper:source_id", merged.join("; ").as_str())
+        );
+        assert_eq!(tags[2], ("freemapper:currency", "2024-05-01"));
+        assert_eq!(tags[3].0, "freemapper:generalized");
+        assert!(tags[3].1.starts_with("9 trees, cover "), "{tags:?}");
+        // The Potsdam trees are drawn only inside the area: the Potsdam line is still given.
+        let drawn = drawn_registers(&found.areas);
+        assert_eq!(drawn, ["potsdam"]);
+        assert!(tree_attribution(&drawn).contains(&POTSDAM.to_string()));
+        // A source is named by the source of an entry, not by any prefix of it.
+        let mut other = found.areas[0].clone();
+        other.tags[1].1 = "trees/potsdamer/1; osm/node/1".into();
+        assert!(drawn_registers(&[other]).is_empty());
+    }
+
+    #[test]
+    fn potsdam_attribution_only_when_drawn() {
+        const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        // Nothing drawn: no line, even for a project whose tree file has trees.
+        let mut stored = project.clone();
+        stored
+            .tree_layers
+            .insert("potsdam".into(), some_layer_record());
+        assert!(!attribution_lines(&stored, &[]).contains(&POTSDAM.to_string()));
+        assert!(!attribution_lines(&project, &[]).contains(&POTSDAM.to_string()));
+        // A Berlin register that drew objects is not the tree cadastre.
+        assert!(!attribution_lines(&project, &["zierbrunnen"]).contains(&POTSDAM.to_string()));
+        // Drawn: the object's source names the dataset.
+        let object = |source: &str| MapObject {
+            symbol_id: 0,
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![MapCoord::new(0, 0)],
+            tags: vec![("freemapper:source".into(), source.into())],
+        };
+        assert!(drawn_registers(&[object("trees/other"), object("osm")]).is_empty());
+        let drawn = drawn_registers(&[object("osm"), object("trees/potsdam")]);
+        assert_eq!(drawn, ["potsdam"]);
+        let lines = attribution_lines(&project, &drawn);
+        assert_eq!(
+            lines.iter().filter(|l| *l == POTSDAM).count(),
+            1,
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn nas_layer_keys_never_name_paths() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        // `../../victim` leads to the project folder itself; an absolute key replaces the path.
+        let victim = dir.path().join("victim.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let far = elsewhere.path().join("victim.geojson");
+        std::fs::write(&far, b"{}").unwrap();
+        let far_key = far.with_extension("").display().to_string();
+        let unsafe_keys = ["../../victim", far_key.as_str(), "no-such-layer"];
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        for key in unsafe_keys {
+            text.push_str(&format!(
+                "\n[nas_layers.{key:?}]\nbbox = [0.0, 0.0, 1.0, 1.0]\nfetched = \"2026-11-08\"\ncount = 1\n"
+            ));
+        }
+        std::fs::write(&file, text).unwrap();
+
+        // Loading drops them with a warning each.
+        let mut warnings = Vec::new();
+        let project =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(
+            project
+                .nas_layers
+                .keys()
+                .all(|k| alkis_nas::NAS_LAYERS.iter().any(|l| l.file == k)),
+            "{:?}",
+            project.nas_layers
+        );
+        let ignored: Vec<&String> = warnings
+            .iter()
+            .filter(|w| w.starts_with("warning: freemapper.toml: ignored the NAS layer entry"))
+            .collect();
+        assert_eq!(ignored.len(), 3, "{warnings:?}");
+
+        // An online fetch, the cleanup of a state left, and forgetting the fetched data delete
+        // only layers of the table.
+        fetch(dir.path(), &fetcher, &cache);
+        let previous: BTreeMap<String, AlkisRecord> = unsafe_keys
+            .iter()
+            .chain(&["sonstiges-bauwerk"])
+            .map(|k| (k.to_string(), some_layer_record()))
+            .collect();
+        let strausberg = FetchArea::new(project.region_bbox().unwrap(), Crs::Utm33);
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        for area in [strausberg, FetchArea::new(mitte, Crs::Utm33)] {
+            fetch_nas_layers_into(
+                dir.path(),
+                &fetcher,
+                &area,
+                MapKind::Sprint,
+                FetchMode::Online,
+                false,
+                &previous,
+                &mut |_| {},
+            );
+        }
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.nas_layers = previous;
+        project.drop_fetched(dir.path());
+        assert!(project.nas_layers.is_empty());
+        assert!(victim.exists(), "the file in the project folder is kept");
+        assert!(far.exists(), "the file outside the project is kept");
     }
 
     #[test]
