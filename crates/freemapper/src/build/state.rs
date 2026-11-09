@@ -18,7 +18,7 @@ use std::sync::OnceLock;
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::candidates::{MIN_LINE_MM, Rules, Target, osm_objects};
 use crate::build::dedup::add_also;
 use crate::build::tagged::{PointOn, geom, tagged_features};
 use crate::build::walls::{PAIRED, PAIRED_ALSO, PAIRED_LABEL, pair_distance_m, pair_wall_edges};
@@ -248,12 +248,13 @@ pub fn nas_objects(
 ) -> Result<Vec<MapObject>, GeorefError> {
     let rules = Rules::states();
     let distance = pair_distance_m(kind, georef.scale_denominator);
+    let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
     let mut objects = Vec::new();
     for layer in layers {
         let source = format!("{NAS_SOURCE}/{}", layer.file);
         // The edges of a wall become one centre line here, while each still says on which
         // side the wall lies; the joins below would lose that.
-        let paired = pair_wall_edges(layer.features, distance);
+        let paired = pair_wall_edges(layer.features, distance, min_length);
         let features = tagged_features(
             &source,
             &paired,

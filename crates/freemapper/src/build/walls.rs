@@ -101,6 +101,8 @@ struct Edge {
     /// The distance along the edge of each point.
     at: Vec<f64>,
     length: f64,
+    /// The longer side of its bounding box.
+    extent: f64,
 }
 
 impl Edge {
@@ -140,6 +142,11 @@ impl Edge {
         if closed {
             length += norm(sub(points[0], points[points.len() - 1]));
         }
+        let span = |axis: usize| {
+            let values = points.iter().map(|p| p[axis]);
+            values.clone().fold(f64::MIN, f64::max) - values.fold(f64::MAX, f64::min)
+        };
+        let extent = span(0).max(span(1));
         Some(Self {
             feature,
             points,
@@ -148,6 +155,7 @@ impl Edge {
             side,
             at,
             length,
+            extent,
         })
     }
 
@@ -343,13 +351,15 @@ struct Built {
 /// 1702, or the rings of a 1700 area) closer than `distance` m, nearly parallel, each lying on
 /// the wall side of the other, become one centre line where both overlap. What has no partner
 /// stays as an edge; a gate cut in one edge is not bridged. A ring paired all round with
-/// another ring becomes a closed centre ring; a thin 1700 area becomes its centre line. Where a
+/// another ring becomes a closed centre ring; a thin 1700 area (or a closed edge with the wall
+/// inside) becomes its centre line, unless it is shorter than `min_length` all round (a pedestal
+/// or a short wall stays as stored, it prints as a dot or a bar). Where a
 /// stored centre line (1700 line, 1703) runs, the edges along it are dropped and named on it.
 /// Centre ends that meet at a corner are snapped together (each moves at most half the pair
 /// width). A centre line is a 1700 with the older `beginnt` of its edges, [`PAIRED`] and the
 /// other edges in [`PAIRED_ALSO`]. Other features, and wall features that pair with nothing,
 /// come back unchanged, in their order.
-pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
+pub fn pair_wall_edges(features: &[Value], distance: f64, min_length: f64) -> Vec<Value> {
     let step = (distance * STEP_SHARE).min(STEP_M);
     let mut edges: Vec<Edge> = Vec::new();
     let mut centres: Vec<(usize, Vec<P>)> = Vec::new();
@@ -397,7 +407,8 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
 
     // The fate of every point.
     let mut fates: Vec<Vec<Fate>> = Vec::with_capacity(edges.len());
-    let mut partner_at: Vec<Vec<Option<(usize, f64)>>> = Vec::with_capacity(edges.len());
+    // The partner of each paired point: its edge, the position along it and the segment.
+    let mut partner_at: Vec<Vec<Option<(usize, f64, usize)>>> = Vec::with_capacity(edges.len());
     for (e, edge) in edges.iter().enumerate() {
         let mut fate = Vec::with_capacity(edge.points.len());
         let mut found_at = Vec::with_capacity(edge.points.len());
@@ -427,7 +438,9 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
                 let (q, t) = foot(p, segment);
                 let d = norm(sub(p, q));
                 let along = other.at[k] + t.clamp(0.0, 1.0) * norm(sub(segment.1, segment.0));
-                if o == e && edge.apart(edge.at[i], along) <= SELF_APART * d {
+                if o == e
+                    && (edge.extent < min_length || edge.apart(edge.at[i], along) <= SELF_APART * d)
+                {
                     continue;
                 }
                 match nearest.last_mut() {
@@ -439,7 +452,7 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
                     _ => nearest.push((o, d, k, q, t)),
                 }
             }
-            let mut best: Option<(f64, usize, P, f64)> = None;
+            let mut best: Option<(f64, usize, P, f64, usize)> = None;
             for (o, d, k, q, t) in nearest {
                 let other = &edges[o];
                 // A foot beyond a free end: there is no partner.
@@ -474,18 +487,18 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
                     continue;
                 }
                 let along = other.at[k] + t.clamp(0.0, 1.0) * norm(sub(segment.1, segment.0));
-                if best.is_none_or(|(bd, bo, _, _)| (d, o) < (bd, bo)) {
-                    best = Some((d, o, q, along));
+                if best.is_none_or(|(bd, bo, _, _, _)| (d, o) < (bd, bo)) {
+                    best = Some((d, o, q, along, k));
                 }
             }
             match best {
-                Some((width, o, q, along)) => {
+                Some((width, o, q, along, k)) => {
                     fate.push(Fate::Centre {
                         partner: q,
                         edge: o,
                         width,
                     });
-                    found_at.push(Some((o, along)));
+                    found_at.push(Some((o, along, k)));
                 }
                 None => {
                     fate.push(Fate::Alone);
@@ -495,6 +508,35 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
         }
         fates.push(fate);
         partner_at.push(found_at);
+    }
+
+    // Only edges that pair with each other: a point whose partner pairs, at both ends of the
+    // segment it meets, with a third edge (the nearer one) keeps no partner.
+    let mutual: Vec<Vec<bool>> = partner_at
+        .iter()
+        .enumerate()
+        .map(|(e, found)| {
+            found
+                .iter()
+                .map(|f| {
+                    f.is_none_or(|(o, _, k)| {
+                        let n = edges[o].points.len();
+                        [k, (k + 1) % n].iter().any(|&j| match fates[o][j] {
+                            Fate::Centre { edge, .. } => edge == e,
+                            _ => true,
+                        })
+                    })
+                })
+                .collect()
+        })
+        .collect();
+    for (e, keep) in mutual.iter().enumerate() {
+        for (i, &keep) in keep.iter().enumerate() {
+            if !keep {
+                fates[e][i] = Fate::Alone;
+                partner_at[e][i] = None;
+            }
+        }
     }
 
     // Who draws the centre: the edge first in order, on a ring paired with itself the point
@@ -531,7 +573,7 @@ pub fn pair_wall_edges(features: &[Value], distance: f64) -> Vec<Value> {
         edge.at = edge.at.iter().map(|&a| along(a)).collect();
         edge.at.rotate_left(start);
         for i in 0..n {
-            if let (Fate::Centre { .. }, Some((o, at))) = (fates[e][i], partner_at[e][i]) {
+            if let (Fate::Centre { .. }, Some((o, at, _))) = (fates[e][i], partner_at[e][i]) {
                 let theirs = if o == e { along(at) } else { at };
                 if (o, theirs) < (e, edge.at[i]) {
                     fates[e][i] = Fate::Gone;
@@ -775,6 +817,8 @@ mod tests {
     const AT: (f64, f64) = (366_300.0, 5_807_200.0);
     /// 2.2 m: the pair distance at 1:4000.
     const SPRINT: f64 = 2.2;
+    /// 4 m: the shortest line at 1:4000 (1 mm).
+    const MIN: f64 = 4.0;
 
     fn wall(id: &str, code: &str, beginnt: &str, geometry: Value) -> Value {
         serde_json::json!({"type": "Feature", "id": id, "geometry": geometry,
@@ -830,7 +874,7 @@ mod tests {
 
     #[test]
     fn close_edges_become_one_centre_line() {
-        let found = pair_wall_edges(&straight(1.0), SPRINT);
+        let found = pair_wall_edges(&straight(1.0), SPRINT, MIN);
         assert_eq!(found.len(), 1, "{found:?}");
         let centre = &found[0];
         let p = points(centre);
@@ -848,14 +892,14 @@ mod tests {
     #[test]
     fn edges_further_apart_stay() {
         let features = straight(2.5);
-        assert_eq!(pair_wall_edges(&features, SPRINT), features);
+        assert_eq!(pair_wall_edges(&features, SPRINT, MIN), features);
         // At 1:1000 on the schoolyard the pair distance is 0.69 m.
         let school = pair_distance_m(MapKind::Schoolyard, 1000);
         assert!((school - 0.6875).abs() < 1e-9);
         assert!((pair_distance_m(MapKind::Sprint, 4000) - SPRINT).abs() < 1e-9);
         let features = straight(1.0);
-        assert_eq!(pair_wall_edges(&features, school), features);
-        assert_eq!(pair_wall_edges(&straight(0.5), school).len(), 1);
+        assert_eq!(pair_wall_edges(&features, school, 1.0), features);
+        assert_eq!(pair_wall_edges(&straight(0.5), school, 1.0).len(), 1);
     }
 
     #[test]
@@ -876,7 +920,7 @@ mod tests {
                 line(&[(0.0, 1.5), (20.0, 1.5)]),
             ),
         ];
-        assert_eq!(pair_wall_edges(&features, SPRINT), features);
+        assert_eq!(pair_wall_edges(&features, SPRINT, MIN), features);
         // The same two codes, one of them drawn the other way round, face each other.
         let features = vec![
             wall(
@@ -892,7 +936,7 @@ mod tests {
                 line(&[(20.0, 1.5), (0.0, 1.5)]),
             ),
         ];
-        assert_eq!(centres(&pair_wall_edges(&features, SPRINT)).len(), 1);
+        assert_eq!(centres(&pair_wall_edges(&features, SPRINT, MIN)).len(), 1);
     }
 
     #[test]
@@ -912,7 +956,7 @@ mod tests {
                 line(&[(0.0, 0.3), (8.66, 5.3)]),
             ),
         ];
-        assert_eq!(pair_wall_edges(&features, SPRINT), features);
+        assert_eq!(pair_wall_edges(&features, SPRINT, MIN), features);
     }
 
     #[test]
@@ -937,7 +981,7 @@ mod tests {
                 line(&[(11.0, 1.0), (20.0, 1.0)]),
             ),
         ];
-        let found = pair_wall_edges(&features, SPRINT);
+        let found = pair_wall_edges(&features, SPRINT, MIN);
         let built = centres(&found);
         assert_eq!(built.len(), 2, "{found:?}");
         let (a, b) = (points(built[0]), points(built[1]));
@@ -974,7 +1018,7 @@ mod tests {
                 line(&[(5.0, 1.0), (25.0, 1.0)]),
             ),
         ];
-        let found = pair_wall_edges(&features, SPRINT);
+        let found = pair_wall_edges(&features, SPRINT, MIN);
         assert_eq!(found.len(), 3, "{found:?}");
         let r = points(&found[0]);
         assert!(
@@ -1027,7 +1071,7 @@ mod tests {
                 line(&[(1.0, 1.0), (1.0, 20.0)]),
             ),
         ];
-        let found = pair_wall_edges(&features, SPRINT);
+        let found = pair_wall_edges(&features, SPRINT, MIN);
         let built = centres(&found);
         assert_eq!(built.len(), 2, "{found:?}");
         let ends: Vec<(f64, f64)> = built
@@ -1053,7 +1097,7 @@ mod tests {
             wall("outer", RIGHT_EDGE, "2015-03-01", square(0.0, 10.0)),
             wall("inner", LEFT_EDGE, "2015-03-01", square(1.0, 9.0)),
         ];
-        let found = pair_wall_edges(&features, SPRINT);
+        let found = pair_wall_edges(&features, SPRINT, MIN);
         assert_eq!(found.len(), 1, "{found:?}");
         let p = points(&found[0]);
         assert_eq!(p.first(), p.last());
@@ -1073,7 +1117,7 @@ mod tests {
             serde_json::json!({"type": "Polygon", "coordinates": [points]})
         };
         for cw in [false, true] {
-            let found = pair_wall_edges(&[wall("w", WALL, "2015-03-01", ring(cw))], SPRINT);
+            let found = pair_wall_edges(&[wall("w", WALL, "2015-03-01", ring(cw))], SPRINT, MIN);
             let built = centres(&found);
             assert_eq!(built.len(), 1, "{found:?}");
             let p = points(built[0]);
@@ -1110,7 +1154,74 @@ mod tests {
                 serde_json::json!({"type": "Polygon", "coordinates": [points]}),
             )
         };
-        assert_eq!(pair_wall_edges(std::slice::from_ref(&wide), SPRINT), [wide]);
+        assert_eq!(
+            pair_wall_edges(std::slice::from_ref(&wide), SPRINT, MIN),
+            [wide]
+        );
+    }
+
+    #[test]
+    fn an_edge_pairs_only_with_an_edge_that_pairs_back() {
+        // Sanssouci, DEBBAL540001vq48/49/4a: a wall 1.4 m thick between x = 0.5 and 1.9 (its
+        // right edge `a` runs south with the wall on its left, its left edge `b` runs south
+        // with the wall on its right), and 0.5 m west of it another right edge `c`. `c` faces
+        // `b`, but `b` pairs with `a`, the nearer one: one centre line, `c` stays.
+        let features = vec![
+            wall(
+                "c",
+                RIGHT_EDGE,
+                "2015-03-01",
+                line(&[(0.0, 10.0), (0.0, -10.0)]),
+            ),
+            wall(
+                "b",
+                LEFT_EDGE,
+                "2015-03-01",
+                line(&[(1.9, 5.0), (1.9, 0.0)]),
+            ),
+            wall(
+                "a",
+                RIGHT_EDGE,
+                "2015-03-01",
+                line(&[(0.5, 5.0), (0.5, 0.0)]),
+            ),
+        ];
+        let found = pair_wall_edges(&features, SPRINT, MIN);
+        let built = centres(&found);
+        assert_eq!(built.len(), 1, "{found:?}");
+        assert!(
+            points(built[0]).iter().all(|p| (p.0 - 1.2).abs() < 0.05),
+            "{found:?}"
+        );
+        assert_eq!(found[0], features[0]);
+    }
+
+    #[test]
+    fn small_round_wall_stays_as_stored() {
+        // A round pedestal 2 m across, drawn clockwise as a left edge: the wall is inside.
+        // Its centre would be a point, so the ring stays; it prints as a dot.
+        let mut ring: Vec<(f64, f64)> = (0..16)
+            .map(|k| {
+                let a = -std::f64::consts::TAU * f64::from(k) / 16.0;
+                (a.cos(), a.sin())
+            })
+            .collect();
+        ring.push(ring[0]);
+        let features = vec![wall("p", LEFT_EDGE, "2015-03-01", line(&ring))];
+        assert_eq!(pair_wall_edges(&features, SPRINT, MIN), features);
+        // A wall area 3 m long stays its outline too.
+        let r = [(0.0, 0.0), (3.0, 0.0), (3.0, 0.6), (0.0, 0.6), (0.0, 0.0)];
+        let points: Vec<[f64; 2]> = r.iter().map(|(x, y)| [AT.0 + x, AT.1 + y]).collect();
+        let short = wall(
+            "w",
+            WALL,
+            "2015-03-01",
+            serde_json::json!({"type": "Polygon", "coordinates": [points]}),
+        );
+        assert_eq!(
+            pair_wall_edges(std::slice::from_ref(&short), SPRINT, MIN),
+            [short]
+        );
     }
 
     #[test]
@@ -1122,7 +1233,7 @@ mod tests {
             "2015-03-01",
             line(&[(0.0, 0.5), (20.0, 0.5)]),
         ));
-        let found = pair_wall_edges(&features, SPRINT);
+        let found = pair_wall_edges(&features, SPRINT, MIN);
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0]["properties"]["oid"], "m");
         assert_eq!(found[0]["properties"][CODE], CENTRE);
@@ -1149,6 +1260,6 @@ mod tests {
                 line(&[(0.0, 30.0), (20.0, 30.0)]),
             ),
         ];
-        assert_eq!(pair_wall_edges(&features, SPRINT), features);
+        assert_eq!(pair_wall_edges(&features, SPRINT, MIN), features);
     }
 }

@@ -16,7 +16,7 @@ const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidat
 const STATE_RULES: &str = include_str!("../../../../assets/rules/state-candidates.toml");
 const BERLIN_RULES: &str = include_str!("../../../../assets/rules/berlin-candidates.toml");
 /// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
-const MIN_LINE_MM: f64 = 1.0;
+pub(crate) const MIN_LINE_MM: f64 = 1.0;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid candidate rules: {0}")]
