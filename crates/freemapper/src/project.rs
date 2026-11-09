@@ -4307,8 +4307,10 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre_candidates =
         drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
-    // The point symbols keep the norm's gap, dense tree groups become 402, 405 or 501.3, and no
-    // point stands in a 520 area (`build/points.rs`). The OSM candidates stay before the others.
+    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving and 402
+    // or 405 on open land (the 401 green strips of the paved build, the OSM pitches among the
+    // candidates), and no point stands in a 520 area (`build/points.rs`). The OSM candidates
+    // stay before the others.
     let out_of_bounds =
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
     let mut points = osm_candidates;
@@ -4318,6 +4320,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         osm_objects(Target::Map)?,
         &out_of_bounds,
         &paved.map,
+        &paved.candidates,
         &footprints,
         &water.union,
         &clip,
@@ -11100,7 +11103,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .unwrap()
                 .1 = date;
         }
-        let found = f.run(trees, vec![], &[], &[], &[]);
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
         assert!(ids(&found.candidates).is_empty());
         assert_eq!(found.areas.len(), 1);
         let tags: Vec<(&str, &str)> = found.areas[0]

@@ -98,6 +98,13 @@ const CROWN_SEGMENTS: usize = 32;
 const SIMPLIFY_MM: f64 = 0.1;
 /// A group region with at least this share on a drawn paved area is 501.3.
 const PAVED_SHARE: f64 = 0.5;
+/// Off paving, a group region becomes an area (405 or 402) only with at least this share on
+/// open land ([`OPEN_LAND_CODES`]): on the white base a 405 is invisible and a 402 claims open
+/// land the map does not know, so elsewhere the trees stay points and are thinned.
+const OPEN_LAND_SHARE: f64 = 0.5;
+/// ISSprOM open land: 401 open land, 402 with scattered trees, 403 rough open land, 404 with
+/// scattered trees.
+const OPEN_LAND_CODES: [&str; 4] = ["401", "402", "403", "404"];
 /// A cluster whose trees lie in a corridor narrower than this many symbol sizes (the mean of
 /// its trees) is a row ...
 const ROW_WIDTH_SIZES: f64 = 2.0;
@@ -327,6 +334,8 @@ struct GroupContext<'a> {
     obstacles: Indexed,
     /// The drawn paved areas in the map's CRS.
     paved: Indexed,
+    /// The open land (401 to 404) among the map objects and candidates in the map's CRS.
+    open_land: Indexed,
     clip: Polygon<f64>,
     kind: MapKind,
     georef: &'a Georeferencing,
@@ -334,9 +343,10 @@ struct GroupContext<'a> {
 }
 
 /// The group areas of the trees `cluster` (indices into `spots`) and the trees they take in: the
-/// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving, 405 when the crowns cover at
-/// least [`FOREST_COVER`], else 402, cut at the clip window, the 520 areas, the buildings and
-/// the water. Each part is opened by half the symbol's minimum width, which leaves out what is
+/// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving; else, only on open land
+/// ([`OPEN_LAND_SHARE`]), 405 when the crowns cover at least [`FOREST_COVER`] and 402 when not;
+/// elsewhere none. The shares are measured on the closed crowns before the cuts. The area is
+/// cut at the clip window, the 520 areas, the buildings and the water. Each part is opened by half the symbol's minimum width, which leaves out what is
 /// narrower (the norm's minimum width is that of the narrowest part); pieces below the minimum
 /// area are left out. A tree is merged when its centre lies in the part and its crown meets a
 /// kept piece.
@@ -372,10 +382,18 @@ fn group_areas(
         .unsigned_area();
     let symbol = if paved >= PAVED_SHARE * region_area {
         &PAVED_WITH_TREES
-    } else if cover >= FOREST_COVER {
-        &FOREST
     } else {
-        &SCATTERED_TREES
+        let open = region
+            .intersection(&context.open_land.union_near(bounds))
+            .unsigned_area();
+        if open < OPEN_LAND_SHARE * region_area {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        if cover >= FOREST_COVER {
+            &FOREST
+        } else {
+            &SCATTERED_TREES
+        }
     };
     let Some(symbol_id) = context.symbol_set.id_for_code(symbol.code) else {
         return Ok((Vec::new(), Vec::new()));
@@ -531,14 +549,15 @@ fn tree_clusters(spots: &[Spot], trees: &[usize], gap: f64) -> Vec<Vec<usize>> {
 ///    in a 520 candidate (`out_of_bounds`, or one among `candidates`) stays a candidate tagged
 ///    [`HIDDEN_KEY`]` = 520` and takes no part in the rest: the training map leaves it out;
 /// 2. at least [`GROUP_MIN_TREES`] candidate trees that keep less than the minimum gap from one
-///    another, and are no row ([`is_row`]), become a group area (`group_areas`) where it reaches
-///    the symbol's minimum;
+///    another, and are no row ([`is_row`]), become a group area (`group_areas`) on paving or
+///    open land, where it reaches the symbol's minimum;
 /// 3. every other point keeps [`POINT_GAP_MM`] (× the enlargement) between the outer edges of
 ///    the symbols ([`point_size_mm`]); the smaller of two points goes ([`larger_first`]), and
 ///    the kept one names it in `freemapper:generalized` (a map point names no candidate). A
 ///    candidate never drops a map point.
 ///
-/// `paved` are the drawn paved areas, `footprints` the 521 buildings and `water_union` the
+/// `paved` are the drawn paved areas, `open_land` more areas that may be open land (401 to 404
+/// count, as among `candidates` and `map`), `footprints` the 521 buildings and `water_union` the
 /// drawn water in the map's CRS; `clip` is the map area plus buffer. Returns the kept candidates
 /// and map objects in their order and the new group areas.
 #[allow(clippy::too_many_arguments)]
@@ -547,6 +566,7 @@ pub fn generalize_points(
     map: Vec<MapObject>,
     out_of_bounds: &[MapObject],
     paved: &[MapObject],
+    open_land: &[MapObject],
     footprints: &[Polygon<f64>],
     water_union: &MultiPolygon<f64>,
     clip: &BoundingBox,
@@ -669,6 +689,18 @@ pub fn generalize_points(
             .collect();
         obstacles.extend(footprints.iter().cloned());
         obstacles.extend(water_union.0.iter().cloned());
+        let open_ids: Vec<u32> = OPEN_LAND_CODES
+            .iter()
+            .filter_map(|code| symbol_set.id_for_code(code))
+            .collect();
+        let open_land: Vec<Polygon<f64>> = open_land
+            .iter()
+            .chain(&candidates)
+            .chain(&map)
+            .filter(|o| open_ids.contains(&o.symbol_id))
+            .filter_map(object_polygon)
+            .map(|p| projected(&p, georef))
+            .collect();
         let context = GroupContext {
             obstacles: Indexed::new(obstacles, GRID_CELL_M),
             paved: Indexed::new(
@@ -679,6 +711,7 @@ pub fn generalize_points(
                     .collect(),
                 GRID_CELL_M,
             ),
+            open_land: Indexed::new(open_land, GRID_CELL_M),
             clip: Rect::new(
                 Coord {
                     x: clip.min_e,
@@ -941,7 +974,7 @@ pub(crate) mod test_support {
             Polygon::new(ring.into(), vec![])
         }
 
-        /// [`generalize_points`] with these inputs, no water.
+        /// [`generalize_points`] with these inputs, no water and no other open land.
         pub(crate) fn run(
             &self,
             candidates: Vec<MapObject>,
@@ -950,11 +983,39 @@ pub(crate) mod test_support {
             paved: &[MapObject],
             footprints: &[Polygon<f64>],
         ) -> GeneralizedPoints {
+            self.run_with(candidates, map, out_of_bounds, paved, &[], footprints)
+        }
+
+        /// [`Fixture::run`] on open land: a 401 candidate of 400 × 400 m round the reference
+        /// point among the other open land.
+        pub(crate) fn run_open(
+            &self,
+            candidates: Vec<MapObject>,
+            map: Vec<MapObject>,
+            out_of_bounds: &[MapObject],
+            paved: &[MapObject],
+            footprints: &[Polygon<f64>],
+        ) -> GeneralizedPoints {
+            let land = self.rect("401", (-200.0, -200.0), (400.0, 400.0));
+            self.run_with(candidates, map, out_of_bounds, paved, &[land], footprints)
+        }
+
+        /// [`generalize_points`] with these inputs and `open_land`, no water.
+        pub(crate) fn run_with(
+            &self,
+            candidates: Vec<MapObject>,
+            map: Vec<MapObject>,
+            out_of_bounds: &[MapObject],
+            paved: &[MapObject],
+            open_land: &[MapObject],
+            footprints: &[Polygon<f64>],
+        ) -> GeneralizedPoints {
             generalize_points(
                 candidates,
                 map,
                 out_of_bounds,
                 paved,
+                open_land,
                 footprints,
                 &MultiPolygon(Vec::new()),
                 &self.clip,
@@ -1192,7 +1253,7 @@ mod tests {
             .find(|(k, _)| k == "freemapper:currency")
             .unwrap()
             .1 = "2019-05-01".to_string();
-        let found = f.run(trees, vec![], &[], &[], &[]);
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
         assert!(found.candidates.is_empty());
         assert_eq!(found.areas.len(), 1);
         let area = &found.areas[0];
@@ -1216,9 +1277,47 @@ mod tests {
     }
 
     #[test]
+    fn park_group_on_white_background_stays_points() {
+        let f = fixture(MapKind::Sprint);
+        // The dense group of `dense_group_becomes_forest_area` without open land under it: a
+        // 405 would be white on white, so the trees are thinned instead.
+        let found = f.run(f.grid(REGISTER, (3, 3), 3.5, 6.0), vec![], &[], &[], &[]);
+        assert!(found.areas.is_empty(), "{:?}", found.areas);
+        assert!(!found.candidates.is_empty());
+        assert!(found.candidates.len() < 9);
+        // The same for a sparse group (402).
+        let found = f.run(f.grid(REGISTER, (5, 4), 3.5, 2.0), vec![], &[], &[], &[]);
+        assert!(found.areas.is_empty(), "{:?}", found.areas);
+    }
+
+    #[test]
+    fn group_on_a_pitch_becomes_area() {
+        let f = fixture(MapKind::Sprint);
+        let pitch = || f.rect("401", (-10.0, -10.0), (40.0, 40.0));
+        // An OSM grass pitch among the candidates.
+        let mut candidates = vec![pitch()];
+        candidates.extend(f.grid(REGISTER, (3, 3), 3.5, 6.0));
+        let found = f.run(candidates, vec![], &[], &[], &[]);
+        assert_eq!(found.areas.len(), 1);
+        assert_eq!(found.areas[0].symbol_id, f.id("405"));
+        assert_eq!(found.candidates, [pitch()]);
+        // A green strip of the paved build, and a 401 map object.
+        let trees = || f.grid(REGISTER, (5, 4), 3.5, 2.0);
+        let found = f.run_with(trees(), vec![], &[], &[], &[pitch()], &[]);
+        assert_eq!(found.areas.len(), 1);
+        assert_eq!(found.areas[0].symbol_id, f.id("402"));
+        let found = f.run(trees(), vec![pitch()], &[], &[], &[]);
+        assert_eq!(found.areas.len(), 1);
+        // Less than half of the closed crowns on open land: points.
+        let strip = f.rect("401", (-10.0, -10.0), (40.0, 13.0));
+        let found = f.run_with(trees(), vec![], &[], &[], &[strip], &[]);
+        assert!(found.areas.is_empty(), "{:?}", found.areas);
+    }
+
+    #[test]
     fn sparse_group_becomes_scattered_trees_area() {
         let f = fixture(MapKind::Sprint);
-        let found = f.run(f.grid(REGISTER, (5, 4), 3.5, 2.0), vec![], &[], &[], &[]);
+        let found = f.run_open(f.grid(REGISTER, (5, 4), 3.5, 2.0), vec![], &[], &[], &[]);
         assert!(found.candidates.is_empty());
         assert_eq!(found.areas.len(), 1);
         let area = &found.areas[0];
@@ -1248,7 +1347,7 @@ mod tests {
         let f = fixture(MapKind::Sprint);
         let mut trees = f.grid(REGISTER, (5, 4), 3.5, 2.0);
         trees.push(f.tree("417", REGISTER, "large", (5.25, 5.25), Some(3.0)));
-        let found = f.run(trees, vec![], &[], &[], &[]);
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
         assert_eq!(found.areas[0].symbol_id, f.id("402"));
         assert_eq!(ids(&found.candidates), ["large"]);
@@ -1268,7 +1367,7 @@ mod tests {
     fn group_area_below_minimum_is_dropped() {
         let f = fixture(MapKind::Sprint);
         let h = 3.0 * 3f64.sqrt() / 2.0;
-        let found = f.run(
+        let found = f.run_open(
             vec![
                 f.tree("418", REGISTER, "a", (0.0, 0.0), Some(1.0)),
                 f.tree("418", REGISTER, "b", (3.0, 0.0), Some(1.0)),
@@ -1291,7 +1390,7 @@ mod tests {
         let trees = f.grid(REGISTER, (5, 5), 3.5, 6.0);
         let building = f.projected_rect((9.0, -5.0), (20.0, 30.0));
         let fence = f.rect("520", (-10.0, 9.0), (12.0, 20.0));
-        let found = f.run(
+        let found = f.run_open(
             trees,
             vec![],
             std::slice::from_ref(&fence),
@@ -1489,7 +1588,7 @@ mod tests {
             })
             .collect();
         trees.extend(block);
-        let found = f.run(trees, vec![], &[], &[], &[]);
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
         assert_eq!(found.areas[0].symbol_id, f.id("405"));
         assert!(
@@ -1516,7 +1615,7 @@ mod tests {
                 Some(2.0),
             )
         }));
-        let found = f.run(trees, vec![], &[], &[], &[]);
+        let found = f.run_open(trees, vec![], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
         let area = &found.areas[0];
         assert_eq!(area.symbol_id, f.id("402"));
