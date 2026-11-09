@@ -426,7 +426,9 @@ MultiLineString becomes a line, and a polygon becomes its exterior as a closed l
 numbers. Height decides nothing: the ALKIS name picks the symbol, the same symbols as the OSM rules.
 - *walls and fences:* `bezbwf` `Mauer`, `Mauerkante*`, `Mauermitte` → 515 (a wall with edges and a centre line
   keeps all its 515 lines; the mapper deletes the extras); `Stützmauer*` → 513.2; `Zaun` → 518; vegetation
-  `Heckenkante*` → 410.1;
+  `Heckenkante*` → 410.1. An OSM 515/513.2/518/410.1 candidate with at least 80 % of its length within 1.5 m of a
+  Berlin line with the same symbol is dropped; the ALKIS object records it as `freemapper:also=osm/way/…`
+  (ADR 0047);
 - *stairs:* `Treppe`/`Freitreppe` areas in `build/stairs.rs` (not in the rules) become a two-point 532.x line along
   the walking direction. The oriented minimum rectangle gives two axes; the midpoints of its sides are sampled
   bilinearly in the DTM (map CRS: `data/dgm1.tif` when it covers the area, else `data/terrain.tif`). The axis with

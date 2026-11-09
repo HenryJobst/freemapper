@@ -10,7 +10,7 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_osm_trees_near_cadastre,
+    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -3456,8 +3456,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             &symbol_set,
         ))
     };
-    // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree.
-    let berlin_candidates = stored_berlin_objects(
+    // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree. ALKIS
+    // surveyed the fences, walls and hedges: an OSM line along one with its symbol is the same.
+    let mut berlin_candidates = stored_berlin_objects(
         &project,
         &berlin_layers,
         stored_buildings.as_ref(),
@@ -3468,6 +3469,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let osm_candidates = drop_osm_trees_near_cadastre(
         osm_objects(Target::Candidates)?,
         &berlin_candidates,
+        georef.scale_denominator,
+    );
+    let osm_candidates = drop_osm_lines_near_alkis(
+        osm_candidates,
+        &mut berlin_candidates,
+        &symbol_set,
         georef.scale_denominator,
     );
     let candidates = MapDocument {
@@ -8721,6 +8728,72 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dx, dy) = (f64::from(b.x - a.x), f64::from(b.y - a.y));
         assert!(dx.abs() < 0.2 * dy.abs(), "{a:?} → {b:?}");
         assert!((dx.hypot(dy) - 600.0).abs() < 10.0, "{a:?} → {b:?}");
+    }
+
+    #[test]
+    fn osm_fence_along_an_alkis_fence_is_dropped_in_the_export() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        let (e, n) = (392_760.0, 5_820_835.0);
+        let layer = serde_json::json!({"type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "bauwerkelinien.Z",
+            "geometry": {"type": "LineString", "coordinates": [[e, n], [e + 30.0, n]]},
+            "properties": {"uuid": "DEBE00ZAUN", "bezbwf": "Zaun"}}]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-linien.geojson"),
+            layer.to_string(),
+        )
+        .unwrap();
+        // OSM has the same fence 1 m off, and another one 10 m away.
+        let fence = |id: &str, dn: f64| {
+            let p = |de: f64| {
+                crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                    easting: e + de,
+                    northing: n + dn,
+                })
+                .unwrap()
+            };
+            OsmFeature {
+                id: id.to_string(),
+                tags: vec![("barrier".to_string(), "fence".to_string())],
+                geometry: crate::sources::osm::OsmGeometry::Line(vec![p(0.0), p(30.0)]),
+            }
+        };
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[fence("way/1", 1.0), fence("way/2", 10.0)]),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let objects: Vec<&MapObject> = documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .collect();
+        let osm_ids: Vec<_> = objects
+            .iter()
+            .filter(|o| tag(o, "freemapper:source").as_deref() == Some("osm"))
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .collect();
+        assert_eq!(osm_ids, ["way/2"]);
+        let alkis = objects
+            .iter()
+            .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00ZAUN"))
+            .expect("the ALKIS fence");
+        assert_eq!(tag(alkis, "freemapper:also").as_deref(), Some("osm/way/1"));
     }
 
     #[test]

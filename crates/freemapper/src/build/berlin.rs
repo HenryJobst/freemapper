@@ -6,6 +6,8 @@
 //! rule an OSM tag. The building parts are parsed from the stored buildings in one place
 //! ([`building_part_features`]).
 
+use std::collections::HashMap;
+
 use chrono::NaiveDate;
 use geo::{BoundingRect as _, Centroid as _};
 use serde_json::Value;
@@ -24,6 +26,14 @@ pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 const LARGE_MONUMENT_M: f64 = 3.0;
 /// An OSM `natural=tree` this close to a cadastre tree is the same tree and is dropped.
 const TREE_DEDUP_M: f64 = 2.0;
+/// An OSM line candidate with at least this share of its length within [`LINE_DEDUP_M`] of an
+/// ALKIS line with the same symbol is the same object and is dropped.
+const LINE_DEDUP_SHARE: f64 = 0.8;
+const LINE_DEDUP_M: f64 = 1.5;
+/// The OSM line is measured in pieces of at most this length (ground metres).
+const LINE_DEDUP_STEP_M: f64 = 0.5;
+/// Fence, wall, retaining wall and hedge: the line symbols both sources give.
+const LINE_DEDUP_CODES: [&str; 4] = ["515", "513.2", "518", "410.1"];
 /// The tree cadastre layers.
 const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
 /// The CRS of all Geoportal Berlin layers.
@@ -327,6 +337,148 @@ pub fn berlin_objects(
         )?);
     }
     Ok(objects)
+}
+
+/// Drops the OSM fence, wall, retaining wall and hedge candidates (515, 513.2, 518, 410.1) with
+/// at least [`LINE_DEDUP_SHARE`] of their length within [`LINE_DEDUP_M`] of a Berlin (ALKIS)
+/// line candidate with the same symbol: the cadastre surveyed them, so ALKIS wins, as for trees.
+/// The ALKIS object nearest to most of the dropped line names it in `freemapper:also`
+/// (`osm/way/…`, several joined by `; `), so a difference in currency stays visible.
+pub fn drop_osm_lines_near_alkis(
+    osm: Vec<MapObject>,
+    berlin: &mut [MapObject],
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let codes: Vec<u32> = LINE_DEDUP_CODES
+        .iter()
+        .filter_map(|c| symbol_set.id_for_code(c))
+        .collect();
+    let line = |o: &MapObject| {
+        matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
+    };
+    let from_berlin = |o: &MapObject| {
+        o.tags
+            .iter()
+            .any(|(k, v)| k == "freemapper:source" && v.starts_with("geoportal-berlin/"))
+    };
+    let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
+    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
+    let metre = 1e6 / f64::from(scale_denominator);
+    let limit = LINE_DEDUP_M * metre;
+    let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
+    // The ALKIS segments by symbol, in a grid of `limit`-sized cells along each segment.
+    type Segment = (usize, (f64, f64), (f64, f64));
+    let mut segments: Vec<(u32, Segment)> = Vec::new();
+    let mut grid: HashMap<(u32, i64, i64), Vec<usize>> = HashMap::new();
+    for (index, object) in berlin.iter().enumerate() {
+        if !(line(object) && from_berlin(object)) {
+            continue;
+        }
+        for pair in object.coords.windows(2) {
+            let (a, b) = (xy(&pair[0]), xy(&pair[1]));
+            let id = segments.len();
+            segments.push((object.symbol_id, (index, a, b)));
+            let steps = ((b.0 - a.0).hypot(b.1 - a.1) / (limit / 2.0))
+                .ceil()
+                .max(1.0) as usize;
+            let mut cells: Vec<(i64, i64)> = (0..=steps)
+                .map(|i| {
+                    let t = i as f64 / steps as f64;
+                    cell((a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1)))
+                })
+                .collect();
+            cells.dedup();
+            for (cx, cy) in cells {
+                let list = grid.entry((object.symbol_id, cx, cy)).or_default();
+                if list.last() != Some(&id) {
+                    list.push(id);
+                }
+            }
+        }
+    }
+    if segments.is_empty() {
+        return osm;
+    }
+    let distance = |p: (f64, f64), a: (f64, f64), b: (f64, f64)| {
+        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+        let length2 = dx * dx + dy * dy;
+        let t = if length2 > 0.0 {
+            (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
+    };
+    // The ALKIS object nearest to `p` within `limit`, among the segments with `symbol`. A segment
+    // within `limit` of `p` has a sample cell within two cells of `p`'s.
+    let nearest = |symbol: u32, p: (f64, f64)| -> Option<usize> {
+        let (cx, cy) = cell(p);
+        let mut best: Option<(f64, usize)> = None;
+        for i in cx - 2..=cx + 2 {
+            for j in cy - 2..=cy + 2 {
+                for &id in grid.get(&(symbol, i, j)).into_iter().flatten() {
+                    let (_, (index, a, b)) = segments[id];
+                    let d = distance(p, a, b);
+                    if d <= limit && best.is_none_or(|(e, _)| d < e) {
+                        best = Some((d, index));
+                    }
+                }
+            }
+        }
+        best.map(|(_, index)| index)
+    };
+    let step = LINE_DEDUP_STEP_M * metre;
+    let mut kept = Vec::with_capacity(osm.len());
+    for object in osm {
+        if !line(&object) {
+            kept.push(object);
+            continue;
+        }
+        // Length near each ALKIS object, from the middle of pieces at most `step` long.
+        let mut near: HashMap<usize, f64> = HashMap::new();
+        let mut total = 0.0;
+        for pair in object.coords.windows(2) {
+            let (a, b) = (xy(&pair[0]), xy(&pair[1]));
+            let length = (b.0 - a.0).hypot(b.1 - a.1);
+            let pieces = (length / step).ceil().max(1.0) as usize;
+            let piece = length / pieces as f64;
+            total += length;
+            for i in 0..pieces {
+                let t = (i as f64 + 0.5) / pieces as f64;
+                let p = (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1));
+                if let Some(index) = nearest(object.symbol_id, p) {
+                    *near.entry(index).or_default() += piece;
+                }
+            }
+        }
+        let covered: f64 = near.values().sum();
+        if total <= 0.0 || covered < LINE_DEDUP_SHARE * total {
+            kept.push(object);
+            continue;
+        }
+        let winner = near
+            .into_iter()
+            .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
+            .map(|(index, _)| index)
+            .expect("some length is near");
+        let id = object
+            .tags
+            .iter()
+            .find(|(k, _)| k == "freemapper:source_id")
+            .map_or_else(String::new, |(_, v)| v.clone());
+        let also = format!("osm/{id}");
+        let tags = &mut berlin[winner].tags;
+        match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
+            Some((_, v)) if !v.split("; ").any(|x| x == also) => {
+                v.push_str("; ");
+                v.push_str(&also);
+            }
+            Some(_) => {}
+            None => tags.push(("freemapper:also".to_string(), also)),
+        }
+    }
+    kept
 }
 
 /// Drops the OSM `natural=tree` candidates within [`TREE_DEDUP_M`] of a cadastre tree (a point
@@ -819,6 +971,92 @@ mod tests {
         // Without cadastre trees every OSM tree stays.
         assert_eq!(
             drop_osm_trees_near_cadastre(vec![tree(0.0, 0.0)], &[], georef.scale_denominator).len(),
+            1
+        );
+    }
+
+    #[test]
+    fn osm_line_along_an_alkis_line_is_dropped() {
+        let kind = MapKind::Sprint;
+        let (georef, _, set) = setup(kind);
+        let (e, n) = (392_400.0, 5_820_400.0);
+        // An ALKIS fence 50 m east from (e, n) and an ALKIS wall 20 m north of it.
+        let collection = serde_json::json!({"type": "FeatureCollection", "features": [
+            {"type": "Feature", "id": "bauwerkelinien.Z",
+             "geometry": {"type": "LineString", "coordinates": [[e, n], [e + 50.0, n]]},
+             "properties": {"uuid": "DEBE00ZAUN", "bezbwf": "Zaun"}},
+            {"type": "Feature", "id": "bauwerkelinien.M",
+             "geometry": {"type": "LineString", "coordinates": [[e, n + 20.0], [e + 50.0, n + 20.0]]},
+             "properties": {"uuid": "DEBE00MAUER", "bezbwf": "Mauer"}}
+        ]})
+        .to_string();
+        let mut alkis = objects("bauwerke-linien", &collection, kind);
+        assert_eq!(alkis.len(), 2);
+        let at = |de: f64, dn: f64| {
+            georef
+                .projected_to_map(ProjectedPoint {
+                    easting: e + de,
+                    northing: n + dn,
+                })
+                .unwrap()
+        };
+        let osm = |id: &str, code: &str, from: (f64, f64), to: (f64, f64)| MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Path,
+            coords: vec![at(from.0, from.1), at(to.0, to.1)],
+            tags: vec![
+                ("freemapper:source".into(), "osm".into()),
+                ("freemapper:source_id".into(), id.into()),
+            ],
+        };
+        let candidates = vec![
+            // 1 m beside the ALKIS fence along all of it: the same fence.
+            osm("way/1", "518", (0.0, 1.0), (50.0, 1.0)),
+            // Beside it for 40 of 60 m (67 %): kept.
+            osm("way/2", "518", (10.0, -1.0), (70.0, -1.0)),
+            // 2 m away: another fence.
+            osm("way/3", "518", (0.0, 2.0), (50.0, 2.0)),
+            // A wall along the ALKIS fence: another symbol, kept.
+            osm("way/4", "515", (0.0, 0.5), (50.0, 0.5)),
+            // A wall 0.5 m beside the ALKIS wall, 40 m of its 50 m: the same wall.
+            osm("way/5", "515", (5.0, 20.5), (45.0, 20.5)),
+            // 85 % beside the ALKIS fence (the last 6 m of 40 m turn away): the same fence.
+            MapObject {
+                coords: vec![at(10.0, 1.0), at(44.0, 1.0), at(44.0, 7.0)],
+                ..osm("way/6", "518", (0.0, 0.0), (0.0, 0.0))
+            },
+        ];
+        let tree = MapObject {
+            symbol_id: set.id_for_code("418").unwrap(),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![at(1.0, 0.5)],
+            tags: vec![("freemapper:source_id".into(), "node/7".into())],
+        };
+        let mut all = candidates;
+        all.push(tree);
+        let kept = drop_osm_lines_near_alkis(all, &mut alkis, &set, georef.scale_denominator);
+        let id = |o: &MapObject| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == "freemapper:source_id")
+                .map(|(_, v)| v.clone())
+                .unwrap()
+        };
+        let kept: Vec<String> = kept.iter().map(id).collect();
+        assert_eq!(kept, ["way/2", "way/3", "way/4", "node/7"]);
+        // The ALKIS object that wins names the OSM ways it replaces.
+        let also = |o: &MapObject| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == "freemapper:also")
+                .map(|(_, v)| v.clone())
+        };
+        assert_eq!(also(&alkis[0]).as_deref(), Some("osm/way/1; osm/way/6"));
+        assert_eq!(also(&alkis[1]).as_deref(), Some("osm/way/5"));
+        // Without ALKIS lines every OSM line stays.
+        let lone = vec![osm("way/1", "518", (0.0, 1.0), (50.0, 1.0))];
+        assert_eq!(
+            drop_osm_lines_near_alkis(lone, &mut [], &set, georef.scale_denominator).len(),
             1
         );
     }

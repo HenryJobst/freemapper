@@ -355,6 +355,9 @@ Böschungskanten (nur für Sprintkarten), die Hecken und die Straßen- und Anlag
   ALKIS-Bezeichnung ab.
 - Bäume aus dem Baumkataster: 417 ab 10 m Kronendurchmesser, sonst 418. Steht ein OSM-Baum weniger als 2 m
   neben einem Katasterbaum, lässt freemapper den OSM-Baum weg.
+- Zäune, Mauern, Stützmauern und Hecken stehen oft in ALKIS und in OSM. Liegt eine OSM-Linie zu mindestens 80 %
+  ihrer Länge höchstens 1,5 m neben einer ALKIS-Linie mit demselben Symbol, lässt freemapper die OSM-Linie weg.
+  Die ALKIS-Linie nennt sie im Tag `freemapper:also`, z. B. `osm/way/123`.
 
 Das Treppensymbol wählt freemapper nach der Breite der Treppe auf dem Papier. Auf Sprintkarten wird eine Treppe ab
 3,5 m Breite 532.9, auf Schulhofkarten schon ab etwa 1,1 m. Fast jede Schulhoftreppe ist also 532.9. Ist eine

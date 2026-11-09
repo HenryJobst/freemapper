@@ -347,6 +347,9 @@ sprint maps only), the hedges, and the street and park trees. They are stored in
   symbol.
 - Trees from the tree cadastre: 417 for a crown of 10 m or more, otherwise 418. If an OSM tree stands less
   than 2 m from a cadastre tree, freemapper drops the OSM tree.
+- Fences, walls, retaining walls and hedges are often in both ALKIS and OSM. If at least 80 % of an OSM line
+  lies within 1.5 m of an ALKIS line with the same symbol, freemapper drops the OSM line. The ALKIS line names
+  it in the tag `freemapper:also`, e.g. `osm/way/123`.
 
 freemapper picks the stair symbol by the stair's width on paper. On sprint maps a stair 3.5 m wide or more
 becomes 532.9, on schoolyard maps one from about 1.1 m. So nearly every schoolyard stair is 532.9. A stair
