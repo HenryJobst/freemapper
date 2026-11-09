@@ -3370,7 +3370,7 @@ pub fn derive_project(
         Ok(fetched)
     };
 
-    crate::fsutil::remove_stale_parts(&dir.join("templates"), STALE_TEMPLATE_PART_AGE);
+    crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {

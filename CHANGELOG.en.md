@@ -22,6 +22,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - `run` now reports a kept map without the ALKIS canopies in every state with canopies. The message now reads `The map lacks the ALKIS canopies and carports (522) …`.
 - freemapper joins the pieces of a line with a side (earth bank 104, cliff 201, retaining wall 513.2, the right and left edges of the full ALKIS) only in their own direction and never across two sides, so the side of the ticks stays right. In the Viktoriapark two more earth bank lines stay apart (ADR 0063).
 
+### Security
+
+- Cleaning up old `.part` files in the `templates` folder no longer follows a link out of the project and deletes nothing outside it. A `.part` entry that is itself a link is skipped (ADR 0060).
+
 ## [0.6.2] - 2026-11-09
 
 ### Security

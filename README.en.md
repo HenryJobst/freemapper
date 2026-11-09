@@ -2,6 +2,10 @@
 
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
+<!-- claude-cost:start -->
+[![AI effort (Claude API): $955](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%24955-8A2BE2)](docs/ai-cost/history.csv)
+<!-- claude-cost:end -->
+
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
 georeferenced map with the reliable map objects already symbolized, plus templates for everything
@@ -13,7 +17,9 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
     [Starting point for OCAD](#starting-point-for-ocad);
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
-- Use it from the command line or through AI agents (MCP server).
+- Use it from the command line, through a page in the browser for choosing the map area (see
+  [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or through AI agents (MCP
+  server).
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
   schoolyard maps 1:1000 and sprint maps 1:4000.
@@ -32,6 +38,11 @@ development:
 - [freemapper-print](https://github.com/HenryJobst/freemapper-print) prints the map sheets, one sheet per
   course, with the course overprint and control descriptions.
 
+Code that several of these programs need lives in a shared library:
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). It is a set of small Rust crates, for
+example `freemapper-fs` for file access that never leaves the project. The programs move to these crates
+step by step, each pinned to a fixed version, instead of copying the code.
+
 ## Status
 
 The current version is [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) of
@@ -39,7 +50,8 @@ The current version is [v0.6.2](https://github.com/HenryJobst/freemapper/release
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
-2024. Each map comes with an OCAD starting point and a PDF training map. Before downloading, freemapper
+2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF training map
+(`--pdf`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
 1:5000 map as a template from further Geoportal Berlin data. They also use the street survey of 2014
 to 2016: the surveyed green strips are cut out of the street areas,
@@ -142,6 +154,11 @@ the GitHub release through `.github/workflows/release.yml`.
 
 Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git hooks: `lefthook install`.
+
+Shared code of the suite comes step by step from
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). To change it alongside freemapper,
+check freemapper-core out next to freemapper and use it during development through a local `[patch]`.
+The freemapper-core README has the details.
 
 ## Usage
 

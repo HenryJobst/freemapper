@@ -6,7 +6,7 @@ Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem fr
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
 Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --ocad`.
 
-| Land | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
+| Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
 | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 441 | 2584 | 24 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
 | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 783 | 2450 | 31 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
@@ -31,7 +31,7 @@ und keine Brunnenpunkte, denn die wären meist Fontänen in einem Becken. Wo ALK
 Straßenfläche führt, endet das Gewässer an der Brücke mit einer Uferlinie quer zum Fluss; diese Linie entfernen Sie
 in OOM.
 
-Überdachungen und Carports aus ALKIS stehen in jedem Land als 522 in der Karte, Durchfahrten und Arkaden in Gebäuden
+Überdachungen und Carports aus ALKIS stehen in jedem Bundesland als 522 in der Karte, Durchfahrten und Arkaden in Gebäuden
 als 522-Kandidaten. Lübeck hat 93 Überdachungen und 185 Durchfahrten und Arkaden, Wismar 113 Überdachungen und
 Carports. In Sachsen und Sachsen-Anhalt führt ALKIS weder Überdachungen noch Durchfahrten, die beiden Beispiele haben
 deshalb keine.
@@ -58,7 +58,7 @@ Wartehallen (522), Litfaßsäulen (531) sowie Straßenbrunnen und Zierbrunnen (3
 Befahrung auf einem OSM-Zaun, bleibt nur das Gitter und nennt den Zaun in `freemapper:also`. Von den 602 Gebäuden
 tragen 599 die Grundrissaktualität aus den Gebäudehöhen von 2022 als `freemapper:currency`.
 
-Kleingärten sind in allen Ländern Kandidaten für verbotenes Gebiet (520). In Sanssouci betrifft das eine Anlage am
+Kleingärten sind in allen Bundesländern Kandidaten für verbotenes Gebiet (520). In Sanssouci betrifft das eine Anlage am
 Nordrand, in Wismar und Herrenhausen je eine weitere Fläche.
 
 Punktsymbole dürfen sich nicht berühren. Zwischen zwei Punkten bleiben mindestens 0,15 mm frei, sonst bleibt der
@@ -99,9 +99,9 @@ unverändert. Danach öffnet sich die Karte in OOM und OCAD mit allen Vorlagen.
 
 ## Wie die Gebiete ausgewählt wurden
 
-Für jedes Land wurden fünf bis sechs Kandidaten als Sprintkarte erzeugt, darunter Parks, Schulen, Altstädte und
+Für jedes Bundesland wurden fünf bis sechs Kandidaten als Sprintkarte erzeugt, darunter Parks, Schulen, Altstädte und
 Schlossanlagen. Gezählt wurden die verschiedenen Symbole und die Objekte; die besten zwei bis drei Gebiete jedes
-Landes wurden dann an der Trainingskarte verglichen. Gewonnen haben die Gebiete, die das meiste zeigen:
+Bundeslandes wurden dann an der Trainingskarte verglichen. Gewonnen haben die Gebiete, die das meiste zeigen:
 abwechslungsreiche Bebauung, Relief und viele OSM-Kandidaten.
 
 In Niedersachsen hat der Große Garten gewonnen, obwohl die Karte nur 249 sichere Objekte hat. Seine Hecken,

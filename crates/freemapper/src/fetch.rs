@@ -1036,7 +1036,7 @@ fn fetch_tile(
         })?;
         write_cache_file(&zip, &bytes)?;
         remove_older_versions(&zip, tile)?;
-        crate::fsutil::remove_stale_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
+        crate::fsutil::remove_stale_cache_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
     }
     Ok(Some(FetchedTile {
         product,

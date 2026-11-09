@@ -79,4 +79,6 @@ Most other files already went through a partial file and a rename. The partial f
   process.
 - Each file costs one flush to the disk.
 
+The cleanup of stale `.part` files in project folders (`remove_stale_parts_inside`) checks the folder against the project root and skips link entries; only freemapper's own cache folders use the unchecked variant.
+
 Source: security hotfix after v0.6.1; branch `hotfix-final-writes`.

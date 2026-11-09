@@ -22,6 +22,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - `run` meldet eine behaltene Karte ohne die ALKIS-Überdachungen jetzt in jedem Land mit Überdachungen. Die Meldung lautet nun `The map lacks the ALKIS canopies and carports (522) …`.
 - Teilstücke einer Linie mit Seite (Böschung 104, Felswand 201, Stützmauer 513.2, die rechten und linken Kanten im vollständigen ALKIS) verbindet freemapper nur noch in ihrer eigenen Richtung und nie über zwei Seiten hinweg, damit die Seite der Striche stimmt. Im Viktoriapark bleiben dadurch zwei Böschungslinien mehr getrennt (ADR 0063).
 
+### Sicherheit
+
+- Das Aufräumen alter `.part`-Dateien im Ordner `templates` folgt keinem Link mehr aus dem Projekt hinaus und löscht keine Dateien außerhalb. Ein `.part`-Eintrag, der selbst ein Link ist, wird übersprungen (ADR 0060).
+
 ## [0.6.2] - 2026-11-09
 
 ### Sicherheit

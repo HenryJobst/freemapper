@@ -765,7 +765,7 @@ fn download_checked<T>(
     read: impl Fn(&mut BufReader<std::fs::File>) -> Result<T, String>,
 ) -> Result<T, FetchError> {
     let downloads = dir.join("downloads");
-    crate::fsutil::remove_stale_parts(&downloads, STALE_PART_AGE);
+    crate::fsutil::remove_stale_cache_parts(&downloads, STALE_PART_AGE);
     let temp = TempFile(downloads.join(format!("{}.{}.part", entry.name, std::process::id())));
     let tile = short_name(entry.tile);
     let mut attempt = 1;
