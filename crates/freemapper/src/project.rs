@@ -2552,9 +2552,16 @@ fn fetch_nas_layers_into(
         // The disk plan already said that the layers are left out; stored ones stay.
         return previous.clone();
     }
-    // Answers stream into a part file beside the layers, removed after each one.
-    let part = dir.join(NAS_LAYERS_DIR).join("answer.gml.part");
-    if !crate::fsutil::stays_inside(dir, &part) {
+    // Answers stream into a part file beside the layers with a fresh name, its folder checked
+    // right before each download (ADR 0060), removed after each one.
+    let layers_dir = dir.join(NAS_LAYERS_DIR);
+    crate::fsutil::remove_stale_parts(&layers_dir, crate::fetch::STALE_PART_AGE);
+    let part = || -> Result<PathBuf, FetchError> {
+        let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
+        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
+        Ok(part)
+    };
+    if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
         progress(&format!(
             "warning: full ALKIS layers skipped ({NAS_LAYERS_DIR} leads out of the project folder)"
         ));
@@ -10322,7 +10329,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &LGB_NAS.get_feature_url("adv:AX_SonstigesBauwerkOderSonstigeEinrichtung", &bbox),
             test_support::SONSTIGES_BAUWERK.as_bytes().to_vec(),
         );
-        // A stale part file that is a link to a file outside the project.
+        // A part file of the old fixed name that is a link to a file outside the project.
         let outside = tempfile::tempdir().unwrap();
         let victim = outside.path().join("victim.geojson");
         std::fs::write(&victim, b"secret").unwrap();
@@ -10332,7 +10339,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(std::fs::read(&victim).unwrap(), b"secret");
         assert_eq!(project.nas_layers["sonstiges-bauwerk"].count, 5);
-        assert!(std::fs::symlink_metadata(layers.join("answer.gml.part")).is_err());
+        // The downloads used fresh names of their own, removed after each answer; the link is
+        // not freemapper's and stays.
+        let parts: Vec<String> = std::fs::read_dir(&layers)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".part"))
+            .collect();
+        assert_eq!(parts, ["answer.gml.part"]);
     }
 
     #[test]
