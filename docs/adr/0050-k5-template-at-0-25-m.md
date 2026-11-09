@@ -18,7 +18,10 @@ The plan asked for 0.25 m on sprint and 0.1 m on schoolyard maps.
   6000 px (`K5_MAX_SIDE_PX`). For a 1:5000 map, 0.1 m needs six times the pixels of 0.25 m and up to about
   300 MB of memory while stitching a large area.
 - Only near Berlin and for UTM 33 maps. A failed download is a warning and never fails the fetch. The disk plan
-  treats K5 as an optional part (`Part::K5`, 1.5 MB/km² in the estimate). Offline keeps the stored file.
+  treats K5 as an optional part (`Part::K5`). Offline keeps the stored file.
+- The download estimate counts 15 MB/km² for K5 (`K5_MB_PER_KM2`). The live run of 2026-11-09 measured 9.1 MB/km²
+  around Viktoriapark and 17.4 MB/km² at the Helene-Haeusler-Schule. The plan's 1.5 MB/km² counted 6 to 11 times
+  too little.
 - The starter map lists it hidden, opacity 0.7, behind the map; the OCAD file gets it as a background map;
   `list_layers` and the preview know it as `k5`. Attribution: `Geoportal Berlin / Karte 1:5000 von Berlin (K5),
   dl-de/zero-2-0` when the template was written.
@@ -30,4 +33,4 @@ The plan asked for 0.25 m on sprint and 0.1 m on schoolyard maps.
 - Cost if wrong: a slightly softer K5 at schoolyard scale.
 
 Source: `docs/regions/berlin-plus-reference.md` (K5); catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`;
-branch `berlin-plus`, Task 4 and its fix round.
+branch `berlin-plus`, Task 4 and its fix round, the Task 5b live run.
