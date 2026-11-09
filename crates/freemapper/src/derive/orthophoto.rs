@@ -17,6 +17,7 @@ const WHITE: [u8; 3] = [255, 255, 255];
 pub fn build_orthophoto_from_image(
     jpg: &Path,
     bbox: &BoundingBox,
+    root: &Path,
     out_jpg: &Path,
 ) -> Result<(), DeriveError> {
     let read =
@@ -31,15 +32,16 @@ pub fn build_orthophoto_from_image(
             .map_err(|e| DeriveError::Image(e.to_string()))?;
     let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)?;
     if template_grid(bbox, grid.pixel_size)? == grid {
-        return write_image_with_world_file(out_jpg, &jpeg, "jgw", &grid.world_file());
+        return write_image_with_world_file(root, out_jpg, &jpeg, "jgw", &grid.world_file());
     }
-    write_mosaic(std::iter::once(decode(&jpeg, &world)), bbox, out_jpg)
+    write_mosaic(std::iter::once(decode(&jpeg, &world)), bbox, root, out_jpg)
 }
 
 /// Mosaics the orthophoto tiles over `bbox` and writes `out_jpg` plus its world file (`.jgw`).
 pub fn build_orthophoto(
     tiles: &[FetchedTile],
     bbox: &BoundingBox,
+    root: &Path,
     out_jpg: &Path,
 ) -> Result<(), DeriveError> {
     let images = tiles.iter().map(|tile| {
@@ -47,7 +49,7 @@ pub fn build_orthophoto(
         let world = read_member(&tile.zip, &tile.product.world_file_member(tile.tile))?;
         decode(&jpeg, &world)
     });
-    write_mosaic(images, bbox, out_jpg)
+    write_mosaic(images, bbox, root, out_jpg)
 }
 
 /// A JPEG and the grid its world file gives it.
@@ -67,6 +69,7 @@ fn decode(jpeg: &[u8], world: &[u8]) -> Result<(image::RgbImage, GridSpec), Deri
 fn write_mosaic(
     images: impl Iterator<Item = Result<(image::RgbImage, GridSpec), DeriveError>>,
     bbox: &BoundingBox,
+    root: &Path,
     out_jpg: &Path,
 ) -> Result<(), DeriveError> {
     let mut mosaic: Option<Raster<[u8; 3]>> = None;
@@ -89,7 +92,7 @@ fn write_mosaic(
             image::ExtendedColorType::Rgb8,
         )
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    write_image_with_world_file(out_jpg, &jpeg, "jgw", &mosaic.grid.world_file())
+    write_image_with_world_file(root, out_jpg, &jpeg, "jgw", &mosaic.grid.world_file())
 }
 
 #[cfg(test)]
@@ -133,7 +136,7 @@ mod tests {
             max_n: 5_821_990.0,
         };
         let out = dir.path().join("orthophoto.jpg");
-        build_orthophoto(&[tile], &bbox, &out).unwrap();
+        build_orthophoto(&[tile], &bbox, out.parent().unwrap(), &out).unwrap();
 
         let img = image::open(&out).unwrap().to_rgb8();
         assert_eq!(img.dimensions(), (20, 30));
@@ -164,7 +167,7 @@ mod tests {
             max_n: 5_821_990.0,
         };
         let out = dir.path().join("orthophoto.jpg");
-        build_orthophoto_from_image(&wms, &bbox, &out).unwrap();
+        build_orthophoto_from_image(&wms, &bbox, out.parent().unwrap(), &out).unwrap();
         let img = image::open(&out).unwrap().to_rgb8();
         assert_eq!(img.dimensions(), (20, 30));
         assert!(img.get_pixel(10, 15).0[0] > 245);
@@ -186,7 +189,7 @@ mod tests {
         std::fs::write(&wms, &jpeg).unwrap();
         std::fs::write(wms.with_extension("jgw"), grid.world_file()).unwrap();
         let out = dir.path().join("orthophoto.jpg");
-        build_orthophoto_from_image(&wms, &bbox, &out).unwrap();
+        build_orthophoto_from_image(&wms, &bbox, out.parent().unwrap(), &out).unwrap();
         assert_eq!(std::fs::read(&out).unwrap(), jpeg, "copied, not re-encoded");
         assert_eq!(
             std::fs::read_to_string(dir.path().join("orthophoto.jgw")).unwrap(),
@@ -254,7 +257,7 @@ mod tests {
             max_n: 5_821_600.0,
         };
         let out = dir.path().join("orthophoto.jpg");
-        build_orthophoto(&tiles, &bbox, &out).unwrap();
+        build_orthophoto(&tiles, &bbox, out.parent().unwrap(), &out).unwrap();
         let img = image::open(&out).unwrap().to_rgb8();
         assert_eq!(img.dimensions(), (20, 20));
         for x in 0..20 {
@@ -283,7 +286,8 @@ mod tests {
             max_e: 500_000.0,
             max_n: 5_800_000.0,
         };
-        let err = build_orthophoto(&[tile], &bbox, &dir.path().join("o.jpg")).unwrap_err();
+        let err =
+            build_orthophoto(&[tile], &bbox, dir.path(), &dir.path().join("o.jpg")).unwrap_err();
         assert!(matches!(err, DeriveError::AreaTooLarge { .. }), "{err:?}");
         assert!(err.to_string().contains("too large"), "{err}");
     }
@@ -297,7 +301,7 @@ mod tests {
             max_e: 1.0,
             max_n: 1.0,
         };
-        let err = build_orthophoto(&[], &bbox, &dir.path().join("o.jpg")).unwrap_err();
+        let err = build_orthophoto(&[], &bbox, dir.path(), &dir.path().join("o.jpg")).unwrap_err();
         assert!(matches!(err, DeriveError::NoTiles), "{err:?}");
     }
 }

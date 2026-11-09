@@ -146,7 +146,11 @@ pub fn slope_shade(slope: &Raster<Option<f32>>, black_deg: f32) -> Raster<Option
 }
 
 /// Writes a grey + alpha PNG (`None` transparent) and its world file (`.pgw`).
-pub fn write_gray_png(r: &Raster<Option<u8>>, out_png: &Path) -> Result<(), DeriveError> {
+pub fn write_gray_png(
+    r: &Raster<Option<u8>>,
+    root: &Path,
+    out_png: &Path,
+) -> Result<(), DeriveError> {
     let pixels: Vec<u8> = r
         .data
         .iter()
@@ -161,7 +165,7 @@ pub fn write_gray_png(r: &Raster<Option<u8>>, out_png: &Path) -> Result<(), Deri
     image
         .write_to(&mut png, image::ImageFormat::Png)
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    write_image_with_world_file(out_png, png.get_ref(), "pgw", &r.grid.world_file())
+    write_image_with_world_file(root, out_png, png.get_ref(), "pgw", &r.grid.world_file())
 }
 
 #[cfg(test)]
@@ -416,7 +420,7 @@ mod tests {
         );
         r.set(1, 0, None);
         let out = dir.path().join("hillshade.png");
-        write_gray_png(&r, &out).unwrap();
+        write_gray_png(&r, out.parent().unwrap(), &out).unwrap();
         let img = image::open(&out).unwrap().to_luma_alpha8();
         assert_eq!(img.get_pixel(0, 0).0, [10, 255]);
         assert_eq!(img.get_pixel(1, 0).0[1], 0);

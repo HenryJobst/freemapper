@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
     Cache, FetchError, FetchMode, Fetcher, STALE_PART_AGE, download_with_retries, get_with_retries,
-    write_atomically,
+    write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{
@@ -354,16 +354,20 @@ const _: () = assert!(XYZ_MAX_BYTES > XYZ_MB as u64 * 1024 * 1024);
 /// cached, under the portal's name (which carries the vintage). Tiles inside Schleswig-Holstein
 /// that the portal does not list are returned as missing; the date is the centre tile's. No
 /// tile at all is an error.
+#[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
     progress: &mut dyn FnMut(&str),
 ) -> Result<HeightModel, FetchError> {
-    fetch_model_with(fetcher, cache, mode, model, bbox, out, progress, XYZ_CELLS)
+    fetch_model_with(
+        fetcher, cache, mode, model, bbox, root, out, progress, XYZ_CELLS,
+    )
 }
 
 /// [`fetch_model`] with XYZ tiles of `xyz_cells` x `xyz_cells` points (tests use fewer).
@@ -374,6 +378,7 @@ fn fetch_model_with(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
     progress: &mut dyn FnMut(&str),
     xyz_cells: u32,
@@ -455,7 +460,7 @@ fn fetch_model_with(
             ),
         });
     }
-    write_float_raster(&raster, out, PORTAL)?;
+    write_float_raster(&raster, root, out, PORTAL)?;
     let centre = TileId {
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
@@ -521,7 +526,7 @@ fn tile_list(
     });
     match answer {
         Ok((tiles, bytes)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             Ok(tiles)
         }
         // Unreachable or unreadable (an error page, broken JSON): the list kept from an
@@ -651,7 +656,7 @@ fn dgm1_tile(
     });
     let atom_failed = match atom {
         Ok((bytes, raster)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             return Ok((raster, None));
         }
         Err(FetchError::NotFound(_)) => "is not in the INSPIRE ATOM directory".to_string(),
@@ -800,7 +805,7 @@ fn cache_raster(path: &Path, raster: &Raster<f32>, what: &str) -> Result<(), Fet
         url: PORTAL.to_string(),
         message: format!("{what}: {message}"),
     })?;
-    write_atomically(path, &bytes)
+    write_cache_file(path, &bytes)
 }
 
 /// A DGM1 XYZ of the portal: `cells` x `cells` lines `565000.50 5949999.50 29.85`, the cell
@@ -1266,6 +1271,7 @@ mod tests {
                 mode,
                 model,
                 bbox,
+                out.parent().unwrap(),
                 out,
                 &mut |m| messages.push(m.to_string()),
                 10,
@@ -1898,6 +1904,7 @@ mod tests {
                     FetchMode::Online,
                     model,
                     &SCHOOL,
+                    out.parent().unwrap(),
                     &out,
                     &mut |_| {},
                 )
@@ -2268,6 +2275,7 @@ mod tests {
                     FetchMode::Online,
                     model,
                     &bbox,
+                    out.parent().unwrap(),
                     &out,
                     &mut |m| eprintln!("{m}"),
                 )

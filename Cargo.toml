@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.6.1"
+version = "0.6.2"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/HenryJobst/freemapper"
@@ -41,6 +41,7 @@ schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
 # Test only: certificate fingerprints (already in Cargo.lock through a dependency).
+same-file = "=1.0.6"
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
@@ -49,6 +50,9 @@ tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std",
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
+# Windows only: the volume serial number of a folder (GetFileInformationByHandle) without
+# unsafe code of our own; already in Cargo.lock through same-file.
+winapi-util = "=0.1.11"
 # Lenient TIFF LZW (chunks without an end code); already in Cargo.lock through tiff.
 weezl = "0.1.12"
 world_magnetic_model = "1.2025.0"

@@ -700,7 +700,7 @@ fn refresh_extract(
             return Err(e);
         }
     };
-    std::fs::rename(&part, &path).map_err(|e| FetchError::Io(path.clone(), e))?;
+    crate::fsutil::rename_cache_file(&part, &path).map_err(|(path, e)| FetchError::Io(path, e))?;
     for older in cached_extracts(cache, source)
         .into_iter()
         .filter(|e| e.path != path)

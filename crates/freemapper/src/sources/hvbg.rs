@@ -9,7 +9,7 @@ use std::rc::Rc;
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_atomically};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::height_model::HeightModel;
@@ -637,7 +637,7 @@ fn metadata_list(
         }
     };
     // Kept only once it parsed, so a broken answer never replaces a good copy.
-    write_atomically(&file, &bytes)?;
+    write_cache_file(&file, &bytes)?;
     // Only the older lists go; whatever else lies there (another run's partial file) stays.
     for old in kept_lists(dir).into_iter().filter(|p| *p != file) {
         let _ = std::fs::remove_file(old);
@@ -862,13 +862,13 @@ impl<'a> Session<'a> {
                 let Some(url) = self.zip_url(place)? else {
                     // A cached directory is kept: the listing may lack the file only for a
                     // while, and offline runs prefer the directory over the marker.
-                    write_atomically(&no_zip, b"")?;
+                    write_cache_file(&no_zip, b"")?;
                     return Ok(None);
                 };
                 let (directory, count) = read_directory_bytes(self.fetcher, &url)?;
                 let members = parse_directory(&directory, count).map_err(|m| refused(&url, m))?;
                 // Kept only once it parsed, so a broken answer never replaces a good copy.
-                write_atomically(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
+                write_cache_file(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
                 remove(&no_zip)?;
                 Some(Zip { url, members })
             }
@@ -957,6 +957,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
     fetch_model_with(
@@ -965,6 +966,7 @@ pub fn fetch_model(
         mode,
         model,
         bbox,
+        root,
         out,
         &mut MetadataMemo::default(),
     )
@@ -972,12 +974,14 @@ pub fn fetch_model(
 
 /// [`fetch_model`] sharing the metadata list and the DGM1 product tree with other runs through
 /// `memo`.
+#[allow(clippy::too_many_arguments)]
 pub fn fetch_model_with(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
     memo: &mut MetadataMemo,
 ) -> Result<HeightModel, FetchError> {
@@ -1015,7 +1019,7 @@ pub fn fetch_model_with(
             ),
         ));
     }
-    write_float_raster(&raster, out, REST_URL)?;
+    write_float_raster(&raster, root, out, REST_URL)?;
     let centre = TileId {
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
@@ -1504,6 +1508,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -1532,6 +1537,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -1544,6 +1550,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dgm1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -1555,6 +1562,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dom1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap_err();
@@ -1585,6 +1593,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -1602,6 +1611,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap_err();
@@ -1700,6 +1710,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -1765,8 +1776,16 @@ mod tests {
         let mut rasters = Vec::new();
         for model in [Model::Dgm1, Model::Dom1] {
             let out = dir.path().join(format!("{}.tif", model.code()));
-            let fetched =
-                fetch_model(&fetcher, &cache, FetchMode::Online, model, &SCHOOL, &out).unwrap();
+            let fetched = fetch_model(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                model,
+                &SCHOOL,
+                out.parent().unwrap(),
+                &out,
+            )
+            .unwrap();
             assert_eq!(fetched.missing, []);
             assert_eq!(fetched.date.as_deref(), Some("2023-02-28"));
             rasters.push(crate::derive::terrain::read_float_raster(&out).unwrap());
@@ -1780,6 +1799,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dom1,
             &SCHOOL,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -1817,6 +1837,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap_err();
@@ -1852,6 +1873,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap_err();
@@ -1924,6 +1946,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap_err();
@@ -1986,6 +2009,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -2015,6 +2039,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -2036,6 +2061,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap_err();
@@ -2064,6 +2090,7 @@ mod tests {
                 FetchMode::Online,
                 Model::Dgm1,
                 &SCHOOL,
+                out.parent().unwrap(),
                 &out,
             )
         };
@@ -2102,6 +2129,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &SCHOOL,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -2129,6 +2157,7 @@ mod tests {
                 FetchMode::Online,
                 Model::Dgm1,
                 &SCHOOL,
+                dir.path(),
                 &dir.path().join("o.tif"),
                 &mut memo,
             )
@@ -2216,6 +2245,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -2235,6 +2265,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o2.tif"),
         )
         .unwrap();
@@ -2268,7 +2299,15 @@ mod tests {
             max_e: 446_500.0,
             max_n: 5_554_600.0,
         };
-        fetch_model(fetcher, cache, mode, Model::Dgm1, &bbox, out)
+        fetch_model(
+            fetcher,
+            cache,
+            mode,
+            Model::Dgm1,
+            &bbox,
+            out.parent().unwrap(),
+            out,
+        )
     }
 
     #[test]

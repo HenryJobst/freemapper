@@ -5,7 +5,7 @@
 use std::path::Path;
 
 use crate::fetch::{
-    ByteRange, FetchError, FetchMode, Fetcher, get_range_with_retries, write_atomically,
+    ByteRange, FetchError, FetchMode, Fetcher, get_range_with_retries, write_cache_file,
 };
 
 /// Largest central directory read (LGV's are about 100 KB).
@@ -190,7 +190,7 @@ pub(crate) fn cached_member(
         Ok(bytes) if crc32fast::hash(&bytes) == member.crc => Ok(bytes),
         _ if mode == FetchMode::Online => {
             let bytes = read_member(fetcher, url, member)?;
-            write_atomically(file, &bytes)?;
+            write_cache_file(file, &bytes)?;
             Ok(bytes)
         }
         _ => Err(offline()),

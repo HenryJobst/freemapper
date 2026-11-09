@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_atomically,
+    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{require_stored, write_float_raster};
@@ -264,7 +264,7 @@ fn tile_list(
     .and_then(|answer| answer);
     match answer {
         Ok((tiles, bytes)) => {
-            write_atomically(&path, &bytes)?;
+            write_cache_file(&path, &bytes)?;
             Ok(tiles)
         }
         Err(e) => {
@@ -348,6 +348,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.laiv_mv_dir();
@@ -412,7 +413,7 @@ pub fn fetch_model(
             model.label()
         ));
     }
-    write_float_raster(&raster, out, model.wcs().url)?;
+    write_float_raster(&raster, root, out, model.wcs().url)?;
     Ok(summary(&set, &area, bbox, model, warnings))
 }
 
@@ -668,6 +669,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -725,6 +727,7 @@ mod tests {
             FetchMode::Online,
             Model::Dom1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -776,6 +779,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap_err()
@@ -799,6 +803,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap_err()
@@ -820,6 +825,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -909,6 +915,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -922,6 +929,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -942,6 +950,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap_err();
@@ -962,6 +971,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -976,6 +986,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -988,8 +999,16 @@ mod tests {
             max_e: 314_010.0,
             ..ACROSS
         };
-        let found =
-            fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &inner, &out).unwrap();
+        let found = fetch_model(
+            &none,
+            &cache,
+            FetchMode::Offline,
+            Model::Dgm1,
+            &inner,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         assert_eq!(found.date, None);
         assert_eq!(std::fs::read(&out).unwrap(), first);
         // A larger area is not, and nothing stored is the usual error.
@@ -998,8 +1017,16 @@ mod tests {
             ..ACROSS
         };
         for (bbox, path) in [(wider, out.clone()), (ACROSS, dir.path().join("dom1.tif"))] {
-            let err = fetch_model(&none, &cache, FetchMode::Offline, Model::Dgm1, &bbox, &path)
-                .unwrap_err();
+            let err = fetch_model(
+                &none,
+                &cache,
+                FetchMode::Offline,
+                Model::Dgm1,
+                &bbox,
+                path.parent().unwrap(),
+                &path,
+            )
+            .unwrap_err();
             assert!(
                 err.to_string().starts_with(&format!(
                     "no terrain model (LAiV M-V DGM1) stored for this map area: {} is missing, \
@@ -1028,8 +1055,16 @@ mod tests {
             (Model::Dom1, "2024-08-01", 17.0),
         ] {
             let out = dir.path().join("model.tif");
-            let found =
-                fetch_model(&fetcher, &cache, FetchMode::Online, model, &bbox, &out).unwrap();
+            let found = fetch_model(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                model,
+                &bbox,
+                out.parent().unwrap(),
+                &out,
+            )
+            .unwrap();
             let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
             assert_eq!((raster.grid.width, raster.grid.height), (400, 400));
             for y in [0, 199, 200, 399] {
@@ -1060,8 +1095,16 @@ mod tests {
         let mut rasters = Vec::new();
         for model in [Model::Dgm1, Model::Dom1] {
             let out = dir.path().join(format!("{}.tif", model.wcs().coverage));
-            let found =
-                fetch_model(&fetcher, &cache, FetchMode::Online, model, &bbox, &out).unwrap();
+            let found = fetch_model(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                model,
+                &bbox,
+                out.parent().unwrap(),
+                &out,
+            )
+            .unwrap();
             let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
             let (min, max) = raster
                 .data
@@ -1113,6 +1156,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("dgm1.tif"),
         )
         .unwrap();
@@ -1143,6 +1187,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -1160,6 +1205,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &ACROSS,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
