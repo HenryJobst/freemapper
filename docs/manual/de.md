@@ -425,8 +425,8 @@ vermessene Linie weg, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben
 Symbol liegt, ebenso eine vermessene Treppe, die sich mindestens zur Hälfte mit einer ALKIS-Treppe deckt. Eine
 vermessene Mauer neben einer ALKIS-Stützmauer bleibt, denn die Symbole sind verschieden. Das bleibende Objekt
 nennt die weggelassenen in `freemapper:also`, ein vermessenes etwa als
-`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. Liegt ein Brunnen aus einem Register in einem gezeichneten
-Gewässer, lässt freemapper ihn weg, wie die OSM-Brunnen.
+`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. Liegt ein Brunnen aus einem Register oder der
+Straßenbefahrung in einem gezeichneten Gewässer, lässt freemapper ihn weg, wie die OSM-Brunnen.
 
 ALKIS und die Straßenbefahrung zerlegen eine Mauer oder ein Geländer oft in kurze Stücke. Stoßen Stücke mit
 demselben Symbol Ende an Ende aneinander, fügt freemapper sie zu einer Linie zusammen. Erst danach lässt es

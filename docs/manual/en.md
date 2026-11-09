@@ -412,8 +412,8 @@ replaces the OSM one up to 2 m away. freemapper drops a surveyed line with at le
 of its length within 1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS
 stair by at least half. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
 object that stays names the dropped ones in `freemapper:also`, a surveyed one e.g. as
-`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. freemapper also leaves out a register fountain inside drawn
-water, as it does the OSM fountains.
+`geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. freemapper also leaves out a fountain of the register or of the
+street survey inside drawn water, as it does the OSM fountains.
 
 ALKIS and the street survey often split a wall or a railing into short pieces. Where pieces with the same symbol
 meet end to end, freemapper joins them into one line. Only then does freemapper drop lines under 1 mm on paper

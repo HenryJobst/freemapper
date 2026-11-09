@@ -558,8 +558,9 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
   `am_fahnenmast` over `man_made=mast|flagpole`, `aw_spielgeraet` over `playground=*`; a short line counts by
   the middle of its extent, and a point dropped earlier wins nothing (`drop_points_near_registers`). The
   winner names each dropped object in `freemapper:also` as `<source>/<source_id>`: `osm/way/…`, `osm/node/…` or
-  `geoportal-berlin/sb-gelaender/<gis_id>` (ADR 0058). Register fountains inside drawn water are dropped like
-  the OSM ones (`drop_points_in_water`).
+  `geoportal-berlin/sb-gelaender/<gis_id>` (ADR 0058). Register fountains and survey
+  `bv_springbrunnen_zierbrunnen` points inside drawn water are dropped like the OSM ones
+  (`drop_points_in_water`); a survey pump stays.
 
 Generalization: drop buildings below the minimum size and simplify outlines (≈0.1 mm map tolerance; at 1:1000
 that is 0.1 m).

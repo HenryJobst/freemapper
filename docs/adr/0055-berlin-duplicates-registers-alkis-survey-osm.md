@@ -32,7 +32,8 @@ ALKIS lines, and ADR 0051 OSM trees near cadastre trees.
 - The winner names each dropped object in `freemapper:also` (ADR 0058).
 - A survey wall (515) and an ALKIS retaining wall (513.2) at the same place both stay: different symbols, and
   the mapper decides which applies.
-- Register fountains inside drawn water are dropped, like the OSM fountains (ADR 0036).
+- Register fountains and surveyed fountains (`bv_springbrunnen_zierbrunnen`) inside drawn water are dropped,
+  like the OSM fountains (ADR 0036). A surveyed pump (`af_wasserpumpen_brunnen`) in water stays.
 
 ## Consequences
 
