@@ -1,17 +1,19 @@
-//! Control sites for course setters (ADR 0074): the street furniture of OSM that a sprint map
-//! does not draw as a map object but that makes a good control location, as 531 candidates.
+//! Control sites for course setters (ADR 0074, 0077): the street furniture of OSM, the Berlin
+//! street survey and the Berlin lighting cadastre that a sprint map does not draw as a map object
+//! but that makes a good control location, as 531 candidates.
 //! A site must be unambiguous: where a second object of the same kind stands within
-//! [`SAME_KIND_M`], neither is kept. A row of bollards, a pair of benches or the lamps along a
-//! street cannot be told apart on the ground. The 0.15 mm gap between point symbols is kept by
-//! `build/points.rs`, where a control site also gives way to every other symbol.
+//! [`SAME_KIND_M`], neither is kept, whichever source it comes from. A row of bollards, a pair of
+//! benches or the lamps along a street cannot be told apart on the ground. The 0.15 mm gap
+//! between point symbols is kept by `build/points.rs`, where a control site also gives way to
+//! every other symbol and this thinning runs, once the duplicates of the sources are gone.
 
 use std::collections::HashMap;
 
 use crate::omap::{MapObject, MapObjectKind};
 
 /// The tag that names the kind of a control site (`bollard`, `street_lamp`, `waste_basket`,
-/// `bicycle_parking`, `bench`). A course planner reads the control sites from the candidates by
-/// this tag.
+/// `bicycle_parking`, `bench`; from Berlin also `mast`, `flagpole` and `advertising_column`). A
+/// course planner reads the control sites from the candidates by this tag.
 pub const CONTROL_KEY: &str = "freemapper:control";
 
 /// Two control sites of one kind closer than this (ground metres) are a row, a pair or a series,

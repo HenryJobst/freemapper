@@ -16,10 +16,9 @@ use crate::build::berlin::{
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
-use crate::build::control_sites::drop_ambiguous as drop_ambiguous_control_sites;
 use crate::build::dedup::{
-    drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
-    drop_trees_by_rank,
+    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
+    drop_points_near_registers, drop_trees_by_rank,
 };
 use crate::build::open_land::{
     BASE_PART, drop_open_land_under_alkis, open_land_objects, walkable_base,
@@ -4290,7 +4289,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let mut cadastre_candidates =
         drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
     let (osm_candidates, cadastre_candidates_kept) = drop_trees_by_rank(
-        drop_ambiguous_control_sites(osm_objects(Target::Candidates)?, georef.scale_denominator),
+        osm_objects(Target::Candidates)?,
         cadastre_candidates,
         &symbol_set,
         georef.scale_denominator,
@@ -4342,10 +4341,18 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     // green strips of the paved build, the OSM pitches among the candidates), cut at paving and
     // paths, and no point stands in a 520 area (`build/points.rs`). The OSM candidates stay
     // before the others.
-    let out_of_bounds =
+    let mut out_of_bounds =
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
     let mut points = osm_candidates;
     points.extend(cadastre_candidates);
+    // An area that two sources give (a passage in OSM and in ALKIS or the Berlin building parts,
+    // a private strip in OSM inside an ALKIS area that shall not be entered, an OSM bridge over
+    // the ALKIS one) is kept once, by rank (`build/dedup.rs`).
+    let mut points = drop_areas_by_rank(
+        points,
+        &mut [&mut out_of_bounds, &mut structures.canopies],
+        &symbol_set,
+    );
     // A passage no runner can reach is left out of the training map (`build/passages.rs`).
     hide_unreachable_passages(
         &mut points,

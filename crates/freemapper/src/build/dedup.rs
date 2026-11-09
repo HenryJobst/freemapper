@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use crate::build::berlin::object_polygon;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 
 /// How much a source is trusted for a duplicate, lowest first.
@@ -43,7 +44,7 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
     if source == "osm" {
         return Some(Rank::Osm);
     }
-    if source == "alkis" || source.starts_with("alkis-nas/") {
+    if source == "alkis" || source == "alkis-nutzung" || source.starts_with("alkis-nas/") {
         return Some(Rank::Alkis);
     }
     if source.starts_with("trees/") {
@@ -67,8 +68,9 @@ const LINE_DEDUP_SHARE: f64 = 0.8;
 const LINE_DEDUP_M: f64 = 1.5;
 /// The losing line is measured in pieces of at most this length (ground metres).
 const LINE_DEDUP_STEP_M: f64 = 0.5;
-/// Wall, retaining wall, fence, hedge, brook and ditch: the line symbols several sources give.
-const LINE_DEDUP_CODES: [&str; 6] = ["515", "513.2", "518", "410.1", "305", "306"];
+/// Wall, retaining wall, fence, hedge, brook, ditch, kerb and embankment top: the line symbols
+/// several sources give.
+const LINE_DEDUP_CODES: [&str; 8] = ["515", "513.2", "518", "410.1", "305", "306", "501.1", "104"];
 /// The tree symbols (large and small tree): every source draws its trees as one of them.
 const TREE_CODES: [&str; 2] = ["417", "418"];
 
@@ -316,6 +318,185 @@ pub fn drop_trees_by_rank(
     (osm, cadastre)
 }
 
+/// The area symbols several sources give, and the share of a lower-ranked area that has to lie
+/// under higher-ranked areas of the same symbol for it to be the same object: passages and
+/// canopies (522; an OSM way is a strip of a default width, so half of it is enough), the areas
+/// that shall not be entered (520; an OSM strip along a private road: the rest of it, outside
+/// the land use area, is news, so 80 %) and bridges (501.5; see [`area_may_lose`]).
+const AREA_DEDUPS: [(&str, f64); 3] = [("522", 0.5), ("520", 0.8), ("501.5", 0.5)];
+/// The agreement of two areas is judged with the higher-ranked one widened by this much on
+/// paper (mm): one thin line width, at which two outlines of the same object still read as one.
+/// A ruling (2026-11-10). At 1:4000 it is 1 m, at 1:5000 1.25 m.
+pub const AREA_DEDUP_TOLERANCE_MM: f64 = 0.25;
+
+/// Whether `object`, which has the area symbol `code`, may be dropped as a duplicate: every
+/// 522 and 520, but of the 501.5 only an OSM bridge, because the other 501.5 candidates are
+/// paved ground of the walkable area that lies under bridges, paths and squares by design.
+fn area_may_lose(code: &str, object: &MapObject) -> bool {
+    code != "501.5"
+        || object
+            .tags
+            .iter()
+            .any(|(k, v)| k == "freemapper:osm" && tag_holds(v, "man_made=bridge"))
+}
+
+/// Whether `object` with the area symbol `code` may win over a duplicate: every 522 and 520, but
+/// of the 501.5 only the ALKIS bridge decks of Berlin (`bauwerke-flaechen`).
+fn area_may_win(code: &str, object: &MapObject) -> bool {
+    code != "501.5"
+        || object
+            .tags
+            .iter()
+            .any(|(k, v)| k == "berlin:layer" && v == "bauwerke-flaechen")
+}
+
+/// Drops the `candidates` areas ([`AREA_DEDUPS`]: passages, canopies, areas that shall not be
+/// entered, bridges) of which at least the listed share lies within [`AREA_DEDUP_TOLERANCE_MM`]
+/// of the areas with the same symbol and a higher [`Rank`], among the `candidates` themselves
+/// and the `others` (map objects such as the canopies, other candidates such as the ALKIS land
+/// use areas). The share is the area of the dropped one under the union of the winners. The
+/// winner under most of it names the dropped area in `freemapper:also`. Everything else stays,
+/// in its order. Two areas of one rank never drop each other, whatever their overlap.
+pub fn drop_areas_by_rank(
+    candidates: Vec<MapObject>,
+    others: &mut [&mut [MapObject]],
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
+    use geo::algorithm::buffer::BufferStyle;
+    use geo::{Area as _, BooleanOps as _, BoundingRect as _, Buffer as _, Intersects as _};
+    type Bounds = geo_types::Rect<f64>;
+    let codes: Vec<(u32, &str, f64)> = AREA_DEDUPS
+        .iter()
+        .filter_map(|&(code, share)| Some((symbol_set.id_for_code(code)?, code, share)))
+        .collect();
+    let code_of = |o: &MapObject| codes.iter().find(|(id, _, _)| *id == o.symbol_id).copied();
+    let tolerance = AREA_DEDUP_TOLERANCE_MM * 1000.0;
+    struct Winner {
+        slot: usize,
+        index: usize,
+        symbol: u32,
+        rank: Rank,
+        polygon: geo_types::Polygon<f64>,
+        bounds: Bounds,
+    }
+    let mut winners: Vec<Winner> = Vec::new();
+    let mut add = |slot: usize, objects: &[MapObject]| {
+        for (index, o) in objects.iter().enumerate() {
+            let Some((symbol, code, _)) = code_of(o) else {
+                continue;
+            };
+            let (Some(rank), true) = (rank(o), area_may_win(code, o)) else {
+                continue;
+            };
+            let Some(polygon) = object_polygon(o) else {
+                continue;
+            };
+            let Some(bounds) = polygon.bounding_rect() else {
+                continue;
+            };
+            winners.push(Winner {
+                slot,
+                index,
+                symbol,
+                rank,
+                polygon,
+                bounds,
+            });
+        }
+    };
+    add(0, &candidates);
+    for (i, objects) in others.iter().enumerate() {
+        add(i + 1, objects);
+    }
+    if winners.is_empty() {
+        return candidates;
+    }
+    let style = BufferStyle::new(tolerance);
+    let mut gone = vec![false; candidates.len()];
+    let mut also: Vec<(usize, usize, String)> = Vec::new();
+    for (i, object) in candidates.iter().enumerate() {
+        let Some((symbol, code, share)) = code_of(object) else {
+            continue;
+        };
+        let (Some(own), true) = (rank(object), area_may_lose(code, object)) else {
+            continue;
+        };
+        let Some(polygon) = object_polygon(object) else {
+            continue;
+        };
+        let (Some(bounds), area) = (polygon.bounding_rect(), polygon.unsigned_area()) else {
+            continue;
+        };
+        if area <= 0.0 {
+            continue;
+        }
+        let reach = Bounds::new(
+            geo_types::coord! { x: bounds.min().x - tolerance, y: bounds.min().y - tolerance },
+            geo_types::coord! { x: bounds.max().x + tolerance, y: bounds.max().y + tolerance },
+        );
+        let mut covering: Option<geo_types::MultiPolygon<f64>> = None;
+        let mut best: Option<(f64, usize, usize)> = None;
+        for w in &winners {
+            if w.symbol != symbol
+                || w.rank <= own
+                || (w.slot == 0 && w.index == i)
+                || !w.bounds.intersects(&reach)
+            {
+                continue;
+            }
+            let widened = w.polygon.buffer_with_style(style.clone());
+            let overlap = polygon.intersection(&widened).unsigned_area();
+            if overlap <= 0.0 {
+                continue;
+            }
+            if best.is_none_or(|(b, _, _)| overlap > b) {
+                best = Some((overlap, w.slot, w.index));
+            }
+            covering = Some(match covering {
+                Some(c) => c.union(&widened),
+                None => widened,
+            });
+        }
+        let (Some(covering), Some((_, slot, index))) = (covering, best) else {
+            continue;
+        };
+        if polygon.intersection(&covering).unsigned_area() < share * area {
+            continue;
+        }
+        gone[i] = true;
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        also.push((
+            slot,
+            index,
+            format!(
+                "{}/{}",
+                tag("freemapper:source"),
+                tag("freemapper:source_id")
+            ),
+        ));
+    }
+    let mut candidates = candidates;
+    for (slot, index, name) in &also {
+        let target = if *slot == 0 {
+            &mut candidates[*index]
+        } else {
+            &mut others[*slot - 1][*index]
+        };
+        add_also(&mut target.tags, name);
+    }
+    candidates
+        .into_iter()
+        .zip(gone)
+        .filter_map(|(o, gone)| (!gone).then_some(o))
+        .collect()
+}
+
 /// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
 /// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
 /// to 30 m apart, so 5 m stays well under half the spacing.
@@ -341,9 +522,9 @@ struct PointDedup {
 }
 
 /// In order: the registers beat the survey and OSM, the full ALKIS fountains beat OSM, then the
-/// survey furniture (schoolyard only) beats OSM. A point dropped by an earlier entry wins nothing
+/// survey furniture beats OSM (on a sprint map it is the control sites, ADR 0077). A point dropped by an earlier entry wins nothing
 /// later.
-const POINT_DEDUPS: [PointDedup; 9] = [
+const POINT_DEDUPS: [PointDedup; 12] = [
     PointDedup {
         winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
@@ -387,6 +568,17 @@ const POINT_DEDUPS: [PointDedup; 9] = [
             ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP_M),
         ],
     },
+    // The cadastre monuments (526) beat the OSM memorials beside them (ADR 0075, 0078).
+    PointDedup {
+        winner_code: Some("526"),
+        winner: ("freemapper:source", "alkis-nas/*"),
+        losers: MEMORIAL_LOSERS,
+    },
+    PointDedup {
+        winner_code: Some("526"),
+        winner: ("freemapper:source", "geoportal-berlin/bauwerke-flaechen"),
+        losers: MEMORIAL_LOSERS,
+    },
     PointDedup {
         winner_code: None,
         winner: ("berlin:layer", "aq_hydrant"),
@@ -395,6 +587,12 @@ const POINT_DEDUPS: [PointDedup; 9] = [
             "emergency=fire_hydrant",
             FURNITURE_DEDUP_M,
         )],
+    },
+    // A surveyed bollard beats an OSM one (a control site on sprint maps, ADR 0077).
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "av_poller"),
+        losers: &[("freemapper:osm", "barrier=bollard", FURNITURE_DEDUP_M)],
     },
     PointDedup {
         winner_code: None,
@@ -416,6 +614,20 @@ const POINT_DEDUPS: [PointDedup; 9] = [
         winner: ("berlin:layer", "aw_spielgeraet"),
         losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP_M)],
     },
+];
+
+/// The OSM memorial kinds of the 526 rule. A cadastre monument is an area, its point the centre
+/// of the area, and the OSM node can stand anywhere on it: 5 m is 1.25 mm on paper at 1:4000.
+const MEMORIAL_DEDUP_M: f64 = 5.0;
+const MEMORIAL_LOSERS: &[(&str, &str, f64)] = &[
+    ("freemapper:osm", "historic=memorial", MEMORIAL_DEDUP_M),
+    ("freemapper:osm", "historic=monument", MEMORIAL_DEDUP_M),
+    ("freemapper:osm", "historic=wayside_cross", MEMORIAL_DEDUP_M),
+    (
+        "freemapper:osm",
+        "historic=boundary_stone",
+        MEMORIAL_DEDUP_M,
+    ),
 ];
 
 /// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
@@ -851,5 +1063,281 @@ mod tests {
         );
         assert_eq!(tag(&cadastre[4], "freemapper:also"), Some("osm/way/2"));
         assert_eq!(tag(&cadastre[1], "freemapper:also"), None);
+    }
+
+    fn sprint() -> SymbolSet {
+        MapKind::Sprint.symbol_set()
+    }
+
+    /// A closed rectangle `w` by `h` metres with its corner at (`e`, `n`) metres, from `source`.
+    fn area(
+        code: &str,
+        source: &str,
+        id: &str,
+        (e, n): (f64, f64),
+        (w, h): (f64, f64),
+        extra: &[(&str, &str)],
+    ) -> MapObject {
+        let at = |de: f64, dn: f64| {
+            MapCoord::new(
+                ((e + de) * f64::from(M)) as i32,
+                ((n + dn) * f64::from(M)) as i32,
+            )
+        };
+        let mut tags = vec![("freemapper:source", source), ("freemapper:source_id", id)];
+        tags.extend_from_slice(extra);
+        object(
+            code,
+            MapObjectKind::Path,
+            vec![at(0.0, 0.0), at(w, 0.0), at(w, h), at(0.0, h), at(0.0, 0.0)],
+            &tags,
+        )
+    }
+
+    #[test]
+    fn osm_passages_over_cadastre_passages_and_canopies_are_dropped() {
+        let set = sprint();
+        let osm_tags = [("freemapper:osm", "tunnel=building_passage")];
+        let candidates = vec![
+            // The Berlin building part and an OSM strip over most of it.
+            area(
+                "522",
+                "geoportal-berlin/building-parts",
+                "BP1",
+                (0.0, 0.0),
+                (12.0, 4.0),
+                &[],
+            ),
+            area("522", "osm", "way/1", (0.0, 0.5), (12.0, 3.0), &osm_tags),
+            // An OSM strip beside it, sharing a quarter of its length: another passage.
+            area("522", "osm", "way/2", (9.0, 0.5), (12.0, 3.0), &osm_tags),
+            // An OSM strip over an ALKIS canopy of the map.
+            area("522", "osm", "way/3", (100.0, 0.0), (10.0, 3.0), &osm_tags),
+            // An OSM strip over another survey object that ranks above it, the survey shelter.
+            area(
+                "522",
+                "geoportal-berlin/sb-objekte",
+                "S1",
+                (200.0, 0.0),
+                (6.0, 3.0),
+                &[("berlin:layer", "br_fahrgastunterstand")],
+            ),
+            area("522", "osm", "way/4", (200.0, 0.0), (6.0, 3.0), &osm_tags),
+            // A survey shelter over a building part: the building part ranks higher.
+            area(
+                "522",
+                "geoportal-berlin/building-parts",
+                "BP2",
+                (300.0, 0.0),
+                (6.0, 3.0),
+                &[],
+            ),
+            area(
+                "522",
+                "geoportal-berlin/sb-objekte",
+                "S2",
+                (300.0, 0.0),
+                (6.0, 3.0),
+                &[],
+            ),
+            // The same rectangle in another symbol is no duplicate.
+            area("520", "osm", "way/5", (0.0, 0.0), (12.0, 4.0), &[]),
+        ];
+        let mut canopies = vec![area(
+            "522",
+            "alkis-nas/ueberdachung",
+            "C1",
+            (99.5, -0.5),
+            (11.0, 4.0),
+            &[],
+        )];
+        let kept = drop_areas_by_rank(candidates, &mut [&mut canopies], &set);
+        assert_eq!(ids(&kept), ["BP1", "way/2", "S1", "BP2", "way/5"]);
+        assert_eq!(tag(&kept[0], "freemapper:also"), Some("osm/way/1"));
+        assert_eq!(tag(&canopies[0], "freemapper:also"), Some("osm/way/3"));
+        assert_eq!(tag(&kept[2], "freemapper:also"), Some("osm/way/4"));
+        assert_eq!(
+            tag(&kept[3], "freemapper:also"),
+            Some("geoportal-berlin/sb-objekte/S2")
+        );
+    }
+
+    #[test]
+    fn the_overlap_has_a_tolerance_in_paper_millimetres() {
+        // The winner lies `gap` metres inside the OSM strip on every side. The strip is 20 by
+        // 8 m. Without a tolerance the winner covers 53 % at a gap of 1.5 m and 35 % at 2.2 m;
+        // the tolerance of 0.25 mm on paper (1 m at 1:4000) widens the winner by 1 m.
+        let set = sprint();
+        let osm_tags = [("freemapper:osm", "tunnel=building_passage")];
+        let kept = |gap: f64| {
+            let candidates = vec![
+                area(
+                    "522",
+                    "alkis",
+                    "A",
+                    (gap, gap),
+                    (20.0 - 2.0 * gap, 8.0 - 2.0 * gap),
+                    &[],
+                ),
+                area("522", "osm", "way/1", (0.0, 0.0), (20.0, 8.0), &osm_tags),
+            ];
+            drop_areas_by_rank(candidates, &mut [], &set).len()
+        };
+        assert_eq!(kept(1.5), 1);
+        assert_eq!(kept(2.2), 1, "35 % plus the tolerance is 62 %");
+        assert_eq!(kept(3.5), 2, "13 m2 plus the tolerance is 28 %");
+    }
+
+    #[test]
+    fn osm_private_strips_inside_alkis_out_of_bounds_areas_are_dropped() {
+        let set = sprint();
+        let osm = [("freemapper:osm", "highway=service; access=private")];
+        let candidates = vec![
+            area("520", "osm", "way/1", (0.0, 0.0), (20.0, 3.0), &osm),
+            // Only 60 % inside: the rest is news.
+            area("520", "osm", "way/2", (10.0, 10.0), (20.0, 3.0), &osm),
+            area("520", "osm", "way/3", (500.0, 0.0), (20.0, 3.0), &osm),
+        ];
+        // way/2 sticks out to the right of the land use area.
+        let mut out_of_bounds = vec![area(
+            "520",
+            "alkis-nutzung",
+            "N1",
+            (-5.0, -5.0),
+            (22.0, 25.0),
+            &[],
+        )];
+        let kept = drop_areas_by_rank(candidates, &mut [&mut out_of_bounds], &set);
+        assert_eq!(ids(&kept), ["way/2", "way/3"]);
+        assert_eq!(tag(&out_of_bounds[0], "freemapper:also"), Some("osm/way/1"));
+    }
+
+    #[test]
+    fn osm_bridges_over_berlin_bridges_are_dropped_but_paved_areas_stay() {
+        let set = sprint();
+        let candidates = vec![
+            area(
+                "501.5",
+                "geoportal-berlin/bauwerke-flaechen",
+                "B1",
+                (0.0, 0.0),
+                (30.0, 10.0),
+                &[("berlin:layer", "bauwerke-flaechen")],
+            ),
+            area(
+                "501.5",
+                "osm",
+                "way/1",
+                (0.0, 0.0),
+                (30.0, 10.0),
+                &[("freemapper:osm", "man_made=bridge")],
+            ),
+            // A surveyed pavement is not a bridge: it is no winner for an OSM bridge.
+            area(
+                "501.5",
+                "geoportal-berlin/sb-flaechen",
+                "F1",
+                (100.0, 0.0),
+                (30.0, 10.0),
+                &[("berlin:layer", "cl_gehweg")],
+            ),
+            area(
+                "501.5",
+                "osm",
+                "way/2",
+                (100.0, 0.0),
+                (30.0, 10.0),
+                &[("freemapper:osm", "man_made=bridge")],
+            ),
+            // An OSM pavement over a bridge stays too: only OSM bridges are matched.
+            area(
+                "501.5",
+                "osm",
+                "way/3",
+                (0.0, 0.0),
+                (30.0, 10.0),
+                &[("freemapper:osm", "highway=pedestrian")],
+            ),
+        ];
+        let kept = drop_areas_by_rank(candidates, &mut [], &set);
+        assert_eq!(ids(&kept), ["B1", "F1", "way/2", "way/3"]);
+    }
+
+    #[test]
+    fn the_land_use_candidates_rank_as_cadastre() {
+        assert_eq!(
+            rank(&point("520", "alkis-nutzung", "1", 0.0, &[])),
+            Some(Rank::Alkis)
+        );
+    }
+
+    #[test]
+    fn osm_memorials_beside_cadastre_monuments_are_dropped() {
+        let set = sprint();
+        let cadastre = vec![
+            point(
+                "526",
+                "geoportal-berlin/bauwerke-flaechen",
+                "D1",
+                0.0,
+                &[("berlin:layer", "bauwerke-flaechen")],
+            ),
+            point("526", "alkis-nas/sonstiges-bauwerk", "N1", 100.0, &[]),
+        ];
+        let osm = vec![
+            point(
+                "526",
+                "osm",
+                "node/1",
+                3.0,
+                &[("freemapper:osm", "historic=memorial")],
+            ),
+            point(
+                "526",
+                "osm",
+                "node/2",
+                104.0,
+                &[("freemapper:osm", "historic=monument")],
+            ),
+            // 8 m away: another memorial.
+            point(
+                "526",
+                "osm",
+                "node/3",
+                8.0,
+                &[("freemapper:osm", "historic=memorial")],
+            ),
+        ];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set, SCALE);
+        assert_eq!(ids(&osm), ["node/3"]);
+        assert_eq!(tag(&cadastre[0], "freemapper:also"), Some("osm/node/1"));
+        assert_eq!(tag(&cadastre[1], "freemapper:also"), Some("osm/node/2"));
+    }
+
+    #[test]
+    fn osm_kerbs_and_embankments_along_cadastre_ones_are_dropped() {
+        let set = sprint();
+        let mut cadastre = vec![
+            line("501.1", "geoportal-berlin/sb-bordstein", "K1", 0.0, &[]),
+            line("104", "geoportal-berlin/relief", "R1", 10.0, &[]),
+        ];
+        let osm = vec![
+            line(
+                "501.1",
+                "osm",
+                "way/1",
+                0.5,
+                &[("freemapper:osm", "barrier=kerb")],
+            ),
+            line(
+                "104",
+                "osm",
+                "way/2",
+                10.5,
+                &[("freemapper:osm", "man_made=embankment")],
+            ),
+        ];
+        let kept = drop_osm_lines_near_cadastre(osm, &mut cadastre, &set, SCALE);
+        assert!(kept.is_empty());
     }
 }

@@ -60,3 +60,4 @@ What the norm says (ISSprOM 2019-2, section 4.5):
 - Amendment (ADR 0076): a control site inside a building footprint is dropped, on sprint maps.
 - Not done: ranking sites by prominence (a lamp near a path junction), sites from ways (bollard rows, bicycle parking areas),
   and the Berlin survey layers on sprint.
+- Amendment (ADR 0077): the Berlin survey and the lighting cadastre now give control sites on sprint maps, thinned with the OSM ones.

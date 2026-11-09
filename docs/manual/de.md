@@ -253,8 +253,9 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
 `assets/rules/osm-candidates.toml`; bestehende Karten bekommen sie mit `run --force`):
 
 - Durchgänge durch Gebäude und Arkaden (`tunnel=building_passage`, `covered=yes`) als Streifen entlang des
-  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennt auch ALKIS
-  den Durchgang, sehen Sie zwei Streifen; löschen Sie einen. Prüfen Sie vor Ort, ob der Durchgang im Rennen
+  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennen ALKIS
+  oder die Berliner Gebäudeteile den Durchgang auch, behält freemapper den aus dem Kataster und nennt den
+  OSM-Weg in `freemapper:also` (siehe „Doppel“ unten). Prüfen Sie vor Ort, ob der Durchgang im Rennen
   benutzt werden kann (ISSprOM 2.3 erlaubt zwei Laufebenen).
 - Private und gesperrte Wege und Flächen als Flächen, die nicht betreten werden dürfen (520). Ein Fußweg, Pfad,
   eine Fußgängerzone oder Treppe mit `access=private|no` oder `foot=private|no` und eine Zufahrt, ein
@@ -269,11 +270,13 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   unter 1,5 m Breite, 505.1 und ab 3 m 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype`: grade1 ist
   befestigt, grade2 fest, grade3 bis grade5 unbefestigt.
 - Kontrollstandorte für Bahnleger: Poller, Straßenlaternen, Papierkörbe, Fahrradständer und Bänke als Punkte
-  (531, auffälliges künstliches Objekt) unter den Kandidaten, nie in der Karte selbst. Jedes trägt das Tag
-  `freemapper:control` mit seiner Art; alle Objekte des Symbols 531 finden Sie in OOM mit „Alle Objekte mit
-  gleichem Symbol auswählen“. Ein Objekt, das ein gleichartiges innerhalb von 25 m hat, fehlt: Einen Poller in
-  einer Reihe, eine Bank in einem Paar oder eine Laterne in einer Folge erkennt man nicht von ihrem Nachbarn.
-  Ein Kontrollstandort weicht außerdem jedem anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
+  (531, auffälliges künstliches Objekt) unter den Kandidaten, nie in der Karte selbst. In Berlin kommen aus der
+  Straßenbefahrung und dem Beleuchtungskataster Poller, Masten, Fahnenmasten, Bänke, Laternen und Werbesäulen
+  dazu. Jedes trägt das Tag `freemapper:control` mit seiner Art; alle Objekte des Symbols 531 finden Sie in OOM
+  mit „Alle Objekte mit gleichem Symbol auswählen“. Ein Objekt, das ein gleichartiges innerhalb von 25 m hat,
+  fehlt, gleich aus welcher Quelle es stammt: Einen Poller in einer Reihe, eine Bank in einem Paar oder eine
+  Laterne in einer Folge erkennt man nicht von ihrem Nachbarn. Ein Kontrollstandort weicht außerdem jedem
+  anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
   Standort noch da ist, und schreiben Sie die Definition von 531 in die Legende der Karte, wie ISSprOM es
   verlangt.
 - Denkmäler und Grenzsteine (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) als Punkte (526)
@@ -285,6 +288,14 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   Trainingskarte, bleibt aber mit dem Tag `freemapper:hidden=unreachable` unter den Kandidaten. Schauen Sie ihn
   an, wenn Sie wissen, dass der Hof ein Tor hat. Ein Kandidatenpunkt (Denkmal, Laterne, Papierkorb), der in einem
   Gebäudegrundriss liegt, entfällt.
+- Doppel. Geben zwei Quellen dasselbe Objekt, behält freemapper eines: das Register vor ALKIS, ALKIS vor der
+  Berliner Straßenbefahrung, diese vor OSM. Bei Flächen misst freemapper, wie viel der schwächeren unter den
+  stärkeren mit gleichem Symbol liegt, aufgeweitet um 0,25 mm auf dem Papier (1 m bei 1:4000). Ein Durchgang
+  (522) oder eine Überdachung fällt weg, wenn die Hälfte bedeckt ist, ein privater Streifen (520) in einer
+  ALKIS-Fläche, die nicht betreten werden darf, ab 80 %, eine OSM-Brücke über einer Berliner Brückenfläche
+  ab der Hälfte. Auch ein OSM-Denkmal bis 5 m neben einem Katasterdenkmal und OSM-Bordsteine entlang vermessener
+  fallen weg. Das bleibende Objekt nennt das weggelassene in `freemapper:also` (z. B. `osm/way/123`). Ein
+  OSM-Streifen, der viel größer ist als das Katasterpolygon, das er bedeckt, bleibt, denn er liefert Ausdehnung.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
@@ -546,8 +557,8 @@ Datum des Ladens da. Bordsteine aus ALKIS übernimmt freemapper nicht, die der S
 
 **Berlin: Straßenbefahrung, Register und Gebäudedaten.** Dazu lädt freemapper die Straßenbefahrung, das
 Beleuchtungskataster, die Register der Zier- und der Trinkwasserbrunnen und die Gebäudehöhen 2022 aus
-dem Umweltatlas, alle unter dl-de/zero-2-0. Zusammen sind das im Stadtzentrum etwa 6 MB je km² mehr (am
-Viktoriapark 5,9 MB). Die Straßenbefahrung hat den öffentlichen Straßenraum Berlins 2014 bis 2016 vermessen.
+dem Umweltatlas, alle unter dl-de/zero-2-0. Zusammen sind das im Stadtzentrum etwa 6,5 MB je km² mehr (am
+Viktoriapark 6,4 MB). Die Straßenbefahrung hat den öffentlichen Straßenraum Berlins 2014 bis 2016 vermessen.
 Eine neuere gibt es nicht, die Daten sind also rund zehn Jahre alt. Deshalb ersetzt sie ALKIS nie. Bis auf den
 Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
 
@@ -561,11 +572,14 @@ Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
   auf dem Papier (24 m² bei 1:4000) wird zur Geraden, ein einzelner Ring dieser Größe entfällt.
 - Auf beiden Kartenarten: Treppen (532.6 bis 532.9, wie die ALKIS-Treppen; das Feld `trs`, vermutlich die
   Stufenzahl, steht als `berlin:trs` dabei), Mauern (515), Geländer, Verkehrsschutzgitter und Leitplanken
-  (518, wie Zäune), Fahrgastunterstände (522) und Brunnen (311) aus der Straßenbefahrung und dem
-  Zierbrunnen-Register.
+  (518, wie Zäune), Fahrgastunterstände (522), Brunnen (311) und Trinkbrunnen (313) aus der Straßenbefahrung und
+  den Brunnen-Registern.
 - Auf Schulhofkarten: Bänke (543), Hydranten (321), Poller, Masten und Fahnenmasten (544), Spielgeräte
-  (541), Trinkbrunnen (313) und die Laternen des Beleuchtungskatasters (545), nur die in Betrieb. Auf
-  Sprintkarten fehlt diese Möblierung: Um die Helene-Haeusler-Schule stehen 2 392 Poller in einem km².
+  (541) und die Laternen des Beleuchtungskatasters (545), nur die in Betrieb.
+- Auf Sprintkarten als Kontrollstandorte (531, nur Kandidaten): Poller, Masten, Fahnenmasten, Bänke (die Mitte
+  der vermessenen Linie), die Laternen des Beleuchtungskatasters (nur die in Betrieb) und Werbesäulen. Ein
+  Standort, der ein gleichartiges innerhalb von 25 m hat, fehlt: Von den 1 077 Pollern am Viktoriapark bleiben
+  3. Hydranten und Spielgeräte nimmt freemapper nicht: ISSprOM nennt Hydranten als nicht zu kartieren.
 - Gebäude: Jedes ALKIS-Gebäude, das die Gebäudehöhen 2022 kennen, bekommt dessen Grundrissaktualität als
   Datenstand (`freemapper:currency`). Das ist der Stand des Grundrisses in diesen Daten, kein
   Vermessungsdatum. Ein Gebäude ohne Treffer bleibt ohne Datum.
@@ -708,7 +722,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | Die Metalink-Datei ließ sich nicht laden. Bei der ersten Meldung nimmt freemapper die gespeicherte, bei der zweiten bleiben die Kacheln ohne Flugjahr leer. | Später erneut laden. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | Ein Server des LVermGeo RP hat statt der Befliegungsübersicht, der Kachel oder der Metalink-Datei etwas anderes geschickt, meist eine HTML-Fehlerseite; der bereinigte Anfang der Antwort steht dahinter. Die letzte Meldung heißt, dass die Übersicht unvollständig ankam. | Später erneut versuchen, bei Dauer einen Fehler melden. |
 | `orthophoto unchanged (date of creation …)` | Rheinland-Pfalz: freemapper verwendet das gespeicherte Luftbild weiter, weil der Kartendienst dasselbe Erstellungsdatum nennt (oder gerade keines und das Bild jünger als 30 Tage ist). Dieses Datum gilt als Flugdatum. | Nichts. |
-| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Fortschrittsmeldung: freemapper lädt die Berliner Ebenen, im Stadtzentrum etwa 10 MB je km² (am Viktoriapark 9,8 MB). | Abwarten. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Fortschrittsmeldung: freemapper lädt die Berliner Ebenen, im Stadtzentrum etwa 12 MB je km² (am Viktoriapark 9,8 MB). | Abwarten. |
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | Eine Ebene des Geoportals Berlin (z. B. `bauwerke-linien` oder `sb-moebel`) ließ sich nicht laden. Fasst eine Ebene mehrere Objekttypen zusammen, wie `sb-moebel` die Bänke, Poller und Hydranten, fehlt sie ganz, wenn einer davon scheitert. Mit `keeping the stored layer` bleibt die gespeicherte Ebene, die das Gebiet noch abdeckt. Mit `layer skipped` fehlen ihre Kandidaten. Das Laden geht weiter. | Später erneut laden. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: Für das Berliner Gebiet sind keine Bauwerke, Bäume und Überdachungen gespeichert. | Einmal online laden. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | Das Gebiet liegt nicht mehr an Berlin. freemapper löscht die gespeicherten Berliner Ebenen. | Nichts. |

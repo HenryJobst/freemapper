@@ -244,7 +244,8 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
 
 - Passages through buildings and arcades (`tunnel=building_passage`, `covered=yes`) on sprint maps as a strip
   along the way (522), 3 m wide or as wide as the `width` tag says. The building stays whole. Where ALKIS
-  also knows the passage, you see two strips; delete one. Check on site whether the passage can be used in the
+  or the Berlin building parts also know the passage, freemapper keeps the cadastre one and names the OSM way
+  in `freemapper:also` (see "Duplicates" below). Check on site whether the passage can be used in the
   race (ISSprOM 2.3 allows two running levels).
 - Private and closed ways and areas as areas that shall not be entered (520). A footway, path, pedestrian way
   or steps with `access=private|no` or `foot=private|no`, and a service road, track or cycleway with
@@ -258,10 +259,12 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   map. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
   3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm, grade3 to grade5 unpaved.
 - Control sites for course setters: bollards, street lamps, waste baskets, bicycle racks and benches as
-  points (531, prominent man-made feature) among the candidates, never on the map itself. Each has the tag
-  `freemapper:control` with its kind; select all objects of symbol 531 in OOM to find them. An object that has
-  one of its own kind within 25 m is left out: you cannot tell a bollard in a row, a pair of benches or one
-  lamp in a series from its neighbour. A control site also gives way to every other symbol. Before you use a
+  points (531, prominent man-made feature) among the candidates, never on the map itself. In Berlin the street
+  survey and the lighting cadastre add bollards, masts, flag poles, benches, lamps and advertising columns.
+  Each has the tag `freemapper:control` with its kind; select all objects of symbol 531 in OOM to find them.
+  An object that has one of its own kind within 25 m is left out, whichever source it comes from: you cannot
+  tell a bollard in a row, a pair of benches or one lamp in a series from its neighbour. A control site also
+  gives way to every other symbol. Before you use a
   site, check on site that it is still there, and write the definition of 531 into the legend of the map, as
   ISSprOM requires.
 - Memorials and boundary stones (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) as points
@@ -272,6 +275,14 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   not be entered or water, or joins two walled-in courtyards, is not drawn in the training map, but stays in
   the candidates with the tag `freemapper:hidden=unreachable`. Look at it if you know that the courtyard has a
   gate. A candidate point (memorial, lamp, bin) that lies inside a building footprint is dropped.
+- Duplicates. When two sources give the same object, freemapper keeps one: the register before ALKIS, ALKIS
+  before the Berlin street survey, the survey before OSM. For areas it measures how much of the weaker one lies
+  under the stronger ones of the same symbol, widened by 0.25 mm on paper (1 m at 1:4000). A passage (522) or a
+  canopy goes when half of it is covered, a private strip (520) inside an ALKIS area that shall not be entered
+  when 80 % is, an OSM bridge over a Berlin bridge deck at half. An OSM memorial within 5 m of a cadastre
+  monument and OSM kerbs along surveyed ones go too. The object that stays names the dropped one in
+  `freemapper:also` (e.g. `osm/way/123`). An OSM strip that is much larger than the cadastre polygon it covers
+  stays, because it adds extent.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
@@ -529,7 +540,7 @@ date of the fetch. freemapper does not take curb lines from ALKIS, but it takes 
 **Berlin: street survey, registers and building dates.** freemapper also fetches the street survey
 (Straßenbefahrung), the lighting cadastre, the registers of ornamental fountains and of drinking fountains, and
 the building heights of 2022 from the Umweltatlas, all under dl-de/zero-2-0. In the city centre that adds about
-6 MB per km² (5.9 MB at Viktoriapark). The street survey recorded Berlin's public street space from 2014 to
+6.5 MB per km² (6.4 MB at Viktoriapark). The street survey recorded Berlin's public street space from 2014 to
 2016. There is no newer one, so the data is about ten years old. That is why it never replaces ALKIS. Apart
 from the green cut-out, it gives only candidates. From these layers come:
 
@@ -542,10 +553,14 @@ from the green cut-out, it gives only candidates. From these layers come:
   1:4000) becomes a straight line, and a lone ring of that size goes.
 - On both map kinds: stairs (532.6 to 532.9, like the ALKIS stairs; the field `trs`, probably the number of
   steps, comes as `berlin:trs`), walls (515), railings, traffic barriers and crash barriers (518, like fences),
-  bus shelters (522) and fountains (311) from the street survey and the ornamental fountain register.
+  bus shelters (522), fountains (311) and drinking fountains (313) from the street survey and the fountain
+  registers.
 - On schoolyard maps: benches (543), hydrants (321), bollards, masts and flag poles (544), play equipment
-  (541), drinking fountains (313) and the lamps of the lighting cadastre (545), only those in operation. Sprint
-  maps get none of this furniture: around the Helene-Haeusler-Schule one km² holds 2 392 bollards.
+  (541) and the lamps of the lighting cadastre (545), only those in operation.
+- On sprint maps, as control sites (531, candidates only): bollards, masts, flag poles, benches (the middle of
+  the surveyed line), the lamps of the lighting cadastre (only those in operation) and advertising columns. A
+  site of one kind within 25 m of another is left out, so of the 1 077 bollards at Viktoriapark 3 remain. Hydrants
+  and play equipment are not taken: ISSprOM names hydrants as not to be mapped.
 - Buildings: each ALKIS building that the building heights of 2022 know gets its Grundrissaktualität
   (footprint date) as data currency (`freemapper:currency`). It is the state of the outline in that data, not a
   survey date. A building without a match keeps no date.
@@ -682,7 +697,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `the LVermGeo RP Metalink of the … could not be read (…); used the one kept from an earlier run` / `…, so the tiles its tile list gives no flight year for stay without heights` | The Metalink file could not be fetched. With the first message freemapper uses the kept one; with the second the tiles without a flight year stay empty. | Fetch again later. |
 | `… not a tile list (Laserbefliegung): …` / `… not a GeoTIFF: …` / `… not a Metalink: …` / `the tile list holds … of the … tiles it matched` | An LVermGeo RP server sent something other than the flight index, the tile or the Metalink file, usually an HTML error page; the cleaned start of the answer follows. The last message means the index arrived incomplete. | Try again later, report a bug if it persists. |
 | `orthophoto unchanged (date of creation …)` | Rhineland-Palatinate: freemapper keeps the stored orthophoto, because the map service gives the same date of creation (or none just now, and the image is less than 30 days old). That date counts as the flight date. | Nothing. |
-| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Progress message: freemapper fetches the Berlin layers, about 10 MB per km² in the city centre (9.8 MB at Viktoriapark). | Wait. |
+| `downloading Berlin ALKIS structures, tree cadastre, street survey and point layers` | Progress message: freemapper fetches the Berlin layers, about 12 MB per km² in the city centre (9.8 MB at Viktoriapark). | Wait. |
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | A Geoportal Berlin layer (e.g. `bauwerke-linien` or `sb-moebel`) could not be fetched. A layer that holds several object types, as `sb-moebel` holds the benches, bollards and hydrants, is missing as a whole when one of them fails. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: no structures, trees or canopies are stored for the Berlin area. | Fetch once online. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | The area is no longer near Berlin. freemapper deletes the stored Berlin layers. | Nothing. |
