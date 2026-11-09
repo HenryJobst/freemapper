@@ -616,7 +616,7 @@ fn chain_tags(features: &[OsmFeature], members: &[usize], source: &str) -> Tags 
     for &j in &members[1..] {
         let other = &features[j];
         let id = value(&other.tags, "freemapper:source_id").unwrap_or(&other.id);
-        crate::build::berlin::add_also(&mut tags, &format!("{source}/{id}"));
+        crate::build::dedup::add_also(&mut tags, &format!("{source}/{id}"));
     }
     let segments = || members.iter().map(|&j| &features[j].tags);
     let oldest = segments()
@@ -872,7 +872,12 @@ mod tests {
 
     #[test]
     fn embedded_rule_codes_exist_in_the_symbol_sets() {
-        for rule in Rules::embedded().0.iter().chain(&Rules::berlin().0) {
+        for rule in Rules::embedded()
+            .0
+            .iter()
+            .chain(&Rules::berlin().0)
+            .chain(&Rules::states().0)
+        {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
                 (&rule.sprint, MapKind::Sprint),
@@ -1313,7 +1318,12 @@ mod tests {
 
     #[test]
     fn embedded_rule_symbols_fit_their_draw_kind() {
-        for rule in Rules::embedded().0.iter().chain(&Rules::berlin().0) {
+        for rule in Rules::embedded()
+            .0
+            .iter()
+            .chain(&Rules::berlin().0)
+            .chain(&Rules::states().0)
+        {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
                 (&rule.sprint, MapKind::Sprint),

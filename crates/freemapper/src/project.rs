@@ -10,12 +10,15 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_points_near_registers,
-    drop_shelters_under_canopies, drop_survey_lines_near_alkis,
+    drop_shelters_under_canopies,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::dedup::{
+    drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
+    drop_trees_by_rank,
+};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
@@ -24,7 +27,7 @@ use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_line
 use crate::build::stairs::{
     STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_stairs, stair_objects,
 };
-use crate::build::state::state_objects;
+use crate::build::state::{NasInput, nas_objects, state_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -2903,6 +2906,34 @@ fn stored_state_objects(
     )?)
 }
 
+/// The candidates of the stored full ALKIS (NAS) layers: walls, fences, hedges, monuments,
+/// bridges, embankment tops and ditches; none outside the states with a NAS service.
+fn stored_nas_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let layers = stored_nas_layers(dir, project)?;
+    let inputs: Vec<NasInput<'_>> = layers
+        .iter()
+        .map(|l| NasInput {
+            file: l.layer.file,
+            features: &l.features,
+            fetched: l.fetched,
+        })
+        .collect();
+    Ok(nas_objects(
+        &inputs,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
+}
+
 /// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area
 /// provider, else the mosaic `derive` wrote ([`TERRAIN_MOSAIC_RELPATH`]); none before `derive`.
 /// Stairs outside it get the long axis (`freemapper:direction=guessed`).
@@ -3936,9 +3967,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             &symbol_set,
         ))
     };
-    // The tree cadastre knows the crown: an OSM tree at a cadastre tree is the same tree. ALKIS
-    // surveyed the fences, walls and hedges: an OSM line along one with its symbol is the same.
-    let berlin_candidates = stored_berlin_objects(
+    // The candidates of the cadastres, registers and the survey: Berlin first, then the state
+    // passages and the full ALKIS (NAS). Duplicates go by rank (`build/dedup.rs`): register >
+    // ALKIS > survey > OSM. A register knows the crown: an OSM tree at a register tree is the
+    // same tree. ALKIS surveyed the fences, walls and hedges: an OSM line along one with its
+    // symbol is the same.
+    let mut cadastre_candidates = stored_berlin_objects(
         &project,
         &berlin_layers,
         stored_buildings.as_ref(),
@@ -3946,33 +3980,51 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     )?;
-    // The order of the sources is ALKIS, survey, OSM: a survey line along an ALKIS line goes
-    // first, then an OSM line along either.
-    let mut berlin_candidates =
-        drop_survey_lines_near_alkis(berlin_candidates, &symbol_set, georef.scale_denominator);
-    let osm_candidates = drop_osm_trees_near_cadastre(
+    cadastre_candidates.extend(stored_state_objects(
+        &project,
+        stored_buildings.as_ref(),
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
+    cadastre_candidates.extend(stored_nas_objects(
+        dir,
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
+    // A survey line along an ALKIS line goes first, then an OSM line along either.
+    let mut cadastre_candidates =
+        drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
+    let (osm_candidates, cadastre_candidates_kept) = drop_trees_by_rank(
         osm_objects(Target::Candidates)?,
-        &berlin_candidates,
+        cadastre_candidates,
+        &symbol_set,
         georef.scale_denominator,
     );
-    let osm_candidates = drop_osm_lines_near_alkis(
+    cadastre_candidates = cadastre_candidates_kept;
+    let osm_candidates = drop_osm_lines_near_cadastre(
         osm_candidates,
-        &mut berlin_candidates,
+        &mut cadastre_candidates,
         &symbol_set,
         georef.scale_denominator,
     );
     // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
-    // place, and the survey furniture beats OSM; a register or survey fountain in drawn water is a
-    // jet like an OSM one.
-    let (osm_candidates, berlin_candidates) =
-        drop_points_near_registers(osm_candidates, berlin_candidates, georef.scale_denominator);
-    let berlin_candidates =
-        drop_points_in_water(berlin_candidates, &water.union, &georef, &symbol_set);
+    // place, and the survey furniture beats OSM; a cadastre, register or survey fountain in drawn
+    // water is a jet like an OSM one.
+    let (osm_candidates, cadastre_candidates) = drop_points_near_registers(
+        osm_candidates,
+        cadastre_candidates,
+        georef.scale_denominator,
+    );
+    let cadastre_candidates =
+        drop_points_in_water(cadastre_candidates, &water.union, &georef, &symbol_set);
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
-    let berlin_candidates =
-        drop_shelters_under_canopies(berlin_candidates, &mut structures.canopies);
+    let cadastre_candidates =
+        drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
     // A register is named once its points are among the candidates.
-    let registers = drawn_registers(&berlin_candidates);
+    let registers = drawn_registers(&cadastre_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
     let candidates = MapDocument {
@@ -3983,14 +4035,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
                 .chain(osm_candidates)
-                .chain(berlin_candidates)
-                .chain(stored_state_objects(
-                    &project,
-                    stored_buildings.as_ref(),
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(cadastre_candidates)
                 .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
@@ -9779,6 +9824,93 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00ZAUN"))
             .expect("the ALKIS fence");
         assert_eq!(tag(alkis, "freemapper:also").as_deref(), Some("osm/way/1"));
+    }
+
+    #[test]
+    fn nas_fence_beats_the_osm_fence_in_the_export() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = fetched_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert!(project.nas_layers.contains_key("sonstiges-bauwerk"));
+        let bbox = project.bbox().unwrap();
+        let (e, n) = (
+            (bbox.min_e + bbox.max_e) / 2.0,
+            (bbox.min_n + bbox.max_n) / 2.0,
+        );
+        // A stored NAS fence (map CRS) in the middle of the map, cut into two segments.
+        let segment = |id: &str, from: f64, to: f64| {
+            serde_json::json!({"type": "Feature", "id": id,
+                "geometry": {"type": "LineString", "coordinates": [[e + from, n], [e + to, n]]},
+                "properties": {"oid": id, "nas_type": "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                    "beginnt": "2019-05-06", "bauwerksfunktion": "1740"}})
+        };
+        let layer = serde_json::json!({"type": "FeatureCollection", "features": [
+            segment("DEBBAL00ZAUN1", 0.0, 2.0), segment("DEBBAL00ZAUN2", 2.0, 30.0)]});
+        std::fs::write(
+            dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"),
+            layer.to_string(),
+        )
+        .unwrap();
+        // OSM has the same fence 1 m off, and another one 10 m away.
+        let fence = |id: &str, dn: f64| {
+            let p = |de: f64| {
+                crate::crs::utm33_inverse(crate::crs::ProjectedPoint {
+                    easting: e + de,
+                    northing: n + dn,
+                })
+                .unwrap()
+            };
+            OsmFeature {
+                id: id.to_string(),
+                tags: vec![("barrier".to_string(), "fence".to_string())],
+                geometry: crate::sources::osm::OsmGeometry::Line(vec![p(0.0), p(30.0)]),
+            }
+        };
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[fence("way/1", 1.0), fence("way/2", 10.0)]),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let tag = |o: &MapObject, key: &str| {
+            o.tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.clone())
+        };
+        let objects: Vec<&MapObject> = documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .collect();
+        let osm_ids: Vec<_> = objects
+            .iter()
+            .filter(|o| tag(o, "freemapper:source").as_deref() == Some("osm"))
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .filter(|id| id == "way/1" || id == "way/2")
+            .collect();
+        assert_eq!(osm_ids, ["way/2"]);
+        let nas: Vec<&&MapObject> = objects
+            .iter()
+            .filter(|o| {
+                tag(o, "freemapper:source").as_deref() == Some("alkis-nas/sonstiges-bauwerk")
+            })
+            .collect();
+        assert_eq!(nas.len(), 1, "the two segments are one fence");
+        assert_eq!(
+            Some(nas[0].symbol_id),
+            project.map_kind.symbol_set().id_for_code("518")
+        );
+        assert_eq!(tag(nas[0], "freemapper:alkis").as_deref(), Some("Zaun"));
+        assert_eq!(
+            tag(nas[0], "freemapper:currency").as_deref(),
+            Some("2019-05-06")
+        );
+        assert_eq!(
+            tag(nas[0], "freemapper:also").as_deref(),
+            Some("alkis-nas/sonstiges-bauwerk/DEBBAL00ZAUN2; osm/way/1")
+        );
     }
 
     #[test]

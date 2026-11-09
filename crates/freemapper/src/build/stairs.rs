@@ -27,9 +27,8 @@ use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRe
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{
-    add_also, feature_lines, feature_polygons, provenance_tags, survey_tags,
-};
+use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags, survey_tags};
+use crate::build::dedup::add_also;
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};

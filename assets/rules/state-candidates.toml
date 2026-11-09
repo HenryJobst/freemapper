@@ -1,10 +1,15 @@
-# ALKIS vereinfacht structures of every state → candidate symbols (states plus 1). Same syntax and
-# engine as osm-candidates.toml and berlin-candidates.toml, with these differences:
+# ALKIS structures of every state (vereinfacht and full ALKIS, NAS) → candidate symbols (states
+# plus 1). Same syntax and engine as osm-candidates.toml and berlin-candidates.toml, with these
+# differences:
 #
 # - Tags are `alkis:<property>` (string and number properties of the stored feature) plus
-#   `alkis:type`, so an OSM rule or a Berlin rule can never match them. Every rule names its type.
-# - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point at its
-#   centroid (`draw = "point"`). Holes are dropped: these are candidates only.
+#   `alkis:type` and `alkis:geom` (`point`, `line` or `area`: the stored geometry), so an OSM rule
+#   or a Berlin rule can never match them. Every rule names its type.
+# - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point on its
+#   surface (`draw = "point"`; the vereinfacht passages use the centroid). Holes are dropped:
+#   these are candidates only. A side longer than 3 m tags the point `freemapper:size=large`.
+# - Every `draw = "area"` rule names `alkis:geom=area`, so a closed line (a fence round a yard)
+#   is never drawn as an area.
 # - `build/state.rs` writes `alkis:gebnutzbez` and `alkis:funktion` in the spelling below
 #   (`lgv::spelling_key` equality), whatever the state wrote.
 #
@@ -14,7 +19,107 @@
 # data does not say whether it is gated). "Auskragender Geschossteil" mixes overhangs with set-back
 # storeys and is left out. Features with a `bauart` are Berlin's and never get here.
 [[rule]]
-when = ["alkis:type=GebaeudeBauwerk", "alkis:gebnutzbez=Bauteil", "alkis:funktion=Durchfahrt im Gebäude|Durchfahrt an überbautem Verkehrsweg|Arkade"]
+when = ["alkis:type=GebaeudeBauwerk", "alkis:geom=area", "alkis:gebnutzbez=Bauteil", "alkis:funktion=Durchfahrt im Gebäude|Durchfahrt an überbautem Verkehrsweg|Arkade"]
 draw = "area"
 schoolyard = "522"
 sprint = "522"
+
+# --- Full ALKIS (NAS) ----------------------------------------------------------------------------
+#
+# The rules match the AdV codes, never the labels (adv-codes.toml gives `freemapper:alkis`). The
+# symbols follow the Berlin and OSM rules; the height decides nothing, and both edges of a wall
+# stay (the mapper deletes the extra one). Left out: canopies and carports (1610, 1611: the
+# vereinfacht ones are map objects, the NAS ones would double them), stairs (1620, 1621 with
+# their bottom edges 1630: `build/stairs.rs`), escalators, cellar entrances, ramps, terraces
+# (1622, 1640–1670), sheet piling and dragon's teeth (1790, 1791), `Sonstiges` (9999), and the
+# embankment bottom and other edges (Strukturlinie3D 1230, 1240).
+
+# Walls (Mauer, Mauerkante rechts/links, Mauermitte).
+[[rule]]
+when = ["alkis:type=AX_SonstigesBauwerkOderSonstigeEinrichtung", "alkis:bauwerksfunktion=1700|1701|1702|1703"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+# Retaining walls.
+[[rule]]
+when = ["alkis:type=AX_SonstigesBauwerkOderSonstigeEinrichtung", "alkis:bauwerksfunktion=1720|1721|1722|1723"]
+draw = "line"
+schoolyard = "513.2"
+sprint = "513.2"
+
+# Fences.
+[[rule]]
+when = ["alkis:type=AX_SonstigesBauwerkOderSonstigeEinrichtung", "alkis:bauwerksfunktion=1740"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+# Monuments, wayside shrines and crosses, milestones: a point (on the surface of an area).
+[[rule]]
+when = ["alkis:type=AX_SonstigesBauwerkOderSonstigeEinrichtung", "alkis:bauwerksfunktion=1750|1760|1761|1762|1763|1770"]
+draw = "point"
+schoolyard = "526"
+sprint = "526"
+
+# Wells and fountains.
+[[rule]]
+when = ["alkis:type=AX_SonstigesBauwerkOderSonstigeEinrichtung", "alkis:bauwerksfunktion=1780|1781|1782|1783"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+# Hedges (Hecke, Heckenkante rechts/links, Heckenmitte).
+[[rule]]
+when = ["alkis:type=AX_Vegetationsmerkmal", "alkis:bewuchs=1100|1101|1102|1103"]
+draw = "line"
+schoolyard = "410.1"
+sprint = "410.1"
+
+# Single trees (Nadelbaum, Laubbaum): no crown diameter, so all are 418.
+[[rule]]
+when = ["alkis:type=AX_Vegetationsmerkmal", "alkis:bewuchs=1011|1012"]
+draw = "point"
+schoolyard = "418"
+sprint = "418"
+
+# Embankment top.
+[[rule]]
+when = ["alkis:type=AX_Strukturlinie3D", "alkis:art=1220"]
+draw = "line"
+sprint = "104"
+
+# Bridges and footbridges: the area of the deck.
+[[rule]]
+when = ["alkis:type=AX_BauwerkImVerkehrsbereich", "alkis:geom=area", "alkis:bauwerksfunktion=1800|1801|1802|1803|1804|1805|1806|1807|1808|1820"]
+draw = "area"
+sprint = "501.5"
+
+# Quay and bank walls.
+[[rule]]
+when = ["alkis:type=AX_BauwerkImGewaesserbereich", "alkis:bauwerksfunktion=2136"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+# Ditches (Graben, Grabenmitte), also those that carry water only at times (hydrologisches
+# Merkmal 2000) or are dry (3000), and a brook that is one of these: the minor or seasonal water
+# channel. Lines only: the outline of a water area is no channel.
+[[rule]]
+when = ["alkis:type=AX_UntergeordnetesGewaesser", "alkis:geom=line", "alkis:funktion=1010|1013"]
+draw = "line"
+schoolyard = "306"
+sprint = "306"
+
+[[rule]]
+when = ["alkis:type=AX_UntergeordnetesGewaesser", "alkis:geom=line", "alkis:funktion=1030", "alkis:hydrologischesMerkmal=2000|3000"]
+draw = "line"
+schoolyard = "306"
+sprint = "306"
+
+# Brooks: the small crossable watercourse.
+[[rule]]
+when = ["alkis:type=AX_UntergeordnetesGewaesser", "alkis:geom=line", "alkis:funktion=1030"]
+draw = "line"
+schoolyard = "305"
+sprint = "305"

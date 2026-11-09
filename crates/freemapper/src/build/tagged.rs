@@ -2,7 +2,7 @@
 //! projected CRS) as [`OsmFeature`]s. The tags are the caller's (`berlin:*` for Geoportal Berlin,
 //! `alkis:*` for the state cadastres), so an OSM rule can never match them.
 
-use geo::{BoundingRect as _, Centroid as _};
+use geo::{BoundingRect as _, Centroid as _, InteriorPoint as _};
 use serde_json::Value;
 
 use crate::crs::{Crs, LatLon, ProjectedPoint};
@@ -11,6 +11,25 @@ use crate::sources::osm::{OsmFeature, OsmGeometry};
 /// A monument area with a side longer than this is tagged `freemapper:size=large`: the mapper
 /// can draw its outline instead of the 526 point.
 const LARGE_MONUMENT_M: f64 = 3.0;
+
+/// Where the point of a polygon lies, for the rules that draw a point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PointOn {
+    /// The centroid (Geoportal Berlin, the vereinfacht passages); it can lie off a bent area.
+    Centroid,
+    /// A point on the surface (full ALKIS: the Brandenburg monuments are areas).
+    Surface,
+}
+
+/// `alkis:geom` of a GeoJSON feature: `point`, `line` or `area`; `None` for another geometry.
+pub(crate) fn geom(feature: &Value) -> Option<&'static str> {
+    match feature["geometry"]["type"].as_str()? {
+        "Point" | "MultiPoint" => Some("point"),
+        "LineString" | "MultiLineString" => Some("line"),
+        "Polygon" | "MultiPolygon" => Some("area"),
+        _ => None,
+    }
+}
 
 pub(crate) fn position(c: &Value) -> Option<(f64, f64)> {
     Some((c.get(0)?.as_f64()?, c.get(1)?.as_f64()?))
@@ -29,12 +48,19 @@ fn line_of(crs: Crs, coordinates: &Value) -> Option<Vec<LatLon>> {
 }
 
 /// The exterior ring of a polygon as a closed line (holes are dropped: candidates only) and a
-/// point at its centroid. A ring longer than [`LARGE_MONUMENT_M`] sets `large`.
-fn polygon_parts(crs: Crs, rings: &Value) -> Option<(Vec<LatLon>, LatLon, bool)> {
+/// point at `point_on`. A ring longer than [`LARGE_MONUMENT_M`] sets `large`.
+fn polygon_parts(
+    crs: Crs,
+    rings: &Value,
+    point_on: PointOn,
+) -> Option<(Vec<LatLon>, LatLon, bool)> {
     let exterior = rings.get(0)?.as_array()?;
     let points: Vec<(f64, f64)> = exterior.iter().filter_map(position).collect();
     let polygon = geo_types::Polygon::new(geo_types::LineString::from(points.clone()), Vec::new());
-    let centroid = polygon.centroid()?;
+    let centroid = match point_on {
+        PointOn::Centroid => polygon.centroid()?,
+        PointOn::Surface => polygon.interior_point()?,
+    };
     let rect = polygon.bounding_rect()?;
     let large = rect.width().max(rect.height()) > LARGE_MONUMENT_M;
     let ring = points
@@ -45,13 +71,14 @@ fn polygon_parts(crs: Crs, rings: &Value) -> Option<(Vec<LatLon>, LatLon, bool)>
 }
 
 /// The tagged features of one layer, ready for the rules: a point stays a point, each part of a
-/// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
-/// centroid (a rule picks one by its `draw`). `crs` is the CRS of the coordinates. Id:
+/// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at
+/// `point_on` (a rule picks one by its `draw`). `crs` is the CRS of the coordinates. Id:
 /// `<id_prefix>/<feature id>`; `tags` gives the tags of a feature.
 pub(crate) fn tagged_features(
     id_prefix: &str,
     features: &[Value],
     crs: Crs,
+    point_on: PointOn,
     tags: impl Fn(&Value) -> Vec<(String, String)>,
 ) -> Vec<OsmFeature> {
     let mut out = Vec::new();
@@ -67,7 +94,7 @@ pub(crate) fn tagged_features(
             });
         };
         let polygon = |rings: &Value, push: &mut dyn FnMut(Vec<(String, String)>, OsmGeometry)| {
-            let Some((ring, centre, large)) = polygon_parts(crs, rings) else {
+            let Some((ring, centre, large)) = polygon_parts(crs, rings, point_on) else {
                 return;
             };
             let mut point_tags = tags.clone();

@@ -544,7 +544,8 @@ pub fn outside_water(
 }
 
 /// `objects` without the 311 fountain points that stand in water: the jets of a fountain in its
-/// basin, or a well in a pond (OSM, the Berlin fountain register and the surveyed fountains).
+/// basin, or a well in a pond (OSM, the Berlin fountain register, the surveyed fountains and the
+/// full ALKIS).
 /// Water is the drawn ALKIS water `union` and every OSM 301 area among `objects`, so call it
 /// after [`drop_covered_water`]. A fountain without a basin, and a surveyed pump, stay.
 pub fn drop_points_in_water(
@@ -570,7 +571,7 @@ pub fn drop_points_in_water(
             let is_point = matches!(object.kind, MapObjectKind::Point { .. });
             if object.symbol_id != point_id
                 || !is_point
-                || !(from_osm(object) || berlin_fountain(object))
+                || !(from_osm(object) || cadastre_fountain(object))
             {
                 return true;
             }
@@ -584,12 +585,13 @@ pub fn drop_points_in_water(
         .collect()
 }
 
-/// A point of the Berlin fountain register (`zierbrunnen`) or a surveyed fountain
-/// (`bv_springbrunnen_zierbrunnen`): like an OSM fountain it stands in the basin the ALKIS water
-/// draws.
-fn berlin_fountain(object: &MapObject) -> bool {
+/// A point of the Berlin fountain register (`zierbrunnen`), a surveyed fountain
+/// (`bv_springbrunnen_zierbrunnen`) or a full ALKIS fountain or well (`alkis-nas/…`): like an OSM
+/// fountain it stands in the basin the ALKIS water draws.
+fn cadastre_fountain(object: &MapObject) -> bool {
     object.tags.iter().any(|(k, v)| {
-        (k == "freemapper:source" && v == "geoportal-berlin/zierbrunnen")
+        (k == "freemapper:source"
+            && (v == "geoportal-berlin/zierbrunnen" || v.starts_with("alkis-nas/")))
             || (k == "berlin:layer" && v == "bv_springbrunnen_zierbrunnen")
     })
 }
@@ -1743,6 +1745,29 @@ mod tests {
             kept,
             vec![objects[1].clone(), objects[2].clone(), objects[4].clone()]
         );
+    }
+
+    #[test]
+    fn nas_fountain_in_water_is_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 50.0, n - 15.0, 30.0, 30.0),
+            vec![],
+        )]);
+        // A full ALKIS fountain or well in drawn water is a jet like an OSM one.
+        let nas = |de: f64| {
+            let mut o = osm_point(&f.georef, &set, "311", e + de, n);
+            o.tags = vec![(
+                "freemapper:source".into(),
+                "alkis-nas/sonstiges-bauwerk".into(),
+            )];
+            o
+        };
+        let objects = vec![nas(60.0), nas(-40.0)];
+        let kept = drop_points_in_water(objects.clone(), &union, &f.georef, &set);
+        assert_eq!(kept, vec![objects[1].clone()]);
     }
 
     #[test]

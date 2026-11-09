@@ -1,16 +1,23 @@
-//! Candidates from the ALKIS vereinfacht buildings of every state (states plus 1): the building
-//! passages. The canopies are map objects (`build/canopy.rs`).
+//! Candidates from the ALKIS of every state (states plus 1), through the state rules
+//! (`assets/rules/state-candidates.toml`):
 //!
-//! The stored `alkis-buildings.geojson` holds every `GebaeudeBauwerk` feature, but
-//! `buildings.rs` keeps only the `Gebäude`. The rest (`Bauteil`, `Sonstiges Bauwerk oder
-//! sonstige Einrichtung`) is read here. Features with a `bauart` are Berlin building parts and
-//! stay on the Berlin rules.
+//! - the building passages of the ALKIS vereinfacht buildings. The canopies are map objects
+//!   (`build/canopy.rs`). The stored `alkis-buildings.geojson` holds every `GebaeudeBauwerk`
+//!   feature, but `buildings.rs` keeps only the `Gebäude`. The rest (`Bauteil`, `Sonstiges
+//!   Bauwerk oder sonstige Einrichtung`) is read here. Features with a `bauart` are Berlin
+//!   building parts and stay on the Berlin rules.
+//! - the walls, fences, hedges, monuments, bridges, embankment tops and ditches of the full
+//!   ALKIS (NAS) layers ([`nas_objects`]). The rules match the AdV codes; the labels for the
+//!   mapper come from `assets/rules/adv-codes.toml`.
+
+use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::build::tagged::tagged_features;
+use crate::build::tagged::{PointOn, geom, tagged_features};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
@@ -64,6 +71,9 @@ pub(crate) fn vereinfacht_function(
 /// `freemapper:currency` = `aktualit`, the function as `freemapper:alkis`).
 fn feature_tags(feature: &Value) -> Vec<(String, String)> {
     let mut tags = vec![("alkis:type".to_string(), TYPE.to_string())];
+    if let Some(geom) = geom(feature) {
+        tags.push(("alkis:geom".to_string(), geom.to_string()));
+    }
     let properties = feature["properties"].as_object().into_iter().flatten();
     for (key, value) in properties {
         if let Some(text) = value.as_str().filter(|t| !t.is_empty()) {
@@ -113,7 +123,13 @@ pub fn state_objects(
         })
         .collect();
     osm_objects(
-        &tagged_features("alkis", &passages, georef.crs(), feature_tags),
+        &tagged_features(
+            "alkis",
+            &passages,
+            georef.crs(),
+            PointOn::Centroid,
+            feature_tags,
+        ),
         &Rules::states(),
         Target::Candidates,
         kind,
@@ -124,6 +140,123 @@ pub fn state_objects(
         SOURCE,
         currency,
     )
+}
+
+/// One stored NAS layer for [`nas_objects`].
+pub struct NasInput<'a> {
+    /// The layer file (`sonstiges-bauwerk`).
+    pub file: &'a str,
+    /// The stored features, in the map's CRS.
+    pub features: &'a [Value],
+    /// The fetch date, which stands in for a feature without `beginnt`.
+    pub fetched: NaiveDate,
+}
+
+/// The `freemapper:source` prefix of the NAS candidates: `alkis-nas/<layer file>`.
+pub(crate) const NAS_SOURCE: &str = "alkis-nas";
+
+/// The AdV code lists: type (`AX_…`) → code property → code → label.
+type AdvCodes = BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>;
+
+fn adv_codes() -> &'static AdvCodes {
+    static CODES: OnceLock<AdvCodes> = OnceLock::new();
+    CODES.get_or_init(|| {
+        toml::from_str(include_str!("../../../../assets/rules/adv-codes.toml"))
+            .expect("embedded AdV code lists are valid")
+    })
+}
+
+/// The labels of the coded properties of a NAS feature (`Mauerkante, rechts`), `; `-joined in
+/// the order of the code lists; `None` when no code has a label.
+fn nas_label(nas_type: &str, properties: &serde_json::Map<String, Value>) -> Option<String> {
+    let labels: Vec<&str> = adv_codes()
+        .get(nas_type)?
+        .iter()
+        .filter_map(|(property, codes)| {
+            let code = properties.get(property)?.as_str()?;
+            codes.get(code).map(String::as_str)
+        })
+        .collect();
+    (!labels.is_empty()).then(|| labels.join("; "))
+}
+
+/// The tags of a stored NAS feature for the rules: `alkis:type` (`AX_…`), `alkis:geom` and each
+/// string property as `alkis:<name>` (the codes), and the provenance tags the objects carry on
+/// (`freemapper:source_id` = `gml:id`, `freemapper:currency` = `beginnt`, the code labels as
+/// `freemapper:alkis`).
+fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
+    let empty = serde_json::Map::new();
+    let properties = feature["properties"].as_object().unwrap_or(&empty);
+    let text = |key: &str| {
+        properties
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|v| !v.is_empty())
+    };
+    let mut tags = Vec::new();
+    let nas_type = text("nas_type").unwrap_or_default();
+    tags.push(("alkis:type".to_string(), nas_type.to_string()));
+    if let Some(geom) = geom(feature) {
+        tags.push(("alkis:geom".to_string(), geom.to_string()));
+    }
+    for (key, value) in properties {
+        if key == "nas_type" {
+            continue;
+        }
+        if let Some(value) = value.as_str().filter(|v| !v.is_empty()) {
+            tags.push((format!("alkis:{key}"), value.to_string()));
+        }
+    }
+    if let Some(oid) = text("oid") {
+        tags.push(("freemapper:source_id".to_string(), oid.to_string()));
+    }
+    if let Some(date) = text("beginnt").and_then(|t| t.get(..10)) {
+        tags.push(("freemapper:currency".to_string(), date.to_string()));
+    }
+    if let Some(label) = nas_label(nas_type, properties) {
+        tags.push(("freemapper:alkis".to_string(), label));
+    }
+    tags.sort();
+    tags
+}
+
+/// The candidates of the stored NAS `layers` (in the map's CRS) within `buffer_m` of
+/// `map_area`, each tagged `freemapper:source=alkis-nas/<file>`. The point of an area (a
+/// monument) lies on its surface. Segments of one wall or fence are joined before the 1 mm drop
+/// (`osm_objects`).
+pub fn nas_objects(
+    layers: &[NasInput<'_>],
+    kind: MapKind,
+    map_area: &geo_types::Polygon<f64>,
+    buffer_m: f64,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let rules = Rules::states();
+    let mut objects = Vec::new();
+    for layer in layers {
+        let source = format!("{NAS_SOURCE}/{}", layer.file);
+        let features = tagged_features(
+            &source,
+            layer.features,
+            georef.crs(),
+            PointOn::Surface,
+            nas_feature_tags,
+        );
+        objects.extend(osm_objects(
+            &features,
+            &rules,
+            Target::Candidates,
+            kind,
+            map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+            &source,
+            layer.fetched,
+        )?);
+    }
+    Ok(objects)
 }
 
 #[cfg(test)]
@@ -364,5 +497,580 @@ mod tests {
             .and_then(|v| v.split('"').next())
             .unwrap();
         assert_eq!(values.split('|').collect::<Vec<_>>(), PASSAGES);
+    }
+
+    // --- Full ALKIS (NAS) ---
+
+    /// Sanssouci, Potsdam (EPSG:25833), where the NAS fixtures come from.
+    const AT: (f64, f64) = (366_300.0, 5_807_200.0);
+
+    /// A NAS feature as `alkis_nas` stores it: `oid`, `nas_type`, `beginnt` and the codes.
+    fn nas(id: &str, nas_type: &str, codes: &[(&str, &str)], geometry: Value) -> Value {
+        let mut properties = serde_json::json!({
+            "oid": id, "nas_type": nas_type, "beginnt": "2013-01-29"});
+        for (k, v) in codes {
+            properties[*k] = (*v).into();
+        }
+        serde_json::json!({"type": "Feature", "id": id, "geometry": geometry,
+            "properties": properties})
+    }
+
+    /// A line from (`de`, `dn`) metres off [`AT`], `length` m to the east.
+    fn east(de: f64, dn: f64, length: f64) -> Value {
+        let (e, n) = (AT.0 + de, AT.1 + dn);
+        serde_json::json!({"type": "LineString", "coordinates": [[e, n], [e + length, n]]})
+    }
+
+    /// A `w` × `h` m square ring at (`de`, `dn`) off [`AT`]: as a polygon, or as a closed line.
+    fn square(de: f64, dn: f64, w: f64, h: f64, polygon: bool) -> Value {
+        let (e, n) = (AT.0 + de, AT.1 + dn);
+        let ring = serde_json::json!([[e, n], [e + w, n], [e + w, n + h], [e, n + h], [e, n]]);
+        if polygon {
+            serde_json::json!({"type": "Polygon", "coordinates": [ring]})
+        } else {
+            serde_json::json!({"type": "LineString", "coordinates": ring})
+        }
+    }
+
+    fn spot(de: f64, dn: f64) -> Value {
+        serde_json::json!({"type": "Point", "coordinates": [AT.0 + de, AT.1 + dn]})
+    }
+
+    /// The NAS candidates of one stored layer, fetched 2026-11-09, on a 1:4000 map round them.
+    fn nas_run(file: &str, features: &[Value], kind: MapKind) -> Vec<MapObject> {
+        // A spot far off keeps the map area larger than one feature.
+        let mut extent = features.to_vec();
+        extent.push(nas("x", "AX_Turm", &[], spot(-40.0, -40.0)));
+        extent.push(nas("y", "AX_Turm", &[], spot(80.0, 80.0)));
+        let (georef, area, set) = setup(Crs::Utm33, kind, &extent);
+        nas_objects(
+            &[NasInput {
+                file,
+                features,
+                fetched: "2026-11-09".parse().unwrap(),
+            }],
+            kind,
+            &area,
+            20.0,
+            &georef,
+            &set,
+        )
+        .unwrap()
+    }
+
+    fn code_of(kind: MapKind, object: &MapObject) -> String {
+        let set = kind.symbol_set();
+        let codes = [
+            "104", "305", "306", "311", "410.1", "417", "418", "501.5", "513.2", "515", "518",
+            "522", "526",
+        ];
+        codes
+            .into_iter()
+            .find(|code| set.id_for_code(code) == Some(object.symbol_id))
+            .unwrap_or("other")
+            .to_string()
+    }
+
+    fn label(nas_type: &str, property: &str, code: &str) -> String {
+        let codes: toml::Table =
+            toml::from_str(include_str!("../../../../assets/rules/adv-codes.toml")).unwrap();
+        codes[nas_type][property][code]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn adv_codes_map_to_issprom() {
+        const SB: &str = "AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        const VEG: &str = "AX_Vegetationsmerkmal";
+        const UG: &str = "AX_UntergeordnetesGewaesser";
+        #[derive(Clone, Copy)]
+        enum G {
+            Line,
+            Area,
+            Point,
+        }
+        // One case per row of the plan's table: layer file, type, code property, codes, more
+        // codes, geometry, schoolyard and sprint symbol, drawn as a point.
+        type Case<'a> = (
+            &'a str,
+            &'a str,
+            &'a str,
+            &'a [&'a str],
+            &'a [(&'a str, &'a str)],
+            G,
+            Option<&'a str>,
+            Option<&'a str>,
+            bool,
+        );
+        let sb = "sonstiges-bauwerk";
+        let cases: [Case; 16] = [
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1700", "1701", "1702", "1703"],
+                &[],
+                G::Line,
+                Some("515"),
+                Some("515"),
+                false,
+            ),
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1720", "1721", "1722", "1723"],
+                &[],
+                G::Line,
+                Some("513.2"),
+                Some("513.2"),
+                false,
+            ),
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1740"],
+                &[],
+                G::Line,
+                Some("518"),
+                Some("518"),
+                false,
+            ),
+            // The Brandenburg monument is an area: the point lies on it.
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1750", "1760", "1761", "1762", "1763", "1770"],
+                &[],
+                G::Area,
+                Some("526"),
+                Some("526"),
+                true,
+            ),
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1780", "1781", "1782", "1783"],
+                &[],
+                G::Point,
+                Some("311"),
+                Some("311"),
+                true,
+            ),
+            // Stairs and their bottom edges are `build/stairs.rs`'s, never a rule's.
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1620", "1621"],
+                &[],
+                G::Area,
+                None,
+                None,
+                false,
+            ),
+            (
+                sb,
+                SB,
+                "bauwerksfunktion",
+                &["1630"],
+                &[],
+                G::Line,
+                None,
+                None,
+                false,
+            ),
+            (
+                "vegetationsmerkmal",
+                VEG,
+                "bewuchs",
+                &["1100", "1101", "1102", "1103"],
+                &[],
+                G::Line,
+                Some("410.1"),
+                Some("410.1"),
+                false,
+            ),
+            (
+                "vegetationsmerkmal",
+                VEG,
+                "bewuchs",
+                &["1011", "1012"],
+                &[],
+                G::Point,
+                Some("418"),
+                Some("418"),
+                true,
+            ),
+            (
+                "strukturlinie",
+                "AX_Strukturlinie3D",
+                "art",
+                &["1220"],
+                &[],
+                G::Line,
+                None,
+                Some("104"),
+                false,
+            ),
+            (
+                "bauwerk-verkehr",
+                "AX_BauwerkImVerkehrsbereich",
+                "bauwerksfunktion",
+                &[
+                    "1800", "1801", "1802", "1803", "1804", "1805", "1806", "1807", "1808", "1820",
+                ],
+                &[],
+                G::Area,
+                None,
+                Some("501.5"),
+                false,
+            ),
+            (
+                "bauwerk-gewaesser",
+                "AX_BauwerkImGewaesserbereich",
+                "bauwerksfunktion",
+                &["2136"],
+                &[],
+                G::Line,
+                Some("515"),
+                Some("515"),
+                false,
+            ),
+            (
+                "untergeordnetes-gewaesser",
+                UG,
+                "funktion",
+                &["1010", "1013"],
+                &[],
+                G::Line,
+                Some("306"),
+                Some("306"),
+                false,
+            ),
+            (
+                "untergeordnetes-gewaesser",
+                UG,
+                "funktion",
+                &["1010", "1013"],
+                &[("hydrologischesMerkmal", "2000")],
+                G::Line,
+                Some("306"),
+                Some("306"),
+                false,
+            ),
+            (
+                "untergeordnetes-gewaesser",
+                UG,
+                "funktion",
+                &["1030"],
+                &[],
+                G::Line,
+                Some("305"),
+                Some("305"),
+                false,
+            ),
+            (
+                "untergeordnetes-gewaesser",
+                UG,
+                "funktion",
+                &["1030"],
+                &[("hydrologischesMerkmal", "3000")],
+                G::Line,
+                Some("306"),
+                Some("306"),
+                false,
+            ),
+        ];
+        for (file, nas_type, property, codes, more, g, schoolyard, sprint, as_point) in cases {
+            for code in codes {
+                let geometry = match g {
+                    G::Line => east(0.0, 0.0, 20.0),
+                    G::Area => square(0.0, 0.0, 6.0, 4.0, true),
+                    G::Point => spot(0.0, 0.0),
+                };
+                let mut all = vec![(property, *code)];
+                all.extend_from_slice(more);
+                let feature = nas("DEBBAL0000000001", nas_type, &all, geometry);
+                for (kind, expected) in
+                    [(MapKind::Schoolyard, schoolyard), (MapKind::Sprint, sprint)]
+                {
+                    let found = nas_run(file, std::slice::from_ref(&feature), kind);
+                    let case = format!("{nas_type} {code} {more:?} {kind:?}");
+                    let Some(expected) = expected else {
+                        assert!(found.is_empty(), "{case}: {found:?}");
+                        continue;
+                    };
+                    assert_eq!(found.len(), 1, "{case}");
+                    let o = &found[0];
+                    assert_eq!(code_of(kind, o), expected, "{case}");
+                    let point = matches!(o.kind, crate::omap::MapObjectKind::Point { .. });
+                    assert_eq!(point, as_point, "{case}");
+                    assert_eq!(
+                        tag(o, "freemapper:alkis"),
+                        Some(label(nas_type, property, code).as_str()),
+                        "{case}"
+                    );
+                }
+            }
+        }
+        // Everything else is skipped.
+        for (file, nas_type, property, code) in [
+            (sb, SB, "bauwerksfunktion", "1622"),
+            (sb, SB, "bauwerksfunktion", "1640"),
+            (sb, SB, "bauwerksfunktion", "1641"),
+            (sb, SB, "bauwerksfunktion", "1642"),
+            (sb, SB, "bauwerksfunktion", "1650"),
+            (sb, SB, "bauwerksfunktion", "1670"),
+            (sb, SB, "bauwerksfunktion", "1790"),
+            (sb, SB, "bauwerksfunktion", "1791"),
+            (sb, SB, "bauwerksfunktion", "9999"),
+            ("strukturlinie", "AX_Strukturlinie3D", "art", "1230"),
+            ("strukturlinie", "AX_Strukturlinie3D", "art", "1240"),
+            (
+                "bauwerk-gewaesser",
+                "AX_BauwerkImGewaesserbereich",
+                "bauwerksfunktion",
+                "2050",
+            ),
+            ("untergeordnetes-gewaesser", UG, "funktion", "1011"),
+        ] {
+            for geometry in [east(0.0, 0.0, 20.0), square(0.0, 0.0, 6.0, 4.0, true)] {
+                let feature = nas("DEBBAL0000000001", nas_type, &[(property, code)], geometry);
+                for kind in [MapKind::Schoolyard, MapKind::Sprint] {
+                    assert!(
+                        nas_run(file, std::slice::from_ref(&feature), kind).is_empty(),
+                        "{nas_type} {code}"
+                    );
+                }
+            }
+        }
+        // The rules match codes, not labels: a label in the code property matches nothing.
+        let by_label = nas(
+            "DEBBAL0000000001",
+            SB,
+            &[("bauwerksfunktion", "Zaun")],
+            east(0.0, 0.0, 20.0),
+        );
+        assert!(nas_run(sb, &[by_label], MapKind::Sprint).is_empty());
+        // The vereinfacht passage row.
+        let passage = feature("Bauteil", "Arkade", None, None);
+        let found = passages(Crs::Utm33, MapKind::Schoolyard, &[passage]);
+        assert_eq!(code_of(MapKind::Schoolyard, &found[0]), "522");
+    }
+
+    #[test]
+    fn nas_canopies_and_building_parts_are_not_read() {
+        use crate::sources::alkis_nas::{NAS_LAYERS, parse_nas_gml, test_support};
+        assert!(NAS_LAYERS.iter().all(|l| l.type_name != "adv:AX_Bauteil"));
+        let features = parse_nas_gml(test_support::SONSTIGES_BAUWERK)
+            .unwrap()
+            .features;
+        let ids: Vec<&str> = features.iter().map(|f| f["id"].as_str().unwrap()).collect();
+        assert!(
+            ids.contains(&"DEBBAL540001vmqB"),
+            "the canopy is in the fixture"
+        );
+        for kind in [MapKind::Schoolyard, MapKind::Sprint] {
+            let found = nas_run("sonstiges-bauwerk", &features, kind);
+            let mut found: Vec<&str> = found
+                .iter()
+                .map(|o| tag(o, "freemapper:source_id").unwrap())
+                .collect();
+            found.sort();
+            found.dedup();
+            assert!(!found.contains(&"DEBBAL540001vmqB"), "{kind:?}");
+            assert_eq!(found.len(), 4, "{kind:?}: {found:?}");
+        }
+        // A NAS canopy or carport is never a candidate, in whatever shape.
+        for code in ["1610", "1611"] {
+            for geometry in [
+                square(0.0, 0.0, 6.0, 4.0, true),
+                east(0.0, 0.0, 20.0),
+                spot(0.0, 0.0),
+            ] {
+                let canopy = nas(
+                    "DEBBAL0000000002",
+                    "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                    &[("bauwerksfunktion", code)],
+                    geometry,
+                );
+                assert!(nas_run("sonstiges-bauwerk", &[canopy], MapKind::Sprint).is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn area_rules_need_a_polygon() {
+        let bridge = |polygon| {
+            nas(
+                "DEBBAL0000000003",
+                "AX_BauwerkImVerkehrsbereich",
+                &[("bauwerksfunktion", "1800")],
+                square(0.0, 0.0, 12.0, 4.0, polygon),
+            )
+        };
+        let found = nas_run("bauwerk-verkehr", &[bridge(true)], MapKind::Sprint);
+        assert_eq!(found.len(), 1);
+        assert_eq!(code_of(MapKind::Sprint, &found[0]), "501.5");
+        assert_eq!(
+            tag(&found[0], "alkis:geom"),
+            None,
+            "alkis:geom stays a rule tag"
+        );
+        // A closed line with a bridge code is no bridge deck.
+        assert!(nas_run("bauwerk-verkehr", &[bridge(false)], MapKind::Sprint).is_empty());
+        // Every area rule of the file names `alkis:geom=area`.
+        let file: toml::Table = toml::from_str(include_str!(
+            "../../../../assets/rules/state-candidates.toml"
+        ))
+        .unwrap();
+        let rules = file["rule"].as_array().unwrap();
+        let areas: Vec<_> = rules
+            .iter()
+            .filter(|r| r["draw"].as_str() == Some("area"))
+            .collect();
+        assert!(areas.len() >= 2);
+        for rule in areas {
+            let when = rule["when"].as_array().unwrap();
+            assert!(
+                when.iter().any(|c| c.as_str() == Some("alkis:geom=area")),
+                "{when:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn nas_provenance_and_label() {
+        use crate::sources::alkis_nas::{parse_nas_gml, test_support};
+        let features = parse_nas_gml(test_support::SONSTIGES_BAUWERK)
+            .unwrap()
+            .features;
+        let found = nas_run("sonstiges-bauwerk", &features, MapKind::Sprint);
+        let wall = found
+            .iter()
+            .find(|o| tag(o, "freemapper:source_id") == Some("DEBBAL540001vq5u"))
+            .expect("the 1701 wall edge");
+        assert_eq!(
+            tag(wall, "freemapper:source"),
+            Some("alkis-nas/sonstiges-bauwerk")
+        );
+        assert_eq!(tag(wall, "freemapper:currency"), Some("2013-01-29"));
+        assert_eq!(tag(wall, "freemapper:alkis"), Some("Mauerkante, rechts"));
+        assert_eq!(
+            tag(wall, "alkis:type"),
+            Some("AX_SonstigesBauwerkOderSonstigeEinrichtung")
+        );
+        assert_eq!(code_of(MapKind::Sprint, wall), "515");
+        // Without `beginnt` the fetch date stands in.
+        let mut hedge = nas(
+            "DEBBAL0000000004",
+            "AX_Vegetationsmerkmal",
+            &[("bewuchs", "1102")],
+            east(0.0, 0.0, 20.0),
+        );
+        hedge["properties"]
+            .as_object_mut()
+            .unwrap()
+            .remove("beginnt");
+        let found = nas_run("vegetationsmerkmal", &[hedge], MapKind::Schoolyard);
+        assert_eq!(tag(&found[0], "freemapper:currency"), Some("2026-11-09"));
+        assert_eq!(
+            tag(&found[0], "freemapper:source"),
+            Some("alkis-nas/vegetationsmerkmal")
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:alkis"),
+            Some("Heckenkante, links")
+        );
+        // A monument area wider than 3 m is large; its point lies on the area.
+        let monument = nas(
+            "DEBBAL0000000005",
+            "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+            &[("bauwerksfunktion", "1750")],
+            square(0.0, 0.0, 5.0, 2.0, true),
+        );
+        let found = nas_run("sonstiges-bauwerk", &[monument], MapKind::Sprint);
+        assert_eq!(tag(&found[0], "freemapper:size"), Some("large"));
+    }
+
+    #[test]
+    fn nas_monument_point_lies_on_its_area() {
+        // An L-shaped monument: its centroid is outside the area.
+        let (e, n) = AT;
+        let ring = serde_json::json!([
+            [e, n],
+            [e + 10.0, n],
+            [e + 10.0, n + 1.0],
+            [e + 1.0, n + 1.0],
+            [e + 1.0, n + 10.0],
+            [e, n + 10.0],
+            [e, n]
+        ]);
+        let monument = nas(
+            "DEBBAL0000000006",
+            "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+            &[("bauwerksfunktion", "1750")],
+            serde_json::json!({"type": "Polygon", "coordinates": [ring]}),
+        );
+        let (georef, area, set) =
+            setup(Crs::Utm33, MapKind::Sprint, std::slice::from_ref(&monument));
+        let found = nas_objects(
+            &[NasInput {
+                file: "sonstiges-bauwerk",
+                features: &[monument],
+                fetched: "2026-11-09".parse().unwrap(),
+            }],
+            MapKind::Sprint,
+            &area,
+            20.0,
+            &georef,
+            &set,
+        )
+        .unwrap();
+        let p = georef.map_to_projected(found[0].coords[0]);
+        let (x, y) = (p.easting - e, p.northing - n);
+        assert!(
+            (0.0..=10.0).contains(&x) && (0.0..=10.0).contains(&y) && (x <= 1.0 || y <= 1.0),
+            "({x:.2}, {y:.2}) is off the L"
+        );
+    }
+
+    #[test]
+    fn nas_fence_segments_are_joined() {
+        // A fence cut into three 1.5 m segments (1 mm on paper at 1:4000 is 4 m) and a lone one.
+        let fence = |id: &str, de: f64| {
+            nas(
+                id,
+                "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                &[("bauwerksfunktion", "1740")],
+                east(de, 0.0, 1.5),
+            )
+        };
+        let features = [
+            fence("DEBBAL00000000a1", 0.0),
+            fence("DEBBAL00000000a2", 1.5),
+            fence("DEBBAL00000000a3", 3.0),
+            fence("DEBBAL00000000b1", 20.0),
+        ];
+        let found = nas_run("sonstiges-bauwerk", &features, MapKind::Sprint);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(
+            tag(&found[0], "freemapper:source_id"),
+            Some("DEBBAL00000000a1")
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:also"),
+            Some(
+                "alkis-nas/sonstiges-bauwerk/DEBBAL00000000a2; \
+                 alkis-nas/sonstiges-bauwerk/DEBBAL00000000a3"
+            )
+        );
+        assert_eq!(found[0].coords.len(), 4);
     }
 }
