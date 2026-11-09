@@ -11017,7 +11017,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     #[test]
     fn potsdam_attribution_only_when_drawn() {
         const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";
-        let fetcher = MapFetcher::default();
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let project = ProjectFile::load(dir.path()).unwrap();
@@ -11046,7 +11045,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             1,
             "{lines:?}"
         );
-        drop(fetcher);
     }
 
     #[test]

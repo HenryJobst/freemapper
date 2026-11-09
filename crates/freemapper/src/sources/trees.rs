@@ -17,7 +17,7 @@ use serde_json::{Map, Value, json};
 use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::sources::alkis::{AlkisError, FetchArea, invalid};
-use crate::sources::region::{Region, regions_for};
+use crate::sources::region::{Region, touches_region};
 
 /// How a dataset is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,15 +100,34 @@ pub const POTSDAM: TreeDataset = TreeDataset {
 /// The tree cadastres, one per city.
 pub const TREE_DATASETS: [TreeDataset; 1] = [POTSDAM];
 
-/// The datasets a map area needs: those of a state the area touches whose envelope it
-/// intersects. `region_bbox` is the area in EPSG:25833.
+/// The datasets a map area needs: those whose envelope the part of the area inside their state
+/// intersects (the envelope of Potsdam reaches into Berlin, which has its own register).
+/// `region_bbox` is the area in EPSG:25833.
 pub fn tree_datasets_for(region_bbox: &BoundingBox) -> Vec<&'static TreeDataset> {
-    let regions = regions_for(region_bbox);
-    let area = FetchArea::new(*region_bbox, Crs::Utm33);
     TREE_DATASETS
         .iter()
-        .filter(|d| regions.contains(&d.region) && intersects(&area.bbox_for(d.crs), &d.envelope))
+        .filter(|d| needs(d, region_bbox))
         .collect()
+}
+
+/// Whether the area in `region_bbox` (EPSG:25833) needs `dataset`.
+fn needs(dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
+    let area = FetchArea::new(*region_bbox, Crs::Utm33).bbox_for(dataset.crs);
+    if !intersects(&area, &dataset.envelope) {
+        return false;
+    }
+    // The state's boundary is in EPSG:25833: clip the area to the envelope there.
+    if dataset.crs != Crs::Utm33 {
+        return touches_region(dataset.region, region_bbox);
+    }
+    let e = &dataset.envelope;
+    let clip = BoundingBox {
+        min_e: area.min_e.max(e.min_e),
+        min_n: area.min_n.max(e.min_n),
+        max_e: area.max_e.min(e.max_e),
+        max_n: area.max_n.min(e.max_n),
+    };
+    touches_region(dataset.region, &clip)
 }
 
 fn intersects(a: &BoundingBox, b: &BoundingBox) -> bool {
@@ -455,6 +474,46 @@ mod tests {
         let trees = layers[0].features.as_ref().unwrap();
         assert_eq!(trees.features.len(), 3);
         assert_eq!(trees.regions, [Region::Brandenburg]);
+    }
+
+    #[test]
+    fn dataset_needs_its_state_inside_the_envelope() {
+        // The Brandenburg/Berlin border near Kladow: Brandenburg west of E 373 750, Berlin east
+        // of E 374 000 (the border slants), at N 5 817 000–5 817 250.
+        let area = BoundingBox {
+            min_e: 373_000.0,
+            min_n: 5_817_000.0,
+            max_e: 374_800.0,
+            max_n: 5_817_250.0,
+        };
+        let row = |region, min_e, max_e| TreeDataset {
+            region,
+            envelope: BoundingBox {
+                min_e,
+                min_n: 5_816_000.0,
+                max_e,
+                max_n: 5_819_000.0,
+            },
+            ..POTSDAM
+        };
+        // The area touches both states, but the envelope covers only the Berlin side.
+        let berlin_side = |region| row(region, 374_300.0, 374_700.0);
+        assert!(needs(&berlin_side(Region::Berlin), &area));
+        assert!(!needs(&berlin_side(Region::Brandenburg), &area));
+        // And only the Brandenburg side.
+        let brandenburg_side = |region| row(region, 373_000.0, 373_400.0);
+        assert!(needs(&brandenburg_side(Region::Brandenburg), &area));
+        assert!(!needs(&brandenburg_side(Region::Berlin), &area));
+    }
+
+    #[test]
+    fn unparsable_date_leaves_the_fetch_date_as_currency() {
+        let text = test_support::POTSDAM.replace("2009-06-10T00:00:00+00:00", "unbekannt");
+        let answer = parse_trees(&text, &POTSDAM, Crs::Utm33).unwrap();
+        assert_eq!(answer.features.len(), 3);
+        for tree in &answer.features {
+            assert!(tree["properties"].get("tree_date").is_none(), "{tree}");
+        }
     }
 
     #[test]
