@@ -145,6 +145,9 @@ Orienteering Maps 2019 (IOF).
 | Bauart (Bauteil) | part kind (building part) | Art eines ALKIS-Bauteils, z. B. „Durchfahrt im Gebäude“, „Arkade“ (`bezbat`). | `bauart` |
 | Berlin-Regeln | Berlin rules | Regeldatei `berlin-candidates.toml`: macht aus Geoportal-Berlin-Objekten (Tags `berlin:<Eigenschaft>`) Kandidaten, über dieselbe Regelmaschine wie die OSM-Regeln. | `Rules::berlin`, `berlin_objects` |
 | Baumkataster | tree cadastre | Die Baumdatenbank des Landes Berlin (Straßenbäume, Anlagenbäume) mit Art und Kronendurchmesser; Bäume mit Krone ab 10 m werden zu 417, die übrigen zu 418. | `strassenbaeume`, `anlagenbaeume`, `berlin-candidates.toml` |
+| Straßenbefahrung | street survey | Befahrung des öffentlichen Straßenraums Berlins 2014–2016 (WFS `strassenbefahrung`): Flächen, Linien und Punkte mit `gis_id`, das das Aufnahmedatum enthält. Ersetzt ALKIS nie. | `SURVEY_SERVICE`, `survey_date` |
+| Aufnahmedatum | survey date | Datum der Straßenbefahrung eines Objekts, aus `gis_id` gelesen (vier Schreibweisen); ohne lesbares Datum 2014-01-01 mit `survey_date_guessed=yes`. | `survey_date`, `stamp_survey_date` |
+| Beleuchtungskataster | lighting cadastre | Öffentliche Beleuchtung Berlins (WFS `beleuchtung`); Leuchten außer Betrieb werden beim Laden verworfen. | `beleuchtung` |
 | Kleingarten | allotment garden | ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche / Kleingarten“; privates Gelände, in jedem Bundesland ein Kandidat für 520 (verbotenes Gebiet). | `is_private` |
 | K5 | K5 (Karte von Berlin 1:5000) | Die Berlin-Karte 1:5000 in Farbe (WMS `k5_farbe`), als Vorlage `templates/k5.png` mit Weltdatei gespeichert (0,25 m je Pixel, gröber bei Gebieten über 1,5 km Seitenlänge). | `K5_RELPATH`, `K5_WMS` |
 | OpenStreetMap (OSM) | OpenStreetMap (OSM) | Freie, gemeinschaftlich erstellte Geodaten. | `Osm` |

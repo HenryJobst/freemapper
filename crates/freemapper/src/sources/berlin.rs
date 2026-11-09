@@ -6,6 +6,7 @@
 
 use std::collections::HashSet;
 
+use chrono::{Datelike, NaiveDate};
 use serde_json::{Map, Value};
 
 use crate::crs::BoundingBox;
@@ -20,6 +21,9 @@ pub const LAND_USE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis";
 pub const LAND_USE_TYPE: &str = "alkis:tatsaechlichenutzungflaechen";
 /// Features per page; a 1 km tile in the city centre holds about 1100 buildings.
 const PAGE_COUNT: u32 = 5000;
+/// The date the survey layers get when a `gis_id` has none (the survey ran 2014–2016).
+pub const SURVEY_DATASET_DATE: NaiveDate = NaiveDate::from_ymd_opt(2014, 1, 1).expect("a date");
+
 /// `bez` of a Berlin square: Berlin never records what a square is used for, so it stays a
 /// candidate instead of becoming a paved map object.
 pub const SQUARE_WITHOUT_FUNCTION: &str = "ohne Unterart (Berlin)";
@@ -56,63 +60,207 @@ const LAND_USE_CLASSES: [(&str, &str); 19] = [
     ("AX_Hafenbecken", "Hafenbecken"),
 ];
 
-/// One extra Berlin layer: a WFS feature type stored as `data/berlin/<file>.geojson`.
+/// One WFS feature type of an [`ExtraLayer`] and the map kinds that use it.
 #[derive(Debug, PartialEq)]
-pub struct ExtraLayer {
-    /// Stored file name without the extension; also the `berlin:layer` value of its candidates.
-    pub file: &'static str,
-    pub service: &'static str,
-    pub type_name: &'static str,
-    /// The map kinds that use the layer.
+pub struct LayerType {
+    /// `namespace:name` as the service knows it; the part after the colon is the `berlin:layer`
+    /// value of a layer with `by_type` set.
+    pub name: &'static str,
     pub kinds: &'static [MapKind],
 }
 
-const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
-const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
+/// One extra Berlin layer: one or more WFS feature types of one service, stored together as
+/// `data/berlin/<file>.geojson`.
+#[derive(Debug, PartialEq)]
+pub struct ExtraLayer {
+    /// Stored file name without the extension; also the `berlin:layer` value of its candidates
+    /// unless `by_type` is set.
+    pub file: &'static str,
+    pub service: &'static str,
+    /// The feature types fetched one by one into the file, in this order.
+    pub types: &'static [LayerType],
+    /// Each stored feature gets `layer` = the type name without its namespace, as the
+    /// `berlin:layer` value (the types of the file cannot be told apart otherwise).
+    pub by_type: bool,
+    /// The features carry a `gis_id` with their survey date (Straßenbefahrung).
+    pub survey: bool,
+    /// Lamps not in operation are dropped on download.
+    pub operating_only: bool,
+}
 
-/// The extra layers, in fetch order (ALKIS structures, relief and hedges, tree cadastre).
-pub const EXTRA_LAYERS: [ExtraLayer; 6] = [
+const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
+const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint];
+const SCHOOLYARD_ONLY: &[MapKind] = &[MapKind::Schoolyard];
+const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
+/// The street survey of 2014–2016 (Straßenbefahrung).
+const SURVEY_SERVICE: &str = "https://gdi.berlin.de/services/wfs/strassenbefahrung";
+
+/// A layer of one plus-1 type for both kinds.
+const fn plain(
+    file: &'static str,
+    service: &'static str,
+    types: &'static [LayerType],
+) -> ExtraLayer {
     ExtraLayer {
-        file: "bauwerke-flaechen",
-        service: LAND_USE_SERVICE,
-        type_name: "alkis:bauwerkeflaechen",
-        kinds: BOTH_KINDS,
+        file,
+        service,
+        types,
+        by_type: false,
+        survey: false,
+        operating_only: false,
+    }
+}
+
+/// A Straßenbefahrung layer.
+const fn survey(file: &'static str, types: &'static [LayerType]) -> ExtraLayer {
+    ExtraLayer {
+        file,
+        service: SURVEY_SERVICE,
+        types,
+        by_type: true,
+        survey: true,
+        operating_only: false,
+    }
+}
+
+const fn ty(name: &'static str, kinds: &'static [MapKind]) -> LayerType {
+    LayerType { name, kinds }
+}
+
+/// The extra layers, in fetch order: ALKIS structures, relief and hedges, tree cadastre (Berlin
+/// plus 1), then the street survey, lighting, fountains and building heights (Berlin plus 2).
+pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
+    plain(
+        "bauwerke-flaechen",
+        LAND_USE_SERVICE,
+        &[ty("alkis:bauwerkeflaechen", BOTH_KINDS)],
+    ),
+    plain(
+        "bauwerke-linien",
+        LAND_USE_SERVICE,
+        &[ty("alkis:bauwerkelinien", BOTH_KINDS)],
+    ),
+    plain(
+        "relief",
+        LAND_USE_SERVICE,
+        &[ty("alkis:relief", SPRINT_ONLY)],
+    ),
+    plain(
+        "vegetation-linien",
+        LAND_USE_SERVICE,
+        &[ty("alkis:gewaesservegetationlinien", BOTH_KINDS)],
+    ),
+    plain(
+        "strassenbaeume",
+        TREE_SERVICE,
+        &[ty("baumbestand:strassenbaeume", BOTH_KINDS)],
+    ),
+    plain(
+        "anlagenbaeume",
+        TREE_SERVICE,
+        &[ty("baumbestand:anlagenbaeume", BOTH_KINDS)],
+    ),
+    survey(
+        "sb-gruenflaeche",
+        &[ty("strassenbefahrung:ce_gruenflaeche", SPRINT_ONLY)],
+    ),
+    survey(
+        "sb-flaechen",
+        &[
+            ty("strassenbefahrung:cm_fahrbahn", SPRINT_ONLY),
+            ty("strassenbefahrung:cl_gehweg", SPRINT_ONLY),
+            ty("strassenbefahrung:ch_radweg", SPRINT_ONLY),
+            ty("strassenbefahrung:ck_parkflaeche", SPRINT_ONLY),
+            ty("strassenbefahrung:ci_oeffentlicher_platz", SPRINT_ONLY),
+            ty("strassenbefahrung:cj_fussgaengerzone", SPRINT_ONLY),
+            ty("strassenbefahrung:by_gehwegueberfahrt", SPRINT_ONLY),
+        ],
+    ),
+    survey(
+        "sb-bordstein",
+        &[ty("strassenbefahrung:bd_bordstein", SPRINT_ONLY)],
+    ),
+    survey(
+        "sb-treppe",
+        &[ty("strassenbefahrung:cc_treppe", BOTH_KINDS)],
+    ),
+    survey("sb-mauer", &[ty("strassenbefahrung:bh_mauer", BOTH_KINDS)]),
+    survey(
+        "sb-gelaender",
+        &[
+            ty("strassenbefahrung:bf_gelaender", BOTH_KINDS),
+            ty("strassenbefahrung:bb_verkehrsschutzgitter", BOTH_KINDS),
+            ty("strassenbefahrung:bg_leitplanke", BOTH_KINDS),
+        ],
+    ),
+    survey(
+        "sb-moebel",
+        &[
+            ty("strassenbefahrung:bj_sitzbank", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:aq_hydrant", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:av_poller", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:as_mast", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:am_fahnenmast", SCHOOLYARD_ONLY),
+            ty("strassenbefahrung:aw_spielgeraet", SCHOOLYARD_ONLY),
+        ],
+    ),
+    survey(
+        "sb-objekte",
+        &[
+            ty("strassenbefahrung:ag_werbesaeule", SPRINT_ONLY),
+            ty("strassenbefahrung:br_fahrgastunterstand", BOTH_KINDS),
+            ty("strassenbefahrung:af_wasserpumpen_brunnen", BOTH_KINDS),
+            ty("strassenbefahrung:bv_springbrunnen_zierbrunnen", BOTH_KINDS),
+            ty(
+                "strassenbefahrung:ac_trinkwasserbrunnen_wasserspender",
+                SCHOOLYARD_ONLY,
+            ),
+        ],
+    ),
+    ExtraLayer {
+        by_type: true,
+        operating_only: true,
+        ..plain(
+            "beleuchtung",
+            "https://gdi.berlin.de/services/wfs/beleuchtung",
+            &[ty("beleuchtung:beleuchtung", SCHOOLYARD_ONLY)],
+        )
     },
     ExtraLayer {
-        file: "bauwerke-linien",
-        service: LAND_USE_SERVICE,
-        type_name: "alkis:bauwerkelinien",
-        kinds: BOTH_KINDS,
+        by_type: true,
+        ..plain(
+            "zierbrunnen",
+            "https://gdi.berlin.de/services/wfs/zierbrunnen",
+            &[ty("zierbrunnen:bez_zierbrunnen", BOTH_KINDS)],
+        )
     },
     ExtraLayer {
-        file: "relief",
-        service: LAND_USE_SERVICE,
-        type_name: "alkis:relief",
-        kinds: &[MapKind::Sprint],
+        by_type: true,
+        ..plain(
+            "trinkwasserbrunnen",
+            "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen",
+            &[ty("trinkwasserbrunnen:trinkwasserbrunnen", SCHOOLYARD_ONLY)],
+        )
     },
-    ExtraLayer {
-        file: "vegetation-linien",
-        service: LAND_USE_SERVICE,
-        type_name: "alkis:gewaesservegetationlinien",
-        kinds: BOTH_KINDS,
-    },
-    ExtraLayer {
-        file: "strassenbaeume",
-        service: TREE_SERVICE,
-        type_name: "baumbestand:strassenbaeume",
-        kinds: BOTH_KINDS,
-    },
-    ExtraLayer {
-        file: "anlagenbaeume",
-        service: TREE_SERVICE,
-        type_name: "baumbestand:anlagenbaeume",
-        kinds: BOTH_KINDS,
-    },
+    plain(
+        "gebaeudehoehen",
+        "https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen",
+        &[ty("ua_gebaeudehoehen:gebaeudehoehen", BOTH_KINDS)],
+    ),
 ];
+
+impl ExtraLayer {
+    /// The feature types `kind` uses.
+    pub fn types_for(&self, kind: MapKind) -> impl Iterator<Item = &'static LayerType> {
+        self.types.iter().filter(move |t| t.kinds.contains(&kind))
+    }
+}
 
 /// The extra layers `kind` uses.
 pub fn extra_layers(kind: MapKind) -> impl Iterator<Item = &'static ExtraLayer> {
-    EXTRA_LAYERS.iter().filter(move |l| l.kinds.contains(&kind))
+    EXTRA_LAYERS
+        .iter()
+        .filter(move |l| l.types_for(kind).next().is_some())
 }
 
 /// One extra layer as fetched; an empty `features` is a layer without objects in the area.
@@ -142,7 +290,112 @@ pub fn fetch_extra_layers(
     extra_layers(kind)
         .map(|layer| FetchedLayer {
             layer,
-            features: fetch_wfs(fetcher, layer.service, layer.type_name, region_bbox),
+            features: fetch_layer(fetcher, layer, region_bbox, kind),
+        })
+        .collect()
+}
+
+/// All features of `layer` for `kind`, the types one after the other. One type that fails fails
+/// the layer (a half-filled file would pass for complete). Stored features are prepared as the
+/// layer says: the type name, the survey date, MultiPoints split, lamps out of service dropped.
+fn fetch_layer(
+    fetcher: &dyn Fetcher,
+    layer: &ExtraLayer,
+    region_bbox: &BoundingBox,
+    kind: MapKind,
+) -> Result<Vec<Value>, FetchError> {
+    let mut features = Vec::new();
+    for t in layer.types_for(kind) {
+        for mut feature in fetch_wfs(fetcher, layer.service, t.name, region_bbox)? {
+            if layer.operating_only && !in_operation(&feature) {
+                continue;
+            }
+            if layer.by_type {
+                let local = t.name.split_once(':').map_or(t.name, |(_, name)| name);
+                feature["properties"]["layer"] = local.into();
+            }
+            if layer.survey {
+                stamp_survey_date(&mut feature);
+            }
+            features.extend(split_multipoint(feature));
+        }
+    }
+    Ok(features)
+}
+
+/// Whether a lighting cadastre feature is in operation (`In Betrieb`, `In Betrieb (Provi)`).
+fn in_operation(feature: &Value) -> bool {
+    feature["properties"]["status"]
+        .as_str()
+        .is_some_and(|status| status.starts_with("In Betrieb"))
+}
+
+/// The date of the survey as `survey_date`, taken from `gis_id`; without a usable id the date of
+/// the dataset and `survey_date_guessed` = `yes`.
+pub fn stamp_survey_date(feature: &mut Value) {
+    let parsed = feature["properties"]["gis_id"]
+        .as_str()
+        .and_then(survey_date);
+    let date = parsed.unwrap_or(SURVEY_DATASET_DATE);
+    feature["properties"]["survey_date"] = date.to_string().into();
+    if parsed.is_none() {
+        feature["properties"]["survey_date_guessed"] = "yes".into();
+    }
+}
+
+/// The date in a Straßenbefahrung `gis_id` (`Fl_20150413_37`, `Li_25.09.2014_230`,
+/// `Fl_2015-05-02_404949`, `FL_16072014_03142`): the part between the first two underscores.
+/// Compact dates are YYYYMMDD, or DDMMYYYY when the first four digits are not a year of the
+/// survey. `None` for anything else, and for years outside 2010–2020.
+pub fn survey_date(gis_id: &str) -> Option<NaiveDate> {
+    let text = gis_id.split('_').nth(1)?;
+    let date = if text.contains('.') {
+        NaiveDate::parse_from_str(text, "%d.%m.%Y").ok()?
+    } else if text.contains('-') {
+        NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?
+    } else if text.len() == 8 && text.bytes().all(|b| b.is_ascii_digit()) {
+        let plausible_year = |year: &str| year.parse::<i32>().is_ok_and(plausible_survey_year);
+        if plausible_year(&text[..4]) {
+            NaiveDate::parse_from_str(text, "%Y%m%d").ok()?
+        } else {
+            NaiveDate::parse_from_str(text, "%d%m%Y").ok()?
+        }
+    } else {
+        return None;
+    };
+    plausible_survey_year(date.year()).then_some(date)
+}
+
+fn plausible_survey_year(year: i32) -> bool {
+    (2010..=2020).contains(&year)
+}
+
+/// A MultiPoint feature as one Point feature per member (`id`, then `id#2`, `id#3`, …), all
+/// with the properties of the original; any other feature unchanged. An empty MultiPoint gives
+/// none.
+pub fn split_multipoint(feature: Value) -> Vec<Value> {
+    if feature["geometry"]["type"] != "MultiPoint" {
+        return vec![feature];
+    }
+    let members = feature["geometry"]["coordinates"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    members
+        .into_iter()
+        .enumerate()
+        .map(|(i, coordinates)| {
+            let mut point = feature.clone();
+            point["geometry"] = serde_json::json!({ "type": "Point", "coordinates": coordinates });
+            if i > 0
+                && let Some(id) = feature["id"].as_str()
+            {
+                point["id"] = format!("{id}#{}", i + 1).into();
+            }
+            if let Some(object) = point.as_object_mut() {
+                object.remove("bbox");
+            }
+            point
         })
         .collect()
 }
@@ -320,6 +573,45 @@ pub(crate) mod test_support {
         include_str!("../../../../tests/fixtures/berlin-anlagenbaeume.json");
     pub const BUILDING_PARTS: &str =
         include_str!("../../../../tests/fixtures/berlin-building-parts.json");
+    pub const SB_GRUENFLAECHE: &str =
+        include_str!("../../../../tests/fixtures/berlin-sb-gruenflaeche.json");
+    pub const SB_TREPPE: &str = include_str!("../../../../tests/fixtures/berlin-sb-treppe.json");
+    pub const SB_BORDSTEIN: &str =
+        include_str!("../../../../tests/fixtures/berlin-sb-bordstein.json");
+    pub const SB_GELAENDER: &str =
+        include_str!("../../../../tests/fixtures/berlin-sb-gelaender.json");
+    pub const SB_VERKEHRSSCHUTZGITTER: &str =
+        include_str!("../../../../tests/fixtures/berlin-sb-verkehrsschutzgitter.json");
+    pub const BELEUCHTUNG: &str =
+        include_str!("../../../../tests/fixtures/berlin-beleuchtung.json");
+    pub const ZIERBRUNNEN: &str =
+        include_str!("../../../../tests/fixtures/berlin-zierbrunnen.json");
+    pub const GEBAEUDEHOEHEN: &str =
+        include_str!("../../../../tests/fixtures/berlin-gebaeudehoehen.json");
+    /// What a WFS answers for a type without objects in the area.
+    pub const EMPTY: &str = r#"{"type":"FeatureCollection","features":[],"totalFeatures":0}"#;
+
+    /// The answer the tests serve for the WFS type `type_name`: its fixture, else an empty
+    /// collection.
+    pub fn answer(type_name: &str) -> &'static str {
+        match type_name {
+            "alkis:bauwerkeflaechen" => BAUWERKE_FLAECHEN,
+            "alkis:bauwerkelinien" => BAUWERKE_LINIEN,
+            "alkis:relief" => RELIEF,
+            "alkis:gewaesservegetationlinien" => VEGETATION_LINIEN,
+            "baumbestand:strassenbaeume" => STRASSENBAEUME,
+            "baumbestand:anlagenbaeume" => ANLAGENBAEUME,
+            "strassenbefahrung:ce_gruenflaeche" => SB_GRUENFLAECHE,
+            "strassenbefahrung:cc_treppe" => SB_TREPPE,
+            "strassenbefahrung:bd_bordstein" => SB_BORDSTEIN,
+            "strassenbefahrung:bf_gelaender" => SB_GELAENDER,
+            "strassenbefahrung:bb_verkehrsschutzgitter" => SB_VERKEHRSSCHUTZGITTER,
+            "beleuchtung:beleuchtung" => BELEUCHTUNG,
+            "zierbrunnen:bez_zierbrunnen" => ZIERBRUNNEN,
+            "ua_gebaeudehoehen:gebaeudehoehen" => GEBAEUDEHOEHEN,
+            _ => EMPTY,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -459,22 +751,16 @@ mod tests {
         max_n: 5_799_824.0,
     };
 
-    /// A fetcher that answers every extra layer of the school area with its fixture.
+    /// A fetcher that answers every extra layer type of the school area with its fixture.
     fn extra_fetcher() -> MapFetcher {
         let fetcher = MapFetcher::default();
-        for (layer, body) in [
-            ("bauwerke-flaechen", BAUWERKE_FLAECHEN),
-            ("bauwerke-linien", BAUWERKE_LINIEN),
-            ("relief", RELIEF),
-            ("vegetation-linien", VEGETATION_LINIEN),
-            ("strassenbaeume", STRASSENBAEUME),
-            ("anlagenbaeume", ANLAGENBAEUME),
-        ] {
-            let layer = EXTRA_LAYERS.iter().find(|l| l.file == layer).unwrap();
-            fetcher.insert(
-                &wfs_url(layer.service, layer.type_name, &SCHOOL),
-                body.as_bytes().to_vec(),
-            );
+        for layer in &EXTRA_LAYERS {
+            for t in layer.types {
+                fetcher.insert(
+                    &wfs_url(layer.service, t.name, &SCHOOL),
+                    answer(t.name).as_bytes().to_vec(),
+                );
+            }
         }
         fetcher
     }
@@ -491,7 +777,7 @@ mod tests {
         let sprint = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Sprint);
         let files: Vec<&str> = sprint.iter().map(|l| l.layer.file).collect();
         assert_eq!(
-            files,
+            files[..6],
             [
                 "bauwerke-flaechen",
                 "bauwerke-linien",
@@ -501,19 +787,338 @@ mod tests {
                 "anlagenbaeume"
             ]
         );
-        assert_eq!(fetcher.calls.get(), 6);
+        assert_eq!(fetcher.calls.get(), 26);
         let fetcher = extra_fetcher();
         let schoolyard = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
-        assert_eq!(schoolyard.len(), 5);
+        assert_eq!(schoolyard.len(), 14);
         assert!(schoolyard.iter().all(|l| l.layer.file != "relief"));
-        assert_eq!(fetcher.calls.get(), 5);
+        assert_eq!(fetcher.calls.get(), 24);
 
         // A border area keeps the Berlin layers (nothing is served here, so they fail with a
         // missing service, but they are asked for).
         let fetcher = MapFetcher::default();
         let border = fetch_extra_layers(&fetcher, &BORDER, MapKind::Sprint);
-        assert_eq!(border.len(), 6);
-        assert_eq!(fetcher.calls.get(), 6);
+        assert_eq!(border.len(), 15);
+        assert!(border.iter().all(|l| l.features.is_err()));
+    }
+
+    #[test]
+    fn survey_layers_only_inside_berlin() {
+        // Brandenburg only: no request for any of the survey, lighting or height layers.
+        let fetcher = MapFetcher::default();
+        assert!(fetch_extra_layers(&fetcher, &STRAUSBERG, MapKind::Schoolyard).is_empty());
+        assert_eq!(fetcher.calls.get(), 0);
+
+        // The table: service, files and kinds of the new layers.
+        let survey = "https://gdi.berlin.de/services/wfs/strassenbefahrung";
+        let table: Vec<(&str, &str, Vec<&str>)> = EXTRA_LAYERS[6..]
+            .iter()
+            .map(|l| (l.file, l.service, l.types.iter().map(|t| t.name).collect()))
+            .collect();
+        let sb = |names: &[&'static str]| -> Vec<&'static str> { names.to_vec() };
+        assert_eq!(
+            table,
+            [
+                (
+                    "sb-gruenflaeche",
+                    survey,
+                    sb(&["strassenbefahrung:ce_gruenflaeche"])
+                ),
+                (
+                    "sb-flaechen",
+                    survey,
+                    sb(&[
+                        "strassenbefahrung:cm_fahrbahn",
+                        "strassenbefahrung:cl_gehweg",
+                        "strassenbefahrung:ch_radweg",
+                        "strassenbefahrung:ck_parkflaeche",
+                        "strassenbefahrung:ci_oeffentlicher_platz",
+                        "strassenbefahrung:cj_fussgaengerzone",
+                        "strassenbefahrung:by_gehwegueberfahrt",
+                    ])
+                ),
+                (
+                    "sb-bordstein",
+                    survey,
+                    sb(&["strassenbefahrung:bd_bordstein"])
+                ),
+                ("sb-treppe", survey, sb(&["strassenbefahrung:cc_treppe"])),
+                ("sb-mauer", survey, sb(&["strassenbefahrung:bh_mauer"])),
+                (
+                    "sb-gelaender",
+                    survey,
+                    sb(&[
+                        "strassenbefahrung:bf_gelaender",
+                        "strassenbefahrung:bb_verkehrsschutzgitter",
+                        "strassenbefahrung:bg_leitplanke",
+                    ])
+                ),
+                (
+                    "sb-moebel",
+                    survey,
+                    sb(&[
+                        "strassenbefahrung:bj_sitzbank",
+                        "strassenbefahrung:aq_hydrant",
+                        "strassenbefahrung:av_poller",
+                        "strassenbefahrung:as_mast",
+                        "strassenbefahrung:am_fahnenmast",
+                        "strassenbefahrung:aw_spielgeraet",
+                    ])
+                ),
+                (
+                    "sb-objekte",
+                    survey,
+                    sb(&[
+                        "strassenbefahrung:ag_werbesaeule",
+                        "strassenbefahrung:br_fahrgastunterstand",
+                        "strassenbefahrung:af_wasserpumpen_brunnen",
+                        "strassenbefahrung:bv_springbrunnen_zierbrunnen",
+                        "strassenbefahrung:ac_trinkwasserbrunnen_wasserspender",
+                    ])
+                ),
+                (
+                    "beleuchtung",
+                    "https://gdi.berlin.de/services/wfs/beleuchtung",
+                    sb(&["beleuchtung:beleuchtung"])
+                ),
+                (
+                    "zierbrunnen",
+                    "https://gdi.berlin.de/services/wfs/zierbrunnen",
+                    sb(&["zierbrunnen:bez_zierbrunnen"])
+                ),
+                (
+                    "trinkwasserbrunnen",
+                    "https://gdi.berlin.de/services/wfs/trinkwasserbrunnen",
+                    sb(&["trinkwasserbrunnen:trinkwasserbrunnen"])
+                ),
+                (
+                    "gebaeudehoehen",
+                    "https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen",
+                    sb(&["ua_gebaeudehoehen:gebaeudehoehen"])
+                ),
+            ]
+        );
+
+        // Sprint maps get the paved, curb and green layers, not the schoolyard furniture and
+        // lamps; schoolyard maps the reverse. A type of a shared file only goes to its kinds.
+        let fetcher = extra_fetcher();
+        let files = |kind| -> Vec<&'static str> {
+            fetch_extra_layers(&fetcher, &SCHOOL, kind)
+                .iter()
+                .map(|l| l.layer.file)
+                .filter(|f| !EXTRA_LAYERS[..6].iter().any(|p| p.file == *f))
+                .collect()
+        };
+        assert_eq!(
+            files(MapKind::Sprint),
+            [
+                "sb-gruenflaeche",
+                "sb-flaechen",
+                "sb-bordstein",
+                "sb-treppe",
+                "sb-mauer",
+                "sb-gelaender",
+                "sb-objekte",
+                "zierbrunnen",
+                "gebaeudehoehen"
+            ]
+        );
+        assert_eq!(
+            files(MapKind::Schoolyard),
+            [
+                "sb-treppe",
+                "sb-mauer",
+                "sb-gelaender",
+                "sb-moebel",
+                "sb-objekte",
+                "beleuchtung",
+                "zierbrunnen",
+                "trinkwasserbrunnen",
+                "gebaeudehoehen"
+            ]
+        );
+        let requested: Vec<String> = fetcher.log.borrow().clone();
+        let asked = |needle: &str| requested.iter().any(|u| u.contains(needle));
+        // Both calls above ran on one fetcher: the sprint-only type and the schoolyard-only type
+        // of the shared `sb-objekte` file were each asked for once, by their kind.
+        assert_eq!(
+            requested
+                .iter()
+                .filter(|u| u.contains("ag_werbesaeule"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            requested
+                .iter()
+                .filter(|u| u.contains("ac_trinkwasserbrunnen_wasserspender"))
+                .count(),
+            1
+        );
+        assert!(asked("bd_bordstein") && asked("beleuchtung:beleuchtung"));
+    }
+
+    #[test]
+    fn several_types_share_one_file() {
+        let fetcher = extra_fetcher();
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
+        let rails = layers
+            .iter()
+            .find(|l| l.layer.file == "sb-gelaender")
+            .unwrap();
+        let features = rails.features.as_ref().unwrap();
+        // Two fixture features of `bf_gelaender`, two of `bb_verkehrsschutzgitter`, none of
+        // `bg_leitplanke` (an empty answer is no error).
+        assert_eq!(features.len(), 4);
+        let layer_of = |f: &Value| f["properties"]["layer"].as_str().unwrap().to_string();
+        let types: Vec<String> = features.iter().map(layer_of).collect();
+        assert_eq!(
+            types,
+            [
+                "bf_gelaender",
+                "bf_gelaender",
+                "bb_verkehrsschutzgitter",
+                "bb_verkehrsschutzgitter"
+            ]
+        );
+        // Stored as one collection and read back unchanged.
+        assert_eq!(parse_layer(&layer_to_geojson(features)).unwrap(), *features);
+        // One request per type.
+        let asked = fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.contains("typeNames=strassenbefahrung:b"))
+            .count();
+        assert!(asked >= 3);
+        // One failing type fails the file, not the others.
+        let fetcher = extra_fetcher();
+        let url = wfs_url(
+            rails.layer.service,
+            "strassenbefahrung:bg_leitplanke",
+            &SCHOOL,
+        );
+        fetcher.failing.borrow_mut().push(url);
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
+        let by_file = |file: &str| layers.iter().find(|l| l.layer.file == file).unwrap();
+        assert!(by_file("sb-gelaender").features.is_err());
+        assert!(by_file("sb-mauer").features.is_ok());
+    }
+
+    #[test]
+    fn gis_id_dates_parse() {
+        let date = |y, m, d| NaiveDate::from_ymd_opt(y, m, d);
+        // The four spellings of the survey: compact, dotted, ISO and DDMMYYYY.
+        assert_eq!(survey_date("Fl_20150413_37"), date(2015, 4, 13));
+        assert_eq!(survey_date("Li_25.09.2014_230"), date(2014, 9, 25));
+        assert_eq!(survey_date("Fl_2015-05-02_404949"), date(2015, 5, 2));
+        assert_eq!(survey_date("FL_16072014_03142"), date(2014, 7, 16));
+        // A suffix after the running number does not matter.
+        assert_eq!(survey_date("FL_04082014_01557_A_A_B"), date(2014, 8, 4));
+        // Not a survey id, not a date, or not a plausible year.
+        assert_eq!(survey_date(""), None);
+        assert_eq!(survey_date("None"), None);
+        assert_eq!(survey_date("Fl_99999999_1"), None);
+        assert_eq!(survey_date("Fl_20150231_1"), None);
+        assert_eq!(survey_date("Pk_13.04.1915_9"), None);
+
+        // The fixtures carry all four; the date is a property of the stored feature, a missing
+        // id gets the dataset date and a flag.
+        let fetcher = extra_fetcher();
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Sprint);
+        let dates = |file: &str| -> Vec<String> {
+            layers
+                .iter()
+                .find(|l| l.layer.file == file)
+                .unwrap()
+                .features
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|f| f["properties"]["survey_date"].as_str().unwrap().to_string())
+                .collect()
+        };
+        assert_eq!(
+            dates("sb-gruenflaeche"),
+            ["2015-04-16", "2016-08-19", "2014-08-04"]
+        );
+        assert_eq!(dates("sb-bordstein"), ["2015-04-16", "2014-07-16"]);
+        assert_eq!(dates("sb-treppe"), ["2014-07-16"; 3]);
+        let mut feature = serde_json::json!({
+            "type": "Feature", "id": "x.1", "geometry": null,
+            "properties": { "gis_id": "unlesbar" }
+        });
+        stamp_survey_date(&mut feature);
+        assert_eq!(feature["properties"]["survey_date"], "2014-01-01");
+        assert_eq!(feature["properties"]["survey_date_guessed"], "yes");
+        // A parsed id sets no guessed flag; other layers get no date at all.
+        let ok = &layers
+            .iter()
+            .find(|l| l.layer.file == "sb-treppe")
+            .unwrap()
+            .features
+            .as_ref()
+            .unwrap()[0];
+        assert!(ok["properties"]["survey_date_guessed"].is_null());
+        let trees = layers
+            .iter()
+            .find(|l| l.layer.file == "strassenbaeume")
+            .unwrap();
+        assert!(
+            trees.features.as_ref().unwrap()[0]["properties"]["survey_date"].is_null(),
+            "only the survey layers carry a survey date"
+        );
+    }
+
+    #[test]
+    fn multipoint_lamps_split() {
+        let fetcher = extra_fetcher();
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
+        let lamps = layers
+            .iter()
+            .find(|l| l.layer.file == "beleuchtung")
+            .unwrap()
+            .features
+            .as_ref()
+            .unwrap();
+        // The fixture has four single-member MultiPoints, one of them not in operation: the
+        // lamp is a Point, the out-of-service lamp is dropped.
+        assert_eq!(lamps.len(), 3);
+        assert!(lamps.iter().all(|f| f["geometry"]["type"] == "Point"));
+        assert!(lamps.iter().all(|f| {
+            f["properties"]["status"]
+                .as_str()
+                .unwrap()
+                .starts_with("In Betrieb")
+        }));
+        assert_eq!(
+            lamps[0]["geometry"]["coordinates"],
+            serde_json::json!([390_475.233161, 5_816_762.706081])
+        );
+        // A MultiPoint with three members becomes three points with their own ids and the same
+        // properties.
+        let multi = serde_json::json!({
+            "type": "Feature", "id": "beleuchtung.9",
+            "geometry": { "type": "MultiPoint", "coordinates": [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]] },
+            "properties": { "status": "In Betrieb" }
+        });
+        let split = split_multipoint(multi);
+        let ids: Vec<&str> = split.iter().map(|f| f["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["beleuchtung.9", "beleuchtung.9#2", "beleuchtung.9#3"]);
+        assert_eq!(
+            split[2]["geometry"]["coordinates"],
+            serde_json::json!([5.0, 6.0])
+        );
+        assert!(
+            split
+                .iter()
+                .all(|f| f["properties"]["status"] == "In Betrieb")
+        );
+        // Other geometries pass unchanged; an empty MultiPoint gives no feature.
+        let line = serde_json::json!({ "id": "a", "geometry": { "type": "LineString", "coordinates": [] } });
+        assert_eq!(split_multipoint(line.clone()), [line]);
+        let none = serde_json::json!({ "id": "b", "geometry": { "type": "MultiPoint", "coordinates": [] } });
+        assert!(split_multipoint(none).is_empty());
     }
 
     #[test]
@@ -521,14 +1126,14 @@ mod tests {
         let by_file = |file: &str| EXTRA_LAYERS.iter().find(|l| l.file == file).unwrap();
         let trees = by_file("strassenbaeume");
         assert_eq!(
-            wfs_url(trees.service, trees.type_name, &SCHOOL),
+            wfs_url(trees.service, trees.types[0].name, &SCHOOL),
             "https://gdi.berlin.de/services/wfs/baumbestand?service=WFS&version=2.0.0\
              &request=GetFeature&typeNames=baumbestand:strassenbaeume&outputFormat=application/json\
              &count=5000&bbox=392700,5820750,392900,5820951,urn:ogc:def:crs:EPSG::25833"
         );
         let lines = by_file("bauwerke-linien");
         assert_eq!(
-            wfs_url(lines.service, lines.type_name, &SCHOOL),
+            wfs_url(lines.service, lines.types[0].name, &SCHOOL),
             "https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0\
              &request=GetFeature&typeNames=alkis:bauwerkelinien&outputFormat=application/json\
              &count=5000&bbox=392700,5820750,392900,5820951,urn:ogc:def:crs:EPSG::25833"
@@ -536,7 +1141,8 @@ mod tests {
         // The whole table: service and type per file.
         let table: Vec<(&str, &str, &str)> = EXTRA_LAYERS
             .iter()
-            .map(|l| (l.file, l.service, l.type_name))
+            .take(6)
+            .map(|l| (l.file, l.service, l.types[0].name))
             .collect();
         let alkis = "https://gdi.berlin.de/services/wfs/alkis";
         let trees = "https://gdi.berlin.de/services/wfs/baumbestand";
@@ -567,7 +1173,7 @@ mod tests {
             .find(|l| l.file == "strassenbaeume")
             .unwrap();
         let fetcher = MapFetcher::default();
-        let first = wfs_url(layer.service, layer.type_name, &SCHOOL);
+        let first = wfs_url(layer.service, layer.types[0].name, &SCHOOL);
         let second = format!("{}?STARTINDEX=3", layer.service);
         let page = |fs: &[Value], next: Option<&str>| {
             let links: Vec<Value> = next
@@ -580,7 +1186,7 @@ mod tests {
         };
         fetcher.insert(&first, page(&trees[..3], Some(&second)));
         fetcher.insert(&second, page(&trees[2..], None));
-        let fetched = fetch_wfs(&fetcher, layer.service, layer.type_name, &SCHOOL).unwrap();
+        let fetched = fetch_wfs(&fetcher, layer.service, layer.types[0].name, &SCHOOL).unwrap();
         assert_eq!(fetched.len(), 4);
     }
 

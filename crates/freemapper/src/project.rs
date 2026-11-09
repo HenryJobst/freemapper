@@ -2324,7 +2324,7 @@ fn fetch_berlin_layers_into(
         // The disk plan already said that the layers are left out; stored ones stay.
         return previous.clone();
     }
-    progress("downloading Berlin ALKIS structures and tree cadastre");
+    progress("downloading Berlin ALKIS structures, tree cadastre, street survey and point layers");
     let bbox = [
         region_bbox.min_e.floor(),
         region_bbox.min_n.floor(),
@@ -8422,22 +8422,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(ids, ["node/2", "node/5", "way/7", "way/30"]);
     }
 
-    /// Serves the extra Berlin layer fixtures for exactly `bbox`.
+    /// Serves the extra Berlin layer fixtures for exactly `bbox` (an empty answer for the types
+    /// without a fixture).
     fn serve_berlin_layers(fetcher: &MapFetcher, bbox: &BoundingBox) {
-        use crate::sources::berlin::{EXTRA_LAYERS, test_support::*, wfs_url};
-        let bodies = [
-            BAUWERKE_FLAECHEN,
-            BAUWERKE_LINIEN,
-            RELIEF,
-            VEGETATION_LINIEN,
-            STRASSENBAEUME,
-            ANLAGENBAEUME,
-        ];
-        for (layer, body) in EXTRA_LAYERS.iter().zip(bodies) {
-            fetcher.insert(
-                &wfs_url(layer.service, layer.type_name, bbox),
-                body.as_bytes().to_vec(),
-            );
+        use crate::sources::berlin::{EXTRA_LAYERS, test_support::answer, wfs_url};
+        for layer in &EXTRA_LAYERS {
+            for t in layer.types {
+                fetcher.insert(
+                    &wfs_url(layer.service, t.name, bbox),
+                    answer(t.name).as_bytes().to_vec(),
+                );
+            }
         }
     }
 
@@ -9009,7 +9004,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         serve_berlin_layers(&fetcher, &region_bbox);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
 
-        // Schoolyard map: five layers, relief is for sprint maps; an empty layer is stored too.
+        // Schoolyard map: the plus-1 layers (relief is for sprint maps), the survey layers of
+        // both kinds and the schoolyard ones; an empty layer is stored too.
         let files: Vec<&str> = project.berlin_layers.keys().map(String::as_str).collect();
         assert_eq!(
             files,
@@ -9017,12 +9013,22 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 "anlagenbaeume",
                 "bauwerke-flaechen",
                 "bauwerke-linien",
+                "beleuchtung",
+                "gebaeudehoehen",
+                "sb-gelaender",
+                "sb-mauer",
+                "sb-moebel",
+                "sb-objekte",
+                "sb-treppe",
                 "strassenbaeume",
-                "vegetation-linien"
+                "trinkwasserbrunnen",
+                "vegetation-linien",
+                "zierbrunnen"
             ]
         );
+        // Three lamps in operation of four, four railings of two types, three stairs.
         let counts: Vec<usize> = project.berlin_layers.values().map(|r| r.count).collect();
-        assert_eq!(counts, [4, 10, 8, 4, 0]);
+        assert_eq!(counts, [4, 10, 8, 3, 4, 4, 0, 0, 0, 3, 4, 0, 0, 3]);
         assert!(
             dir.path()
                 .join("data/berlin/vegetation-linien.geojson")
@@ -9046,8 +9052,27 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 ("bauwerke-linien", 8),
                 ("vegetation-linien", 0),
                 ("strassenbaeume", 4),
-                ("anlagenbaeume", 4)
+                ("anlagenbaeume", 4),
+                ("sb-treppe", 3),
+                ("sb-mauer", 0),
+                ("sb-gelaender", 4),
+                ("sb-moebel", 0),
+                ("sb-objekte", 0),
+                ("beleuchtung", 3),
+                ("zierbrunnen", 3),
+                ("trinkwasserbrunnen", 0),
+                ("gebaeudehoehen", 4)
             ]
+        );
+        // The stored survey features carry their type and survey date.
+        let railings = stored
+            .iter()
+            .find(|l| l.layer.file == "sb-gelaender")
+            .unwrap();
+        assert_eq!(railings.features[0]["properties"]["layer"], "bf_gelaender");
+        assert_eq!(
+            railings.features[0]["properties"]["survey_date"],
+            "2015-05-02"
         );
         // The records survive the project file.
         assert_eq!(ProjectFile::load(dir.path()).unwrap(), project);
@@ -9068,7 +9093,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .borrow_mut()
             .push(crate::sources::berlin::wfs_url(
                 lines.service,
-                lines.type_name,
+                lines.types[0].name,
                 &region_bbox,
             ));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);

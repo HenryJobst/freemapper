@@ -189,9 +189,17 @@ pub(crate) fn provenance_tags(
 /// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
 /// ALKIS name as `freemapper:alkis`).
 fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
-    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     let properties = feature["properties"].as_object();
+    // A file with several WFS types names the type per feature.
+    let layer = properties
+        .and_then(|p| p.get("layer"))
+        .and_then(Value::as_str)
+        .unwrap_or(layer);
+    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     for (key, value) in properties.into_iter().flatten() {
+        if key == "layer" {
+            continue;
+        }
         let text = match value {
             Value::String(s) if !s.is_empty() => s.clone(),
             Value::Number(n) => n.to_string(),
@@ -647,6 +655,22 @@ mod tests {
         // Empty strings and nulls are no tags.
         assert_eq!(tag(&tagged[0], "berlin:nam"), None);
         assert_eq!(tag(&tagged[0], "berlin:art"), None);
+
+        // A stored `layer` (the WFS type of a file with several types) is the `berlin:layer`.
+        let rail = serde_json::json!({
+            "type": "Feature", "id": "bf_gelaender.1",
+            "geometry": {"type": "Point", "coordinates": [392419.46, 5820118.05]},
+            "properties": {"layer": "bf_gelaender", "survey_date": "2015-05-02"}
+        });
+        let tagged = tagged_features("sb-gelaender", &[rail]);
+        let layers: Vec<&str> = tagged[0]
+            .tags
+            .iter()
+            .filter(|(k, _)| k == "berlin:layer")
+            .map(|(_, v)| v.as_str())
+            .collect();
+        assert_eq!(layers, ["bf_gelaender"]);
+        assert_eq!(tag(&tagged[0], "berlin:survey_date"), Some("2015-05-02"));
 
         // Each part of a MultiLineString is a line.
         let lines = serde_json::json!({
