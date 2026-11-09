@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.6.0] - 2026-11-09
+
 ### Hinzugefügt
 
 - Berlin: die Straßenbefahrung des Geoportals Berlin, aufgenommen 2014 bis 2016. Auf Sprintkarten werden Bordsteine (501.1), Werbesäulen (531), Grünstreifen (401) und vermessene Gehwege, Plätze und Parkwege außerhalb der ALKIS-Straßenflächen (501.5) Kandidaten. Auf beiden Kartenarten kommen Treppen, Mauern, Geländer, Verkehrsschutzgitter und Leitplanken (518), Fahrgastunterstände und Brunnen dazu. Jeder vermessene Kandidat trägt sein Aufnahmedatum; ist es nicht lesbar, steht 2014-01-01 mit `freemapper:currency_guessed=yes` da.

@@ -36,15 +36,15 @@ sind in Entwicklung:
 
 ## Status
 
-Aktuelle Version ist [v0.5.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.5.0) vom
+Aktuelle Version ist [v0.6.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.0) vom
 9. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
 Schulhof- und Sprintkarten für elf Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte. Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
-Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage. Auf dem
-Hauptzweig, noch ohne Version, nutzen sie auch die Straßenbefahrung 2014 bis 2016: Die vermessenen
+Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage. Außerdem
+nutzen sie die Straßenbefahrung 2014 bis 2016: Die vermessenen
 Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und
 Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität.
 
