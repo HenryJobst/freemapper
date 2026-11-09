@@ -51,6 +51,6 @@ duplicates are tested against (branch `sheet-colours`).
 Source: plan `docs/superpowers/plans/2026-11-08-water.md` (Rulings, Global Constraints); spec §4.5 (Water); commits
 71e3937, ee73610, 3a99a31, 599c414, 0cbbe35 and 19fe4c1 on branch `water`.
 
-Addendum (2026-11-10): ADR 0070 replaces the sentence "freemapper reads no OSM relations". OSM multipolygon relations are read
-now, so water areas that are relations become candidates like water ways. Water relations of other types (rivers as
-`type=waterway`) stay out of scope.
+Addendum (2026-11-10): ADR 0070 replaces the sentence "freemapper reads no OSM relations". freemapper now reads
+multipolygon relations, so water areas that are relations become candidates like water ways. Rivers as relations of
+another type (`type=waterway`) stay out of scope.
