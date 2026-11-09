@@ -24,6 +24,7 @@ use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::points::{GENERALIZATION_SOURCE, generalize_points};
 use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
     has_stairs, stair_objects,
@@ -4290,8 +4291,29 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre_candidates =
         drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
-    // A register is named once its points are among the candidates.
-    let registers = drawn_registers(&cadastre_candidates);
+    // The point symbols keep the norm's gap, dense tree groups become 402, 405 or 501.3, and no
+    // point stands in a 520 area (`build/points.rs`). The OSM candidates stay before the others.
+    let out_of_bounds =
+        stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
+    let mut points = osm_candidates;
+    points.extend(cadastre_candidates);
+    let generalized = generalize_points(
+        points,
+        osm_objects(Target::Map)?,
+        &out_of_bounds,
+        &paved.map,
+        &footprints,
+        &water.union,
+        &clip,
+        project.map_kind,
+        &georef,
+        &symbol_set,
+    )?;
+    let mut point_candidates = generalized.candidates;
+    point_candidates.extend(generalized.areas);
+    // A register is named once its points (or trees merged into a group area) are among the
+    // candidates; OSM is named anyway.
+    let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
     let candidates = MapDocument {
@@ -4301,8 +4323,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         parts: vec![MapPart {
             name: "candidates".to_string(),
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(osm_candidates)
-                .chain(cadastre_candidates)
+                .chain(point_candidates)
                 .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
@@ -4315,13 +4336,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                 )?)
                 .chain(paved.candidates)
                 .chain(water.candidates)
-                .chain(stored_out_of_bounds_objects(
-                    &land_use,
-                    &project,
-                    &area,
-                    &georef,
-                    &symbol_set,
-                )?)
+                .chain(out_of_bounds)
                 .collect(),
         }],
         templates: Vec::new(),
@@ -4367,7 +4382,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(structures.canopies);
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
-    map_objects.extend(osm_objects(Target::Map)?);
+    map_objects.extend(generalized.map);
     let buildings_part = MapPart {
         name: "default part".to_string(),
         objects: map_objects,
@@ -4448,14 +4463,26 @@ const FREEMAPPER_CREDIT_DE: &str =
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
 /// The registers whose points are among `objects`: the files of the Berlin registers
-/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`).
+/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`). A
+/// group area of the point generalization draws the sources of the trees it merged
+/// (`freemapper:source_id` = `<source>/<source_id>; …`).
 fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
+    let tag = |o: &'_ MapObject, key: &str| {
+        o.tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
     let drawn = |source: String| {
-        objects.iter().any(|o| {
-            o.tags
-                .iter()
-                .any(|(k, v)| k == "freemapper:source" && *v == source)
-        })
+        let prefix = format!("{source}/");
+        objects
+            .iter()
+            .any(|o| match tag(o, "freemapper:source").as_deref() {
+                Some(GENERALIZATION_SOURCE) => tag(o, "freemapper:source_id")
+                    .is_some_and(|ids| ids.split("; ").any(|id| id.starts_with(&prefix))),
+                Some(own) => own == source,
+                None => false,
+            })
     };
     let berlin = BERLIN_REGISTERS
         .iter()
@@ -11012,6 +11039,48 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(project.tree_layers.is_empty());
         assert!(victim.exists(), "the file in the project folder is kept");
         assert!(far.exists(), "the file outside the project is kept");
+    }
+
+    #[test]
+    fn generalized_area_provenance_and_attribution() {
+        use crate::build::points::test_support::{fixture, ids};
+        const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";
+        let f = fixture(MapKind::Sprint);
+        let mut trees = f.grid("trees/potsdam", (3, 3), 3.5, 6.0);
+        for (i, tree) in trees.iter_mut().enumerate() {
+            let date = format!("2024-05-{:02}", 9 - i);
+            tree.tags
+                .iter_mut()
+                .find(|(k, _)| k == "freemapper:currency")
+                .unwrap()
+                .1 = date;
+        }
+        let found = f.run(trees, vec![], &[], &[], &[]);
+        assert!(ids(&found.candidates).is_empty());
+        assert_eq!(found.areas.len(), 1);
+        let tags: Vec<(&str, &str)> = found.areas[0]
+            .tags
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        let merged: Vec<String> = (0..9).map(|i| format!("trees/potsdam/t{i:02}")).collect();
+        assert_eq!(tags.len(), 4, "{tags:?}");
+        assert_eq!(tags[0], ("freemapper:source", "generalization"));
+        assert_eq!(
+            tags[1],
+            ("freemapper:source_id", merged.join("; ").as_str())
+        );
+        assert_eq!(tags[2], ("freemapper:currency", "2024-05-01"));
+        assert_eq!(tags[3].0, "freemapper:generalized");
+        assert!(tags[3].1.starts_with("9 trees, cover "), "{tags:?}");
+        // The Potsdam trees are drawn only inside the area: the Potsdam line is still given.
+        let drawn = drawn_registers(&found.areas);
+        assert_eq!(drawn, ["potsdam"]);
+        assert!(tree_attribution(&drawn).contains(&POTSDAM.to_string()));
+        // A source is named by the source of an entry, not by any prefix of it.
+        let mut other = found.areas[0].clone();
+        other.tags[1].1 = "trees/potsdamer/1; osm/node/1".into();
+        assert!(drawn_registers(&[other]).is_empty());
     }
 
     #[test]

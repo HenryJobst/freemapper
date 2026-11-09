@@ -239,6 +239,17 @@ impl Rules {
             .map(Rules)
     }
 
+    /// The symbol codes of the rules drawn as points, both map kinds.
+    #[cfg(test)]
+    pub(crate) fn point_codes(&self) -> Vec<String> {
+        self.0
+            .iter()
+            .filter(|r| r.draw == DrawKind::Point)
+            .flat_map(|r| [r.schoolyard.clone(), r.sprint.clone()])
+            .flatten()
+            .collect()
+    }
+
     /// Whether a rule with a symbol for `kind` holds for `tags` (used to filter the extract).
     pub fn wants(&self, tags: &[(String, String)], kind: MapKind) -> bool {
         let tags = tags.to_vec();
@@ -456,6 +467,7 @@ pub fn osm_objects(
             "freemapper:alkis",
             "freemapper:size",
             "freemapper:baum",
+            "freemapper:crown_m",
             "freemapper:currency_guessed",
         ]
         .into_iter()
@@ -464,6 +476,12 @@ pub fn osm_objects(
             if let Some(v) = own(key) {
                 tags.push((key.to_string(), v));
             }
+        }
+        // An OSM tree may give its crown diameter (metres) for the point generalization.
+        if source == "osm"
+            && let Some(crown) = value(&feature.tags, "diameter_crown").and_then(number)
+        {
+            tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
         }
         for (kind, coords) in pieces {
             objects.push(MapObject {
@@ -1393,6 +1411,31 @@ mod tests {
         near.geometry = OsmGeometry::Point(at(0.0, 0.0010));
         assert!(objects(&[far], MapKind::Sprint).0.is_empty());
         assert_eq!(objects(&[near], MapKind::Sprint).0.len(), 1);
+    }
+
+    #[test]
+    fn osm_tree_crown_is_tagged() {
+        let crown = |tags: &[(&str, &str)]| {
+            let (objects, _) = objects(&[point("node/5", tags)], MapKind::Sprint);
+            objects[0]
+                .tags
+                .iter()
+                .find(|(k, _)| k == "freemapper:crown_m")
+                .map(|(_, v)| v.clone())
+        };
+        let tree = ("natural", "tree");
+        assert_eq!(
+            crown(&[tree, ("diameter_crown", "7.5")]).as_deref(),
+            Some("7.5")
+        );
+        assert_eq!(
+            crown(&[tree, ("diameter_crown", "6 m")]).as_deref(),
+            Some("6")
+        );
+        assert_eq!(crown(&[tree]), None);
+        assert_eq!(crown(&[tree, ("diameter_crown", "large")]), None);
+        // An OSM feature cannot set the freemapper tags.
+        assert_eq!(crown(&[tree, ("freemapper:crown_m", "20")]), None);
     }
 
     #[test]

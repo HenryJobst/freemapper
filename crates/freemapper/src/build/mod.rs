@@ -8,6 +8,7 @@ pub mod dedup;
 pub mod out_of_bounds;
 pub mod paved;
 pub mod peripheral;
+pub mod points;
 pub mod stairs;
 pub mod state;
 pub mod tagged;

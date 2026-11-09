@@ -238,6 +238,15 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
     {
         tags.push(("freemapper:baum".to_string(), tree));
     }
+    // The crown diameter for the point generalization (`build/points.rs`).
+    if TREE_LAYERS.contains(&layer)
+        && let Some(crown) = properties
+            .and_then(|p| p.get("kronedurch"))
+            .and_then(Value::as_f64)
+            .filter(|c| *c > 0.0)
+    {
+        tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
+    }
     tags.sort();
     tags
 }
@@ -312,7 +321,7 @@ const SHELTER_UNDER_CANOPY_SHARE: f64 = 0.5;
 
 /// The area of a map object in map coordinates: the first closed run of coordinates is the
 /// exterior, the others are holes. `None` for a point or a line too short for a ring.
-fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
+pub(crate) fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
     use crate::omap::coord::FLAG_CLOSE;
     if !matches!(object.kind, MapObjectKind::Path) {
         return None;
@@ -1171,6 +1180,12 @@ mod tests {
             "freemapper:source".into(),
             "geoportal-berlin/anlagenbaeume".into()
         )));
+        // The crown diameter is the generalization's (`build/points.rs`).
+        assert!(
+            first
+                .tags
+                .contains(&("freemapper:crown_m".into(), "10".into()))
+        );
     }
 
     #[test]

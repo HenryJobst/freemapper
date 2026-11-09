@@ -317,7 +317,8 @@ pub fn tree_objects(
 /// The tags of a stored tree for the rules: every `tree_<field>` property as `tree:<field>`
 /// (`tree:dataset`, `tree:kind`, `tree:crown_m`, …), and the provenance tags the objects carry
 /// on (`freemapper:source_id` = the tree number, `freemapper:currency` = the tree's own survey
-/// date, `freemapper:baum` = species or kind, with the crown when known).
+/// date, `freemapper:baum` = species or kind, with the crown when known, `freemapper:crown_m` =
+/// the crown diameter when known).
 pub(crate) fn tree_feature_tags(feature: &Value) -> Vec<(String, String)> {
     let empty = serde_json::Map::new();
     let properties = feature["properties"].as_object().unwrap_or(&empty);
@@ -342,11 +343,15 @@ pub(crate) fn tree_feature_tags(feature: &Value) -> Vec<(String, String)> {
     if let Some(date) = date {
         tags.push(("freemapper:currency".to_string(), date));
     }
-    let crown = properties
+    let crown_m = properties
         .get("tree_crown_m")
         .and_then(Value::as_f64)
-        .filter(|c| *c > 0.0)
-        .map(|c| format!("Krone {c} m"));
+        .filter(|c| *c > 0.0);
+    // The crown diameter for the point generalization (`build/points.rs`).
+    if let Some(crown) = crown_m {
+        tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
+    }
+    let crown = crown_m.map(|c| format!("Krone {c} m"));
     let label = match (text("tree_species").or_else(|| text("tree_kind")), crown) {
         (Some(name), Some(crown)) => Some(format!("{name}, {crown}")),
         (Some(name), None) => Some(name),
@@ -1323,6 +1328,9 @@ mod tests {
             tag(&found[0], "freemapper:baum"),
             Some("Laubbaum, Krone 12 m")
         );
+        assert_eq!(tag(&found[0], "freemapper:crown_m"), Some("12"));
+        assert_eq!(tag(&found[1], "freemapper:crown_m"), Some("9.9"));
+        assert_eq!(tag(&found[2], "freemapper:crown_m"), None);
     }
 
     #[test]

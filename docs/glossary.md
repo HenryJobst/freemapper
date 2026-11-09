@@ -38,6 +38,10 @@ Orienteering Maps 2019 (IOF).
 | Startprojekt | starter project | Erstes, von freemapper erzeugtes OOM-Projekt, ab dem in OOM kartiert wird. | `StarterProject` |
 | Abgleich | reconciliation | (später) Vergleich neuer Quelldaten mit einer bereits bearbeiteten Karte. | `reconcile` |
 | Generalisierung | generalization | Vereinfachen von Geometrie auf Kartenmaßstab (Mindestgrößen, Vereinfachung). | `generalize` |
+| Punktgeneralisierung | point symbol generalization | Die Punktsymbole, die freemapper erzeugt (Kandidaten und Kartenobjekte, beide Kartenarten): in einer 520-Fläche ausgeblendet, eine dichte Baumgruppe wird zur Gruppenfläche, sonst entfällt bei zu kleinem Mindestabstand das kleinere Symbol. Der behaltene Punkt nennt die entfallenen in `freemapper:generalized`. | `generalize_points`, `build/points.rs` |
+| Mindestabstand (Punktsymbole) | minimum gap (point symbols) | Abstand zwischen den Außenkanten zweier Punktsymbole auf Papier: 0,15 mm × Symbolvergrößerung (ISSprOM §3.3, dort für Linien gleicher Farbe; für Punkte gesetzt). Symbolgröße = größeres aus Außenmaß der Norm und gezeichnetem Symbol. | `POINT_GAP_MM`, `POINT_SIZES_MM` |
+| Baumgruppe | tree group | Mindestens 3 Bäume, die einander den Mindestabstand nicht lassen (Einzelverkettung). Ihre zu 0,5 mm geschlossenen Kronen werden 501.3 auf Pflaster, 405 ab 50 % Kronendeckung, sonst 402 (dort bleiben die 417 Punkte); unter der Mindestgröße entfällt die Fläche. `freemapper:source=generalization`. | `GROUP_MIN_TREES`, `FOREST_COVER`, `GROUP_CLOSE_MM` |
+| Kronendurchmesser | crown diameter | Durchmesser einer Baumkrone in m (`freemapper:crown_m`): Berliner `kronedurch`, Stadtbaumkataster `tree:crown_m`, OSM `diameter_crown`; ohne Angabe 12 m (417) bzw. 5 m (418). | `DEFAULT_CROWN_M` |
 | Auflösen | dissolve | Benachbarte oder überlappende Flächen zu einer Fläche vereinigen, sodass zwischen ihnen keine Grenzlinie bleibt, z. B. die vielen ALKIS-Flächen eines Flusses. | `dissolve` |
 | Glättung | smoothing | Entfernen von Rauschen aus Linien oder Rastern. | `smooth` |
 | Namensnennung | attribution | Pflichtvermerk der Datenlizenz auf Karte und in Dateien. | `Attribution` |
