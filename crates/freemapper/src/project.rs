@@ -15,7 +15,7 @@ use crate::build::berlin::{
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
+use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
@@ -24,6 +24,7 @@ use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_line
 use crate::build::stairs::{
     STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_stairs, stair_objects,
 };
+use crate::build::state::state_objects;
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -2483,10 +2484,12 @@ struct BerlinStructures {
     stairs: Vec<MapObject>,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn stored_berlin_structures(
     dir: &Path,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
+    buildings: Option<&StoredBuildings>,
     footprints: &[geo_types::Polygon<f64>],
     area: &MapArea,
     georef: &Georeferencing,
@@ -2496,17 +2499,11 @@ fn stored_berlin_structures(
     let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
     let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
     let survey = layers.iter().find(|l| l.layer.file == SURVEY_STAIR_LAYER);
-    if areas.is_none() && edges.is_none() && survey.is_none() {
-        return Ok(BerlinStructures {
-            canopies: Vec::new(),
-            stairs: Vec::new(),
-        });
-    }
     let map_area = area.projected_polygon_in(project.crs());
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
-    let canopies = match areas {
+    let mut canopies = match areas {
         Some(layer) => canopy_objects(
-            &layer.features,
+            &[CanopyInput::Berlin(&layer.features)],
             footprints,
             &map_area,
             project.buffer_m,
@@ -2516,6 +2513,15 @@ fn stored_berlin_structures(
         )?,
         None => Vec::new(),
     };
+    canopies.extend(stored_state_canopies(
+        project, buildings, footprints, &map_area, georef, symbol_set,
+    )?);
+    if areas.is_none() && edges.is_none() && survey.is_none() {
+        return Ok(BerlinStructures {
+            canopies,
+            stairs: Vec::new(),
+        });
+    }
     let terrain = stored_stair_terrain(dir, project)?;
     fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
         layer.map_or(&[], |l| &l.features)
@@ -2544,6 +2550,54 @@ fn stored_berlin_structures(
         fetched,
     )?;
     Ok(BerlinStructures { canopies, stairs })
+}
+
+/// The 522 canopy map objects among the stored ALKIS vereinfacht features of any state
+/// (`Überdachung`, `Carport`); none without stored buildings.
+fn stored_state_canopies(
+    project: &ProjectFile,
+    stored: Option<&StoredBuildings>,
+    footprints: &[geo_types::Polygon<f64>],
+    map_area: &geo_types::Polygon<f64>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
+        return Ok(Vec::new());
+    };
+    Ok(canopy_objects(
+        &[CanopyInput::Buildings(&stored.features)],
+        footprints,
+        map_area,
+        project.buffer_m,
+        georef,
+        symbol_set,
+        record.fetched,
+    )?)
+}
+
+/// 522 candidates for the building passages of the stored ALKIS vereinfacht features of any
+/// state; none without stored buildings. Berlin building parts (`bauart`) go through the Berlin
+/// rules instead.
+fn stored_state_objects(
+    project: &ProjectFile,
+    stored: Option<&StoredBuildings>,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
+        return Ok(Vec::new());
+    };
+    Ok(state_objects(
+        &stored.features,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+        record.fetched,
+    )?)
 }
 
 /// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area
@@ -2910,7 +2964,7 @@ pub enum MapOutcome {
         references_images: bool,
         /// Buildings are stored for the project, but the kept map has none.
         missing_buildings: bool,
-        /// Berlin canopies (522 map objects) are stored for the project, but the kept map has
+        /// ALKIS canopies (522 map objects) are stored for the project, but the kept map has
         /// none (it was written before them).
         missing_canopies: bool,
     },
@@ -3225,17 +3279,14 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
 /// How a building object's provenance appears in the map file.
 const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"#;
 
-/// Whether the stored Berlin layers give 522 canopy map objects that the map at `map_text`
-/// lacks (it was written before them, or without the layers).
+/// Whether the stored layers and buildings give 522 canopy map objects that the map at
+/// `map_text` lacks (it was written before them, or without the layers).
 fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
-    if map_text.contains(CANOPY_SOURCE_TAG) {
+    if CANOPY_SOURCE_TAGS.iter().any(|tag| map_text.contains(tag)) {
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
     let layers = stored_berlin_layers(dir, &project)?;
-    let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER) else {
-        return Ok(false);
-    };
     let area = MapArea::from_geojson(&project.map_area.to_string())?;
     let georef = Georeferencing::new_in(
         project.crs(),
@@ -3244,22 +3295,42 @@ fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> 
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set();
-    let footprints = read_stored_buildings(dir)?.map_or_else(Vec::new, |b| b.footprints());
-    Ok(!canopy_objects(
-        &layer.features,
+    let stored = read_stored_buildings(dir)?;
+    let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
+    let map_area = area.projected_polygon_in(project.crs());
+    if let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER)
+        && !canopy_objects(
+            &[CanopyInput::Berlin(&layer.features)],
+            &footprints,
+            &map_area,
+            project.buffer_m,
+            &georef,
+            &symbol_set,
+            layer.fetched,
+        )?
+        .is_empty()
+    {
+        return Ok(true);
+    }
+    Ok(!stored_state_canopies(
+        &project,
+        stored.as_ref(),
         &footprints,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
+        &map_area,
         &georef,
         &symbol_set,
-        layer.fetched,
     )?
     .is_empty())
 }
 
-/// How a canopy object's provenance appears in the map file.
-const CANOPY_SOURCE_TAG: &str =
-    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#;
+/// How a canopy object's provenance appears in the map file: a Berlin canopy, or an ALKIS
+/// vereinfacht one (the buildings share `freemapper:source` = `alkis`, so the kind tells them
+/// apart).
+const CANOPY_SOURCE_TAGS: [&str; 3] = [
+    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#,
+    r#"<t k="freemapper:alkis">Überdachung</t>"#,
+    r#"<t k="freemapper:alkis">Carport</t>"#,
+];
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.
@@ -3507,6 +3578,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         dir,
         &project,
         &berlin_layers,
+        stored_buildings.as_ref(),
         &footprints,
         &area,
         &georef,
@@ -3589,6 +3661,13 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
             objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
                 .chain(osm_candidates)
                 .chain(berlin_candidates)
+                .chain(stored_state_objects(
+                    &project,
+                    stored_buildings.as_ref(),
+                    &area,
+                    &georef,
+                    &symbol_set,
+                )?)
                 .chain(structures.stairs)
                 .chain(stored_contour_objects(
                     dir,
@@ -6349,6 +6428,135 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
         assert!(!candidates.objects.is_empty());
         assert!(outcome.objects > 0);
+    }
+
+    /// Adds a vereinfacht carport and a passage, 10 m east of the first stored building, to the
+    /// stored buildings of a fetched project: the way every state but Berlin stores them.
+    fn add_state_structures(dir: &Path) {
+        let path = dir.join(BUILDINGS_RELPATH);
+        let mut collection: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let points: Vec<(f64, f64)> = collection["features"][0]["geometry"]["coordinates"]
+            .to_string()
+            .trim_matches(['[', ']'])
+            .split("],[")
+            .map(|p| {
+                let (e, n) = p.split_once(',').unwrap();
+                (e.parse().unwrap(), n.parse().unwrap())
+            })
+            .collect();
+        let east = points.iter().map(|p| p.0).fold(f64::MIN, f64::max);
+        let north = points.iter().map(|p| p.1).fold(f64::MAX, f64::min);
+        let square = |id: &str, kind: &str, function: &str, offset: f64| {
+            let (e, n) = (east + offset, north);
+            serde_json::json!({
+                "type": "Feature", "id": id,
+                "geometry": {"type": "MultiPolygon", "coordinates": [[[
+                    [e, n], [e + 6.0, n], [e + 6.0, n + 6.0], [e, n + 6.0], [e, n]]]]},
+                "properties": {"oid": id, "aktualit": "2024-04-22T07:00:00Z",
+                               "gebnutzbez": kind, "funktion": function}})
+        };
+        let features = collection["features"].as_array_mut().unwrap();
+        features.push(square(
+            "DEBBAL0000CARPORT",
+            "Sonstiges Bauwerk oder sonstige Einrichtung",
+            "Carport",
+            10.0,
+        ));
+        features.push(square(
+            "DEBBAL00PASSAGE",
+            "Bauteil",
+            "Durchfahrt im Gebäude",
+            20.0,
+        ));
+        std::fs::write(path, collection.to_string()).unwrap();
+    }
+
+    #[test]
+    fn ocad_export_has_state_canopies() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        add_state_structures(dir.path());
+        let outcome = export_ocad(dir.path(), true).unwrap();
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        assert!(map.objects.iter().any(|o| o.symbol == 521_000), "building");
+        assert_eq!(
+            map.objects.iter().filter(|o| o.symbol == 522_000).count(),
+            1,
+            "the carport is a map object"
+        );
+        // The passage is a candidate, in both OCAD and OOM.
+        let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
+        assert_eq!(
+            candidates
+                .objects
+                .iter()
+                .filter(|o| o.symbol == 522_000)
+                .count(),
+            1,
+            "the passage is a candidate"
+        );
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let sources: Vec<(String, String)> = documents
+            .map
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .filter(|o| Some(o.symbol_id) == set.id_for_code("522"))
+            .flat_map(|o| o.tags.clone())
+            .filter(|(k, _)| k == "freemapper:source" || k == "freemapper:currency")
+            .collect();
+        assert_eq!(
+            sources,
+            [
+                ("freemapper:source".to_string(), "alkis".to_string()),
+                ("freemapper:currency".to_string(), "2024-04-22".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn kept_map_without_state_canopies_is_reported() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        add_state_structures(dir.path());
+        // A map from before the canopies: it has the ALKIS buildings, but no 522.
+        let map = map_path(dir.path());
+        std::fs::write(
+            &map,
+            format!("edited in OOM {ALKIS_SOURCE_TAG} {ORTHOPHOTO_RELPATH}"),
+        )
+        .unwrap();
+        let run = |force: bool| {
+            run_project(
+                dir.path(),
+                &fetcher,
+                &cache,
+                FetchMode::Offline,
+                force,
+                &mut |_| {},
+            )
+            .unwrap()
+            .map
+        };
+        assert!(matches!(
+            run(false),
+            MapOutcome::Kept {
+                missing_buildings: false,
+                missing_canopies: true,
+                ..
+            }
+        ));
+        // Written again with force, the map has them.
+        assert_eq!(run(true), MapOutcome::Written(map.clone()));
+        assert!(matches!(
+            run(false),
+            MapOutcome::Kept {
+                missing_canopies: false,
+                ..
+            }
+        ));
     }
 
     #[test]

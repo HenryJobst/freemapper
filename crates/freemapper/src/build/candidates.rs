@@ -13,6 +13,7 @@ use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
+const STATE_RULES: &str = include_str!("../../../../assets/rules/state-candidates.toml");
 const BERLIN_RULES: &str = include_str!("../../../../assets/rules/berlin-candidates.toml");
 /// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
 const MIN_LINE_MM: f64 = 1.0;
@@ -144,6 +145,11 @@ impl Rules {
     /// The Geoportal Berlin rules (`assets/rules/berlin-candidates.toml`): `berlin:*` tags only.
     pub fn berlin() -> Self {
         Self::from_toml(BERLIN_RULES).expect("embedded Berlin rules are valid")
+    }
+
+    /// The ALKIS vereinfacht rules (`assets/rules/state-candidates.toml`): `alkis:*` tags only.
+    pub fn states() -> Self {
+        Self::from_toml(STATE_RULES).expect("embedded state rules are valid")
     }
 
     pub fn from_toml(text: &str) -> Result<Self, RulesError> {
@@ -444,6 +450,7 @@ pub fn osm_objects(
         let codes = crate::build::berlin::SURVEY_CODES.map(|code| format!("berlin:{code}"));
         for key in [
             "berlin:layer",
+            "alkis:type",
             "freemapper:also",
             "freemapper:alkis",
             "freemapper:size",

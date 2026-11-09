@@ -9,21 +9,19 @@
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
-use geo::{BoundingRect as _, Centroid as _};
+use geo::BoundingRect as _;
 use serde_json::Value;
 
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::crs::{Crs, LatLon, ProjectedPoint};
+use crate::build::tagged::{self, position};
+use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
-use crate::sources::osm::{OsmFeature, OsmGeometry};
+use crate::sources::osm::OsmFeature;
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
-/// A monument area with a side longer than this is tagged `freemapper:size=large`: the mapper
-/// can draw its outline instead of the 526 point.
-const LARGE_MONUMENT_M: f64 = 3.0;
 /// An OSM `natural=tree` this close to a cadastre tree is the same tree and is dropped.
 const TREE_DEDUP_M: f64 = 2.0;
 /// An OSM line candidate with at least this share of its length within [`LINE_DEDUP_M`] of an
@@ -60,33 +58,8 @@ pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
         .collect()
 }
 
-fn position(c: &Value) -> Option<(f64, f64)> {
-    Some((c.get(0)?.as_f64()?, c.get(1)?.as_f64()?))
-}
-
-fn latlon((easting, northing): (f64, f64)) -> Option<LatLon> {
-    LAYER_CRS.inverse(ProjectedPoint { easting, northing })
-}
-
-fn line_of(coordinates: &Value) -> Option<Vec<LatLon>> {
-    coordinates
-        .as_array()?
-        .iter()
-        .map(|c| position(c).and_then(latlon))
-        .collect()
-}
-
-/// The exterior ring of a polygon as a closed line (holes are dropped: candidates only) and a
-/// point at its centroid. A ring longer than [`LARGE_MONUMENT_M`] sets `large`.
-fn polygon_parts(rings: &Value) -> Option<(Vec<LatLon>, LatLon, bool)> {
-    let exterior = rings.get(0)?.as_array()?;
-    let points: Vec<(f64, f64)> = exterior.iter().filter_map(position).collect();
-    let polygon = geo_types::Polygon::new(geo_types::LineString::from(points.clone()), Vec::new());
-    let centroid = polygon.centroid()?;
-    let rect = polygon.bounding_rect()?;
-    let large = rect.width().max(rect.height()) > LARGE_MONUMENT_M;
-    let ring = points.iter().map(|p| latlon(*p)).collect::<Option<_>>()?;
-    Some((ring, latlon((centroid.x(), centroid.y()))?, large))
+fn latlon(p: (f64, f64)) -> Option<LatLon> {
+    tagged::latlon(LAYER_CRS, p)
 }
 
 /// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
@@ -307,61 +280,9 @@ fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<Str
 /// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
 /// centroid (a rule picks one by its `draw`). Id: `berlin/<layer>/<GeoServer id>`.
 pub fn tagged_features(layer: &str, features: &[Value]) -> Vec<OsmFeature> {
-    let mut out = Vec::new();
-    for feature in features {
-        let id = format!(
-            "berlin/{layer}/{}",
-            feature["id"].as_str().unwrap_or_default()
-        );
-        let tags = feature_tags(layer, feature);
-        let coordinates = &feature["geometry"]["coordinates"];
-        let mut push = |tags: Vec<(String, String)>, geometry| {
-            out.push(OsmFeature {
-                id: id.clone(),
-                tags,
-                geometry,
-            });
-        };
-        let polygon = |rings: &Value, push: &mut dyn FnMut(Vec<(String, String)>, OsmGeometry)| {
-            let Some((ring, centre, large)) = polygon_parts(rings) else {
-                return;
-            };
-            let mut point_tags = tags.clone();
-            if large {
-                point_tags.push(("freemapper:size".to_string(), "large".to_string()));
-                point_tags.sort();
-            }
-            push(tags.clone(), OsmGeometry::Line(ring));
-            push(point_tags, OsmGeometry::Point(centre));
-        };
-        match feature["geometry"]["type"].as_str() {
-            Some("Point") => {
-                if let Some(p) = position(coordinates).and_then(latlon) {
-                    push(tags.clone(), OsmGeometry::Point(p));
-                }
-            }
-            Some("LineString") => {
-                if let Some(line) = line_of(coordinates) {
-                    push(tags.clone(), OsmGeometry::Line(line));
-                }
-            }
-            Some("MultiLineString") => {
-                for line in coordinates.as_array().into_iter().flatten() {
-                    if let Some(line) = line_of(line) {
-                        push(tags.clone(), OsmGeometry::Line(line));
-                    }
-                }
-            }
-            Some("Polygon") => polygon(coordinates, &mut push),
-            Some("MultiPolygon") => {
-                for rings in coordinates.as_array().into_iter().flatten() {
-                    polygon(rings, &mut push);
-                }
-            }
-            _ => {}
-        }
-    }
-    out
+    tagged::tagged_features(&format!("berlin/{layer}"), features, LAYER_CRS, |feature| {
+        feature_tags(layer, feature)
+    })
 }
 
 /// The candidate objects of the stored Berlin layers within `buffer_m` of `map_area`
@@ -942,8 +863,10 @@ pub fn drop_shelters_under_canopies(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crs::ProjectedPoint;
     use crate::sources::berlin::normalise_building;
     use crate::sources::berlin::test_support::*;
+    use crate::sources::osm::OsmGeometry;
 
     fn features(collection: &str) -> Vec<Value> {
         serde_json::from_str::<Value>(collection).unwrap()["features"]
@@ -1270,7 +1193,7 @@ mod tests {
             "properties": {"uuid": "DEBE00DACH", "bezbwf": "Überdachung"}
         });
         let mut canopies = crate::build::canopy::canopy_objects(
-            &[canopy],
+            &[crate::build::canopy::CanopyInput::Berlin(&[canopy])],
             &[],
             &area,
             20.0,

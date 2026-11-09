@@ -1,0 +1,20 @@
+# ALKIS vereinfacht structures of every state → candidate symbols (states plus 1). Same syntax and
+# engine as osm-candidates.toml and berlin-candidates.toml, with these differences:
+#
+# - Tags are `alkis:<property>` (string and number properties of the stored feature) plus
+#   `alkis:type`, so an OSM rule or a Berlin rule can never match them. Every rule names its type.
+# - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point at its
+#   centroid (`draw = "point"`). Holes are dropped: these are candidates only.
+# - `build/state.rs` writes `alkis:gebnutzbez` and `alkis:funktion` in the spelling below
+#   (`lgv::spelling_key` equality), whatever the state wrote.
+#
+# Not here: Überdachung and Carport (522 map objects, `build/canopy.rs`).
+
+# Passages through buildings: the 521 object stays whole, the passage is a canopy candidate (the
+# data does not say whether it is gated). "Auskragender Geschossteil" mixes overhangs with set-back
+# storeys and is left out. Features with a `bauart` are Berlin's and never get here.
+[[rule]]
+when = ["alkis:type=GebaeudeBauwerk", "alkis:gebnutzbez=Bauteil", "alkis:funktion=Durchfahrt im Gebäude|Durchfahrt an überbautem Verkehrsweg|Arkade"]
+draw = "area"
+schoolyard = "522"
+sprint = "522"
