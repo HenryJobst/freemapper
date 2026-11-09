@@ -32,5 +32,6 @@ navigation.
 
 - Where a cadastre also has the monument (Berlin, Brandenburg), the OSM node is a second 526. The mapper keeps one.
 - Existing maps get them with `run --force`.
+- Amendment (ADR 0076): a memorial whose node lies inside a building footprint is dropped, on sprint maps.
 - A memorial tagged wrongly (a Stolperstein as plain `historic=memorial`) gets through. The census shows the tagging is
   consistent for Stolpersteine.

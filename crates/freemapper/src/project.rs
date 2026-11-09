@@ -25,6 +25,7 @@ use crate::build::open_land::{
     BASE_PART, drop_open_land_under_alkis, open_land_objects, walkable_base,
 };
 use crate::build::out_of_bounds::out_of_bounds_objects;
+use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
@@ -4345,6 +4346,16 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
     let mut points = osm_candidates;
     points.extend(cadastre_candidates);
+    // A passage no runner can reach is left out of the training map (`build/passages.rs`).
+    hide_unreachable_passages(
+        &mut points,
+        &out_of_bounds,
+        &footprints,
+        &water.union,
+        &clip,
+        &georef,
+        &symbol_set,
+    );
     let ground: Vec<MapObject> = paved
         .candidates
         .iter()

@@ -353,7 +353,7 @@ impl Indexed {
 }
 
 /// `polygon` (map coordinates) in the map's CRS.
-fn projected(polygon: &Polygon<f64>, georef: &Georeferencing) -> Polygon<f64> {
+pub(crate) fn projected(polygon: &Polygon<f64>, georef: &Georeferencing) -> Polygon<f64> {
     let ring = |ring: &LineString<f64>| -> LineString<f64> {
         ring.coords()
             .map(|c| {
@@ -920,6 +920,29 @@ pub fn generalize_points(
             ))
         })
         .collect();
+    // On a sprint map a candidate point whose centre lies in a building cannot be seen or used:
+    // it goes (ADR 0076). Trees stay: the cadastre footprint of a building often takes in the
+    // trees at its wall, and a group of them is cut at the building later. Map points and the
+    // schoolyard map keep theirs.
+    let candidates: Vec<MapObject> = if kind == MapKind::Sprint && !footprints.is_empty() {
+        let buildings = Indexed::new(footprints.to_vec(), GRID_CELL_M);
+        candidates
+            .into_iter()
+            .filter(|o| {
+                let inside = is_point(o)
+                    && sizes
+                        .get(&o.symbol_id)
+                        .is_some_and(|(code, _)| !TREE_CODES.contains(code))
+                    && o.coords.first().is_some_and(|c| {
+                        let p = georef.map_to_projected(*c);
+                        buildings.contains(Point::new(p.easting, p.northing))
+                    });
+                !inside
+            })
+            .collect()
+    } else {
+        candidates
+    };
     let spot = |on_map: bool, index: usize, o: &MapObject| -> Option<Spot> {
         let &(code, size) = sizes
             .get(&o.symbol_id)
@@ -2075,6 +2098,43 @@ mod tests {
             &[],
         );
         assert_eq!(ids(&found.candidates), ["node/1"]);
+    }
+
+    #[test]
+    fn candidate_points_inside_a_building_are_dropped_on_sprint_maps() {
+        // A memorial, a lamp or a fountain whose centre lies in a 521 footprint (the dots on the
+        // church of the Lübeck example) cannot be seen or used on the map (ADR 0076). A tree stays.
+        let f = fixture(MapKind::Sprint);
+        let church = [f.projected_rect((0.0, 0.0), (40.0, 20.0))];
+        let candidates = vec![
+            f.point("526", "osm", "memorial", (10.0, 10.0), &[]),
+            f.point(
+                "531",
+                "osm",
+                "lamp",
+                (20.0, 10.0),
+                &[("freemapper:control", "street_lamp")],
+            ),
+            f.tree("418", "osm", "tree", (30.0, 10.0), None),
+            f.point("311", "osm", "fountain", (35.0, 5.0), &[]),
+            f.point("526", "osm", "outside", (50.0, 10.0), &[]),
+            f.point("526", "osm", "edge", (39.0, 25.0), &[]),
+        ];
+        let found = f.run(candidates.clone(), vec![], &[], &[], &church);
+        assert_eq!(ids(&found.candidates), ["tree", "outside", "edge"]);
+        // Map points stay, and the schoolyard keeps what it had.
+        let on_map = f.run(vec![], candidates, &[], &[], &church);
+        assert_eq!(on_map.map.len(), 6);
+        let school = fixture(MapKind::Schoolyard);
+        let church = [school.projected_rect((0.0, 0.0), (40.0, 20.0))];
+        let found = school.run(
+            vec![school.point("545", "osm", "lamp", (20.0, 10.0), &[])],
+            vec![],
+            &[],
+            &[],
+            &church,
+        );
+        assert_eq!(ids(&found.candidates), ["lamp"]);
     }
 
     #[test]
