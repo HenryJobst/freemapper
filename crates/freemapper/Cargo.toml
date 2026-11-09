@@ -33,6 +33,9 @@ weezl.workspace = true
 world_magnetic_model.workspace = true
 zip.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+winapi-util.workspace = true
+
 [lints]
 workspace = true
 

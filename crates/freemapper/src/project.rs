@@ -6628,7 +6628,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         use crate::space::test_support::FixedSpace;
         let today = chrono::Local::now().date_naive();
         let estimate = crate::layers::estimate_download(dir, cache, today).unwrap();
-        let roomy = FixedSpace::default().with(Path::new("/"), "disk", u64::MAX / 2);
+        let roomy = FixedSpace::everywhere("disk", u64::MAX / 2);
         let needed = crate::space::plan(&estimate, cache.root(), dir, &roomy)
             .unwrap()
             .volumes[0]
@@ -6636,10 +6636,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let available = crate::space::RESERVE_BYTES + needed - short;
         cache
             .clone()
-            .with_disk_space(std::sync::Arc::new(FixedSpace::default().with(
-                Path::new("/"),
-                "disk",
-                available,
+            .with_disk_space(std::sync::Arc::new(FixedSpace::everywhere(
+                "disk", available,
             )))
     }
 
@@ -6710,11 +6708,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let cache_dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
-        let space = FixedSpace::default().with(
-            Path::new("/"),
-            "disk",
-            crate::space::RESERVE_BYTES + (1 << 20),
-        );
+        let space = FixedSpace::everywhere("disk", crate::space::RESERVE_BYTES + (1 << 20));
         let cache =
             Cache::new(cache_dir.path().to_path_buf()).with_disk_space(std::sync::Arc::new(space));
         let err = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})

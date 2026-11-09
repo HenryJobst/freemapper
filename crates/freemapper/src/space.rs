@@ -126,15 +126,30 @@ fn volume_id(path: &Path) -> io::Result<String> {
     Ok(std::fs::metadata(path)?.dev().to_string())
 }
 
-/// Windows: the drive or network share the path starts with.
-#[cfg(not(unix))]
+/// Windows: the serial number of the volume holding the folder, as `GetFileInformationByHandle`
+/// reports it, like the device number on Unix. Every spelling of a path gives the same one: the
+/// drive letter in either case, short 8.3 names like `RUNNER~1`, the `\\?\` prefix of
+/// `canonicalize`, a `subst` drive. A volume mounted in a folder of another drive has its own,
+/// the one whose free space `fs4` reads there. Needs no `canonicalize`, which fails on some RAM
+/// and virtual drives.
+#[cfg(windows)]
 fn volume_id(path: &Path) -> io::Result<String> {
-    let canonical = std::fs::canonicalize(path)?;
-    Ok(canonical
-        .components()
-        .next()
-        .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
-        .unwrap_or_default())
+    use std::os::windows::fs::OpenOptionsExt as _;
+    /// Opens a folder as well as a file.
+    const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+    // No access rights asked for, as `std::fs::metadata` opens a path: reading the volume
+    // serial number needs none.
+    let file = std::fs::OpenOptions::new()
+        .access_mode(0)
+        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+        .open(path)?;
+    let info = winapi_util::file::information(winapi_util::HandleRef::from_file(&file))?;
+    Ok(format!("{:08x}", info.volume_serial_number()))
+}
+
+#[cfg(not(any(unix, windows)))]
+fn volume_id(_path: &Path) -> io::Result<String> {
+    Err(io::Error::from(io::ErrorKind::Unsupported))
 }
 
 /// Whether `e` says the volume is full or the user's quota is used up. The standard library maps
@@ -332,34 +347,65 @@ fn size_down(bytes: u64) -> String {
 pub(crate) mod test_support {
     use super::*;
 
-    /// Volumes by folder: a path lies on the volume of the longest folder it starts with.
+    /// Volumes by folder: a path lies on the volume of the longest folder it starts with, else
+    /// on the one [`FixedSpace::everywhere`] adds.
     #[derive(Debug, Default)]
     pub struct FixedSpace {
-        volumes: Vec<(PathBuf, Volume)>,
+        /// The folder as [`comparable`] writes it; `None` for the volume of every path.
+        volumes: Vec<(Option<String>, Volume)>,
     }
 
     impl FixedSpace {
-        pub fn with(mut self, folder: &Path, id: &str, available: u64) -> Self {
-            self.volumes.push((
-                folder.to_path_buf(),
-                Volume {
-                    id: id.to_string(),
-                    available,
-                },
-            ));
+        pub fn with(self, folder: &Path, id: &str, available: u64) -> Self {
+            self.add(Some(comparable(folder)), id, available)
+        }
+
+        /// A volume holding every path, whichever drive or root it starts with: `/` alone holds
+        /// no Windows path, which starts with a drive like `C:\`.
+        pub fn everywhere(id: &str, available: u64) -> Self {
+            Self::default().add(None, id, available)
+        }
+
+        fn add(mut self, folder: Option<String>, id: &str, available: u64) -> Self {
+            let volume = Volume {
+                id: id.to_string(),
+                available,
+            };
+            self.volumes.push((folder, volume));
             self
         }
     }
 
     impl DiskSpace for FixedSpace {
         fn volume(&self, path: &Path) -> io::Result<Volume> {
+            let path = comparable(path);
+            // `/` is the empty folder: it holds the paths that start with `/`.
+            let holds = |folder: &str| {
+                path == folder
+                    || path
+                        .strip_prefix(folder)
+                        .is_some_and(|rest| rest.starts_with('/'))
+            };
             self.volumes
                 .iter()
-                .filter(|(folder, _)| path.starts_with(folder))
-                .max_by_key(|(folder, _)| folder.components().count())
+                .filter(|(folder, _)| folder.as_deref().is_none_or(holds))
+                .max_by_key(|(folder, _)| folder.as_ref().map(String::len))
                 .map(|(_, volume)| volume.clone())
                 .ok_or_else(|| io::Error::other("no such volume"))
         }
+    }
+
+    /// A path as the test double compares it, the way Windows does: without the `\\?\` prefix
+    /// that `canonicalize` adds there (`\\?\UNC\server\share` back to `\\server\share`), `/`
+    /// between the names, no `/` at the end and in lower case. Short 8.3 names stay: only the
+    /// file system knows the long name.
+    pub fn comparable(path: &Path) -> String {
+        let text = path.to_string_lossy();
+        let text = match text.strip_prefix(r"\\?\UNC\") {
+            Some(share) => format!(r"\\{share}"),
+            None => text.strip_prefix(r"\\?\").unwrap_or(&text).to_string(),
+        };
+        text.replace('\\', "/").trim_end_matches('/').to_lowercase()
     }
 }
 
@@ -659,5 +705,80 @@ mod tests {
             .unwrap();
         assert_eq!(here.id, below.id);
         assert!(here.available > 0);
+    }
+
+    #[test]
+    fn test_paths_compare_the_way_windows_does() {
+        use super::test_support::comparable;
+        let plain = "c:/users/runner/temp";
+        for spelling in [
+            r"C:\Users\Runner\Temp",
+            r"c:\users\runner\temp\",
+            r"\\?\C:\Users\runner\Temp",
+            r"\\?\c:\USERS\runner\temp\",
+        ] {
+            assert_eq!(comparable(Path::new(spelling)), plain, "{spelling}");
+        }
+        let share = r"//server/share/maps";
+        assert_eq!(comparable(Path::new(r"\\?\UNC\Server\Share\maps")), share);
+        assert_eq!(comparable(Path::new(r"\\server\share\maps\")), share);
+        assert_eq!(comparable(Path::new("/maps/school/")), "/maps/school");
+        assert_eq!(comparable(Path::new("/")), "");
+    }
+
+    #[test]
+    fn test_volumes_hold_every_spelling_of_their_folder() {
+        let space = FixedSpace::everywhere("disk", GB)
+            .with(Path::new(r"C:\Users\runner"), "home", 2 * GB)
+            .with(Path::new("/cache"), "ssd", 3 * GB);
+        let id = |path: &str| space.volume(Path::new(path)).unwrap().id;
+        assert_eq!(
+            id(r"\\?\C:\Users\runner\AppData\Local\Temp\.tmp7lAwIe"),
+            "home"
+        );
+        assert_eq!(id(r"c:\users\RUNNER"), "home");
+        // A short name or another folder is not the home folder, but lies on the volume of
+        // every path; so do Unix paths outside `/cache` and Windows paths on another drive.
+        assert_eq!(id(r"C:\Users\RUNNER~1\AppData"), "disk");
+        assert_eq!(id(r"C:\Users\runner2"), "disk");
+        assert_eq!(id(r"D:\maps\school"), "disk");
+        assert_eq!(id("/cache/freemapper"), "ssd");
+        assert_eq!(id("/cachet"), "disk");
+        assert_eq!(id("/maps/school"), "disk");
+        // Without it, `/` holds the Unix paths only: no Windows path starts with it.
+        let root = FixedSpace::default().with(Path::new("/"), "root", GB);
+        assert!(root.volume(Path::new("/maps/school")).is_ok());
+        assert!(root.volume(Path::new(r"C:\maps\school")).is_err());
+    }
+
+    /// Windows: every spelling of a folder lies on one volume, the temporary folder with its
+    /// short 8.3 name (`C:\Users\RUNNER~1\…` on the CI), with the long name `canonicalize`
+    /// gives with and without its `\\?\` prefix and in upper case; a folder on another drive
+    /// does not.
+    #[cfg(windows)]
+    #[test]
+    fn system_volume_is_the_same_for_every_spelling_of_a_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let short = dir.path().to_path_buf();
+        let verbatim = std::fs::canonicalize(&short).unwrap();
+        let long = PathBuf::from(
+            verbatim
+                .to_string_lossy()
+                .strip_prefix(r"\\?\")
+                .expect("canonicalize writes the \\\\?\\ prefix"),
+        );
+        let upper = PathBuf::from(long.to_string_lossy().to_uppercase());
+        let id = |path: &Path| SystemDiskSpace.volume(path).unwrap().id;
+        let expected = id(&short);
+        for path in [&verbatim, &long, &upper, &long.join("not/created/yet")] {
+            assert_eq!(id(path), expected, "{}", path.display());
+        }
+        // The checkout lies on D: on the CI, the temporary folder on C:.
+        let drive = |path: &Path| path.to_string_lossy()[..2].to_lowercase();
+        let checkout = std::fs::canonicalize(env!("CARGO_MANIFEST_DIR")).unwrap();
+        let checkout = PathBuf::from(checkout.to_string_lossy().trim_start_matches(r"\\?\"));
+        if drive(&checkout) != drive(&long) {
+            assert_ne!(id(&checkout), expected, "{}", checkout.display());
+        }
     }
 }

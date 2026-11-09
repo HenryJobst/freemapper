@@ -661,6 +661,7 @@ dependencies = [
  "toml",
  "ureq",
  "weezl",
+ "winapi-util",
  "world_magnetic_model",
  "zip",
 ]

@@ -50,6 +50,9 @@ tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "io-std",
 toml = "1.2.1"
 # Pinned: newer releases are younger than two weeks.
 ureq = "=3.4.2"
+# Windows only: the volume serial number of a folder (GetFileInformationByHandle) without
+# unsafe code of our own; already in Cargo.lock through same-file.
+winapi-util = "=0.1.11"
 # Lenient TIFF LZW (chunks without an end code); already in Cargo.lock through tiff.
 weezl = "0.1.12"
 world_magnetic_model = "1.2025.0"

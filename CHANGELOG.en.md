@@ -16,6 +16,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Library API (`freemapper` crate): the writers of templates and stored data take the project folder as an extra `root` argument, placed before the output path. This covers `write_gray_png`, `write_ndsm_png`, `build_orthophoto`, `build_orthophoto_from_image`, `wms::fetch_orthophoto`, `wms::fetch_orthophoto_from`, `wms::fetch_k5`, `geosn::fetch_orthophoto` and the `fetch_model` functions of the height model sources. `OcadOutcome` has the new field `warnings`. The command line and MCP are unchanged.
 
+### Fixed
+
+- Windows: the free disk space check before `fetch` now tells volumes apart by their serial number instead of the drive letter. Until now freemapper skipped the check with a warning (`warning: cannot read the free disk space of …`) when Windows could not resolve the path, as on some RAM or virtual drives. A volume mounted into a folder of another drive counted as that other drive, so its own space went unchecked.
+
 ## [0.6.1] - 2026-11-09
 
 ### Security

@@ -16,6 +16,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Bibliotheks-API (Crate `freemapper`): Die Funktionen, die Vorlagen und gespeicherte Daten schreiben, bekommen den Projektordner als zusätzliches Argument `root` vor dem Ausgabepfad. Das betrifft `write_gray_png`, `write_ndsm_png`, `build_orthophoto`, `build_orthophoto_from_image`, `wms::fetch_orthophoto`, `wms::fetch_orthophoto_from`, `wms::fetch_k5`, `geosn::fetch_orthophoto` und die `fetch_model`-Funktionen der Höhenmodell-Quellen. `OcadOutcome` hat das neue Feld `warnings`. Kommandozeile und MCP bleiben gleich.
 
+### Behoben
+
+- Windows: Die Prüfung des freien Speicherplatzes vor `fetch` erkennt Laufwerke jetzt an ihrer Seriennummer statt am Laufwerksbuchstaben. Bisher übersprang freemapper die Prüfung mit einer Warnung (`warning: cannot read the free disk space of …`), wenn Windows den Pfad nicht auflösen konnte, etwa auf manchen RAM- oder virtuellen Laufwerken. Ein Laufwerk, das in einen Ordner eines anderen Laufwerks eingebunden ist, zählte als dieses andere Laufwerk, sodass sein eigener Platz nicht geprüft wurde.
+
 ## [0.6.1] - 2026-11-09
 
 ### Sicherheit
