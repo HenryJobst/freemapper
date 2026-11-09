@@ -12,6 +12,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Parks sind gelb. Grünanlagen, Parks, Siedlungsgrün und Grünland aus ALKIS werden offenes Gelände (401) in der Karte, Wald und Gehölz Wald (405), Heide 403. Friedhöfe, anderes Landwirtschaftsland, Moor und Sumpf sind Kandidaten, ebenso Parks und Rasen aus OSM, wo kein ALKIS-Park liegt (ADR 0069).
 - Die belaufbare Fläche. Auf der Sprintkarte liegt unter allem eine Fläche im unteren Braun von 501.5 über das ganze Blatt, Symbol 990 im eigenen Kartenteil `base`, Tag `freemapper:source=base`. Sie füllt jede Lücke, die nichts anderes zeigt; eine Sprintkarte ohne sie ist unvollständig. Ihre Farbe steht hinter allen anderen, in OOM, OCAD (Farbe 32, Symbol 990.000) und im PDF. Drucken Sie Sprintkarten farbig, denn in Graustufen liegt das Braun nahe am Papierweiß (ADR 0069).
 
+### Behoben
+
+- Der Straßenrand macht keinen Haken mehr um jeden Straßenbaum. Die Bordsteinlinien der Befahrung (Kandidaten 501.1) liefen um jeden Baumschlitz im Parkstreifen, deshalb zeigte die Trainingskarte an jedem Baum einen Haken. freemapper ersetzt jetzt einen Bordstein-Umweg durch seine Sehne, wenn er auf dem Papier weniger als 1,5 mm² umschließt (24 m² bei 1:4000), und lässt einen geschlossenen Bordsteinring dieser Größe weg. Kurven, größere Buchten und die Karte selbst bleiben unverändert. Im Viktoriapark verlieren die Bordsteine der Befahrung 459 von 6.522 Stützpunkten. Bestehende Projekte bekommen die saubereren Linien mit `run --force` (ADR 0071).
+
 ### Geändert
 
 - Baumgruppenflächen (402, 405) verdecken keine Wege mehr. freemapper schneidet sie auch an befestigten Kandidaten und an Wegen (505, 506, 507) aus. Die punktierte Vegetationsgrenze (416) gibt es nur noch auf der Schulhofkarte, auf der Sprintkarte zeigt sich der weiße Wald auf Gelb oder Braun. Im Viktoriapark bleiben dadurch mehr Bäume Punkte (1 128 statt 835), die 49 Grenzlinien entfallen (ADR 0069).

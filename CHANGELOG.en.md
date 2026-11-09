@@ -12,6 +12,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Parks are yellow. Green spaces, parks, settlement green and grassland from ALKIS become open land (401) on the map, woods and copses forest (405), heath 403. Cemeteries, other farmland, moor and swamp are candidates, and so are parks and lawns from OSM where no ALKIS park lies (ADR 0069).
 - The walkable area. On the sprint map one area in the lower brown of 501.5 lies under everything over the whole sheet, symbol 990 in its own map part `base`, tag `freemapper:source=base`. It fills every gap that nothing else shows; a sprint map without it is incomplete. Its colour comes after all others, in OOM, OCAD (colour 32, symbol 990.000) and the PDF. Print sprint maps in colour, because in greyscale the brown comes close to paper white (ADR 0069).
 
+### Fixed
+
+- The street edge no longer makes a hook around each street tree. The survey kerb lines (501.1 candidates) ran around every tree slot cut across the parking strip, so the training map showed a hook at each tree. freemapper now replaces a kerb detour with its chord when it encloses less than 1.5 mm² on paper (24 m² at 1:4000), and drops a closed kerb ring of that size. Curves, larger bays and the map itself stay as they are. In the Viktoriapark the survey kerbs lose 459 of 6,522 vertices. Existing projects get the cleaner lines with `run --force` (ADR 0071).
+
 ### Changed
 
 - Tree group areas (402, 405) no longer cover paths. freemapper also cuts them at paved candidates and at paths (505, 506, 507). The dotted distinct vegetation boundary (416) is left only on the schoolyard map; on the sprint map the white forest shows on yellow or brown. In the Viktoriapark more trees therefore stay points (1,128 instead of 835), and the 49 boundary lines are gone (ADR 0069).

@@ -504,7 +504,8 @@ from the green cut-out, it gives only candidates. From these layers come:
   candidate, except where it lies on paving that freemapper did not cut. Surveyed sidewalks, carriageways,
   cycle paths, parking areas and squares outside the drawn ALKIS areas become 501.5 candidates, such as park
   paths and forecourts. Here too, narrow pieces from 2 m wide stay. Curbs become 501.1 candidates, advertising
-  columns 531.
+  columns 531. A curb that runs around a tree pit is straightened: a detour under 1.5 mm² on paper (24 m² at
+  1:4000) becomes a straight line, and a lone ring of that size goes.
 - On both map kinds: stairs (532.6 to 532.9, like the ALKIS stairs; the field `trs`, probably the number of
   steps, comes as `berlin:trs`), walls (515), railings, traffic barriers and crash barriers (518, like fences),
   bus shelters (522) and fountains (311) from the street survey and the ornamental fountain register.

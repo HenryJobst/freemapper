@@ -116,3 +116,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0068](0068-overlapping-walls-fences-and-hedges.md) | Overlapping walls, fences and hedges keep the stronger line | Accepted | 2026-11-10 |
 | [0069](0069-parks-as-open-land-and-the-walkable-area.md) | Parks are open land, and the walkable area lies under the sprint map | Accepted | 2026-11-09 |
 | [0070](0070-osm-multipolygon-relations.md) | OSM multipolygon relations are read | Accepted | 2026-11-10 |
+| [0071](0071-kerb-lines-without-tree-pit-notches.md) | Kerb lines of the street survey lose their tree pit notches | Accepted | 2026-11-10 |
