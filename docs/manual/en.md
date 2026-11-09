@@ -268,6 +268,10 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   (526) among the candidates. Stolpersteine, plaques and memorials that are a bench, a tree or a mural are left
   out, because 526 is for objects that are obvious on the ground (ISSprOM 526). Where the cadastre also knows the
   monument, you see two points; keep one.
+- Passages (522) that no runner can reach are hidden. A passage that touches only buildings, areas that shall
+  not be entered or water, or joins two walled-in courtyards, is not drawn in the training map, but stays in
+  the candidates with the tag `freemapper:hidden=unreachable`. Look at it if you know that the courtyard has a
+  gate. A candidate point (memorial, lamp, bin) that lies inside a building footprint is dropped.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit

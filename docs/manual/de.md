@@ -280,6 +280,11 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   unter den Kandidaten. Stolpersteine, Gedenktafeln und Gedenkstücke, die eine Bank, ein Baum oder ein Wandbild
   sind, fehlen, denn 526 gilt für Objekte, die im Gelände auffallen (ISSprOM 526). Kennt auch das Kataster das
   Denkmal, sehen Sie zwei Punkte; behalten Sie einen.
+- Durchgänge (522), die kein Läufer erreichen kann, sind verborgen. Ein Durchgang, der nur an Gebäude, Flächen,
+  die nicht betreten werden dürfen, oder Wasser grenzt oder zwei umbaute Höfe verbindet, fehlt in der
+  Trainingskarte, bleibt aber mit dem Tag `freemapper:hidden=unreachable` unter den Kandidaten. Schauen Sie ihn
+  an, wenn Sie wissen, dass der Hof ein Tor hat. Ein Kandidatenpunkt (Denkmal, Laterne, Papierkorb), der in einem
+  Gebäudegrundriss liegt, entfällt.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
