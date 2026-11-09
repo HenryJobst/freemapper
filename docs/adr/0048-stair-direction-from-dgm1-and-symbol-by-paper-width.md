@@ -60,7 +60,9 @@ long, some of them twice at the same place.
 - Cost if wrong (paper width): schoolyard stairs drawn wider than the field mapper would choose.
 - NAS stairs (AdV 1620/1621 areas, states plus 1) use the same builder. Their bottom edge (1630, linked by
   `gehoert_zu`) gives the direction, which is then not `guessed`; without an edge the DGM1 decides as above, and
-  `data/terrain.tif` is kept for it.
+  `data/terrain.tif` is kept for it. A surveyed stair over a NAS stair is dropped like one over a Berlin ALKIS
+  stair. No OSM rule emits stairs (532.x), so there is no OSM stair to deduplicate; when one is added it takes
+  the same overlap rule with ALKIS winning.
 
 Source: ISSprOM 2019-2 symbol 532; `docs/regions/berlin-plus-reference.md` §3.6; branch `berlin-plus`, Task 3 and
 its fix round, the Task 5b live run and the final review.

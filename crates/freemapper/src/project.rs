@@ -3153,15 +3153,19 @@ pub fn derive_project(
     // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
     // the cache, so it is kept with the project where the Berlin layers have stairs.
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
-    let berlin_stairs = !project.berlin_layers.is_empty()
-        && stored_berlin_layers(dir, &project)?
-            .iter()
-            .any(|l| has_stairs(&l.features));
-    // A NAS stair without a bottom edge goes by the terrain too.
-    let nas_stairs = stored_nas_layers(dir, &project)?
-        .iter()
-        .any(|l| l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features));
-    let stairs = tile_products.is_some() && (berlin_stairs || nas_stairs);
+    // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
+    // when the Berlin layers have no stairs.
+    let stairs = tile_products.is_some() && {
+        let berlin_stairs = !project.berlin_layers.is_empty()
+            && stored_berlin_layers(dir, &project)?
+                .iter()
+                .any(|l| has_stairs(&l.features));
+        // A NAS stair without a bottom edge goes by the terrain too.
+        berlin_stairs
+            || stored_nas_layers(dir, &project)?.iter().any(|l| {
+                l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features)
+            })
+    };
     if stairs {
         progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
         crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
