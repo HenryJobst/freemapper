@@ -1,22 +1,23 @@
 //! Point symbol generalization (ISSprOM 2019-2 §3.1, §3.3, §4.4, §4.5): the point symbols the
 //! build adds keep the minimum gap on paper, a dense group of trees becomes the norm's group
-//! symbol (402, 405 or 501.3), and no point is shown in an area that shall not be entered (520).
+//! symbol (402, 405 or 501.3; on the white base a 405 gets a 416 boundary so that it shows), and
+//! no point is shown in an area that shall not be entered (520).
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
 use geo::{
-    Area as _, BooleanOps as _, BoundingRect as _, Buffer as _, Contains as _, Intersects as _,
-    unary_union,
+    Area as _, BooleanOps as _, BoundingRect as _, Buffer as _, Contains as _, Euclidean,
+    Intersects as _, Length as _, Simplify as _, unary_union,
 };
-use geo_types::{Coord, LineString, MultiPolygon, Point, Polygon, Rect};
+use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Point, Polygon, Rect};
 
 use crate::build::berlin::object_polygon;
 use crate::build::buildings::footprint_coords;
 use crate::build::dedup::{Rank, rank};
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
+use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 
 /// The point symbols the build emits and their size on paper at ISSprOM 1:4000 (mm): the larger
@@ -51,13 +52,28 @@ pub const POINT_GAP_MM: f64 = 0.15;
 /// The crown diameter (ground metres) of a tree whose source gives none: the Berlin rule draws a
 /// crown of 10 m or more as 417 (ADR 0051).
 pub const DEFAULT_CROWN_M: [(&str, f64); 2] = [("417", 12.0), ("418", 5.0)];
-/// The group region is the union of the crowns closed by this distance on paper (mm).
+/// Two trees whose crowns come closer than this on paper (mm) belong to one group: their crowns
+/// touch or nearly touch, a closed canopy, which ISSprOM maps as forest (§4.4, 405). The group
+/// region is closed by the same distance.
 pub const GROUP_CLOSE_MM: f64 = 0.5;
+/// Two trees closer than this on paper (mm, centre to centre) also belong to one group, and each
+/// tree claims a disc of half this diameter (or its crown, if larger) for the group region. It is
+/// the side of the smallest 402 (6.25 mm², §4.4): trees closer than that read as a dot field, not
+/// as single features, and their group is at least as large as the smallest 402. At 1:4000 it is
+/// 10 m. The norm names no spacing; this is a ruling (2026-11-10).
+pub const GROUP_LINK_MM: f64 = 2.5;
+/// The opening of a group region is at least this many times the mean claim diameter of its
+/// trees: a single row (one claim wide) joined to a group falls out of the area and stays points.
+const ROW_OPENING: f64 = 1.2;
 /// A group whose crowns cover at least this share of its region is forest (405): the 402
 /// screen itself leaves half the area white.
 pub const FOREST_COVER: f64 = 0.5;
-/// A group of fewer trees is always thinned.
+/// A group of fewer trees is always thinned, and so is the part of a group area that takes in
+/// fewer.
 pub const GROUP_MIN_TREES: usize = 3;
+/// A 501.3 takes in at least this many trees (a square planted three by three): the few large
+/// street trees whose crowns meet over a pavement stay points.
+const PAVED_MIN_TREES: usize = 9;
 
 /// The size of the point symbol `code` on paper (mm) for the map kind: [`POINT_SIZES_MM`]
 /// enlarged by [`MapKind::symbol_enlargement`] (§3.1), the native school symbols as they are.
@@ -75,7 +91,8 @@ pub fn point_size_mm(code: &str, kind: MapKind) -> Option<f64> {
 pub struct GeneralizedPoints {
     /// The candidates without the hidden, merged and thinned points, in their order.
     pub candidates: Vec<MapObject>,
-    /// The group areas (402, 405, 501.3) as new candidates.
+    /// The group areas (402, 405, 501.3) and the 416 boundaries of a 405 on the white base as
+    /// new candidates.
     pub areas: Vec<MapObject>,
     /// The map objects without the hidden and thinned points, in their order.
     pub map: Vec<MapObject>,
@@ -98,9 +115,9 @@ const CROWN_SEGMENTS: usize = 32;
 const SIMPLIFY_MM: f64 = 0.1;
 /// A group region with at least this share on a drawn paved area is 501.3.
 const PAVED_SHARE: f64 = 0.5;
-/// Off paving, a group region becomes an area (405 or 402) only with at least this share on
-/// open land ([`OPEN_LAND_CODES`]): on the white base a 405 is invisible and a 402 claims open
-/// land the map does not know, so elsewhere the trees stay points and are thinned.
+/// Off paving, a group region with at least this share on open land ([`OPEN_LAND_CODES`]) is a
+/// plain 405 (or 402): the yellow round it shows the white forest. Elsewhere the base is white,
+/// and a 405 gets a 416 boundary ([`BOUNDED_FOREST`]).
 const OPEN_LAND_SHARE: f64 = 0.5;
 /// ISSprOM open land: 401 open land, 402 with scattered trees, 403 rough open land, 404 with
 /// scattered trees.
@@ -109,8 +126,22 @@ const OPEN_LAND_CODES: [&str; 4] = ["401", "402", "403", "404"];
 /// its trees) is a row ...
 const ROW_WIDTH_SIZES: f64 = 2.0;
 /// ... and so is a cluster at least this many times as long as it is wide (along its main axis,
-/// one symbol size added to both): an avenue stays a row of tree symbols, never a strip of area.
+/// one symbol size added to both; on paving any such cluster, a street with its trees) ...
 const ROW_ASPECT: f64 = 3.0;
+/// ... as long as it is narrower than this many mean crown diameters: an avenue, also one with
+/// trees on both sides of a narrow street, stays a row of tree symbols, never a strip of area,
+/// while a long park strip several crowns deep is a group.
+const ROW_MAX_WIDTH_CROWNS: f64 = 2.0;
+/// 416 distinct vegetation boundary: "a distinct forest edge" (§4.4). It outlines a 405 on the
+/// white base, where the forest's white alone shows nothing.
+const VEGETATION_BOUNDARY_CODE: &str = "416";
+/// The shortest 416 piece on paper (mm): the norm's minimum length of an isolated 416, five
+/// dots (2.65 mm, §4.4).
+const BOUNDARY_MIN_MM: f64 = 2.65;
+/// No 416 is drawn within this distance on paper (mm) of an edge where the area was cut (a
+/// building, water, a 520 area, a paved area, the clip window): there the cut feature is the
+/// boundary.
+const BOUNDARY_CUT_MM: f64 = 0.1;
 /// The cell of the grid indexes of the areas (ground metres).
 const GRID_CELL_M: f64 = 100.0;
 /// An area spanning more cells than this is checked for every query instead.
@@ -135,6 +166,13 @@ const FOREST: GroupSymbol = GroupSymbol {
     code: "405",
     min_area_mm2: 1.0,
     min_width_mm: 0.3,
+};
+/// 405 forest on the white base, outlined by a 416 dotted line: the smallest area a dotted line
+/// may enclose, 1.5 mm across (§3.3), so 1.77 mm² and 1.5 mm wide.
+const BOUNDED_FOREST: GroupSymbol = GroupSymbol {
+    code: "405",
+    min_area_mm2: 1.77,
+    min_width_mm: 1.5,
 };
 /// 501.3 paved area with scattered trees.
 const PAVED_WITH_TREES: GroupSymbol = GroupSymbol {
@@ -343,13 +381,14 @@ struct GroupContext<'a> {
 }
 
 /// The group areas of the trees `cluster` (indices into `spots`) and the trees they take in: the
-/// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving; else, only on open land
-/// ([`OPEN_LAND_SHARE`]), 405 when the crowns cover at least [`FOREST_COVER`] and 402 when not;
-/// elsewhere none. The shares are measured on the closed crowns before the cuts. The area is
-/// cut at the clip window, the 520 areas, the buildings and the water. Each part is opened by half the symbol's minimum width, which leaves out what is
-/// narrower (the norm's minimum width is that of the narrowest part); pieces below the minimum
-/// area are left out. A tree is merged when its centre lies in the part and its crown meets a
-/// kept piece.
+/// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving; elsewhere 405 when the crowns
+/// cover at least [`FOREST_COVER`] and 402 when not. A 405 off open land ([`OPEN_LAND_SHARE`])
+/// lies on the white base and gets a 416 boundary ([`BOUNDED_FOREST`]). The shares are measured
+/// on the closed crowns before the cuts. The area is cut at the clip window, the 520 areas, the
+/// buildings and the water, and a 402 or 405 also at the drawn paved areas. Each part is opened by
+/// half the symbol's minimum width, which leaves out what is narrower (the norm's minimum width is
+/// that of the narrowest part); pieces below the minimum area are left out. A tree is merged when
+/// its centre lies in the part and its crown meets a kept piece.
 fn group_areas(
     cluster: &[usize],
     spots: &[Spot],
@@ -370,47 +409,104 @@ fn group_areas(
         .map(|&i| disc(centre(&spots[i]), spots[i].crown / 2.0))
         .collect();
     let union = unary_union(&crowns);
+    // Each tree claims at least half the link distance round it, so that scattered trees make
+    // one region too.
     let close = GROUP_CLOSE_MM * enlargement * metres_per_mm;
-    let region = union.buffer(close).buffer(-close);
-    let region_area = region.unsigned_area();
-    let Some(bounds) = region.bounding_rect().filter(|_| region_area > 0.0) else {
+    let region_of = |reach: f64| {
+        let radii: Vec<f64> = cluster
+            .iter()
+            .map(|&i| (spots[i].crown / 2.0).max(reach))
+            .collect();
+        let claims: Vec<Polygon<f64>> = cluster
+            .iter()
+            .zip(&radii)
+            .map(|(&i, &r)| disc(centre(&spots[i]), r))
+            .collect();
+        let region = unary_union(&claims).buffer(close).buffer(-close);
+        (region, radii)
+    };
+    let (mut region, mut radii) = region_of(GROUP_LINK_MM * enlargement * metres_per_mm / 2.0);
+    let Some(bounds) = region
+        .bounding_rect()
+        .filter(|_| region.unsigned_area() > 0.0)
+    else {
         return Ok((Vec::new(), Vec::new()));
     };
-    let cover = (union.unsigned_area() / region_area).min(1.0);
-    let paved = region
-        .intersection(&context.paved.union_near(bounds))
-        .unsigned_area();
-    let symbol = if paved >= PAVED_SHARE * region_area {
-        &PAVED_WITH_TREES
+    let paved_near = context.paved.union_near(bounds);
+    let paved = region.intersection(&paved_near).unsigned_area();
+    let on_paving = paved >= PAVED_SHARE * region.unsigned_area();
+    if on_paving {
+        // A long group on paving is a street with its rows of trees, no square: it stays points.
+        let (length, width, size, _) = extent(cluster, spots);
+        if is_elongated(length, width, size) {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        // On paving the trees claim only their crowns: the trees of a square stand close, the
+        // rows along a street are one crown wide and fall to the opening.
+        (region, radii) = region_of(0.0);
+    }
+    let region_area = region.unsigned_area();
+    if region_area <= 0.0 {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    // The cover: the share of the region under the crowns.
+    let cover = (union.intersection(&region).unsigned_area() / region_area).min(1.0);
+    let (symbol, bounded) = if on_paving {
+        (&PAVED_WITH_TREES, false)
+    } else if cover < FOREST_COVER {
+        (&SCATTERED_TREES, false)
     } else {
         let open = region
             .intersection(&context.open_land.union_near(bounds))
             .unsigned_area();
-        if open < OPEN_LAND_SHARE * region_area {
-            return Ok((Vec::new(), Vec::new()));
-        }
-        if cover >= FOREST_COVER {
-            &FOREST
+        if open >= OPEN_LAND_SHARE * region_area {
+            (&FOREST, false)
         } else {
-            &SCATTERED_TREES
+            (&BOUNDED_FOREST, true)
         }
     };
     let Some(symbol_id) = context.symbol_set.id_for_code(symbol.code) else {
         return Ok((Vec::new(), Vec::new()));
     };
+    let boundary_id = context
+        .symbol_set
+        .id_for_code(VEGETATION_BOUNDARY_CODE)
+        .filter(|_| bounded);
     let mut cut = region.intersection(&context.clip);
-    let obstacles = context.obstacles.union_near(bounds);
+    let mut obstacles = context.obstacles.union_near(bounds);
+    // A road or square through the trees is no forest: off paving the drawn paving is cut out.
+    if !on_paving && !paved_near.0.is_empty() {
+        obstacles = if obstacles.0.is_empty() {
+            paved_near
+        } else {
+            obstacles.union(&paved_near)
+        };
+    }
     if !obstacles.0.is_empty() {
         cut = cut.difference(&obstacles);
     }
     let min_area = symbol.min_area_mm2 * (enlargement * metres_per_mm).powi(2);
-    let half_width = symbol.min_width_mm * enlargement * metres_per_mm / 2.0;
+    // The opening is at least as wide as a single row of the cluster's trees (its mean claim
+    // times [`ROW_OPENING`]), so that a row joined to a group stays out of the area.
+    let row = ROW_OPENING * 2.0 * radii.iter().sum::<f64>() / radii.len() as f64;
+    let half_width = (symbol.min_width_mm * enlargement * metres_per_mm).max(row) / 2.0;
     let tolerance = SIMPLIFY_MM * metres_per_mm;
     // The opening: what is left after eroding and dilating by half the minimum width.
     let pieces = cut.0.into_iter().flat_map(|part| {
         let opened = part.buffer(-half_width).buffer(half_width);
         let opened = opened.intersection(&part);
         opened.0.into_iter().map(move |piece| (part.clone(), piece))
+    });
+    // Where the boundary is a cut: within reach of an obstacle or of the clip window's edge.
+    let reach = BOUNDARY_CUT_MM * enlargement * metres_per_mm;
+    let no_boundary = boundary_id.map(|_| {
+        let rim = MultiPolygon(vec![context.clip.clone()])
+            .difference(&MultiPolygon(vec![context.clip.clone()]).buffer(-reach));
+        if obstacles.0.is_empty() {
+            rim
+        } else {
+            rim.union(&obstacles.buffer(reach))
+        }
     });
     let (mut areas, mut merged) = (Vec::new(), Vec::new());
     for (part, piece) in pieces {
@@ -432,7 +528,12 @@ fn group_areas(
             })
             .map(|(i, _)| i)
             .collect();
-        if members.is_empty() {
+        let least = if on_paving {
+            PAVED_MIN_TREES
+        } else {
+            GROUP_MIN_TREES
+        };
+        if members.len() < least {
             continue;
         }
         let mut names: Vec<&str> = members.iter().map(|&i| spots[i].name.as_str()).collect();
@@ -460,6 +561,17 @@ fn group_areas(
                 (cover * 100.0).round()
             ),
         ));
+        if let (Some(boundary_id), Some(no_boundary)) = (boundary_id, &no_boundary) {
+            let length = BOUNDARY_MIN_MM * enlargement * metres_per_mm;
+            for line in boundary_lines(&piece, no_boundary, length, tolerance) {
+                areas.push(MapObject {
+                    symbol_id: boundary_id,
+                    kind: MapObjectKind::Path,
+                    coords: line_coords(&line, georef)?,
+                    tags: tags.clone(),
+                });
+            }
+        }
         areas.push(MapObject {
             symbol_id,
             kind: MapObjectKind::Path,
@@ -471,10 +583,94 @@ fn group_areas(
     Ok((areas, merged))
 }
 
+/// The rings of `piece` outside `no_boundary`, joined where a ring was split at its start,
+/// simplified by `tolerance` and at least `min_length` long (all in the map's CRS).
+fn boundary_lines(
+    piece: &Polygon<f64>,
+    no_boundary: &MultiPolygon<f64>,
+    min_length: f64,
+    tolerance: f64,
+) -> Vec<LineString<f64>> {
+    let mut lines = Vec::new();
+    for ring in std::iter::once(piece.exterior()).chain(piece.interiors()) {
+        let rings = MultiLineString(vec![ring.clone()]);
+        let kept = if no_boundary.0.is_empty() {
+            rings
+        } else {
+            no_boundary.clip(&rings, true)
+        };
+        // The clip may split a ring that is kept across its start: join such pieces.
+        let mut pieces: Vec<Vec<Coord<f64>>> = kept.0.into_iter().map(|l| l.0).collect();
+        let mut joined = true;
+        while joined && pieces.len() > 1 {
+            joined = false;
+            'outer: for a in 0..pieces.len() {
+                for b in 0..pieces.len() {
+                    if a != b && pieces[a].last() == pieces[b].first() {
+                        let tail = pieces.remove(b);
+                        let a = if b < a { a - 1 } else { a };
+                        pieces[a].extend(tail.into_iter().skip(1));
+                        joined = true;
+                        break 'outer;
+                    }
+                }
+            }
+        }
+        lines.extend(
+            pieces
+                .into_iter()
+                .map(|p| LineString(p).simplify(tolerance))
+                .filter(|l| Euclidean.length(l) >= min_length),
+        );
+    }
+    lines
+}
+
+/// The map coordinates of `line` (map CRS); a closed line is closed as OOM expects.
+fn line_coords(
+    line: &LineString<f64>,
+    georef: &Georeferencing,
+) -> Result<Vec<MapCoord>, GeorefError> {
+    let points = line
+        .coords()
+        .map(|c| {
+            georef
+                .projected_to_map(ProjectedPoint {
+                    easting: c.x,
+                    northing: c.y,
+                })
+                .map(|m| (m.x, m.y))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(if line.is_closed() && points.len() > 3 {
+        closed_ring(&points)
+    } else {
+        points
+            .into_iter()
+            .map(|(x, y)| MapCoord::new(x, y))
+            .collect()
+    })
+}
+
 /// The trees `cluster` form a row: they lie in a corridor narrower than [`ROW_WIDTH_SIZES`]
-/// symbol sizes, or the cluster is at least [`ROW_ASPECT`] times as long as wide, both along its
-/// main axis (the principal axis of the tree centres).
-fn is_row(cluster: &[usize], spots: &[Spot]) -> bool {
+/// symbol sizes, or the cluster is [`is_elongated`] and narrower than [`ROW_MAX_WIDTH_CROWNS`]
+/// mean crowns, all along its main axis (the principal axis of the tree centres). `metre`: map
+/// coordinates per ground metre.
+fn is_row(cluster: &[usize], spots: &[Spot], metre: f64) -> bool {
+    let (length, width, size, crown) = extent(cluster, spots);
+    width < ROW_WIDTH_SIZES * size
+        || (is_elongated(length, width, size) && width < ROW_MAX_WIDTH_CROWNS * crown * metre)
+}
+
+/// A cluster `length` long and `width` wide (along and across its main axis) of trees of symbol
+/// size `size` is at least [`ROW_ASPECT`] times as long as wide, one symbol size added to both.
+fn is_elongated(length: f64, width: f64, size: f64) -> bool {
+    length + size >= ROW_ASPECT * (width + size)
+}
+
+/// The length and width of the trees `cluster` along and across its main axis, the mean symbol
+/// size (map coordinates) and the mean crown (ground metres).
+fn extent(cluster: &[usize], spots: &[Spot]) -> (f64, f64, f64, f64) {
     let n = cluster.len() as f64;
     let mean = |f: &dyn Fn(&Spot) -> f64| cluster.iter().map(|&i| f(&spots[i])).sum::<f64>() / n;
     let (mx, my) = (mean(&|s| s.xy.0), mean(&|s| s.xy.1));
@@ -490,18 +686,34 @@ fn is_row(cluster: &[usize], spots: &[Spot]) -> bool {
         along = (along.0.min(u), along.1.max(u));
         across = (across.0.min(v), across.1.max(v));
     }
-    let size = mean(&|s| s.size);
-    let (length, width) = (along.1 - along.0, across.1 - across.0);
-    width < ROW_WIDTH_SIZES * size || length + size >= ROW_ASPECT * (width + size)
+    (
+        along.1 - along.0,
+        across.1 - across.0,
+        mean(&|s| s.size),
+        mean(&|s| s.crown),
+    )
 }
 
 /// The clusters of at least [`GROUP_MIN_TREES`] among the `trees` (indices into `spots`): single
-/// linkage, two trees closer than their minimum distance are in one cluster. Each cluster is
-/// sorted, the clusters by their first tree.
-fn tree_clusters(spots: &[Spot], trees: &[usize], gap: f64) -> Vec<Vec<usize>> {
+/// linkage, two trees are in one cluster when they are closer than their minimum distance or
+/// than `spacing`, or their crowns come closer than `close` (map coordinates; `metre` map
+/// coordinates per ground metre). Each cluster is sorted, the clusters by their first tree.
+fn tree_clusters(
+    spots: &[Spot],
+    trees: &[usize],
+    gap: f64,
+    (close, spacing): (f64, f64),
+    metre: f64,
+) -> Vec<Vec<usize>> {
+    let link = |a: &Spot, b: &Spot| {
+        a.min_distance(b, gap)
+            .max((a.crown + b.crown) / 2.0 * metre + close)
+            .max(spacing)
+    };
     let largest = trees.iter().map(|&i| spots[i].size).fold(0.0, f64::max);
+    let crown = trees.iter().map(|&i| spots[i].crown).fold(0.0, f64::max);
     // A grid of cells of the largest pair distance: a close tree lies in a neighbouring cell.
-    let cell = largest + gap;
+    let cell = (largest + gap).max(crown * metre + close).max(spacing);
     let key = |(x, y): (f64, f64)| ((x / cell).floor() as i64, (y / cell).floor() as i64);
     let mut parent: Vec<usize> = (0..trees.len()).collect();
     fn root(parent: &mut [usize], mut a: usize) -> usize {
@@ -518,7 +730,7 @@ fn tree_clusters(spots: &[Spot], trees: &[usize], gap: f64) -> Vec<Vec<usize>> {
             for gy in cy - 1..=cy + 1 {
                 for &b in grid.get(&(gx, gy)).into_iter().flatten() {
                     let other = &spots[trees[b]];
-                    if spots[i].distance(other) < spots[i].min_distance(other, gap) {
+                    if spots[i].distance(other) < link(&spots[i], other) {
                         let (ra, rb) = (root(&mut parent, a), root(&mut parent, b));
                         parent[ra.max(rb)] = ra.min(rb);
                     }
@@ -549,8 +761,9 @@ fn tree_clusters(spots: &[Spot], trees: &[usize], gap: f64) -> Vec<Vec<usize>> {
 ///    in a 520 candidate (`out_of_bounds`, or one among `candidates`) stays a candidate tagged
 ///    [`HIDDEN_KEY`]` = 520` and takes no part in the rest: the training map leaves it out;
 /// 2. at least [`GROUP_MIN_TREES`] candidate trees that keep less than the minimum gap from one
-///    another, and are no row ([`is_row`]), become a group area (`group_areas`) on paving or
-///    open land, where it reaches the symbol's minimum;
+///    another or whose crowns come closer than [`GROUP_CLOSE_MM`], and are no row ([`is_row`]),
+///    become a group area (`group_areas`) where it reaches the symbol's minimum: 501.3 on
+///    paving, else 405 or 402, a 405 off open land with a 416 boundary;
 /// 3. every other point keeps [`POINT_GAP_MM`] (× the enlargement) between the outer edges of
 ///    the symbols ([`point_size_mm`]); the smaller of two points goes ([`larger_first`]), and
 ///    the kept one names it in `freemapper:generalized` (a map point names no candidate). A
@@ -676,9 +889,11 @@ pub fn generalize_points(
     let mut merged = vec![false; spots.len()];
     let mut areas = Vec::new();
     // A row (an avenue) stays points and is thinned.
-    let clusters: Vec<Vec<usize>> = tree_clusters(&spots, &trees, gap)
+    let close = GROUP_CLOSE_MM * kind.symbol_enlargement() * 1000.0;
+    let spacing = GROUP_LINK_MM * kind.symbol_enlargement() * 1000.0;
+    let clusters: Vec<Vec<usize>> = tree_clusters(&spots, &trees, gap, (close, spacing), metre)
         .into_iter()
-        .filter(|c| !is_row(c, &spots))
+        .filter(|c| !is_row(c, &spots, metre))
         .collect();
     if !clusters.is_empty() {
         let mut obstacles: Vec<Polygon<f64>> = map_fences
@@ -1276,18 +1491,170 @@ mod tests {
         );
     }
 
+    /// The 416 boundaries among `areas`.
+    fn boundaries<'a>(f: &Fixture, areas: &'a [MapObject]) -> Vec<&'a MapObject> {
+        areas
+            .iter()
+            .filter(|o| o.symbol_id == f.id("416"))
+            .collect()
+    }
+
+    /// The group areas among `areas` (no 416).
+    fn group_areas_of<'a>(f: &Fixture, areas: &'a [MapObject]) -> Vec<&'a MapObject> {
+        areas
+            .iter()
+            .filter(|o| o.symbol_id != f.id("416"))
+            .collect()
+    }
+
     #[test]
-    fn park_group_on_white_background_stays_points() {
+    fn park_group_on_white_background_becomes_bounded_forest() {
         let f = fixture(MapKind::Sprint);
-        // The dense group of `dense_group_becomes_forest_area` without open land under it: a
-        // 405 would be white on white, so the trees are thinned instead.
+        // The dense group of `dense_group_becomes_forest_area` without open land under it: the
+        // white 405 alone would not show, so a 416 boundary outlines it (user ruling of
+        // 2026-11-10, superseding the open-land-only ruling).
         let found = f.run(f.grid(REGISTER, (3, 3), 3.5, 6.0), vec![], &[], &[], &[]);
-        assert!(found.areas.is_empty(), "{:?}", found.areas);
-        assert!(!found.candidates.is_empty());
-        assert!(found.candidates.len() < 9);
-        // The same for a sparse group (402).
+        assert!(found.candidates.is_empty(), "{:?}", found.candidates);
+        let areas = group_areas_of(&f, &found.areas);
+        assert_eq!(areas.len(), 1);
+        assert_eq!(areas[0].symbol_id, f.id("405"));
+        let lines = boundaries(&f, &found.areas);
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        assert_eq!(lines[0].kind, MapObjectKind::Path);
+        // The boundary carries the area's tags: the merged trees and the generalization.
+        assert_eq!(lines[0].tags, areas[0].tags);
+        assert_eq!(
+            tag(lines[0], "freemapper:source"),
+            Some(GENERALIZATION_SOURCE)
+        );
+        // A closed ring round the area.
+        assert!(lines[0].coords.len() > 4);
+        assert_eq!(
+            (lines[0].coords[0].x, lines[0].coords[0].y),
+            (
+                lines[0].coords.last().unwrap().x,
+                lines[0].coords.last().unwrap().y
+            )
+        );
+    }
+
+    #[test]
+    fn sparse_group_on_white_background_becomes_scattered_trees() {
+        let f = fixture(MapKind::Sprint);
+        // Small crowns closer than the symbols allow: a 402, whose yellow shows on its own.
         let found = f.run(f.grid(REGISTER, (5, 4), 3.5, 2.0), vec![], &[], &[], &[]);
+        assert!(found.candidates.is_empty());
+        assert_eq!(found.areas.len(), 1, "{:?}", found.areas);
+        assert_eq!(found.areas[0].symbol_id, f.id("402"));
+    }
+
+    #[test]
+    fn crowns_that_touch_make_a_group() {
+        let f = fixture(MapKind::Sprint);
+        // 16 trees 6 m apart: the symbols keep their gap (3.8 m), so before the groups they all
+        // stayed points.
+        let block = |crown: Option<f64>| -> Vec<MapObject> {
+            (0..16)
+                .map(|k| {
+                    let at = (f64::from(k % 4) * 6.0, f64::from(k / 4) * 6.0);
+                    f.tree("418", "trees/potsdam", &format!("p{k:02}"), at, crown)
+                })
+                .collect()
+        };
+        // Default 5 m crowns cover less than half of the group: a 402.
+        let found = f.run(block(None), vec![], &[], &[], &[]);
+        assert!(found.candidates.is_empty(), "{:?}", found.candidates);
+        assert_eq!(found.areas.len(), 1, "{:?}", found.areas);
+        assert_eq!(found.areas[0].symbol_id, f.id("402"));
+        // 8 m crowns overlap: a closed canopy, forest with its 416 boundary.
+        let found = f.run(block(Some(8.0)), vec![], &[], &[], &[]);
+        assert!(found.candidates.is_empty(), "{:?}", found.candidates);
+        let areas = group_areas_of(&f, &found.areas);
+        assert_eq!(areas.len(), 1, "{areas:?}");
+        assert_eq!(areas[0].symbol_id, f.id("405"));
+        assert!(!boundaries(&f, &found.areas).is_empty());
+    }
+
+    #[test]
+    fn sparse_trees_stay_points() {
+        let f = fixture(MapKind::Sprint);
+        // Default 5 m crowns 10 m apart: 5 m of lawn between them, no group.
+        let trees: Vec<MapObject> = (0..16)
+            .map(|k| {
+                let at = (f64::from(k % 4) * 10.0, f64::from(k / 4) * 10.0);
+                f.tree("418", "trees/potsdam", &format!("p{k:02}"), at, None)
+            })
+            .collect();
+        let found = f.run(trees.clone(), vec![], &[], &[], &[]);
         assert!(found.areas.is_empty(), "{:?}", found.areas);
+        assert_eq!(found.candidates, trees);
+    }
+
+    #[test]
+    fn street_rows_stay_points_and_park_block_becomes_forest() {
+        let f = fixture(MapKind::Sprint);
+        // A Berlin street: large trees (crown 12 m, 417) 9 m apart on both sides of a 12 m
+        // road, crowns meeting over it. Their rows stay points.
+        let mut trees = Vec::new();
+        for side in [0.0, 12.0] {
+            for i in 0..12 {
+                let id = format!("s{side}-{i:02}");
+                trees.push(f.tree("417", REGISTER, &id, (f64::from(i) * 9.0, side), Some(12.0)));
+            }
+        }
+        // A park block 60 m north: 417 (crown 14 m) and 418 (crown 6 m) mixed, 7 m apart.
+        for k in 0..36 {
+            let (i, j) = (f64::from(k % 6), f64::from(k / 6));
+            let (code, crown) = if k % 3 == 0 {
+                ("417", 14.0)
+            } else {
+                ("418", 6.0)
+            };
+            let id = format!("b{k:02}");
+            trees.push(f.tree(code, REGISTER, &id, (i * 7.0, 60.0 + j * 7.0), Some(crown)));
+        }
+        let found = f.run(trees, vec![], &[], &[], &[]);
+        let areas = group_areas_of(&f, &found.areas);
+        assert_eq!(areas.len(), 1, "{areas:?}");
+        assert_eq!(areas[0].symbol_id, f.id("405"));
+        let merged = tag(areas[0], "freemapper:source_id").unwrap();
+        assert_eq!(merged.split("; ").count(), 36, "{merged}");
+        assert!(!merged.contains("/s"), "{merged}");
+        assert!(!boundaries(&f, &found.areas).is_empty());
+        // The street trees stay points, thinned to the gap (417 to 417: 6.2 m).
+        let left = ids(&found.candidates);
+        assert!(left.iter().all(|id| id.starts_with('s')), "{left:?}");
+        assert_eq!(left.len(), 24, "{left:?}");
+    }
+
+    #[test]
+    fn forest_is_cut_at_a_road_and_has_no_boundary_there() {
+        let f = fixture(MapKind::Sprint);
+        // A 6 × 6 block of 418 (crown 6 m, 4 m apart) with a paved road across its middle.
+        let trees = f.grid(REGISTER, (6, 6), 4.0, 6.0);
+        let road = f.rect("501.5", (-10.0, 8.5), (40.0, 4.0));
+        let found = f.run(trees, vec![], &[], std::slice::from_ref(&road), &[]);
+        let road = projected(&f, &road);
+        let areas = group_areas_of(&f, &found.areas);
+        assert_eq!(areas.len(), 2, "{areas:?}");
+        for area in &areas {
+            assert_eq!(area.symbol_id, f.id("405"));
+            assert!(projected(&f, area).intersection(&road).unsigned_area() < 0.01);
+        }
+        // No 416 runs along the road.
+        use geo::Distance as _;
+        for line in boundaries(&f, &found.areas) {
+            let along = line
+                .coords
+                .iter()
+                .map(|c| {
+                    let p = f.georef.map_to_projected(*c);
+                    geo_types::Point::new(p.easting, p.northing)
+                })
+                .filter(|p| geo::Euclidean.distance(p, &road) < 0.2)
+                .count();
+            assert!(along <= 2, "{along} points of a 416 on the road edge");
+        }
     }
 
     #[test]
@@ -1300,6 +1667,8 @@ mod tests {
         let found = f.run(candidates, vec![], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
         assert_eq!(found.areas[0].symbol_id, f.id("405"));
+        // On open land the yellow round the 405 shows it: no 416.
+        assert!(boundaries(&f, &found.areas).is_empty());
         assert_eq!(found.candidates, [pitch()]);
         // A green strip of the paved build, and a 401 map object.
         let trees = || f.grid(REGISTER, (5, 4), 3.5, 2.0);
@@ -1308,10 +1677,13 @@ mod tests {
         assert_eq!(found.areas[0].symbol_id, f.id("402"));
         let found = f.run(trees(), vec![pitch()], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
-        // Less than half of the closed crowns on open land: points.
+        // A forest with less than half of its closed crowns on open land lies on the white base:
+        // it gets the 416 boundary.
         let strip = f.rect("401", (-10.0, -10.0), (40.0, 13.0));
-        let found = f.run_with(trees(), vec![], &[], &[], &[strip], &[]);
-        assert!(found.areas.is_empty(), "{:?}", found.areas);
+        let forest = || f.grid(REGISTER, (3, 3), 3.5, 6.0);
+        let found = f.run_with(forest(), vec![], &[], &[], &[strip], &[]);
+        assert_eq!(group_areas_of(&f, &found.areas).len(), 1);
+        assert_eq!(boundaries(&f, &found.areas).len(), 1);
     }
 
     #[test]
@@ -1420,14 +1792,22 @@ mod tests {
         assert!(!left.is_empty());
         assert!(
             left.iter()
-                .all(|&(e, n)| building.contains(&geo_types::Point::new(e, n)))
-        );
-        assert!(
-            left.iter()
                 .all(|&(e, n)| !fence.contains(&geo_types::Point::new(e, n)))
         );
-        // Under the building the columns at 10.5 and 14 m are 3.5 m apart: thinned.
-        assert!(left.len() < 10, "{left:?}");
+        // No tree under the building (the columns at 10.5 and 14 m, t15 to t24) is merged; they
+        // stay points, thinned (3.5 m apart).
+        for area in &found.areas {
+            let merged = tag(area, "freemapper:source_id").unwrap();
+            assert!(
+                (15..25).all(|k| !merged.contains(&format!("t{k:02}"))),
+                "{merged}"
+            );
+        }
+        let under = left
+            .iter()
+            .filter(|&&(e, n)| building.contains(&geo_types::Point::new(e, n)))
+            .count();
+        assert!((1..10).contains(&under), "{left:?}");
     }
 
     #[test]
@@ -1603,9 +1983,9 @@ mod tests {
     #[test]
     fn thin_tail_is_left_out_of_the_area() {
         let f = fixture(MapKind::Sprint);
-        // A 402 block with a tail of four trees in a line: the tail is narrower than 2.2 mm.
+        // A 402 block with a tail of eight trees in a line: the tail is one row wide.
         let mut trees = f.grid(REGISTER, (5, 4), 3.5, 2.0);
-        trees.extend((0..4).map(|i| {
+        trees.extend((0..8).map(|i| {
             let id = format!("u{i}");
             f.tree(
                 "418",
@@ -1620,12 +2000,16 @@ mod tests {
         let area = &found.areas[0];
         assert_eq!(area.symbol_id, f.id("402"));
         let merged = tag(area, "freemapper:source_id").unwrap();
-        assert!(!merged.contains("/u"), "{merged}");
-        assert_eq!(merged.split("; ").count(), 20, "{merged}");
-        // Nothing of the area reaches along the tail.
-        let tail = f.projected_rect((16.0, 0.0), (20.0, 7.0));
+        // The first tail trees lie in the block's own margin; the rest of the tail does not.
+        assert!(
+            (2..8).all(|k| !merged.contains(&format!("/u{k}"))),
+            "{merged}"
+        );
+        // Nothing of the area reaches along the far tail.
+        let tail = f.projected_rect((26.0, 0.0), (20.0, 7.0));
         assert!(projected(&f, area).intersection(&tail).unsigned_area() < 0.01);
-        assert_eq!(ids(&found.candidates), ["u0", "u2"]);
+        // The tail stays points, thinned to every other tree.
+        assert_eq!(ids(&found.candidates), ["u2", "u4", "u6"]);
     }
 
     /// The larger side (mm) of the box that holds all a point symbol draws.

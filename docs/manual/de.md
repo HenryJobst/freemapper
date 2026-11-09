@@ -207,9 +207,9 @@ und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen u
 und einfügen. Beide Karten haben dieselbe Georeferenz.
 
 Punktsymbole wie Bäume, Brunnen oder Poller halten den Abstand ein, den die ISSprOM verlangt. Würden sich
-zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe auf Pflaster oder offenem
-Gelände wird zu einer Fläche: befestigte Fläche, Wald oder offenes Gelände mit verstreuten Bäumen. Was Sie dort
-prüfen, steht in Kapitel 9.
+zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe wird zu einer Fläche:
+befestigte Fläche mit verstreuten Bäumen, offenes Gelände mit verstreuten Bäumen oder Wald, auf weißem Grund
+mit einer punktierten Vegetationsgrenze. Was Sie dort prüfen, steht in Kapitel 9.
 
 **Gewässer** zeichnet freemapper auf beiden Kartenarten. Flüsse, Kanäle, Seen, Teiche, Hafenbecken und
 Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (301.1) mit schwarzer
@@ -329,17 +329,23 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   freemapper das größere. Der bleibende Punkt nennt die anderen in `freemapper:generalized`. Straßenbäume in
   einer Reihe bleiben einzelne Baumsymbole. Stehen sie enger, als die Symbole erlauben, fallen einige weg.
   Prüfen Sie die Lücken im Gelände und rücken Sie Symbole auseinander, wo beide Objekte wichtig sind.
-- **Baumgruppen als Flächen:** Drei oder mehr Bäume, die einander zu nahe stehen, werden nur dort zu einer
-  Fläche, wo die Karte den Boden darunter schon zeigt. Mindestens die Hälfte der geschlossenen Kronen muss auf
-  Pflaster oder auf offenem Gelände liegen (401 bis 404 unter den Kartenobjekten oder Kandidaten, etwa ein
-  Rasenplatz aus OSM oder ein Grünstreifen aus der Berliner Straßenbefahrung). Auf Pflaster wird die Gruppe
-  befestigte Fläche mit verstreuten Bäumen (501.3). Auf offenem Gelände wird sie Wald (405), wenn die Kronen
-  mindestens die Hälfte der Gruppe decken, sonst offenes Gelände mit verstreuten Bäumen (402). Überall sonst,
-  etwa in den meisten Parks, bleiben die Bäume einzelne Symbole und werden ausgedünnt, denn ein weißer Wald 405
-  auf dem weißen Grund würde sie verstecken. Die Fläche trägt `freemapper:source=generalization` und nennt die
+- **Baumgruppen als Flächen:** Drei oder mehr Bäume bilden eine Gruppe, wenn sie auf dem Papier näher als
+  2,5 mm beieinander stehen (10 m bei 1:4000) oder sich ihre Kronen bis auf 0,5 mm nähern. Eine Reihe bleibt
+  Punkte, etwa die Bäume einer Allee oder einer Straße, auch mit Bäumen auf beiden Seiten. Jeder Baum der
+  Gruppe beansprucht einen Kreis von 5 m Halbmesser oder seine Krone, wenn sie größer ist. Liegt die Hälfte
+  davon auf Pflaster, wird die Gruppe befestigte Fläche mit verstreuten Bäumen (501.3), wenn sie mindestens
+  9 Bäume aufnimmt. Sonst wird sie Wald (405), wenn die Kronen mindestens die Hälfte der Fläche decken, und
+  sonst offenes Gelände mit verstreuten Bäumen (402). Auf dem weißen Grund wäre ein weißer Wald unsichtbar.
+  Deshalb bekommt ein Wald, der nicht zur Hälfte auf offenem Gelände (401 bis 404) liegt, eine deutliche
+  Vegetationsgrenze (416) als punktierten Umriss. Wo die Fläche an einem Gebäude, Gewässer, Sperrgebiet oder
+  Pflaster endet, fehlt die Grenze, denn dort begrenzt das andere Objekt. Straßen und Plätze schneidet
+  freemapper aus Wald und 402 heraus. Ein Streifen, der nur eine Baumreihe breit ist, fällt aus der Fläche
+  und bleibt Punkte. Die Fläche und ihre Grenze tragen `freemapper:source=generalization` und nennen die
   Bäume in `freemapper:source_id`. Ihr Tag `freemapper:generalized` gibt die Zahl der Bäume und die
   Kronendeckung an. Große Bäume (417) bleiben auf einer 402-Fläche Punkte. Ohne gemessene Krone nimmt
-  freemapper 12 m für 417 und 5 m für 418 an. Vergleichen Sie den Umriss mit dem Luftbild.
+  freemapper 12 m für 417 und 5 m für 418 an, bei Parkbäumen meist zu wenig. Vergleichen Sie den Umriss mit
+  dem Luftbild, zeichnen Sie Rasen als offenes Gelände (401) und löschen Sie die 416 dort, wo der Wald an
+  Gelb grenzt.
 - **Verborgene Punkte in Sperrgebieten:** Die ISSprOM erlaubt in verbotenem Gebiet (520) nur sehr markante
   Objekte. Ein Punktkandidat in einem 520-Kandidaten bleibt in den Kandidaten, mit dem Tag
   `freemapper:hidden=520`, aber die Trainingskarte lässt ihn weg. Auf Schulhofkarten verbirgt das jeden Punkt
