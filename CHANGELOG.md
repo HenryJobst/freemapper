@@ -6,6 +6,21 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Berlin: die Straßenbefahrung des Geoportals Berlin, aufgenommen 2014 bis 2016. Auf Sprintkarten werden Bordsteine (501.1), Werbesäulen (531), Grünstreifen (401) und vermessene Gehwege, Plätze und Parkwege außerhalb der ALKIS-Straßenflächen (501.5) Kandidaten. Auf beiden Kartenarten kommen Treppen, Mauern, Geländer, Verkehrsschutzgitter und Leitplanken (518), Fahrgastunterstände und Brunnen dazu. Jeder vermessene Kandidat trägt sein Aufnahmedatum; ist es nicht lesbar, steht 2014-01-01 mit `freemapper:currency_guessed=yes` da.
+- Berlin: Möblierung auf Schulhofkarten. Bänke, Hydranten, Poller, Masten, Fahnenmasten und Spielgeräte kommen aus der Straßenbefahrung, Laternen (nur die in Betrieb) aus dem Beleuchtungskataster, Zier- und Trinkbrunnen aus ihren Registern. Auf Sprintkarten bleibt die Möblierung weg.
+- Berlin: Ein Punkt aus einem Register ersetzt OSM- und vermessene Punkte derselben Art bis 2 m (Laternen) bzw. 3 m (Brunnen) Abstand. Liegt ein Brunnen aus einem Register in einem gezeichneten Gewässer, fällt er weg.
+- Berlin: Gebäude tragen als Datenstand ihre Grundrissaktualität aus den Gebäudehöhen 2022 des Umweltatlas. Ein Gebäude ohne Treffer bleibt ohne Datum.
+- Neue Zeilen in der Namensnennung für die Straßenbefahrung, die Register und die Gebäudehöhen, jeweils nur, wenn sie Objekte geliefert haben.
+
+### Geändert
+
+- Berlin: Die befestigten Flächen (501.5) enthalten die vermessenen Grünstreifen nicht mehr, freemapper schneidet sie aus. Baumscheiben bleiben darin. Eine beschnittene Fläche nennt die Grünstreifen in `freemapper:cut`, `freemapper:cut_ids` und `freemapper:cut_currency`. Eine vorhandene Karte ändert sich erst mit `run --force`.
+- Berlin: Kurze Linienstücke aus ALKIS und der Straßenbefahrung, die Ende an Ende aneinanderstoßen, fügt freemapper zu einer Linie zusammen. Danach fallen Linien unter 1 mm auf dem Papier weg, jetzt auch bei ALKIS.
+- Berlin: Gibt es ein Objekt mehrfach, gewinnt das Register vor ALKIS, ALKIS vor der Straßenbefahrung und diese vor OSM. Das bleibende Objekt nennt die anderen in `freemapper:also`, vermessene als `geoportal-berlin/<Ebene>/<gis_id>`. Jeder Berliner Kandidat trägt den Tag `berlin:layer`.
+- Die Download-Schätzung rechnet für die Berliner Ebenen mit 9,3 statt 4 MB je km².
+
 ## [0.5.0] - 2026-11-09
 
 ### Hinzugefügt
