@@ -10,7 +10,7 @@ use crate::crs::{LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
-use crate::sources::osm::{OsmFeature, OsmGeometry, Tags};
+use crate::sources::osm::{OsmFeature, OsmGeometry, OsmPolygon, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
 const STATE_RULES: &str = include_str!("../../../../assets/rules/state-candidates.toml");
@@ -278,6 +278,7 @@ impl Rules {
                     Draw::ShortLine(rule.point_as_short_line_mm?)
                 }
                 (DrawKind::Area, OsmGeometry::Line(_)) if closed => Draw::Area,
+                (DrawKind::Area, OsmGeometry::Area(_)) => Draw::Area,
                 _ => return None,
             };
             Some((rule, draw))
@@ -324,6 +325,14 @@ pub fn osm_objects(
         geo_types::coord! { x: q.easting, y: q.northing }
     };
     let to_map = |p: &LatLon| -> Result<MapCoord, GeorefError> { georef.geographic_to_map(*p) };
+    let projected_polygon = |polygon: &OsmPolygon| {
+        let ring =
+            |points: &Vec<LatLon>| geo_types::LineString(points.iter().map(projected).collect());
+        geo_types::Polygon::new(
+            ring(&polygon.outer),
+            polygon.holes.iter().map(ring).collect(),
+        )
+    };
     // Lines are clipped to the map area's bounding box plus buffer, like the land use objects, so
     // they never reach into the peripheral information.
     let clip = map_area.bounding_rect().map(|r| {
@@ -358,6 +367,10 @@ pub fn osm_objects(
                 &geo_types::LineString(points.iter().map(projected).collect()),
                 map_area,
             ),
+            OsmGeometry::Area(polygons) => polygons
+                .iter()
+                .map(|polygon| Euclidean.distance(&projected_polygon(polygon), map_area))
+                .fold(f64::INFINITY, f64::min),
         };
         if distance > buffer_m {
             continue;
@@ -434,6 +447,22 @@ pub fn osm_objects(
                     .map(|p| to_map(p).map(|c| (c.x, c.y)))
                     .collect::<Result<Vec<_>, _>>()?;
                 vec![(MapObjectKind::Path, closed_ring(&ring))]
+            }
+            // A relation: one object per polygon, the outer ring first, then its holes.
+            (OsmGeometry::Area(polygons), Draw::Area) => {
+                let mut pieces = Vec::new();
+                for polygon in polygons {
+                    let mut coords = Vec::new();
+                    for ring in std::iter::once(&polygon.outer).chain(&polygon.holes) {
+                        let ring = ring
+                            .iter()
+                            .map(|p| to_map(p).map(|c| (c.x, c.y)))
+                            .collect::<Result<Vec<_>, _>>()?;
+                        coords.extend(closed_ring(&ring));
+                    }
+                    pieces.push((MapObjectKind::Path, coords));
+                }
+                pieces
             }
             _ => continue,
         };
@@ -1421,6 +1450,39 @@ mod tests {
         assert_eq!(Some(objects[0].symbol_id), set.id_for_code("501.10"));
         assert_eq!(objects[0].coords.len(), 5);
         assert_eq!(objects[0].coords[4].flags, FLAG_HOLE | FLAG_CLOSE);
+    }
+
+    #[test]
+    fn relation_area_keeps_its_hole() {
+        let d = 0.0002;
+        let hole = vec![
+            at(0.25 * d, 0.25 * d),
+            at(0.25 * d, 0.75 * d),
+            at(0.75 * d, 0.75 * d),
+            at(0.75 * d, 0.25 * d),
+            at(0.25 * d, 0.25 * d),
+        ];
+        let pitch = OsmFeature {
+            id: "relation/7".to_string(),
+            tags: tags(&[("leisure", "pitch"), ("surface", "tartan")]),
+            geometry: OsmGeometry::Area(vec![OsmPolygon {
+                outer: square(),
+                holes: vec![hole],
+            }]),
+        };
+        let (objects, set) = objects(&[pitch], MapKind::Schoolyard);
+        assert_eq!(objects.len(), 1);
+        assert_eq!(Some(objects[0].symbol_id), set.id_for_code("501.10"));
+        assert_eq!(objects[0].coords.len(), 10);
+        assert_eq!(objects[0].coords[4].flags, FLAG_HOLE | FLAG_CLOSE);
+        assert_eq!(objects[0].coords[9].flags, FLAG_HOLE | FLAG_CLOSE);
+        let polygon = crate::build::berlin::object_polygon(&objects[0]).unwrap();
+        assert_eq!(polygon.interiors().len(), 1);
+        assert!(
+            objects[0]
+                .tags
+                .contains(&("freemapper:source_id".to_string(), "relation/7".to_string()))
+        );
     }
 
     #[test]

@@ -233,6 +233,10 @@ OSM adds more candidates:
   basin.
 - Bridges as paved areas (501.5), on sprint maps only. They lie over the water.
 
+OSM areas that are multipolygon relations count like ways: a lake with islands, a park cut by a road or a
+building with a courtyard. The holes stay empty in the map object, so the courtyard stays out of the building. The
+relation's own tags decide; its ways need none. A map made earlier gets these areas only with `run --force`.
+
 Sea that is not in the cadastre stays white. freemapper does not read the OSM coastline.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the

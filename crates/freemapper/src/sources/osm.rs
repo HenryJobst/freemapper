@@ -38,12 +38,21 @@ fn osm_error(message: impl std::fmt::Display) -> OsmError {
 pub enum OsmGeometry {
     Point(LatLon),
     Line(Vec<LatLon>),
+    /// The polygons of a multipolygon relation, each with its holes.
+    Area(Vec<OsmPolygon>),
 }
 
-/// A tagged node or way.
+/// A polygon of a multipolygon relation: closed rings whose last point repeats the first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OsmPolygon {
+    pub outer: Vec<LatLon>,
+    pub holes: Vec<Vec<LatLon>>,
+}
+
+/// A tagged node or way, or a multipolygon relation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OsmFeature {
-    /// `node/<id>` or `way/<id>`.
+    /// `node/<id>`, `way/<id>` or `relation/<id>`.
     pub id: String,
     pub tags: Tags,
     pub geometry: OsmGeometry,
@@ -55,15 +64,25 @@ fn sorted_tags<'a>(tags: impl Iterator<Item = (&'a str, &'a str)>) -> Tags {
     tags
 }
 
-/// The tagged nodes inside `area` and the tagged ways with a node inside it, for which `wanted`
-/// holds. Ways keep all their nodes, also those outside `area`. Nodes come first, each kind
-/// sorted by id.
+/// A `type=multipolygon` relation whose tags are wanted: its way members and their roles.
+struct Relation {
+    id: i64,
+    tags: Tags,
+    /// (way id, is an inner ring); an empty role counts as outer.
+    members: Vec<(i64, bool)>,
+}
+
+/// The tagged nodes inside `area`, the tagged ways with a node inside it and the multipolygon
+/// relations touching it, for which `wanted` holds. Ways and relations keep all their nodes, also
+/// those outside `area`. A relation takes the tags of the relation itself; its member ways need
+/// none. An outer way whose tags the relation repeats (old-style tagging) is left out, so the
+/// area is not drawn twice. Nodes come first, then ways and relations by id.
 pub fn read_extract(
     path: &Path,
     area: &GeoBox,
     wanted: TagFilter<'_>,
 ) -> Result<Vec<OsmFeature>, OsmError> {
-    use osmpbf::Element;
+    use osmpbf::{Element, RelMemberType};
     let node = |id: i64, lat: f64, lon: f64, tags: Tags| -> Option<(i64, OsmFeature)> {
         let p = LatLon { lat, lon };
         (!tags.is_empty() && area.contains(p) && wanted(&tags)).then(|| {
@@ -77,27 +96,56 @@ pub fn read_extract(
             )
         })
     };
-    let mut nodes = osmpbf::ElementReader::from_path(path)
+    let relation = |r: &osmpbf::Relation<'_>| -> Option<Relation> {
+        let tags = sorted_tags(r.tags());
+        if !tags.iter().any(|(k, v)| k == "type" && v == "multipolygon") || !wanted(&tags) {
+            return None;
+        }
+        let members = r
+            .members()
+            .filter(|m| m.member_type == RelMemberType::Way)
+            .map(|m| (m.member_id, m.role().unwrap_or("") == "inner"))
+            .collect();
+        Some(Relation {
+            id: r.id(),
+            tags,
+            members,
+        })
+    };
+    let (mut nodes, mut relations) = osmpbf::ElementReader::from_path(path)
         .map_err(in_file(path))?
         .par_map_reduce(
             |element| match element {
-                Element::Node(n) => node(n.id(), n.lat(), n.lon(), sorted_tags(n.tags()))
-                    .into_iter()
-                    .collect(),
-                Element::DenseNode(n) => node(n.id(), n.lat(), n.lon(), sorted_tags(n.tags()))
-                    .into_iter()
-                    .collect(),
-                _ => Vec::new(),
+                Element::Node(n) => (
+                    node(n.id(), n.lat(), n.lon(), sorted_tags(n.tags()))
+                        .into_iter()
+                        .collect(),
+                    Vec::new(),
+                ),
+                Element::DenseNode(n) => (
+                    node(n.id(), n.lat(), n.lon(), sorted_tags(n.tags()))
+                        .into_iter()
+                        .collect(),
+                    Vec::new(),
+                ),
+                Element::Relation(r) => (Vec::new(), relation(&r).into_iter().collect()),
+                Element::Way(_) => (Vec::new(), Vec::new()),
             },
-            Vec::new,
-            |mut a, b| {
-                a.extend(b);
-                a
+            || (Vec::new(), Vec::new()),
+            |(mut nodes, mut relations), (more_nodes, more_relations)| {
+                nodes.extend(more_nodes);
+                relations.extend(more_relations);
+                (nodes, relations)
             },
         )
         .map_err(in_file(path))?;
     nodes.sort_by_key(|(id, _)| *id);
+    relations.sort_by_key(|r| r.id);
 
+    let members: std::collections::HashSet<i64> = relations
+        .iter()
+        .flat_map(|r| r.members.iter().map(|(way, _)| *way))
+        .collect();
     let mut ways: Vec<(i64, Tags, Vec<i64>)> = Vec::new();
     let mut coords = std::collections::HashMap::new();
     // Buffered: the indexed reader seeks and reads many small blobs.
@@ -107,7 +155,7 @@ pub fn read_extract(
         .read_ways_and_deps(
             |way| {
                 let tags = sorted_tags(way.tags());
-                !tags.is_empty() && wanted(&tags)
+                (!tags.is_empty() && wanted(&tags)) || members.contains(&way.id())
             },
             |element| match element {
                 Element::Way(w) => ways.push((w.id(), sorted_tags(w.tags()), w.refs().collect())),
@@ -135,20 +183,184 @@ pub fn read_extract(
         .map_err(in_file(path))?;
     ways.sort_by_key(|(id, _, _)| *id);
 
+    // Relations first: which outer ways they draw already.
+    let by_id: std::collections::HashMap<i64, &Vec<i64>> =
+        ways.iter().map(|(id, _, refs)| (*id, refs)).collect();
+    let mut drawn: Vec<OsmFeature> = Vec::new();
+    // Outer member ways and the tags of the relation that draws them.
+    let mut covered: std::collections::HashMap<i64, Vec<&Tags>> = std::collections::HashMap::new();
+    for relation in &relations {
+        let segments = |inner: bool| -> Vec<Vec<(i64, LatLon)>> {
+            relation
+                .members
+                .iter()
+                .filter(|(_, is_inner)| *is_inner == inner)
+                .filter_map(|(way, _)| by_id.get(way))
+                .filter_map(|refs| {
+                    refs.iter()
+                        .map(|r| coords.get(r).map(|p| (*r, *p)))
+                        .collect()
+                })
+                .collect()
+        };
+        let (polygons, unclosed) = assemble_polygons(segments(false), segments(true));
+        if cfg!(debug_assertions) && unclosed > 0 {
+            eprintln!(
+                "relation/{}: {unclosed} ring(s) not closed, dropped",
+                relation.id
+            );
+        }
+        let polygons: Vec<OsmPolygon> = polygons
+            .into_iter()
+            .filter(|p| touches_polygon(p, area))
+            .collect();
+        if polygons.is_empty() {
+            continue;
+        }
+        for (way, inner) in &relation.members {
+            if !inner {
+                covered.entry(*way).or_default().push(&relation.tags);
+            }
+        }
+        drawn.push(OsmFeature {
+            id: format!("relation/{}", relation.id),
+            tags: relation.tags.clone(),
+            geometry: OsmGeometry::Area(polygons),
+        });
+    }
+
     let mut features: Vec<OsmFeature> = nodes.into_iter().map(|(_, f)| f).collect();
-    for (id, tags, refs) in ways {
+    for (id, tags, refs) in &ways {
+        if tags.is_empty() || !wanted(tags) {
+            continue;
+        }
+        // The relation draws this outer way already when it repeats all the way's tags.
+        if covered
+            .get(id)
+            .is_some_and(|rels| rels.iter().any(|rel| tags.iter().all(|t| rel.contains(t))))
+        {
+            continue;
+        }
         let points: Option<Vec<LatLon>> = refs.iter().map(|r| coords.get(r).copied()).collect();
         if let Some(points) = points.filter(|p| touches(p, area)) {
             features.push(OsmFeature {
                 id: format!("way/{id}"),
-                tags,
+                tags: tags.clone(),
                 geometry: OsmGeometry::Line(points),
             });
         }
     }
+    features.extend(drawn);
     Ok(features)
 }
 
+/// Closed rings from way segments (node id and position): segments that share an end node are
+/// chained, in either direction, until the ring closes. Returns the rings and the number of
+/// chains that did not close.
+fn stitch_rings(mut segments: Vec<Vec<(i64, LatLon)>>) -> (Vec<Vec<LatLon>>, usize) {
+    let mut rings = Vec::new();
+    let mut unclosed = 0;
+    segments.retain(|s| s.len() >= 2);
+    // Closed ways are rings already; the others must not chain onto them.
+    let (closed, open): (Vec<_>, Vec<_>) = segments
+        .into_iter()
+        .partition(|s| s.len() >= 4 && s[0].0 == s[s.len() - 1].0);
+    rings.extend(
+        closed
+            .into_iter()
+            .map(|s| s.into_iter().map(|p| p.1).collect()),
+    );
+    let mut segments = open;
+    while let Some(mut chain) = segments.pop() {
+        let mut reversed = false;
+        while chain.first().map(|p| p.0) != chain.last().map(|p| p.0) {
+            let tail = chain[chain.len() - 1].0;
+            let next = segments
+                .iter()
+                .position(|s| s[0].0 == tail || s[s.len() - 1].0 == tail);
+            match next {
+                Some(i) => {
+                    let mut more = segments.swap_remove(i);
+                    if more[0].0 != tail {
+                        more.reverse();
+                    }
+                    chain.extend(more.into_iter().skip(1));
+                }
+                // Dead end: try the other end of the chain once.
+                None if !reversed => {
+                    chain.reverse();
+                    reversed = true;
+                }
+                None => break,
+            }
+        }
+        if chain.len() >= 4 && chain.first().map(|p| p.0) == chain.last().map(|p| p.0) {
+            rings.push(chain.into_iter().map(|p| p.1).collect());
+        } else {
+            unclosed += 1;
+        }
+    }
+    (rings, unclosed)
+}
+
+/// The polygons of a relation from its outer and inner segments: each inner ring goes to the
+/// smallest outer ring that contains it; an inner ring in no outer ring is dropped. Also returns
+/// the number of unclosed chains.
+fn assemble_polygons(
+    outer: Vec<Vec<(i64, LatLon)>>,
+    inner: Vec<Vec<(i64, LatLon)>>,
+) -> (Vec<OsmPolygon>, usize) {
+    use geo::{Area as _, Contains as _};
+    let (outer, open_outer) = stitch_rings(outer);
+    let (inner, open_inner) = stitch_rings(inner);
+    let polygon = |ring: &[LatLon]| {
+        geo_types::Polygon::new(
+            geo_types::LineString::from(ring.iter().map(|p| (p.lon, p.lat)).collect::<Vec<_>>()),
+            Vec::new(),
+        )
+    };
+    let shapes: Vec<geo_types::Polygon<f64>> = outer.iter().map(|r| polygon(r)).collect();
+    let mut polygons: Vec<OsmPolygon> = outer
+        .into_iter()
+        .map(|outer| OsmPolygon {
+            outer,
+            holes: Vec::new(),
+        })
+        .collect();
+    for hole in inner {
+        let probe = geo_types::Point::new(hole[0].lon, hole[0].lat);
+        let owner = shapes
+            .iter()
+            .enumerate()
+            .filter(|(_, shape)| shape.contains(&probe))
+            .min_by(|a, b| a.1.unsigned_area().total_cmp(&b.1.unsigned_area()))
+            .map(|(i, _)| i);
+        if let Some(i) = owner {
+            polygons[i].holes.push(hole);
+        }
+    }
+    (polygons, open_outer + open_inner)
+}
+
+/// Whether a polygon has a vertex or segment in `area`, or contains it (a lake or forest
+/// around the whole area has no vertex there).
+fn touches_polygon(polygon: &OsmPolygon, area: &GeoBox) -> bool {
+    use geo::Contains as _;
+    if touches(&polygon.outer, area) {
+        return true;
+    }
+    let shape = geo_types::Polygon::new(
+        geo_types::LineString::from(
+            polygon
+                .outer
+                .iter()
+                .map(|p| (p.lon, p.lat))
+                .collect::<Vec<_>>(),
+        ),
+        Vec::new(),
+    );
+    shape.contains(&geo_types::Point::new(area.min_lon, area.min_lat))
+}
 /// Error converter naming the extract file.
 fn in_file<E: std::fmt::Display>(path: &Path) -> impl Fn(E) -> OsmError + '_ {
     move |e| osm_error(format!("{}: {e}", path.display()))
@@ -184,6 +396,19 @@ pub fn features_to_geojson(features: &[OsmFeature]) -> String {
                     "type": "LineString",
                     "coordinates": points.iter().map(|p| [p.lon, p.lat]).collect::<Vec<_>>()
                 }),
+                OsmGeometry::Area(polygons) => {
+                    let ring = |r: &Vec<LatLon>| r.iter().map(|p| [p.lon, p.lat]).collect::<Vec<_>>();
+                    serde_json::json!({
+                        "type": "MultiPolygon",
+                        "coordinates": polygons
+                            .iter()
+                            .map(|polygon| std::iter::once(&polygon.outer)
+                                .chain(&polygon.holes)
+                                .map(ring)
+                                .collect::<Vec<_>>())
+                            .collect::<Vec<_>>()
+                    })
+                }
             };
             let properties: serde_json::Map<String, serde_json::Value> = f
                 .tags
@@ -226,6 +451,24 @@ pub fn features_from_geojson(text: &str) -> Result<Vec<OsmFeature>, OsmError> {
                         .map(|c| point(c).ok_or_else(bad))
                         .collect::<Result<_, _>>()?,
                 ),
+                Some("MultiPolygon") => {
+                    let ring = |c: &serde_json::Value| -> Result<Vec<LatLon>, OsmError> {
+                        c.as_array()
+                            .ok_or_else(bad)?
+                            .iter()
+                            .map(|c| point(c).ok_or_else(bad))
+                            .collect()
+                    };
+                    let mut polygons = Vec::new();
+                    for polygon in coordinates.as_array().ok_or_else(bad)? {
+                        let mut rings = polygon.as_array().ok_or_else(bad)?.iter().map(ring);
+                        polygons.push(OsmPolygon {
+                            outer: rings.next().ok_or_else(bad)??,
+                            holes: rings.collect::<Result<_, _>>()?,
+                        });
+                    }
+                    OsmGeometry::Area(polygons)
+                }
                 _ => return Err(bad()),
             };
             let mut tags: Tags = f["properties"]
@@ -1194,7 +1437,7 @@ mod tests {
             read_school(&|tags: &[(String, String)]| tags.iter().any(|(k, _)| k == "highway"));
         let crossing = roads.iter().find(|f| match &f.geometry {
             OsmGeometry::Line(points) => points.iter().any(outside) && !points.iter().all(outside),
-            OsmGeometry::Point(_) => false,
+            OsmGeometry::Point(_) | OsmGeometry::Area(_) => false,
         });
         assert!(
             crossing.is_some(),
@@ -1220,6 +1463,287 @@ mod tests {
         let features = read_school(&candidates_wanted);
         let back = features_from_geojson(&features_to_geojson(&features)).unwrap();
         assert_eq!(back, features);
+    }
+
+    /// Corners of a 0.01 degree square (1-4) and a hole inside it (5-8).
+    const SQUARE: [(i64, f64, f64); 8] = [
+        (1, 0.0, 0.0),
+        (2, 0.0, 0.01),
+        (3, 0.01, 0.01),
+        (4, 0.01, 0.0),
+        (5, 0.004, 0.004),
+        (6, 0.004, 0.006),
+        (7, 0.006, 0.006),
+        (8, 0.006, 0.004),
+    ];
+
+    const PARK: &[(&str, &str)] = &[("type", "multipolygon"), ("leisure", "park")];
+
+    fn square_box(min: f64, max: f64) -> GeoBox {
+        GeoBox {
+            min_lat: min,
+            min_lon: min,
+            max_lat: max,
+            max_lon: max,
+        }
+    }
+
+    /// Reads a synthetic extract of the square nodes plus these ways and relations.
+    fn read_relations(
+        ways: &[crate::fetch::test_support::PbfWay<'_>],
+        relations: &[crate::fetch::test_support::PbfRelation<'_>],
+        area: &GeoBox,
+    ) -> Vec<OsmFeature> {
+        let nodes: Vec<_> = SQUARE
+            .iter()
+            .map(|&(id, lat, lon)| (id, lat, lon, &[][..]))
+            .collect();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("relations.osm.pbf");
+        std::fs::write(
+            &path,
+            crate::fetch::test_support::osm_pbf_with(&nodes, ways, relations),
+        )
+        .unwrap();
+        let wanted = |tags: &[(String, String)]| {
+            has(tags, "leisure", "park")
+                || has(tags, "building", "yes")
+                || tags.iter().any(|(k, _)| k == "highway")
+        };
+        read_extract(&path, area, &wanted).unwrap()
+    }
+
+    fn areas(features: &[OsmFeature]) -> Vec<&[OsmPolygon]> {
+        features
+            .iter()
+            .filter_map(|f| match &f.geometry {
+                OsmGeometry::Area(p) => Some(p.as_slice()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn relation_with_one_outer_way_is_an_area() {
+        let features = read_relations(
+            &[(10, &[1, 2, 3, 4, 1], &[])],
+            &[(100, &[(10, "outer")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        assert_eq!(features.len(), 1, "{features:?}");
+        assert_eq!(features[0].id, "relation/100");
+        let polygons = areas(&features);
+        assert_eq!(polygons[0].len(), 1);
+        assert_eq!(polygons[0][0].outer.len(), 5);
+        assert_eq!(polygons[0][0].outer[0], polygons[0][0].outer[4]);
+        assert!(polygons[0][0].holes.is_empty());
+    }
+
+    #[test]
+    fn ways_in_mixed_direction_make_one_ring() {
+        // Three segments: 1-2, 3-2 (reversed), 3-4-1; an empty role counts as outer.
+        let features = read_relations(
+            &[
+                (11, &[1, 2], &[]),
+                (12, &[3, 2], &[]),
+                (13, &[3, 4, 1], &[]),
+            ],
+            &[(100, &[(11, ""), (12, "outer"), (13, "outer")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        let polygons = areas(&features);
+        assert_eq!(polygons.len(), 1, "{features:?}");
+        let ring = &polygons[0][0].outer;
+        assert_eq!(ring.len(), 5);
+        assert_eq!(ring[0], ring[4]);
+        let at = |lat: f64, lon: f64| ring.iter().any(|p| p.lat == lat && p.lon == lon);
+        assert!(at(0.0, 0.0) && at(0.0, 0.01) && at(0.01, 0.01) && at(0.01, 0.0));
+    }
+
+    #[test]
+    fn inner_ring_becomes_a_hole() {
+        let features = read_relations(
+            &[(10, &[1, 2, 3, 4, 1], &[]), (14, &[5, 6, 7, 8, 5], &[])],
+            &[(100, &[(10, "outer"), (14, "inner")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        let polygons = areas(&features);
+        assert_eq!(polygons[0].len(), 1);
+        assert_eq!(polygons[0][0].holes.len(), 1);
+        assert_eq!(polygons[0][0].holes[0].len(), 5);
+        // The untagged inner way is no feature of its own.
+        assert_eq!(features.len(), 1);
+    }
+
+    #[test]
+    fn relation_partly_in_the_box_keeps_all_nodes() {
+        let relations: &[crate::fetch::test_support::PbfRelation<'_>] =
+            &[(100, &[(10, "outer")], PARK)];
+        let ways: &[crate::fetch::test_support::PbfWay<'_>] = &[(10, &[1, 2, 3, 4, 1], &[])];
+        // The box holds only the corner (0, 0).
+        let corner = read_relations(ways, relations, &square_box(-0.001, 0.001));
+        assert_eq!(areas(&corner)[0][0].outer.len(), 5);
+        // A box inside the park has no vertex of the ring and no crossing.
+        let inside = read_relations(ways, relations, &square_box(0.002, 0.003));
+        assert_eq!(inside.len(), 1, "{inside:?}");
+        // A box outside it finds nothing.
+        assert!(read_relations(ways, relations, &square_box(0.02, 0.03)).is_empty());
+    }
+
+    #[test]
+    fn unclosed_ring_is_dropped() {
+        let features = read_relations(
+            &[(11, &[1, 2], &[]), (12, &[2, 3], &[])],
+            &[(100, &[(11, "outer"), (12, "outer")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        assert!(features.is_empty(), "{features:?}");
+    }
+
+    #[test]
+    fn unclosed_inner_ring_leaves_the_outer_ring() {
+        let features = read_relations(
+            &[(10, &[1, 2, 3, 4, 1], &[]), (14, &[5, 6, 7], &[])],
+            &[(100, &[(10, "outer"), (14, "inner")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        assert!(areas(&features)[0][0].holes.is_empty());
+    }
+
+    #[test]
+    fn outer_way_with_the_relations_tags_is_not_drawn_twice() {
+        let tags: &[(&str, &str)] = &[("leisure", "park")];
+        let features = read_relations(
+            &[
+                (10, &[1, 2, 3, 4, 1], tags),
+                // Another tag the relation does not repeat: stays its own feature.
+                (15, &[1, 2], &[("leisure", "park"), ("highway", "footway")]),
+            ],
+            &[(100, &[(10, "outer"), (15, "outer")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        let mut ids: Vec<_> = features.iter().map(|f| f.id.as_str()).collect();
+        ids.sort_unstable();
+        assert_eq!(ids, ["relation/100", "way/15"]);
+    }
+
+    #[test]
+    fn old_style_tagging_stays_a_way() {
+        // The relation has no tags of its own: the tagged outer way is the feature.
+        let features = read_relations(
+            &[
+                (10, &[1, 2, 3, 4, 1], &[("leisure", "park")]),
+                (14, &[5, 6, 7, 8, 5], &[]),
+            ],
+            &[(
+                100,
+                &[(10, "outer"), (14, "inner")],
+                &[("type", "multipolygon")],
+            )],
+            &square_box(-0.001, 0.011),
+        );
+        assert_eq!(features.len(), 1, "{features:?}");
+        assert_eq!(features[0].id, "way/10");
+        assert!(matches!(features[0].geometry, OsmGeometry::Line(_)));
+    }
+
+    #[test]
+    fn other_relation_types_are_not_read() {
+        let features = read_relations(
+            &[(10, &[1, 2, 3, 4, 1], &[])],
+            &[(
+                100,
+                &[(10, "outer")],
+                &[("type", "boundary"), ("leisure", "park")],
+            )],
+            &square_box(-0.001, 0.011),
+        );
+        assert!(features.is_empty(), "{features:?}");
+    }
+
+    #[test]
+    fn area_geojson_roundtrip_keeps_holes() {
+        let features = read_relations(
+            &[(10, &[1, 2, 3, 4, 1], &[]), (14, &[5, 6, 7, 8, 5], &[])],
+            &[(100, &[(10, "outer"), (14, "inner")], PARK)],
+            &square_box(-0.001, 0.011),
+        );
+        let back = features_from_geojson(&features_to_geojson(&features)).unwrap();
+        assert_eq!(back, features);
+        assert_eq!(areas(&back)[0][0].holes.len(), 1);
+    }
+
+    #[test]
+    #[ignore = "reads the cached Brandenburg extract; prints relation features"]
+    fn live_relations_in_examples() {
+        let cache = Cache::default_location().unwrap();
+        let extract = fetch_extract(
+            &crate::fetch::HttpFetcher::new(),
+            &cache,
+            ExtractSource::Brandenburg,
+            FetchMode::Offline,
+            &mut |_| {},
+        )
+        .unwrap();
+        let rules = crate::build::candidates::Rules::embedded();
+        for (name, b) in [
+            (
+                "viktoriapark",
+                [
+                    52.48485591088753,
+                    13.374361443212369,
+                    52.49114408911247,
+                    13.387638556787632,
+                ],
+            ),
+            (
+                "sanssouci",
+                [
+                    52.39985591088753,
+                    13.03063804492504,
+                    52.406144089112466,
+                    13.045361955074961,
+                ],
+            ),
+        ] {
+            let area = GeoBox {
+                min_lat: b[0],
+                min_lon: b[1],
+                max_lat: b[2],
+                max_lon: b[3],
+            };
+            let features = read_extract(&extract.path, &area, &|t| {
+                rules.wants(t, crate::project::MapKind::Sprint)
+            })
+            .unwrap();
+            let relations: Vec<_> = features
+                .iter()
+                .filter(|f| f.id.starts_with("relation/"))
+                .collect();
+            eprintln!(
+                "{name}: {} features, {} relations",
+                features.len(),
+                relations.len()
+            );
+            for r in relations {
+                let n = match &r.geometry {
+                    OsmGeometry::Area(p) => {
+                        (p.len(), p.iter().map(|x| x.holes.len()).sum::<usize>())
+                    }
+                    _ => (0, 0),
+                };
+                eprintln!(
+                    "  {} {:?} polygons/holes {:?}",
+                    r.id,
+                    r.tags
+                        .iter()
+                        .filter(|(k, _)| k != "type")
+                        .take(4)
+                        .collect::<Vec<_>>(),
+                    n
+                );
+            }
+        }
     }
 
     #[test]
