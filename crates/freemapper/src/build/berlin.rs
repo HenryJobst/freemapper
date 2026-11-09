@@ -336,7 +336,12 @@ const KERB_NOTCH_MAX_CHORD: f64 = 2_500.0;
 /// A detour is a pit when it reaches out at least this share of its chord: a quarter-circle
 /// corner reaches 0.21, a pit with its lead-in 0.4 and more.
 const KERB_NOTCH_MIN_DEPTH: f64 = 0.3;
-
+/// The kerb before and after a detour has to run along its chord: the cosine of the angle
+/// between them is at least this (20 degrees). Without it a chord to the apex of a slot, or across
+/// a step of the kerb, would count as a notch and draw a spike or a diagonal.
+const KERB_NOTCH_MIN_COS: f64 = 0.94;
+/// How far from the detour's ends the kerb direction is taken (0.5 mm), to skip survey jitter.
+const KERB_NOTCH_REFERENCE: f64 = 500.0;
 /// The kerb line of the street survey (501.1) without the tree pits cut into it: the survey
 /// runs the kerb around each pit in a parking strip and the pit then shows as a hook along the
 /// street edge. Each detour that returns to the line within [`KERB_NOTCH_MAX_PATH`] of way and
@@ -397,7 +402,7 @@ pub(crate) fn drop_kerb_notches(mut object: MapObject) -> Option<MapObject> {
                         / chord.max(1.0)
                 })
                 .fold(0.0, f64::max);
-            if depth >= KERB_NOTCH_MIN_DEPTH * chord {
+            if depth >= KERB_NOTCH_MIN_DEPTH * chord && runs_along(&points, i, j, chord) {
                 best = Some(j);
             }
         }
@@ -407,6 +412,34 @@ pub(crate) fn drop_kerb_notches(mut object: MapObject) -> Option<MapObject> {
     }
     object.coords = kept;
     Some(object)
+}
+
+/// Whether the kerb before `points[i]` and after `points[j]` runs along the chord `i`..`j`
+/// ([`KERB_NOTCH_MIN_COS`]). A side that has no point [`KERB_NOTCH_REFERENCE`] away does not
+/// count; a chord of no length always passes.
+fn runs_along(points: &[(f64, f64)], i: usize, j: usize, chord: f64) -> bool {
+    if chord < 1.0 {
+        return true;
+    }
+    let along = |from: usize, forward: bool| -> Option<(f64, f64)> {
+        let origin = points[from];
+        let mut k = from;
+        loop {
+            k = if forward { k + 1 } else { k.checked_sub(1)? };
+            let p = *points.get(k)?;
+            let (dx, dy) = (p.0 - origin.0, p.1 - origin.1);
+            if dx.hypot(dy) >= KERB_NOTCH_REFERENCE {
+                return Some(if forward { (dx, dy) } else { (-dx, -dy) });
+            }
+        }
+    };
+    let chord_dir = (points[j].0 - points[i].0, points[j].1 - points[i].1);
+    [along(i, false), along(j, true)]
+        .into_iter()
+        .flatten()
+        .all(|(dx, dy)| {
+            (dx * chord_dir.0 + dy * chord_dir.1) / (dx.hypot(dy) * chord) >= KERB_NOTCH_MIN_COS
+        })
 }
 
 /// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
@@ -759,6 +792,65 @@ mod tests {
         );
         assert_eq!(xy(&kept)[..2], [(49_236, -57_276), (50_228, -57_491)]);
         assert_eq!(xy(&kept).last(), Some(&(54_280, -58_348)));
+    }
+
+    #[test]
+    fn a_notch_ends_on_the_line_not_at_its_apex() {
+        // Viktoriapark, street edge along the park (Li_15.04.2015_251): a slanted trapezoid slot
+        // at a tree. The rule of ADR 0071's first amendment cut from the vertex before it to the
+        // slot's apex and drew a spike; the slot has to go back to the line at its far end.
+        let slot = kerb(&[
+            (-25_211, -40_924),
+            (-23_160, -41_374),
+            (-22_811, -41_451),
+            (-22_463, -41_527),
+            (-21_480, -41_743),
+            (-19_813, -42_109),
+            (-19_390, -42_507),
+            (-19_861, -43_003),
+            (-19_919, -43_093),
+            (-19_935, -43_208),
+            (-19_901, -43_317),
+            (-19_832, -43_396),
+            (-19_733, -43_442),
+            (-19_616, -43_443),
+            (-19_514, -43_395),
+            (-19_476, -43_359),
+            (-18_873, -42_706),
+            (-18_759, -42_582),
+            (-18_573, -42_382),
+            (-14_659, -43_242),
+        ]);
+        let kept = xy(&drop_kerb_notches(slot).unwrap());
+        assert!(
+            kept.iter().all(|&(x, y)| x > -19_000 || y > -42_200),
+            "no spike left of the exit: {kept:?}"
+        );
+        assert!(kept.contains(&(-18_573, -42_382)), "{kept:?}");
+    }
+
+    #[test]
+    fn a_step_of_the_kerb_is_not_cut_diagonally() {
+        // Viktoriapark, left of the X mark: the kerb steps back by 5.7 m and takes a tab on the
+        // way. There is no line to return to, so the corner stays as the survey has it.
+        let step = kerb(&[
+            (-40_386, -37_712),
+            (-35_991, -38_676),
+            (-35_463, -38_980),
+            (-35_946, -39_587),
+            (-35_962, -39_671),
+            (-35_947, -39_764),
+            (-35_898, -39_848),
+            (-35_825, -39_907),
+            (-35_744, -39_935),
+            (-35_391, -40_003),
+            (-34_949, -40_102),
+            (-34_078, -40_298),
+            (-33_608, -40_399),
+            (-32_016, -40_745),
+            (-31_517, -40_854),
+        ]);
+        assert_eq!(xy(&drop_kerb_notches(step.clone()).unwrap()), xy(&step));
     }
 
     #[test]
