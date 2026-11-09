@@ -336,6 +336,18 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   Large trees (417) stay points on a 402 area. Without a measured crown, freemapper assumes 12 m for 417 and
   5 m for 418, which is usually too small for park trees. Compare the outline with the orthophoto, draw
   lawns as open land (401), and delete the 416 where the forest borders yellow.
+- **Overlapping walls, fences and hedges:** where two of these lines run parallel and closer than their
+  symbols may come on paper (half their widths plus 0.15 mm between two black lines, at least 1.5 m for two
+  sources), the weaker line loses that stretch. The better source wins (register before ALKIS before street
+  survey before OSM), and for one source the stronger symbol: wall 515 before fence 518 before hedge 410.1
+  before retaining wall 513.2. Two lines of one source with the same symbol stay, because they are two
+  objects. A wall running parallel within 0.5 m of a building outline is dropped there, because the outline
+  already draws it. Leftover pieces under 1 mm are dropped, and a line that ends at another stays whole. The
+  winning line names the cut one in `freemapper:also`. A tree within 1 m of one of these lines is dropped, and
+  the line names it in `freemapper:generalized`: in a hedge it belongs to the hedge, at a wall or fence its
+  symbol covers the line. In Park Sanssouci the OSM retaining walls of the terraces give way to the ALKIS
+  walls this way. Check on site which walls a runner can jump down (513.2), and move a real fence next to a
+  wall aside instead of leaving it out.
 - **Hidden points in out-of-bounds areas:** ISSprOM allows no feature in an out-of-bounds area (520) except
   very prominent ones. A point candidate inside a 520 candidate stays in the candidates, tagged
   `freemapper:hidden=520`, but the training map leaves it out. On schoolyard maps this hides every point off
@@ -446,7 +458,8 @@ sprint maps only), the hedges, and the street and park trees. They are stored in
   than 2 m from a cadastre tree, freemapper drops the OSM tree.
 - Fences, walls, retaining walls and hedges are often in both ALKIS and OSM. If at least 80 % of an OSM line
   lies within 1.5 m of an ALKIS line with the same symbol, freemapper drops the OSM line. The ALKIS line names
-  it in the tag `freemapper:also`, e.g. `osm/way/123`.
+  it in the tag `freemapper:also`, e.g. `osm/way/123`. Lines with different symbols for the same object are
+  cut after that (chapter 9, overlapping walls, fences and hedges).
 
 freemapper picks the stair symbol by the stair's width on paper. On sprint maps a stair 3.5 m wide or more
 becomes 532.9, on schoolyard maps one from about 1.1 m. So nearly every schoolyard stair is 532.9. A stair

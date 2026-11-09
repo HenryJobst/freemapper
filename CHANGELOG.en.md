@@ -10,6 +10,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Dense tree groups now become an area the map shows, also in parks. Three or more trees standing closer than 2.5 mm on paper (10 m at 1:4000), or whose crowns almost touch, become forest (405) when their crowns cover at least half of the area, else open land with scattered trees (402). On the white base the forest gets a dotted distinct vegetation boundary (416) so that it shows. On paving it stays 501.3, from 9 trees. Rows of trees along streets and avenues stay points. In Park Sanssouci the tree points drop from 1,654 to 880 (51 areas 402), in Viktoriapark from 1,660 to 949 (ADR 0066, amendment).
 - The training map (PDF) draws the point patterns of areas, such as the white dots of 402. Until now 402 looked like 401 there.
+- Overlapping walls, fences and hedges. Where two such lines run parallel and closer than their symbols may come on paper, the weaker one loses that stretch: the worse source, and for one source the weaker symbol (wall before fence before hedge before retaining wall). Wall stretches within 0.5 m of a building outline are dropped, and so are trees within 1 m of one of these lines. In Park Sanssouci the parallel line pairs closer than 1 m drop from 162 to 4 (ADR 0068).
 
 - freemapper now writes, copies and removes files in the project folder with the shared crate `freemapper-fs` from freemapper-core 0.2.0 and no longer keeps its own copy. Nothing changes for users, and the messages keep their wording (ADR 0067).
 
