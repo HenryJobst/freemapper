@@ -60,8 +60,8 @@ Surface and width:
 
 ## Consequences
 
-- In the Viktoriapark the 43 compacted footways move from the map to the candidates, so the map has fewer 505.1 lines
-  than before (the changelog gives the counts). They are 501.6 candidates now, and still cut the tree groups
+- In the Viktoriapark the 505.1 map lines fall from 58 to 9, and the 45 compacted footways and 4 wide ways appear as
+  501.6 and 501.9 candidates. In Lübeck the 505.1 map lines fall from 16 to 3. They are 501.6 candidates now, and still cut the tree groups
   (`PATH_WIDTHS_MM` lists 501.6 to 501.9).
 - A 520 strip along a private way overlaps ALKIS private land where both know it. Both are candidates.
 - A tagging mistake (`access=no` on a public path) now removes a path from the candidates and replaces it with a
