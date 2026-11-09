@@ -1,7 +1,7 @@
 # 0071. Kerb lines of the street survey lose their tree pit notches
 
 Date: 2026-11-10
-Status: Accepted
+Status: Accepted, amended 2026-11-10
 
 ## Context
 
@@ -49,3 +49,21 @@ pocket is 4.5 mm² at 1:4000) stay, and so do kerb lines that merely bend.
   24 m², about a parking space. A mapper who wants one in the map draws it by hand.
 - Survey polygons of parking strips still carry the slots, but they have no outline and lie on the same 501.5
   fill, so they are not visible.
+
+## Amendment 2026-11-10: wide bumps and ring flags
+
+The first rule missed two things on the Viktoriapark example, and the user still saw bumps at some trees.
+
+- Wider pits. Some trees stand in a slot that the survey draws as a trapezoid: the kerb leaves the edge on a
+  slant, rounds the tree and returns on a slant (Li_13.04.2015_719). It has a chord of 1.7 mm, a way of 3.2 mm
+  and encloses 1.3 mm² at 1:4000. The way is 1.8 times the chord, below the factor 2, so it stayed. A factor
+  cannot separate such a pit from a curve well, because a semicircle runs 1.57 times its chord. The depth does:
+  a pit reaches 0.4 or more of its chord, a quarter-circle corner 0.2.
+- Rings. The builder marks the last coordinate of a closed ring with the close flag. Rule 3 then took every ring
+  for a line with curves, so no ring was ever dropped. The pill-shaped kerb rings around lone pits (1.8 mm by
+  0.8 mm) stayed on the map.
+
+Rule 1 now reads: a detour is replaced by its chord when it returns within 10 mm of way and 2.5 mm of chord
+(10 m at 1:4000), reaches out at least 0.3 of its chord from the chord and encloses less than 1.5 mm². The chord
+limit keeps a long gentle deviation, which a depth share alone would flatten. Rule 3 looks for curve start flags
+only. In the example the survey kerbs go from 6,522 to 5,105 vertices and from 81 to 76 lines.
