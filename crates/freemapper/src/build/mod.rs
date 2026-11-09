@@ -5,6 +5,7 @@ pub mod berlin;
 pub mod buildings;
 pub mod candidates;
 pub mod canopy;
+pub mod control_sites;
 pub mod dedup;
 pub mod open_land;
 pub mod out_of_bounds;

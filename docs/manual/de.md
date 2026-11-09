@@ -268,6 +268,14 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   unbefestigter Weg mehr in der Karte. Loser Kies, Sand, Erde und Gras bleiben unbefestigt in der Karte: 506
   unter 1,5 m Breite, 505.1 und ab 3 m 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype`: grade1 ist
   befestigt, grade2 fest, grade3 bis grade5 unbefestigt.
+- Kontrollstandorte für Bahnleger: Poller, Straßenlaternen, Papierkörbe, Fahrradständer und Bänke als Punkte
+  (531, auffälliges künstliches Objekt) unter den Kandidaten, nie in der Karte selbst. Jedes trägt das Tag
+  `freemapper:control` mit seiner Art; alle Objekte des Symbols 531 finden Sie in OOM mit „Alle Objekte mit
+  gleichem Symbol auswählen“. Ein Objekt, das ein gleichartiges innerhalb von 25 m hat, fehlt: Einen Poller in
+  einer Reihe, eine Bank in einem Paar oder eine Laterne in einer Folge erkennt man nicht von ihrem Nachbarn.
+  Ein Kontrollstandort weicht außerdem jedem anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
+  Standort noch da ist, und schreiben Sie die Definition von 531 in die Legende der Karte, wie ISSprOM es
+  verlangt.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**

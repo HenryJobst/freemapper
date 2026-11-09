@@ -23,11 +23,37 @@ when = ["emergency=fire_hydrant", "fire_hydrant:type!=underground"]
 draw = "point"
 schoolyard = "321"
 
+# Control sites for course setters (sprint only, candidates only, ADR 0074): bollards, street lamps,
+# waste baskets, bicycle racks and benches are good control locations, but a sprint map does not
+# draw them. ISSprOM 4.5, 531 "Prominent man-made feature - x": "a man-made feature which is
+# significant or prominent. The definition of the symbol must be given on the map." Each carries
+# `freemapper:control=<kind>`. `build/control_sites.rs` drops the ones in a row or a pair, and
+# `build/points.rs` keeps the gap between the symbols.
+[[rule]]
+when = ["amenity=bench"]
+draw = "point"
+sprint = "531"
+
 [[rule]]
 when = ["amenity=bench"]
 draw = "line"
 point_as_short_line_mm = 1.5
 schoolyard = "543"
+
+[[rule]]
+when = ["barrier=bollard"]
+draw = "point"
+sprint = "531"
+
+[[rule]]
+when = ["amenity=waste_basket"]
+draw = "point"
+sprint = "531"
+
+[[rule]]
+when = ["amenity=bicycle_parking"]
+draw = "point"
+sprint = "531"
 
 [[rule]]
 when = ["leisure=picnic_table"]
@@ -43,6 +69,7 @@ schoolyard = "542"
 when = ["highway=street_lamp"]
 draw = "point"
 schoolyard = "545"
+sprint = "531"
 
 [[rule]]
 when = ["man_made=flagpole|mast"]

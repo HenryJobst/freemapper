@@ -16,6 +16,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::control_sites::drop_ambiguous as drop_ambiguous_control_sites;
 use crate::build::dedup::{
     drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
     drop_trees_by_rank,
@@ -4288,7 +4289,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let mut cadastre_candidates =
         drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
     let (osm_candidates, cadastre_candidates_kept) = drop_trees_by_rank(
-        osm_objects(Target::Candidates)?,
+        drop_ambiguous_control_sites(osm_objects(Target::Candidates)?, georef.scale_denominator),
         cadastre_candidates,
         &symbol_set,
         georef.scale_denominator,

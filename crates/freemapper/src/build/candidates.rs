@@ -6,6 +6,7 @@ use chrono::NaiveDate;
 use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
 
+use crate::build::control_sites::CONTROL_KEY;
 use crate::crs::{LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
@@ -553,6 +554,14 @@ pub fn osm_objects(
                 tags.push((key.to_string(), v));
             }
         }
+        // A control site (ADR 0074) names its kind for the course planner.
+        if source == "osm"
+            && kind == MapKind::Sprint
+            && found.code == CONTROL_CODE
+            && let Some(site) = control_kind(&feature.tags)
+        {
+            tags.push((CONTROL_KEY.to_string(), site.to_string()));
+        }
         // An OSM tree may give its crown diameter (metres) for the point generalization.
         if source == "osm"
             && let Some(crown) = value(&feature.tags, "diameter_crown").and_then(number)
@@ -569,6 +578,23 @@ pub fn osm_objects(
         }
     }
     Ok(objects)
+}
+
+/// The symbol of the control sites ([`control_kind`]): 531 prominent man-made feature, x.
+const CONTROL_CODE: &str = "531";
+
+/// The kind of control site an OSM object is, from its tags: street furniture that a course
+/// setter can use as a control location.
+fn control_kind(tags: &Tags) -> Option<&'static str> {
+    [
+        ("barrier", "bollard", "bollard"),
+        ("highway", "street_lamp", "street_lamp"),
+        ("amenity", "waste_basket", "waste_basket"),
+        ("amenity", "bicycle_parking", "bicycle_parking"),
+        ("amenity", "bench", "bench"),
+    ]
+    .into_iter()
+    .find_map(|(key, v, kind)| (value(tags, key) == Some(v)).then_some(kind))
 }
 
 /// The full width of a [`Draw::Corridor`] on the ground (metres) is held within these limits: a
@@ -1696,6 +1722,74 @@ mod tests {
             "1.5 mm on paper"
         );
         assert_eq!(bench.coords[0].y, bench.coords[1].y);
+    }
+
+    #[test]
+    fn control_sites_are_531_points_with_their_kind() {
+        // ISSprOM 4.5, 531: "a man-made feature which is significant or prominent. The
+        // definition of the symbol must be given on the map." ADR 0074.
+        for (tag, kind) in [
+            (("barrier", "bollard"), "bollard"),
+            (("highway", "street_lamp"), "street_lamp"),
+            (("amenity", "waste_basket"), "waste_basket"),
+            (("amenity", "bicycle_parking"), "bicycle_parking"),
+            (("amenity", "bench"), "bench"),
+        ] {
+            let (found, set) = objects(&[point("node/1", &[tag])], MapKind::Sprint);
+            assert_eq!(found.len(), 1, "{tag:?}");
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code("531"), "{tag:?}");
+            assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
+            assert_eq!(value(&found[0].tags, "freemapper:control"), Some(kind));
+        }
+    }
+
+    #[test]
+    fn control_sites_are_candidates_only_and_not_for_the_schoolyard() {
+        let rules = Rules::embedded();
+        let point_geometry = OsmGeometry::Point(SCHOOL);
+        for tag in [
+            ("barrier", "bollard"),
+            ("highway", "street_lamp"),
+            ("amenity", "waste_basket"),
+            ("amenity", "bicycle_parking"),
+            ("amenity", "bench"),
+        ] {
+            let found = rules
+                .symbol_for(&tags(&[tag]), &point_geometry, MapKind::Sprint)
+                .unwrap();
+            assert_eq!(found.target, Target::Candidates, "{tag:?}");
+        }
+        // The schoolyard keeps its own symbols, and a bollard is none there.
+        let lamp = rules.symbol_for(
+            &tags(&[("highway", "street_lamp")]),
+            &point_geometry,
+            MapKind::Schoolyard,
+        );
+        assert_eq!(lamp.map(|m| m.code), Some("545".to_string()));
+        let bench = rules.symbol_for(
+            &tags(&[("amenity", "bench")]),
+            &point_geometry,
+            MapKind::Schoolyard,
+        );
+        assert_eq!(
+            bench.map(|m| (m.code, m.draw)),
+            Some(("543".to_string(), Draw::ShortLine(1.5)))
+        );
+        assert!(!rules.wants(&tags(&[("barrier", "bollard")]), MapKind::Schoolyard));
+        let (found, _) = objects(
+            &[point("node/2", &[("amenity", "bench")])],
+            MapKind::Schoolyard,
+        );
+        assert_eq!(value(&found[0].tags, "freemapper:control"), None);
+    }
+
+    #[test]
+    fn a_bollard_or_bench_way_is_no_control_site() {
+        let rules = Rules::embedded();
+        for tag in [("barrier", "bollard"), ("amenity", "bench")] {
+            let found = rules.symbol_for(&tags(&[tag]), &way(), MapKind::Sprint);
+            assert_eq!(found, None, "{tag:?}");
+        }
     }
 
     #[test]

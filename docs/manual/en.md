@@ -257,6 +257,13 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   paved line (501.6 to 501.9 by `width`: 1.4, 2, 3, 4 m) among the candidates, no longer an unpaved path on the
   map. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
   3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm, grade3 to grade5 unpaved.
+- Control sites for course setters: bollards, street lamps, waste baskets, bicycle racks and benches as
+  points (531, prominent man-made feature) among the candidates, never on the map itself. Each has the tag
+  `freemapper:control` with its kind; select all objects of symbol 531 in OOM to find them. An object that has
+  one of its own kind within 25 m is left out: you cannot tell a bollard in a row, a pair of benches or one
+  lamp in a series from its neighbour. A control site also gives way to every other symbol. Before you use a
+  site, check on site that it is still there, and write the definition of 531 into the legend of the map, as
+  ISSprOM requires.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
