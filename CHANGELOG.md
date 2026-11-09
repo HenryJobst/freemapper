@@ -14,7 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
-- Der Straßenrand macht keinen Haken mehr um jeden Straßenbaum. Die Bordsteinlinien der Befahrung (Kandidaten 501.1) liefen um jeden Baumschlitz im Parkstreifen, deshalb zeigte die Trainingskarte an jedem Baum einen Haken. freemapper ersetzt jetzt einen Bordstein-Umweg durch seine Sehne, wenn er auf dem Papier weniger als 1,5 mm² umschließt (24 m² bei 1:4000), und lässt einen geschlossenen Bordsteinring dieser Größe weg. Kurven, größere Buchten und die Karte selbst bleiben unverändert. Im Viktoriapark verlieren die Bordsteine der Befahrung 459 von 6.522 Stützpunkten. Bestehende Projekte bekommen die saubereren Linien mit `run --force` (ADR 0071).
+- Der Straßenrand macht keinen Haken mehr um jeden Straßenbaum. Die Bordsteinlinien der Befahrung (Kandidaten 501.1) liefen um jeden Baumschlitz im Parkstreifen, deshalb zeigte die Trainingskarte an jedem Baum einen Haken. freemapper ersetzt jetzt einen Bordstein-Umweg durch seine Sehne, wenn er auf dem Papier weniger als 1,5 mm² umschließt (24 m² bei 1:4000), und lässt einen geschlossenen Bordsteinring dieser Größe weg. Die Regel beurteilt einen Umweg danach, wie weit er aus seiner Sehne ragt (mindestens 0,3 davon, höchstens 10 m breit); so verschwinden auch die breiteren Trapezschlitze, und geschlossene Bordsteinringe um einzelne Baumscheiben entfallen. Kurven, größere Buchten und die Karte selbst bleiben unverändert. Im Viktoriapark verlieren die Bordsteine der Befahrung 1.417 von 6.522 Stützpunkten und 5 von 81 Linien. Bestehende Projekte bekommen die saubereren Linien mit `run --force` (ADR 0071).
 
 ### Geändert
 

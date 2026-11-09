@@ -15,6 +15,7 @@ use crate::build::dedup::add_also;
 use crate::build::tagged::{self, position};
 use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::omap::coord::FLAG_CURVE_START;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::OsmFeature;
@@ -330,17 +331,24 @@ pub fn berlin_objects(
 const KERB_NOTCH_MAX_AREA: f64 = 1.5e6;
 /// A detour longer than this on paper (10 mm, 40 m at 1:4000) is never a pit.
 const KERB_NOTCH_MAX_PATH: f64 = 10_000.0;
-/// A detour is a pit when its way is at least this many times its chord: a curve is not.
-const KERB_NOTCH_MIN_RATIO: f64 = 2.0;
+/// A detour wider than this on paper (2.5 mm, 10 m at 1:4000) is no single pit.
+const KERB_NOTCH_MAX_CHORD: f64 = 2_500.0;
+/// A detour is a pit when it reaches out at least this share of its chord: a quarter-circle
+/// corner reaches 0.21, a pit with its lead-in 0.4 and more.
+const KERB_NOTCH_MIN_DEPTH: f64 = 0.3;
 
 /// The kerb line of the street survey (501.1) without the tree pits cut into it: the survey
 /// runs the kerb around each pit in a parking strip and the pit then shows as a hook along the
-/// street edge. Each detour that returns to the line within [`KERB_NOTCH_MAX_PATH`], runs
-/// [`KERB_NOTCH_MIN_RATIO`] times as far as its chord and encloses less than
-/// [`KERB_NOTCH_MAX_AREA`] is replaced by its chord. A closed kerb ring below that area, the
-/// kerb around a lone pit, goes. `None` when the object goes; a line with curves stays as it is.
+/// street edge. Each detour that returns to the line within [`KERB_NOTCH_MAX_PATH`] of way and
+/// [`KERB_NOTCH_MAX_CHORD`] of chord, reaches out [`KERB_NOTCH_MIN_DEPTH`] of its chord and
+/// encloses less than [`KERB_NOTCH_MAX_AREA`] is replaced by its chord. A closed kerb ring below that area, the
+/// kerb around a lone pit, goes. `None` when the object goes; a line with curve points stays as it is. The close flag of a ring does not count as one.
 pub(crate) fn drop_kerb_notches(mut object: MapObject) -> Option<MapObject> {
-    if object.coords.iter().any(|c| c.flags != 0) {
+    if object
+        .coords
+        .iter()
+        .any(|c| c.flags & FLAG_CURVE_START != 0)
+    {
         return Some(object);
     }
     let points: Vec<(f64, f64)> = object
@@ -373,10 +381,23 @@ pub(crate) fn drop_kerb_notches(mut object: MapObject) -> Option<MapObject> {
             area2 += cross(points[j - 1], points[j]);
             let chord = (points[j].0 - points[i].0).hypot(points[j].1 - points[i].1);
             let closed = area2 + cross(points[j], points[i]);
-            if j >= i + 2
-                && path >= KERB_NOTCH_MIN_RATIO * chord
-                && closed.abs() / 2.0 < KERB_NOTCH_MAX_AREA
+            if j < i + 2
+                || chord > KERB_NOTCH_MAX_CHORD
+                || closed.abs() / 2.0 >= KERB_NOTCH_MAX_AREA
             {
+                continue;
+            }
+            // The farthest the detour gets from the chord.
+            let depth = points[i + 1..j]
+                .iter()
+                .map(|p| {
+                    ((p.0 - points[i].0) * (points[j].1 - points[i].1)
+                        - (p.1 - points[i].1) * (points[j].0 - points[i].0))
+                        .abs()
+                        / chord.max(1.0)
+                })
+                .fold(0.0, f64::max);
+            if depth >= KERB_NOTCH_MIN_DEPTH * chord {
                 best = Some(j);
             }
         }
@@ -706,6 +727,48 @@ mod tests {
         assert_eq!(xy(&kept), [(0, 0), (10_000, 0), (10_900, 0), (20_000, 0)]);
         assert_eq!(kept.symbol_id, kerb_with_pit().symbol_id);
         assert_eq!(kept.tags, kerb_with_pit().tags);
+    }
+
+    #[test]
+    fn wide_trapezoid_bump_at_a_tree_is_straightened() {
+        // The surveyed kerb at a Viktoriapark street tree (Li_13.04.2015_719): it leaves the edge
+        // on a slant, rounds the tree and comes back on a slant. Chord 1.7 mm, way 3.2 mm, 1.3 mm²
+        // at 1:4000: a way of only 1.8 times the chord, so the first rule let it stand.
+        let bump = kerb(&[
+            (49_236, -57_276),
+            (50_228, -57_491),
+            (50_434, -58_123),
+            (50_639, -58_755),
+            (50_694, -58_848),
+            (50_785, -58_910),
+            (50_890, -58_927),
+            (50_996, -58_898),
+            (51_078, -58_828),
+            (51_539, -58_308),
+            (51_934, -57_862),
+            (52_257, -57_932),
+            (52_818, -58_054),
+            (53_241, -58_146),
+            (54_280, -58_348),
+        ]);
+        let kept = drop_kerb_notches(bump).unwrap();
+        assert!(
+            kept.coords.iter().all(|c| c.y > -58_500),
+            "the bump is gone: {:?}",
+            xy(&kept)
+        );
+        assert_eq!(xy(&kept)[..2], [(49_236, -57_276), (50_228, -57_491)]);
+        assert_eq!(xy(&kept).last(), Some(&(54_280, -58_348)));
+    }
+
+    #[test]
+    fn a_closed_ring_with_the_close_flag_is_dropped_too() {
+        // The survey ring as the builder writes it: the last coordinate carries FLAG_CLOSE and
+        // FLAG_HOLE (flags 18). A pit ring of 1.8 mm by 0.8 mm (1.2 mm²) from Viktoriapark.
+        use crate::omap::coord::{FLAG_CLOSE, FLAG_HOLE};
+        let mut ring = kerb(&[(0, 0), (1_800, 0), (1_800, 800), (0, 800), (0, 0)]);
+        ring.coords[4].flags = FLAG_CLOSE | FLAG_HOLE;
+        assert!(drop_kerb_notches(ring).is_none());
     }
 
     #[test]
