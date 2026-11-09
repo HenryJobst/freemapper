@@ -104,7 +104,8 @@ sprint = "515"
 
 # Ditches (Graben, Grabenmitte), also those that carry water only at times (hydrologisches
 # Merkmal 2000) or are dry (3000), and a brook that is one of these: the minor or seasonal water
-# channel. Lines only: the outline of a water area is no channel.
+# channel. Lines only: the outline of a water area is no channel. The seasonal brook rule stays
+# before the 305 rule: the first matching rule wins.
 [[rule]]
 when = ["alkis:type=AX_UntergeordnetesGewaesser", "alkis:geom=line", "alkis:funktion=1010|1013"]
 draw = "line"

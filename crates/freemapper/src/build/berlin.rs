@@ -1295,7 +1295,8 @@ mod tests {
             osm_point(kind, "545", "highway=street_lamp", "node/5", 0.0, 5.5), // 5.5 m
             osm_point(kind, "544", "man_made=mast", "node/3", 0.0, 0.5),       // not a lamp
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/5", "node/3"]);
         let layers: Vec<_> = berlin
             .iter()
@@ -1359,7 +1360,8 @@ mod tests {
             // A bollard is no mast: the OSM mast beside it stays.
             osm_point(kind, "544", "man_made=mast", "node/6", 80.5, 0.0),
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/2", "node/6"]);
         assert_eq!(berlin.len(), 5, "the survey wins");
         let also = |layer: &str| {
@@ -1386,7 +1388,8 @@ mod tests {
         let mut berlin = survey_objects("beleuchtung", &lamps, kind);
         berlin.extend(survey_objects("sb-moebel", &masts, kind));
         let osm = vec![osm_point(kind, "544", "man_made=mast", "node/1", 2.5, 0.0)];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/1"]);
         assert_eq!(berlin.len(), 1);
     }
@@ -1413,7 +1416,8 @@ mod tests {
             osm_point(kind, "313", "amenity=drinking_water", "node/12", 0.5, 0.0), // other kind
             osm_point(kind, "313", "amenity=drinking_water", "node/13", 100.0, 2.0),
         ];
-        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        let (osm, berlin) =
+            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(ids(&osm), ["node/11", "node/12"]);
         // The survey jet at the register fountain and the survey tap at the register tap go;
         // the pump 30 m away stays.
@@ -1440,7 +1444,8 @@ mod tests {
             0.0,
             0.0,
         )];
-        let (osm, _) = drop_points_near_registers(osm, vec![], georef.scale_denominator);
+        let (osm, _) =
+            drop_points_near_registers(osm, vec![], &kind.symbol_set(), georef.scale_denominator);
         assert_eq!(osm.len(), 1);
     }
 

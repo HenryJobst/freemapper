@@ -210,7 +210,11 @@ fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
     if let Some(oid) = text("oid") {
         tags.push(("freemapper:source_id".to_string(), oid.to_string()));
     }
-    if let Some(date) = text("beginnt").and_then(|t| t.get(..10)) {
+    // A value that is no date leaves the fetch date (`osm_objects`).
+    let date = text("beginnt")
+        .and_then(|t| t.get(..10))
+        .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
+    if let Some(date) = date {
         tags.push(("freemapper:currency".to_string(), date.to_string()));
     }
     if let Some(label) = nas_label(nas_type, properties) {
@@ -865,6 +869,38 @@ mod tests {
     }
 
     #[test]
+    fn seasonal_brook_rule_comes_before_the_brook_rule() {
+        // The first matching rule wins: a brook with `hydrologischesMerkmal` 2000/3000 must meet
+        // its 306 rule before the plain brook rule (305).
+        let file: toml::Table = toml::from_str(include_str!(
+            "../../../../assets/rules/state-candidates.toml"
+        ))
+        .unwrap();
+        let rules = file["rule"].as_array().unwrap();
+        let brook = |seasonal: bool| {
+            rules
+                .iter()
+                .position(|r| {
+                    let when: Vec<&str> = r["when"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter_map(|c| c.as_str())
+                        .collect();
+                    when.contains(&"alkis:funktion=1030")
+                        && when
+                            .iter()
+                            .any(|c| c.starts_with("alkis:hydrologischesMerkmal="))
+                            == seasonal
+                })
+                .unwrap()
+        };
+        assert!(brook(true) < brook(false));
+        assert_eq!(rules[brook(true)]["sprint"].as_str(), Some("306"));
+        assert_eq!(rules[brook(false)]["sprint"].as_str(), Some("305"));
+    }
+
+    #[test]
     fn nas_canopies_and_building_parts_are_not_read() {
         use crate::sources::alkis_nas::{NAS_LAYERS, parse_nas_gml, test_support};
         assert!(NAS_LAYERS.iter().all(|l| l.type_name != "adv:AX_Bauteil"));
@@ -997,6 +1033,30 @@ mod tests {
         );
         let found = nas_run("sonstiges-bauwerk", &[monument], MapKind::Sprint);
         assert_eq!(tag(&found[0], "freemapper:size"), Some("large"));
+    }
+
+    #[test]
+    fn nas_beginnt_that_is_no_date_gives_the_fetch_date() {
+        for beginnt in [
+            "2013-13-45T00:00:00Z",
+            "unbekannt",
+            "2013-01",
+            "20130129T19:47:33Z",
+        ] {
+            let mut hedge = nas(
+                "DEBBAL0000000007",
+                "AX_Vegetationsmerkmal",
+                &[("bewuchs", "1100")],
+                east(0.0, 0.0, 20.0),
+            );
+            hedge["properties"]["beginnt"] = beginnt.into();
+            let found = nas_run("vegetationsmerkmal", &[hedge], MapKind::Sprint);
+            assert_eq!(
+                tag(&found[0], "freemapper:currency"),
+                Some("2026-11-09"),
+                "{beginnt}"
+            );
+        }
     }
 
     #[test]

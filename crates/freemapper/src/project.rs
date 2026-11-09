@@ -4016,6 +4016,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let (osm_candidates, cadastre_candidates) = drop_points_near_registers(
         osm_candidates,
         cadastre_candidates,
+        &symbol_set,
         georef.scale_denominator,
     );
     let cadastre_candidates =

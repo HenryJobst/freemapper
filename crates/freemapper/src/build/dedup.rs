@@ -329,19 +329,23 @@ const FOUNTAIN_DEDUP_M: f64 = 3.0;
 
 /// One kind of winning point and the points that give way to it.
 struct PointDedup {
-    /// `(tag key, value)` of the winners: a register's `freemapper:source` or a survey type's
-    /// `berlin:layer`.
+    /// `(tag key, value)` of the winners: a register's or the full ALKIS's `freemapper:source`
+    /// (a value ending in `*` is a prefix) or a survey type's `berlin:layer`.
     winner: (&'static str, &'static str),
+    /// The symbol a winner must have; `None`: any.
+    winner_code: Option<&'static str>,
     /// `(tag key, value, limit in ground metres)` of the losers: an OSM rule (`freemapper:osm`,
     /// one of its `; `-separated parts; a value ending in `*` is a prefix) or a survey type
     /// (`berlin:layer`).
     losers: &'static [(&'static str, &'static str, f64)],
 }
 
-/// In order: the registers beat the survey and OSM, then the survey furniture (schoolyard only)
-/// beats OSM. A point dropped by an earlier entry wins nothing later.
-const POINT_DEDUPS: [PointDedup; 8] = [
+/// In order: the registers beat the survey and OSM, the full ALKIS fountains beat OSM, then the
+/// survey furniture (schoolyard only) beats OSM. A point dropped by an earlier entry wins nothing
+/// later.
+const POINT_DEDUPS: [PointDedup; 9] = [
     PointDedup {
+        winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
         losers: &[
             ("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP_M),
@@ -349,6 +353,7 @@ const POINT_DEDUPS: [PointDedup; 8] = [
         ],
     },
     PointDedup {
+        winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
         losers: &[
             ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
@@ -361,6 +366,7 @@ const POINT_DEDUPS: [PointDedup; 8] = [
         ],
     },
     PointDedup {
+        winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
         losers: &[
             ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP_M),
@@ -371,7 +377,18 @@ const POINT_DEDUPS: [PointDedup; 8] = [
             ),
         ],
     },
+    // The full ALKIS fountains and wells (311) beat the OSM ones. OSM has no monument rule, so a
+    // NAS 526 has nothing to beat.
     PointDedup {
+        winner_code: Some("311"),
+        winner: ("freemapper:source", "alkis-nas/*"),
+        losers: &[
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP_M),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
         winner: ("berlin:layer", "aq_hydrant"),
         losers: &[(
             "freemapper:osm",
@@ -380,18 +397,22 @@ const POINT_DEDUPS: [PointDedup; 8] = [
         )],
     },
     PointDedup {
+        winner_code: None,
         winner: ("berlin:layer", "bj_sitzbank"),
         losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP_M)],
     },
     PointDedup {
+        winner_code: None,
         winner: ("berlin:layer", "as_mast"),
         losers: SURVEY_MAST_LOSERS,
     },
     PointDedup {
+        winner_code: None,
         winner: ("berlin:layer", "am_fahnenmast"),
         losers: SURVEY_MAST_LOSERS,
     },
     PointDedup {
+        winner_code: None,
         winner: ("berlin:layer", "aw_spielgeraet"),
         losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP_M)],
     },
@@ -418,7 +439,8 @@ fn tag_holds(value: &str, wanted: &str) -> bool {
 /// The registers win over the survey and OSM, and the survey furniture over OSM
 /// ([`POINT_DEDUPS`]): an OSM street lamp within [`OSM_LAMP_DEDUP_M`] or a survey mast within
 /// [`FURNITURE_DEDUP_M`] of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
-/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, and
+/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, an
+/// OSM fountain or well within [`FOUNTAIN_DEDUP_M`] of a full ALKIS (NAS) one, and
 /// an OSM hydrant, bench, mast, flag pole or play item within [`FURNITURE_DEDUP_M`] of the
 /// survey one are dropped. A line (bench, play item) counts by the middle of its extent. The
 /// winner names each dropped object in `freemapper:also` (`osm/node/1`,
@@ -427,6 +449,7 @@ fn tag_holds(value: &str, wanted: &str) -> bool {
 pub fn drop_points_near_registers(
     osm: Vec<MapObject>,
     mut cadastre: Vec<MapObject>,
+    symbol_set: &SymbolSet,
     scale_denominator: u32,
 ) -> (Vec<MapObject>, Vec<MapObject>) {
     let tag = |o: &MapObject, key: &str| -> Option<String> {
@@ -460,6 +483,10 @@ pub fn drop_points_near_registers(
             .iter()
             .enumerate()
             .filter(|&(i, o)| !dropped_cadastre[i] && holds(o, rule.winner))
+            .filter(|(_, o)| {
+                rule.winner_code
+                    .is_none_or(|code| symbol_set.id_for_code(code) == Some(o.symbol_id))
+            })
             .filter_map(|(i, o)| position(o).map(|p| (i, p)))
             .collect();
         if winners.is_empty() {
@@ -672,9 +699,67 @@ mod tests {
     }
 
     #[test]
+    fn nas_fountain_beats_the_osm_fountain() {
+        let nas = "alkis-nas/sonstiges-bauwerk";
+        let cadastre = vec![
+            point(
+                "311",
+                nas,
+                "DEBBAL1",
+                0.0,
+                &[("freemapper:alkis", "Springbrunnen, Zierbrunnen")],
+            ),
+            // A monument is no fountain: the OSM fountain beside it stays.
+            point("526", nas, "DEBBAL2", 100.0, &[]),
+        ];
+        let osm = vec![
+            point(
+                "311",
+                "osm",
+                "node/1",
+                1.0,
+                &[("freemapper:osm", "amenity=fountain")],
+            ),
+            point(
+                "311",
+                "osm",
+                "node/2",
+                -2.5,
+                &[("freemapper:osm", "man_made=water_well")],
+            ),
+            // 5 m off: another fountain.
+            point(
+                "311",
+                "osm",
+                "node/3",
+                5.0,
+                &[("freemapper:osm", "amenity=fountain")],
+            ),
+            point(
+                "311",
+                "osm",
+                "node/4",
+                101.0,
+                &[("freemapper:osm", "amenity=fountain")],
+            ),
+        ];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        assert_eq!(ids(&osm), ["node/3", "node/4"]);
+        assert_eq!(ids(&cadastre), ["DEBBAL1", "DEBBAL2"]);
+        assert_eq!(
+            tag(&cadastre[0], "freemapper:also"),
+            Some("osm/node/1; osm/node/2")
+        );
+        assert_eq!(tag(&cadastre[1], "freemapper:also"), None);
+    }
+
+    /// The whole Berlin chain on one scene: ALKIS wins over the survey, both over OSM, the
+    /// registers over the survey and OSM points. The expected ids, order and `freemapper:also`
+    /// texts were confirmed against the functions before the move (a721b8b:
+    /// `drop_survey_lines_near_alkis`, `drop_osm_trees_near_cadastre`, `drop_osm_lines_near_alkis`,
+    /// `drop_points_near_registers` in `build/berlin.rs`), on the same scene.
+    #[test]
     fn berlin_dedup_unchanged() {
-        // The whole Berlin chain on one scene: ALKIS wins over the survey, both over OSM, the
-        // registers over the survey and OSM points.
         let alkis = "geoportal-berlin/bauwerke-linien";
         let cadastre = vec![
             line(
@@ -752,7 +837,7 @@ mod tests {
         let (osm, cadastre_after_trees) = drop_trees_by_rank(osm, cadastre.clone(), &set, SCALE);
         assert_eq!(cadastre_after_trees, cadastre);
         let osm = drop_osm_lines_near_cadastre(osm, &mut cadastre, &set, SCALE);
-        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, SCALE);
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set, SCALE);
         // The order: the cadastre first, then the kept survey objects.
         assert_eq!(ids(&cadastre), ["DEBE1", "baum1", "lamp1", "DEBE2", "Li_2"]);
         assert_eq!(ids(&osm), ["node/2"]);
