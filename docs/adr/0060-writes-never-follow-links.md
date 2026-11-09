@@ -24,18 +24,30 @@ Most other files already went through a partial file and a rename. The partial f
   link's target stays untouched. The partial file is named `<file>.<process id>.<counter>.part` and opened
   with `create_new`, which fails on any existing entry, a link included. A taken name is skipped. freemapper
   flushes the partial file to the disk before the rename.
-- Project files go through `write_inside` and `copy_inside`, which take the project folder. They refuse a
-  file whose folder leads out of the project folder once links are resolved, before any folder is created.
+- Every project file goes through `write_inside`, `write_files_inside` or `copy_inside`, which take the
+  project folder. This includes the downloads into `data/` and the derived templates: the source and derive
+  writers get the project folder as a parameter. Before each write, freemapper resolves the folder of the file
+  and refuses it if it leads out of the project folder, before any folder is created and again once it exists.
   The error names the file: `<path>: a link leads out of the project folder, so freemapper writes nothing
-  there`.
-- Some writers do not know the project folder: the downloads into `data/` and the derived templates. For them
-  `fetch`, `derive`, `run` and a new map area from `select` first check `data/` and `templates/`, and the OCAD
-  export (`--ocad`) checks `ocad/`. A linked folder stops the command with the same message, naming the folder.
-  `data/berlin` keeps its own check and warning (ADR 0059).
+  there`. Removing a stale project file follows the same check.
+- `fetch`, `derive`, `run` and a new map area from `select` also check `data/` and `templates/` once at the
+  start, and the OCAD export (`--ocad`) checks `ocad/`. A linked folder then stops the command before any
+  download, with the same message naming the folder. `data/berlin` keeps its own check and warning
+  (ADR 0059).
+- A copy reads only files of the project itself. `copy_inside` refuses a source that is a link or whose folder
+  leads out of the project folder: `<path>: a link or outside the project folder, so freemapper does not copy
+  it`. The OCAD export checks each template image and world file first and leaves a refused template out with
+  `warning: …; the OCAD map gets no background from it`, so the export goes on without it. A map file that is
+  a link stops `run --force` and `export --force` before the backup, with the error above.
 - Downloads that stream into a partial file of their own first remove an entry of that name, so they never
   write through a link either.
 - Folders inside the cache may be links. The cache is the user's own, and moving a large part of it to another
   drive is a normal setup.
+- No new dependency for `openat`-style access (such as `cap-std`). The check resolves the folder by its path,
+  and the rename uses the path again. A local attacker who swaps a project folder for a link between the two
+  can still win that race. We accept this: it needs write access to the project folder while the run is
+  going on, and such an attacker can already change the project's files directly. The case this ADR closes is
+  the folder that arrives with links already in it.
 
 ## Consequences
 
@@ -43,8 +55,9 @@ Most other files already went through a partial file and a rename. The partial f
 - A link at a file name inside the project is replaced by a regular file, silently.
 - A project whose `data`, `templates` or `ocad` folder is a link to another drive no longer works. freemapper
   says which folder and stops.
-- Reads still follow links. A linked map file is copied into its backup, and a linked template image into
-  `ocad/`. The data stays in the project folder.
+- Copies no longer read through links, so a shared folder cannot pull a key or a password file into the
+  project. Other reads still follow links (the map file, the stored data); what they read stays inside the
+  process.
 - Each file costs one flush to the disk.
 
 Source: security hotfix after v0.6.1; branch `hotfix-final-writes`.

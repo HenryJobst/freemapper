@@ -9,6 +9,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Sicherheit
 
 - Ein Projektordner von jemand anderem konnte freemapper über Links außerhalb des Ordners schreiben lassen. War `ATTRIBUTION.txt` ein Link, überschrieb jeder `run` mit vorhandener Karte die Datei, auf die er zeigte. Mit `--force` kopierten die Sicherungen `.omap.bak` und `.ocd.bak` die Karte des Projekts in das Ziel des Links, etwa `~/.zshrc`. Auch die Bildkopien nach `ocad/` folgten Links, ebenso jede Datei in einem Ordner `data`, `templates` oder `ocad`, der selbst ein Link war. freemapper schreibt jede Datei jetzt unter einem neuen Namen und benennt sie dann um. Dabei ersetzt es einen Link, statt hindurchzuschreiben. Führt ein Ordner `data`, `templates` oder `ocad` aus dem Projekt hinaus, bricht der Befehl ab (`…: a link leads out of the project folder, so freemapper writes nothing there`). Teildateien bekommen jedes Mal einen neuen Namen und übernehmen nie eine vorhandene Datei oder einen Link (ADR 0060).
+- Kopien innerhalb eines Projekts konnten durch Links hindurch lesen. Ein Vorlagenbild, das ein Link auf eine Datei an anderer Stelle war, etwa `~/.ssh/id_rsa`, landete als Kopie in `ocad/`. freemapper kopiert jetzt nur noch Dateien des Projekts selbst. Der OCAD-Export lässt eine solche Vorlage weg und warnt (`warning: …: a link or outside the project folder, so freemapper does not copy it; …`). freemapper prüft jeden einzelnen Schreibvorgang, nicht mehr nur einmal je Lauf (ADR 0060).
 
 ## [0.6.1] - 2026-11-09
 
