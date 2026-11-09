@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [368380.0, 5555926.0, 369397.0, 5556648.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 latest_update = "2026-09-01"
 count = 1266
 regions = ["rheinlandpfalz"]
 
 [land_use]
 bbox = [368380.0, 5555926.0, 369397.0, 5556648.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 latest_update = "2026-09-15"
 count = 400
 regions = ["rheinlandpfalz"]
@@ -33,15 +33,15 @@ count = 365
 [orthophoto]
 flight = "27.05.2023"
 flight_label = "Aktualität (Erstellung)"
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [368380.8791902412, 5555926.138666682, 369396.9502766004, 5556647.536612516]
 
 [terrain]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [368380.8791902412, 5555926.138666682, 369396.9502766004, 5556647.536612516]
 date = "2024-04-06"
 
 [surface]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [368380.8791902412, 5555926.138666682, 369396.9502766004, 5556647.536612516]
 date = "2024-04-06"
