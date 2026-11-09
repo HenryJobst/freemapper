@@ -186,7 +186,7 @@ Among other files, the project folder then holds:
 
 | File | What it is |
 |---|---|
-| `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, water and the peripheral information |
+| `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
 | `templates/` | the templates: orthophoto, hillshade, slope, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the training map |
@@ -198,6 +198,10 @@ menu. The **candidates** (`templates/candidates.omap`) are a separate map on top
 benches, contours, out-of-bounds areas, water from OSM and bridges. Check them and take over what is
 right: trace them, or open the candidates map and copy and paste the objects. Both maps have the same
 georeferencing.
+
+Point symbols such as trees, fountains or bollards keep the gap that ISSprOM asks for. Where two would touch
+on paper, freemapper keeps the larger one. A dense group of trees becomes an area of forest or of open land
+with scattered trees. Chapter 9 says what to check there.
 
 freemapper draws **water** on both map kinds. Rivers, canals, lakes, ponds, harbour basins and sea from
 the cadastre become uncrossable bodies of water: a blue area (301.1) with a black bank line (301.6). The
@@ -254,8 +258,11 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
 - **Paved areas** (sprint): in Saxony, street areas include the grass and tree strips at their edges. In
   Berlin freemapper cuts out the surveyed green strips (chapter 12); tree pits and green that the street
   survey does not know stay inside. In both states squares are only candidates.
+- **Canopies and passages:** in every state except Saxony and Saxony-Anhalt, canopies and carports from
+  ALKIS are map objects (522), and building passages and arcades are candidates (chapter 12). Are the canopies
+  still there? Is a passage open, or does it have a gate?
 - **Fences, walls, hedges:** they come from OSM and the nDSM, in Berlin also from ALKIS and the street
-  survey. Can they be crossed? Are there gates?
+  survey, in Brandenburg also from the full ALKIS. Can they be crossed? Are there gates?
 - **Out-of-bounds areas:** private grounds, allotment gardens, railway land, and on schoolyard maps
   everything outside the school grounds.
 - **Berlin** (chapter 12):
@@ -298,6 +305,28 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
     carry water?
+- **Brandenburg** (chapter 12):
+  - Walls from the full ALKIS often come as two 515 lines, one for each edge (`Mauerkante, links` and
+    `Mauerkante, rechts`). Keep one and delete the other.
+  - The data currency of these candidates is the date the object version entered the cadastre, not a survey
+    date. A fence can have changed since.
+  - Potsdam trees are all 418, because the city data has no crown size. Mark large trees as 417 yourself. Each
+    tree carries its own survey date, some of them from 1993.
+- **Thinned points:** where two point symbols would come closer on paper than the norm allows, freemapper
+  keeps the larger one. The kept point names the others in `freemapper:generalized`. Rows of street trees stay
+  single tree symbols. Where they stand closer than the symbols allow, some of them are dropped. Check the
+  gaps in the terrain, and move symbols apart where both objects matter.
+- **Tree groups as areas:** three or more trees that crowd each other become an area: paved area with scattered trees
+  (501.3) on paving, otherwise forest (405) when the crowns cover at least half of the group, and otherwise
+  open land with scattered trees (402). The area carries `freemapper:source=generalization` and lists the trees
+  in `freemapper:source_id`. Its tag `freemapper:generalized` gives the number of trees and the crown cover.
+  Large trees (417) stay points on a 402 area. Without a measured crown, freemapper assumes 12 m for 417 and
+  5 m for 418. Compare the outline with the orthophoto.
+- **Hidden points in out-of-bounds areas:** ISSprOM allows no feature in an out-of-bounds area (520) except
+  very prominent ones. A point candidate inside a 520 candidate stays in the candidates, tagged
+  `freemapper:hidden=520`, but the training map leaves it out. On schoolyard maps this hides every point off
+  the school grounds. If the area is not out of bounds after all, or a very large tree stands in it, take the
+  point over from the candidates.
 - **Furniture and playground equipment:** it comes from OSM, in Berlin on schoolyard maps also from the
   street survey and the lighting cadastre. It is often incomplete.
 - **Contours:** small banks and steps show better in the hillshade or slope.
@@ -312,8 +341,9 @@ drawn map in A4 or A3, ready to print.
 *The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*
 
-Unlike the starting point, **every candidate becomes a map object** here, also the uncertain ones. The
-map is good for a quick training session. Still check it in the terrain first.
+Unlike the starting point, **every candidate becomes a map object** here, also the uncertain ones. Only
+points inside an out-of-bounds candidate are left out (chapter 9). The map is good for a quick training
+session. Still check it in the terrain first.
 
 The colours are CMYK values after the IOF Printing and Colour Definitions Rev. 4 (valid from 1 December
 2024), the same as in the OOM and OCAD files. If your printer prints brown or green clearly differently,
@@ -341,7 +371,7 @@ version yet; feedback is welcome (chapter 16).
 
 | State | Data from | Particulars |
 |---|---|---|
-| Brandenburg | LGB | orthophoto, terrain and nDSM in 1 km tiles; the nDSM is a laser nDSM at 20 cm |
+| Brandenburg | LGB (also the full ALKIS), Landeshauptstadt Potsdam (trees) | orthophoto, terrain and nDSM in 1 km tiles; the nDSM is a laser nDSM at 20 cm; canopies as map objects; fences, wall edges, hedges, monuments, fountains and ditches as candidates, on sprint maps also embankment tops and bridges; in Potsdam the trees of the city map (see below) |
 | Berlin | LGB (rasters), Geoportal Berlin (ALKIS, tree cadastre, K5, street survey, lighting, fountains, building heights) | the nDSM is computed from the image-based surface model: a bit softer, without thin objects such as lamp posts, but with parked cars; also canopies as map objects, stairs, walls, fences, hedges and trees as candidates, and the K5 as a template; the surveyed green strips are cut out of the street areas, curbs, railings, furniture, lamps and fountains come as candidates, and buildings carry their footprint date (see below) |
 | Saxony | GeoSN | orthophoto from the map service; the nDSM has only 1 m resolution, so hedges and narrow walls often show faintly; underground structures cannot be filtered out |
 | Saxony-Anhalt | LVermGeo | the map is in UTM zone 32 (EPSG:25832), like all of the state's data; orthophoto from the map service, terrain and surface model at 1 m; the nDSM is as coarse as in Saxony |
@@ -352,6 +382,38 @@ version yet; feedback is welcome (chapter 16).
 | North Rhine-Westphalia | Geobasis NRW (Bezirksregierung Köln) | Zone 32 (EPSG:25832) for the whole state; the state reaches far west, but the map never uses zone 33. The orthophoto comes from the WMS service, because the tiles exist only as JPEG 2000. Flown in 2022 and 2024 to 2026, partly leaf-off, partly leaf-on; the flight date is per tile. Terrain and surface: DGM1 and DOM1 at 1 m from 1 km laser tiles, both from the same flight; names and dates come from the tile list, not from the directory. The laser survey is paused until winter 2026/27, the newest data is from February 2025; the nDSM is DOM1 − DGM1. ALKIS from the WFS with the LGB spellings and a more detailed land-use value, school buildings are called "Allgemein bildende Schule". OSM from the extracts of the five Regierungsbezirke (Arnsberg, Detmold, Düsseldorf, Köln, Münster) instead of the 917 MB statewide one; an area on a district border reads both. At the Hesse border freemapper reads the ALKIS of both states; the rasters come from the state holding the centre of the map area |
 | Lower Saxony | LGLN | Zone 32 (EPSG:25832) for the whole state. The orthophoto comes from the map service (WMS), terrain and surface (DGM1 and DOM1 at 1 m) come from the WCS service. The WCS service delivers the height models in pieces of 2 km. A 4 km area therefore takes four requests per model and, with the orthophoto, a few minutes to fetch. The LGLN STAC search gives the data currency: the flight date of the newest orthophoto and the date of the newest height model at the centre of the map area. Flown 2024 to 2026, three quarters in spring (February to April, leaf-off), the rest from May to October (leaf-on). freemapper reports with the flight date whether the trees were in leaf; Hannover-Südstadt, for example, was flown leaf-off on 06.03.2025. The nDSM is DOM1 − DGM1 from the laser scan, both models from the same flight. The scan is mostly from 2016 or 2017 (2025 at the coast and along the Elbe and Weser), so it is often 5 to 9 years older than the orthophoto (Hannover-Südstadt: scan 18.04.2016). If the DOM1 is more than two years older, freemapper warns with both dates, because new buildings and young trees can be missing from the nDSM. ALKIS from the WFS with the LGB spellings; freemapper recognises underground garages by their position below ground; squares without `bez` only as candidates; school buildings are called "Allgemein bildende Schule", school parcels "Bildung und Wissenschaft". Bremen and Bremerhaven are not included yet. freemapper refuses an area whose centre lies in Bremen. If an area in Lower Saxony reaches into Bremen, the orthophoto is white there and ALKIS gives no buildings there; freemapper warns. The Lower Saxony OSM extract includes Bremen. At the Hamburg border freemapper reads the ALKIS and OSM extract of both sides; the rasters come from the state holding the centre of the map area |
 | Rhineland-Palatinate | LVermGeo RP | Zone 32 (EPSG:25832) for the whole state. The orthophoto comes from the map service (WMS), because the tiles exist only as JPEG 2000 of 105 to 155 MB per 2 km block. The service ends at the state border, and beyond it the orthophoto is white. The service gives no flight date, only a date of creation per block. freemapper takes it as the flight date, because all these dates fall between May and September, mostly on consecutive days, and the images show trees in leaf. So the project entry labels the date "Aktualität (Erstellung)", and the messages say `date of creation`. Flown 2022 to 2025, every two years, always in summer and so leaf-on; the Görres-Gymnasium in Koblenz, for example, on 25.08.2025. Terrain and surface: DGM1 and DOM1 at 1 m from 1 km laser tiles, both from the same flight. The scans are from 2022 to 2025, each flown from February to April, leaf-off. The file name of each tile contains the year of the scan. freemapper reads it from the LVermGeo RP laser-scan flight index `Laserbefliegung`, which gives the flight days per tile; the last flight day is the date in the project entry (Koblenz: 06.04.2024). 14 tiles north of Trier have no flight year there (as of November 2026). For them freemapper reads the state's Metalink file (about 11 MB per model), but only if the area contains such a tile. freemapper keeps the file and reuses it online for 30 days, then downloads it again. Offline it uses the kept file at any age. A tile that stays without a name stays empty, and freemapper says why. If the server answers 404 for a tile of the index, freemapper reports it as missing and asks again only after 30 days. The size estimate counts 1.5 MB per DGM1 tile and 3 MB per DOM1 tile, plus the Metalink file when it is needed. The nDSM is DOM1 − DGM1. Scan and orthophoto are at most three years apart, and in a quarter of the tiles the scan is the newer one. Because the scan was flown without leaves, the crowns of deciduous trees can come out lower in the nDSM than in the orthophoto. ALKIS from the WFS with the LGB spellings; the land use has finer subtypes, for example Wohnbaufläche "Offen" and "Geschlossen". freemapper recognises underground garages by their position below ground; squares without `bez` only as candidates; a building with several names has them joined by `;` in one field. School buildings are called "Allgemein bildende Schule", school parcels "Bildung und Wissenschaft". At the Hesse border (Mainz and Wiesbaden) freemapper reads the ALKIS and OSM extract of both states; Wiesbaden and Mainz-Kastel belong to Hesse and are not in the Rhineland-Palatinate OSM extract. The rasters come from the state holding the centre of the map area. If it lies in Mainz, the orthophoto is white across the Rhine, but the height models reach over |
+
+**Canopies and passages in every state.** ALKIS records canopies and carports as structures next to the
+buildings, and building passages and arcades as building parts. freemapper reads them from the buildings it
+already fetches, with no extra download. Canopies and carports become map objects (522) on both map kinds, cut
+at the buildings as in Berlin. Building passages and arcades become 522 candidates, and the building stays
+whole. Underground ones are left out. The data currency is the date of the ALKIS object. Saxony and
+Saxony-Anhalt record no canopies or passages in this data, so maps there get none. Berlin takes them from its
+own layers (below). An existing map gets the canopies only with `run --force`.
+
+**Brandenburg: full ALKIS and Potsdam trees.** In Brandenburg freemapper also reads the full ALKIS from the
+LGB's NAS service (dl-de/by-2-0). It holds what the simplified ALKIS lacks: surveyed walls and wall edges,
+fences, hedges, monuments, fountains, ditches and brooks, and on sprint maps also embankment tops and bridges.
+They become candidates: walls 515, fences 518, hedges 410.1, monuments 526, fountains 311, ditches 306, brooks
+305, embankment tops 104 and bridges 501.5. The code in the cadastre picks the symbol, never the height. The
+layers are stored in `data/alkis-nas/`, about 2 MB per km² (Park Sanssouci 1.4 MB). Each candidate carries
+`freemapper:source=alkis-nas/<layer>` and `freemapper:alkis` with the cadastre's name, e.g. `Mauerkante,
+rechts`. Its data currency is the date the object version entered the cadastre (`beginnt`). freemapper takes
+canopies and building parts from the simplified ALKIS only, so they are not drawn twice. Brandenburg records no
+stairs, retaining walls or single trees in the full ALKIS. If the service sends more objects than it allows in
+one answer, freemapper splits the area into quarters, at most four levels deep.
+
+If an OSM line (fence, wall, hedge, brook or ditch) lies with at least 80 % of its length within 1.5 m of a
+full ALKIS line with the same symbol, freemapper drops the OSM line, as in Berlin. The order is the same in every state:
+register before ALKIS before the street survey before OSM.
+
+In and around Potsdam freemapper fetches the trees of the Potsdam city map (Bäume der Stadtkarte,
+dl-de/zero-2-0). They are stored in `data/trees/`; the size estimate counts 1 MB per km². The data has no crown size, so
+every tree becomes a 418 candidate. Stumps are left out. Each tree carries its own survey date as data
+currency, from 1993 to 2026, and its kind in `freemapper:baum`, e.g. `Laubbaum`. An OSM tree less than 2 m from
+a Potsdam tree is dropped. A Berlin area makes no request there, even inside the Potsdam data's extent. If the
+disk has too little room, freemapper leaves out the full ALKIS and the trees together. The stored ones then
+stay.
 
 **Berlin: structures, trees and the K5.** When a map area touches Berlin, freemapper fetches six more layers
 from Geoportal Berlin (dl-de/zero-2-0): the ALKIS structures as areas and as lines, the embankment edges (for
@@ -461,8 +523,8 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 ## 13. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
-  It only updates the templates and candidates. If buildings are missing from the map, or in
-  Berlin the canopies, freemapper tells you.
+  It only updates the templates and candidates. If buildings or canopies are missing from the map,
+  freemapper tells you.
 - **Write it again:** `--force` replaces the map. The old one is kept as `.omap.bak`.
 - **Water in an older map:** a map made before this version has no water yet. Running `run` again does
   not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
@@ -541,19 +603,31 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `warning: Berlin … unavailable (…); keeping the stored layer` / `…; layer skipped` | A Geoportal Berlin layer (e.g. `bauwerke-linien` or `sb-moebel`) could not be fetched. A layer that holds several object types, as `sb-moebel` holds the benches, bollards and hydrants, is missing as a whole when one of them fails. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
 | ``no Berlin ALKIS structures stored; run `freemapper fetch` online …`` | Offline: no structures, trees or canopies are stored for the Berlin area. | Fetch once online. |
 | `removing the stored Berlin layers: the map area is no longer near Berlin` | The area is no longer near Berlin. freemapper deletes the stored Berlin layers. | Nothing. |
-| `warning: freemapper.toml: ignored the Berlin layer entry` | The project file records a Berlin layer under a name freemapper does not know, or under a name that would point to another folder (`../`, `/`, `\`, a drive letter, control characters). The file was edited by hand or comes from someone else. freemapper ignores the entry, deletes no file for it and leaves it out when it saves the project file. | Nothing. If you did not edit the file yourself, check where the project came from. |
+| `warning: freemapper.toml: ignored the Berlin layer entry` / `… the NAS layer entry` / `… the tree layer entry` | The project file records a Berlin layer, a full ALKIS layer or a tree cadastre under a name freemapper does not know, or under a name that would point to another folder (`../`, `/`, `\`, a drive letter, control characters). The file was edited by hand or comes from someone else. freemapper ignores the entry, deletes no file for it and leaves it out when it saves the project file. | Nothing. If you did not edit the file yourself, check where the project came from. |
 | `warning: Berlin … unavailable (data/berlin leads out of the project folder)` | The folder `data/berlin` in the project is a link to a place outside the project folder. freemapper writes and deletes no Berlin layer there, so the Berlin candidates are missing. | Replace the link with a normal folder and fetch again. |
 | `…: a link leads out of the project folder, so freemapper writes nothing there` | The named folder (`data`, `templates` or `ocad`) or the folder of the named file is a link to a place outside the project folder. This happens with project folders from someone else. freemapper stops before it writes anything there. If only a single file in the project is a link, freemapper replaces it with a normal file and goes on. | Replace the link with a normal folder and run the command again. |
 | `…: a link or outside the project folder, so freemapper does not copy it` | A file freemapper would copy is a link or lies outside the project folder. As a warning (`…; the OCAD map gets no background from it`), it concerns a template image or its world file: the OCAD map lacks that background, the rest is written. As an error, it concerns the map file before its backup `.omap.bak` or `.ocd.bak`. | Replace the link with the real file and run the command again. |
+| `downloading the full ALKIS structures (NAS)` | Progress message: in Brandenburg freemapper fetches the full ALKIS, about 2 MB per km². Then each layer gives its count, e.g. `295 ALKIS NAS sonstiges-bauwerk features`. | Wait. |
+| `warning: ALKIS NAS … unavailable (…); keeping the stored layer` / `…; layer skipped` | A full ALKIS layer (e.g. `sonstiges-bauwerk`) could not be fetched. The brackets give the reason, e.g. `LGB ALKIS (NAS) answered adv:AX_… with an exception report: …`. With `keeping the stored layer` the stored layer, which still covers the area, stays. With `layer skipped` its candidates are missing. The fetch goes on. | Fetch again later. |
+| `… returned … of … features; choose a smaller area` | Stands in the brackets of the warning above. The area holds more objects than the service sends in one answer, even after freemapper split it into quarters four levels deep. | Draw the area smaller or split it into several maps. |
+| `skipped … ALKIS NAS … features: …` | Single objects of a full ALKIS layer have a geometry freemapper cannot read, e.g. `unsupported GML element Clothoid` or `no geometry`. freemapper names them and leaves them out. | Nothing. If many are missing, report a bug. |
+| ``no full ALKIS structures stored; run `freemapper fetch` online …`` | Offline: no full ALKIS layers are stored for the Brandenburg area. | Fetch once online. |
+| `removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service` | The area no longer lies in Brandenburg. freemapper deletes the stored full ALKIS layers. | Nothing. |
+| `warning: full ALKIS layers skipped (data/alkis-nas leads out of the project folder)` | The folder `data/alkis-nas` in the project is a link to a place outside the project folder. freemapper writes and deletes no layer there, so the full ALKIS candidates are missing. The same reason can stand in the brackets of `warning: ALKIS NAS … unavailable`. | Replace the link with a normal folder and fetch again. |
+| `downloading the city tree cadastres` | Progress message: freemapper fetches the Potsdam trees. Then `… potsdam trees` gives their number. | Wait. |
+| `warning: potsdam tree cadastre unavailable (…); keeping the stored one` / `…; trees skipped` | The Potsdam trees could not be fetched. One of the three datasets failing is enough. With `keeping the stored one` the stored trees, which still cover the area, stay. With `trees skipped` the tree candidates are missing. With `data/trees leads out of the project folder` in the brackets, that folder is a link to a place outside the project. | Fetch again later. Replace a linked folder with a normal one first. |
+| `skipped … potsdam trees: …` | Single trees could not be read, e.g. `no point`. freemapper names them and leaves them out. | Nothing. |
+| ``no city tree cadastre stored; run `freemapper fetch` online …`` | Offline: no Potsdam trees are stored for the area. | Fetch once online. |
+| `removing the stored tree cadastres: the map area is no longer in a city with one` | The area no longer lies in Potsdam. freemapper deletes the stored trees. | Nothing. |
 | `warning: the K5 map template is unavailable (…); skipped` | The K5 could not be fetched. The template is missing, the fetch goes on. | Fetch again later. |
 | `k5 is not made yet; run freemapper fetch or run …` | The assistant or the preview asks for the K5 template, but there is none: the area is not in Berlin, it was not fetched yet, or the fetch failed. | In Berlin, run `fetch` or `run`. |
 | `warning: the map area now lies in another state's data` | The area now lies with another provider. | Nothing; freemapper fetches everything again. |
 | `offline and not cached` / `no OSM extract cached` | Data is missing for `--offline`. | Fetch once with internet. |
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Nothing was fetched yet, or the area changed. | Run `run` or `fetch`. |
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
-| `The map lacks the Berlin canopies and carports (522) that are now map objects` | The map dates from before the Berlin canopies. freemapper kept it, and the canopies are not in it. | Write it again with `run --force`. The old map stays as `.omap.bak`. Or copy the canopies over by hand. |
+| `The map lacks the Berlin canopies and carports (522) that are now map objects` | The map dates from before the ALKIS canopies. In spite of the wording, this applies in every state with canopies, not only in Berlin. freemapper kept the map, and the canopies are not in it. | Write it again with `run --force`. The old map stays as `.omap.bak`. Or copy the canopies over by hand. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
-| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin layers with structures, trees, street survey and registers, or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and stored Berlin layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
+| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin layers with structures, trees, street survey and registers, the Berlin K5, or the full ALKIS structures and the tree cadastres in Brandenburg) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and the stored Berlin, full ALKIS and tree layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
 | `not enough disk space for the …` | There is no room for the map data, the terrain model or the orthophoto. Without them there is no map, so freemapper stops before it downloads anything. | Free some space, or put the cache on another drive with `--cache-dir`, then start again. |
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |
@@ -576,6 +650,9 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
   naming only the registers that gave objects in the map or the candidates (on a sprint map e.g.
   `Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0`), and
   `Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0` when building heights were fetched
+- `Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0` (Potsdam, when its trees are among the
+  candidates or in a tree group drawn as an area). The full ALKIS of Brandenburg needs no line of its own: the
+  LGB line covers it.
 - `Quelle: GeoSN, dl-de/by-2-0, Daten geändert` (Saxony)
 - `© GeoBasis-DE / LVermGeo ST <year>, dl-de/by-2-0, Daten geändert` (Saxony-Anhalt)
 - `Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) <year>, dl-de/by-2-0, Daten geändert` (Hamburg)

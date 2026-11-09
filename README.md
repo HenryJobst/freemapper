@@ -48,8 +48,15 @@ nutzen sie die Straßenbefahrung 2014 bis 2016: Die vermessenen
 Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Geländer, Möblierung, Laternen und
 Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität.
 
+Neu im Hauptzweig seit v0.6.2: Überdachungen und Carports aus ALKIS sind in jedem Land außer Sachsen und
+Sachsen-Anhalt Kartenobjekte, Durchfahrten dort Kandidaten. Brandenburger Karten bekommen Mauern, Zäune,
+Hecken, Denkmäler, Böschungsoberkanten und Brücken aus dem vollständigen ALKIS als Kandidaten, rund um Potsdam
+auch die Bäume der Stadtkarte. Punktsymbole halten den Abstand der Norm ein, und dichte Baumgruppen werden zu
+Wald oder zu offenem Gelände mit verstreuten Bäumen.
+
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
-Daten der anderen Länder. Danach folgen Hallenkarten
+Daten der anderen Länder, als Nächstes Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM,
+die Bäume von Leipzig und Dresden), dann Sachsen-Anhalt und Hamburg. Danach folgen Hallenkarten
 für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
 (Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
@@ -229,7 +236,7 @@ freemapper run vorstadt
 
 | Land | Daten | nDOM-Vorlage | Hinweise |
 |---|---|---|---|
-| Brandenburg | LGB | Laser-nDOM, 0,2 m | |
+| Brandenburg | LGB, auch das vollständige ALKIS; Potsdamer Stadtbäume | Laser-nDOM, 0,2 m | Mauern, Zäune, Hecken und Brücken aus dem vollständigen ALKIS und die Potsdamer Bäume als Kandidaten |
 | Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
@@ -241,8 +248,9 @@ freemapper run vorstadt
 | Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Bremen noch nicht dabei |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 
-An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
-Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
+In jedem Land außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
+Durchfahrten Kandidaten. An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide
+OSM-Auszüge; Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
 [Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Land liegt unter
 [`examples/`](examples/).
 
@@ -254,7 +262,7 @@ freemapper export clara-zetkin-schule --pdf      # oder: freemapper run clara-ze
 
 schreibt `<name>.pdf`: eine voll generierte, druckfertige Karte (A4 oder A3, CMYK). Anders als im
 Startprojekt werden hier **alle Kandidaten zu Kartenobjekten**: Möblierung, Barrieren, Wege ohne
-Oberflächenangabe, Höhenlinien, Sperrgebiete und ALKIS-Wege. Gezeichnet wird mit dem Symbolsatz des
+Oberflächenangabe, Höhenlinien, Sperrgebiete und ALKIS-Wege. Punkte in Sperrgebiet-Kandidaten fehlen. Gezeichnet wird mit dem Symbolsatz des
 Projekts so, wie OOM ihn zeichnet (Strichelungen, Zeichen auf Linien, Farbreihenfolge), dazu die
 Randangaben mit der Namensnennung und dem Hinweis auf freemapper. Das Luftbild gehört nicht dazu.
 Weil auch unsichere Daten eingezeichnet sind, ist die Karte vor dem Training im Gelände zu prüfen.
@@ -331,5 +339,6 @@ Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` u
 `© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
 `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
 Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu,
-für K5 und Baumkataster je eine eigene Zeile (siehe [Handbuch, Kapitel 15](docs/manual/de.md#15-namensnennung)).
+für K5 und Baumkataster je eine eigene Zeile. Die Potsdamer Bäume ergänzen `Landeshauptstadt Potsdam / Bäume
+der Stadtkarte, dl-de/zero-2-0` (siehe [Handbuch, Kapitel 15](docs/manual/de.md#15-namensnennung)).
 In Sachsen lautet der Vermerk `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.
