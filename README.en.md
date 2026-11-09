@@ -62,7 +62,8 @@ In all states: canopies and carports from ALKIS are map objects in every state e
 Saxony and Saxony-Anhalt, and building passages are candidates there. Brandenburg maps get walls, fences,
 hedges, monuments, embankment tops and bridges from the full ALKIS as candidates, and around Potsdam the trees
 of the city map; the two edges of a wall become one line in the middle. Point symbols keep the gap the norm
-asks for, and dense tree groups on paving or open land become areas.
+asks for, and dense tree groups become areas that show, also in parks. Where walls, fences and hedges overlap on
+paper, the stronger line stays.
 
 freemapper is still under development. Next, the region adapters are rebuilt so that other developers
 can contribute adapters for their own country. Then come more detailed sprint maps for further states,

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
+use crate::build::barriers::resolve_barrier_overlaps;
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
     drop_shelters_under_canopies,
@@ -4307,10 +4308,20 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre_candidates =
         drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
-    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving and 402
-    // or 405 on open land (the 401 green strips of the paved build, the OSM pitches among the
-    // candidates), and no point stands in a 520 area (`build/points.rs`). The OSM candidates
-    // stay before the others.
+    // Walls, fences and hedges of any symbol that overlap on paper keep the stronger line, those
+    // along a building outline go, and a tree in a hedge is the hedge (`build/barriers.rs`).
+    let (osm_candidates, cadastre_candidates) = resolve_barrier_overlaps(
+        osm_candidates,
+        cadastre_candidates,
+        &footprints,
+        project.map_kind,
+        &georef,
+        &symbol_set,
+    )?;
+    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
+    // or 405 (on the white base off open land with a 416 boundary; open land: the 401 green
+    // strips of the paved build, the OSM pitches among the candidates), and no point stands in
+    // a 520 area (`build/points.rs`). The OSM candidates stay before the others.
     let out_of_bounds =
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
     let mut points = osm_candidates;

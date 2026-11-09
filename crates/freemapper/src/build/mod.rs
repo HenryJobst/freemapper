@@ -1,5 +1,6 @@
 //! Building map objects from source data, following the symbol mapping rules.
 
+pub mod barriers;
 pub mod berlin;
 pub mod buildings;
 pub mod candidates;

@@ -54,6 +54,8 @@ enlarge.rs, except school additions 321/541–545 and sheet symbols 991–994, w
 | 201 | line | colour 2, w 500, cap 0, join 1 miter. **Mid symbol** (rotatable point; element line (0,100)->(0,750), w 180, colour 2, flat). segment_length 750, end_length 180, `show_at_least_one_symbol` absent = **false**. |
 | 321 | point | ring: inner_radius 520, outer_width 130, outer colour 7, no inner colour. Element: point symbol (dot r 250, colour 7) at (0,0). Not rotatable. |
 | 401 | area | inner colour 30, no patterns. |
+| 402 / 501.3 | area | inner colour 30 / 14 and one **point pattern** (`type="2"`): angle 45°, rows and points 750 apart, dot r 300 colour 28 (white). freemapper draws the dots whose centre lies inside the area; OOM clips them at the outline. |
+| 416 | line | no line (colour -1, w 0). **Mid symbol** dot r 125 colour 2, segment 600, `show_at_least_one_symbol` true. |
 | 410.1 | line | colour 3, w 400, flat, miter. |
 | 418 | point | dot r 100 colour 21 + ring outer_width 300 colour 3. |
 | 501 | combined | part 1 = symbol index 105 (501.5 area colour 14); part 2 private line colour 15, w 200 (school: 2 x 438 = 876, set by symbol_set.rs). |
@@ -78,7 +80,7 @@ enlarge.rs, except school additions 321/541–545 and sheet symbols 991–994, w
 | 991 / 992 / 993 | text | Arial 5000 bold / 2500 / 1800, colour 2, line_spacing 1, paragraph 0, char spacing 0, kerning true, no framing, **no `rotatable` → not rotatable**. |
 | 994 | line | colour 2, w 250, cap 0 flat, join 1 miter. |
 
-Not used by any listed symbol: line patterns/point patterns, pointed caps, start/end offsets,
+Not used by any listed symbol: line patterns, pointed caps, start/end offsets,
 dash symbols, dash points, mid symbols on dashed lines, text framing. They are summarised briefly.
 
 ---

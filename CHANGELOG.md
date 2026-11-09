@@ -8,6 +8,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Dichte Baumgruppen werden jetzt auch im Park zur Fläche, die man auf der Karte sieht. Drei oder mehr Bäume, die auf dem Papier näher als 2,5 mm (10 m bei 1:4000) beieinander stehen oder deren Kronen sich fast berühren, werden Wald (405), wenn ihre Kronen mindestens die Hälfte der Fläche decken, sonst offenes Gelände mit verstreuten Bäumen (402). Auf weißem Grund bekommt der Wald eine punktierte Vegetationsgrenze (416), damit er sichtbar ist. Auf Pflaster bleibt es bei 501.3, ab 9 Bäumen. Baumreihen an Straßen und Alleen bleiben Punkte. Im Park Sanssouci sinkt die Zahl der Baumpunkte von 1 654 auf 782 (48 Flächen 402), im Viktoriapark von 1 660 auf 942 (43 Wälder, 9 Flächen 402; ADR 0066, Nachtrag).
+- Die Trainingskarte (PDF) zeichnet die Punktmuster von Flächen, etwa die weißen Punkte von 402. Bisher sah 402 dort aus wie 401.
+- Überlappende Mauern, Zäune und Hecken. Laufen zwei solche Linien parallel und näher, als ihre Symbole auf dem Papier dürfen, verliert die schwächere das Stück: die schlechtere Quelle, bei gleicher Quelle das schwächere Symbol (Mauer vor Zaun vor Hecke vor Stützmauer). Mauerstücke bis 0,5 m neben einem Gebäudeumriss fallen weg, ebenso Bäume bis 1 m neben einer dieser Linien. Im Park Sanssouci sinken die parallelen Linienpaare unter 1 m Abstand von 162 auf 4 (ADR 0068).
+- Alle elf Beispielprojekte sind mit diesen Regeln neu erzeugt, ihre Kartenobjekte bleiben gleich.
+
 - freemapper schreibt, kopiert und löscht im Projektordner jetzt mit der gemeinsamen Bibliothek `freemapper-fs` aus freemapper-core 0.2.0 und pflegt keine eigene Kopie mehr. Für Nutzer bleibt alles gleich, auch der Wortlaut der Meldungen (ADR 0067).
 
 ## [0.7.0] - 2026-11-09

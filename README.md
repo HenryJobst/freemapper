@@ -63,7 +63,8 @@ In allen Bundesländern: Überdachungen und Carports aus ALKIS sind in jedem Bun
 Sachsen-Anhalt Kartenobjekte, Durchfahrten dort Kandidaten. Brandenburger Karten bekommen Mauern, Zäune,
 Hecken, Denkmäler, Böschungsoberkanten und Brücken aus dem vollständigen ALKIS als Kandidaten, rund um Potsdam
 auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Linie in der Mitte. Punktsymbole
-halten den Abstand der Norm ein, und dichte Baumgruppen auf Pflaster oder offenem Gelände werden zu Flächen.
+halten den Abstand der Norm ein, und dichte Baumgruppen werden zu Flächen, die man sieht, auch im Park. Überlappen
+Mauern, Zäune und Hecken auf dem Papier, bleibt die stärkere Linie.
 
 Das Programm ist noch in Entwicklung. Als Nächstes werden die Länder-Adapter so umgebaut, dass andere
 Entwickler eigene Adapter für ihr Land beitragen können. Danach folgen genauere Sprintkarten für weitere
