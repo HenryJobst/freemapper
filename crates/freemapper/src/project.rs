@@ -9069,7 +9069,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .iter()
             .find(|l| l.layer.file == "sb-gelaender")
             .unwrap();
-        assert_eq!(railings.features[0]["properties"]["layer"], "bf_gelaender");
+        assert_eq!(
+            railings.features[0]["properties"]["freemapper:layer"],
+            "bf_gelaender"
+        );
         assert_eq!(
             railings.features[0]["properties"]["survey_date"],
             "2015-05-02"

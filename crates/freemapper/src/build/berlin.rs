@@ -192,12 +192,12 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
     let properties = feature["properties"].as_object();
     // A file with several WFS types names the type per feature.
     let layer = properties
-        .and_then(|p| p.get("layer"))
+        .and_then(|p| p.get(crate::sources::berlin::TYPE_KEY))
         .and_then(Value::as_str)
         .unwrap_or(layer);
     let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     for (key, value) in properties.into_iter().flatten() {
-        if key == "layer" {
+        if key == crate::sources::berlin::TYPE_KEY || key == "layer" {
             continue;
         }
         let text = match value {
@@ -660,7 +660,7 @@ mod tests {
         let rail = serde_json::json!({
             "type": "Feature", "id": "bf_gelaender.1",
             "geometry": {"type": "Point", "coordinates": [392419.46, 5820118.05]},
-            "properties": {"layer": "bf_gelaender", "survey_date": "2015-05-02"}
+            "properties": {"freemapper:layer": "bf_gelaender", "layer": "native", "survey_date": "2015-05-02"}
         });
         let tagged = tagged_features("sb-gelaender", &[rail]);
         let layers: Vec<&str> = tagged[0]

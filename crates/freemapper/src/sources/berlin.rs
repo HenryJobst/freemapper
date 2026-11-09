@@ -21,6 +21,9 @@ pub const LAND_USE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis";
 pub const LAND_USE_TYPE: &str = "alkis:tatsaechlichenutzungflaechen";
 /// Features per page; a 1 km tile in the city centre holds about 1100 buildings.
 const PAGE_COUNT: u32 = 5000;
+/// Property that holds the WFS type of a stored feature (not `layer`: a service may have one).
+pub const TYPE_KEY: &str = "freemapper:layer";
+
 /// The date the survey layers get when a `gis_id` has none (the survey ran 2014–2016).
 pub const SURVEY_DATASET_DATE: NaiveDate = NaiveDate::from_ymd_opt(2014, 1, 1).expect("a date");
 
@@ -312,7 +315,7 @@ fn fetch_layer(
             }
             if layer.by_type {
                 let local = t.name.split_once(':').map_or(t.name, |(_, name)| name);
-                feature["properties"]["layer"] = local.into();
+                feature["properties"][TYPE_KEY] = local.into();
             }
             if layer.survey {
                 stamp_survey_date(&mut feature);
@@ -354,12 +357,11 @@ pub fn survey_date(gis_id: &str) -> Option<NaiveDate> {
     } else if text.contains('-') {
         NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()?
     } else if text.len() == 8 && text.bytes().all(|b| b.is_ascii_digit()) {
-        let plausible_year = |year: &str| year.parse::<i32>().is_ok_and(plausible_survey_year);
-        if plausible_year(&text[..4]) {
-            NaiveDate::parse_from_str(text, "%Y%m%d").ok()?
-        } else {
-            NaiveDate::parse_from_str(text, "%d%m%Y").ok()?
-        }
+        // YYYYMMDD when it is a date of the survey years, else DDMMYYYY.
+        NaiveDate::parse_from_str(text, "%Y%m%d")
+            .ok()
+            .filter(|d| plausible_survey_year(d.year()))
+            .or_else(|| NaiveDate::parse_from_str(text, "%d%m%Y").ok())?
     } else {
         return None;
     };
@@ -970,7 +972,7 @@ mod tests {
         // Two fixture features of `bf_gelaender`, two of `bb_verkehrsschutzgitter`, none of
         // `bg_leitplanke` (an empty answer is no error).
         assert_eq!(features.len(), 4);
-        let layer_of = |f: &Value| f["properties"]["layer"].as_str().unwrap().to_string();
+        let layer_of = |f: &Value| f["properties"][TYPE_KEY].as_str().unwrap().to_string();
         let types: Vec<String> = features.iter().map(layer_of).collect();
         assert_eq!(
             types,
@@ -980,6 +982,11 @@ mod tests {
                 "bb_verkehrsschutzgitter",
                 "bb_verkehrsschutzgitter"
             ]
+        );
+        assert!(
+            features
+                .iter()
+                .all(|f| f["properties"][TYPE_KEY].is_string())
         );
         // Stored as one collection and read back unchanged.
         assert_eq!(parse_layer(&layer_to_geojson(features)).unwrap(), *features);
@@ -991,6 +998,30 @@ mod tests {
             .filter(|u| u.contains("typeNames=strassenbefahrung:b"))
             .count();
         assert!(asked >= 3);
+        // A native `layer` property of the service stays as it is next to the marker.
+        let fetcher = extra_fetcher();
+        let body = serde_json::json!({ "type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "bf_gelaender.1", "geometry": null,
+            "properties": { "layer": "native", "gis_id": "Li_20150413_1" }
+        }] });
+        fetcher.insert(
+            &wfs_url(
+                rails.layer.service,
+                "strassenbefahrung:bf_gelaender",
+                &SCHOOL,
+            ),
+            body.to_string().into_bytes(),
+        );
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
+        let rails = layers
+            .iter()
+            .find(|l| l.layer.file == "sb-gelaender")
+            .unwrap();
+        let first = &rails.features.as_ref().unwrap()[0]["properties"];
+        assert_eq!(
+            (first["layer"].as_str(), first[TYPE_KEY].as_str()),
+            (Some("native"), Some("bf_gelaender"))
+        );
         // One failing type fails the file, not the others.
         let fetcher = extra_fetcher();
         let url = wfs_url(
@@ -1013,6 +1044,9 @@ mod tests {
         assert_eq!(survey_date("Li_25.09.2014_230"), date(2014, 9, 25));
         assert_eq!(survey_date("Fl_2015-05-02_404949"), date(2015, 5, 2));
         assert_eq!(survey_date("FL_16072014_03142"), date(2014, 7, 16));
+        // DDMMYYYY whose first four digits look like a year of the survey.
+        assert_eq!(survey_date("FL_20102014_1"), date(2014, 10, 20));
+        assert_eq!(survey_date("Fl_20141020_1"), date(2014, 10, 20));
         // A suffix after the running number does not matter.
         assert_eq!(survey_date("FL_04082014_01557_A_A_B"), date(2014, 8, 4));
         // Not a survey id, not a date, or not a plausible year.
