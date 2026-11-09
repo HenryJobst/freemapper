@@ -7,12 +7,14 @@
 
 use chrono::NaiveDate;
 use geo::orient::{Direction, Orient as _};
-use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _};
+use geo::{
+    Area as _, BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Intersects as _,
+};
 use geo_types::{LineString, MultiPolygon, Polygon, Rect};
 use serde_json::Value;
 
 use crate::build::berlin::{feature_polygons, survey_currency, survey_tags};
-use crate::build::out_of_bounds::{LandClip, area_object, clipped_part_objects};
+use crate::build::out_of_bounds::{LandClip, area_object, clipped_pieces, land_tags};
 use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
@@ -46,18 +48,22 @@ const SURFACE_TYPES: [&str; 7] = [
 ];
 /// ISSprOM 401 open land: the candidate for a surveyed green strip.
 const GREEN_CODE: &str = "401";
-/// Where a green strip and a paved object overlap by less than (1 mm)² or by a strip narrower
-/// than 1 mm on paper, nothing is cut: there the survey and the parcel boundary disagree, or the
-/// green is too narrow to show. Also the sliver limit of the 401 candidates.
+/// Where a green strip and a paved object overlap by less than (1 mm)², or by a strip narrower
+/// than 1 mm on paper and than [`SURVEY_SLIVER_CAP_M`], nothing is cut: there the survey and the
+/// parcel boundary disagree, or the green is too narrow to show. The same limits apply to the
+/// 401 candidates, so a green candidate never lies on paving that was not cut.
 const GREEN_MIN_SIDE_MM: f64 = 1.0;
 /// Surveyed paving outside the parcels smaller than (1 mm)² is a sliver.
 const SURVEYED_PAVED_MIN_SIDE_MM: f64 = 1.0;
-/// A survey candidate is no sliver down to this width on the ground, even where 1 mm on paper is
-/// more (4 m at 1:4000): a 3 m park path stays a candidate, the strips where the survey and the
-/// parcel boundary disagree (mostly under 1 m) go.
+/// A survey candidate, a cut green strip and a remnant of the cut are no sliver down to this
+/// width on the ground, even where 1 mm on paper is more (4 m at 1:4000): a 3 m park path stays a
+/// candidate, a 3.5 m sidewalk beyond a verge stays paved, and the strips where the survey and
+/// the parcel boundary disagree (mostly under 1 m) go.
 const SURVEY_SLIVER_CAP_M: f64 = 2.0;
 /// A green strip takes part in a cut when it overlaps the cut-out by more than this.
 const CUT_OVERLAP_M2: f64 = 0.01;
+/// A remnant within this distance of a strip's share of the cut-out lies along that strip.
+const TOUCH_M: f64 = 0.01;
 
 /// OSM streets and unpaved surfaces: an unpaved street makes its ALKIS parcel a candidate. The
 /// rule file keeps these streets in the stored OSM features (test `unpaved_streets_are_stored`).
@@ -132,6 +138,8 @@ pub struct SurveyArea {
     pub id: String,
     /// The survey date (from the `gis_id`, else the dataset date).
     pub surveyed: NaiveDate,
+    /// `surveyed` is the dataset date: the `gis_id` gave none.
+    pub guessed: bool,
     /// Provenance with the survey date as currency, the survey type and codes.
     pub tags: Vec<(String, String)>,
 }
@@ -174,7 +182,7 @@ fn survey_areas(file: &str, features: &[Value], types: &[&str], crs: Crs) -> Vec
             .or_else(|| feature["id"].as_str())
             .unwrap_or_default()
             .to_string();
-        let (surveyed, _) = survey_currency(feature);
+        let (surveyed, guessed) = survey_currency(feature);
         for polygon in feature_polygons(feature, crs) {
             let polygon = polygon.orient(Direction::Default);
             // Also skips NaN areas and degenerate rings (a point, a line).
@@ -190,6 +198,7 @@ fn survey_areas(file: &str, features: &[Value], types: &[&str], crs: Crs) -> Vec
                 bounds,
                 id: id.clone(),
                 surveyed,
+                guessed,
                 tags: tags.clone(),
             });
         }
@@ -224,7 +233,7 @@ pub fn paved_area_objects(
             .map(|g| &g.polygon),
     );
     let mut objects = PavedObjects::default();
-    // The parcels drawn as 501.5 objects or candidates, inside the window.
+    // What the 501.5 objects and candidates cover inside the window, and the strips cut out.
     let mut drawn = Vec::new();
     for land in land_use {
         let reliable = match (land.nutzart.as_str(), land.bez.as_deref()) {
@@ -236,31 +245,43 @@ pub fn paved_area_objects(
             _ => continue,
         };
         for part in &land.footprint.0 {
-            if !survey.surfaces.is_empty() {
-                drawn.extend(
-                    part.orient(Direction::Default)
-                        .intersection(&clip.polygon)
-                        .0,
-                );
-            }
             let unpaved = unpaved_streets.iter().any(|street| street.intersects(part));
-            if !reliable || unpaved {
-                objects
-                    .candidates
-                    .extend(clipped_part_objects(land, part, &clip, symbol_id, georef)?);
-                continue;
-            }
-            let Some(cut) = subtract_green(part, &survey.green, &green_union, &green_clip) else {
-                objects
-                    .map
-                    .extend(clipped_part_objects(land, part, &clip, symbol_id, georef)?);
+            let map = reliable && !unpaved;
+            let cut = if map {
+                subtract_green(part, &survey.green, &green_union, &green_clip)
+            } else {
+                None
+            };
+            let Some(cut) = cut else {
+                let target = if map {
+                    &mut objects.map
+                } else {
+                    &mut objects.candidates
+                };
+                for piece in clipped_pieces(part, &clip, f64::INFINITY) {
+                    target.push(area_object(&piece, symbol_id, land_tags(land), georef)?);
+                    drawn.push(piece);
+                }
                 continue;
             };
-            for piece in &cut.pieces {
-                for mut object in clipped_part_objects(land, piece, &clip, symbol_id, georef)? {
-                    object.tags.extend(cut.tags.iter().cloned());
-                    objects.map.push(object);
+            drawn.extend(cut.cut_out.iter().cloned());
+            let pieces = cut
+                .pieces
+                .iter()
+                .flat_map(|p| clipped_pieces(p, &clip, SURVEY_SLIVER_CAP_M));
+            for piece in pieces {
+                let cut_tags = cut.tags_for(&piece);
+                // A remnant of the cut keeps what is wider than the strips themselves: a
+                // sidewalk beyond a verge stays. Other pieces keep the paper limit.
+                if cut_tags.is_empty() && clip.is_sliver(&piece, f64::INFINITY) {
+                    continue;
                 }
+                let mut tags = land_tags(land);
+                tags.extend(cut_tags);
+                objects
+                    .map
+                    .push(area_object(&piece, symbol_id, tags, georef)?);
+                drawn.push(piece);
             }
         }
     }
@@ -284,23 +305,73 @@ pub fn paved_area_objects(
 }
 
 /// A paved part with the surveyed green strips cut out.
-pub(crate) struct GreenCut {
+pub(crate) struct GreenCut<'a> {
     /// What is left of the part inside the clip window; slivers are dropped later.
     pub pieces: Vec<Polygon<f64>>,
-    /// `freemapper:cut` (the survey layer), `freemapper:cut_ids` (the strips' `gis_id`s) and
-    /// `freemapper:cut_currency` (the oldest survey date among them).
-    pub tags: Vec<(String, String)>,
+    /// The cut-out overlaps of part and strips.
+    pub cut_out: Vec<Polygon<f64>>,
+    /// The strips that took part, each with its share of `cut_out`.
+    strips: Vec<(&'a SurveyArea, MultiPolygon<f64>)>,
+}
+
+impl GreenCut<'_> {
+    /// The cut tags of `piece` (one of the remnants) for the strips along its edges:
+    /// `freemapper:cut` (the survey layer), `freemapper:cut_ids` (their `gis_id`s) and
+    /// `freemapper:cut_currency`: the oldest survey date that is not guessed, else the oldest
+    /// guessed one with `freemapper:cut_currency_guessed=yes`. Empty when no strip touches it.
+    pub(crate) fn tags_for(&self, piece: &Polygon<f64>) -> Vec<(String, String)> {
+        let touching: Vec<&SurveyArea> = self
+            .strips
+            .iter()
+            .filter(|(_, share)| Euclidean.distance(piece, share) <= TOUCH_M)
+            .map(|(strip, _)| *strip)
+            .collect();
+        let mut ids: Vec<&str> = Vec::new();
+        for strip in &touching {
+            if !ids.contains(&strip.id.as_str()) {
+                ids.push(&strip.id);
+            }
+        }
+        let oldest = |guessed: bool| {
+            touching
+                .iter()
+                .filter(|s| s.guessed == guessed)
+                .map(|s| s.surveyed)
+                .min()
+        };
+        let (currency, guessed) = match (oldest(false), oldest(true)) {
+            (Some(date), _) => (date, false),
+            (None, Some(date)) => (date, true),
+            (None, None) => return Vec::new(),
+        };
+        let mut tags = vec![
+            (
+                "freemapper:cut".to_string(),
+                format!("geoportal-berlin/{GREEN_LAYER}"),
+            ),
+            ("freemapper:cut_ids".to_string(), ids.join("; ")),
+            ("freemapper:cut_currency".to_string(), currency.to_string()),
+        ];
+        if guessed {
+            tags.push((
+                "freemapper:cut_currency_guessed".to_string(),
+                "yes".to_string(),
+            ));
+        }
+        tags
+    }
 }
 
 /// Cuts the `green` strips (their union `green_union`, map CRS) out of the paved `part` inside
-/// `clip`'s window. Only overlaps above `clip`'s sliver limits are cut. `None` when there is
-/// none: the part stays as it is.
-pub(crate) fn subtract_green(
+/// `clip`'s window. Only overlaps above `clip`'s sliver limits (capped at
+/// [`SURVEY_SLIVER_CAP_M`], as the 401 candidates) are cut. `None` when there is none: the part
+/// stays as it is.
+pub(crate) fn subtract_green<'a>(
     part: &Polygon<f64>,
-    green: &[SurveyArea],
+    green: &'a [SurveyArea],
     green_union: &MultiPolygon<f64>,
     clip: &LandClip,
-) -> Option<GreenCut> {
+) -> Option<GreenCut<'a>> {
     let bounds = part.bounding_rect()?;
     let near = MultiPolygon(
         green_union
@@ -315,43 +386,30 @@ pub(crate) fn subtract_green(
     }
     // Cut down to the window first: a street parcel can be far larger than the map.
     let windowed = part.orient(Direction::Default).intersection(&clip.polygon);
-    let cut_out: Vec<Polygon<f64>> = windowed
-        .intersection(&near)
-        .0
-        .into_iter()
-        .filter(|overlap| !clip.is_sliver(overlap, f64::INFINITY))
-        .collect();
-    if cut_out.is_empty() {
+    let cut_out = MultiPolygon(
+        windowed
+            .intersection(&near)
+            .0
+            .into_iter()
+            .filter(|overlap| !clip.is_sliver(overlap, SURVEY_SLIVER_CAP_M))
+            .collect(),
+    );
+    if cut_out.0.is_empty() {
         return None;
     }
-    let mut ids: Vec<&str> = Vec::new();
-    let mut oldest: Option<NaiveDate> = None;
-    for strip in green {
-        let overlaps = cut_out.iter().any(|c| {
-            c.bounding_rect()
-                .is_some_and(|r| r.intersects(&strip.bounds))
-                && strip.polygon.intersection(c).unsigned_area() > CUT_OVERLAP_M2
-        });
-        if overlaps {
-            if !ids.contains(&strip.id.as_str()) {
-                ids.push(&strip.id);
-            }
-            oldest = Some(oldest.map_or(strip.surveyed, |d| d.min(strip.surveyed)));
-        }
-    }
-    let mut tags = vec![(
-        "freemapper:cut".to_string(),
-        format!("geoportal-berlin/{GREEN_LAYER}"),
-    )];
-    if !ids.is_empty() {
-        tags.push(("freemapper:cut_ids".to_string(), ids.join("; ")));
-    }
-    if let Some(oldest) = oldest {
-        tags.push(("freemapper:cut_currency".to_string(), oldest.to_string()));
-    }
+    let cut_bounds = cut_out.bounding_rect()?;
+    let strips = green
+        .iter()
+        .filter(|strip| strip.bounds.intersects(&cut_bounds))
+        .filter_map(|strip| {
+            let share = strip.polygon.intersection(&cut_out);
+            (share.unsigned_area() > CUT_OVERLAP_M2).then_some((strip, share))
+        })
+        .collect();
     Some(GreenCut {
-        pieces: windowed.difference(&MultiPolygon(cut_out)).0,
-        tags,
+        pieces: windowed.difference(&cut_out).0,
+        cut_out: cut_out.0,
+        strips,
     })
 }
 
@@ -738,14 +796,29 @@ mod tests {
                 &ring(e - 45.0, n - 1.0, 10.0, 2.0),
             ),
         ];
+        // A market square cut by one strip whose `gis_id` gave no date.
+        let mut unknown = survey_feature(
+            "ce_gruenflaeche",
+            "Fl_unknown",
+            "2014-01-01",
+            &ring(e + 20.0, n - 70.0, 10.0, 10.0),
+        );
+        unknown["properties"]["survey_date_guessed"] = "yes".into();
+        let green: Vec<Value> = green.into_iter().chain([unknown]).collect();
         let survey = StreetSurvey::from_features(&green, &[], f.georef.crs());
         let mut car_park = land("Platz", Some("Parkplatz"), &f);
         car_park.footprint = MultiPolygon(vec![Polygon::new(
             ring(e - 50.0, n + 60.0, 40.0, 20.0),
             vec![],
         )]);
-        let (objects, set) = paved_with(&f, &[land("Straßenverkehr", None, &f), car_park], &survey);
-        assert_eq!(objects.map.len(), 2);
+        let mut market = land("Platz", Some("Marktplatz"), &f);
+        market.footprint = MultiPolygon(vec![Polygon::new(ring(e, n - 80.0, 40.0, 30.0), vec![])]);
+        let (objects, set) = paved_with(
+            &f,
+            &[land("Straßenverkehr", None, &f), car_park, market],
+            &survey,
+        );
+        assert_eq!(objects.map.len(), 3);
         let street = &objects.map[0];
         let area = area_of(street, &f.georef);
         assert!((area - 840.0).abs() < 1.0, "{area}");
@@ -766,6 +839,12 @@ mod tests {
         let car_park = &objects.map[1];
         assert!((area_of(car_park, &f.georef) - 800.0).abs() < 1.0);
         assert_eq!(tag(car_park, "freemapper:cut"), None);
+        // Only a guessed date: it is named, and marked as guessed.
+        let market = &objects.map[2];
+        assert_eq!(tag(market, "freemapper:cut_ids"), Some("Fl_unknown"));
+        assert_eq!(tag(market, "freemapper:cut_currency"), Some("2014-01-01"));
+        assert_eq!(tag(market, "freemapper:cut_currency_guessed"), Some("yes"));
+        assert_eq!(tag(street, "freemapper:cut_currency_guessed"), None);
         // The surveyed greens wider than 2 m are 401 candidates with the survey date.
         let open_land = set.id_for_code("401").unwrap();
         let greens: Vec<&MapObject> = objects
@@ -773,7 +852,7 @@ mod tests {
             .iter()
             .filter(|o| o.symbol_id == open_land)
             .collect();
-        assert_eq!(greens.len(), 3);
+        assert_eq!(greens.len(), 4);
         assert_eq!(
             tag(greens[0], "freemapper:source"),
             Some("geoportal-berlin/sb-gruenflaeche")
@@ -798,6 +877,98 @@ mod tests {
         assert!((area_of(&objects.map[0], &f.georef) - 1200.0).abs() < 1.0);
         assert_eq!(tag(&objects.map[0], "freemapper:cut"), None);
         assert!(objects.candidates.is_empty());
+    }
+
+    #[test]
+    fn verge_splits_parcel_into_sidewalk_and_carriageway() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // A 14 m parcel: a 3.5 m sidewalk, a 2.5 m verge along the whole parcel, 8 m of
+        // carriageway with a 5 m island. At 1:4000 the sidewalk is under 1 mm on paper, but a
+        // remnant of a cut keeps what is wider than 2 m on the ground, like the verge itself.
+        let mut street = land("Straßenverkehr", None, &f);
+        street.footprint = MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n - 7.0, 100.0, 14.0),
+            vec![],
+        )]);
+        let mut island = survey_feature(
+            "ce_gruenflaeche",
+            "Fl_unknown",
+            "2014-01-01",
+            &ring(e + 10.0, n + 1.0, 20.0, 5.0),
+        );
+        island["properties"]["survey_date_guessed"] = "yes".into();
+        let green = [
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_11",
+                "2015-04-16",
+                &ring(e - 60.0, n - 3.5, 120.0, 2.5),
+            ),
+            island,
+            // A strip 1 m from the west end leaves a 1 × 8 m remnant there: a sliver.
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_12",
+                "2015-04-16",
+                &ring(e - 49.0, n - 1.0, 10.0, 9.0),
+            ),
+        ];
+        let survey = StreetSurvey::from_features(&green, &[], f.georef.crs());
+        let (objects, set) = paved_with(&f, &[street], &survey);
+        assert_eq!(objects.map.len(), 2, "{:?}", objects.map);
+        let (sidewalk, carriageway) = (&objects.map[0], &objects.map[1]);
+        let sidewalk_area = area_of(sidewalk, &f.georef);
+        assert!((sidewalk_area - 350.0).abs() < 1.0, "{sidewalk_area}");
+        // 800 m² less the island (100 m²), the strip (80 m²) and its remnant (8 m²).
+        let carriageway_area = area_of(carriageway, &f.georef);
+        assert!((carriageway_area - 612.0).abs() < 1.0, "{carriageway_area}");
+        // Each piece names the strips along its own edges; a real date beats a guessed one.
+        assert_eq!(tag(sidewalk, "freemapper:cut_ids"), Some("Fl_20150416_11"));
+        assert_eq!(
+            tag(carriageway, "freemapper:cut_ids"),
+            Some("Fl_20150416_11; Fl_unknown; Fl_20150416_12")
+        );
+        for piece in [sidewalk, carriageway] {
+            assert_eq!(tag(piece, "freemapper:cut_currency"), Some("2015-04-16"));
+            assert_eq!(tag(piece, "freemapper:cut_currency_guessed"), None);
+        }
+        // The verge is cut, so its 401 candidate lies on no paving.
+        let open_land = set.id_for_code("401").unwrap();
+        assert_eq!(
+            objects
+                .candidates
+                .iter()
+                .filter(|c| c.symbol_id == open_land)
+                .count(),
+            3
+        );
+    }
+
+    #[test]
+    fn surveyed_paving_on_a_dropped_parcel_is_candidate() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        // A 3 m `Weg` parcel is under 1 mm on paper at 1:4000: no ALKIS candidate. The
+        // surveyed sidewalk on it is one.
+        let mut way = land("Weg", None, &f);
+        way.footprint = MultiPolygon(vec![Polygon::new(
+            ring(e - 40.0, n + 30.0, 60.0, 3.0),
+            vec![],
+        )]);
+        let sidewalk = survey_feature(
+            "cl_gehweg",
+            "Fl_20150413_13",
+            "2015-04-13",
+            &ring(e - 40.0, n + 30.0, 60.0, 3.0),
+        );
+        let survey = StreetSurvey::from_features(&[], &[sidewalk], f.georef.crs());
+        let (objects, _) = paved_with(&f, &[way], &survey);
+        assert_eq!(objects.candidates.len(), 1, "{:?}", objects.candidates);
+        assert_eq!(
+            tag(&objects.candidates[0], "freemapper:source_id"),
+            Some("Fl_20150413_13")
+        );
     }
 
     #[test]
@@ -881,12 +1052,21 @@ mod tests {
             ),
             parcel("Weg", None, ring(e + 40.0, n + 6.0, 6.0, 60.0)),
         ];
-        let green = [survey_feature(
-            "ce_gruenflaeche",
-            "Fl_20150416_10",
-            "2015-04-16",
-            &ring(e - 50.0, n - 6.0, 20.0, 8.0),
-        )];
+        let green = [
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_10",
+                "2015-04-16",
+                &ring(e - 50.0, n - 6.0, 20.0, 8.0),
+            ),
+            // 2.5 m: cut, so its 401 candidate overlaps no map object either.
+            survey_feature(
+                "ce_gruenflaeche",
+                "Fl_20150416_14",
+                "2015-04-16",
+                &ring(e + 20.0, n - 2.0, 30.0, 2.5),
+            ),
+        ];
         // Every surface overlaps a parcel and reaches out of it; one crosses all three.
         let surfaces: Vec<Value> = [
             ring(e - 70.0, n - 10.0, 30.0, 25.0),
@@ -928,6 +1108,20 @@ mod tests {
             for object in &alkis {
                 let overlap = candidate.intersection(object).unsigned_area();
                 assert!(overlap < 0.05, "{overlap} m²");
+            }
+        }
+        let open_land = set.id_for_code("401").unwrap();
+        let greens: Vec<Polygon<f64>> = objects
+            .candidates
+            .iter()
+            .filter(|c| c.symbol_id == open_land)
+            .map(|c| polygon_of(c, &f.georef))
+            .collect();
+        assert_eq!(greens.len(), 2);
+        for green in &greens {
+            for object in objects.map.iter().map(|o| polygon_of(o, &f.georef)) {
+                let overlap = green.intersection(&object).unsigned_area();
+                assert!(overlap < 0.05, "401 on paving: {overlap} m²");
             }
         }
     }

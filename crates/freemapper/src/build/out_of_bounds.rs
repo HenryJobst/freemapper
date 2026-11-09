@@ -136,22 +136,37 @@ pub(crate) fn clipped_part_objects(
     symbol_id: u32,
     georef: &Georeferencing,
 ) -> Result<Vec<MapObject>, GeorefError> {
-    let mut objects = Vec::new();
-    for piece in part.intersection(&clip.polygon).0 {
-        if clip.is_sliver(&piece, f64::INFINITY) {
-            continue;
-        }
-        let mut tags = vec![
-            ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
-            ("freemapper:source_id".to_string(), land.oid.clone()),
-            ("freemapper:nutzart".to_string(), nutzart_label(land)),
-        ];
-        if let Some(updated) = land.updated {
-            tags.push(("freemapper:currency".to_string(), updated.to_string()));
-        }
-        objects.push(area_object(&piece, symbol_id, tags, georef)?);
+    clipped_pieces(part, clip, f64::INFINITY)
+        .iter()
+        .map(|piece| area_object(piece, symbol_id, land_tags(land), georef))
+        .collect()
+}
+
+/// The pieces of `part` inside the clip window, slivers dropped ([`LandClip::is_sliver`] with
+/// `width_cap_m`).
+pub(crate) fn clipped_pieces(
+    part: &Polygon<f64>,
+    clip: &LandClip,
+    width_cap_m: f64,
+) -> Vec<Polygon<f64>> {
+    part.intersection(&clip.polygon)
+        .0
+        .into_iter()
+        .filter(|piece| !clip.is_sliver(piece, width_cap_m))
+        .collect()
+}
+
+/// The provenance tags of an object from the land use `land`.
+pub(crate) fn land_tags(land: &LandUse) -> Vec<(String, String)> {
+    let mut tags = vec![
+        ("freemapper:source".to_string(), "alkis-nutzung".to_string()),
+        ("freemapper:source_id".to_string(), land.oid.clone()),
+        ("freemapper:nutzart".to_string(), nutzart_label(land)),
+    ];
+    if let Some(updated) = land.updated {
+        tags.push(("freemapper:currency".to_string(), updated.to_string()));
     }
-    Ok(objects)
+    tags
 }
 
 /// The area object with `symbol_id` and `tags` for `polygon` (map CRS), holes kept.
