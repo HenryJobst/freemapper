@@ -6,8 +6,15 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Parks are yellow. Green spaces, parks, settlement green and grassland from ALKIS become open land (401) on the map, woods and copses forest (405), heath 403. Cemeteries, other farmland, moor and swamp are candidates, and so are parks and lawns from OSM where no ALKIS park lies (ADR 0069).
+- The walkable area. On the sprint map one area in the lower brown of 501.5 lies under everything over the whole sheet, symbol 990 in its own map part `base`, tag `freemapper:source=base`. It fills every gap that nothing else shows; a sprint map without it is incomplete. Its colour comes after all others, in OOM, OCAD (colour 32, symbol 990.000) and the PDF. Print sprint maps in colour, because in greyscale the brown comes close to paper white (ADR 0069).
+
 ### Changed
 
+- Tree group areas (402, 405) no longer cover paths. freemapper also cuts them at paved candidates and at paths (505, 506, 507). The dotted distinct vegetation boundary (416) is left only on the schoolyard map; on the sprint map the white forest shows on yellow or brown. In the Viktoriapark more trees therefore stay points (1,128 instead of 835), and the 49 boundary lines are gone (ADR 0069).
+- All eleven example projects are rebuilt, with yellow parks and the walkable area.
 - Dense tree groups now become an area the map shows, also in parks. Three or more trees standing closer than 2.5 mm on paper (10 m at 1:4000), or whose crowns almost touch, become forest (405) when their crowns cover at least half of the area, else open land with scattered trees (402). On the white base the forest gets a dotted distinct vegetation boundary (416) so that it shows. On paving it stays 501.3, from 9 trees. Rows of trees along streets and avenues stay points. In Park Sanssouci the tree points drop from 1,654 to 782 (48 areas 402), in Viktoriapark from 1,660 to 942 (43 forests, 9 areas 402; ADR 0066, amendment).
 - The training map (PDF) draws the point patterns of areas, such as the white dots of 402. Until now 402 looked like 401 there.
 - Overlapping walls, fences and hedges. Where two such lines run parallel and closer than their symbols may come on paper, the weaker one loses that stretch: the worse source, and for one source the weaker symbol (wall before fence before hedge before retaining wall). Wall stretches within 0.5 m of a building outline are dropped, and so are trees within 1 m of one of these lines. In Park Sanssouci the parallel line pairs closer than 1 m drop from 162 to 4 (ADR 0068).

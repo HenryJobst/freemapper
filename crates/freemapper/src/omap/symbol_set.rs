@@ -23,6 +23,14 @@ pub struct SymbolSet {
 const SCHOOL_2019_ADDITIONS: &str =
     include_str!("../../../../assets/symbol-sets/school-2019-additions.xml");
 const SHEET_ADDITIONS: &str = include_str!("../../../../assets/symbol-sets/sheet-additions.xml");
+const WALKABLE_AREA_ADDITIONS: &str =
+    include_str!("../../../../assets/symbol-sets/walkable-area-additions.xml");
+/// The code of the walkable area (belaufbare Fläche), the base fill of the sprint map.
+pub const WALKABLE_AREA_CODE: &str = "990";
+/// The colour of the walkable area: the CMYK and spot colour mix of "Lower brown 30%" (501.5,
+/// IOF Rev. 4: 6/23/33/0), at a priority behind every other colour, so that it is painted first
+/// and everything else lies on it. `{priority}` is the next free priority.
+const WALKABLE_AREA_COLOUR: &str = r#"<color priority="{priority}" name="Lower brown 30% for walkable area" c="0.06" m="0.23" y="0.33" k="0" opacity="1"><spotcolors knockout="true"><component factor="0.3" spotcolor="8"/></spotcolors><cmyk method="custom"/><rgb method="cmyk" r="0.94" g="0.77" b="0.67"/></color>"#;
 /// IOF school symbol set 2019: all ISSprOM 2019 symbols are enlarged to 125 %.
 pub const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
 
@@ -155,6 +163,32 @@ impl SymbolSet {
     /// They are added unscaled: their sizes are absolute on paper.
     pub fn with_sheet_symbols(&self) -> Self {
         self.with_additions(SHEET_ADDITIONS)
+    }
+
+    /// This set plus the walkable area (belaufbare Fläche, [`WALKABLE_AREA_CODE`]): a colour
+    /// with the mix of "Lower brown 30%" appended behind all others, and the area symbol in it.
+    /// Existing colour priorities and symbol ids stay unchanged.
+    pub fn with_walkable_area(&self) -> Self {
+        let count: usize = first_attribute_after(&self.colors_xml, "<colors ", "count")
+            .and_then(|c| c.parse().ok())
+            .expect("colours fragment has a count");
+        let colour = WALKABLE_AREA_COLOUR.replace("{priority}", &count.to_string());
+        let closing = self
+            .colors_xml
+            .rfind("</colors>")
+            .expect("colours fragment is closed");
+        let colors_xml = format!("{}{colour}\n</colors>", &self.colors_xml[..closing]).replacen(
+            &format!(r#"<colors count="{count}""#),
+            &format!(r#"<colors count="{}""#, count + 1),
+            1,
+        );
+        let symbol = WALKABLE_AREA_ADDITIONS
+            .replace(r#"inner_color="32""#, &format!(r#"inner_color="{count}""#));
+        Self {
+            colors_xml,
+            ..self.clone()
+        }
+        .with_additions(&symbol)
     }
 
     /// Appends symbols given one per line with `id="@"`; they get consecutive ids after the
@@ -414,6 +448,48 @@ mod tests {
         let title = r#"code="991""#;
         assert_eq!(first_attr(&sprint.symbols_xml, title, "size"), "5000");
         assert_eq!(first_attr(&sprint.symbols_xml, title, "bold"), "true");
+    }
+
+    #[test]
+    fn walkable_area_is_the_last_colour_and_its_own_symbol() {
+        let plain = SymbolSet::issprom_2019().with_sheet_symbols();
+        let set = plain.with_walkable_area();
+        // A colour behind all 32 of the norm set, the priorities stay contiguous.
+        assert!(set.colors_xml.starts_with(r#"<colors count="33">"#));
+        let table = colour_table(&set.colors_xml);
+        assert_eq!(table.len(), 33);
+        let base = &table[32];
+        assert_eq!(base.name, "Lower brown 30% for walkable area");
+        assert!(
+            set.colors_xml
+                .contains(r#"<color priority="32" name="Lower brown 30% for walkable area""#)
+        );
+        // The mix of the paved area's lower brown (501.5), IOF Rev. 4.
+        let lower = table.iter().find(|c| c.name == "Lower brown 30%").unwrap();
+        assert_eq!(base.cmyk, lower.cmyk);
+        assert_eq!(base.rgb, lower.rgb);
+        assert_eq!(base.components, lower.components);
+        // Its symbol comes after the sheet symbols, which keep their ids.
+        assert_eq!(set.id_for_code(WALKABLE_AREA_CODE), Some(189));
+        assert_eq!(set.id_for_code("991"), plain.id_for_code("991"));
+        assert_eq!(set.symbol_type(189), Some(4));
+        let from = set.symbols_xml.find(r#" code="990""#).unwrap();
+        assert_eq!(
+            first_attr(&set.symbols_xml[from..], "<area_symbol ", "inner_color"),
+            "32"
+        );
+        assert!(
+            set.symbols_xml
+                .contains(r#"name="Walkable area (base fill)""#)
+        );
+        // Every other colour is as before.
+        assert!(set.colors_xml.starts_with(
+            &plain.colors_xml[..plain.colors_xml.len() - "</colors>".len()].replacen(
+                "count=\"32\"",
+                "count=\"33\"",
+                1
+            )
+        ));
     }
 
     #[test]

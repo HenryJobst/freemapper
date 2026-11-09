@@ -206,10 +206,23 @@ stehen Zäune, Hecken, Bänke, Höhenlinien, Sperrgebiete, Gewässer aus OSM und
 und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen und die Objekte kopieren
 und einfügen. Beide Karten haben dieselbe Georeferenz.
 
+Auf der Sprintkarte liegt unter allem die **belaufbare Fläche**: eine Fläche im unteren Braun (dem Ton von
+501.5) über das ganze Kartenblatt, im eigenen Kartenteil `base`. Sie füllt alles, was sonst nichts zeigt.
+Gebäude, Straßen, Sperrgebiete, Parks, Wald, Wege, Gewässer und Höhenlinien liegen darüber. Eine
+Sprintkarte ohne diese Fläche ist unvollständig, denn wo nichts kartiert ist, bliebe sie weiß und sähe aus wie
+Wald. Sie können die Fläche in OOM löschen, das ist aber nicht vorgesehen. Das untere Braun liegt im
+Graustufendruck nahe an den Wegflächen und am Papierweiß; drucken Sie Sprintkarten deshalb farbig. Die
+Schulhofkarte hat keine belaufbare Fläche.
+
+**Parks** sind gelb. Grünanlagen, Parks, Siedlungsgrün und Grünland aus dem Kataster werden zu offenem
+Gelände (401) in der Karte, Wald und Gehölz zu Wald (405), Heide zu 403. Friedhöfe und anderes
+Landwirtschaftsland, Moor und Sumpf sind Kandidaten, ebenso Parks und Rasen aus OSM, soweit dort kein
+Kataster-Park liegt.
+
 Punktsymbole wie Bäume, Brunnen oder Poller halten den Abstand ein, den die ISSprOM verlangt. Würden sich
 zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe wird zu einer Fläche:
-befestigte Fläche mit verstreuten Bäumen, offenes Gelände mit verstreuten Bäumen oder Wald, auf weißem Grund
-mit einer punktierten Vegetationsgrenze. Was Sie dort prüfen, steht in Kapitel 9.
+befestigte Fläche mit verstreuten Bäumen, offenes Gelände mit verstreuten Bäumen oder Wald. Wege und
+Pflaster bleiben frei. Was Sie dort prüfen, steht in Kapitel 9.
 
 **Gewässer** zeichnet freemapper auf beiden Kartenarten. Flüsse, Kanäle, Seen, Teiche, Hafenbecken und
 Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (301.1) mit schwarzer
@@ -335,17 +348,19 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   Gruppe beansprucht einen Kreis von 5 m Halbmesser oder seine Krone, wenn sie größer ist. Liegt die Hälfte
   davon auf Pflaster, wird die Gruppe befestigte Fläche mit verstreuten Bäumen (501.3), wenn sie mindestens
   9 Bäume aufnimmt. Sonst wird sie Wald (405), wenn die Kronen mindestens die Hälfte der Fläche decken, und
-  sonst offenes Gelände mit verstreuten Bäumen (402). Auf dem weißen Grund wäre ein weißer Wald unsichtbar.
-  Deshalb bekommt ein Wald, der nicht zur Hälfte auf offenem Gelände (401 bis 404) liegt, eine deutliche
-  Vegetationsgrenze (416) als punktierten Umriss. Wo die Fläche an einem Gebäude, Gewässer, Sperrgebiet oder
-  Pflaster endet, fehlt die Grenze, denn dort begrenzt das andere Objekt. Straßen und Plätze schneidet
-  freemapper aus Wald und 402 heraus. Ein Streifen, der nur eine Baumreihe breit ist, fällt aus der Fläche
+  sonst offenes Gelände mit verstreuten Bäumen (402). Auf der Sprintkarte zeigt sich der weiße Wald auf dem
+  Gelb des Parks oder dem Braun der belaufbaren Fläche ohne Umriss. Auf der Schulhofkarte, deren Grund weiß
+  ist, bekommt ein Wald, der nicht zur Hälfte auf offenem Gelände (401 bis 404) liegt, eine deutliche
+  Vegetationsgrenze (416) als punktierten Umriss. Wo die Fläche an einem Gebäude, Gewässer, Sperrgebiet,
+  Pflaster oder Weg endet, fehlt diese Grenze. Straßen, Plätze, befestigte Kandidaten und Wege (505, 506,
+  507 in ihrer Breite auf dem Papier) schneidet freemapper aus Wald und 402 heraus, damit keine Fläche einen
+  Weg verdeckt. Liegt ein Rest danach unter der Mindestgröße, bleiben seine Bäume Punkte. Ein Streifen, der nur eine Baumreihe breit ist, fällt aus der Fläche
   und bleibt Punkte. Die Fläche und ihre Grenze tragen `freemapper:source=generalization` und nennen die
   Bäume in `freemapper:source_id`. Ihr Tag `freemapper:generalized` gibt die Zahl der Bäume und die
   Kronendeckung an. Große Bäume (417) bleiben auf einer 402-Fläche Punkte. Ohne gemessene Krone nimmt
   freemapper 12 m für 417 und 5 m für 418 an, bei Parkbäumen meist zu wenig. Vergleichen Sie den Umriss mit
-  dem Luftbild, zeichnen Sie Rasen als offenes Gelände (401) und löschen Sie die 416 dort, wo der Wald an
-  Gelb grenzt.
+  dem Luftbild. Im Kataster ist ein Park ganz Park: Waldstücke darin ohne Baumdaten bleiben gelb, die
+  zeichnen Sie selbst als 405.
 - **Überlappende Mauern, Zäune und Hecken:** Laufen zwei dieser Linien auf einem Stück parallel und näher, als
   ihre Symbole auf dem Papier kommen dürfen (halbe Breiten plus 0,15 mm zwischen zwei schwarzen Linien, bei
   zwei Quellen mindestens 1,5 m), verliert die schwächere Linie dieses Stück. Die bessere Quelle gewinnt

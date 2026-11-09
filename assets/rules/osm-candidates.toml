@@ -100,6 +100,20 @@ draw = "area"
 schoolyard = "401"
 sprint = "401"
 
+# Parks, lawns and meadows: open land (401) candidates. Where an ALKIS park, meadow or wood is a map
+# object, the OSM area adds nothing and goes (`build/open_land.rs`, ADR 0069).
+[[rule]]
+when = ["leisure=park"]
+draw = "area"
+schoolyard = "401"
+sprint = "401"
+
+[[rule]]
+when = ["landuse=grass|meadow|village_green|recreation_ground"]
+draw = "area"
+schoolyard = "401"
+sprint = "401"
+
 # Unpaved ways (sprint only). Paved ways and sidewalks have no rule: the ALKIS traffic areas and the
 # orthophoto cover them. Map objects only in the open: passages through buildings, covered and
 # indoor ways and pedestrian areas (closed rings) fall through to the candidate rule below.

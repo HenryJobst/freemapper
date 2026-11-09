@@ -1,7 +1,8 @@
 # 0066. Point symbols keep the norm's gap; dense tree groups become areas
 
 Date: 2026-11-09
-Status: Accepted, the tree groups amended on 2026-11-10 (see the amendment below)
+Status: Accepted, the tree groups amended on 2026-11-10 (see the amendment below); the 416 outline and the
+cuts at paths changed by ADR 0069
 
 ## Context
 

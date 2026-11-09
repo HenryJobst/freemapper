@@ -517,6 +517,43 @@ mod tests {
     }
 
     #[test]
+    fn sprint_paint_order_walkable_area_park_forest_then_paths() {
+        let s = crate::project::MapKind::Sprint.symbol_set();
+        let r = RenderSymbols::from_set(&s);
+        // Painted highest priority number first, so a larger number lies lower.
+        let lowest = |code: &str| {
+            primitives(&object(&s, code, MapObjectKind::Path, square(10_000)), &r)
+                .iter()
+                .map(|p| p.priority)
+                .max()
+                .unwrap_or_else(|| panic!("{code} draws"))
+        };
+        let highest = |code: &str| {
+            primitives(&object(&s, code, MapObjectKind::Path, square(10_000)), &r)
+                .iter()
+                .map(|p| p.priority)
+                .min()
+                .unwrap_or_else(|| panic!("{code} draws"))
+        };
+        let base = lowest("990");
+        // The walkable area lies under every colour of the norm set.
+        assert_eq!(base, 32);
+        assert!(r.colours.iter().all(|c| c.priority <= base));
+        assert_eq!(r.colour(base).map(|c| c.cmyk), r.colour(14).map(|c| c.cmyk));
+        let park = lowest("401");
+        let forest = lowest("405");
+        assert!(base > park, "the park lies on the walkable area");
+        assert!(park > highest("402"), "the 402 screen lies on the park");
+        assert!(park > forest, "the forest lies on the park");
+        for code in ["501.5", "505.1", "506", "521.3", "301.1"] {
+            assert!(forest > highest(code), "{code} lies on the forest");
+        }
+        for code in ["520", "416", "417", "101"] {
+            assert!(base > lowest(code), "{code} lies on the walkable area");
+        }
+    }
+
+    #[test]
     fn bush_is_dot_and_ring() {
         let (r, s) = set();
         let p = primitives(

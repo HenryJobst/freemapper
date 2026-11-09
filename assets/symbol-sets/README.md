@@ -4,6 +4,8 @@
 |---|---|---|
 | `ISSprOM 2019_4000.omap` | OpenOrienteering Mapper, `symbol sets/4000/ISSprOM 2019_4000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0-or-later (OpenOrienteering Mapper) |
 | `school-2019-additions.xml` | freemapper, drawn after the IOF "Symbol Set for School Orienteering Maps 2019" | GPL-3.0-or-later |
+| `sheet-additions.xml` | freemapper: the sheet symbols 991 to 994 of the peripheral information | GPL-3.0-or-later |
+| `walkable-area-additions.xml` | freemapper: 990 "Walkable area (base fill)" of the sprint map, in a colour that `SymbolSet::with_walkable_area` appends at priority 32 with the values of Lower brown 30% (ADR 0069) | GPL-3.0-or-later |
 
 The International Orienteering Federation (IOF) publishes the symbol specifications ISSprOM 2019-2 and the school
 symbol set 2019 as well as the "Printing and Colour Definitions".

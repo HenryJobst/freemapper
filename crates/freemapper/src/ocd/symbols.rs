@@ -537,6 +537,24 @@ mod tests {
     }
 
     #[test]
+    fn walkable_area_is_the_last_ocad_colour_and_symbol_990() {
+        let set = MapKind::Sprint.symbol_set();
+        let colours = colours(&set);
+        assert_eq!(colours.len(), 33);
+        let base = colours.last().unwrap();
+        assert_eq!(
+            base.parameter_string(),
+            "Lower brown 30% for walkable area\tn32\tc6.0\tm23.0\ty33.0\tk0.0\to0\tt100"
+        );
+        assert_eq!(base.cmyk, colours[14].cmyk);
+        assert_eq!(ocad_number("990", MapKind::Sprint), Some(990_000));
+        let all = placeholders(&set);
+        let walkable = all.values().find(|p| p.code == "990").unwrap();
+        assert_eq!(walkable.kind, PlaceholderKind::Area { color: 32 });
+        assert_eq!(walkable.name, "Walkable area (base fill)");
+    }
+
+    #[test]
     fn names_are_ascii() {
         assert_eq!(
             ascii("Straßenverkehr · Äquidistanz\tgrün"),
