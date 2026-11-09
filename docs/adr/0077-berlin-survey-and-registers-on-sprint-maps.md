@@ -68,6 +68,8 @@ S is the sprint map, H the schoolyard map. "Both" was already so.
   from 119 to 146. Of 1 077 surveyed bollards 3 are left, of 35 masts 9, of 268 lamps 91; none of the 10 surveyed
   benches is left (they stand beside trees, and a control site gives way to those). The OSM lamps drop from 74 to 8, because
   the register replaces them.
+- Lübeck, which has no Berlin layers, changes through the shared thinning: 531 goes from 180 to 192, because a site in a
+  building no longer takes its neighbour out, and one OSM drinking fountain (313) appears.
 - A course setter in Berlin gets the lamps of the register, not only the ones OSM happens to have. The survey is from
   2014 to 2016, so every site carries its survey date in `freemapper:currency`, and the check on site (manual) matters
   more than for OSM.

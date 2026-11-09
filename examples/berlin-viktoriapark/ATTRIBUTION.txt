@@ -4,7 +4,7 @@
 Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0
 Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0
 Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert
-Geoportal Berlin / Zierbrunnen, dl-de/zero-2-0
+Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, dl-de/zero-2-0
 Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0
 
 Created with freemapper – https://github.com/HenryJobst/freemapper
