@@ -103,10 +103,27 @@ pub enum Part {
     Inline(Box<Symbol>),
 }
 
+/// A point pattern of an area symbol (`<pattern type="2">`): rows of points `line_spacing`
+/// apart at `angle`, the points `point_distance` apart along each row (0.001 mm, radians).
+#[derive(Debug, Clone, PartialEq)]
+pub struct PointPattern {
+    pub angle: f64,
+    pub line_spacing: f64,
+    pub line_offset: f64,
+    pub offset_along_line: f64,
+    pub point_distance: f64,
+    pub point: PointDef,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Symbol {
     Line(LineDef),
-    Area { color: i32 },
+    /// An area: its fill colour and its point patterns (402's white dots); line patterns are
+    /// not drawn.
+    Area {
+        color: i32,
+        patterns: Vec<PointPattern>,
+    },
     Point(PointDef),
     Text(TextDef),
     Combined(Vec<Part>),
@@ -320,6 +337,23 @@ fn symbol(node: &Node) -> Option<Symbol> {
         2 => node.child("line_symbol").map(|l| Symbol::Line(line_def(l))),
         4 => node.child("area_symbol").map(|a| Symbol::Area {
             color: a.color("inner_color"),
+            patterns: a
+                .children
+                .iter()
+                .filter(|c| c.name == "pattern" && c.num("type") as u32 == 2)
+                .filter(|c| c.num("line_spacing") > 0.0 && c.num("point_distance") > 0.0)
+                .filter_map(|c| {
+                    let point = c.child("symbol")?.child("point_symbol")?;
+                    Some(PointPattern {
+                        angle: c.num("angle"),
+                        line_spacing: c.num("line_spacing"),
+                        line_offset: c.num("line_offset"),
+                        offset_along_line: c.num("offset_along_line"),
+                        point_distance: c.num("point_distance"),
+                        point: point_def(point),
+                    })
+                })
+                .collect(),
         }),
         8 => {
             let t = node.child("text_symbol")?;
@@ -498,7 +532,7 @@ mod tests {
         assert!(
             matches!(&paved[1], Part::Inline(p) if matches!(**p, Symbol::Line(ref l) if l.color == 15))
         );
-        assert!(matches!(s.0.symbols[&143], Symbol::Area { color: 10 }));
+        assert!(matches!(s.0.symbols[&143], Symbol::Area { color: 10, .. }));
     }
 
     #[test]
@@ -515,7 +549,7 @@ mod tests {
                     .iter()
                     .find_map(|p| match p {
                         Part::Ref(id) => match &s.0.symbols[id] {
-                            Symbol::Area { color } => Some(*color),
+                            Symbol::Area { color, .. } => Some(*color),
                             _ => None,
                         },
                         Part::Inline(_) => None,

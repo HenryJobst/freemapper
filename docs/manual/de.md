@@ -207,9 +207,9 @@ und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen u
 und einfügen. Beide Karten haben dieselbe Georeferenz.
 
 Punktsymbole wie Bäume, Brunnen oder Poller halten den Abstand ein, den die ISSprOM verlangt. Würden sich
-zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe auf Pflaster oder offenem
-Gelände wird zu einer Fläche: befestigte Fläche, Wald oder offenes Gelände mit verstreuten Bäumen. Was Sie dort
-prüfen, steht in Kapitel 9.
+zwei auf dem Papier berühren, behält freemapper das größere. Eine dichte Baumgruppe wird zu einer Fläche:
+befestigte Fläche mit verstreuten Bäumen, offenes Gelände mit verstreuten Bäumen oder Wald, auf weißem Grund
+mit einer punktierten Vegetationsgrenze. Was Sie dort prüfen, steht in Kapitel 9.
 
 **Gewässer** zeichnet freemapper auf beiden Kartenarten. Flüsse, Kanäle, Seen, Teiche, Hafenbecken und
 Meer aus dem Kataster werden zu unpassierbarem Gewässer: einer blauen Fläche (301.1) mit schwarzer
@@ -329,17 +329,35 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   freemapper das größere. Der bleibende Punkt nennt die anderen in `freemapper:generalized`. Straßenbäume in
   einer Reihe bleiben einzelne Baumsymbole. Stehen sie enger, als die Symbole erlauben, fallen einige weg.
   Prüfen Sie die Lücken im Gelände und rücken Sie Symbole auseinander, wo beide Objekte wichtig sind.
-- **Baumgruppen als Flächen:** Drei oder mehr Bäume, die einander zu nahe stehen, werden nur dort zu einer
-  Fläche, wo die Karte den Boden darunter schon zeigt. Mindestens die Hälfte der geschlossenen Kronen muss auf
-  Pflaster oder auf offenem Gelände liegen (401 bis 404 unter den Kartenobjekten oder Kandidaten, etwa ein
-  Rasenplatz aus OSM oder ein Grünstreifen aus der Berliner Straßenbefahrung). Auf Pflaster wird die Gruppe
-  befestigte Fläche mit verstreuten Bäumen (501.3). Auf offenem Gelände wird sie Wald (405), wenn die Kronen
-  mindestens die Hälfte der Gruppe decken, sonst offenes Gelände mit verstreuten Bäumen (402). Überall sonst,
-  etwa in den meisten Parks, bleiben die Bäume einzelne Symbole und werden ausgedünnt, denn ein weißer Wald 405
-  auf dem weißen Grund würde sie verstecken. Die Fläche trägt `freemapper:source=generalization` und nennt die
+- **Baumgruppen als Flächen:** Drei oder mehr Bäume bilden eine Gruppe, wenn sie auf dem Papier näher als
+  2,5 mm beieinander stehen (10 m bei 1:4000) oder sich ihre Kronen bis auf 0,5 mm nähern. Eine Reihe bleibt
+  Punkte, etwa die Bäume einer Allee oder einer Straße, auch mit Bäumen auf beiden Seiten. Jeder Baum der
+  Gruppe beansprucht einen Kreis von 5 m Halbmesser oder seine Krone, wenn sie größer ist. Liegt die Hälfte
+  davon auf Pflaster, wird die Gruppe befestigte Fläche mit verstreuten Bäumen (501.3), wenn sie mindestens
+  9 Bäume aufnimmt. Sonst wird sie Wald (405), wenn die Kronen mindestens die Hälfte der Fläche decken, und
+  sonst offenes Gelände mit verstreuten Bäumen (402). Auf dem weißen Grund wäre ein weißer Wald unsichtbar.
+  Deshalb bekommt ein Wald, der nicht zur Hälfte auf offenem Gelände (401 bis 404) liegt, eine deutliche
+  Vegetationsgrenze (416) als punktierten Umriss. Wo die Fläche an einem Gebäude, Gewässer, Sperrgebiet oder
+  Pflaster endet, fehlt die Grenze, denn dort begrenzt das andere Objekt. Straßen und Plätze schneidet
+  freemapper aus Wald und 402 heraus. Ein Streifen, der nur eine Baumreihe breit ist, fällt aus der Fläche
+  und bleibt Punkte. Die Fläche und ihre Grenze tragen `freemapper:source=generalization` und nennen die
   Bäume in `freemapper:source_id`. Ihr Tag `freemapper:generalized` gibt die Zahl der Bäume und die
   Kronendeckung an. Große Bäume (417) bleiben auf einer 402-Fläche Punkte. Ohne gemessene Krone nimmt
-  freemapper 12 m für 417 und 5 m für 418 an. Vergleichen Sie den Umriss mit dem Luftbild.
+  freemapper 12 m für 417 und 5 m für 418 an, bei Parkbäumen meist zu wenig. Vergleichen Sie den Umriss mit
+  dem Luftbild, zeichnen Sie Rasen als offenes Gelände (401) und löschen Sie die 416 dort, wo der Wald an
+  Gelb grenzt.
+- **Überlappende Mauern, Zäune und Hecken:** Laufen zwei dieser Linien auf einem Stück parallel und näher, als
+  ihre Symbole auf dem Papier kommen dürfen (halbe Breiten plus 0,15 mm zwischen zwei schwarzen Linien, bei
+  zwei Quellen mindestens 1,5 m), verliert die schwächere Linie dieses Stück. Die bessere Quelle gewinnt
+  (Register vor ALKIS vor Straßenbefahrung vor OSM), bei gleicher Quelle das stärkere Symbol: Mauer 515 vor
+  Zaun 518 vor Hecke 410.1 vor Stützmauer 513.2. Zwei Linien derselben Quelle mit demselben Symbol bleiben,
+  denn das sind zwei Objekte. Eine Mauer, die höchstens 0,5 m neben einem Gebäudeumriss parallel läuft, fällt
+  dort weg, denn der Umriss zeichnet sie schon. Reststücke unter 1 mm fallen weg, eine Linie, die an einer
+  anderen endet, bleibt ganz. Die gewinnende Linie nennt die gekürzte in `freemapper:also`. Ein Baum bis 1 m
+  neben einer dieser Linien fällt weg, und die Linie nennt ihn in `freemapper:generalized`: In der Hecke gehört
+  er zur Hecke, an Mauer oder Zaun verdeckt sein Symbol die Linie. Im Park Sanssouci weichen so die
+  OSM-Stützmauern der Terrassen den ALKIS-Mauern. Prüfen Sie vor Ort, über welche Mauer man springen kann
+  (513.2), und rücken Sie einen echten Zaun neben einer Mauer ab, statt ihn wegzulassen.
 - **Verborgene Punkte in Sperrgebieten:** Die ISSprOM erlaubt in verbotenem Gebiet (520) nur sehr markante
   Objekte. Ein Punktkandidat in einem 520-Kandidaten bleibt in den Kandidaten, mit dem Tag
   `freemapper:hidden=520`, aber die Trainingskarte lässt ihn weg. Auf Schulhofkarten verbirgt das jeden Punkt
@@ -452,7 +470,8 @@ Böschungskanten (nur für Sprintkarten), die Hecken und die Straßen- und Anlag
   neben einem Katasterbaum, lässt freemapper den OSM-Baum weg.
 - Zäune, Mauern, Stützmauern und Hecken stehen oft in ALKIS und in OSM. Liegt eine OSM-Linie zu mindestens 80 %
   ihrer Länge höchstens 1,5 m neben einer ALKIS-Linie mit demselben Symbol, lässt freemapper die OSM-Linie weg.
-  Die ALKIS-Linie nennt sie im Tag `freemapper:also`, z. B. `osm/way/123`.
+  Die ALKIS-Linie nennt sie im Tag `freemapper:also`, z. B. `osm/way/123`. Linien mit verschiedenen Symbolen
+  für dasselbe Objekt kürzt freemapper danach (Kapitel 9, überlappende Mauern, Zäune und Hecken).
 
 Das Treppensymbol wählt freemapper nach der Breite der Treppe auf dem Papier. Auf Sprintkarten wird eine Treppe ab
 3,5 m Breite 532.9, auf Schulhofkarten schon ab etwa 1,1 m. Fast jede Schulhoftreppe ist also 532.9. Ist eine

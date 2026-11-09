@@ -1,7 +1,7 @@
 # 0066. Point symbols keep the norm's gap; dense tree groups become areas
 
 Date: 2026-11-09
-Status: Accepted
+Status: Accepted, the tree groups amended on 2026-11-10 (see the amendment below)
 
 ## Context
 
@@ -61,3 +61,53 @@ candidate as a map object, so the overlaps print. ISSprOM 2019-2 (January 2022) 
 Source: user decisions of 2026-11-09; ISSprOM 2019-2 §3.1, §3.3, §4.4, §4.5; plan
 `docs/superpowers/plans/2026-11-09-states-plus-1.md` (Task 5b); branch `states-plus-1`, Task 5b, its review and
 fix round (rulings on 520, rows, rank and crown).
+
+## Amendment of 2026-11-10: tree groups on the white base
+
+The user overruled the open-land-only ruling. In the Sanssouci training PDF most park trees stayed a field of
+green dots 4 to 7 m apart (1 540 visible tree points, 338 pairs closer than 5 m), because a white 405 on the
+white base shows nothing and the map knew no open land there. User rule: closely spaced single trees become
+forest or another area symbol that the map shows.
+
+- Group: 3 or more trees chained by single linkage when they break the point gap, when their crowns come
+  within `GROUP_CLOSE_MM` (0.5 mm) of each other, or when they stand closer than `GROUP_LINK_MM` (2.5 mm,
+  10 m at 1:4000). 2.5 mm is the side of the smallest 402 (6.25 mm², §4.4). The norm names no spacing, so the
+  value is a ruling. With touching crowns alone, Potsdam's park trees (no crown in the data, 5 m by default)
+  mostly stayed points.
+- Region: each tree claims a disc of 1.25 mm radius or its crown, whichever is larger; the union is closed by
+  0.5 mm. The cover is the share of that region under the crowns.
+- Symbol: on paving (at least half) 501.3, as before, but there the trees claim only their crowns and a piece
+  must take in at least 9 trees (`PAVED_MIN_TREES`); a group on paving at least 3 times as long as wide is a
+  street and stays points. Elsewhere 405 at a cover of 50 % or more, else 402, on open land and off it. A 405
+  with less than half on open land gets a 416 distinct vegetation boundary along its outline (§4.4: "a
+  distinct forest edge"). The 416 is left out within 0.1 mm of a cut (building, water, 520, paving, clip
+  window) and below its isolated minimum of 2.65 mm (five dots). Such a forest needs 1.77 mm² and 1.5 mm width,
+  the smallest area a dotted line may enclose (§3.3: 1.5 mm across). A 402 needs no boundary, its yellow
+  screen shows.
+- I rejected 406 to 410: they claim slow running, and park lawns under trees run well. 402 on the white base
+  claims open land under the trees. In a park that is usually right, and the mapper checks it anyway.
+- Rows: the cluster test stays (corridor under 2 symbol sizes, or 3 times as long as wide), but the long
+  form now also needs to be narrower than 2 mean crowns, so a park strip several crowns deep is a group. The
+  opening of the region is at least 1.2 mean claim diameters (`ROW_OPENING`), so a row joined to a block
+  falls out of the area and its trees stay points.
+- Off paving, 402 and 405 are cut at the drawn paving too: a road through a stand is no forest.
+- The training PDF draws point patterns of area symbols now (402's white dots, 501.3), with dots whose centre
+  lies inside the area; before, a 402 printed as plain 401 yellow.
+
+Measured on the examples (candidates and map together, offline from the stored data, with the trees on walls,
+fences and hedges of ADR 0068 also gone):
+
+| | before | after |
+|---|---:|---:|
+| Sanssouci tree points (visible) | 1 654 (1 540) | 782 (675) |
+| Sanssouci tree points per km² of the clip window (visible) | 2 059 (1 917) | 974 (840) |
+| Sanssouci tree pairs closer than 5 m | 338 | 139 |
+| Sanssouci group areas | 0 | 48 × 402 |
+| Viktoriapark tree points (visible) | 1 660 (1 578) | 942 (863) |
+| Viktoriapark tree points per km² (visible) | 2 119 (2 014) | 1 203 (1 102) |
+| Viktoriapark tree pairs closer than 5 m | 158 | 47 |
+| Viktoriapark group areas | 0 | 43 × 405 (49 × 416), 9 × 402 |
+
+Cost if wrong: a 402 over ground that is no lawn, a 405 where only a few large trees stand (the default crowns
+are small, the measured ones in Berlin often large), and many dotted 416 lines in a park full of tree stands.
+The remaining points are rows and trees more than 10 m from the next one.

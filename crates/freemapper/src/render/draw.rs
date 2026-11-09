@@ -5,7 +5,7 @@
 use super::geometry::{self, Part, Pt};
 use super::metrics::{ASCENT, LINE_SPACING, text_width};
 use super::symbols::{
-    Cap, Join, LineDef, Part as SymbolPart, PointDef, RenderSymbols, Symbol, TextDef,
+    Cap, Join, LineDef, Part as SymbolPart, PointDef, PointPattern, RenderSymbols, Symbol, TextDef,
 };
 use crate::omap::{MapCoord, MapObject, MapObjectKind};
 
@@ -89,6 +89,55 @@ pub fn primitives(object: &MapObject, symbols: &RenderSymbols) -> Vec<Primitive>
     out
 }
 
+/// Whether `p` lies inside `rings` by the even-odd rule.
+fn inside(rings: &[Vec<Pt>], p: Pt) -> bool {
+    let mut inside = false;
+    for ring in rings {
+        let n = ring.len();
+        for k in 0..n {
+            let (a, b) = (ring[k], ring[(k + 1) % n]);
+            if (a.1 > p.1) != (b.1 > p.1) && p.0 < a.0 + (p.1 - a.1) / (b.1 - a.1) * (b.0 - a.0) {
+                inside = !inside;
+            }
+        }
+    }
+    inside
+}
+
+/// The points of `pattern` (rows through the map origin, as OOM places them without a pattern
+/// origin of the object) whose centre lies in `rings` (mm). OOM clips the points at the outline;
+/// a point whose centre lies outside is left out instead.
+fn pattern_points(rings: &[Vec<Pt>], pattern: &PointPattern) -> Vec<Pt> {
+    let (spacing, distance) = (mm(pattern.line_spacing), mm(pattern.point_distance));
+    // Along the rows and across them; OOM's angle turns counter-clockwise on paper (y down).
+    let (sin, cos) = pattern.angle.sin_cos();
+    let (along, across) = ((cos, -sin), (sin, cos));
+    let project = |p: Pt, d: Pt| p.0 * d.0 + p.1 * d.1;
+    let (mut u, mut v) = ((f64::MAX, f64::MIN), (f64::MAX, f64::MIN));
+    for &p in rings.iter().flatten() {
+        let (pu, pv) = (project(p, along), project(p, across));
+        u = (u.0.min(pu), u.1.max(pu));
+        v = (v.0.min(pv), v.1.max(pv));
+    }
+    let (line_offset, point_offset) = (mm(pattern.line_offset), mm(pattern.offset_along_line));
+    let mut points = Vec::new();
+    let first_row = ((v.0 - line_offset) / spacing).floor() as i64;
+    let last_row = ((v.1 - line_offset) / spacing).ceil() as i64;
+    let first_point = ((u.0 - point_offset) / distance).floor() as i64;
+    let last_point = ((u.1 - point_offset) / distance).ceil() as i64;
+    for row in first_row..=last_row {
+        let b = line_offset + row as f64 * spacing;
+        for k in first_point..=last_point {
+            let a = point_offset + k as f64 * distance;
+            let p = (a * along.0 + b * across.0, a * along.1 + b * across.1);
+            if inside(rings, p) {
+                points.push(p);
+            }
+        }
+    }
+    points
+}
+
 /// Nesting depth of symbols (combined parts, point elements) beyond which drawing stops: a
 /// symbol set that refers to itself must not overflow the stack.
 const MAX_DEPTH: u32 = 8;
@@ -105,18 +154,25 @@ fn path_symbol(
         return;
     }
     match symbol {
-        Symbol::Area { color } => {
+        Symbol::Area { color, patterns } => {
             let parts = geometry::parts(coords);
-            if *color >= 0 && parts.first().is_some_and(|p| p.points.len() > 2) {
+            if !parts.first().is_some_and(|p| p.points.len() > 2) {
+                return;
+            }
+            let rings: Vec<Vec<Pt>> = parts
+                .into_iter()
+                .map(|p| p.points)
+                .filter(|r| r.len() > 2)
+                .collect();
+            for pattern in patterns {
+                for at in pattern_points(&rings, pattern) {
+                    out.extend(point_symbol(&pattern.point, at, 0.0, symbols, depth + 1));
+                }
+            }
+            if *color >= 0 {
                 out.push(Primitive {
                     priority: *color,
-                    shape: Shape::Fill {
-                        rings: parts
-                            .into_iter()
-                            .map(|p| p.points)
-                            .filter(|r| r.len() > 2)
-                            .collect(),
-                    },
+                    shape: Shape::Fill { rings },
                 });
             }
         }
@@ -687,9 +743,39 @@ mod tests {
     fn unknown_colours_are_left_out() {
         let (mut r, s) = set();
         let id = s.id_for_code("520").unwrap();
-        r.symbols.insert(id, Symbol::Area { color: 99 });
+        r.symbols.insert(
+            id,
+            Symbol::Area {
+                color: 99,
+                patterns: Vec::new(),
+            },
+        );
         let p = primitives(&object(&s, "520", MapObjectKind::Path, square(10_000)), &r);
         assert!(p.is_empty());
+    }
+
+    #[test]
+    fn scattered_trees_draw_white_dots_on_yellow() {
+        let (r, s) = set();
+        // 402 on a 10 × 10 mm square: yellow fill and white dots 0.75 mm apart.
+        let p = primitives(&object(&s, "402", MapObjectKind::Path, square(10_000)), &r);
+        let fills: Vec<i32> = p
+            .iter()
+            .filter(|p| matches!(p.shape, Shape::Fill { .. }))
+            .map(|p| p.priority)
+            .collect();
+        let Symbol::Area { color, patterns } = &r.symbols[&s.id_for_code("402").unwrap()] else {
+            panic!("402 is an area");
+        };
+        assert_eq!(patterns.len(), 1);
+        let dot = patterns[0].point.dot.expect("a dot").0;
+        let dots = fills.iter().filter(|&&c| c == dot).count();
+        // 100 mm² at one dot per 0.75 × 0.75 mm: about 178.
+        assert!((150..=200).contains(&dots), "{dots}");
+        assert_eq!(fills.iter().filter(|&&c| c == *color).count(), 1);
+        // 401 has no pattern.
+        let p = primitives(&object(&s, "401", MapObjectKind::Path, square(10_000)), &r);
+        assert_eq!(p.len(), 1);
     }
 
     #[test]

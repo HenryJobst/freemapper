@@ -200,8 +200,9 @@ right: trace them, or open the candidates map and copy and paste the objects. Bo
 georeferencing.
 
 Point symbols such as trees, fountains or bollards keep the gap that ISSprOM asks for. Where two would touch
-on paper, freemapper keeps the larger one. A dense group of trees on paving or open land becomes an area of
-paved area, forest or open land with scattered trees. Chapter 9 says what to check there.
+on paper, freemapper keeps the larger one. A dense group of trees becomes an area: paved area with scattered
+trees, open land with scattered trees, or forest, which on the white base gets a dotted vegetation boundary.
+Chapter 9 says what to check there.
 
 freemapper draws **water** on both map kinds. Rivers, canals, lakes, ponds, harbour basins and sea from
 the cadastre become uncrossable bodies of water: a blue area (301.1) with a black bank line (301.6). The
@@ -320,17 +321,33 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   keeps the larger one. The kept point names the others in `freemapper:generalized`. Rows of street trees stay
   single tree symbols. Where they stand closer than the symbols allow, some of them are dropped. Check the
   gaps in the terrain, and move symbols apart where both objects matter.
-- **Tree groups as areas:** three or more trees that crowd each other become an area only where the map
-  already shows the ground under them. At least half of the closed crowns must lie on paving or on open
-  land (401 to 404 among the map objects or candidates, such as an OSM grass pitch or a green strip from the
-  Berlin street survey). On paving the group becomes paved area with scattered trees (501.3). On open land
-  it becomes forest (405) when the crowns cover at least half of the group, otherwise open land with
-  scattered trees (402). Anywhere else, in most parks for instance, the trees stay single symbols and are
-  thinned, because a white 405 on the white base would hide them. The area carries
-  `freemapper:source=generalization` and lists the trees in `freemapper:source_id`. Its tag
-  `freemapper:generalized` gives the number of trees and the crown cover. Large trees (417) stay points on a
-  402 area. Without a measured crown, freemapper assumes 12 m for 417 and 5 m for 418. Compare the outline
-  with the orthophoto.
+- **Tree groups as areas:** three or more trees form a group when they stand closer than 2.5 mm on paper
+  (10 m at 1:4000) or their crowns come within 0.5 mm of each other. A row stays points, such as the trees of
+  an avenue or a street, also with trees on both sides. Each tree of the group claims a circle of 5 m radius,
+  or its crown if that is larger. If half of that lies on paving, the group becomes paved area with scattered
+  trees (501.3), provided it takes in at least 9 trees. Otherwise it becomes forest (405) when the crowns
+  cover at least half of the area, else open land with scattered trees (402). On the white base a white
+  forest would be invisible, so a forest that does not lie half on open land (401 to 404) gets a distinct
+  vegetation boundary (416) as a dotted outline. Where the area ends at a building, water, an out-of-bounds
+  area or paving, the boundary is left out, because the other object bounds it there. freemapper cuts roads
+  and squares out of forest and 402. A strip only one row of trees wide falls out of the area and stays
+  points. The area and its boundary carry `freemapper:source=generalization` and list the trees in
+  `freemapper:source_id`. Their tag `freemapper:generalized` gives the number of trees and the crown cover.
+  Large trees (417) stay points on a 402 area. Without a measured crown, freemapper assumes 12 m for 417 and
+  5 m for 418, which is usually too small for park trees. Compare the outline with the orthophoto, draw
+  lawns as open land (401), and delete the 416 where the forest borders yellow.
+- **Overlapping walls, fences and hedges:** where two of these lines run parallel and closer than their
+  symbols may come on paper (half their widths plus 0.15 mm between two black lines, at least 1.5 m for two
+  sources), the weaker line loses that stretch. The better source wins (register before ALKIS before street
+  survey before OSM), and for one source the stronger symbol: wall 515 before fence 518 before hedge 410.1
+  before retaining wall 513.2. Two lines of one source with the same symbol stay, because they are two
+  objects. A wall running parallel within 0.5 m of a building outline is dropped there, because the outline
+  already draws it. Leftover pieces under 1 mm are dropped, and a line that ends at another stays whole. The
+  winning line names the cut one in `freemapper:also`. A tree within 1 m of one of these lines is dropped, and
+  the line names it in `freemapper:generalized`: in a hedge it belongs to the hedge, at a wall or fence its
+  symbol covers the line. In Park Sanssouci the OSM retaining walls of the terraces give way to the ALKIS
+  walls this way. Check on site which walls a runner can jump down (513.2), and move a real fence next to a
+  wall aside instead of leaving it out.
 - **Hidden points in out-of-bounds areas:** ISSprOM allows no feature in an out-of-bounds area (520) except
   very prominent ones. A point candidate inside a 520 candidate stays in the candidates, tagged
   `freemapper:hidden=520`, but the training map leaves it out. On schoolyard maps this hides every point off
@@ -441,7 +458,8 @@ sprint maps only), the hedges, and the street and park trees. They are stored in
   than 2 m from a cadastre tree, freemapper drops the OSM tree.
 - Fences, walls, retaining walls and hedges are often in both ALKIS and OSM. If at least 80 % of an OSM line
   lies within 1.5 m of an ALKIS line with the same symbol, freemapper drops the OSM line. The ALKIS line names
-  it in the tag `freemapper:also`, e.g. `osm/way/123`.
+  it in the tag `freemapper:also`, e.g. `osm/way/123`. Lines with different symbols for the same object are
+  cut after that (chapter 9, overlapping walls, fences and hedges).
 
 freemapper picks the stair symbol by the stair's width on paper. On sprint maps a stair 3.5 m wide or more
 becomes 532.9, on schoolyard maps one from about 1.1 m. So nearly every schoolyard stair is 532.9. A stair
