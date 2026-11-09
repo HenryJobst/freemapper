@@ -368,11 +368,12 @@ The **K5** (Karte von Berlin 1:5000, the Berlin map in colour, dated 02.01.2026)
 `templates/k5.png` with a world file, at 0.25 m per pixel. If the area with its buffer is longer than 1.5 km,
 the image gets coarser. It shows park paths, stairs, walls, fences, embankments and monuments, which makes it
 good for comparing. OOM has it linked but hidden; in OCAD it is a background map. If the disk has too little
-room, freemapper leaves it out, as it does the surface model.
+room, freemapper leaves it out, as it does the surface model. The same goes for the Berlin layers; the stored
+ones then stay.
 
 The export needs the terrain model for the walking direction of the stairs. When the Berlin layers hold a stair,
 `derive` therefore keeps the terrain mosaic in the project as `data/terrain.tif` (about 4 MB per km²);
-otherwise it deletes the file. This way `export` works without internet and without the cache.
+otherwise it deletes the file. The disk check before a fetch counts the file with the Berlin layers. This way `export` works without internet and without the cache.
 
 **Allotment gardens** are out-of-bounds candidates (520) in every state: the ALKIS land use "Sport-, Freizeit-
 und Erholungsfläche" with `bez` "Kleingarten". Parks, sports grounds and playgrounds of the same land use stay
@@ -474,7 +475,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Nothing was fetched yet, or the area changed. | Run `run` or `fetch`. |
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
-| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so does the older OSM extract. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
+| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin structures and trees, or the Berlin K5) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and stored Berlin layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
 | `not enough disk space for the …` | There is no room for the map data, the terrain model or the orthophoto. Without them there is no map, so freemapper stops before it downloads anything. | Free some space, or put the cache on another drive with `--cache-dir`, then start again. |
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |

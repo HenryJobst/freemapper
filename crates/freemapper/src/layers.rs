@@ -40,7 +40,7 @@ const BERLIN_LAYERS_MB_PER_KM2: f64 = 4.0;
 /// The K5 map (1:5000) PNG template at 0.25 m per pixel, per km² (measured 9.1 MB around a park
 /// and 17 MB in dense blocks, 2026-11-09).
 const K5_MB_PER_KM2: f64 = 15.0;
-/// Names of the Berlin items in the estimate (`mark_stored` finds them by these).
+/// Names of the Berlin items in the estimate.
 pub(crate) const BERLIN_LAYERS_ITEM: &str = "Berlin ALKIS structures and tree cadastre";
 pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
@@ -167,7 +167,7 @@ pub(crate) fn estimate_area(
             bbox,
             BERLIN_LAYERS_ITEM,
             BERLIN_LAYERS_MB_PER_KM2,
-            Part::MapData,
+            Part::BerlinLayers,
         ));
         items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
     }
@@ -2016,9 +2016,13 @@ mod tests {
         let k5 = find(BERLIN_K5_ITEM).expect("K5 template");
         assert!((k5.megabytes - km2 * 15.0).abs() < 1e-9, "{k5:?}");
         assert_eq!((k5.part, k5.store), (Part::K5, Store::Project));
-        // The K5 map is optional, the layers and ALKIS are the map data.
+        // The K5 map and the layers are optional, as the fetch treats them.
         assert!(!k5.part.required());
-        assert!(layers.part.required());
+        assert_eq!(
+            (layers.part, layers.store),
+            (Part::BerlinLayers, Store::Project)
+        );
+        assert!(!layers.part.required());
         let other: f64 = estimate
             .items
             .iter()

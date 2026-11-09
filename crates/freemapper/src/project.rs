@@ -702,6 +702,7 @@ pub fn fetch_project(
         &area.region_bbox,
         project.map_kind,
         mode,
+        skips(Part::BerlinLayers),
         &project.berlin_layers,
         progress,
     );
@@ -762,7 +763,7 @@ pub(crate) fn mark_stored(
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
-                (_, crate::layers::BERLIN_LAYERS_ITEM) => berlin_layers,
+                (Part::BerlinLayers, _) => berlin_layers,
                 _ => false,
             };
             if stored && item.store == crate::space::Store::Project {
@@ -2289,13 +2290,16 @@ fn berlin_layer_path(dir: &Path, file: &str) -> PathBuf {
 /// objects, so a layer that fails never fails the fetch: a stored file that still covers the
 /// area stays, one that does not is removed; each case is reported. A layer without objects is
 /// stored as an empty collection. Outside Berlin nothing is requested and stored layers of an
-/// earlier area are removed. Offline, nothing is downloaded and `previous` stays.
+/// earlier area are removed. Offline, or when the disk plan left the layers out (`skip`), nothing
+/// is downloaded and `previous` stays.
+#[allow(clippy::too_many_arguments)]
 fn fetch_berlin_layers_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
     region_bbox: &BoundingBox,
     kind: MapKind,
     mode: FetchMode,
+    skip: bool,
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(&str),
 ) -> BTreeMap<String, AlkisRecord> {
@@ -2315,6 +2319,10 @@ fn fetch_berlin_layers_into(
             }
         }
         return BTreeMap::new();
+    }
+    if skip {
+        // The disk plan already said that the layers are left out; stored ones stay.
+        return previous.clone();
     }
     progress("downloading Berlin ALKIS structures and tree cadastre");
     let bbox = [
@@ -8820,6 +8828,39 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
+    fn berlin_layers_left_out_for_lack_of_space_keep_the_stored_ones() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert!(!project.berlin_layers.is_empty());
+        let calls = fetcher.calls.get();
+        let mut messages = Vec::new();
+        // The disk plan left the layers out: no request, the stored layers stay.
+        let records = fetch_berlin_layers_into(
+            dir.path(),
+            &fetcher,
+            &region_bbox,
+            project.map_kind,
+            FetchMode::Online,
+            true,
+            &project.berlin_layers,
+            &mut |m: &str| messages.push(m.to_string()),
+        );
+        assert_eq!(fetcher.calls.get(), calls);
+        assert_eq!(records, project.berlin_layers);
+        assert!(
+            dir.path()
+                .join("data/berlin/bauwerke-flaechen.geojson")
+                .exists()
+        );
+    }
+
+    #[test]
     fn berlin_layers_are_stored_and_recorded() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
@@ -8961,6 +9002,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &away,
             MapKind::Sprint,
             FetchMode::Offline,
+            false,
             &previous,
             &mut progress,
         );
@@ -8972,6 +9014,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &away,
             MapKind::Sprint,
             FetchMode::Online,
+            false,
             &previous,
             &mut progress,
         );

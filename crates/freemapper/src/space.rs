@@ -23,6 +23,9 @@ pub enum Part {
     Terrain,
     /// The orthophoto, the template the mapper draws on.
     Orthophoto,
+    /// The extra Berlin layers (ALKIS structures, tree cadastre): candidates and a few map
+    /// objects, optional like the K5 map.
+    BerlinLayers,
     /// The surface model (nDOM, bDOM, DOM1): only the nDSM template.
     Surface,
     /// A newer OSM extract where an older one is cached; the older one serves meanwhile.
@@ -46,19 +49,21 @@ impl Part {
             Part::Surface => "the surface model for the nDSM template",
             Part::OsmUpdate => "the update of the cached OSM extract",
             Part::K5 => "the Berlin K5 map template",
+            Part::BerlinLayers => "the Berlin ALKIS structures and tree cadastre",
         }
     }
 
     /// What the files derived from a download (mosaics in `data/`, templates) add in the project
     /// folder, as a share of the download. Generous on purpose: the templates of a raster are
     /// about as large as its download, the nDSM template is smaller than the surface model it
-    /// comes from, and the OSM candidates are a small cut of the extract. The terrain share also
-    /// covers `data/terrain.tif`, the DGM mosaic `derive` keeps where Berlin layers have stairs.
+    /// comes from, and the OSM candidates are a small cut of the extract. Where the Berlin
+    /// layers have stairs, `derive` keeps the DGM mosaic as `data/terrain.tif` (Float32, LZW,
+    /// about 4 MB per km², as much as the layers): their share covers it.
     fn derived_share(self) -> f64 {
         match self {
             // The K5 image is written straight into the templates, so it needs no extra room.
             Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
-            Part::Terrain | Part::Orthophoto => 1.0,
+            Part::Terrain | Part::Orthophoto | Part::BerlinLayers => 1.0,
             Part::Surface => 0.5,
         }
     }
@@ -460,6 +465,25 @@ mod tests {
         let plan = plan_on(&one_volume(RESERVE_BYTES + 300 * MIB), &estimate);
         assert!(!plan.fits(Part::Surface));
         assert!(plan.fits(Part::OsmUpdate));
+    }
+
+    #[test]
+    fn berlin_layers_are_optional_and_leave_room_for_the_terrain_mosaic() {
+        assert!(!Part::BerlinLayers.required());
+        let mut estimate = typical();
+        estimate
+            .items
+            .push(item(Part::BerlinLayers, Store::Project, 10.0, false));
+        // The layers (10 MB) and `data/terrain.tif`, which `derive` keeps where they have
+        // stairs and which is about as large: 20 MB on top of the 521 MB of `typical`.
+        let plan = plan_on(&one_volume(100 * GB), &estimate);
+        assert_eq!(plan.volumes[0].needed, 541 * MIB);
+        // Too little room for them: skipped with a warning, the fetch goes on.
+        let plan = plan_on(&one_volume(RESERVE_BYTES + 230 * MIB), &estimate);
+        assert!(plan.missing().is_none());
+        assert!(!plan.fits(Part::BerlinLayers));
+        let skipped: Vec<Part> = plan.skipped().map(|s| s.part).collect();
+        assert_eq!(skipped, [Part::BerlinLayers, Part::Surface]);
     }
 
     #[test]

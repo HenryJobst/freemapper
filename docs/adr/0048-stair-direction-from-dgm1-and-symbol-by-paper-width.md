@@ -53,7 +53,8 @@ long, some of them twice at the same place.
 - DGM1 at 1 m is smoothed, so short stairs (under about 2 m) often read flat and get `guessed`. A flat stair
   that is in fact long and narrow now gets the wrong axis; the tag points the mapper to it.
 - Wide stairs come as many lines; the mapper may join them into an area or keep a few.
-- `data/terrain.tif` costs about 4 MB/km² in Berlin projects with stairs.
+- `data/terrain.tif` costs about 4 MB/km² in Berlin projects with stairs. The disk plan counts it as the derived
+  share of the optional `Part::BerlinLayers` (as large as the layers, 4 MB/km²), not of the terrain part.
 - Cost if wrong (paper width): schoolyard stairs drawn wider than the field mapper would choose.
 
 Source: ISSprOM 2019-2 symbol 532; `docs/regions/berlin-plus-reference.md` §3.6; branch `berlin-plus`, Task 3 and

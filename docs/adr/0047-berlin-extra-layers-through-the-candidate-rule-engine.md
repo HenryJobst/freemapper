@@ -14,6 +14,8 @@ lines as WFS layers under dl-de/zero-2-0. Their features carry German attribute 
 
 - Fetch: a table of six layers in `sources/berlin.rs` (`EXTRA_LAYERS`), loaded with `fetch_wfs` only when the
   widened bbox touches the Berlin region; stored in `data/berlin/<file>.geojson`. A failing layer is a warning.
+  The disk plan treats the layers as an optional part (`Part::BerlinLayers`): without room they are skipped
+  with a warning and the stored ones stay.
   De-duplication uses the top-level GeoServer `id`.
 - Rules: a separate embedded file `assets/rules/berlin-candidates.toml` (`Rules::berlin`), same syntax and engine.
   Tags are `berlin:layer=<file>` plus `berlin:<property>`, so an OSM rule cannot match a Berlin feature and the

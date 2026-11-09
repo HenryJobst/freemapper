@@ -377,11 +377,12 @@ Die **K5** (Karte von Berlin 1:5000, farbig, Stand 02.01.2026) liegt als Vorlage
 bei, mit 0,25 m je Bildpunkt. Ist das Gebiet mit Puffer länger als 1,5 km, wird sie gröber. Sie zeigt Parkwege,
 Treppen, Mauern, Zäune, Böschungen und Denkmäler und eignet sich zum Vergleichen. In OOM ist sie eingebunden,
 aber ausgeblendet; in OCAD ist sie eine Hintergrundkarte. Reicht der Platz auf dem Datenträger nicht, lässt
-freemapper sie weg, wie das Oberflächenmodell.
+freemapper sie weg, wie das Oberflächenmodell. Das gilt auch für die Berliner Ebenen; dann bleiben die
+gespeicherten.
 
 Für die Laufrichtung der Treppen braucht der Export das Geländemodell. Enthalten die Berliner Ebenen eine
 Treppe, speichert `derive` das Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je
-km²), sonst löscht es die Datei. So arbeitet `export` ohne Internet und ohne Zwischenspeicher.
+km²), sonst löscht es die Datei. Die Platzprüfung vor dem Laden rechnet die Datei mit den Berliner Ebenen. So arbeitet `export` ohne Internet und ohne Zwischenspeicher.
 
 **Kleingärten** sind in jedem Land Kandidaten für verbotenes Gebiet (520): die ALKIS-Nutzung „Sport-, Freizeit-
 und Erholungsfläche“ mit `bez` „Kleingarten“. Parks, Sportanlagen und Spielplätze derselben Nutzung bleiben
@@ -486,7 +487,7 @@ freemapper meldet auf Englisch. Die wichtigsten Meldungen:
 | `no tiles fetched yet` / `the map area needs tiles … that were not fetched` | Es wurde noch nicht geladen, oder das Gebiet hat sich geändert. | `run` bzw. `fetch` ausführen. |
 | `map already exists (it may contain your work)` | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
 | `warning: … changed upstream` | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
-| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `warning: freemapper skips the … for lack of disk space` | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Bauwerke und Bäume oder die Berliner K5) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und gespeicherte Berliner Ebenen. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |
 | `not enough disk space for the …` | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
 | `the disk is full, so freemapper could not write …` | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
