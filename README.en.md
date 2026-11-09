@@ -13,7 +13,9 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
     [Starting point for OCAD](#starting-point-for-ocad);
   - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
-- Use it from the command line or through AI agents (MCP server).
+- Use it from the command line, through a page in the browser for choosing the map area (see
+  [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or through AI agents (MCP
+  server).
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
   schoolyard maps 1:1000 and sprint maps 1:4000.

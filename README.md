@@ -15,7 +15,8 @@ in OOM oder OCAD.
   - mit `--pdf` eine druckfertige Trainingskarte, siehe
     [Schnelle Trainingskarte](#schnelle-trainingskarte-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
-- Bedienung per Kommandozeile oder über KI-Agenten (MCP-Server).
+- Bedienung per Kommandozeile, über eine Seite im Browser zum Wählen des Kartengebiets (siehe
+  [Gebiet im Browser wählen](#gebiet-im-browser-wählen)) oder über KI-Agenten (MCP-Server).
 - Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz (Open Data von LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN und LVermGeo RP);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
