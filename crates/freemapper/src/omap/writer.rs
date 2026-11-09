@@ -79,7 +79,12 @@ fn write_parts(s: &mut String, doc: &MapDocument, format: XmlFormat) {
     } else {
         &doc.parts[..]
     };
-    let _ = writeln!(s, r#"<parts count="{}" current="0">"#, parts.len());
+    // The mapper draws into the default part, also where the walkable area's part comes first.
+    let current = parts
+        .iter()
+        .position(|p| p.name == "default part")
+        .unwrap_or(0);
+    let _ = writeln!(s, r#"<parts count="{}" current="{current}">"#, parts.len());
     for part in parts {
         let _ = writeln!(
             s,

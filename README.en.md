@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $964](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%24964-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $994](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%24994-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
@@ -62,7 +62,7 @@ In all states: canopies and carports from ALKIS are map objects in every state e
 Saxony and Saxony-Anhalt, and building passages are candidates there. Brandenburg maps get walls, fences,
 hedges, monuments, embankment tops and bridges from the full ALKIS as candidates, and around Potsdam the trees
 of the city map; the two edges of a wall become one line in the middle. Point symbols keep the gap the norm
-asks for, and dense tree groups become areas that show, also in parks. Where walls, fences and hedges overlap on
+asks for, and dense tree groups become areas that show. Parks are yellow, and the walkable area in brown lies under the sprint map. Where walls, fences and hedges overlap on
 paper, the stronger line stays.
 
 freemapper is still under development. Next, the region adapters are rebuilt so that other developers
@@ -218,6 +218,10 @@ Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSpr
 
 The sprint map also contains, as finished map objects:
 
+- the walkable area (990), one area in the lower brown of 501.5 under the whole sheet. It fills every gap
+  that nothing else shows.
+- parks, green spaces and grassland from the ALKIS land use as open land (401), woods and copses as forest
+  (405). Cemeteries, other farmland and OSM parks are candidates.
 - paved areas (501.5) from the ALKIS land use: carriageways with sidewalks and parking lanes
   (`Straßenverkehr`) and squares, car parks, market squares and pedestrian zones (`Platz`). Verges
   (green strips, tree rows) are not drawn. Candidates only: ALKIS `Weg` (sidewalks and lanes in town,

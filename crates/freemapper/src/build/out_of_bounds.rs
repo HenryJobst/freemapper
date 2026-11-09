@@ -49,26 +49,36 @@ pub fn out_of_bounds_objects(
         .expect("symbol set defines 520");
     let clip = LandClip::new(clip, georef);
     let mut objects = Vec::new();
-    let area_size = map_area.unsigned_area();
-    // Schoolyard: everything off the school grounds is out of bounds (spec §4.5); sprint: only
-    // private land, streets and woods are part of the course.
-    let candidate = |l: &LandUse| kind == MapKind::Schoolyard || is_private(l);
-    for land in land_use.iter().filter(|l| candidate(l)) {
+    for land in land_use {
         for part in &land.footprint.0 {
-            let part_area = part.unsigned_area();
-            if part_area <= 0.0 {
-                continue;
+            if part.unsigned_area() > 0.0 && is_out_of_bounds_part(land, part, map_area, kind) {
+                objects.extend(clipped_part_objects(land, part, &clip, symbol_id, georef)?);
             }
-            // The share of the smaller of both shapes: a school parcel larger than the OSM
-            // outline still counts as the school's own land.
-            let overlap = part.intersection(map_area).unsigned_area();
-            if kind == MapKind::Schoolyard && overlap / part_area.min(area_size) >= OWN_LAND_SHARE {
-                continue;
-            }
-            objects.extend(clipped_part_objects(land, part, &clip, symbol_id, georef)?);
         }
     }
     Ok(objects)
+}
+
+/// `part` of `land` is a 520 candidate. Schoolyard: everything off the school grounds is out of
+/// bounds (spec §4.5), the parts at least [`OWN_LAND_SHARE`] inside `map_area` are the school's
+/// own land; sprint: only private land, streets, parks and woods are part of the course.
+pub(crate) fn is_out_of_bounds_part(
+    land: &LandUse,
+    part: &Polygon<f64>,
+    map_area: &Polygon<f64>,
+    kind: MapKind,
+) -> bool {
+    if kind != MapKind::Schoolyard {
+        return is_private(land);
+    }
+    let part_area = part.unsigned_area();
+    if part_area <= 0.0 {
+        return false;
+    }
+    // The share of the smaller of both shapes: a school parcel larger than the OSM outline still
+    // counts as the school's own land.
+    let overlap = part.intersection(map_area).unsigned_area();
+    overlap / part_area.min(map_area.unsigned_area()) < OWN_LAND_SHARE
 }
 
 /// The clip window for land use objects (map area plus buffer) and the sliver limits.

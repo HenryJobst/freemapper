@@ -199,10 +199,21 @@ benches, contours, out-of-bounds areas, water from OSM and bridges. Check them a
 right: trace them, or open the candidates map and copy and paste the objects. Both maps have the same
 georeferencing.
 
+On the sprint map the **walkable area** lies under everything: one area in the lower brown (the tone of
+501.5) over the whole map sheet, in its own map part `base`. It fills whatever nothing else shows.
+Buildings, streets, out-of-bounds areas, parks, forest, paths, water and contours lie on top. A sprint map
+without this area is incomplete, because where nothing is mapped it would stay white and look like forest. You can
+delete it in OOM, but that is not intended. In greyscale the lower brown comes close to the path areas and
+to paper white, so print sprint maps in colour. The schoolyard map has no walkable area.
+
+**Parks** are yellow. Green spaces, parks, settlement green and grassland from the cadastre become open
+land (401) on the map, woods and copses forest (405), heath 403. Cemeteries and other farmland, moor and
+swamp are candidates, and so are parks and lawns from OSM where no cadastre park lies.
+
 Point symbols such as trees, fountains or bollards keep the gap that ISSprOM asks for. Where two would touch
 on paper, freemapper keeps the larger one. A dense group of trees becomes an area: paved area with scattered
-trees, open land with scattered trees, or forest, which on the white base gets a dotted vegetation boundary.
-Chapter 9 says what to check there.
+trees, open land with scattered trees, or forest. Paths and paving stay clear. Chapter 9 says what to
+check there.
 
 freemapper draws **water** on both map kinds. Rivers, canals, lakes, ponds, harbour basins and sea from
 the cadastre become uncrossable bodies of water: a blue area (301.1) with a black bank line (301.6). The
@@ -326,16 +337,19 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   an avenue or a street, also with trees on both sides. Each tree of the group claims a circle of 5 m radius,
   or its crown if that is larger. If half of that lies on paving, the group becomes paved area with scattered
   trees (501.3), provided it takes in at least 9 trees. Otherwise it becomes forest (405) when the crowns
-  cover at least half of the area, else open land with scattered trees (402). On the white base a white
-  forest would be invisible, so a forest that does not lie half on open land (401 to 404) gets a distinct
-  vegetation boundary (416) as a dotted outline. Where the area ends at a building, water, an out-of-bounds
-  area or paving, the boundary is left out, because the other object bounds it there. freemapper cuts roads
-  and squares out of forest and 402. A strip only one row of trees wide falls out of the area and stays
+  cover at least half of the area, else open land with scattered trees (402). On the sprint map the white
+  forest shows on the park's yellow or on the brown of the walkable area without an outline. On the
+  schoolyard map, whose base is white, a forest that does not lie half on open land (401 to 404) gets a
+  distinct vegetation boundary (416) as a dotted outline. Where the area ends at a building, water, an
+  out-of-bounds area, paving or a path, this boundary is left out. freemapper cuts roads, squares, paved
+  candidates and paths (505, 506, 507 at their width on paper) out of forest and 402, so that no area covers
+  a path. Where a piece is then below the minimum size, its trees stay points. A strip only one row of trees wide falls out of the area and stays
   points. The area and its boundary carry `freemapper:source=generalization` and list the trees in
   `freemapper:source_id`. Their tag `freemapper:generalized` gives the number of trees and the crown cover.
   Large trees (417) stay points on a 402 area. Without a measured crown, freemapper assumes 12 m for 417 and
-  5 m for 418, which is usually too small for park trees. Compare the outline with the orthophoto, draw
-  lawns as open land (401), and delete the 416 where the forest borders yellow.
+  5 m for 418, which is usually too small for park trees. Compare the outline with the orthophoto. In the
+  cadastre a park is park throughout: wooded parts without tree data stay yellow, draw them as 405
+  yourself.
 - **Overlapping walls, fences and hedges:** where two of these lines run parallel and closer than their
   symbols may come on paper (half their widths plus 0.15 mm between two black lines, at least 1.5 m for two
   sources), the weaker line loses that stretch. The better source wins (register before ALKIS before street

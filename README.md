@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 964 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-964%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 994 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-994%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
@@ -63,7 +63,7 @@ In allen Bundesländern: Überdachungen und Carports aus ALKIS sind in jedem Bun
 Sachsen-Anhalt Kartenobjekte, Durchfahrten dort Kandidaten. Brandenburger Karten bekommen Mauern, Zäune,
 Hecken, Denkmäler, Böschungsoberkanten und Brücken aus dem vollständigen ALKIS als Kandidaten, rund um Potsdam
 auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Linie in der Mitte. Punktsymbole
-halten den Abstand der Norm ein, und dichte Baumgruppen werden zu Flächen, die man sieht, auch im Park. Überlappen
+halten den Abstand der Norm ein, und dichte Baumgruppen werden zu Flächen, die man sieht. Parks sind gelb, und unter der Sprintkarte liegt die belaufbare Fläche in Braun. Überlappen
 Mauern, Zäune und Hecken auf dem Papier, bleibt die stärkere Linie.
 
 Das Programm ist noch in Entwicklung. Als Nächstes werden die Länder-Adapter so umgebaut, dass andere
@@ -224,6 +224,10 @@ Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISS
 
 Die Sprintkarte enthält zusätzlich, als fertige Kartenobjekte:
 
+- die belaufbare Fläche (990), eine Fläche im unteren Braun von 501.5 unter dem ganzen Blatt. Sie füllt
+  jede Lücke, die nichts anderes zeigt.
+- Parks, Grünanlagen und Grünland aus der ALKIS-Nutzung als offenes Gelände (401), Wald und Gehölz als
+  Wald (405). Friedhöfe, anderes Landwirtschaftsland und OSM-Parks sind Kandidaten.
 - befestigte Flächen (501.5) aus der ALKIS-Nutzung: Fahrbahnen mit Gehwegen und Parkstreifen
   (`Straßenverkehr`) sowie Plätze, Parkplätze, Marktplätze und Fußgängerzonen (`Platz`). Begleitflächen
   (Grünstreifen, Baumreihen) werden nicht gezeichnet. Nur als Kandidat kommen: ALKIS-`Weg` (in der Stadt

@@ -1,7 +1,8 @@
 //! Point symbol generalization (ISSprOM 2019-2 §3.1, §3.3, §4.4, §4.5): the point symbols the
 //! build adds keep the minimum gap on paper, a dense group of trees becomes the norm's group
-//! symbol (402, 405 or 501.3; on the white base a 405 gets a 416 boundary so that it shows), and
-//! no point is shown in an area that shall not be entered (520).
+//! symbol (402, 405 or 501.3, cut at paving and paths; on a white base, a map without the walkable
+//! area, a 405 gets a 416 boundary so that it shows), and no point is shown in an area that shall
+//! not be entered (520).
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
@@ -142,6 +143,21 @@ const BOUNDARY_MIN_MM: f64 = 2.65;
 /// building, water, a 520 area, a paved area, the clip window): there the cut feature is the
 /// boundary.
 const BOUNDARY_CUT_MM: f64 = 0.1;
+/// The paths a 402 or 405 is cut at, with their width on paper (mm) at 1:4000: the line of the
+/// bundled symbol and, for 505 and the 501 footprints, its two 0.1 mm border lines. A forest never
+/// covers a path (ADR 0069).
+const PATH_WIDTHS_MM: [(&str, f64); 8] = [
+    ("505.1", 0.55),
+    ("505.2", 0.70),
+    ("506", 0.27),
+    ("507", 0.27),
+    ("501.6", 0.55),
+    ("501.7", 0.70),
+    ("501.8", 1.0),
+    ("501.9", 1.2),
+];
+/// The paved areas among the candidates a 402 or 405 is cut at, like the drawn paving.
+const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
 /// The cell of the grid indexes of the areas (ground metres).
 const GRID_CELL_M: f64 = 100.0;
 /// An area spanning more cells than this is checked for every query instead.
@@ -372,6 +388,12 @@ struct GroupContext<'a> {
     obstacles: Indexed,
     /// The drawn paved areas in the map's CRS.
     paved: Indexed,
+    /// The paved candidates and the path footprints in the map's CRS: a 402 or 405 is cut at
+    /// them, like at the drawn paving.
+    ways: Indexed,
+    /// The map has no walkable area (schoolyard): its base is white, and a 405 off open land
+    /// needs a 416 boundary.
+    white_base: bool,
     /// The open land (401 to 404) among the map objects and candidates in the map's CRS.
     open_land: Indexed,
     clip: Polygon<f64>,
@@ -382,10 +404,12 @@ struct GroupContext<'a> {
 
 /// The group areas of the trees `cluster` (indices into `spots`) and the trees they take in: the
 /// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving; elsewhere 405 when the crowns
-/// cover at least [`FOREST_COVER`] and 402 when not. A 405 off open land ([`OPEN_LAND_SHARE`])
-/// lies on the white base and gets a 416 boundary ([`BOUNDED_FOREST`]). The shares are measured
+/// cover at least [`FOREST_COVER`] and 402 when not. A 405 off open land ([`OPEN_LAND_SHARE`]) on
+/// a map without the walkable area lies on the white base and gets a 416 boundary
+/// ([`BOUNDED_FOREST`]). The shares are measured
 /// on the closed crowns before the cuts. The area is cut at the clip window, the 520 areas, the
-/// buildings and the water, and a 402 or 405 also at the drawn paved areas. Each part is opened by
+/// buildings and the water, and a 402 or 405 also at the drawn paved areas, the paved candidates
+/// and the paths ([`way_footprints`]). Each part is opened by
 /// half the symbol's minimum width, which leaves out what is narrower (the norm's minimum width is
 /// that of the narrowest part); pieces below the minimum area are left out. A tree is merged when
 /// its centre lies in the part and its crown meets a kept piece.
@@ -459,7 +483,7 @@ fn group_areas(
         let open = region
             .intersection(&context.open_land.union_near(bounds))
             .unsigned_area();
-        if open >= OPEN_LAND_SHARE * region_area {
+        if !context.white_base || open >= OPEN_LAND_SHARE * region_area {
             (&FOREST, false)
         } else {
             (&BOUNDED_FOREST, true)
@@ -474,13 +498,19 @@ fn group_areas(
         .filter(|_| bounded);
     let mut cut = region.intersection(&context.clip);
     let mut obstacles = context.obstacles.union_near(bounds);
-    // A road or square through the trees is no forest: off paving the drawn paving is cut out.
-    if !on_paving && !paved_near.0.is_empty() {
-        obstacles = if obstacles.0.is_empty() {
-            paved_near
-        } else {
-            obstacles.union(&paved_near)
-        };
+    // A road, square or path through the trees is no forest: off paving the drawn paving, the
+    // paved candidates and the paths are cut out, so that no group area covers them.
+    if !on_paving {
+        for cut_out in [paved_near, context.ways.union_near(bounds)] {
+            if cut_out.0.is_empty() {
+                continue;
+            }
+            obstacles = if obstacles.0.is_empty() {
+                cut_out
+            } else {
+                obstacles.union(&cut_out)
+            };
+        }
     }
     if !obstacles.0.is_empty() {
         cut = cut.difference(&obstacles);
@@ -581,6 +611,59 @@ fn group_areas(
         merged.extend(members);
     }
     Ok((areas, merged))
+}
+
+/// The paved area candidates ([`PAVED_AREA_CODES`] among `areas` and `candidates`) and the
+/// footprints of the paths ([`PATH_WIDTHS_MM`] among `candidates` and `map`, buffered by half
+/// their width on paper) in the map's CRS.
+fn way_footprints(
+    areas: &[MapObject],
+    candidates: &[MapObject],
+    map: &[MapObject],
+    kind: MapKind,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<Polygon<f64>> {
+    let paved_ids: Vec<u32> = PAVED_AREA_CODES
+        .iter()
+        .filter_map(|code| symbol_set.id_for_code(code))
+        .collect();
+    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+    let half_widths: HashMap<u32, f64> = PATH_WIDTHS_MM
+        .iter()
+        .filter_map(|&(code, width)| {
+            let half = width * kind.symbol_enlargement() * metres_per_mm / 2.0;
+            Some((symbol_set.id_for_code(code)?, half))
+        })
+        .collect();
+    let mut footprints: Vec<Polygon<f64>> = areas
+        .iter()
+        .chain(candidates)
+        .filter(|o| paved_ids.contains(&o.symbol_id))
+        .filter_map(object_polygon)
+        .map(|p| projected(&p, georef))
+        .collect();
+    for object in candidates.iter().chain(map) {
+        let Some(&half) = half_widths.get(&object.symbol_id) else {
+            continue;
+        };
+        if !matches!(object.kind, MapObjectKind::Path) || object.coords.len() < 2 {
+            continue;
+        }
+        let line: LineString<f64> = object
+            .coords
+            .iter()
+            .map(|&c| {
+                let p = georef.map_to_projected(c);
+                Coord {
+                    x: p.easting,
+                    y: p.northing,
+                }
+            })
+            .collect();
+        footprints.extend(line.buffer(half).0);
+    }
+    footprints
 }
 
 /// The rings of `piece` outside `no_boundary`, joined where a ring was split at its start,
@@ -908,6 +991,7 @@ pub fn generalize_points(
             .iter()
             .filter_map(|code| symbol_set.id_for_code(code))
             .collect();
+        let ways = way_footprints(open_land, &candidates, &map, kind, georef, symbol_set);
         let open_land: Vec<Polygon<f64>> = open_land
             .iter()
             .chain(&candidates)
@@ -918,6 +1002,10 @@ pub fn generalize_points(
             .collect();
         let context = GroupContext {
             obstacles: Indexed::new(obstacles, GRID_CELL_M),
+            ways: Indexed::new(ways, GRID_CELL_M),
+            white_base: symbol_set
+                .id_for_code(crate::omap::symbol_set::WALKABLE_AREA_CODE)
+                .is_none(),
             paved: Indexed::new(
                 paved
                     .iter()
@@ -1187,6 +1275,12 @@ pub(crate) mod test_support {
                 })
                 .collect();
             Polygon::new(ring.into(), vec![])
+        }
+
+        /// The fixture without the walkable area: the base is white, as before ADR 0069.
+        pub(crate) fn with_white_base(mut self) -> Self {
+            self.set = crate::omap::SymbolSet::issprom_2019().with_sheet_symbols();
+            self
         }
 
         /// [`generalize_points`] with these inputs, no water and no other open land.
@@ -1509,7 +1603,12 @@ mod tests {
 
     #[test]
     fn park_group_on_white_background_becomes_bounded_forest() {
+        // On the walkable area (ADR 0069) the brown base shows the white 405: no 416.
         let f = fixture(MapKind::Sprint);
+        let found = f.run(f.grid(REGISTER, (3, 3), 3.5, 6.0), vec![], &[], &[], &[]);
+        assert_eq!(group_areas_of(&f, &found.areas).len(), 1);
+        assert!(boundaries(&f, &found.areas).is_empty(), "{:?}", found.areas);
+        let f = fixture(MapKind::Sprint).with_white_base();
         // The dense group of `dense_group_becomes_forest_area` without open land under it: the
         // white 405 alone would not show, so a 416 boundary outlines it (user ruling of
         // 2026-11-10, superseding the open-land-only ruling).
@@ -1566,13 +1665,13 @@ mod tests {
         assert!(found.candidates.is_empty(), "{:?}", found.candidates);
         assert_eq!(found.areas.len(), 1, "{:?}", found.areas);
         assert_eq!(found.areas[0].symbol_id, f.id("402"));
-        // 8 m crowns overlap: a closed canopy, forest with its 416 boundary.
+        // 8 m crowns overlap: a closed canopy, forest; the walkable area shows it, no 416.
         let found = f.run(block(Some(8.0)), vec![], &[], &[], &[]);
         assert!(found.candidates.is_empty(), "{:?}", found.candidates);
         let areas = group_areas_of(&f, &found.areas);
         assert_eq!(areas.len(), 1, "{areas:?}");
         assert_eq!(areas[0].symbol_id, f.id("405"));
-        assert!(!boundaries(&f, &found.areas).is_empty());
+        assert!(boundaries(&f, &found.areas).is_empty());
     }
 
     #[test]
@@ -1620,7 +1719,7 @@ mod tests {
         let merged = tag(areas[0], "freemapper:source_id").unwrap();
         assert_eq!(merged.split("; ").count(), 36, "{merged}");
         assert!(!merged.contains("/s"), "{merged}");
-        assert!(!boundaries(&f, &found.areas).is_empty());
+        assert!(boundaries(&f, &found.areas).is_empty());
         // The street trees stay points, thinned to the gap (417 to 417: 6.2 m).
         let left = ids(&found.candidates);
         assert!(left.iter().all(|id| id.starts_with('s')), "{left:?}");
@@ -1677,13 +1776,88 @@ mod tests {
         assert_eq!(found.areas[0].symbol_id, f.id("402"));
         let found = f.run(trees(), vec![pitch()], &[], &[], &[]);
         assert_eq!(found.areas.len(), 1);
-        // A forest with less than half of its closed crowns on open land lies on the white base:
-        // it gets the 416 boundary.
-        let strip = f.rect("401", (-10.0, -10.0), (40.0, 13.0));
+        // A forest with less than half of its closed crowns on open land lies on the white base
+        // (a map without the walkable area): it gets the 416 boundary.
+        let strip = || f.rect("401", (-10.0, -10.0), (40.0, 13.0));
         let forest = || f.grid(REGISTER, (3, 3), 3.5, 6.0);
-        let found = f.run_with(forest(), vec![], &[], &[], &[strip], &[]);
+        let white = fixture(MapKind::Sprint).with_white_base();
+        let found = white.run_with(forest(), vec![], &[], &[], &[strip()], &[]);
+        assert_eq!(group_areas_of(&white, &found.areas).len(), 1);
+        assert_eq!(boundaries(&white, &found.areas).len(), 1);
+        // On the walkable area it needs none.
+        let found = f.run_with(forest(), vec![], &[], &[], &[strip()], &[]);
         assert_eq!(group_areas_of(&f, &found.areas).len(), 1);
+        assert!(boundaries(&f, &found.areas).is_empty());
+    }
+
+    #[test]
+    fn schoolyard_forest_off_open_land_keeps_its_boundary() {
+        // The school map has no walkable area: a 405 on its white base needs the 416.
+        let f = fixture(MapKind::Schoolyard);
+        let found = f.run(f.grid(REGISTER, (3, 3), 3.0, 5.0), vec![], &[], &[], &[]);
+        assert_eq!(
+            group_areas_of(&f, &found.areas).len(),
+            1,
+            "{:?}",
+            found.areas
+        );
         assert_eq!(boundaries(&f, &found.areas).len(), 1);
+    }
+
+    /// The footprint of a 505.1 path candidate from `a` to `b` (metres from the reference point).
+    fn path(f: &Fixture, code: &str, a: (f64, f64), b: (f64, f64)) -> MapObject {
+        MapObject {
+            symbol_id: f.id(code),
+            kind: MapObjectKind::Path,
+            coords: vec![f.at(a), f.at(b)],
+            tags: vec![("freemapper:source".into(), "osm".into())],
+        }
+    }
+
+    #[test]
+    fn forest_never_covers_a_path_or_a_paved_candidate() {
+        let f = fixture(MapKind::Sprint);
+        // An 8 × 8 block of 418 (crown 6 m, 4 m apart) on a park, a path candidate across its
+        // middle and a paved candidate (the survey's paving) along its south edge.
+        let land = f.rect("401", (-200.0, -200.0), (400.0, 400.0));
+        let paved = f.rect("501.5", (-10.0, -4.0), (50.0, 3.0));
+        for code in ["505.1", "506"] {
+            let way = path(&f, code, (-10.0, 14.0), (40.0, 14.0));
+            let mut candidates = f.grid(REGISTER, (8, 8), 4.0, 6.0);
+            candidates.push(way.clone());
+            let found = f.run_with(
+                candidates,
+                vec![],
+                &[],
+                &[],
+                &[land.clone(), paved.clone()],
+                &[],
+            );
+            let areas = group_areas_of(&f, &found.areas);
+            assert_eq!(areas.len(), 2, "{code}: {areas:?}");
+            let line = geo_types::LineString::from(
+                way.coords
+                    .iter()
+                    .map(|c| {
+                        let p = f.georef.map_to_projected(*c);
+                        (p.easting, p.northing)
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            let paved = projected(&f, &paved);
+            for area in &areas {
+                assert_eq!(area.symbol_id, f.id("405"));
+                let area = projected(&f, area);
+                assert!(
+                    !area.intersects(&line),
+                    "{code}: the forest covers the path"
+                );
+                assert!(area.intersection(&paved).unsigned_area() < 0.01);
+            }
+            assert!(boundaries(&f, &found.areas).is_empty());
+            // The path stays among the candidates.
+            assert!(found.candidates.contains(&way));
+        }
     }
 
     #[test]

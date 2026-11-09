@@ -6,8 +6,15 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Parks sind gelb. Grünanlagen, Parks, Siedlungsgrün und Grünland aus ALKIS werden offenes Gelände (401) in der Karte, Wald und Gehölz Wald (405), Heide 403. Friedhöfe, anderes Landwirtschaftsland, Moor und Sumpf sind Kandidaten, ebenso Parks und Rasen aus OSM, wo kein ALKIS-Park liegt (ADR 0069).
+- Die belaufbare Fläche. Auf der Sprintkarte liegt unter allem eine Fläche im unteren Braun von 501.5 über das ganze Blatt, Symbol 990 im eigenen Kartenteil `base`, Tag `freemapper:source=base`. Sie füllt jede Lücke, die nichts anderes zeigt; eine Sprintkarte ohne sie ist unvollständig. Ihre Farbe steht hinter allen anderen, in OOM, OCAD (Farbe 32, Symbol 990.000) und im PDF. Drucken Sie Sprintkarten farbig, denn in Graustufen liegt das Braun nahe am Papierweiß (ADR 0069).
+
 ### Geändert
 
+- Baumgruppenflächen (402, 405) verdecken keine Wege mehr. freemapper schneidet sie auch an befestigten Kandidaten und an Wegen (505, 506, 507) aus. Die punktierte Vegetationsgrenze (416) gibt es nur noch auf der Schulhofkarte, auf der Sprintkarte zeigt sich der weiße Wald auf Gelb oder Braun. Im Viktoriapark bleiben dadurch mehr Bäume Punkte (1 128 statt 835), die 49 Grenzlinien entfallen (ADR 0069).
+- Alle elf Beispielprojekte sind neu erzeugt, mit gelben Parks und der belaufbaren Fläche.
 - Dichte Baumgruppen werden jetzt auch im Park zur Fläche, die man auf der Karte sieht. Drei oder mehr Bäume, die auf dem Papier näher als 2,5 mm (10 m bei 1:4000) beieinander stehen oder deren Kronen sich fast berühren, werden Wald (405), wenn ihre Kronen mindestens die Hälfte der Fläche decken, sonst offenes Gelände mit verstreuten Bäumen (402). Auf weißem Grund bekommt der Wald eine punktierte Vegetationsgrenze (416), damit er sichtbar ist. Auf Pflaster bleibt es bei 501.3, ab 9 Bäumen. Baumreihen an Straßen und Alleen bleiben Punkte. Im Park Sanssouci sinkt die Zahl der Baumpunkte von 1 654 auf 782 (48 Flächen 402), im Viktoriapark von 1 660 auf 942 (43 Wälder, 9 Flächen 402; ADR 0066, Nachtrag).
 - Die Trainingskarte (PDF) zeichnet die Punktmuster von Flächen, etwa die weißen Punkte von 402. Bisher sah 402 dort aus wie 401.
 - Überlappende Mauern, Zäune und Hecken. Laufen zwei solche Linien parallel und näher, als ihre Symbole auf dem Papier dürfen, verliert die schwächere das Stück: die schlechtere Quelle, bei gleicher Quelle das schwächere Symbol (Mauer vor Zaun vor Hecke vor Stützmauer). Mauerstücke bis 0,5 m neben einem Gebäudeumriss fallen weg, ebenso Bäume bis 1 m neben einer dieser Linien. Im Park Sanssouci sinken die parallelen Linienpaare unter 1 m Abstand von 162 auf 4 (ADR 0068).

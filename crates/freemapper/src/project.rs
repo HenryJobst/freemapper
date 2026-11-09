@@ -20,6 +20,9 @@ use crate::build::dedup::{
     drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
     drop_trees_by_rank,
 };
+use crate::build::open_land::{
+    BASE_PART, drop_open_land_under_alkis, open_land_objects, walkable_base,
+};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
@@ -157,12 +160,15 @@ impl MapKind {
     }
 
     /// The map kind's symbol set plus the sheet symbols for the peripheral information.
+    /// The symbol set of the map kind with the sheet symbols; the sprint map also gets the
+    /// walkable area (belaufbare Fläche, ADR 0069).
     pub fn symbol_set(self) -> SymbolSet {
         match self {
-            Self::Schoolyard => SymbolSet::school_2019(),
-            Self::Sprint => SymbolSet::issprom_2019(),
+            Self::Schoolyard => SymbolSet::school_2019().with_sheet_symbols(),
+            Self::Sprint => SymbolSet::issprom_2019()
+                .with_sheet_symbols()
+                .with_walkable_area(),
         }
-        .with_sheet_symbols()
     }
 
     /// Enlargement of the norm's symbols over ISSprOM 2019 (school set: 125 %).
@@ -4318,20 +4324,39 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     )?;
+    // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`). Where
+    // they are map objects, the OSM parks and lawns go.
+    let open_land = open_land_objects(
+        &land_use,
+        &area.projected_polygon_in(project.crs()),
+        &clip,
+        project.map_kind,
+        &georef,
+        &symbol_set,
+    )?;
+    let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, &symbol_set);
     // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
-    // or 405 (on the white base off open land with a 416 boundary; open land: the 401 green
-    // strips of the paved build, the OSM pitches among the candidates), and no point stands in
-    // a 520 area (`build/points.rs`). The OSM candidates stay before the others.
+    // or 405 (on a white base off open land with a 416 boundary; open land: the parks, the 401
+    // green strips of the paved build, the OSM pitches among the candidates), cut at paving and
+    // paths, and no point stands in a 520 area (`build/points.rs`). The OSM candidates stay
+    // before the others.
     let out_of_bounds =
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
     let mut points = osm_candidates;
     points.extend(cadastre_candidates);
+    let ground: Vec<MapObject> = paved
+        .candidates
+        .iter()
+        .chain(&open_land.map)
+        .chain(&open_land.candidates)
+        .cloned()
+        .collect();
     let generalized = generalize_points(
         points,
         osm_objects(Target::Map)?,
         &out_of_bounds,
         &paved.map,
-        &paved.candidates,
+        &ground,
         &footprints,
         &water.union,
         &clip,
@@ -4365,6 +4390,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
                     &symbol_set,
                 )?)
                 .chain(paved.candidates)
+                .chain(open_land.candidates)
                 .chain(water.candidates)
                 .chain(out_of_bounds)
                 .collect(),
@@ -4410,6 +4436,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
     map_objects.extend(structures.canopies);
+    // Parks under everything but the walkable area: colour priority puts yellow low.
+    map_objects.extend(open_land.map);
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(generalized.map);
@@ -4437,13 +4465,19 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         contour_interval_m: project.map_kind.contour_interval_m(),
         attribution,
     };
-    let parts = vec![
-        buildings_part,
-        MapPart {
-            name: SHEET_PART.to_string(),
-            objects: info_block(&content, &info, &symbol_set),
-        },
-    ];
+    // The walkable area (sprint only, ADR 0069) in its own part, written first.
+    let mut parts: Vec<MapPart> = walkable_base(&content, project.map_kind, &symbol_set)
+        .map(|base| MapPart {
+            name: BASE_PART.to_string(),
+            objects: vec![base],
+        })
+        .into_iter()
+        .collect();
+    parts.push(buildings_part);
+    parts.push(MapPart {
+        name: SHEET_PART.to_string(),
+        objects: info_block(&content, &info, &symbol_set),
+    });
     let map = MapDocument {
         notes,
         georef,
@@ -6763,7 +6797,8 @@ mod tests {
         assert_eq!(MapKind::Schoolyard.default_buffer_m(), 20.0);
         assert_eq!(MapKind::Sprint.default_buffer_m(), 50.0);
         assert_eq!(MapKind::Schoolyard.symbol_set().symbol_count(), 195);
-        assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 189);
+        // Sprint: the walkable area (990) after the sheet symbols.
+        assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 190);
     }
 
     #[test]
@@ -10011,7 +10046,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .collect()
         };
         let documents = starter_documents(dir.path()).unwrap();
-        let canopies: Vec<&MapObject> = documents.map.parts[0]
+        let canopies: Vec<&MapObject> = documents
+            .map
+            .parts
+            .iter()
+            .find(|p| p.name == "default part")
+            .unwrap()
             .objects
             .iter()
             .filter(|o| Some(o.symbol_id) == set.id_for_code("522"))
@@ -11947,7 +11987,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .find(|(k, _)| k == key)
                 .map(|(_, v)| v.clone())
         };
-        let street = documents.map.parts[0]
+        let street = documents
+            .map
+            .parts
+            .iter()
+            .find(|p| p.name == "default part")
+            .unwrap()
             .objects
             .iter()
             .find(|o| tag(o, "freemapper:source_id").as_deref() == Some("DEBE00STRASSE"))
@@ -12549,6 +12594,34 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "north line at 30 mm"
         );
         assert!(!map.contains(r#"<coords count="2">37500 "#));
+        // The walkable area: its own part first, one 990 area tagged as the base; the mapper
+        // draws into the default part (ADR 0069).
+        let base = map
+            .find(r#"<part name="base"><objects count="1">"#)
+            .unwrap();
+        let default = map.find(r#"<part name="default part">"#).unwrap();
+        assert!(base < default);
+        assert!(map.contains(r#"<parts count="3" current="1">"#));
+        assert!(map[base..default].contains(r#"<t k="freemapper:source">base</t>"#));
+        let documents = starter_documents(dir.path()).unwrap();
+        let base = &documents.map.parts[0];
+        assert_eq!(base.name, "base");
+        assert_eq!(
+            Some(base.objects[0].symbol_id),
+            documents.map.symbol_set.id_for_code("990")
+        );
+        // It is drawn in the training map.
+        let (drawn, _) = training_objects(&documents);
+        assert!(drawn.iter().any(|o| std::ptr::eq(*o, &base.objects[0])));
+    }
+
+    #[test]
+    fn schoolyard_has_no_walkable_area() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let documents = starter_documents(dir.path()).unwrap();
+        assert!(documents.map.parts.iter().all(|p| p.name != "base"));
+        assert_eq!(documents.map.symbol_set.id_for_code("990"), None);
     }
 
     #[test]

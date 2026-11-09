@@ -8,17 +8,17 @@ made with `freemapper run --pdf --ocad`.
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 441 | 1721 | 25 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 783 | 1834 | 34 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
-| Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1219 | 1194 | 26 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
-| Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1605 | 998 | 26 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 951 | 936 | 22 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
-| Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 1527 | 883 | 25 | <a href="hessen-marburg/hessen-marburg.pdf"><img src="hessen-marburg/preview.jpg" width="220" alt=""></a> |
-| Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 2266 | 1520 | 26 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="schleswig-holstein-luebeck/preview.jpg" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 2455 | 1629 | 23 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="mecklenburg-vorpommern-wismar/preview.jpg" width="220" alt=""></a> |
-| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 802 | 805 | 25 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="nordrhein-westfalen-monschau/preview.jpg" width="220" alt=""></a> |
-| Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 249 | 1818 | 28 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="niedersachsen-herrenhausen/preview.jpg" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1270 | 766 | 25 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 469 | 1854 | 27 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 789 | 2093 | 34 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1230 | 1289 | 29 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
+| Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1644 | 1048 | 28 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 968 | 947 | 24 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
+| Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 1543 | 945 | 28 | <a href="hessen-marburg/hessen-marburg.pdf"><img src="hessen-marburg/preview.jpg" width="220" alt=""></a> |
+| Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 2294 | 1528 | 28 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="schleswig-holstein-luebeck/preview.jpg" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 2489 | 1674 | 25 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="mecklenburg-vorpommern-wismar/preview.jpg" width="220" alt=""></a> |
+| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 999 | 819 | 28 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="nordrhein-westfalen-monschau/preview.jpg" width="220" alt=""></a> |
+| Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 285 | 1987 | 28 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="niedersachsen-herrenhausen/preview.jpg" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1315 | 790 | 28 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 **Map objects** are the reliable objects of the OOM map (ALKIS buildings, areas and water, canopies and carports).
 **Candidates** come as a separate template (`templates/candidates.omap`); the PDF draws them too. They come from OSM,
@@ -42,8 +42,8 @@ second line in OOM. Where OSM has the same wall, hedge or fence, only the ALKIS 
 in `freemapper:also`. Where a line with another symbol runs parallel and too close, such as an OSM retaining wall on
 a terrace wall or a fence beside a wall, the weaker line loses that stretch. Wall stretches along a building outline
 and trees within 1 m of a hedge, wall or fence are dropped. In Sanssouci this brings the parallel line pairs closer
-than 1 m down from 162 to 4. The Potsdam city map tree points are a tree cadastre as in Berlin. Of them, 688 stay
-points and 789 lie in tree group areas, and OSM trees closer than 2 m to a cadastre tree are dropped.
+than 1 m down from 162 to 4. The Potsdam city map tree points are a tree cadastre as in Berlin. Of them, 774 stay
+points and 676 lie in tree group areas, and OSM trees closer than 2 m to a cadastre tree are dropped.
 
 In Berlin, freemapper loads more layers from the Geoportal Berlin. Stairs, walls, fences, embankment edges, monuments
 and passages are candidates, and so are the trees from the tree cadastre, 1926 of them in the Viktoriapark. The Berlin
@@ -64,11 +64,14 @@ garden colony on the northern edge, in Wismar and Herrenhausen one more area eac
 Point symbols must not touch. Two points keep at least 0.15 mm apart; otherwise the larger one stays and names the
 other in the tag `freemapper:generalized`. Where three or more trees stand closer than 2.5 mm (10 m) or their crowns
 almost touch, freemapper turns them into an area: forest (405) at 50 % crown cover or more, otherwise open land with
-scattered trees (402), and 501.3 on paving from 9 trees. A forest on the white base gets a dotted distinct
-vegetation boundary (416), or it would not show. Rows of trees along streets and avenues stay points. Sanssouci gets
-48 areas 402 this way, because the Potsdam trees have no crown and 5 m crowns do not cover half of a group. The
-Viktoriapark, with measured crowns, gets 43 forests 405 with 49 boundary lines and 9 areas 402. Of its 1926 cadastre
-trees, 835 stay points and 994 lie in tree group areas. The PDF leaves out points inside a 520 candidate; in the
+scattered trees (402), and 501.3 on paving from 9 trees. These areas leave paths and paving clear. Rows of trees
+along streets and avenues stay points. Sanssouci gets 38 areas 402 this way, because the Potsdam trees have no crown
+and 5 m crowns do not cover half of a group. The Viktoriapark, with measured crowns, gets 41 forests 405 and 3 areas
+402. Of its 1926 cadastre trees, 1128 stay points and 634 lie in tree group areas.
+
+Parks are yellow open land (401). ALKIS parks, green spaces and grassland are map objects, in Sanssouci 27 areas,
+in the Viktoriapark 5. ALKIS woods become forest (405), in Monschau 153 areas. Under everything lies the walkable
+area, one brown area over the whole sheet (symbol 990, map part `base`). It fills whatever nothing else shows. The PDF leaves out points inside a 520 candidate; in the
 template they carry `freemapper:hidden=520`.
 
 In the Viktoriapark the stairs on the plinth of the Nationaldenkmal lead up to the monument. Wide stairs such as the
