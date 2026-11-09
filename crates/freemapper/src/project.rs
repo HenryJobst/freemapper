@@ -10,7 +10,8 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_survey_lines_near_alkis,
+    drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_points_near_registers,
+    drop_survey_lines_near_alkis,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -2995,10 +2996,17 @@ fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings>, ProjectE
         return Ok(None);
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
+    let mut features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
         path: path.clone(),
         message: e.to_string(),
     })?;
+    // Berlin buildings carry no date; the 2022 height layer, if stored, gives their footprint
+    // date. It is an optional source: an unreadable file leaves the buildings undated.
+    if let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, "gebaeudehoehen"))
+        && let Ok(heights) = berlin::parse_layer(&text)
+    {
+        berlin::join_footprint_dates(&mut features, &heights);
+    }
     let buildings = parse_building_features(&features).buildings;
     Ok(Some(StoredBuildings {
         buildings,
@@ -3560,6 +3568,12 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
         georef.scale_denominator,
     );
+    // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
+    // place; a register fountain in drawn water is a jet like an OSM one.
+    let (osm_candidates, berlin_candidates) =
+        drop_points_near_registers(osm_candidates, berlin_candidates, georef.scale_denominator);
+    let berlin_candidates =
+        drop_points_in_water(berlin_candidates, &water.union, &georef, &symbol_set);
     let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
@@ -3691,6 +3705,15 @@ const BERLIN_K5_ATTRIBUTION: &str =
     "Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0";
 /// The Berlin tree cadastre, once tree candidates were written.
 const BERLIN_TREES_ATTRIBUTION: &str = "Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0";
+/// The Straßenbefahrung layers, once one of them has features.
+const BERLIN_SURVEY_ATTRIBUTION: &str =
+    "Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert";
+/// The lighting cadastre and the fountain registers, once one of them has features.
+const BERLIN_REGISTERS_ATTRIBUTION: &str =
+    "Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0";
+/// The building heights (footprint dates), once their layer has features.
+const BERLIN_HEIGHTS_ATTRIBUTION: &str =
+    "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -3747,6 +3770,31 @@ fn berlin_attribution(project: &ProjectFile) -> Vec<String> {
     });
     if trees {
         lines.push(BERLIN_TREES_ATTRIBUTION.to_string());
+    }
+    // A stored layer without features contributed nothing.
+    let has = |keep: &dyn Fn(&str) -> bool| {
+        project
+            .berlin_layers
+            .iter()
+            .any(|(file, record)| record.count > 0 && keep(file))
+    };
+    for (used, line) in [
+        (
+            has(&|file| file.starts_with("sb-")),
+            BERLIN_SURVEY_ATTRIBUTION,
+        ),
+        (
+            has(&|file| ["beleuchtung", "zierbrunnen", "trinkwasserbrunnen"].contains(&file)),
+            BERLIN_REGISTERS_ATTRIBUTION,
+        ),
+        (
+            has(&|file| file == "gebaeudehoehen"),
+            BERLIN_HEIGHTS_ATTRIBUTION,
+        ),
+    ] {
+        if used {
+            lines.push(line.to_string());
+        }
     }
     lines
 }
@@ -8687,6 +8735,85 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .any(|l| l.contains("K5") || l.contains("Baumbestand")),
             "{lines:?}"
         );
+    }
+
+    #[test]
+    fn berlin_plus_2_attribution_lines() {
+        const SURVEY: &str =
+            "Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert";
+        const REGISTERS: &str = "Geoportal Berlin / Öffentliche Beleuchtung, Zierbrunnen, Trinkwasserbrunnen, dl-de/zero-2-0";
+        const HEIGHTS: &str = "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        let lines = attribution_lines(&project);
+        for line in [SURVEY, REGISTERS, HEIGHTS] {
+            assert!(lines.contains(&line.to_string()), "{line}: {lines:?}");
+        }
+        // A layer without features contributes nothing: no line for it.
+        let without = |files: &[&str]| {
+            let mut bare = project.clone();
+            for file in files {
+                bare.berlin_layers.get_mut(*file).unwrap().count = 0;
+            }
+            attribution_lines(&bare)
+        };
+        let lines = without(&["beleuchtung", "zierbrunnen", "trinkwasserbrunnen"]);
+        assert!(!lines.contains(&REGISTERS.to_string()), "{lines:?}");
+        assert!(lines.contains(&SURVEY.to_string()) && lines.contains(&HEIGHTS.to_string()));
+        // One of the three registers is enough.
+        let lines = without(&["beleuchtung", "trinkwasserbrunnen"]);
+        assert!(lines.contains(&REGISTERS.to_string()), "{lines:?}");
+        let lines = without(&["gebaeudehoehen"]);
+        assert!(!lines.contains(&HEIGHTS.to_string()), "{lines:?}");
+        let survey_files: Vec<&str> = project
+            .berlin_layers
+            .keys()
+            .map(String::as_str)
+            .filter(|f| f.starts_with("sb-"))
+            .collect();
+        let lines = without(&survey_files);
+        assert!(!lines.contains(&SURVEY.to_string()), "{lines:?}");
+    }
+
+    #[test]
+    fn stored_berlin_buildings_take_the_footprint_date_of_the_height_layer() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let project = ProjectFile::load(dir.path()).unwrap();
+        serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
+        fetch(dir.path(), &fetcher, &cache);
+        let dates = |dir: &Path| -> Vec<Option<NaiveDate>> {
+            let stored = read_stored_buildings(dir).unwrap().unwrap();
+            let gym = stored
+                .buildings
+                .iter()
+                .find(|b| b.oid == "DEBE03YY600004AR");
+            assert!(gym.is_some());
+            stored.buildings.iter().map(|b| b.updated).collect()
+        };
+        // The height fixture is for another place: no building matches.
+        assert!(dates(dir.path()).iter().all(Option::is_none));
+        // A height feature of the school gymnasium gives its footprint date; the others stay.
+        let path = berlin_layer_path(dir.path(), "gebaeudehoehen");
+        let heights = serde_json::json!({"type": "FeatureCollection", "features": [{
+            "type": "Feature", "id": "gebaeudehoehen.1", "geometry": null,
+            "properties": {"gml_id": "DEBE03YY600004AR", "grundrissaktualitaet": "2015-08-27"}
+        }]});
+        std::fs::write(&path, heights.to_string()).unwrap();
+        let stored = read_stored_buildings(dir.path()).unwrap().unwrap();
+        let dated: Vec<_> = stored
+            .buildings
+            .iter()
+            .filter(|b| b.updated.is_some())
+            .map(|b| (b.oid.as_str(), b.updated))
+            .collect();
+        assert_eq!(dated, [("DEBE03YY600004AR", "2015-08-27".parse().ok())]);
+        // Without the layer file the buildings are undated again.
+        std::fs::remove_file(&path).unwrap();
+        assert!(dates(dir.path()).iter().all(Option::is_none));
     }
 
     #[test]

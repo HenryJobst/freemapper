@@ -646,6 +646,129 @@ pub fn drop_osm_trees_near_cadastre(
         .collect()
 }
 
+/// A survey or OSM point this close (ground metres) to a lamp of the lighting cadastre is the same lamp.
+const LAMP_DEDUP_M: f64 = 2.0;
+/// The same for a fountain or drinking-water point of the fountain registers.
+const FOUNTAIN_DEDUP_M: f64 = 3.0;
+
+/// One register and the points that give way to it: points within `limit_m` that carry one of the
+/// `losers` tags.
+struct RegisterDedup {
+    /// `freemapper:source` of the register's points.
+    register: &'static str,
+    limit_m: f64,
+    /// `(tag key, value)` of the OSM rule (`freemapper:osm`) or survey type (`berlin:layer`).
+    losers: &'static [(&'static str, &'static str)],
+}
+
+const REGISTER_DEDUPS: [RegisterDedup; 3] = [
+    RegisterDedup {
+        register: "geoportal-berlin/beleuchtung",
+        limit_m: LAMP_DEDUP_M,
+        losers: &[
+            ("freemapper:osm", "highway=street_lamp"),
+            ("berlin:layer", "as_mast"),
+        ],
+    },
+    RegisterDedup {
+        register: "geoportal-berlin/zierbrunnen",
+        limit_m: FOUNTAIN_DEDUP_M,
+        losers: &[
+            ("freemapper:osm", "amenity=fountain"),
+            ("berlin:layer", "af_wasserpumpen_brunnen"),
+            ("berlin:layer", "bv_springbrunnen_zierbrunnen"),
+        ],
+    },
+    RegisterDedup {
+        register: "geoportal-berlin/trinkwasserbrunnen",
+        limit_m: FOUNTAIN_DEDUP_M,
+        losers: &[
+            ("freemapper:osm", "amenity=drinking_water"),
+            ("berlin:layer", "ac_trinkwasserbrunnen_wasserspender"),
+        ],
+    },
+];
+
+/// The registers win over the survey and OSM: an OSM street lamp or a survey mast within
+/// [`LAMP_DEDUP_M`] of a lamp of the lighting cadastre, and an OSM or survey fountain (drinking
+/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, are
+/// dropped. The register point names each dropped point in `freemapper:also`
+/// (`osm/node/1`, `geoportal-berlin/sb-moebel/<gis_id>`). Returns the OSM and the Berlin
+/// candidates without them.
+pub fn drop_points_near_registers(
+    osm: Vec<MapObject>,
+    mut berlin: Vec<MapObject>,
+    scale_denominator: u32,
+) -> (Vec<MapObject>, Vec<MapObject>) {
+    let tag = |o: &MapObject, key: &str| -> Option<String> {
+        o.tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
+    let position = |o: &MapObject| match (&o.kind, o.coords.first()) {
+        (MapObjectKind::Point { .. }, Some(c)) => Some((f64::from(c.x), f64::from(c.y))),
+        _ => None,
+    };
+    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
+    let metre = 1e6 / f64::from(scale_denominator);
+    let mut dropped_osm = vec![false; osm.len()];
+    let mut dropped_berlin = vec![false; berlin.len()];
+    let mut also: Vec<(usize, String)> = Vec::new();
+    for rule in &REGISTER_DEDUPS {
+        let winners: Vec<(usize, (f64, f64))> = berlin
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| tag(o, "freemapper:source").as_deref() == Some(rule.register))
+            .filter_map(|(i, o)| position(o).map(|p| (i, p)))
+            .collect();
+        if winners.is_empty() {
+            continue;
+        }
+        let limit = rule.limit_m * metre;
+        let mut check = |object: &MapObject, gone: &mut bool| {
+            let is_loser = rule
+                .losers
+                .iter()
+                .any(|(key, value)| tag(object, key).as_deref() == Some(*value));
+            let Some((x, y)) = position(object).filter(|_| is_loser && !*gone) else {
+                return;
+            };
+            let nearest = winners
+                .iter()
+                .map(|&(i, (wx, wy))| (i, (x - wx).hypot(y - wy)))
+                .filter(|&(_, d)| d <= limit)
+                .min_by(|a, b| a.1.total_cmp(&b.1));
+            if let Some((winner, _)) = nearest {
+                *gone = true;
+                let name = format!(
+                    "{}/{}",
+                    tag(object, "freemapper:source").unwrap_or_default(),
+                    tag(object, "freemapper:source_id").unwrap_or_default()
+                );
+                also.push((winner, name));
+            }
+        };
+        for (object, gone) in osm.iter().zip(&mut dropped_osm) {
+            check(object, gone);
+        }
+        for (object, gone) in berlin.iter().zip(&mut dropped_berlin) {
+            check(object, gone);
+        }
+    }
+    for (winner, name) in also {
+        add_also(&mut berlin[winner].tags, &name);
+    }
+    let keep = |objects: Vec<MapObject>, dropped: Vec<bool>| -> Vec<MapObject> {
+        objects
+            .into_iter()
+            .zip(dropped)
+            .filter_map(|(o, gone)| (!gone).then_some(o))
+            .collect()
+    };
+    (keep(osm, dropped_osm), keep(berlin, dropped_berlin))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1386,6 +1509,151 @@ mod tests {
             drop_osm_trees_near_cadastre(vec![tree(0.0, 0.0)], &[], georef.scale_denominator).len(),
             1
         );
+    }
+
+    /// A point of a register (`beleuchtung`, `zierbrunnen`, `trinkwasserbrunnen`): stored with
+    /// the type name, no survey date.
+    fn register_point(layer: &str, id: &str, at: (f64, f64)) -> Value {
+        serde_json::json!({
+            "type": "Feature", "id": format!("{layer}.{id}"),
+            "geometry": {"type": "Point", "coordinates": [at.0, at.1]},
+            "properties": {"id": id, crate::sources::berlin::TYPE_KEY: layer}
+        })
+    }
+
+    /// An OSM point candidate `de`, `dn` metres from Alexanderplatz (392400, 5820400).
+    fn osm_point(kind: MapKind, code: &str, osm: &str, id: &str, de: f64, dn: f64) -> MapObject {
+        let (georef, _, set) = setup(kind);
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: 392_400.0 + de,
+                        northing: 5_820_400.0 + dn,
+                    })
+                    .unwrap(),
+            ],
+            tags: vec![
+                ("freemapper:source".into(), "osm".into()),
+                ("freemapper:source_id".into(), id.into()),
+                ("freemapper:osm".into(), osm.into()),
+            ],
+        }
+    }
+
+    fn ids(objects: &[MapObject]) -> Vec<&str> {
+        objects
+            .iter()
+            .filter_map(|o| object_tag(o, "freemapper:source_id"))
+            .collect()
+    }
+
+    #[test]
+    fn lamps_of_the_cadastre_are_schoolyard_candidates() {
+        let kind = MapKind::Schoolyard;
+        let lamps = [register_point("beleuchtung", "1", (392_400.0, 5_820_400.0))];
+        let set = kind.symbol_set();
+        let lamp = survey_objects("beleuchtung", &lamps, kind);
+        assert_eq!(lamp.len(), 1);
+        assert_eq!(Some(lamp[0].symbol_id), set.id_for_code("545"));
+        assert_eq!(
+            object_tag(&lamp[0], "freemapper:source"),
+            Some("geoportal-berlin/beleuchtung")
+        );
+        assert_eq!(object_tag(&lamp[0], "berlin:layer"), Some("beleuchtung"));
+        // Lamps are for the schoolyard only.
+        assert!(survey_objects("beleuchtung", &lamps, MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn lamp_cadastre_replaces_osm_lamp_nearby() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let lamps = [register_point("beleuchtung", "7", (392_400.0, 5_820_400.0))];
+        let masts = [
+            survey_point("as_mast", "near", (392_401.5, 5_820_400.0)),
+            survey_point("as_mast", "far", (392_410.0, 5_820_400.0)),
+            survey_point("av_poller", "post", (392_400.5, 5_820_400.0)),
+        ];
+        let mut berlin = survey_objects("beleuchtung", &lamps, kind);
+        berlin.extend(survey_objects("sb-moebel", &masts, kind));
+        let osm = vec![
+            osm_point(kind, "545", "highway=street_lamp", "node/1", 1.0, 1.0), // 1.4 m
+            osm_point(kind, "545", "highway=street_lamp", "node/2", 0.0, 2.5), // 2.5 m
+            osm_point(kind, "544", "man_made=mast", "node/3", 0.0, 0.5),       // not a lamp
+        ];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/2", "node/3"]);
+        let layers: Vec<_> = berlin
+            .iter()
+            .filter_map(|o| object_tag(o, "berlin:layer"))
+            .collect();
+        assert_eq!(layers, ["beleuchtung", "as_mast", "av_poller"]);
+        let far = berlin
+            .iter()
+            .find(|o| object_tag(o, "freemapper:source_id").is_some_and(|i| i.contains("far")))
+            .map(|o| object_tag(o, "freemapper:source_id"));
+        assert!(far.is_some(), "the far mast stays");
+        // The lamp names what it replaced.
+        let also = object_tag(&berlin[0], "freemapper:also").unwrap();
+        assert!(also.contains("osm/node/1"), "{also}");
+        assert!(also.contains("geoportal-berlin/sb-moebel/"), "{also}");
+        assert!(!also.contains("node/2"), "{also}");
+    }
+
+    #[test]
+    fn fountains_from_both_sources_dedup() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, _) = setup(kind);
+        let (e, n) = (392_400.0, 5_820_400.0);
+        let fountains = [register_point("bez_zierbrunnen", "ZB-1", (e, n))];
+        let drinking = [register_point("trinkwasserbrunnen", "TW-1", (e + 100.0, n))];
+        let objects = [
+            survey_point("bv_springbrunnen_zierbrunnen", "jet", (e + 2.0, n)),
+            survey_point("af_wasserpumpen_brunnen", "pump", (e + 30.0, n)),
+            survey_point("ac_trinkwasserbrunnen_wasserspender", "tap", (e + 101.0, n)),
+        ];
+        let mut berlin = survey_objects("zierbrunnen", &fountains, kind);
+        berlin.extend(survey_objects("trinkwasserbrunnen", &drinking, kind));
+        berlin.extend(survey_objects("sb-objekte", &objects, kind));
+        assert_eq!(berlin.len(), 5, "rules for both registers and the survey");
+        let osm = vec![
+            osm_point(kind, "311", "amenity=fountain", "node/10", 2.9, 0.0), // same fountain
+            osm_point(kind, "311", "amenity=fountain", "node/11", 3.5, 0.0), // another one
+            osm_point(kind, "313", "amenity=drinking_water", "node/12", 0.5, 0.0), // other kind
+            osm_point(kind, "313", "amenity=drinking_water", "node/13", 100.0, 2.0),
+        ];
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/11", "node/12"]);
+        // The survey jet at the register fountain and the survey tap at the register tap go;
+        // the pump 30 m away stays.
+        let layers: Vec<_> = berlin
+            .iter()
+            .filter_map(|o| object_tag(o, "berlin:layer"))
+            .collect();
+        assert_eq!(
+            layers,
+            [
+                "bez_zierbrunnen",
+                "trinkwasserbrunnen",
+                "af_wasserpumpen_brunnen"
+            ]
+        );
+        let also = object_tag(&berlin[0], "freemapper:also").unwrap();
+        assert!(also.contains("osm/node/10"), "{also}");
+        // Without registers nothing is dropped.
+        let osm = vec![osm_point(
+            kind,
+            "311",
+            "amenity=fountain",
+            "node/1",
+            0.0,
+            0.0,
+        )];
+        let (osm, _) = drop_points_near_registers(osm, vec![], georef.scale_denominator);
+        assert_eq!(osm.len(), 1);
     }
 
     #[test]

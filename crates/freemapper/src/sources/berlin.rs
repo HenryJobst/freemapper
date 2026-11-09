@@ -508,6 +508,30 @@ pub fn normalise_building(feature: &Value) -> Value {
     with_properties(feature, properties)
 }
 
+/// Sets `aktualit` of the normalised `buildings` from the footprint date
+/// (`grundrissaktualitaet`, 2022 data of the Umweltatlas) of the `heights` feature with
+/// `gml_id` = the building's `oid`. A building without a match keeps no date.
+pub fn join_footprint_dates(buildings: &mut [Value], heights: &[Value]) {
+    let dates: std::collections::HashMap<&str, &str> = heights
+        .iter()
+        .filter_map(|f| {
+            let p = &f["properties"];
+            let date = p["grundrissaktualitaet"].as_str()?;
+            // Only a real date counts; the layer also holds empty strings.
+            date.get(..10)?.parse::<NaiveDate>().ok()?;
+            Some((p["gml_id"].as_str()?, date))
+        })
+        .collect();
+    for building in buildings {
+        let date = building["properties"]["oid"]
+            .as_str()
+            .and_then(|oid| dates.get(oid));
+        if let Some(date) = date.copied() {
+            building["properties"]["aktualit"] = date.into();
+        }
+    }
+}
+
 /// A Berlin land use feature with LGB properties.
 pub fn normalise_land_use(feature: &Value) -> Value {
     let source = &feature["properties"];
@@ -673,6 +697,54 @@ mod tests {
         assert_eq!(part.function, "");
 
         assert!(by_oid("DEBE00YY2A80000K").underground, "Tiefgarage");
+    }
+
+    /// A raw ALKIS building with the given uuid, as the WFS serves it.
+    fn raw_building(uuid: &str) -> Value {
+        serde_json::json!({
+            "type": "Feature", "id": format!("gebaeude.{uuid}"),
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [392_800.0, 5_820_800.0], [392_810.0, 5_820_800.0], [392_810.0, 5_820_810.0],
+                [392_800.0, 5_820_800.0]]]},
+            "properties": {"uuid": uuid, "bezeich": "AX_Gebaeude", "bezgfk": "Wohnhaus"}
+        })
+    }
+
+    #[test]
+    fn building_gets_footprint_date() {
+        let heights = features(GEBAEUDEHOEHEN);
+        // `gml_id` of the height layer = `uuid` of the ALKIS building.
+        let mut buildings = vec![
+            normalise_building(&raw_building("DEBE02YY400008Kh")),
+            normalise_building(&raw_building("DEBE00YY2mr0002Q")),
+        ];
+        join_footprint_dates(&mut buildings, &heights);
+        let parsed = parse_buildings(&collection(&buildings)).unwrap();
+        let dates: Vec<_> = parsed.buildings.iter().map(|b| b.updated).collect();
+        assert_eq!(
+            dates,
+            ["2015-08-27", "2019-04-30"]
+                .map(|d| d.parse().ok())
+                .to_vec()
+        );
+    }
+
+    #[test]
+    fn unmatched_building_keeps_no_date() {
+        let heights = features(GEBAEUDEHOEHEN);
+        let mut buildings: Vec<Value> =
+            features(BUILDINGS).iter().map(normalise_building).collect();
+        buildings.push(normalise_building(&raw_building("DEBE02YY400008Kh")));
+        join_footprint_dates(&mut buildings, &heights);
+        let parsed = parse_buildings(&collection(&buildings)).unwrap();
+        let dates: Vec<_> = parsed.buildings.iter().map(|b| b.updated).collect();
+        // The fixture buildings are not in the height layer; the last one is.
+        assert_eq!(dates[..dates.len() - 1], vec![None; dates.len() - 1]);
+        assert_eq!(dates.last(), Some(&"2015-08-27".parse().ok()));
+        // Without a height layer nothing changes.
+        let mut alone = vec![normalise_building(&raw_building("DEBE02YY400008Kh"))];
+        join_footprint_dates(&mut alone, &[]);
+        assert!(alone[0]["properties"].get("aktualit").is_none());
     }
 
     #[test]

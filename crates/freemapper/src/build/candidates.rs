@@ -443,6 +443,7 @@ pub fn osm_objects(
         ));
         let codes = crate::build::berlin::SURVEY_CODES.map(|code| format!("berlin:{code}"));
         for key in [
+            "berlin:layer",
             "freemapper:alkis",
             "freemapper:size",
             "freemapper:baum",

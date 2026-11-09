@@ -161,3 +161,23 @@ sprint = "311"
 when = ["berlin:layer=ac_trinkwasserbrunnen_wasserspender"]
 draw = "point"
 schoolyard = "313"
+
+# The registers (Berlin plus 2). Lamps of the lighting cadastre (only those in operation are
+# stored) are the schoolyard's 545; the survey masts (`as_mast`) give way to them
+# (`drop_points_near_registers`). The fountain registers give the 311 and 313 points; they win
+# over the survey and OSM points within a few metres.
+[[rule]]
+when = ["berlin:layer=beleuchtung"]
+draw = "point"
+schoolyard = "545"
+
+[[rule]]
+when = ["berlin:layer=bez_zierbrunnen"]
+draw = "point"
+schoolyard = "311"
+sprint = "311"
+
+[[rule]]
+when = ["berlin:layer=trinkwasserbrunnen"]
+draw = "point"
+schoolyard = "313"
