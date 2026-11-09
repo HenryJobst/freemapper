@@ -34,6 +34,11 @@ development:
 - [freemapper-print](https://github.com/HenryJobst/freemapper-print) prints the map sheets, one sheet per
   course, with the course overprint and control descriptions.
 
+Code that several of these programs need lives in a shared library:
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). It is a set of small Rust crates, for
+example `freemapper-fs` for file access that never leaves the project. The programs move to these crates
+step by step, each pinned to a fixed version, instead of copying the code.
+
 ## Status
 
 The current version is [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) of
@@ -138,6 +143,11 @@ the GitHub release through `.github/workflows/release.yml`.
 
 Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git hooks: `lefthook install`.
+
+Shared code of the suite comes step by step from
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). To change it alongside freemapper,
+check freemapper-core out next to freemapper and use it during development through a local `[patch]`.
+The freemapper-core README has the details.
 
 ## Usage
 

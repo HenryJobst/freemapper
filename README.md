@@ -35,6 +35,11 @@ sind in Entwicklung:
 - [freemapper-print](https://github.com/HenryJobst/freemapper-print) druckt die Kartenblätter, ein Blatt je
   Bahn, mit Bahnaufdruck und Postenbeschreibung.
 
+Code, den mehrere dieser Programme brauchen, liegt in einer gemeinsamen Bibliothek:
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). Das sind kleine Rust-Crates, zum Beispiel
+`freemapper-fs` für Dateizugriffe, die das Projekt nie verlassen. Die Programme binden sie nach und
+nach in einer festen Version ein, statt den Code zu kopieren.
+
 ## Status
 
 Aktuelle Version ist [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) vom
@@ -142,6 +147,11 @@ Ein Tag `v<Version>` (passend zur Version in `Cargo.toml`) erzeugt über
 
 Entwicklung: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git-Hooks: `lefthook install`.
+
+Gemeinsamer Code der Suite kommt nach und nach aus
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). Wer dort mitändert, legt freemapper-core
+neben freemapper ab und bindet es während der Entwicklung über einen lokalen `[patch]` ein. Die
+Einzelheiten stehen in der README von freemapper-core.
 
 ## Benutzung
 
