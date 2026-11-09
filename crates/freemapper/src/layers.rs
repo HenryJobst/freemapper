@@ -47,6 +47,11 @@ const K5_MB_PER_KM2: f64 = 15.0;
 pub(crate) const BERLIN_LAYERS_ITEM: &str =
     "Berlin ALKIS structures, tree cadastre, street survey and point layers";
 pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
+/// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched: Sanssouci
+/// measured 761 KB of GML for 0.54 km² (1.4 MB per km², 2026-11-09), rounded up.
+const NAS_MB_PER_KM2: f64 = 2.0;
+/// Name of the NAS item in the estimate.
+pub(crate) const NAS_LAYERS_ITEM: &str = "full ALKIS structures (NAS)";
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
 const SH_BDOM_TILE_MB: f64 = 105.0;
@@ -174,6 +179,14 @@ pub(crate) fn estimate_area(
             Part::BerlinLayers,
         ));
         items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+    }
+    if !crate::sources::alkis_nas::nas_services_for(bbox).is_empty() {
+        items.push(per_km2_item(
+            bbox,
+            NAS_LAYERS_ITEM,
+            NAS_MB_PER_KM2,
+            Part::StateLayers,
+        ));
     }
     let total_megabytes = items
         .iter()
@@ -2049,6 +2062,69 @@ mod tests {
                 .iter()
                 .all(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
         );
+    }
+
+    #[test]
+    fn nas_estimate_and_disk_part() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let estimate_of = |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false);
+        let strausberg = BoundingBox {
+            min_e: 421_000.0,
+            min_n: 5_821_000.0,
+            max_e: 422_500.0,
+            max_n: 5_822_000.0,
+        };
+        // +2 MB per km² of NAS GML (Sanssouci 2026-11-09: 761 KB for 0.54 km², 1.4 MB per km²).
+        let estimate = estimate_of(&strausberg);
+        let nas = estimate
+            .items
+            .iter()
+            .find(|i| i.what == NAS_LAYERS_ITEM)
+            .expect("NAS layers in Brandenburg");
+        assert!((nas.megabytes - 1.5 * 2.0).abs() < 1e-9, "{nas:?}");
+        assert!(!nas.cached);
+        assert_eq!((nas.part, nas.store), (Part::StateLayers, Store::Project));
+        // Optional: skipped with a warning when there is no room, like the Berlin layers.
+        assert!(!Part::StateLayers.required());
+        assert_eq!(
+            Part::StateLayers.label(),
+            "the full ALKIS structures and the tree cadastres"
+        );
+        let plan = crate::space::plan(
+            &estimate,
+            cache_dir.path(),
+            cache_dir.path(),
+            &crate::space::test_support::FixedSpace::default().with(
+                std::path::Path::new("/"),
+                "disk",
+                crate::space::RESERVE_BYTES,
+            ),
+        )
+        .unwrap();
+        assert!(!plan.fits(Part::StateLayers));
+        assert!(plan.skipped().any(|s| s.part == Part::StateLayers));
+        // No NAS service in Berlin or Saxony.
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        let dresden = BoundingBox {
+            min_e: 415_800.0,
+            min_n: 5_655_600.0,
+            max_e: 416_150.0,
+            max_n: 5_655_900.0,
+        };
+        for bbox in [mitte, dresden] {
+            assert!(
+                estimate_of(&bbox)
+                    .items
+                    .iter()
+                    .all(|i| i.part != Part::StateLayers)
+            );
+        }
     }
 
     #[test]

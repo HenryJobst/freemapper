@@ -1,6 +1,7 @@
 //! Data sources.
 
 pub mod alkis;
+pub mod alkis_nas;
 pub mod alkis_wfs;
 pub mod berlin;
 pub mod float_tiff;

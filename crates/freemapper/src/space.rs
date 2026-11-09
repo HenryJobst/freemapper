@@ -26,6 +26,9 @@ pub enum Part {
     /// The extra Berlin layers (ALKIS structures, tree cadastre): candidates and a few map
     /// objects, optional like the K5 map.
     BerlinLayers,
+    /// The state layers outside Berlin (full ALKIS from a NAS service, tree cadastres):
+    /// candidates, optional like the Berlin layers.
+    StateLayers,
     /// The surface model (nDOM, bDOM, DOM1): only the nDSM template.
     Surface,
     /// A newer OSM extract where an older one is cached; the older one serves meanwhile.
@@ -52,6 +55,7 @@ impl Part {
             Part::BerlinLayers => {
                 "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
             }
+            Part::StateLayers => "the full ALKIS structures and the tree cadastres",
         }
     }
 
@@ -60,12 +64,13 @@ impl Part {
     /// about as large as its download, the nDSM template is smaller than the surface model it
     /// comes from, and the OSM candidates are a small cut of the extract. Where the Berlin
     /// layers have stairs, `derive` keeps the DGM mosaic as `data/terrain.tif` (Float32, LZW,
-    /// about 4 MB per km², as much as the layers): their share covers it.
+    /// about 4 MB per km², as much as the layers): their share covers it. The state layers get
+    /// the same share for the NAS stairs of later states.
     fn derived_share(self) -> f64 {
         match self {
             // The K5 image is written straight into the templates, so it needs no extra room.
             Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
-            Part::Terrain | Part::Orthophoto | Part::BerlinLayers => 1.0,
+            Part::Terrain | Part::Orthophoto | Part::BerlinLayers | Part::StateLayers => 1.0,
             Part::Surface => 0.5,
         }
     }

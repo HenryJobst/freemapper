@@ -51,7 +51,6 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::berlin;
 use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
@@ -61,6 +60,7 @@ use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
 use crate::sources::wms::{DateLabel, OrthophotoSource};
+use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::{TileId, tiles_covering_grid};
 
@@ -229,6 +229,11 @@ pub struct ProjectFile {
     /// the area is recorded with count 0.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub berlin_layers: BTreeMap<String, AlkisRecord>,
+    /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
+    /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
+    /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub nas_layers: BTreeMap<String, AlkisRecord>,
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
@@ -427,6 +432,10 @@ impl ProjectFile {
             let _ = std::fs::remove_file(berlin_layer_path(dir, file));
         }
         self.berlin_layers.clear();
+        for file in self.nas_layers.keys() {
+            let _ = std::fs::remove_file(nas_layer_path(dir, file));
+        }
+        self.nas_layers.clear();
         self.osm = None;
         self.orthophoto = None;
         self.k5 = None;
@@ -483,6 +492,7 @@ pub fn init_project(
         buildings: None,
         land_use: None,
         berlin_layers: BTreeMap::new(),
+        nas_layers: BTreeMap::new(),
         osm: None,
         orthophoto: None,
         k5: None,
@@ -536,6 +546,8 @@ pub(crate) const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 const SKIPPED_SHOWN: usize = 5;
 /// Folder of the extra Berlin layers, one `<file>.geojson` per layer (GeoJSON as served, EPSG:25833).
 pub(crate) const BERLIN_LAYERS_DIR: &str = "data/berlin";
+/// Folder of the NAS layers (full ALKIS), one `<file>.geojson` per layer (GeoJSON in the map's CRS).
+pub(crate) const NAS_LAYERS_DIR: &str = "data/alkis-nas";
 /// ALKIS buildings around the map area, as fetched (GeoJSON in the map's CRS).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
@@ -713,6 +725,17 @@ pub fn fetch_project(
         progress,
     );
     project.save(dir)?;
+    project.nas_layers = fetch_nas_layers_into(
+        dir,
+        fetcher,
+        &area,
+        project.map_kind,
+        mode,
+        skips(Part::StateLayers),
+        &project.nas_layers,
+        progress,
+    );
+    project.save(dir)?;
     fetch_k5_into(
         dir,
         fetcher,
@@ -764,12 +787,14 @@ pub(crate) fn mark_stored(
     }
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
     let berlin_layers = !project.berlin_layers.is_empty();
-    if orthophoto || k5 || berlin_layers {
+    let nas_layers = !project.nas_layers.is_empty();
+    if orthophoto || k5 || berlin_layers || nas_layers {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
                 (Part::BerlinLayers, _) => berlin_layers,
+                (Part::StateLayers, crate::layers::NAS_LAYERS_ITEM) => nas_layers,
                 _ => false,
             };
             if stored && item.store == crate::space::Store::Project {
@@ -2286,6 +2311,11 @@ fn fetch_land_use_into(
     }
 }
 
+/// Path of the stored NAS layer `file` (without extension).
+fn nas_layer_path(dir: &Path, file: &str) -> PathBuf {
+    dir.join(NAS_LAYERS_DIR).join(format!("{file}.geojson"))
+}
+
 /// Path of the stored extra Berlin layer `file` (without extension).
 fn berlin_layer_path(dir: &Path, file: &str) -> PathBuf {
     dir.join(BERLIN_LAYERS_DIR).join(format!("{file}.geojson"))
@@ -2389,6 +2419,176 @@ fn fetch_berlin_layers_into(
         let _ = std::fs::remove_file(berlin_layer_path(dir, file));
     }
     records
+}
+
+/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
+/// the records that replace `previous`, as [`fetch_berlin_layers_into`] does for the Berlin
+/// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
+/// covers the area stays), a layer without objects is stored as an empty collection, outside the
+/// states with a NAS service nothing is requested and stored layers of an earlier area are
+/// removed. Offline, or when the disk plan left the state layers out (`skip`), nothing is
+/// downloaded and `previous` stays.
+#[allow(clippy::too_many_arguments)]
+fn fetch_nas_layers_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    kind: MapKind,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(&str),
+) -> BTreeMap<String, AlkisRecord> {
+    let in_nas_state = !alkis_nas::nas_services_for(&area.region_bbox).is_empty();
+    if mode == FetchMode::Offline {
+        if in_nas_state && previous.is_empty() {
+            progress(
+                "no full ALKIS structures stored; run `freemapper fetch` online for walls, fences, hedges and bridges",
+            );
+        }
+        return previous.clone();
+    }
+    if !in_nas_state {
+        if !previous.is_empty() {
+            progress(
+                "removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service",
+            );
+            for file in previous.keys() {
+                let _ = std::fs::remove_file(nas_layer_path(dir, file));
+            }
+        }
+        return BTreeMap::new();
+    }
+    if skip {
+        // The disk plan already said that the layers are left out; stored ones stay.
+        return previous.clone();
+    }
+    progress("downloading the full ALKIS structures (NAS)");
+    let bbox = &area.bbox;
+    let rounded = [
+        bbox.min_e.floor(),
+        bbox.min_n.floor(),
+        bbox.max_e.ceil(),
+        bbox.max_n.ceil(),
+    ];
+    let mut records = BTreeMap::new();
+    for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind) {
+        let file = fetched.layer.file;
+        let path = nas_layer_path(dir, file);
+        let stored = fetched
+            .features
+            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
+            .and_then(|fetched| {
+                let parent = path.parent().expect("a file below the project folder");
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                write_atomically(
+                    &path,
+                    berlin::layer_to_geojson(&fetched.features).as_bytes(),
+                )
+                .map_err(|e| e.to_string())?;
+                Ok(fetched)
+            });
+        match stored {
+            Ok(fetched) => {
+                let count = fetched.features.len();
+                progress(&format!("{count} ALKIS NAS {file} features"));
+                if !fetched.skipped.is_empty() {
+                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
+                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
+                    progress(&format!(
+                        "skipped {} ALKIS NAS {file} features: {}{}",
+                        fetched.skipped.len(),
+                        shown
+                            .map(|s| crate::fetch::one_line(s, 120))
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                        if more { "; …" } else { "" }
+                    ));
+                }
+                let latest_update = fetched
+                    .features
+                    .iter()
+                    .filter_map(|f| f["properties"]["beginnt"].as_str()?.parse().ok())
+                    .max();
+                records.insert(
+                    file.to_string(),
+                    AlkisRecord {
+                        bbox: rounded,
+                        fetched: chrono::Local::now().date_naive(),
+                        latest_update,
+                        count,
+                        regions: fetched.regions,
+                    },
+                );
+            }
+            Err(e) => match previous
+                .get(file)
+                .filter(|r| path.exists() && r.covers(bbox))
+            {
+                Some(record) => {
+                    progress(&format!(
+                        "warning: ALKIS NAS {file} unavailable ({e}); keeping the stored layer"
+                    ));
+                    records.insert(file.to_string(), record.clone());
+                }
+                None => {
+                    // Nothing was written for it; a stale file is removed with the unused layers.
+                    progress(&format!(
+                        "warning: ALKIS NAS {file} unavailable ({e}); layer skipped"
+                    ));
+                }
+            },
+        }
+    }
+    // Layers the map kind no longer uses, and failed ones that no longer cover the area.
+    for file in previous.keys().filter(|f| !records.contains_key(*f)) {
+        let _ = std::fs::remove_file(nas_layer_path(dir, file));
+    }
+    records
+}
+
+/// One stored NAS layer (full ALKIS).
+#[derive(Debug, Clone)]
+pub struct StoredNasLayer {
+    pub layer: &'static alkis_nas::NasLayer,
+    /// The features in the map's CRS, as [`alkis_nas::parse_nas_gml`] reads them (`oid`,
+    /// `nas_type`, the codes, `beginnt`, `gehoert_zu`).
+    pub features: Vec<serde_json::Value>,
+    /// The fetch date, the currency of features without `beginnt`.
+    pub fetched: NaiveDate,
+}
+
+/// The stored NAS layers of the map kind that cover the map area plus buffer, in table order. A
+/// layer that was not fetched, is missing or does not cover the area is left out (optional
+/// sources: `fetch` reports this, the export goes on without them). Empty outside the states
+/// with a NAS service.
+pub fn stored_nas_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<StoredNasLayer>, ProjectError> {
+    let bbox = project.bbox()?;
+    let mut layers = Vec::new();
+    for layer in alkis_nas::nas_layers(project.map_kind) {
+        let path = nas_layer_path(dir, layer.file);
+        let Some(record) = project
+            .nas_layers
+            .get(layer.file)
+            .filter(|r| path.exists() && r.covers(&bbox))
+        else {
+            continue;
+        };
+        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        layers.push(StoredNasLayer {
+            layer,
+            features,
+            fetched: record.fetched,
+        });
+    }
+    Ok(layers)
 }
 
 /// One stored extra Berlin layer.
@@ -6084,6 +6284,16 @@ mod tests {
                 regions: Vec::new(),
             }),
             berlin_layers: BTreeMap::new(),
+            nas_layers: BTreeMap::from([(
+                "sonstiges-bauwerk".to_string(),
+                AlkisRecord {
+                    bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
+                    fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                    latest_update: NaiveDate::from_ymd_opt(2020, 11, 24),
+                    count: 4,
+                    regions: vec![Region::Brandenburg],
+                },
+            )]),
             k5: None,
             osm: Some(OsmRecord {
                 extract: NaiveDate::from_ymd_opt(2026, 11, 6).unwrap(),
@@ -9682,6 +9892,103 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             stored_berlin_layers(dir.path(), &project)
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    #[test]
+    fn nas_exception_report_skips_the_layer() {
+        use crate::sources::alkis_nas::{LGB_NAS, test_support};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        // Every other NAS layer is empty there.
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        let url = |type_name: &str| LGB_NAS.get_feature_url(type_name, &bbox);
+        let serve = |type_name: &str, answer: &str| {
+            fetcher.insert(&url(type_name), answer.as_bytes().to_vec());
+        };
+        const WALLS: &str = "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        const HEDGES: &str = "adv:AX_Vegetationsmerkmal";
+        serve(WALLS, test_support::SONSTIGES_BAUWERK);
+        serve(HEDGES, test_support::EXCEPTION);
+        let calls = fetcher.log.borrow().len();
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+
+        // Schoolyard map: four layers asked once each; the hedges answer an exception report,
+        // which is not asked again, and the layer is left out with a warning.
+        let asked: Vec<String> = fetcher.log.borrow()[calls..]
+            .iter()
+            .filter(|u| u.starts_with(LGB_NAS.url))
+            .cloned()
+            .collect();
+        assert_eq!(asked.len(), 4, "{asked:?}");
+        let files: Vec<&str> = project.nas_layers.keys().map(String::as_str).collect();
+        assert_eq!(
+            files,
+            [
+                "bauwerk-gewaesser",
+                "sonstiges-bauwerk",
+                "untergeordnetes-gewaesser"
+            ]
+        );
+        let warning = messages
+            .iter()
+            .find(|m| m.starts_with("warning: ALKIS NAS vegetationsmerkmal unavailable ("))
+            .unwrap_or_else(|| panic!("{messages:?}"));
+        assert!(
+            warning.contains("InvalidParameterValue: no geometry property")
+                && warning.ends_with("; layer skipped"),
+            "{warning}"
+        );
+        let walls = &project.nas_layers["sonstiges-bauwerk"];
+        assert_eq!(walls.count, 5);
+        assert_eq!(walls.latest_update, NaiveDate::from_ymd_opt(2013, 1, 29));
+        assert_eq!(walls.regions, [Region::Brandenburg]);
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
+                .unwrap();
+        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 5);
+        assert!(
+            !dir.path()
+                .join("data/alkis-nas/vegetationsmerkmal.geojson")
+                .exists()
+        );
+        assert_eq!(ProjectFile::load(dir.path()).unwrap(), project);
+
+        // Next time the walls fail and the hedges answer: the stored walls stay.
+        serve(WALLS, test_support::EXCEPTION);
+        serve(HEDGES, test_support::VEGETATION);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m
+                .starts_with("warning: ALKIS NAS sonstiges-bauwerk unavailable (")
+                && m.ends_with("; keeping the stored layer")),
+            "{messages:?}"
+        );
+        assert_eq!(project.nas_layers["sonstiges-bauwerk"], *walls);
+        assert_eq!(project.nas_layers["vegetationsmerkmal"].count, 3);
+        assert_eq!(project.nas_layers.len(), 4);
+
+        // Offline nothing is asked and every stored layer stays.
+        let calls = fetcher.log.borrow().len();
+        let mut messages = Vec::new();
+        let offline = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Offline, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert_eq!(offline.nas_layers, project.nas_layers);
+        assert!(
+            !fetcher.log.borrow()[calls..]
+                .iter()
+                .any(|u| u.starts_with(LGB_NAS.url))
+        );
+        assert!(
+            dir.path()
+                .join("data/alkis-nas/vegetationsmerkmal.geojson")
+                .exists()
         );
     }
 
