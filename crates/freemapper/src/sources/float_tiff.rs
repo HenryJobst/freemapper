@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, write_atomically};
+use crate::fetch::{FetchError, write_inside};
 use crate::raster::{GridSpec, Raster};
 
 /// A Float32 GeoTIFF (a WCS answer, a tile) as a raster; its grid comes from ModelTiepoint and
@@ -274,6 +274,7 @@ const NODATA_BELOW: f32 = -9998.0;
 /// service in an error.
 pub(crate) fn write_float_raster(
     raster: &Raster<f32>,
+    root: &Path,
     out: &Path,
     source: &str,
 ) -> Result<(), FetchError> {
@@ -293,8 +294,12 @@ pub(crate) fn write_float_raster(
             url: source.to_string(),
             message: e.to_string(),
         })?;
-    write_atomically(out, tiff.get_ref())?;
-    write_atomically(&out.with_extension("tfw"), grid.world_file().as_bytes())?;
+    write_inside(root, out, tiff.get_ref())?;
+    write_inside(
+        root,
+        &out.with_extension("tfw"),
+        grid.world_file().as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -395,7 +400,7 @@ mod tests {
                 out.display()
             )
         );
-        write_float_raster(&Raster::filled(grid, 1.0), &out, "x").unwrap();
+        write_float_raster(&Raster::filled(grid, 1.0), out.parent().unwrap(), &out, "x").unwrap();
         require_stored(&out, &inside, "terrain model (X)").unwrap();
         require_stored(&out, &grid.bounds(), "terrain model (X)").unwrap();
         // One metre beyond an edge is not covered.

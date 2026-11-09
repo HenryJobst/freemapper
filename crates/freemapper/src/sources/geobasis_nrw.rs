@@ -409,6 +409,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.geobasis_nrw_dir();
@@ -438,7 +439,7 @@ pub fn fetch_model(
         precheck: &|_| Ok(()),
         explain_empty: false,
     };
-    let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, out, &mut warnings)?;
+    let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, root, out, &mut warnings)?;
     let centre = centre_tile(bbox);
     let listed = meta.tiles.get(&centre).map(|entry| {
         entry.date.clone().ok_or_else(|| {
@@ -572,7 +573,15 @@ mod tests {
         model: Model,
         out: &Path,
     ) -> Result<HeightModel, FetchError> {
-        fetch_model(fetcher, cache, mode, model, &BBOX, out)
+        fetch_model(
+            fetcher,
+            cache,
+            mode,
+            model,
+            &BBOX,
+            out.parent().unwrap(),
+            out,
+        )
     }
 
     #[test]
@@ -960,8 +969,16 @@ mod tests {
         let fetcher = crate::fetch::HttpFetcher::new();
         for model in [Model::Dgm1, Model::Dom1] {
             let tif = cache_dir.path().join(format!("{}.tif", model.slug()));
-            let found =
-                fetch_model(&fetcher, &cache, FetchMode::Online, model, &bbox, &tif).unwrap();
+            let found = fetch_model(
+                &fetcher,
+                &cache,
+                FetchMode::Online,
+                model,
+                &bbox,
+                tif.parent().unwrap(),
+                &tif,
+            )
+            .unwrap();
             let (_, _, data) = read_out(&tif);
             let finite: Vec<f32> = data.iter().copied().filter(|z| z.is_finite()).collect();
             let (lo, hi) = finite

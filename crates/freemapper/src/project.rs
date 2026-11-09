@@ -446,7 +446,7 @@ impl ProjectFile {
                 path.with_extension("pgw"),
                 path.with_extension("tfw"),
             ] {
-                let _ = std::fs::remove_file(file);
+                crate::fsutil::remove_inside(dir, &file);
             }
         }
         self.tiles.clear();
@@ -1019,7 +1019,7 @@ fn drop_wms_orthophoto(dir: &Path, project: &mut ProjectFile) {
     project.orthophoto = None;
     let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
     for stale in [wms.clone(), wms.with_extension("jgw")] {
-        let _ = std::fs::remove_file(stale);
+        crate::fsutil::remove_inside(dir, &stale);
     }
 }
 
@@ -1159,7 +1159,7 @@ fn fetch_wms_orthophoto(
                     "downloading the orthophoto from the {provider} {}",
                     source.kind()
                 ));
-                crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, &path)?;
+                crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, dir, &path)?;
                 let flight_label = label
                     .filter(|_| flight.is_some())
                     .map(|l| l.record.to_string());
@@ -1204,7 +1204,7 @@ fn fetch_k5_into(
     let path = dir.join(K5_RELPATH);
     let remove = |project: &mut ProjectFile| {
         for file in [path.clone(), path.with_extension("pgw")] {
-            let _ = std::fs::remove_file(file);
+            crate::fsutil::remove_inside(dir, &file);
         }
         project.k5 = None;
     };
@@ -1225,7 +1225,7 @@ fn fetch_k5_into(
         return;
     }
     progress("downloading the K5 map (1:5000) from the Geoportal Berlin WMS");
-    match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, &path) {
+    match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path) {
         Ok(()) => {
             project.k5 = Some(WmsRecord {
                 flight: Some(K5_DATASET_DATE.to_string()),
@@ -1293,7 +1293,7 @@ fn fetch_lvermgeo_rasters(
     match mode {
         FetchMode::Online => {
             progress(&format!("downloading the {}", Model::Dgm1.label()));
-            lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, &dir.join(TERRAIN_RELPATH))?;
+            lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, dir, &dir.join(TERRAIN_RELPATH))?;
             project.terrain = Some(record(None));
             if skip_surface {
                 keep_stored_surface(dir, mode, project, bbox, progress);
@@ -1301,7 +1301,8 @@ fn fetch_lvermgeo_rasters(
                 return Ok(());
             }
             progress(&format!("downloading the {}", Model::Dom1.label()));
-            match lvermgeo::fetch_model(fetcher, Model::Dom1, bbox, &dir.join(SURFACE_RELPATH)) {
+            match lvermgeo::fetch_model(fetcher, Model::Dom1, bbox, dir, &dir.join(SURFACE_RELPATH))
+            {
                 Ok(()) => project.surface = Some(record(lvermgeo::surface_date(fetcher, bbox))),
                 Err(e) => progress(&format!(
                     "warning: {} unavailable ({e}); no nDSM template",
@@ -1380,6 +1381,7 @@ fn fetch_lgv_rasters(
         mode,
         Model::Dgm1,
         bbox,
+        dir,
         &dir.join(TERRAIN_RELPATH),
     )?;
     warn_missing(progress, Model::Dgm1, missing);
@@ -1396,6 +1398,7 @@ fn fetch_lgv_rasters(
         mode,
         Model::Bdom,
         bbox,
+        dir,
         &dir.join(SURFACE_RELPATH),
     ) {
         Ok(missing) => {
@@ -1516,7 +1519,7 @@ fn fetch_hvbg_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            hvbg::fetch_model_with(fetcher, cache, mode, model, bbox, out, &mut memo)
+            hvbg::fetch_model_with(fetcher, cache, mode, model, bbox, dir, out, &mut memo)
         },
         &mut |_, found, _, _| {
             for place in &found.unresolved {
@@ -1600,7 +1603,7 @@ fn fetch_nrw_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, out)
+            geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1657,7 +1660,7 @@ fn fetch_rp_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, out)
+            lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1712,7 +1715,7 @@ fn fetch_sh_rasters(
         (Model::Dgm1.label(), Model::Bdom.label()),
         &mut |surface, out, progress| {
             let model = if surface { Model::Bdom } else { Model::Dgm1 };
-            lvermgeo_sh::fetch_model(fetcher, cache, mode, model, bbox, out, progress)
+            lvermgeo_sh::fetch_model(fetcher, cache, mode, model, bbox, dir, out, progress)
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
@@ -1791,7 +1794,7 @@ fn fetch_mv_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            laiv_mv::fetch_model(fetcher, cache, mode, model, bbox, out)
+            laiv_mv::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1872,7 +1875,7 @@ fn fetch_lgln_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            lgln::fetch_model(fetcher, mode, model, bbox, out)
+            lgln::fetch_model(fetcher, mode, model, bbox, dir, out)
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
@@ -2021,7 +2024,7 @@ fn stored_surface_or_drop(
         project.surface = None;
         let surface = dir.join(SURFACE_RELPATH);
         for file in [surface.clone(), surface.with_extension("tfw")] {
-            let _ = std::fs::remove_file(file);
+            crate::fsutil::remove_inside(dir, &file);
         }
     }
     None
@@ -2305,7 +2308,7 @@ fn fetch_land_use_into(
                 progress(&format!(
                     "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area, so freemapper removed it"
                 ));
-                let _ = std::fs::remove_file(&path);
+                crate::fsutil::remove_inside(dir, &path);
                 Some(None)
             }
             None => {
@@ -2338,9 +2341,7 @@ fn remove_berlin_layer(dir: &Path, key: &str) {
         return;
     };
     let path = berlin_layer_path(dir, layer);
-    if crate::fsutil::stays_inside(dir, &path) {
-        let _ = std::fs::remove_file(path);
-    }
+    crate::fsutil::remove_inside(dir, &path);
 }
 
 /// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
@@ -2778,7 +2779,7 @@ pub fn derive_project(
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
     match provider {
-        Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, &orthophoto)?,
+        Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, dir, &orthophoto)?,
         Provider::GeoSn
         | Provider::LvermGeo
         | Provider::Lgv
@@ -2792,7 +2793,7 @@ pub fn derive_project(
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
             }
-            build_orthophoto_from_image(&wms, &bbox, &orthophoto)?;
+            build_orthophoto_from_image(&wms, &bbox, dir, &orthophoto)?;
         }
     }
 
@@ -2822,19 +2823,19 @@ pub fn derive_project(
             .any(|l| has_stairs(&l.features));
     if stairs {
         progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
-        crate::sources::float_tiff::write_float_raster(&dtm, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
+        crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
     } else {
         for file in [mosaic.clone(), mosaic.with_extension("tfw")] {
-            let _ = std::fs::remove_file(file);
+            crate::fsutil::remove_inside(dir, &file);
         }
     }
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
     progress(&format!("writing {HILLSHADE_RELPATH}"));
-    write_gray_png(&hillshade(&dtm), &hillshade_path)?;
+    write_gray_png(&hillshade(&dtm), dir, &hillshade_path)?;
     let slope_path = dir.join(SLOPE_RELPATH);
     progress(&format!("writing {SLOPE_RELPATH}"));
     let black_deg = project.map_kind.slope_black_deg();
-    write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), &slope_path)?;
+    write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), dir, &slope_path)?;
 
     progress(&format!("writing {CONTOURS_RELPATH}"));
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
@@ -2914,7 +2915,7 @@ pub fn derive_project(
     if ndsm_files.is_empty() && dsm.is_none() {
         // An older nDSM template would no longer match the map area: remove it.
         for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
-            let _ = std::fs::remove_file(stale);
+            crate::fsutil::remove_inside(dir, &stale);
         }
     } else {
         progress(&format!("writing {NDSM_RELPATH}"));
@@ -2923,7 +2924,7 @@ pub fn derive_project(
         if let Some(dsm) = dsm {
             fill_from_dsm(&mut ndsm, &dsm, &dtm);
         }
-        write_ndsm_png(&ndsm, &ndsm_path)?;
+        write_ndsm_png(&ndsm, dir, &ndsm_path)?;
         written.push(ndsm_path);
     }
     written.push(contours_path);
@@ -3371,6 +3372,8 @@ pub struct OcadOutcome {
     pub skipped: usize,
     /// Degenerate line parts and hole rings left out of written objects.
     pub dropped_parts: usize,
+    /// Templates left out of the OCAD map, as `warning: …` lines.
+    pub warnings: Vec<String>,
 }
 
 /// The world file next to an image: `.jpg` → `.jgw`, `.png` → `.pgw`.
@@ -3401,9 +3404,45 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
         })
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "map".to_string());
-    let copy = |from: &Path, to: &Path| copy_inside(dir, from, to);
-    let mut backgrounds = Vec::new();
-    for template in &documents.map.templates {
+    let (mut backgrounds, warnings) = copy_backgrounds(dir, &ocad_dir, &documents.map.templates)?;
+    let candidates_name = format!("{name}-candidates.ocd");
+    backgrounds.push(Background::Map {
+        file_name: candidates_name.clone(),
+        visible: true,
+    });
+    let candidates = ocad_dir.join(&candidates_name);
+    let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
+    write_inside(dir, &candidates, &bytes)?;
+    let map = ocad_dir.join(format!("{name}.ocd"));
+    let kept = map.exists() && !force;
+    let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
+    if !kept {
+        if map.exists() {
+            copy_inside(dir, &map, &map.with_extension("ocd.bak"))?;
+        }
+        write_inside(dir, &map, &bytes)?;
+    }
+    Ok(OcadOutcome {
+        map,
+        kept,
+        candidates,
+        objects: report.objects,
+        skipped: report.skipped,
+        dropped_parts: report.dropped_parts,
+        warnings,
+    })
+}
+
+/// Copies the image `templates` with their world files into `ocad_dir` and returns them as
+/// OCAD background maps. A template that is a link or lies outside the project folder is left
+/// out with a warning, so no file from elsewhere is copied into the project.
+fn copy_backgrounds(
+    dir: &Path,
+    ocad_dir: &Path,
+    templates: &[TemplateRef],
+) -> Result<(Vec<Background>, Vec<String>), ProjectError> {
+    let (mut backgrounds, mut warnings) = (Vec::new(), Vec::new());
+    for template in templates {
         if template.kind != TemplateKind::Image {
             continue;
         }
@@ -3414,8 +3453,17 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
         let (Some(image_name), Some(world_name)) = (image.file_name(), world.file_name()) else {
             continue;
         };
-        copy(&image, &ocad_dir.join(image_name))?;
-        copy(&world, &ocad_dir.join(world_name))?;
+        let checked = crate::fsutil::check_source(dir, &image)
+            .and_then(|()| crate::fsutil::check_source(dir, &world));
+        if let Err((path, e)) = checked {
+            warnings.push(format!(
+                "warning: {}; the OCAD map gets no background from it",
+                crate::space::io_error_text(&path, &e)
+            ));
+            continue;
+        }
+        copy_inside(dir, &image, &ocad_dir.join(image_name))?;
+        copy_inside(dir, &world, &ocad_dir.join(world_name))?;
         let text =
             std::fs::read_to_string(&world).map_err(|e| ProjectError::Io(world.clone(), e))?;
         let world_file = WorldFile::parse(&text)
@@ -3431,31 +3479,7 @@ pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError>
             opacity: template.opacity,
         });
     }
-    let candidates_name = format!("{name}-candidates.ocd");
-    backgrounds.push(Background::Map {
-        file_name: candidates_name.clone(),
-        visible: true,
-    });
-    let candidates = ocad_dir.join(&candidates_name);
-    let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
-    write_inside(dir, &candidates, &bytes)?;
-    let map = ocad_dir.join(format!("{name}.ocd"));
-    let kept = map.exists() && !force;
-    let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
-    if !kept {
-        if map.exists() {
-            copy(&map, &map.with_extension("ocd.bak"))?;
-        }
-        write_inside(dir, &map, &bytes)?;
-    }
-    Ok(OcadOutcome {
-        map,
-        kept,
-        candidates,
-        objects: report.objects,
-        skipped: report.skipped,
-        dropped_parts: report.dropped_parts,
-    })
+    Ok((backgrounds, warnings))
 }
 
 /// The map part with the peripheral information (title, scale bar, credits); the north lines
@@ -5689,6 +5713,7 @@ mod tests {
         surface.data.iter_mut().for_each(|z| *z -= 5.0);
         crate::sources::float_tiff::write_float_raster(
             &surface,
+            dir.path(),
             &dir.path().join(SURFACE_RELPATH),
             "test",
         )
@@ -11662,5 +11687,133 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         project.save(dir.path()).unwrap();
         assert_eq!(std::fs::read_to_string(&victim).unwrap(), before);
         assert!(is_regular_file(&file));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ocad_export_copies_no_linked_template() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let outside = tempfile::tempdir().unwrap();
+        // A valid image, so the map still lists it; it lives outside the project.
+        let template = dir.path().join(HILLSHADE_RELPATH);
+        let secret = outside.path().join("secret.png");
+        std::fs::rename(&template, &secret).unwrap();
+        std::os::unix::fs::symlink(&secret, &template).unwrap();
+        let outcome = export_ocad(dir.path(), false).unwrap();
+        assert_eq!(outcome.warnings.len(), 1, "{:?}", outcome.warnings);
+        assert!(
+            outcome.warnings[0].starts_with("warning: ")
+                && outcome.warnings[0].contains(crate::fsutil::NOT_COPIED),
+            "{:?}",
+            outcome.warnings
+        );
+        let ocad = dir.path().join(OCAD_DIR);
+        assert!(!ocad.join("hillshade.png").exists());
+        assert!(ocad.join("slope.png").exists(), "the other templates stay");
+        let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
+        assert!(
+            !map.strings
+                .iter()
+                .any(|s| s.kind == 8 && s.text.starts_with("hillshade.png"))
+        );
+    }
+
+    #[test]
+    fn ocad_backgrounds_leave_out_a_template_outside_the_project() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("project");
+        let ocad = dir.join(OCAD_DIR);
+        std::fs::create_dir_all(&ocad).unwrap();
+        std::fs::write(root.path().join("secret.png"), "secret").unwrap();
+        std::fs::write(root.path().join("secret.pgw"), "1\n0\n0\n-1\n0\n0\n").unwrap();
+        let template = TemplateRef {
+            kind: TemplateKind::Image,
+            relpath: "../secret.png".to_string(),
+            georeferenced: true,
+            crs_spec: None,
+            visible: true,
+            opacity: 1.0,
+            behind_map: true,
+        };
+        let (backgrounds, warnings) = copy_backgrounds(&dir, &ocad, &[template]).unwrap();
+        assert!(backgrounds.is_empty());
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(warnings[0].contains("secret.png"), "{warnings:?}");
+        let copied: Vec<_> = std::fs::read_dir(&ocad).unwrap().collect();
+        assert!(copied.is_empty(), "{copied:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn writers_refuse_a_folder_swapped_for_a_link_during_a_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let dir = dir.path();
+        school_project(dir);
+        // The folders were normal when the run checked them, then became links.
+        for folder in ["data", "templates"] {
+            std::os::unix::fs::symlink(outside.path(), dir.join(folder)).unwrap();
+        }
+        let grid = GridSpec::covering(
+            &BoundingBox {
+                min_e: 0.0,
+                min_n: 0.0,
+                max_e: 4.0,
+                max_n: 4.0,
+            },
+            1.0,
+        );
+        let refused = |e: String| {
+            assert!(e.contains(crate::fsutil::OUTSIDE_PROJECT), "{e}");
+        };
+        refused(
+            crate::sources::float_tiff::write_float_raster(
+                &Raster::filled(grid, 1.0),
+                dir,
+                &dir.join(TERRAIN_RELPATH),
+                "x",
+            )
+            .unwrap_err()
+            .to_string(),
+        );
+        refused(
+            write_gray_png(
+                &Raster::filled(grid, Some(1)),
+                dir,
+                &dir.join(HILLSHADE_RELPATH),
+            )
+            .unwrap_err()
+            .to_string(),
+        );
+        refused(
+            write_ndsm_png(&Raster::filled(grid, 1.0), dir, &dir.join(NDSM_RELPATH))
+                .unwrap_err()
+                .to_string(),
+        );
+        refused(
+            write_inside(dir, &dir.join(BUILDINGS_RELPATH), b"{}")
+                .unwrap_err()
+                .to_string(),
+        );
+        let written: Vec<_> = std::fs::read_dir(outside.path()).unwrap().collect();
+        assert!(written.is_empty(), "{written:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_map_is_not_copied_into_its_backup() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let map = map_path(dir.path());
+        let secret = victim(outside.path());
+        std::os::unix::fs::symlink(&secret, &map).unwrap();
+        let error = export_starter_project(dir.path(), true)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(crate::fsutil::NOT_COPIED), "{error}");
+        assert!(!map.with_extension("omap.bak").exists());
+        assert_eq!(std::fs::read_to_string(&secret).unwrap(), "precious");
     }
 }

@@ -273,6 +273,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
@@ -290,7 +291,7 @@ pub fn fetch_model(
             message: format!("the {} has no height in the map area", model.label()),
         });
     }
-    write_float_raster(&raster, out, wcs.url)?;
+    write_float_raster(&raster, root, out, wcs.url)?;
     let mut warnings = Vec::new();
     let date = match newest_item(fetcher, model.stac(), bbox) {
         Ok(Some(item)) => Some(item.date.format("%Y-%m-%d").to_string()),
@@ -620,16 +621,33 @@ mod tests {
         fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("dgm1.tif");
-        let err = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out)
-            .unwrap_err()
-            .to_string();
+        let err = fetch_model(
+            &fetcher,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SAMPLE,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("no TIFF in the WCS answer"), "{err}");
         assert!(err.contains("MapServer Message"), "{err}");
         assert!(!out.exists());
         // DOM1 the same.
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DOM1_WCS.url, page.to_vec());
-        assert!(fetch_model(&fetcher, FetchMode::Online, Model::Dom1, &SAMPLE, &out).is_err());
+        assert!(
+            fetch_model(
+                &fetcher,
+                FetchMode::Online,
+                Model::Dom1,
+                &SAMPLE,
+                out.parent().unwrap(),
+                &out
+            )
+            .is_err()
+        );
         assert!(!out.exists());
     }
 
@@ -652,7 +670,15 @@ mod tests {
         fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("dgm1.tif");
-        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        let found = fetch_model(
+            &fetcher,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SAMPLE,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         // The date of the newest item at the centre (ALS of lot L1603).
         assert_eq!(
             found,
@@ -692,7 +718,15 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
         fetcher.insert_prefix(DGM_STAC, stac_page(&[], None));
-        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        let found = fetch_model(
+            &fetcher,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SAMPLE,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         assert_eq!(found.date, None);
         assert_eq!(found.warnings.len(), 1, "{:?}", found.warnings);
         assert!(
@@ -703,7 +737,15 @@ mod tests {
         // A failed STAC search: a warning as well.
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
-        let found = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &out).unwrap();
+        let found = fetch_model(
+            &fetcher,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SAMPLE,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         assert_eq!(found.date, None);
         assert!(
             found.warnings[0].contains("not found"),
@@ -719,20 +761,42 @@ mod tests {
             crate::fetch::test_support::geotiff(&grid, &nodata),
         );
         let empty = dir.path().join("empty.tif");
-        let err = fetch_model(&fetcher, FetchMode::Online, Model::Dgm1, &SAMPLE, &empty)
-            .unwrap_err()
-            .to_string();
+        let err = fetch_model(
+            &fetcher,
+            FetchMode::Online,
+            Model::Dgm1,
+            &SAMPLE,
+            empty.parent().unwrap(),
+            &empty,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("no height"), "{err}");
         assert!(!empty.exists());
         // Offline the stored model is kept when it covers the area; nothing is asked.
         let fetcher = MapFetcher::default();
-        let found = fetch_model(&fetcher, FetchMode::Offline, Model::Dgm1, &SAMPLE, &out).unwrap();
+        let found = fetch_model(
+            &fetcher,
+            FetchMode::Offline,
+            Model::Dgm1,
+            &SAMPLE,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
         assert_eq!(found, HeightModel::default());
         assert_eq!(fetcher.calls.get(), 0);
         let larger = SAMPLE.buffered(10.0);
-        let err = fetch_model(&fetcher, FetchMode::Offline, Model::Dgm1, &larger, &out)
-            .unwrap_err()
-            .to_string();
+        let err = fetch_model(
+            &fetcher,
+            FetchMode::Offline,
+            Model::Dgm1,
+            &larger,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap_err()
+        .to_string();
         assert!(err.contains("run `freemapper fetch` online first"), "{err}");
     }
 }

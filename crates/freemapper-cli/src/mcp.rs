@@ -415,6 +415,9 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             outcome.objects
         )
     };
+    for warning in &outcome.warnings {
+        text.push_str(&format!("\n{warning}"));
+    }
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         text.push_str(&format!(
             "\nLeft out of the OCAD map: {} objects and {} degenerate parts",

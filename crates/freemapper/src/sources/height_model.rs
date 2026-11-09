@@ -75,12 +75,14 @@ pub(crate) fn short_name(tile: TileId) -> String {
 /// Cached tiles are read, the others downloaded and cached (offline, one not cached is an
 /// error). A tile the server answers 404 for gets a note and is missing, as is one with a note
 /// that still holds. Returns the missing tiles, sorted; no tile at all is an error.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn mosaic_tiles(
     fetcher: &dyn Fetcher,
     mode: FetchMode,
     bbox: &BoundingBox,
     store: &TileStore,
     area: AreaTiles,
+    root: &Path,
     out: &Path,
     warnings: &mut Vec<String>,
 ) -> Result<Vec<TileId>, FetchError> {
@@ -162,7 +164,7 @@ pub(crate) fn mosaic_tiles(
             message: format!("no tile of the {} covers the map area{why}", store.label),
         });
     }
-    write_float_raster(&raster, out, store.source)?;
+    write_float_raster(&raster, root, out, store.source)?;
     let mut missing: Vec<TileId> = reasons.into_iter().map(|(tile, _)| tile).collect();
     missing.sort();
     Ok(missing)
@@ -299,6 +301,7 @@ mod tests {
             &BBOX,
             &store,
             area,
+            out.parent().unwrap(),
             &out,
             &mut warnings,
         )

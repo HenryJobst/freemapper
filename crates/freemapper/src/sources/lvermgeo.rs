@@ -81,12 +81,13 @@ pub fn fetch_model(
     fetcher: &dyn Fetcher,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
     model.wcs().fill(fetcher, &mut raster, &grid.bounds())?;
-    write_float_raster(&raster, out, model.wcs_endpoint())
+    write_float_raster(&raster, root, out, model.wcs_endpoint())
 }
 
 /// The flight date of the orthophoto at the centre of `bbox` (EPSG:25832); `None` when the index
@@ -265,7 +266,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(Model::Dgm1.wcs_endpoint(), WCS_DGM1.to_vec());
         let out = dir.path().join("dgm1.tif");
-        fetch_model(&fetcher, Model::Dgm1, &SAMPLE, &out).unwrap();
+        fetch_model(&fetcher, Model::Dgm1, &SAMPLE, out.parent().unwrap(), &out).unwrap();
         let world = std::fs::read_to_string(out.with_extension("tfw")).unwrap();
         assert_eq!(
             world,
@@ -284,8 +285,14 @@ mod tests {
             Model::Dgm1.wcs_endpoint(),
             b"<html><body>ArcGIS Server Error</body></html>".to_vec(),
         );
-        let err =
-            fetch_model(&fetcher, Model::Dgm1, &SAMPLE, &dir.path().join("x.tif")).unwrap_err();
+        let err = fetch_model(
+            &fetcher,
+            Model::Dgm1,
+            &SAMPLE,
+            dir.path(),
+            &dir.path().join("x.tif"),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("no TIFF"), "{err}");
         assert_eq!(fetcher.calls.get(), 3, "retried");
         assert!(!dir.path().join("x.tif").exists());
@@ -357,7 +364,7 @@ mod tests {
             max_n: 5_700_010.0,
         };
         let out = dir.path().join("dgm1.tif");
-        fetch_model(&fetcher, Model::Dgm1, &bbox, &out).unwrap();
+        fetch_model(&fetcher, Model::Dgm1, &bbox, out.parent().unwrap(), &out).unwrap();
         let subsets = fetcher.subsets.borrow();
         assert_eq!(
             *subsets,
@@ -384,7 +391,14 @@ mod tests {
             max_e: 795_100.0,
             max_n: 5_700_100.0,
         };
-        fetch_model(&fetcher, Model::Dgm1, &bbox, &dir.path().join("x.tif")).unwrap();
+        fetch_model(
+            &fetcher,
+            Model::Dgm1,
+            &bbox,
+            dir.path(),
+            &dir.path().join("x.tif"),
+        )
+        .unwrap();
         assert!(fetcher.subsets.borrow().is_empty());
     }
 

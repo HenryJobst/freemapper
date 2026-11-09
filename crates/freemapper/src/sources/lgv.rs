@@ -154,6 +154,7 @@ pub fn fetch_model(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
 ) -> Result<Vec<TileId>, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
@@ -230,7 +231,7 @@ pub fn fetch_model(
             ),
         ));
     }
-    write_float_raster(&raster, out, url)?;
+    write_float_raster(&raster, root, out, url)?;
     Ok(missing)
 }
 
@@ -468,6 +469,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -483,6 +485,7 @@ mod tests {
             FetchMode::Offline,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -512,6 +515,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            dir.path(),
             &dir.path().join("o.tif"),
         )
         .unwrap();
@@ -548,6 +552,7 @@ mod tests {
             FetchMode::Online,
             Model::Dgm1,
             &bbox,
+            out.parent().unwrap(),
             &out,
         )
         .unwrap();
@@ -580,7 +585,15 @@ mod tests {
         bbox: &BoundingBox,
         out: &Path,
     ) -> Result<Vec<TileId>, FetchError> {
-        fetch_model(fetcher, cache, mode, Model::Dgm1, bbox, out)
+        fetch_model(
+            fetcher,
+            cache,
+            mode,
+            Model::Dgm1,
+            bbox,
+            out.parent().unwrap(),
+            out,
+        )
     }
 
     #[test]

@@ -354,16 +354,20 @@ const _: () = assert!(XYZ_MAX_BYTES > XYZ_MB as u64 * 1024 * 1024);
 /// cached, under the portal's name (which carries the vintage). Tiles inside Schleswig-Holstein
 /// that the portal does not list are returned as missing; the date is the centre tile's. No
 /// tile at all is an error.
+#[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
     progress: &mut dyn FnMut(&str),
 ) -> Result<HeightModel, FetchError> {
-    fetch_model_with(fetcher, cache, mode, model, bbox, out, progress, XYZ_CELLS)
+    fetch_model_with(
+        fetcher, cache, mode, model, bbox, root, out, progress, XYZ_CELLS,
+    )
 }
 
 /// [`fetch_model`] with XYZ tiles of `xyz_cells` x `xyz_cells` points (tests use fewer).
@@ -374,6 +378,7 @@ fn fetch_model_with(
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
+    root: &Path,
     out: &Path,
     progress: &mut dyn FnMut(&str),
     xyz_cells: u32,
@@ -455,7 +460,7 @@ fn fetch_model_with(
             ),
         });
     }
-    write_float_raster(&raster, out, PORTAL)?;
+    write_float_raster(&raster, root, out, PORTAL)?;
     let centre = TileId {
         east_km: ((bbox.min_e + bbox.max_e) / 2000.0).floor() as u32,
         north_km: ((bbox.min_n + bbox.max_n) / 2000.0).floor() as u32,
@@ -1266,6 +1271,7 @@ mod tests {
                 mode,
                 model,
                 bbox,
+                out.parent().unwrap(),
                 out,
                 &mut |m| messages.push(m.to_string()),
                 10,
@@ -1898,6 +1904,7 @@ mod tests {
                     FetchMode::Online,
                     model,
                     &SCHOOL,
+                    out.parent().unwrap(),
                     &out,
                     &mut |_| {},
                 )
@@ -2268,6 +2275,7 @@ mod tests {
                     FetchMode::Online,
                     model,
                     &bbox,
+                    out.parent().unwrap(),
                     &out,
                     &mut |m| eprintln!("{m}"),
                 )

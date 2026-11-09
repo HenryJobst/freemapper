@@ -14,6 +14,10 @@ const PART_NAME_ATTEMPTS: u32 = 16;
 /// Numbers the partial files of this process, so no two writes pick the same name.
 static NEXT_PART: AtomicU64 = AtomicU64::new(0);
 
+/// What a copy says about a source that is a link or lies outside the project folder.
+pub(crate) const NOT_COPIED: &str =
+    "a link or outside the project folder, so freemapper does not copy it";
+
 /// What a write into the project folder says when a link would lead it elsewhere.
 pub(crate) const OUTSIDE_PROJECT: &str =
     "a link leads out of the project folder, so freemapper writes nothing there";
@@ -27,14 +31,6 @@ pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), (PathBuf
     write_files(None, &[(path, bytes)])
 }
 
-/// Writes files that belong together (an image and its world file): first every file as a
-/// partial file, then renames them one after the other, retrying a failed rename. When writing
-/// fails, the targets stay as they were and the partial files are removed. Like
-/// [`write_atomically`], never follows a link.
-pub(crate) fn write_files_atomically(files: &[(&Path, &[u8])]) -> Result<(), (PathBuf, io::Error)> {
-    write_files(None, files)
-}
-
 /// [`write_atomically`] for a file of the project in `root`: refused when the folder of `path`
 /// leads out of `root` through a link (see [`check_inside`]).
 pub(crate) fn write_inside(
@@ -45,9 +41,22 @@ pub(crate) fn write_inside(
     write_files(Some(root), &[(path, bytes)])
 }
 
+/// Writes files of the project in `root` that belong together (an image and its world file):
+/// first every file as a partial file, then renames them one after the other, retrying a
+/// failed rename. When writing fails, the targets stay as they were and the partial files are
+/// removed. Refused like [`write_inside`], and like it never follows a link.
+pub(crate) fn write_files_inside(
+    root: &Path,
+    files: &[(&Path, &[u8])],
+) -> Result<(), (PathBuf, io::Error)> {
+    write_files(Some(root), files)
+}
+
 /// Copies `from` to `to` inside the project in `root` like [`write_inside`]: the copy goes
-/// into a new partial file and is renamed, so a link at `to` is replaced, never followed.
+/// into a new partial file and is renamed, so a link at `to` is replaced, never followed. The
+/// source must be a file of the project itself (see [`check_source`]).
 pub(crate) fn copy_inside(root: &Path, from: &Path, to: &Path) -> Result<(), (PathBuf, io::Error)> {
+    check_source(root, from)?;
     check_inside(root, to)?;
     let part = write_part_with(Some(root), to, &mut |file| {
         let mut source = std::fs::File::open(from)?;
@@ -63,6 +72,25 @@ pub(crate) fn check_inside(root: &Path, path: &Path) -> Result<(), (PathBuf, io:
         Ok(())
     } else {
         Err((path.to_path_buf(), io::Error::other(OUTSIDE_PROJECT)))
+    }
+}
+
+/// Refuses a file to be copied that is a link or whose folder leads out of `root`, with
+/// [`NOT_COPIED`]: a copy would bring a file from elsewhere (a key, a password store) into the
+/// project. A source that does not exist passes; reading it then fails as usual.
+pub(crate) fn check_source(root: &Path, from: &Path) -> Result<(), (PathBuf, io::Error)> {
+    let is_link = std::fs::symlink_metadata(from).is_ok_and(|m| m.file_type().is_symlink());
+    if is_link || !stays_inside(root, from) {
+        return Err((from.to_path_buf(), io::Error::other(NOT_COPIED)));
+    }
+    Ok(())
+}
+
+/// Removes the project file `path` if it is there, unless its folder leads out of `root`
+/// through a link (a link at `path` itself is removed, not its target). Best effort.
+pub(crate) fn remove_inside(root: &Path, path: &Path) {
+    if stays_inside(root, path) {
+        let _ = std::fs::remove_file(path);
     }
 }
 
@@ -257,7 +285,7 @@ mod tests {
     fn pair_is_written_completely() {
         let dir = tempfile::tempdir().unwrap();
         let (a, b) = (dir.path().join("t/a.png"), dir.path().join("t/a.pgw"));
-        write_files_atomically(&[(&a, b"image"), (&b, b"world")]).unwrap();
+        write_files(None, &[(&a, b"image"), (&b, b"world")]).unwrap();
         assert_eq!(std::fs::read(&a).unwrap(), b"image");
         assert_eq!(std::fs::read(&b).unwrap(), b"world");
         let parts = std::fs::read_dir(dir.path().join("t"))
@@ -276,7 +304,7 @@ mod tests {
         // The second file's folder cannot be created: a file of that name exists.
         std::fs::write(dir.path().join("blocked"), b"").unwrap();
         let b = dir.path().join("blocked").join("a.pgw");
-        let (path, _) = write_files_atomically(&[(&a, b"new image"), (&b, b"world")]).unwrap_err();
+        let (path, _) = write_files(None, &[(&a, b"new image"), (&b, b"world")]).unwrap_err();
         assert!(path.starts_with(dir.path().join("blocked")), "{path:?}");
         assert_eq!(std::fs::read(&a).unwrap(), b"old image");
         let leftovers: Vec<_> = std::fs::read_dir(dir.path())
@@ -536,5 +564,29 @@ mod tests {
         create_new_file(&part).unwrap().write_all(b"pbf").unwrap();
         assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
         assert_eq!(std::fs::read(&part).unwrap(), b"pbf");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn copies_read_nothing_through_a_link_or_from_outside() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let secret = outside.path().join("id_rsa");
+        std::fs::write(&secret, "secret").unwrap();
+        let root = dir.path();
+        let linked = root.join("templates/hillshade.png");
+        std::fs::create_dir_all(linked.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&secret, &linked).unwrap();
+        let escaping = root.join("templates/../../").join(
+            secret
+                .strip_prefix(outside.path().parent().unwrap())
+                .unwrap(),
+        );
+        let to = root.join("ocad/hillshade.png");
+        for from in [&linked, &secret, &escaping] {
+            let (path, e) = copy_inside(root, from, &to).unwrap_err();
+            assert_eq!((&path, e.to_string()), (from, NOT_COPIED.to_string()));
+            assert!(!to.exists(), "{from:?}");
+        }
     }
 }

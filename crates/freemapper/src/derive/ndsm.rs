@@ -121,7 +121,7 @@ pub(crate) fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
 }
 
 /// Writes the coloured nDSM as RGBA PNG with its world file (`.pgw`).
-pub fn write_ndsm_png(r: &Raster<f32>, out: &Path) -> Result<(), DeriveError> {
+pub fn write_ndsm_png(r: &Raster<f32>, root: &Path, out: &Path) -> Result<(), DeriveError> {
     let pixels: Vec<u8> = r.data.iter().flat_map(|h| colour(*h)).collect();
     let image = image::RgbaImage::from_raw(r.grid.width, r.grid.height, pixels)
         .expect("buffer matches the grid");
@@ -129,7 +129,7 @@ pub fn write_ndsm_png(r: &Raster<f32>, out: &Path) -> Result<(), DeriveError> {
     image
         .write_to(&mut png, image::ImageFormat::Png)
         .map_err(|e| DeriveError::Image(e.to_string()))?;
-    write_image_with_world_file(out, png.get_ref(), "pgw", &r.grid.world_file())
+    write_image_with_world_file(root, out, png.get_ref(), "pgw", &r.grid.world_file())
 }
 
 #[cfg(test)]
@@ -234,7 +234,7 @@ mod tests {
         let tile = laz(dir.path(), "a.laz", &[(421_000.1, 5_821_000.9, 1.5)]);
         let r = rasterize(&[tile], &bbox()).unwrap();
         let out = dir.path().join("ndsm.png");
-        write_ndsm_png(&r, &out).unwrap();
+        write_ndsm_png(&r, out.parent().unwrap(), &out).unwrap();
         let img = image::open(&out).unwrap().to_rgba8();
         assert_eq!(img.get_pixel(0, 0).0, [0xf0, 0x8a, 0x24, 255]);
         assert_eq!(img.get_pixel(4, 4).0[3], 0);

@@ -45,18 +45,20 @@ pub(crate) fn template_grid(
     Ok(grid)
 }
 
-/// Writes a template image and its world file together: either both are replaced or neither.
+/// Writes a template image and its world file together into the project in `root`: either both
+/// are replaced or neither (see [`crate::fsutil::write_files_inside`]).
 pub(crate) fn write_image_with_world_file(
+    root: &std::path::Path,
     image_path: &std::path::Path,
     image: &[u8],
     world_extension: &str,
     world_file: &str,
 ) -> Result<(), DeriveError> {
     let world_path = image_path.with_extension(world_extension);
-    crate::fsutil::write_files_atomically(&[
-        (image_path, image),
-        (&world_path, world_file.as_bytes()),
-    ])
+    crate::fsutil::write_files_inside(
+        root,
+        &[(image_path, image), (&world_path, world_file.as_bytes())],
+    )
     .map_err(|(path, e)| DeriveError::Io(path, e))
 }
 
