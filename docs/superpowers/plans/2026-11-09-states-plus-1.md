@@ -340,6 +340,190 @@ Tests:
 - `potsdam_attribution_only_when_drawn`
 - `trees_estimate`
 
+### Task 5b: Point symbol generalisation
+
+User decision 2026-11-09, extended the same day: the point symbols freemapper adds (candidates and map objects)
+keep the norm's gap. A dense group becomes the norm's group symbol where one exists, else the smaller symbol
+goes. Points inside 520 are hidden. This applies to every point source: the Berlin cadastre trees 417/418 by crown
+≥ 10 m (ADR 0051), OSM, ALKIS/NAS, survey, the Berlin registers, Potsdam via the Task 5 reader, and later cities.
+The training PDF draws the candidates as map objects, so this matters most there.
+- **Exception to "Berlin unchanged":** this task changes the Berlin candidates (Viktoriapark `candidates.omap` and
+  the training PDF) on purpose. The Berlin map objects stay byte-identical.
+
+**Norm values (ISSprOM 2019-2, January 2022):**
+- §3.1: "When a map is enlarged, all lines, symbols and screens shall be enlarged proportionally." So every paper
+  value below is multiplied by `MapKind::symbol_enlargement()` (schoolyard 1.25, sprint 1.0), except the native
+  school symbols (321, 542, 544, 545), whose sizes in `school-2019-additions.xml` are already the school sizes.
+- §3.3: "Gap between two line symbols of the same colour: 0.15 mm" and "Gap between line symbols and area symbols of
+  the same colour: 0.15 mm". The norm names no gap between point symbols.
+  - **Ruling:** `POINT_GAP_MM = 0.15` between the outer edges of any two point symbols, whatever their colours.
+  - Schoolyard: 0.1875 mm.
+- §4.4 417 Prominent large tree: green circle 1.2 (OM), line 0.25, "White mask … (OM 1.4 mm)", footprint 4.8 m
+  (OM 5.6 m). This is the errata of 02.01.2022: "1.0 (1.2) → 1.2 (1.4) mm".
+  - The bundled OOM set still draws the old 1.0/1.2. Its description says "Footprint: 4 m … (OM 4.8 m)".
+  - The gap uses the norm value 1.4. Updating the symbol set is out of scope here.
+- §4.4 418 Prominent bush or small tree: ø 0.8, footprint 3.2 m. The bundled set has the same: inner radius 100 µm
+  white, ring 300 µm green.
+- §4.4 402 Open land with scattered trees:
+  - definition: "An area of meadows with scattered trees or bushes, with grass or similar ground cover offering very
+    good runnability. … Symbols … (417) and … (418) may be added.";
+  - dots ø 0.6 at 0.75 mm (CC), 45°, which leaves π·0.3²/0.75² ≈ 50 % of the area white;
+  - "Minimum width: 2.2 mm", "Minimum area: 6.25 mm² (footprint 100 m²)", "Smaller areas must be left out,
+    exaggerated or shown using the symbol Open land (401)";
+  - OOM `min_area="6300"`.
+- §4.4 405 Forest:
+  - "Typical open forest for the particular type of terrain.";
+  - "Minimum width (for openings): 0.3 mm";
+  - "Minimum area: 1 mm² (footprint 16 m²) for openings in screens of other colours, except for … (408) and Open land
+    (401), where the minimum area is 0.5 mm² (footprint 8 m²)";
+  - OOM `min_area="500"`.
+- §4.5 501.3 Paved area with scattered trees: "Area with scattered trees or bushes in a paved area." "Minimum width:
+  2.2 mm", "Minimum area: 6.25 mm² (footprint 100 m²)", "Smaller areas must be left out, exaggerated or shown using …
+  Paved area (501)".
+- §4.5 520 Area that shall not be entered: "No feature shall be represented in this area, except very prominent
+  features such as railways, large buildings, or very large trees." Yellow 100 % / green 50 % (olive, colour 22).
+- §4.2 207 Boulder cluster and 208 Boulder field are the norm's only other group forms for point features (of 204
+  Boulder). §4.4 419 has no group form. Water features (311–313) and man-made points (526, 530, 531) have none
+  either.
+
+**Rulings:**
+- **Size on paper** = the larger of the norm's outer measure (OM) and the drawn extent of the bundled symbol.
+  `POINT_SIZES_MM` in `build/points.rs`:
+  | code | symbol | size mm (1:4000) | schoolyard mm | note |
+  |---|---|---|---|---|
+  | 311 | small fountain or well | 0.90 | 1.125 | OM 0.9 |
+  | 312 | spring | 1.20 | 1.50 | OM 1.2 × 0.6, longer side |
+  | 313 | prominent water feature | 1.45 | 1.8125 | OM 1.2, drawn 1.45 |
+  | 321 | hydrant (school) | — | 1.30 | native school size |
+  | 417 | prominent large tree | 1.40 | 1.75 | norm mask, drawn 1.2 |
+  | 418 | prominent bush or small tree | 0.80 | 1.00 | |
+  | 526 | cairn, memorial, small monument | 1.00 | 1.25 | OM 1.0 |
+  | 531 | prominent man-made feature – x | 1.26 | 1.575 | OM 1.2, drawn 1.26 |
+  | 542 | table (school) | — | 1.72 | native |
+  | 544 | pole, small pylon (school) | — | 1.10 | native |
+  | 545 | lamppost (school) | — | 1.40 | native |
+
+  These are all the point codes of `berlin-candidates.toml`, `osm-candidates.toml` and `state-candidates.toml` today.
+  `build/` emits no other point symbols. Short-line points (`point_as_short_line_mm`, e.g. 543 benches) are lines
+  and stay out.
+- **Minimum centre distance** of two points a, b on paper: `(size_a + size_b) / 2 + POINT_GAP_MM × enlargement`.
+  - The code works in map coordinates (1/1000 mm on paper), so the map scale only enters through the crowns
+    (ground m × 10⁶ / scale).
+  - Sprint 1:4000: 418–418 0.95 mm = 3.8 m, 417–418 1.25 mm = 5.0 m, 417–417 1.55 mm = 6.2 m.
+  - Schoolyard 1:1000: 418–418 1.19 m, 417–418 1.56 m, 417–417 1.94 m, 544–544 1.29 m, 545–544 1.44 m.
+- **"Smaller"**, compared in this order:
+  1. paper size;
+  2. for two trees, the crown diameter (`freemapper:crown_m`, else the default below);
+  3. the rank of `dedup::rank` (register > ALKIS > survey > OSM). A map object beats every candidate.
+  4. `freemapper:source` + `/` + `freemapper:source_id`, lexicographic, then the map x and y.
+- **Group symbols:** only trees have one in what freemapper emits (417/418 → 402, 405 or 501.3). Every other code
+  is thinned.
+  - A later boulder source (204) maps to 207 for a cluster and 208 for a field; that is not built here.
+- **Crown diameter:** `freemapper:crown_m` (new tag) is set by:
+  - Berlin, from `kronedurch` > 0;
+  - the tree reader, from `tree:crown_m`;
+  - OSM, from `diameter_crown` (metres) when it is present.
+  Without one, the default is `DEFAULT_CROWN_M`: 417 → 12 m (the Berlin rule is ≥ 10 m), 418 → 5 m.
+- **402, 405 or 501.3** (the norm gives no canopy share, so this is a ruling):
+  - Group region G = the union of the crown discs U, closed by `GROUP_CLOSE_MM = 0.5` × enlargement on paper (buffer
+    +d then −d). Cover = area(U) / area(G).
+  - At least half of G on a drawn 501.x paved map object (`paved.map`) → **501.3**.
+  - Otherwise, cover ≥ `FOREST_COVER = 0.5` → **405**. The 402 screen itself is half white, so a canopy denser than
+    the screen shows is forest.
+  - Otherwise → **402**.
+- **Minimum sizes** (paper; on the schoolyard, × 1.25 for widths and × 1.25² for areas):
+  - 402 and 501.3: 6.25 mm², mean width (2 · area / perimeter, `out_of_bounds::mean_width`) 2.2 mm;
+  - 405: 1.0 mm² (the stricter value: the build does not know the surrounding screen), width 0.3 mm.
+  - An area below its minimum is dropped (the norm's "left out"), and its trees go back to the thinning.
+- **A group needs `GROUP_MIN_TREES = 3` trees.** Two close trees are always thinned.
+- **What the group's trees become:**
+  - inside 405 and 501.3, all of them become the area;
+  - inside 402, the 417 trees stay points (the norm says they "may be added") and go through the thinning, and the
+    418 trees become the area.
+- **520:** every point the build adds whose centre lies inside a 520 area (map object or candidate) is hidden, for
+  every code. The norm allows no feature there.
+  - Its exception "very large trees" needs a judgement the data cannot give, so the mapper adds such a tree back.
+  - On the schoolyard map this hides every point off the school grounds.
+- **Out of scope:** gaps between points and lines or areas (walls, buildings), and moving symbols apart (the norm's
+  "displaced"). The mapper does both.
+
+**Algorithm (`build/points.rs`, new: `generalise_points(candidates, map, out_of_bounds, paved, footprints,
+water_union, clip, kind, georef, symbol_set)`):**
+1. Hide: drop every point candidate and point map object whose centre is inside a 520 polygon (from the map and the
+   candidates). Use a bbox prefilter, then `Contains`.
+2. Cluster the trees (417/418 point objects):
+   - single linkage: two trees closer than their minimum centre distance are in one cluster;
+   - a grid of cells of the largest pair distance, as in `drop_osm_trees_near_cadastre`;
+   - chains are transitive (A–B close, B–C close, A–C far → one cluster).
+3. For each cluster with ≥ 3 trees:
+   - U = the crown discs (`CROWN_SEGMENTS = 32`); G = the closing of U; cover; choose the symbol;
+   - clip G to the clip window (`LandClip`) and subtract the 520 areas, the 521 footprints and the water union;
+   - simplify at `SIMPLIFY_MM = 0.1` as in `canopy.rs`;
+   - each part that meets its minimum becomes an area candidate, and the trees whose centres lie in the kept parts
+     are removed (402: only the 418);
+   - a cluster without a kept part stays as points.
+4. Thin every remaining point (all codes together, trees too):
+   - sort by "smaller", largest first;
+   - keep a point when it keeps the minimum centre distance to every point kept so far, else drop it;
+   - this greedy pass settles ties and chains: with A–B–C and B the largest, B stays and A and C go; with A the
+     largest, A and C stay;
+   - map points come first and are never dropped by a candidate. Two map points are thinned among themselves.
+   - The kept point lists the points it dropped in `freemapper:generalised=<source>/<source_id>; …`, sorted.
+5. Return the kept candidates, the new area candidates and the kept map objects.
+
+**Tags of a group area:**
+- `freemapper:source=generalisation`;
+- `freemapper:source_id=<source>/<source_id>; …` for every merged tree, sorted (the form of `freemapper:also`,
+  ADR 0058);
+- `freemapper:currency=<oldest currency of the merged trees>`;
+- `freemapper:generalised=<n> trees, cover <p> %`.
+
+`drawn_registers` and the Potsdam attribution count a source as drawn when a kept point has it, or when it is a
+prefix of an entry in an area's `freemapper:source_id`.
+
+**Where it runs:** in `starter_documents`:
+- after every tree and point source and the whole dedup chain (Task 3/5: OSM, Berlin and state candidates,
+  `drop_points_in_water`, `drop_shelters_under_canopies`);
+- before `drawn_registers`, the attribution and the assembly of the candidates part.
+`stored_out_of_bounds_objects` is computed once, before the call. The map points are the `Target::Map` OSM objects
+(no point rule targets the map today, so the call is ready for later rules). Both map kinds, OOM, OCAD and the
+training PDF get the same result.
+
+- [ ] `build/points.rs`: `POINT_SIZES_MM`, `POINT_GAP_MM`, `DEFAULT_CROWN_M`, `GROUP_CLOSE_MM`, `FOREST_COVER`,
+      `GROUP_MIN_TREES`, `generalise_points`. `freemapper:crown_m` in the Berlin, tree-reader and OSM tagging.
+- [ ] Wire into `starter_documents`, and move `drawn_registers` and the attribution after the call.
+
+Tests:
+- `trees_on_out_of_bounds_are_hidden` (a 418 centre 1 m inside a 520 candidate is gone, the same 0.5 m outside
+  stays, and a 520 map object hides too)
+- `hydrant_on_out_of_bounds_is_hidden` (schoolyard: a 321 off the school grounds inside the 520 is gone; one on
+  the grounds stays)
+- `two_close_trees_keep_the_larger` (sprint, 3 m apart: 417 crown 12 m and 418 crown 6 m → the 417 stays and its
+  `freemapper:generalised` names the 418)
+- `equal_trees_keep_by_rank_then_id` (two 418, 3 m apart: register beats OSM; two OSM: the lower id stays)
+- `chain_of_trees_keeps_the_ends` (three 418, 3.5 m apart, crown 1 m: no area, B with the smallest crown goes, A and
+  C at 7 m stay)
+- `dense_group_becomes_forest_area` (3 × 3 grid of 418 at 3.5 m, crown 6 m → one 405, cover ≥ 50 %, no tree
+  point left, `source_id` lists the 9 sorted, currency the oldest)
+- `sparse_group_becomes_scattered_trees_area` (5 × 4 grid of 418 at 3.5 m, crown 2 m → one 402 ≥ 100 m², cover
+  < 50 %)
+- `group_on_paved_area_becomes_paved_with_trees` (the same grid on a 501.5 map object → 501.3)
+- `large_tree_stays_on_scattered_trees_area` (a 417 inside the 402 group stays a point)
+- `group_area_below_minimum_is_dropped` (three 418, crown 1 m, 3 m apart → no area; one tree stays by the thinning)
+- `group_area_is_cut_at_buildings_and_out_of_bounds` (no part of the 405 inside a 521 or 520; the trees under
+  the cut stay points or go by the thinning)
+- `trees_far_apart_are_unchanged` (418s at 10 m, 417s at 7 m → all kept, objects equal to the input)
+- `schoolyard_scale_uses_enlarged_symbols` (two 418 2 m apart: sprint → one; schoolyard → both; schoolyard
+  1.1 m → one)
+- `close_bollards_keep_one` (schoolyard: two 544 1.0 m apart → one by rank and id; 1.4 m apart → both)
+- `different_point_symbols_too_close_keep_the_larger` (schoolyard: 545 and 544 1.0 m apart → the 545; sprint:
+  531 and 418 3 m apart → the 531)
+- `map_point_beats_candidates`
+- `point_sizes_cover_the_drawn_symbols` (every table entry × enlargement ≥ the drawn extent in the loaded set, on
+  both kinds; every `draw = "point"` code of the three rule files is in the table)
+- `generalised_area_provenance_and_attribution` (tags as above; a Potsdam tree only inside an area still gives the
+  Potsdam line)
+
 ### Task 6: Docs, ADRs, changelog, example, live run, review
 - Copy `STATES-PLUS-SURVEY.md` to `docs/regions/states-plus-reference.md`, with the corrections of 2026-11-09:
   - Saxony and Saxony-Anhalt have no vereinfacht passages or canopies;
@@ -363,6 +547,9 @@ Tests:
   - 0061 NAS stairs from the bottom edge;
   - 0062 the tree-point reader and Potsdam trees as a register;
   - 0063 duplicate rank by provenance for every state.
+  - one more for the point symbol generalisation (Task 5b: gap, sizes, 402/405/501.3 rulings, 520 hiding). Regenerate
+    `examples/berlin-viktoriapark`: its candidates and training PDF change on purpose, its map objects stay
+    identical.
 - A changelog entry (DE + EN) under `[Unveröffentlicht]`.
 - Before the live runs, run `df -h` (SH/BB downloads, `target/`). After the merge, run `cargo clean`.
 - Live runs:
