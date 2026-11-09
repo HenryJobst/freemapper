@@ -83,8 +83,11 @@ pub struct GeneralizedPoints {
 
 /// The `freemapper:source` of a group area.
 pub const GENERALIZATION_SOURCE: &str = "generalization";
+/// The tag of a candidate point under a 520 candidate: it stays in the candidates, marked with
+/// the code, and is left out of the training map.
+pub const HIDDEN_KEY: &str = "freemapper:hidden";
 /// ISSprOM 520 area that shall not be entered: no point is shown in it.
-const OUT_OF_BOUNDS_CODE: &str = "520";
+pub(crate) const OUT_OF_BOUNDS_CODE: &str = "520";
 /// The tree symbols, the only points with a group symbol in what the build emits.
 const TREE_CODES: [&str; 2] = ["417", "418"];
 /// The large tree stays a point on 402, which allows it to be added (§4.4).
@@ -95,6 +98,16 @@ const CROWN_SEGMENTS: usize = 32;
 const SIMPLIFY_MM: f64 = 0.1;
 /// A group region with at least this share on a drawn paved area is 501.3.
 const PAVED_SHARE: f64 = 0.5;
+/// A cluster whose trees lie in a corridor narrower than this many symbol sizes (the mean of
+/// its trees) is a row ...
+const ROW_WIDTH_SIZES: f64 = 2.0;
+/// ... and so is a cluster at least this many times as long as it is wide (along its main axis,
+/// one symbol size added to both): an avenue stays a row of tree symbols, never a strip of area.
+const ROW_ASPECT: f64 = 3.0;
+/// The cell of the grid indexes of the areas (ground metres).
+const GRID_CELL_M: f64 = 100.0;
+/// An area spanning more cells than this is checked for every query instead.
+const GRID_MAX_CELLS: i64 = 4096;
 
 /// A group symbol and its minimum area (mm²) and width (mm) on paper at 1:4000.
 struct GroupSymbol {
@@ -134,8 +147,11 @@ struct Spot {
     /// Size on paper in map coordinates (1/1000 mm).
     size: f64,
     code: &'static str,
-    /// The crown diameter (ground metres) of a tree, 0 for other points.
+    /// The crown diameter (ground metres) of a tree ([`DEFAULT_CROWN_M`] when the source gives
+    /// none), 0 for other points.
     crown: f64,
+    /// The source gives the crown.
+    crown_measured: bool,
     rank: Option<Rank>,
     /// `<source>/<source_id>`.
     name: String,
@@ -157,14 +173,16 @@ impl Spot {
     }
 }
 
-/// The larger point first: map objects, then paper size, the crown, the rank, then the name and
-/// the position.
+/// The larger point first: map objects, then paper size, the rank, a measured crown before a
+/// default one, the crown, then the name and the position. The rank comes before the crown so
+/// that a default crown never beats a measured one of a better source, and the order stays total.
 fn larger_first(a: &Spot, b: &Spot) -> Ordering {
     b.on_map
         .cmp(&a.on_map)
         .then(b.size.total_cmp(&a.size))
-        .then(b.crown.total_cmp(&a.crown))
         .then(b.rank.cmp(&a.rank))
+        .then(b.crown_measured.cmp(&a.crown_measured))
+        .then(b.crown.total_cmp(&a.crown))
         .then(a.name.cmp(&b.name))
         .then(a.xy.0.total_cmp(&b.xy.0))
         .then(a.xy.1.total_cmp(&b.xy.1))
@@ -178,12 +196,95 @@ fn tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
         .map(|(_, v)| v.as_str())
 }
 
-/// A polygon in map coordinates and its bounds.
-type Bounded = (Polygon<f64>, Rect<f64>);
+/// A grid index of bounding boxes: the items whose box meets each cell of `cell` size.
+struct BoxGrid {
+    cell: f64,
+    cells: HashMap<(i64, i64), Vec<usize>>,
+    /// Items too large for the grid ([`GRID_MAX_CELLS`]), checked for every query.
+    wide: Vec<usize>,
+}
 
-fn bounded(polygon: Polygon<f64>) -> Option<Bounded> {
-    let bounds = polygon.bounding_rect()?;
-    Some((polygon, bounds))
+impl BoxGrid {
+    fn new<'a>(polygons: impl Iterator<Item = &'a Polygon<f64>>, cell: f64) -> Self {
+        let mut grid = Self {
+            cell,
+            cells: HashMap::new(),
+            wide: Vec::new(),
+        };
+        for (i, polygon) in polygons.enumerate() {
+            let Some(bounds) = polygon.bounding_rect() else {
+                continue;
+            };
+            let ((x0, y0), (x1, y1)) = grid.span(bounds);
+            if (x1 - x0 + 1) * (y1 - y0 + 1) > GRID_MAX_CELLS {
+                grid.wide.push(i);
+                continue;
+            }
+            for x in x0..=x1 {
+                for y in y0..=y1 {
+                    grid.cells.entry((x, y)).or_default().push(i);
+                }
+            }
+        }
+        grid
+    }
+
+    fn span(&self, bounds: Rect<f64>) -> ((i64, i64), (i64, i64)) {
+        let key = |c: Coord<f64>| {
+            (
+                (c.x / self.cell).floor() as i64,
+                (c.y / self.cell).floor() as i64,
+            )
+        };
+        (key(bounds.min()), key(bounds.max()))
+    }
+
+    /// The items whose cells meet `bounds`, sorted, each once.
+    fn near(&self, bounds: Rect<f64>) -> Vec<usize> {
+        let ((x0, y0), (x1, y1)) = self.span(bounds);
+        let mut found = self.wide.clone();
+        for x in x0..=x1 {
+            for y in y0..=y1 {
+                found.extend(self.cells.get(&(x, y)).into_iter().flatten());
+            }
+        }
+        found.sort_unstable();
+        found.dedup();
+        found
+    }
+}
+
+/// Polygons with a grid index.
+struct Indexed {
+    polygons: Vec<Polygon<f64>>,
+    grid: BoxGrid,
+}
+
+impl Indexed {
+    fn new(polygons: Vec<Polygon<f64>>, cell: f64) -> Self {
+        let grid = BoxGrid::new(polygons.iter(), cell);
+        Self { polygons, grid }
+    }
+
+    /// Whether `p` lies inside one of the polygons.
+    fn contains(&self, p: Point<f64>) -> bool {
+        self.grid
+            .near(Rect::new(p.0, p.0))
+            .into_iter()
+            .any(|i| self.polygons[i].contains(&p))
+    }
+
+    /// The union of the polygons whose bounds meet `bounds`.
+    fn union_near(&self, bounds: Rect<f64>) -> MultiPolygon<f64> {
+        let near: Vec<&Polygon<f64>> = self
+            .grid
+            .near(bounds)
+            .into_iter()
+            .map(|i| &self.polygons[i])
+            .filter(|p| p.bounding_rect().is_some_and(|r| r.intersects(&bounds)))
+            .collect();
+        unary_union(near)
+    }
 }
 
 /// `polygon` (map coordinates) in the map's CRS.
@@ -220,23 +321,12 @@ fn disc(centre: Coord<f64>, radius: f64) -> Polygon<f64> {
     Polygon::new(LineString(ring), vec![])
 }
 
-/// The polygons among `polygons` whose bounds meet `bounds`, as one union.
-fn union_near<'a>(
-    polygons: impl Iterator<Item = &'a Polygon<f64>>,
-    bounds: Rect<f64>,
-) -> MultiPolygon<f64> {
-    let near: Vec<&Polygon<f64>> = polygons
-        .filter(|p| p.bounding_rect().is_some_and(|r| r.intersects(&bounds)))
-        .collect();
-    unary_union(near)
-}
-
 /// What the group areas are cut with and where they are drawn.
 struct GroupContext<'a> {
     /// The 520 areas, the 521 footprints and the water, in the map's CRS.
-    obstacles: Vec<Polygon<f64>>,
+    obstacles: Indexed,
     /// The drawn paved areas in the map's CRS.
-    paved: Vec<Polygon<f64>>,
+    paved: Indexed,
     clip: Polygon<f64>,
     kind: MapKind,
     georef: &'a Georeferencing,
@@ -246,7 +336,10 @@ struct GroupContext<'a> {
 /// The group areas of the trees `cluster` (indices into `spots`) and the trees they take in: the
 /// crowns closed by [`GROUP_CLOSE_MM`], drawn as 501.3 on paving, 405 when the crowns cover at
 /// least [`FOREST_COVER`], else 402, cut at the clip window, the 520 areas, the buildings and
-/// the water. Parts below the symbol's minimum are left out.
+/// the water. Each part is opened by half the symbol's minimum width, which leaves out what is
+/// narrower (the norm's minimum width is that of the narrowest part); pieces below the minimum
+/// area are left out. A tree is merged when its centre lies in the part and its crown meets a
+/// kept piece.
 fn group_areas(
     cluster: &[usize],
     spots: &[Spot],
@@ -275,7 +368,7 @@ fn group_areas(
     };
     let cover = (union.unsigned_area() / region_area).min(1.0);
     let paved = region
-        .intersection(&union_near(context.paved.iter(), bounds))
+        .intersection(&context.paved.union_near(bounds))
         .unsigned_area();
     let symbol = if paved >= PAVED_SHARE * region_area {
         &PAVED_WITH_TREES
@@ -288,25 +381,38 @@ fn group_areas(
         return Ok((Vec::new(), Vec::new()));
     };
     let mut cut = region.intersection(&context.clip);
-    let obstacles = union_near(context.obstacles.iter(), bounds);
+    let obstacles = context.obstacles.union_near(bounds);
     if !obstacles.0.is_empty() {
         cut = cut.difference(&obstacles);
     }
     let min_area = symbol.min_area_mm2 * (enlargement * metres_per_mm).powi(2);
-    // The norm's minimum width is the narrowest dimension: a disc of it must fit into the part.
     let half_width = symbol.min_width_mm * enlargement * metres_per_mm / 2.0;
     let tolerance = SIMPLIFY_MM * metres_per_mm;
+    // The opening: what is left after eroding and dilating by half the minimum width.
+    let pieces = cut.0.into_iter().flat_map(|part| {
+        let opened = part.buffer(-half_width).buffer(half_width);
+        let opened = opened.intersection(&part);
+        opened.0.into_iter().map(move |piece| (part.clone(), piece))
+    });
     let (mut areas, mut merged) = (Vec::new(), Vec::new());
-    for part in cut.0 {
-        if part.unsigned_area() < min_area || part.buffer(-half_width).unsigned_area() <= 0.0 {
+    for (part, piece) in pieces {
+        if piece.unsigned_area() < min_area {
             continue;
         }
         // On 402 the large trees stay points (§4.4: they "may be added").
         let members: Vec<usize> = cluster
             .iter()
             .copied()
-            .filter(|&i| symbol.code != SCATTERED_TREES.code || spots[i].code != LARGE_TREE_CODE)
-            .filter(|&i| !merged.contains(&i) && part.intersects(&Point(centre(&spots[i]))))
+            .zip(&crowns)
+            .filter(|&(i, _)| {
+                symbol.code != SCATTERED_TREES.code || spots[i].code != LARGE_TREE_CODE
+            })
+            .filter(|&(i, crown)| {
+                !merged.contains(&i)
+                    && part.intersects(&Point(centre(&spots[i])))
+                    && piece.intersects(crown)
+            })
+            .map(|(i, _)| i)
             .collect();
         if members.is_empty() {
             continue;
@@ -339,12 +445,36 @@ fn group_areas(
         areas.push(MapObject {
             symbol_id,
             kind: MapObjectKind::Path,
-            coords: footprint_coords(&part, min_area, tolerance, georef)?,
+            coords: footprint_coords(&piece, min_area, tolerance, georef)?,
             tags,
         });
         merged.extend(members);
     }
     Ok((areas, merged))
+}
+
+/// The trees `cluster` form a row: they lie in a corridor narrower than [`ROW_WIDTH_SIZES`]
+/// symbol sizes, or the cluster is at least [`ROW_ASPECT`] times as long as wide, both along its
+/// main axis (the principal axis of the tree centres).
+fn is_row(cluster: &[usize], spots: &[Spot]) -> bool {
+    let n = cluster.len() as f64;
+    let mean = |f: &dyn Fn(&Spot) -> f64| cluster.iter().map(|&i| f(&spots[i])).sum::<f64>() / n;
+    let (mx, my) = (mean(&|s| s.xy.0), mean(&|s| s.xy.1));
+    let sxx = mean(&|s| (s.xy.0 - mx).powi(2));
+    let syy = mean(&|s| (s.xy.1 - my).powi(2));
+    let sxy = mean(&|s| (s.xy.0 - mx) * (s.xy.1 - my));
+    let angle = 0.5 * (2.0 * sxy).atan2(sxx - syy);
+    let (cos, sin) = (angle.cos(), angle.sin());
+    let (mut along, mut across) = ((f64::MAX, f64::MIN), (f64::MAX, f64::MIN));
+    for &i in cluster {
+        let (x, y) = (spots[i].xy.0 - mx, spots[i].xy.1 - my);
+        let (u, v) = (x * cos + y * sin, -x * sin + y * cos);
+        along = (along.0.min(u), along.1.max(u));
+        across = (across.0.min(v), across.1.max(v));
+    }
+    let size = mean(&|s| s.size);
+    let (length, width) = (along.1 - along.0, across.1 - across.0);
+    width < ROW_WIDTH_SIZES * size || length + size >= ROW_ASPECT * (width + size)
 }
 
 /// The clusters of at least [`GROUP_MIN_TREES`] among the `trees` (indices into `spots`): single
@@ -397,13 +527,16 @@ fn tree_clusters(spots: &[Spot], trees: &[usize], gap: f64) -> Vec<Vec<usize>> {
 }
 
 /// Generalizes the point symbols among `candidates` and `map` (ISSprOM §3.3, §4.4, §4.5):
-/// 1. a point whose centre lies in a 520 area (`out_of_bounds`, or one among `map` and
-///    `candidates`) is hidden;
+/// 1. a point whose centre lies in a 520 map object (among `map`) is removed; a candidate point
+///    in a 520 candidate (`out_of_bounds`, or one among `candidates`) stays a candidate tagged
+///    [`HIDDEN_KEY`]` = 520` and takes no part in the rest: the training map leaves it out;
 /// 2. at least [`GROUP_MIN_TREES`] candidate trees that keep less than the minimum gap from one
-///    another become a group area (`group_areas`) where it reaches the symbol's minimum;
+///    another, and are no row ([`is_row`]), become a group area (`group_areas`) where it reaches
+///    the symbol's minimum;
 /// 3. every other point keeps [`POINT_GAP_MM`] (× the enlargement) between the outer edges of
 ///    the symbols ([`point_size_mm`]); the smaller of two points goes ([`larger_first`]), and
-///    the kept one names it in `freemapper:generalized`. A candidate never drops a map point.
+///    the kept one names it in `freemapper:generalized` (a map point names no candidate). A
+///    candidate never drops a map point.
 ///
 /// `paved` are the drawn paved areas, `footprints` the 521 buildings and `water_union` the
 /// drawn water in the map's CRS; `clip` is the map area plus buffer. Returns the kept candidates
@@ -422,27 +555,40 @@ pub fn generalize_points(
     symbol_set: &SymbolSet,
 ) -> Result<GeneralizedPoints, GeorefError> {
     let is_point = |o: &MapObject| matches!(o.kind, MapObjectKind::Point { .. });
-    // 1. The 520 areas hide every point in them.
+    // 1. A 520 map object removes the points in it; a 520 candidate only hides the candidate
+    //    points (they stay in the candidates, marked, and take no part below).
     let fence_id = symbol_set.id_for_code(OUT_OF_BOUNDS_CODE);
-    let fences: Vec<Bounded> = out_of_bounds
-        .iter()
-        .chain(&map)
-        .chain(&candidates)
-        .filter(|o| Some(o.symbol_id) == fence_id)
-        .filter_map(object_polygon)
-        .filter_map(bounded)
-        .collect();
-    let hidden = |o: &MapObject| {
-        is_point(o)
-            && o.coords.first().is_some_and(|c| {
-                let p = Point::new(f64::from(c.x), f64::from(c.y));
-                fences
-                    .iter()
-                    .any(|(fence, bounds)| bounds.intersects(&p) && fence.contains(&p))
-            })
+    let metre = 1e6 / f64::from(georef.scale_denominator);
+    let fences = |objects: &mut dyn Iterator<Item = &MapObject>| {
+        let polygons: Vec<Polygon<f64>> = objects
+            .filter(|o| Some(o.symbol_id) == fence_id)
+            .filter_map(object_polygon)
+            .collect();
+        Indexed::new(polygons, GRID_CELL_M * metre)
     };
-    let candidates: Vec<MapObject> = candidates.into_iter().filter(|o| !hidden(o)).collect();
-    let map: Vec<MapObject> = map.into_iter().filter(|o| !hidden(o)).collect();
+    let map_fences = fences(&mut map.iter());
+    let candidate_fences = fences(&mut out_of_bounds.iter().chain(&candidates));
+    let inside = |fences: &Indexed, o: &MapObject| {
+        is_point(o)
+            && o.coords
+                .first()
+                .is_some_and(|c| fences.contains(Point::new(f64::from(c.x), f64::from(c.y))))
+    };
+    let map: Vec<MapObject> = map
+        .into_iter()
+        .filter(|o| !inside(&map_fences, o))
+        .collect();
+    let candidates: Vec<MapObject> = candidates
+        .into_iter()
+        .filter(|o| !inside(&map_fences, o))
+        .map(|mut o| {
+            if inside(&candidate_fences, &o) {
+                o.tags
+                    .push((HIDDEN_KEY.to_string(), OUT_OF_BOUNDS_CODE.to_string()));
+            }
+            o
+        })
+        .collect();
 
     // The points with a size, map objects first.
     let sizes: HashMap<u32, (&'static str, f64)> = POINT_SIZES_MM
@@ -455,22 +601,24 @@ pub fn generalize_points(
         })
         .collect();
     let spot = |on_map: bool, index: usize, o: &MapObject| -> Option<Spot> {
-        let &(code, size) = sizes.get(&o.symbol_id).filter(|_| is_point(o))?;
+        let &(code, size) = sizes
+            .get(&o.symbol_id)
+            .filter(|_| is_point(o) && tag(o, HIDDEN_KEY).is_none())?;
         let c = o.coords.first()?;
-        let crown = if TREE_CODES.contains(&code) {
-            tag(o, "freemapper:crown_m")
-                .and_then(|v| v.parse::<f64>().ok())
-                .filter(|c| c.is_finite() && *c > 0.0)
-                .or_else(|| {
-                    DEFAULT_CROWN_M
-                        .iter()
-                        .find(|(c, _)| *c == code)
-                        .map(|(_, m)| *m)
-                })
-                .unwrap_or(0.0)
-        } else {
-            0.0
-        };
+        let measured = TREE_CODES
+            .contains(&code)
+            .then(|| tag(o, "freemapper:crown_m"))
+            .flatten()
+            .and_then(|v| v.parse::<f64>().ok())
+            .filter(|c| c.is_finite() && *c > 0.0);
+        let crown = measured
+            .or_else(|| {
+                DEFAULT_CROWN_M
+                    .iter()
+                    .find(|(c, _)| *c == code)
+                    .map(|(_, m)| *m)
+            })
+            .unwrap_or(0.0);
         Some(Spot {
             on_map,
             index,
@@ -478,6 +626,7 @@ pub fn generalize_points(
             size,
             code,
             crown,
+            crown_measured: measured.is_some(),
             rank: rank(o),
             name: format!(
                 "{}/{}",
@@ -506,19 +655,30 @@ pub fn generalize_points(
         .collect();
     let mut merged = vec![false; spots.len()];
     let mut areas = Vec::new();
-    let clusters = tree_clusters(&spots, &trees, gap);
+    // A row (an avenue) stays points and is thinned.
+    let clusters: Vec<Vec<usize>> = tree_clusters(&spots, &trees, gap)
+        .into_iter()
+        .filter(|c| !is_row(c, &spots))
+        .collect();
     if !clusters.is_empty() {
-        let mut obstacles: Vec<Polygon<f64>> =
-            fences.iter().map(|(f, _)| projected(f, georef)).collect();
+        let mut obstacles: Vec<Polygon<f64>> = map_fences
+            .polygons
+            .iter()
+            .chain(&candidate_fences.polygons)
+            .map(|f| projected(f, georef))
+            .collect();
         obstacles.extend(footprints.iter().cloned());
         obstacles.extend(water_union.0.iter().cloned());
         let context = GroupContext {
-            obstacles,
-            paved: paved
-                .iter()
-                .filter_map(object_polygon)
-                .map(|p| projected(&p, georef))
-                .collect(),
+            obstacles: Indexed::new(obstacles, GRID_CELL_M),
+            paved: Indexed::new(
+                paved
+                    .iter()
+                    .filter_map(object_polygon)
+                    .map(|p| projected(&p, georef))
+                    .collect(),
+                GRID_CELL_M,
+            ),
             clip: Rect::new(
                 Coord {
                     x: clip.min_e,
@@ -569,7 +729,10 @@ pub fn generalize_points(
         match winner {
             Some(j) => {
                 dropped[i] = true;
-                generalized[j].push(&s.name);
+                // The map part names no candidate.
+                if s.on_map || !spots[j].on_map {
+                    generalized[j].push(&s.name);
+                }
             }
             None => kept.entry((cx, cy)).or_default().push(i),
         }
@@ -835,33 +998,62 @@ mod tests {
         Polygon::new(ring.into(), vec![])
     }
 
+    /// The ids of the candidates hidden under a 520 candidate.
+    fn hidden(objects: &[MapObject]) -> Vec<&str> {
+        objects
+            .iter()
+            .filter(|o| tag(o, HIDDEN_KEY) == Some(OUT_OF_BOUNDS_CODE))
+            .map(|o| tag(o, "freemapper:source_id").unwrap_or(""))
+            .collect()
+    }
+
     #[test]
     fn trees_on_out_of_bounds_are_hidden() {
         let f = fixture(MapKind::Sprint);
         let fence = f.rect("520", (0.0, 0.0), (20.0, 20.0));
         let inside = || f.tree("418", REGISTER, "in", (1.0, 10.0), None);
         let outside = || f.tree("418", REGISTER, "out", (-0.5, 10.0), None);
+        // Under a 520 candidate the tree stays a candidate, marked hidden (left out of the
+        // training map); it drops no visible point, and none drops it.
         let found = f.run(vec![fence.clone(), inside()], vec![], &[], &[], &[]);
-        assert_eq!(found.candidates, std::slice::from_ref(&fence));
+        assert_eq!(ids(&found.candidates), ["", "in"]);
+        assert_eq!(hidden(&found.candidates), ["in"]);
         let found = f.run(
-            vec![outside()],
+            vec![inside(), outside()],
             vec![],
             std::slice::from_ref(&fence),
             &[],
             &[],
         );
-        assert_eq!(ids(&found.candidates), ["out"]);
-        let found = f.run(
-            vec![inside()],
-            vec![],
-            std::slice::from_ref(&fence),
-            &[],
-            &[],
+        assert_eq!(ids(&found.candidates), ["in", "out"]);
+        assert_eq!(hidden(&found.candidates), ["in"]);
+        assert!(
+            found
+                .candidates
+                .iter()
+                .all(|o| tag(o, "freemapper:generalized").is_none())
         );
-        assert!(found.candidates.is_empty());
-        // A 520 map object hides too.
+        // A 520 map object removes it.
         let found = f.run(vec![inside()], vec![fence.clone()], &[], &[], &[]);
         assert!(found.candidates.is_empty());
+        assert_eq!(found.map, [fence]);
+    }
+
+    #[test]
+    fn map_point_not_hidden_by_candidate_520() {
+        let f = fixture(MapKind::Sprint);
+        let fence = f.rect("520", (0.0, 0.0), (20.0, 20.0));
+        let tree = f.tree("418", "osm", "node/1", (1.0, 10.0), None);
+        let found = f.run(
+            vec![fence.clone()],
+            vec![tree.clone()],
+            std::slice::from_ref(&fence),
+            &[],
+            &[],
+        );
+        assert_eq!(found.map, std::slice::from_ref(&tree));
+        // Under a 520 map object it goes.
+        let found = f.run(vec![], vec![fence.clone(), tree], &[], &[], &[]);
         assert_eq!(found.map, [fence]);
     }
 
@@ -880,7 +1072,8 @@ mod tests {
             &[],
             &[],
         );
-        assert_eq!(ids(&found.candidates), ["node/2"]);
+        assert_eq!(ids(&found.candidates), ["node/1", "node/2"]);
+        assert_eq!(hidden(&found.candidates), ["node/1"]);
     }
 
     #[test]
@@ -1113,10 +1306,12 @@ mod tests {
             assert!(area.intersection(&building).unsigned_area() < 0.01);
             assert!(area.intersection(&fence).unsigned_area() < 0.01);
         }
-        // The trees under the building stay points, thinned; none is left in the 520.
+        // The trees under the building stay points, thinned; the two in the 520 stay hidden.
+        assert_eq!(hidden(&found.candidates), ["t03", "t04"]);
         let left: Vec<(f64, f64)> = found
             .candidates
             .iter()
+            .filter(|o| tag(o, HIDDEN_KEY).is_none())
             .map(|o| {
                 let p = f.georef.map_to_projected(o.coords[0]);
                 (p.easting, p.northing)
@@ -1239,10 +1434,99 @@ mod tests {
         );
         assert!(found.candidates.is_empty());
         assert_eq!(ids(&found.map), ["node/1"]);
+        // The map part names only the map points it dropped, no candidate.
         assert_eq!(
             tag(&found.map[0], "freemapper:generalized"),
-            Some("geoportal-berlin/anlagenbaeume/large; osm/node/2")
+            Some("osm/node/2")
         );
+    }
+
+    #[test]
+    fn default_crown_does_not_beat_a_measured_one() {
+        let f = fixture(MapKind::Sprint);
+        let pair = |a: MapObject, b: MapObject| {
+            let found = f.run(vec![a, b], vec![], &[], &[], &[]);
+            ids(&found.candidates)
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        };
+        // An OSM tree without a crown (5 m by default) against a register tree of 4 m.
+        assert_eq!(
+            pair(
+                f.tree("418", "osm", "node/1", (0.0, 0.0), None),
+                f.tree("418", REGISTER, "measured", (3.0, 0.0), Some(4.0)),
+            ),
+            ["measured"]
+        );
+        // The same source: the measured crown wins over the default.
+        assert_eq!(
+            pair(
+                f.tree("418", REGISTER, "a", (0.0, 0.0), None),
+                f.tree("418", REGISTER, "b", (3.0, 0.0), Some(4.0)),
+            ),
+            ["b"]
+        );
+    }
+
+    #[test]
+    fn row_of_street_trees_stays_points() {
+        let f = fixture(MapKind::Sprint);
+        // An avenue of ten large trees 6 m apart, crowns 12 m: one closed crown strip.
+        let mut trees: Vec<MapObject> = (0..10)
+            .map(|i| {
+                let id = format!("l{i}");
+                f.tree("417", REGISTER, &id, (f64::from(i) * 6.0, 0.0), Some(12.0))
+            })
+            .collect();
+        // A dense block 100 m away still becomes forest.
+        let block: Vec<MapObject> = f
+            .grid(REGISTER, (3, 3), 3.5, 6.0)
+            .into_iter()
+            .map(|mut t| {
+                t.coords[0].y -= (100.0 * f.metre()) as i32;
+                t
+            })
+            .collect();
+        trees.extend(block);
+        let found = f.run(trees, vec![], &[], &[], &[]);
+        assert_eq!(found.areas.len(), 1);
+        assert_eq!(found.areas[0].symbol_id, f.id("405"));
+        assert!(
+            !tag(&found.areas[0], "freemapper:source_id")
+                .unwrap()
+                .contains("/l")
+        );
+        // 417 to 417 needs 6.2 m: every other tree stays.
+        assert_eq!(ids(&found.candidates), ["l0", "l2", "l4", "l6", "l8"]);
+    }
+
+    #[test]
+    fn thin_tail_is_left_out_of_the_area() {
+        let f = fixture(MapKind::Sprint);
+        // A 402 block with a tail of four trees in a line: the tail is narrower than 2.2 mm.
+        let mut trees = f.grid(REGISTER, (5, 4), 3.5, 2.0);
+        trees.extend((0..4).map(|i| {
+            let id = format!("u{i}");
+            f.tree(
+                "418",
+                REGISTER,
+                &id,
+                (17.5 + f64::from(i) * 3.5, 3.5),
+                Some(2.0),
+            )
+        }));
+        let found = f.run(trees, vec![], &[], &[], &[]);
+        assert_eq!(found.areas.len(), 1);
+        let area = &found.areas[0];
+        assert_eq!(area.symbol_id, f.id("402"));
+        let merged = tag(area, "freemapper:source_id").unwrap();
+        assert!(!merged.contains("/u"), "{merged}");
+        assert_eq!(merged.split("; ").count(), 20, "{merged}");
+        // Nothing of the area reaches along the tail.
+        let tail = f.projected_rect((16.0, 0.0), (20.0, 7.0));
+        assert!(projected(&f, area).intersection(&tail).unsigned_area() < 0.01);
+        assert_eq!(ids(&found.candidates), ["u0", "u2"]);
     }
 
     /// The larger side (mm) of the box that holds all a point symbol draws.

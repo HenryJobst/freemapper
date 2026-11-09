@@ -24,7 +24,7 @@ use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::points::{GENERALIZATION_SOURCE, generalize_points};
+use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
 use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
     has_stairs, stair_objects,
@@ -4096,7 +4096,8 @@ fn copy_backgrounds(
 const SHEET_PART: &str = "peripheral information";
 
 /// The objects of the training map: everything of the map and every candidate except the map
-/// area outline (the first candidate), and separately the sheet objects, which are not clipped.
+/// area outline (the first candidate) and the points hidden under a 520 candidate
+/// (`freemapper:hidden`), and separately the sheet objects, which are not clipped.
 fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapObject>) {
     let (sheet, own): (Vec<&MapPart>, Vec<&MapPart>) = documents
         .map
@@ -4111,7 +4112,8 @@ fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapO
                 .candidates
                 .parts
                 .iter()
-                .flat_map(|p| p.objects.iter().skip(1)),
+                .flat_map(|p| p.objects.iter().skip(1))
+                .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY)),
         )
         .collect();
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
@@ -11039,6 +11041,35 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(project.tree_layers.is_empty());
         assert!(victim.exists(), "the file in the project folder is kept");
         assert!(far.exists(), "the file outside the project is kept");
+    }
+
+    #[test]
+    fn hidden_candidates_stay_out_of_the_training_pdf() {
+        use crate::build::points::test_support::fixture;
+        let f = fixture(MapKind::Sprint);
+        let outline = f.rect("520", (0.0, 0.0), (1.0, 1.0));
+        let mut hidden = f.tree("418", "osm", "node/1", (0.0, 0.0), None);
+        hidden.tags.push((HIDDEN_KEY.into(), "520".into()));
+        let shown = f.tree("418", "osm", "node/2", (10.0, 0.0), None);
+        let document = |objects: Vec<MapObject>| MapDocument {
+            notes: String::new(),
+            georef: f.georef.clone(),
+            symbol_set: f.set.clone(),
+            parts: vec![MapPart {
+                name: "candidates".into(),
+                objects,
+            }],
+            templates: Vec::new(),
+        };
+        let documents = StarterDocuments {
+            map: document(Vec::new()),
+            candidates: document(vec![outline, hidden.clone(), shown.clone()]),
+            attribution_text: String::new(),
+        };
+        let (map, _) = training_objects(&documents);
+        assert_eq!(map, [&shown]);
+        // The candidates map keeps it.
+        assert!(documents.candidates.parts[0].objects.contains(&hidden));
     }
 
     #[test]
