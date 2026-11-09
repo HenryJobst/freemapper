@@ -57,5 +57,6 @@ What the norm says (ISSprOM 2019-2, section 4.5):
 - A course setter finds fewer sites than exist. A lamp in a series is a poor control anyway. The limit is a constant,
   `SAME_KIND_M`.
 - Existing maps get the points with `run --force`.
+- Amendment (ADR 0076): a control site inside a building footprint is dropped, on sprint maps.
 - Not done: ranking sites by prominence (a lamp near a path junction), sites from ways (bollard rows, bicycle parking areas),
   and the Berlin survey layers on sprint.
