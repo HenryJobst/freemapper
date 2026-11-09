@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.8.0] - 2026-11-09
+
 ### Hinzugefügt
 
 - Nur erreichbare Durchgänge werden gezeichnet. Ein 522-Durchgang (aus OSM, ALKIS oder den Berliner Bauteilen), der nur an Gebäude, 520-Flächen oder Wasser grenzt oder zwei umbaute Höfe ohne Ausgang verbindet, bekommt `freemapper:hidden=unreachable`: Er bleibt unter den Kandidaten und fehlt in der Trainingskarte. Als erreichbar gilt ein Durchgang, wenn er (oder eine Kette von Durchgängen, etwa die Lübecker Höfe und Gänge) auf belaufbaren Grund trifft, der mit dem Straßennetz zusammenhängt, mit 0,5 mm (2 m) Spielraum. Lübeck: 16 von 280 Durchgängen verborgen, Viktoriapark: 52 von 211 (ADR 0076).

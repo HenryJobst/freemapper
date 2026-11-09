@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-09
+
 ### Added
 
 - Only reachable passages are drawn. A 522 passage (from OSM, ALKIS or the Berlin building parts) that touches only buildings, 520 areas or water, or joins two walled-in courtyards with no way out, gets `freemapper:hidden=unreachable`: it stays among the candidates and is left out of the training map. A passage counts as reachable when it (or a chain of passages, such as the Lübecker Höfe und Gänge) meets walkable ground that connects to the street network, with 0.5 mm (2 m) of tolerance. Lübeck: 16 of 280 passages hidden, Viktoriapark: 52 of 211 (ADR 0076).
