@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Doppelte Flächen aus mehreren Quellen bleiben nur einmal. Ein OSM-Durchgang (`tunnel=building_passage`, `covered`) über einem Berliner Gebäudeteil, einem ALKIS-Durchgang oder einer Überdachung, ein privater OSM-Streifen in einer ALKIS-Fläche, die nicht betreten werden darf, und eine OSM-Brücke über einer Berliner Brückenfläche entfallen, wenn die Hälfte (520: 80 %) ihrer Fläche unter der höherrangigen Fläche liegt, aufgeweitet um 0,25 mm auf dem Papier. Das bleibende Objekt nennt das andere in `freemapper:also`. Auch ein OSM-Denkmal bis 5 m neben einem Katasterdenkmal sowie OSM-Bordsteine und -Böschungen entlang von Katasterlinien entfallen. Viktoriapark: 520 von 117 auf 94, 522 von 211 auf 192. Lübeck: 520 von 1 125 auf 1 112, 522 von 280 auf 221 (ADR 0078).
+- Kontrollstandorte in Gebäuden dünnen ihre Nachbarn nicht mehr aus. Die 25-m-Regel läuft jetzt, nachdem die Standorte in Gebäuden entfallen sind.
+
 ### Hinzugefügt
 
 - Berliner Kontrollstandorte auf Sprintkarten. Die Straßenbefahrung (Poller, Masten, Fahnenmasten, Bänke) und das Beleuchtungskataster (Laternen in Betrieb) liefern jetzt 531-Kandidaten mit `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, dazu `advertising_column` für die Werbesäulen der Befahrung), wie die aus OSM. Die Ausdünnung gilt für alle Quellen gemeinsam: Ein Standort, der ein gleichartiges innerhalb von 25 m hat, fehlt, gleich aus welcher Quelle, nachdem Doppel und Standorte in Gebäuden entfallen sind. Ein vermessener Poller ersetzt einen OSM-Poller bis 2 m. Hydranten und Spielgeräte bleiben Schulhof-Sache. Ein Berliner Sprintprojekt lädt sieben WFS-Anfragen mehr (33 statt 26); die Platzschätzung für die Berliner Ebenen steigt von 10,5 auf 12 MB je km². Bestehende Karten bekommen das mit `run --force` (ADR 0077).

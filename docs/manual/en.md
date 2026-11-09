@@ -244,7 +244,8 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
 
 - Passages through buildings and arcades (`tunnel=building_passage`, `covered=yes`) on sprint maps as a strip
   along the way (522), 3 m wide or as wide as the `width` tag says. The building stays whole. Where ALKIS
-  also knows the passage, you see two strips; delete one. Check on site whether the passage can be used in the
+  or the Berlin building parts also know the passage, freemapper keeps the cadastre one and names the OSM way
+  in `freemapper:also` (see "Duplicates" below). Check on site whether the passage can be used in the
   race (ISSprOM 2.3 allows two running levels).
 - Private and closed ways and areas as areas that shall not be entered (520). A footway, path, pedestrian way
   or steps with `access=private|no` or `foot=private|no`, and a service road, track or cycleway with
@@ -274,6 +275,14 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   not be entered or water, or joins two walled-in courtyards, is not drawn in the training map, but stays in
   the candidates with the tag `freemapper:hidden=unreachable`. Look at it if you know that the courtyard has a
   gate. A candidate point (memorial, lamp, bin) that lies inside a building footprint is dropped.
+- Duplicates. When two sources give the same object, freemapper keeps one: the register before ALKIS, ALKIS
+  before the Berlin street survey, the survey before OSM. For areas it measures how much of the weaker one lies
+  under the stronger ones of the same symbol, widened by 0.25 mm on paper (1 m at 1:4000). A passage (522) or a
+  canopy goes when half of it is covered, a private strip (520) inside an ALKIS area that shall not be entered
+  when 80 % is, an OSM bridge over a Berlin bridge deck at half. An OSM memorial within 5 m of a cadastre
+  monument and OSM kerbs along surveyed ones go too. The object that stays names the dropped one in
+  `freemapper:also` (e.g. `osm/way/123`). An OSM strip that is much larger than the cadastre polygon it covers
+  stays, because it adds extent.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit

@@ -253,8 +253,9 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
 `assets/rules/osm-candidates.toml`; bestehende Karten bekommen sie mit `run --force`):
 
 - Durchgänge durch Gebäude und Arkaden (`tunnel=building_passage`, `covered=yes`) als Streifen entlang des
-  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennt auch ALKIS
-  den Durchgang, sehen Sie zwei Streifen; löschen Sie einen. Prüfen Sie vor Ort, ob der Durchgang im Rennen
+  Weges (522), 3 m breit oder so breit, wie das Tag `width` angibt. Das Gebäude bleibt ganz. Kennen ALKIS
+  oder die Berliner Gebäudeteile den Durchgang auch, behält freemapper den aus dem Kataster und nennt den
+  OSM-Weg in `freemapper:also` (siehe „Doppel“ unten). Prüfen Sie vor Ort, ob der Durchgang im Rennen
   benutzt werden kann (ISSprOM 2.3 erlaubt zwei Laufebenen).
 - Private und gesperrte Wege und Flächen als Flächen, die nicht betreten werden dürfen (520). Ein Fußweg, Pfad,
   eine Fußgängerzone oder Treppe mit `access=private|no` oder `foot=private|no` und eine Zufahrt, ein
@@ -287,6 +288,14 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   Trainingskarte, bleibt aber mit dem Tag `freemapper:hidden=unreachable` unter den Kandidaten. Schauen Sie ihn
   an, wenn Sie wissen, dass der Hof ein Tor hat. Ein Kandidatenpunkt (Denkmal, Laterne, Papierkorb), der in einem
   Gebäudegrundriss liegt, entfällt.
+- Doppel. Geben zwei Quellen dasselbe Objekt, behält freemapper eines: das Register vor ALKIS, ALKIS vor der
+  Berliner Straßenbefahrung, diese vor OSM. Bei Flächen misst freemapper, wie viel der schwächeren unter den
+  stärkeren mit gleichem Symbol liegt, aufgeweitet um 0,25 mm auf dem Papier (1 m bei 1:4000). Ein Durchgang
+  (522) oder eine Überdachung fällt weg, wenn die Hälfte bedeckt ist, ein privater Streifen (520) in einer
+  ALKIS-Fläche, die nicht betreten werden darf, ab 80 %, eine OSM-Brücke über einer Berliner Brückenfläche
+  ab der Hälfte. Auch ein OSM-Denkmal bis 5 m neben einem Katasterdenkmal und OSM-Bordsteine entlang vermessener
+  fallen weg. Das bleibende Objekt nennt das weggelassene in `freemapper:also` (z. B. `osm/way/123`). Ein
+  OSM-Streifen, der viel größer ist als das Katasterpolygon, das er bedeckt, bleibt, denn er liefert Ausdehnung.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
