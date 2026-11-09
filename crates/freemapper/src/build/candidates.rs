@@ -562,6 +562,15 @@ pub fn osm_objects(
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }
+        // A control site of the street survey and the lighting cadastre names its kind the same
+        // way (ADR 0077).
+        if source.starts_with("geoportal-berlin/")
+            && kind == MapKind::Sprint
+            && found.code == CONTROL_CODE
+            && let Some(site) = berlin_control_kind(&feature.tags)
+        {
+            tags.push((CONTROL_KEY.to_string(), site.to_string()));
+        }
         // An OSM tree may give its crown diameter (metres) for the point generalization.
         if source == "osm"
             && let Some(crown) = value(&feature.tags, "diameter_crown").and_then(number)
@@ -595,6 +604,21 @@ fn control_kind(tags: &Tags) -> Option<&'static str> {
     ]
     .into_iter()
     .find_map(|(key, v, kind)| (value(tags, key) == Some(v)).then_some(kind))
+}
+
+/// The kind of control site a Geoportal Berlin object is, from its `berlin:layer`: the survey
+/// types and the lighting cadastre that give 531 points on a sprint map. The kinds are those of
+/// [`control_kind`], plus `mast`, `flagpole` and `advertising_column`, which only Berlin gives.
+fn berlin_control_kind(tags: &Tags) -> Option<&'static str> {
+    Some(match value(tags, "berlin:layer")? {
+        "av_poller" => "bollard",
+        "as_mast" => "mast",
+        "am_fahnenmast" => "flagpole",
+        "bj_sitzbank" => "bench",
+        "beleuchtung" => "street_lamp",
+        "ag_werbesaeule" => "advertising_column",
+        _ => return None,
+    })
 }
 
 /// The full width of a [`Draw::Corridor`] on the ground (metres) is held within these limits: a
@@ -1784,6 +1808,24 @@ mod tests {
     }
 
     #[test]
+    fn drinking_water_is_a_prominent_water_feature_on_both_maps() {
+        // The same symbol as the Berlin drinking-fountain register and survey give (ADR 0077).
+        let rules = Rules::embedded();
+        let point_geometry = OsmGeometry::Point(SCHOOL);
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = rules
+                .symbol_for(
+                    &tags(&[("amenity", "drinking_water")]),
+                    &point_geometry,
+                    kind,
+                )
+                .unwrap();
+            assert_eq!(found.code, "313");
+            assert_eq!(found.target, Target::Candidates);
+        }
+    }
+
+    #[test]
     fn a_bollard_or_bench_way_is_no_control_site() {
         let rules = Rules::embedded();
         for tag in [("barrier", "bollard"), ("amenity", "bench")] {
@@ -2085,10 +2127,10 @@ mod tests {
                 assert!(rules.wants(&tags(t), kind), "{t:?} {kind:?}");
             }
         }
-        // Drinking water is a schoolyard symbol, bridges are sprint only.
+        // Drinking water is 313 on both maps (ADR 0077), bridges are sprint only.
         let drinking = tags(&[("amenity", "drinking_water")]);
         assert!(rules.wants(&drinking, MapKind::Schoolyard));
-        assert!(!rules.wants(&drinking, MapKind::Sprint));
+        assert!(rules.wants(&drinking, MapKind::Sprint));
         let bridge = tags(&[("man_made", "bridge")]);
         assert!(rules.wants(&bridge, MapKind::Sprint));
         assert!(!rules.wants(&bridge, MapKind::Schoolyard));
@@ -2238,7 +2280,10 @@ mod tests {
                 .map(|m| m.code),
             Some("313".to_string())
         );
-        assert_eq!(sprint_code(&drinking, &p), None);
+        assert_eq!(
+            sprint_code(&drinking, &p),
+            Some(("313".to_string(), Draw::Point))
+        );
         // The basin of a fountain drawn as an area stays 301.
         assert_eq!(
             sprint_code(&[("amenity", "fountain")], &ring()),

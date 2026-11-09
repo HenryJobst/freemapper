@@ -122,3 +122,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0074](0074-control-sites-from-street-furniture.md) | Control sites from street furniture | Accepted | 2026-11-10 |
 | [0075](0075-obvious-memorials-without-stolpersteine.md) | Obvious memorials from OSM, without Stolpersteine and plaques | Accepted, amended ADR 0076 | 2026-11-10 |
 | [0076](0076-reachable-passages-and-points-in-buildings.md) | Passages must be reachable, and points inside buildings go | Accepted | 2026-11-10 |
+| [0077](0077-berlin-survey-and-registers-on-sprint-maps.md) | Berlin survey and registers on sprint maps | Accepted | 2026-11-10 |
+| [0078](0078-duplicate-areas-and-more-duplicate-kinds-by-rank.md) | Duplicate areas and more duplicate kinds, by rank | Accepted | 2026-11-10 |

@@ -15,7 +15,7 @@ use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 use crate::build::berlin::object_polygon;
 use crate::build::buildings::footprint_coords;
-use crate::build::control_sites::CONTROL_KEY;
+use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
@@ -940,6 +940,14 @@ pub fn generalize_points(
                 !inside
             })
             .collect()
+    } else {
+        candidates
+    };
+    // Control sites (ADR 0074, 0077): the ones of OSM, the street survey and the lighting
+    // cadastre are thinned together, once the duplicates of the sources are gone and the sites
+    // in buildings with them, so a site in a building does not take a neighbour out.
+    let candidates = if kind == MapKind::Sprint {
+        drop_ambiguous_control_sites(candidates, georef.scale_denominator)
     } else {
         candidates
     };
@@ -2142,21 +2150,15 @@ mod tests {
         // A control site (ADR 0074) is the largest point symbol, but it must not knock out a
         // tree or a fountain that stands next to it.
         let f = fixture(MapKind::Sprint);
-        let site = |id: &str, at: (f64, f64)| {
-            f.point(
-                "531",
-                "osm",
-                id,
-                at,
-                &[("freemapper:control", "street_lamp")],
-            )
+        let site = |id: &str, kind: &str, at: (f64, f64)| {
+            f.point("531", "osm", id, at, &[("freemapper:control", kind)])
         };
         let found = f.run(
             vec![
                 f.tree("418", REGISTER, "tree", (0.0, 0.0), None),
-                site("node/1", (3.0, 0.0)),
+                site("node/1", "street_lamp", (3.0, 0.0)),
                 f.point("311", "osm", "node/2", (0.0, 20.0), &[]),
-                site("node/3", (3.0, 20.0)),
+                site("node/3", "bench", (3.0, 20.0)),
             ],
             vec![],
             &[],
@@ -2164,15 +2166,52 @@ mod tests {
             &[],
         );
         assert_eq!(ids(&found.candidates), ["tree", "node/2"]);
-        // Alone, or only beside another site, it stays; the first by name wins.
+        // Alone, or only beside a site of another kind, it stays; the first by name wins.
         let found = f.run(
-            vec![site("node/9", (0.0, 0.0)), site("node/8", (3.0, 0.0))],
+            vec![
+                site("node/9", "bench", (0.0, 0.0)),
+                site("node/8", "street_lamp", (3.0, 0.0)),
+            ],
             vec![],
             &[],
             &[],
             &[],
         );
         assert_eq!(ids(&found.candidates), ["node/8"]);
+    }
+
+    #[test]
+    fn control_sites_of_one_kind_within_25_m_are_dropped_wherever_they_come_from() {
+        // OSM, the street survey and the lighting cadastre are thinned together (ADR 0077),
+        // after the buildings: a lamp in a building does not take its neighbour out.
+        let f = fixture(MapKind::Sprint);
+        let site = |source: &str, id: &str, at: (f64, f64)| {
+            f.point(
+                "531",
+                source,
+                id,
+                at,
+                &[("freemapper:control", "street_lamp")],
+            )
+        };
+        let wall = [f.projected_rect((0.0, 0.0), (40.0, 4.0))];
+        let found = f.run(
+            vec![
+                site("osm", "node/1", (0.0, 20.0)),
+                site("geoportal-berlin/beleuchtung", "lamp/2", (20.0, 20.0)),
+                site("osm", "node/3", (100.0, 20.0)),
+                // In the building: gone, and it does not count for node/4.
+                site("osm", "node/5", (100.0, 2.0)),
+                site("osm", "node/4", (110.0, 20.0)),
+                site("geoportal-berlin/beleuchtung", "lamp/6", (200.0, 20.0)),
+            ],
+            vec![],
+            &[],
+            &[],
+            &wall,
+        );
+        // node/1 and lamp/2 are 20 m apart; node/3 and node/4 are 10 m apart.
+        assert_eq!(ids(&found.candidates), ["lamp/6"]);
     }
 
     #[test]

@@ -18,7 +18,7 @@ use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::FLAG_CURVE_START;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
-use crate::sources::osm::OsmFeature;
+use crate::sources::osm::{OsmFeature, OsmGeometry};
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
@@ -281,14 +281,55 @@ fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<Str
 /// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
 /// centroid (a rule picks one by its `draw`). Id: `berlin/<layer>/<GeoServer id>`.
 pub fn tagged_features(layer: &str, features: &[Value]) -> Vec<OsmFeature> {
-    tagged::tagged_features(
+    let mut tagged = tagged::tagged_features(
         &format!("berlin/{layer}"),
         features,
         LAYER_CRS,
         tagged::PointOn::Centroid,
         |feature| feature_tags(layer, feature),
-    )
+    );
+    // A surveyed bench is a line; a sprint map takes it as a control site, a point at its middle.
+    let benches: Vec<OsmFeature> = tagged
+        .iter()
+        .filter_map(|f| {
+            let OsmGeometry::Line(points) = &f.geometry else {
+                return None;
+            };
+            if !f
+                .tags
+                .iter()
+                .any(|(k, v)| k == "berlin:layer" && v == BENCH_LAYER)
+            {
+                return None;
+            }
+            let (min_lat, max_lat) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
+                (a.min(p.lat), b.max(p.lat))
+            });
+            let (min_lon, max_lon) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
+                (a.min(p.lon), b.max(p.lon))
+            });
+            // The schoolyard rule draws the line itself and skips this point.
+            let mut tags = f.tags.clone();
+            tags.push((MIDDLE_KEY.to_string(), "middle".to_string()));
+            tags.sort();
+            Some(OsmFeature {
+                id: f.id.clone(),
+                tags,
+                geometry: OsmGeometry::Point(LatLon {
+                    lat: (min_lat + max_lat) / 2.0,
+                    lon: (min_lon + max_lon) / 2.0,
+                }),
+            })
+        })
+        .collect();
+    tagged.extend(benches);
+    tagged
 }
+
+/// The tag of the point at the middle of a bench line (`berlin:point=middle`).
+const MIDDLE_KEY: &str = "berlin:point";
+/// The survey type of the benches, which are lines.
+const BENCH_LAYER: &str = "bj_sitzbank";
 
 /// The candidate objects of the stored Berlin layers within `buffer_m` of `map_area`
 /// (EPSG:25833), each tagged `freemapper:source=geoportal-berlin/<layer>`.
@@ -549,7 +590,6 @@ mod tests {
     use crate::omap::MapCoord;
     use crate::sources::berlin::normalise_building;
     use crate::sources::berlin::test_support::*;
-    use crate::sources::osm::OsmGeometry;
 
     fn features(collection: &str) -> Vec<Value> {
         serde_json::from_str::<Value>(collection).unwrap()["features"]
@@ -952,7 +992,7 @@ mod tests {
     }
 
     #[test]
-    fn bollards_only_on_schoolyard() {
+    fn schoolyard_furniture_is_544_and_321_and_541() {
         let furniture: Vec<Value> = ["av_poller", "as_mast", "am_fahnenmast"]
             .iter()
             .enumerate()
@@ -969,8 +1009,12 @@ mod tests {
                 .all(|o| Some(o.symbol_id) == set.id_for_code("544"))
         );
         assert_eq!(object_tag(&found[0], "berlin:pot"), Some("2"));
-        // On a sprint map they would flood the candidates.
-        assert!(survey_objects("sb-moebel", &furniture, MapKind::Sprint).is_empty());
+        // A schoolyard map has no control sites.
+        assert!(
+            found
+                .iter()
+                .all(|o| object_tag(o, "freemapper:control").is_none())
+        );
         // The other schoolyard furniture: hydrant 321, play equipment 541.
         let others = [
             survey_point("aq_hydrant", "7", (392_510.0, 5_820_500.0)),
@@ -982,7 +1026,74 @@ mod tests {
             found.iter().map(|o| Some(o.symbol_id)).collect::<Vec<_>>(),
             codes
         );
+        // Hydrants and play equipment are no sprint candidates: the norm names hydrants as
+        // not to be mapped, and most of the surveyed ones are flush covers.
         assert!(survey_objects("sb-moebel", &others, MapKind::Sprint).is_empty());
+    }
+
+    #[test]
+    fn survey_furniture_gives_sprint_control_sites() {
+        let furniture: Vec<Value> = ["av_poller", "as_mast", "am_fahnenmast"]
+            .iter()
+            .enumerate()
+            .map(|(i, layer)| {
+                survey_point(layer, &i.to_string(), (392_500.0 + i as f64, 5_820_500.0))
+            })
+            .collect();
+        let found = survey_objects("sb-moebel", &furniture, MapKind::Sprint);
+        let set = MapKind::Sprint.symbol_set();
+        assert_eq!(found.len(), 3, "{found:?}");
+        assert!(
+            found
+                .iter()
+                .all(|o| Some(o.symbol_id) == set.id_for_code("531")
+                    && matches!(o.kind, MapObjectKind::Point { .. }))
+        );
+        let kinds: Vec<_> = found
+            .iter()
+            .map(|o| object_tag(o, "freemapper:control"))
+            .collect();
+        assert_eq!(kinds, [Some("bollard"), Some("mast"), Some("flagpole")]);
+        assert_eq!(object_tag(&found[0], "berlin:pot"), Some("2"));
+        assert_eq!(
+            object_tag(&found[0], "freemapper:source"),
+            Some("geoportal-berlin/sb-moebel")
+        );
+    }
+
+    #[test]
+    fn a_surveyed_bench_is_a_line_on_schoolyard_and_a_control_site_on_sprint() {
+        let bench = survey_feature(
+            "bj_sitzbank",
+            serde_json::json!({
+                "type": "Feature", "id": "bj_sitzbank.1",
+                "geometry": {"type": "MultiLineString", "coordinates": [[[392_500.0, 5_820_500.0], [392_502.0, 5_820_500.0]]]},
+                "properties": {"gis_id": "Li_25.09.2014_1"}
+            }),
+        );
+        let school = survey_objects(
+            "sb-moebel",
+            std::slice::from_ref(&bench),
+            MapKind::Schoolyard,
+        );
+        assert_eq!(school.len(), 1);
+        assert!(matches!(school[0].kind, MapObjectKind::Path));
+        assert_eq!(
+            Some(school[0].symbol_id),
+            MapKind::Schoolyard.symbol_set().id_for_code("543")
+        );
+        let sprint = survey_objects("sb-moebel", &[bench], MapKind::Sprint);
+        assert_eq!(sprint.len(), 1, "{sprint:?}");
+        assert_eq!(
+            Some(sprint[0].symbol_id),
+            MapKind::Sprint.symbol_set().id_for_code("531")
+        );
+        assert_eq!(object_tag(&sprint[0], "freemapper:control"), Some("bench"));
+        // The point is the middle of the bench: 392501, 5820500.
+        let (georef, _, _) = setup(MapKind::Sprint);
+        let at = georef.map_to_projected(sprint[0].coords[0]);
+        assert!((at.easting - 392_501.0).abs() < 0.05, "{at:?}");
+        assert!((at.northing - 5_820_500.0).abs() < 0.05, "{at:?}");
     }
 
     #[test]
@@ -995,6 +1106,10 @@ mod tests {
             MapKind::Sprint.symbol_set().id_for_code("531")
         );
         assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
+        assert_eq!(
+            object_tag(&found[0], "freemapper:control"),
+            Some("advertising_column")
+        );
         // The schoolyard set has no use for it and no layer fetches it there.
         let column = survey_point("ag_werbesaeule", "1", (392_500.0, 5_820_500.0));
         assert!(survey_objects("sb-objekte", &[column], MapKind::Schoolyard).is_empty());
@@ -1035,7 +1150,9 @@ mod tests {
         let set = MapKind::Sprint.symbol_set();
         assert_eq!(
             codes(MapKind::Sprint),
-            ["522", "311", "311"].map(|c| set.id_for_code(c)).to_vec()
+            ["522", "311", "311", "313"]
+                .map(|c| set.id_for_code(c))
+                .to_vec()
         );
         let set = MapKind::Schoolyard.symbol_set();
         assert_eq!(
@@ -1595,8 +1712,48 @@ mod tests {
             Some("geoportal-berlin/beleuchtung")
         );
         assert_eq!(object_tag(&lamp[0], "berlin:layer"), Some("beleuchtung"));
-        // Lamps are for the schoolyard only.
-        assert!(survey_objects("beleuchtung", &lamps, MapKind::Sprint).is_empty());
+        assert!(object_tag(&lamp[0], "freemapper:control").is_none());
+    }
+
+    #[test]
+    fn lamps_of_the_cadastre_are_sprint_control_sites() {
+        let lamps = [register_point("beleuchtung", "1", (392_400.0, 5_820_400.0))];
+        let lamp = survey_objects("beleuchtung", &lamps, MapKind::Sprint);
+        assert_eq!(lamp.len(), 1);
+        assert_eq!(
+            Some(lamp[0].symbol_id),
+            MapKind::Sprint.symbol_set().id_for_code("531")
+        );
+        assert_eq!(
+            object_tag(&lamp[0], "freemapper:control"),
+            Some("street_lamp")
+        );
+        assert_eq!(
+            object_tag(&lamp[0], "freemapper:source"),
+            Some("geoportal-berlin/beleuchtung")
+        );
+    }
+
+    #[test]
+    fn drinking_fountains_are_313_on_sprint_too() {
+        let set = MapKind::Sprint.symbol_set();
+        let register = [register_point(
+            "trinkwasserbrunnen",
+            "1",
+            (392_400.0, 5_820_400.0),
+        )];
+        let found = survey_objects("trinkwasserbrunnen", &register, MapKind::Sprint);
+        assert_eq!(found.len(), 1);
+        assert_eq!(Some(found[0].symbol_id), set.id_for_code("313"));
+        let survey = [survey_point(
+            "ac_trinkwasserbrunnen_wasserspender",
+            "1",
+            (392_410.0, 5_820_400.0),
+        )];
+        let found = survey_objects("sb-objekte", &survey, MapKind::Sprint);
+        assert_eq!(found.len(), 1);
+        assert_eq!(Some(found[0].symbol_id), set.id_for_code("313"));
+        assert!(object_tag(&found[0], "freemapper:control").is_none());
     }
 
     #[test]
@@ -1702,6 +1859,68 @@ mod tests {
         assert_eq!(also("am_fahnenmast").as_deref(), Some("osm/node/4"));
         assert_eq!(also("aw_spielgeraet").as_deref(), Some("osm/node/5"));
         assert_eq!(also("av_poller"), None);
+    }
+
+    #[test]
+    fn sprint_control_sites_of_all_sources_are_thinned_together() {
+        use crate::build::control_sites::drop_ambiguous;
+        let kind = MapKind::Sprint;
+        let (georef, _, set) = setup(kind);
+        let (e, n) = (392_400.0, 5_820_400.0);
+        // A lone surveyed bollard with the OSM one 1.5 m off, a row of three surveyed bollards,
+        // a register lamp with the OSM lamp 3 m off, a surveyed bench with the OSM bench 1 m off.
+        let furniture = [
+            survey_point("av_poller", "lone", (e, n)),
+            survey_point("av_poller", "row1", (e + 100.0, n)),
+            survey_point("av_poller", "row2", (e + 103.0, n)),
+            survey_point("av_poller", "row3", (e + 106.0, n)),
+            survey_point("bj_sitzbank", "bench", (e + 200.0, n)),
+        ];
+        let lamps = [register_point("beleuchtung", "7", (e + 300.0, n))];
+        let mut berlin = survey_objects("sb-moebel", &furniture, kind);
+        berlin.extend(survey_objects("beleuchtung", &lamps, kind));
+        let osm = vec![
+            osm_point(kind, "531", "barrier=bollard", "node/1", 1.5, 0.0),
+            osm_point(kind, "531", "highway=street_lamp", "node/2", 303.0, 0.0),
+            osm_point(kind, "531", "amenity=bench", "node/3", 201.0, 0.0),
+            // Far from every survey object: stays.
+            osm_point(kind, "531", "amenity=waste_basket", "node/4", 400.0, 0.0),
+        ];
+        let osm: Vec<MapObject> = osm
+            .into_iter()
+            .map(|mut o| {
+                let osm = object_tag(&o, "freemapper:osm").unwrap_or_default();
+                let site = match osm {
+                    "barrier=bollard" => "bollard",
+                    "highway=street_lamp" => "street_lamp",
+                    "amenity=bench" => "bench",
+                    _ => "waste_basket",
+                };
+                o.tags.push(("freemapper:control".into(), site.into()));
+                o
+            })
+            .collect();
+        let (osm, berlin) = drop_points_near_registers(osm, berlin, &set, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/4"]);
+        let mut all = osm;
+        all.extend(berlin);
+        let kept = drop_ambiguous(all, georef.scale_denominator);
+        let mut kinds: Vec<_> = kept
+            .iter()
+            .map(|o| object_tag(o, "freemapper:control").unwrap())
+            .collect();
+        kinds.sort_unstable();
+        // The row is no site; the lone bollard, the bench, the lamp and the basket stay once.
+        assert_eq!(kinds, ["bench", "bollard", "street_lamp", "waste_basket"]);
+        let bollard = kept
+            .iter()
+            .find(|o| object_tag(o, "freemapper:control") == Some("bollard"))
+            .unwrap();
+        assert_eq!(
+            object_tag(bollard, "freemapper:source"),
+            Some("geoportal-berlin/sb-moebel")
+        );
+        assert_eq!(object_tag(bollard, "freemapper:also"), Some("osm/node/1"));
     }
 
     #[test]

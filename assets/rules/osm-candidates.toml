@@ -372,6 +372,7 @@ sprint = "312"
 when = ["amenity=drinking_water"]
 draw = "point"
 schoolyard = "313"
+sprint = "313"
 
 # Streams are crossable (305); a stream that falls dry and every ditch is 306.
 [[rule]]
