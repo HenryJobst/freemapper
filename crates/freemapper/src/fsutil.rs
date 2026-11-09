@@ -333,9 +333,12 @@ fn retry<T>(attempts: u32, mut op: impl FnMut() -> std::io::Result<T>) -> std::i
     Err(last.expect("at least one attempt"))
 }
 
+/// Cache variant: for freemapper's own cache folders. Project folders use
+/// [`remove_stale_parts_inside`].
+///
 /// Deletes `*.part` files in `dir` older than `max_age`: partial writes of interrupted runs.
 /// Younger ones may belong to a run still in progress and stay. Best effort: errors are ignored.
-pub(crate) fn remove_stale_parts(dir: &Path, max_age: std::time::Duration) {
+pub(crate) fn remove_stale_cache_parts(dir: &Path, max_age: std::time::Duration) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
@@ -345,6 +348,33 @@ pub(crate) fn remove_stale_parts(dir: &Path, max_age: std::time::Duration) {
             .metadata()
             .and_then(|m| m.modified())
             .ok()
+            .and_then(|modified| modified.elapsed().ok());
+        if is_part && age.is_some_and(|age| age > max_age) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// Project variant of [`remove_stale_cache_parts`]: does nothing unless `folder` stays inside
+/// `root` (a link leading out of the project is not followed), and skips entries that are
+/// links themselves.
+pub(crate) fn remove_stale_parts_inside(root: &Path, folder: &Path, max_age: std::time::Duration) {
+    if let Err((path, e)) = check_folder_inside(root, folder) {
+        eprintln!(
+            "warning: not cleaning stale parts in {}: {e}",
+            path.display()
+        );
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let is_part = entry.file_name().to_string_lossy().ends_with(".part");
+        let age = std::fs::symlink_metadata(entry.path())
+            .ok()
+            .filter(|m| m.file_type().is_file())
+            .and_then(|m| m.modified().ok())
             .and_then(|modified| modified.elapsed().ok());
         if is_part && age.is_some_and(|age| age > max_age) {
             let _ = std::fs::remove_file(entry.path());
@@ -393,6 +423,40 @@ pub(crate) fn stays_inside(root: &Path, path: &Path) -> bool {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[cfg(unix)]
+    #[test]
+    fn stale_part_cleanup_does_not_follow_a_templates_link() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("x.part"), b"keep").unwrap();
+        std::os::unix::fs::symlink(outside.path(), root.path().join("templates")).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        remove_stale_parts_inside(
+            root.path(),
+            &root.path().join("templates"),
+            std::time::Duration::ZERO,
+        );
+        assert!(outside.path().join("x.part").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stale_part_cleanup_skips_part_links_and_removes_plain_parts() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.part");
+        std::fs::write(&victim, b"keep").unwrap();
+        let templates = root.path().join("templates");
+        std::fs::create_dir(&templates).unwrap();
+        std::os::unix::fs::symlink(&victim, templates.join("l.part")).unwrap();
+        std::fs::write(templates.join("old.part"), b"x").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        remove_stale_parts_inside(root.path(), &templates, std::time::Duration::ZERO);
+        assert!(victim.exists());
+        assert!(std::fs::symlink_metadata(templates.join("l.part")).is_ok());
+        assert!(!templates.join("old.part").exists());
+    }
 
     #[test]
     fn pair_is_written_completely() {
