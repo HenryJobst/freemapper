@@ -146,7 +146,8 @@ pub trait Fetcher {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
-        if let Err(e) = std::fs::write(path, &bytes) {
+        let written = crate::fsutil::create_new_file(path).and_then(|mut f| f.write_all(&bytes));
+        if let Err(e) = written {
             let _ = std::fs::remove_file(path);
             return Err(FetchError::Io(path.to_path_buf(), e));
         }
@@ -614,7 +615,7 @@ impl Fetcher for HttpFetcher {
             return Err(too_large(url, max_bytes));
         }
         let create = |path: &Path| -> std::io::Result<Box<dyn std::io::Write>> {
-            Ok(Box::new(std::fs::File::create(path)?))
+            Ok(Box::new(crate::fsutil::create_new_file(path)?))
         };
         let mut reader = response.body_mut().as_reader();
         stream_to_file(url, &mut reader, total, path, &create, max_bytes, progress)
@@ -1376,9 +1377,14 @@ pub(crate) fn get_range_with_retries(
     }
 }
 
-/// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`].
+/// [`crate::fsutil::write_atomically`] with the error as [`FetchError::Io`]; for the cache.
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
     crate::fsutil::write_atomically(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
+}
+
+/// [`crate::fsutil::write_inside`] with the error as [`FetchError::Io`]; for project files.
+pub(crate) fn write_inside(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
+    crate::fsutil::write_inside(root, path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
 }
 
 /// Deletes the other cached publications of `tile` next to `current`.

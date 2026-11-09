@@ -1,71 +1,180 @@
 //! File system helpers.
 
+use std::io::{self, Write as _};
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
 
 /// Attempts to replace a file; a viewer holding it open (OOM on Windows) blocks only briefly.
 const RENAME_ATTEMPTS: u32 = 3;
 const RETRY_PAUSE: std::time::Duration = std::time::Duration::from_millis(200);
 
-/// Writes `bytes` to `<path>.<pid>.part` and renames it, so `path` never holds a partial file.
-/// The process id keeps concurrent runs from writing the same partial file. On failure, returns
-/// the path the error is about.
-pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), (PathBuf, std::io::Error)> {
-    write_files_atomically(&[(path, bytes)])
+/// Names tried for a partial file before giving up; taken names are skipped, never reused.
+const PART_NAME_ATTEMPTS: u32 = 16;
+
+/// Numbers the partial files of this process, so no two writes pick the same name.
+static NEXT_PART: AtomicU64 = AtomicU64::new(0);
+
+/// What a write into the project folder says when a link would lead it elsewhere.
+pub(crate) const OUTSIDE_PROJECT: &str =
+    "a link leads out of the project folder, so freemapper writes nothing there";
+
+/// Writes `bytes` to `path` through a new partial file in the same folder and renames it, so
+/// `path` never holds a partial file. Never follows a link: the partial file is created new
+/// (a link or a file of that name is skipped), and the rename replaces a link at `path`
+/// instead of writing to its target. Folders on the way may be links (the cache can live on
+/// another drive). On failure, returns the path the error is about.
+pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), (PathBuf, io::Error)> {
+    write_files(None, &[(path, bytes)])
 }
 
 /// Writes files that belong together (an image and its world file): first every file as a
 /// partial file, then renames them one after the other, retrying a failed rename. When writing
-/// fails, the targets stay as they were and the partial files are removed.
-pub(crate) fn write_files_atomically(
-    files: &[(&Path, &[u8])],
-) -> Result<(), (PathBuf, std::io::Error)> {
-    let mut parts: Vec<(PathBuf, &Path)> = Vec::new();
-    let cleanup = |parts: &[(PathBuf, &Path)]| {
-        for (part, _) in parts {
-            let _ = std::fs::remove_file(part);
+/// fails, the targets stay as they were and the partial files are removed. Like
+/// [`write_atomically`], never follows a link.
+pub(crate) fn write_files_atomically(files: &[(&Path, &[u8])]) -> Result<(), (PathBuf, io::Error)> {
+    write_files(None, files)
+}
+
+/// [`write_atomically`] for a file of the project in `root`: refused when the folder of `path`
+/// leads out of `root` through a link (see [`check_inside`]).
+pub(crate) fn write_inside(
+    root: &Path,
+    path: &Path,
+    bytes: &[u8],
+) -> Result<(), (PathBuf, io::Error)> {
+    write_files(Some(root), &[(path, bytes)])
+}
+
+/// Copies `from` to `to` inside the project in `root` like [`write_inside`]: the copy goes
+/// into a new partial file and is renamed, so a link at `to` is replaced, never followed.
+pub(crate) fn copy_inside(root: &Path, from: &Path, to: &Path) -> Result<(), (PathBuf, io::Error)> {
+    check_inside(root, to)?;
+    let part = write_part_with(Some(root), to, &mut |file| {
+        let mut source = std::fs::File::open(from)?;
+        io::copy(&mut source, file).map(|_| ())
+    })?;
+    rename_parts(&[(part, to)])
+}
+
+/// Refuses `path` when its folder leads out of `root` once links are resolved (a linked
+/// `data`, `templates` or `ocad` folder), with [`OUTSIDE_PROJECT`].
+pub(crate) fn check_inside(root: &Path, path: &Path) -> Result<(), (PathBuf, io::Error)> {
+    if stays_inside(root, path) {
+        Ok(())
+    } else {
+        Err((path.to_path_buf(), io::Error::other(OUTSIDE_PROJECT)))
+    }
+}
+
+/// Refuses the folder `folder` when it leads out of `root` through a link, with
+/// [`OUTSIDE_PROJECT`]. A folder that does not exist yet passes: it is created as a folder.
+pub(crate) fn check_folder_inside(root: &Path, folder: &Path) -> Result<(), (PathBuf, io::Error)> {
+    check_inside(root, &folder.join("file")).map_err(|(_, e)| (folder.to_path_buf(), e))
+}
+
+/// Opens `path` as a new, empty file for a download: an entry of that name (a file a killed
+/// run left, or a link) is removed first, so the download never writes through a link.
+pub(crate) fn create_new_file(path: &Path) -> io::Result<std::fs::File> {
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(e),
+        _ => {}
+    }
+    new_file(path)
+}
+
+/// Creates `path`; fails if anything of that name exists, also a link (it is not followed).
+fn new_file(path: &Path) -> io::Result<std::fs::File> {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+}
+
+fn write_files(root: Option<&Path>, files: &[(&Path, &[u8])]) -> Result<(), (PathBuf, io::Error)> {
+    if let Some(root) = root {
+        for (path, _) in files {
+            check_inside(root, path)?;
         }
-    };
+    }
+    let mut parts: Vec<(PathBuf, &Path)> = Vec::new();
     for (path, bytes) in files {
-        let written = write_part(path, bytes);
-        match written {
+        match write_part_with(root, path, &mut |file| file.write_all(bytes)) {
             Ok(part) => parts.push((part, path)),
             Err(e) => {
-                cleanup(&parts);
+                remove_parts(&parts);
                 return Err(e);
             }
         }
     }
+    rename_parts(&parts)
+}
+
+fn remove_parts(parts: &[(PathBuf, &Path)]) {
+    for (part, _) in parts {
+        let _ = std::fs::remove_file(part);
+    }
+}
+
+/// Renames each partial file over its target, retrying a failed rename; on failure the
+/// partial files not yet renamed are removed.
+fn rename_parts(parts: &[(PathBuf, &Path)]) -> Result<(), (PathBuf, io::Error)> {
     for (i, (part, path)) in parts.iter().enumerate() {
         if let Err(e) = retry(RENAME_ATTEMPTS, || std::fs::rename(part, path)) {
-            cleanup(&parts[i..]);
+            remove_parts(&parts[i..]);
             return Err((path.to_path_buf(), e));
         }
     }
     Ok(())
 }
 
-fn write_part(path: &Path, bytes: &[u8]) -> Result<PathBuf, (PathBuf, std::io::Error)> {
-    write_part_with(path, bytes, &|part, bytes| std::fs::write(part, bytes))
-}
-
-/// [`write_part`] through `write`, which tests replace with a full disk.
+/// Writes a new partial file next to `path` with `fill` and flushes it to the disk. The folder
+/// is created if needed; with a `root`, it is checked again once it exists.
 fn write_part_with(
+    root: Option<&Path>,
     path: &Path,
-    bytes: &[u8],
-    write: &dyn Fn(&Path, &[u8]) -> std::io::Result<()>,
-) -> Result<PathBuf, (PathBuf, std::io::Error)> {
+    fill: &mut dyn FnMut(&mut std::fs::File) -> io::Result<()>,
+) -> Result<PathBuf, (PathBuf, io::Error)> {
     let dir = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(dir).map_err(|e| (dir.to_path_buf(), e))?;
-    let mut part = path.as_os_str().to_owned();
-    part.push(format!(".{}.part", std::process::id()));
-    let part = PathBuf::from(part);
-    if let Err(e) = write(&part, bytes) {
+    if let Some(root) = root {
+        check_inside(root, path)?;
+    }
+    let names = (0..PART_NAME_ATTEMPTS).map(|_| part_name(path, NEXT_PART.fetch_add(1, Relaxed)));
+    let (part, mut file) = create_part(path, names)?;
+    let written = fill(&mut file).and_then(|()| file.sync_all());
+    drop(file);
+    if let Err(e) = written {
         // Half a file is of no use; on a full disk it also takes the space others need.
         let _ = std::fs::remove_file(&part);
         // The error names the file the user knows, not the partial file just removed.
         return Err((path.to_path_buf(), e));
     }
     Ok(part)
+}
+
+/// `<path>.<process id>.<number>.part`: the process id keeps concurrent runs apart.
+fn part_name(path: &Path, number: u64) -> PathBuf {
+    let mut part = path.as_os_str().to_owned();
+    part.push(format!(".{}.{number}.part", std::process::id()));
+    PathBuf::from(part)
+}
+
+/// Creates the first of `names` that does not exist yet. A name already taken (a planted
+/// link, a file of another run) is skipped and left alone.
+fn create_part(
+    path: &Path,
+    names: impl Iterator<Item = PathBuf>,
+) -> Result<(PathBuf, std::fs::File), (PathBuf, io::Error)> {
+    let mut taken = None;
+    for name in names {
+        match new_file(&name) {
+            Ok(file) => return Ok((name, file)),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => taken = Some(e),
+            Err(e) => return Err((path.to_path_buf(), e)),
+        }
+    }
+    let e = taken.unwrap_or_else(|| io::Error::from(io::ErrorKind::AlreadyExists));
+    Err((path.to_path_buf(), e))
 }
 
 /// Runs `op` up to `attempts` times with a short pause between attempts.
@@ -183,11 +292,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let target = dir.path().join("templates/hillshade.png");
         // Half the file arrives, then the disk is full.
-        let full_disk = |part: &Path, bytes: &[u8]| -> std::io::Result<()> {
-            std::fs::write(part, &bytes[..bytes.len() / 2])?;
-            Err(std::io::Error::from(std::io::ErrorKind::StorageFull))
+        let mut full_disk = |file: &mut std::fs::File| -> io::Result<()> {
+            file.write_all(b"a whole")?;
+            Err(io::Error::from(io::ErrorKind::StorageFull))
         };
-        let (path, e) = write_part_with(&target, b"a whole image", &full_disk).unwrap_err();
+        let (path, e) = write_part_with(None, &target, &mut full_disk).unwrap_err();
         assert!(crate::space::is_storage_full(&e), "{e:?}");
         // The error names the file the user knows; the partial file is gone.
         assert_eq!(path, target);
@@ -289,5 +398,143 @@ mod tests {
         std::os::unix::fs::symlink(&root, &link).unwrap();
         assert!(stays_inside(&link, &link.join("data/a.geojson")));
         assert!(stays_inside(&link, &root.join("data/a.geojson")));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_a_partial_file_name_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.txt");
+        std::fs::write(&victim, "precious").unwrap();
+        let target = dir.path().join("a.png");
+        // The name of the partial file of 0.6.1, planted before the run.
+        let mut part = target.as_os_str().to_owned();
+        part.push(format!(".{}.part", std::process::id()));
+        std::os::unix::fs::symlink(&victim, &part).unwrap();
+        write_atomically(&target, b"image").unwrap();
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
+        assert_eq!(std::fs::read(&target).unwrap(), b"image");
+    }
+
+    #[test]
+    fn a_taken_partial_file_name_is_skipped_and_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("a.png");
+        let taken = part_name(&target, 0);
+        std::fs::write(&taken, b"another run").unwrap();
+        let fresh = part_name(&target, 1);
+        let (part, _) = create_part(&target, [taken.clone(), fresh.clone()].into_iter()).unwrap();
+        assert_eq!(part, fresh);
+        assert_eq!(std::fs::read(&taken).unwrap(), b"another run");
+        // Every name taken: an error that names the target, nothing overwritten.
+        let (path, e) = create_part(&target, [taken.clone(), fresh].into_iter()).unwrap_err();
+        assert_eq!(path, target);
+        assert_eq!(e.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read(&taken).unwrap(), b"another run");
+    }
+
+    #[test]
+    fn partial_file_names_differ_within_a_process() {
+        let target = Path::new("a.png");
+        let a = part_name(target, NEXT_PART.fetch_add(1, Relaxed));
+        let b = part_name(target, NEXT_PART.fetch_add(1, Relaxed));
+        assert_ne!(a, b);
+        assert!(a.to_string_lossy().ends_with(".part"), "{a:?}");
+    }
+
+    #[test]
+    fn copies_and_writes_inside_the_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("project");
+        std::fs::create_dir_all(&root).unwrap();
+        let map = root.join("map.omap");
+        write_inside(&root, &map, b"map").unwrap();
+        copy_inside(&root, &map, &root.join("ocad/map.omap.bak")).unwrap();
+        assert_eq!(
+            std::fs::read(root.join("ocad/map.omap.bak")).unwrap(),
+            b"map"
+        );
+        let (path, e) = write_inside(&root, &dir.path().join("x.txt"), b"x").unwrap_err();
+        assert_eq!(path, dir.path().join("x.txt"));
+        assert_eq!(e.to_string(), OUTSIDE_PROJECT);
+        assert!(!dir.path().join("x.txt").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_at_a_taken_partial_file_name_is_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.txt");
+        std::fs::write(&victim, "precious").unwrap();
+        let target = dir.path().join("a.png");
+        let planted = part_name(&target, 0);
+        std::os::unix::fs::symlink(&victim, &planted).unwrap();
+        let fresh = part_name(&target, 1);
+        let (part, _) = create_part(&target, [planted, fresh.clone()].into_iter()).unwrap();
+        assert_eq!(part, fresh);
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn links_at_final_names_are_replaced_not_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.txt");
+        std::fs::write(&victim, "precious").unwrap();
+        let root = dir.path();
+        let source = root.join("map.omap");
+        std::fs::write(&source, "map").unwrap();
+        let (written, copied) = (root.join("ATTRIBUTION.txt"), root.join("map.omap.bak"));
+        for link in [&written, &copied] {
+            std::os::unix::fs::symlink(&victim, link).unwrap();
+        }
+        write_inside(root, &written, b"credits").unwrap();
+        copy_inside(root, &source, &copied).unwrap();
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
+        for (file, text) in [(&written, "credits"), (&copied, "map")] {
+            assert!(
+                std::fs::symlink_metadata(file).unwrap().is_file(),
+                "{file:?}"
+            );
+            assert_eq!(std::fs::read_to_string(file).unwrap(), text);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn writes_into_a_linked_folder_are_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::os::unix::fs::symlink(outside.path(), root.join("ocad")).unwrap();
+        std::fs::write(root.join("map.omap"), "map").unwrap();
+        let target = root.join("ocad/map.ocd");
+        let (path, e) = write_inside(root, &target, b"ocd").unwrap_err();
+        assert_eq!(
+            (path, e.to_string()),
+            (target.clone(), OUTSIDE_PROJECT.to_string())
+        );
+        assert!(copy_inside(root, &root.join("map.omap"), &target).is_err());
+        // A folder below the link is not created either.
+        assert!(write_inside(root, &root.join("ocad/new/a.png"), b"x").is_err());
+        let written: Vec<_> = std::fs::read_dir(outside.path()).unwrap().collect();
+        assert!(written.is_empty(), "{written:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_download_replaces_a_link_instead_of_following_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.txt");
+        std::fs::write(&victim, "precious").unwrap();
+        let part = dir.path().join("extract.osm.pbf.part");
+        std::os::unix::fs::symlink(&victim, &part).unwrap();
+        create_new_file(&part).unwrap().write_all(b"pbf").unwrap();
+        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "precious");
+        assert_eq!(std::fs::read(&part).unwrap(), b"pbf");
     }
 }
