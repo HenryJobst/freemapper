@@ -18,6 +18,7 @@ pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
 pub mod osm;
 pub mod region;
+pub mod trees;
 pub mod wcs;
 pub mod wms;
 pub mod xlsx;

@@ -28,7 +28,7 @@ use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
     has_stairs, stair_objects,
 };
-use crate::build::state::{NasInput, nas_objects, state_objects};
+use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -61,6 +61,7 @@ use crate::sources::osm::{
 use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
+use crate::sources::trees;
 use crate::sources::wms::{DateLabel, OrthophotoSource};
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
@@ -236,6 +237,11 @@ pub struct ProjectFile {
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub nas_layers: BTreeMap<String, AlkisRecord>,
+    /// The city tree cadastres of the last online `fetch`, by dataset id under
+    /// [`TREE_LAYERS_DIR`]; empty outside the cities of the table. A dataset without trees in the
+    /// area is recorded with count 0, and `latest_update` is the newest tree survey date.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub tree_layers: BTreeMap<String, AlkisRecord>,
     /// The OSM extract the candidates were read from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm: Option<OsmRecord>,
@@ -400,6 +406,8 @@ impl ProjectFile {
             .retain(|key, _| keep("Berlin", key, known_berlin_layer(key).is_some()));
         self.nas_layers
             .retain(|key, _| keep("NAS", key, known_nas_layer(key).is_some()));
+        self.tree_layers
+            .retain(|key, _| keep("tree", key, known_tree_dataset(key).is_some()));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -476,6 +484,10 @@ impl ProjectFile {
             remove_nas_layer(dir, key);
         }
         self.nas_layers.clear();
+        for key in self.tree_layers.keys() {
+            remove_tree_layer(dir, key);
+        }
+        self.tree_layers.clear();
         self.osm = None;
         self.orthophoto = None;
         self.k5 = None;
@@ -533,6 +545,7 @@ pub fn init_project(
         land_use: None,
         berlin_layers: BTreeMap::new(),
         nas_layers: BTreeMap::new(),
+        tree_layers: BTreeMap::new(),
         osm: None,
         orthophoto: None,
         k5: None,
@@ -588,6 +601,9 @@ const SKIPPED_SHOWN: usize = 5;
 pub(crate) const BERLIN_LAYERS_DIR: &str = "data/berlin";
 /// Folder of the NAS layers (full ALKIS), one `<file>.geojson` per layer (GeoJSON in the map's CRS).
 pub(crate) const NAS_LAYERS_DIR: &str = "data/alkis-nas";
+/// Folder of the city tree cadastres, one `<dataset id>.geojson` per dataset (point features in
+/// the map's CRS, `sources::trees`).
+pub(crate) const TREE_LAYERS_DIR: &str = "data/trees";
 /// ALKIS buildings around the map area, as fetched (GeoJSON in the map's CRS).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
@@ -778,6 +794,16 @@ pub fn fetch_project(
         progress,
     );
     project.save(dir)?;
+    project.tree_layers = fetch_tree_layers_into(
+        dir,
+        fetcher,
+        &area,
+        mode,
+        skips(Part::StateLayers),
+        &project.tree_layers,
+        progress,
+    );
+    project.save(dir)?;
     fetch_k5_into(
         dir,
         fetcher,
@@ -840,13 +866,19 @@ pub(crate) fn mark_stored(
             record.covers(bbox)
                 && known_nas_layer(key).is_some_and(|l| nas_layer_path(dir, l).exists())
         });
-    if orthophoto || k5 || berlin_layers || nas_layers {
+    let tree_layers = !project.tree_layers.is_empty()
+        && project.tree_layers.iter().all(|(key, record)| {
+            record.covers(bbox)
+                && known_tree_dataset(key).is_some_and(|d| tree_layer_path(dir, d).exists())
+        });
+    if orthophoto || k5 || berlin_layers || nas_layers || tree_layers {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
                 (Part::BerlinLayers, _) => berlin_layers,
                 (Part::StateLayers, crate::layers::NAS_LAYERS_ITEM) => nas_layers,
+                (Part::StateLayers, crate::layers::TREE_LAYERS_ITEM) => tree_layers,
                 _ => false,
             };
             if stored && item.store == crate::space::Store::Project {
@@ -2698,6 +2730,217 @@ pub fn stored_nas_layers(
     Ok(layers)
 }
 
+/// The tree dataset the project file records under `key`, from the static table; `None` for a
+/// key no dataset has.
+fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
+    trees::TREE_DATASETS
+        .iter()
+        .find(|dataset| dataset.id == key)
+}
+
+/// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
+/// the project file (ADR 0059).
+fn tree_layer_path(dir: &Path, dataset: &trees::TreeDataset) -> PathBuf {
+    dir.join(TREE_LAYERS_DIR)
+        .join(format!("{}.geojson", dataset.id))
+}
+
+/// Removes the stored tree dataset the project file records under `key`: only a dataset of the
+/// table, and only when its file lies inside the project folder.
+fn remove_tree_layer(dir: &Path, key: &str) {
+    let Some(dataset) = known_tree_dataset(key) else {
+        return;
+    };
+    crate::fsutil::remove_inside(dir, &tree_layer_path(dir, dataset));
+}
+
+/// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
+/// that replace `previous`, as [`fetch_nas_layers_into`] does for the NAS layers: a dataset that
+/// fails is a warning and never fails the fetch (a stored file that still covers the area
+/// stays), a dataset without trees is stored as an empty collection, outside the envelopes of
+/// the table nothing is requested and stored datasets of an earlier area are removed. Offline,
+/// or when the disk plan left the state layers out (`skip`), nothing is downloaded and
+/// `previous` stays.
+fn fetch_tree_layers_into(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(&str),
+) -> BTreeMap<String, AlkisRecord> {
+    let in_city = !trees::tree_datasets_for(&area.region_bbox).is_empty();
+    if mode == FetchMode::Offline {
+        if in_city && previous.is_empty() {
+            progress(
+                "no city tree cadastre stored; run `freemapper fetch` online for the single trees",
+            );
+        }
+        return previous.clone();
+    }
+    if !in_city {
+        if !previous.is_empty() {
+            progress(
+                "removing the stored tree cadastres: the map area is no longer in a city with one",
+            );
+            for key in previous.keys() {
+                remove_tree_layer(dir, key);
+            }
+        }
+        return BTreeMap::new();
+    }
+    if skip {
+        // The disk plan already said that the datasets are left out; stored ones stay.
+        return previous.clone();
+    }
+    progress("downloading the city tree cadastres");
+    let bbox = &area.bbox;
+    let rounded = [
+        bbox.min_e.floor(),
+        bbox.min_n.floor(),
+        bbox.max_e.ceil(),
+        bbox.max_n.ceil(),
+    ];
+    let mut records = BTreeMap::new();
+    for fetched in trees::fetch_tree_layers(fetcher, area) {
+        let id = fetched.dataset.id;
+        let path = tree_layer_path(dir, fetched.dataset);
+        let stored = fetched
+            .features
+            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
+            .and_then(|fetched| {
+                if !crate::fsutil::stays_inside(dir, &path) {
+                    return Err(format!("{TREE_LAYERS_DIR} leads out of the project folder"));
+                }
+                let geojson = berlin::layer_to_geojson(&fetched.features);
+                write_inside(dir, &path, geojson.as_bytes()).map_err(|e| e.to_string())?;
+                Ok(fetched)
+            });
+        match stored {
+            Ok(fetched) => {
+                let count = fetched.features.len();
+                progress(&format!("{count} {id} trees"));
+                if !fetched.skipped.is_empty() {
+                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
+                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
+                    progress(&format!(
+                        "skipped {} {id} trees: {}{}",
+                        fetched.skipped.len(),
+                        shown
+                            .map(|s| crate::fetch::one_line(s, 120))
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                        if more { "; …" } else { "" }
+                    ));
+                }
+                let latest_update = fetched
+                    .features
+                    .iter()
+                    .filter_map(|f| f["properties"]["tree_date"].as_str()?.parse().ok())
+                    .max();
+                records.insert(
+                    id.to_string(),
+                    AlkisRecord {
+                        bbox: rounded,
+                        fetched: chrono::Local::now().date_naive(),
+                        latest_update,
+                        count,
+                        regions: fetched.regions,
+                    },
+                );
+            }
+            Err(e) => match previous.get(id).filter(|r| path.exists() && r.covers(bbox)) {
+                Some(record) => {
+                    progress(&format!(
+                        "warning: {id} tree cadastre unavailable ({e}); keeping the stored one"
+                    ));
+                    records.insert(id.to_string(), record.clone());
+                }
+                None => {
+                    progress(&format!(
+                        "warning: {id} tree cadastre unavailable ({e}); trees skipped"
+                    ));
+                }
+            },
+        }
+    }
+    // Datasets of an earlier area, and failed ones that no longer cover the area.
+    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
+        remove_tree_layer(dir, key);
+    }
+    records
+}
+
+/// One stored tree dataset.
+#[derive(Debug, Clone)]
+pub struct StoredTreeLayer {
+    pub dataset: &'static trees::TreeDataset,
+    /// The trees as [`trees::parse_trees`] stores them: points in the map's CRS with the
+    /// `tree_*` properties.
+    pub features: Vec<serde_json::Value>,
+    /// The fetch date, the currency of a tree without `tree_date`.
+    pub fetched: NaiveDate,
+}
+
+/// The stored tree datasets that cover the map area plus buffer, in table order. A dataset that
+/// was not fetched, is missing or does not cover the area is left out (optional sources: `fetch`
+/// reports this, the export goes on without them).
+pub fn stored_tree_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<StoredTreeLayer>, ProjectError> {
+    let bbox = project.bbox()?;
+    let mut layers = Vec::new();
+    for dataset in &trees::TREE_DATASETS {
+        let path = tree_layer_path(dir, dataset);
+        let Some(record) = project
+            .tree_layers
+            .get(dataset.id)
+            .filter(|r| path.exists() && r.covers(&bbox))
+        else {
+            continue;
+        };
+        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+        layers.push(StoredTreeLayer {
+            dataset,
+            features,
+            fetched: record.fetched,
+        });
+    }
+    Ok(layers)
+}
+
+/// The tree candidates of the stored city tree cadastres; none outside the cities of the table.
+fn stored_tree_objects(
+    layers: &[StoredTreeLayer],
+    project: &ProjectFile,
+    area: &MapArea,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    let inputs: Vec<TreeInput<'_>> = layers
+        .iter()
+        .map(|l| TreeInput {
+            dataset: l.dataset.id,
+            features: &l.features,
+            fetched: l.fetched,
+        })
+        .collect();
+    Ok(tree_objects(
+        &inputs,
+        project.map_kind,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        georef,
+        symbol_set,
+    )?)
+}
+
 /// One stored extra Berlin layer.
 // Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1).
 #[derive(Debug, Clone)]
@@ -4010,6 +4253,13 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     )?);
+    cadastre_candidates.extend(stored_tree_objects(
+        &stored_tree_layers(dir, &project)?,
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?);
     // A survey line along an ALKIS line goes first, then an OSM line along either.
     let mut cadastre_candidates =
         drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
@@ -4125,6 +4375,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(lgb_attribution(&project));
     attribution.extend(berlin_attribution(&project, &registers));
+    attribution.extend(tree_attribution(&registers));
     attribution.extend(geosn_attribution(&project));
     attribution.extend(lvermgeo_attribution(&project));
     attribution.extend(lgv_attribution(&project));
@@ -4196,29 +4447,45 @@ const FREEMAPPER_CREDIT_DE: &str =
 /// Names the tool and where to get it, in every generated project.
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
-/// The files of the Berlin registers ([`BERLIN_REGISTERS`]) whose points are among `objects`.
+/// The registers whose points are among `objects`: the files of the Berlin registers
+/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`).
 fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
-    BERLIN_REGISTERS
+    let drawn = |source: String| {
+        objects.iter().any(|o| {
+            o.tags
+                .iter()
+                .any(|(k, v)| k == "freemapper:source" && *v == source)
+        })
+    };
+    let berlin = BERLIN_REGISTERS
         .iter()
         .map(|&(file, _)| file)
-        .filter(|file| {
-            let source = format!("geoportal-berlin/{file}");
-            objects.iter().any(|o| {
-                o.tags
-                    .iter()
-                    .any(|(k, v)| k == "freemapper:source" && *v == source)
-            })
-        })
+        .filter(|file| drawn(format!("geoportal-berlin/{file}")));
+    let cities = trees::TREE_DATASETS
+        .iter()
+        .map(|d| d.id)
+        .filter(|id| drawn(format!("trees/{id}")));
+    berlin.chain(cities).collect()
+}
+
+/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
+/// for each dataset that drew trees.
+fn tree_attribution(registers: &[&str]) -> Vec<String> {
+    trees::TREE_DATASETS
+        .iter()
+        .filter(|d| registers.contains(&d.id))
+        .map(|d| d.attribution.to_string())
         .collect()
 }
 
 /// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
-/// Geoportal Berlin. `registers` are the Berlin registers that drew objects
-/// ([`drawn_registers`]).
+/// Geoportal Berlin. `registers` are the Berlin registers and city tree cadastres that drew
+/// objects ([`drawn_registers`]).
 fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
     lines.extend(lgb_attribution(project));
     lines.extend(berlin_attribution(project, registers));
+    lines.extend(tree_attribution(registers));
     lines.extend(geosn_attribution(project));
     lines.extend(lvermgeo_attribution(project));
     lines.extend(lgv_attribution(project));
@@ -6506,6 +6773,16 @@ mod tests {
                     fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
                     latest_update: NaiveDate::from_ymd_opt(2020, 11, 24),
                     count: 4,
+                    regions: vec![Region::Brandenburg],
+                },
+            )]),
+            tree_layers: BTreeMap::from([(
+                "potsdam".to_string(),
+                AlkisRecord {
+                    bbox: [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0],
+                    fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+                    latest_update: NaiveDate::from_ymd_opt(2026, 3, 2),
+                    count: 3,
                     regions: vec![Region::Brandenburg],
                 },
             )]),
@@ -10579,6 +10856,197 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .any(|m| m.contains("leads out of the project folder")),
             "{messages:?}"
         );
+    }
+
+    /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.
+    fn sanssouci_area() -> FetchArea {
+        FetchArea::new(
+            BoundingBox {
+                min_e: 366_200.0,
+                min_n: 5_807_100.0,
+                max_e: 367_100.0,
+                max_n: 5_807_700.0,
+            },
+            Crs::Utm33,
+        )
+    }
+
+    fn serve_potsdam_trees(fetcher: &MapFetcher) {
+        use crate::sources::trees::{POTSDAM, test_support};
+        fetcher.insert_prefix(
+            POTSDAM.endpoints[0],
+            test_support::POTSDAM.as_bytes().to_vec(),
+        );
+        for endpoint in &POTSDAM.endpoints[1..] {
+            fetcher.insert_prefix(
+                endpoint,
+                br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+            );
+        }
+    }
+
+    #[test]
+    fn tree_layers_are_fetched_stored_and_kept() {
+        let fetcher = MapFetcher::default();
+        serve_potsdam_trees(&fetcher);
+        let dir = tempfile::tempdir().unwrap();
+        let mut messages = Vec::new();
+        let records = fetch_tree_layers_into(
+            dir.path(),
+            &fetcher,
+            &sanssouci_area(),
+            FetchMode::Online,
+            false,
+            &BTreeMap::new(),
+            &mut |m| messages.push(m.to_string()),
+        );
+        assert_eq!(fetcher.calls.get(), 3, "{messages:?}");
+        let record = &records["potsdam"];
+        assert_eq!(record.count, 3);
+        assert_eq!(record.latest_update, NaiveDate::from_ymd_opt(2009, 6, 10));
+        assert_eq!(record.regions, [Region::Brandenburg]);
+        assert_eq!(
+            record.bbox,
+            [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0]
+        );
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/potsdam.geojson")).unwrap();
+        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 3);
+
+        // The endpoints fail next time: the stored file stays, with a warning.
+        let failing = MapFetcher::default();
+        let kept = fetch_tree_layers_into(
+            dir.path(),
+            &failing,
+            &sanssouci_area(),
+            FetchMode::Online,
+            false,
+            &records,
+            &mut |m| messages.push(m.to_string()),
+        );
+        assert_eq!(kept, records);
+        assert!(
+            messages.iter().any(
+                |m| m.starts_with("warning: potsdam tree cadastre unavailable (")
+                    && m.ends_with("; keeping the stored one")
+            ),
+            "{messages:?}"
+        );
+        // Offline asks nothing and keeps it too; with the disk plan against it, so does online.
+        let calls = fetcher.calls.get();
+        for (mode, skip) in [(FetchMode::Offline, false), (FetchMode::Online, true)] {
+            let same = fetch_tree_layers_into(
+                dir.path(),
+                &fetcher,
+                &sanssouci_area(),
+                mode,
+                skip,
+                &records,
+                &mut |_| {},
+            );
+            assert_eq!(same, records);
+        }
+        assert_eq!(fetcher.calls.get(), calls);
+
+        // The area leaves Potsdam: nothing is asked and the file goes.
+        let strausberg = FetchArea::new(
+            BoundingBox {
+                min_e: 421_000.0,
+                min_n: 5_821_000.0,
+                max_e: 422_500.0,
+                max_n: 5_822_000.0,
+            },
+            Crs::Utm33,
+        );
+        let none = fetch_tree_layers_into(
+            dir.path(),
+            &fetcher,
+            &strausberg,
+            FetchMode::Online,
+            false,
+            &records,
+            &mut |_| {},
+        );
+        assert!(none.is_empty());
+        assert_eq!(fetcher.calls.get(), calls);
+        assert!(!dir.path().join("data/trees/potsdam.geojson").exists());
+    }
+
+    #[test]
+    fn tree_layer_keys_never_name_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let victim = dir.path().join("victim.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let far = elsewhere.path().join("victim.geojson");
+        std::fs::write(&far, b"{}").unwrap();
+        let far_key = far.with_extension("").display().to_string();
+        let unsafe_keys = ["../../victim", far_key.as_str(), "no-such-city"];
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        for key in unsafe_keys {
+            text.push_str(&format!(
+                "\n[tree_layers.{key:?}]\nbbox = [0.0, 0.0, 1.0, 1.0]\nfetched = \"2026-11-08\"\ncount = 1\n"
+            ));
+        }
+        std::fs::write(&file, text).unwrap();
+        let mut warnings = Vec::new();
+        let mut project =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(project.tree_layers.is_empty(), "{:?}", project.tree_layers);
+        assert_eq!(
+            warnings
+                .iter()
+                .filter(|w| w.starts_with("warning: freemapper.toml: ignored the tree layer entry"))
+                .count(),
+            3,
+            "{warnings:?}"
+        );
+        // Forgetting the fetched data deletes only datasets of the table.
+        project.tree_layers = unsafe_keys
+            .iter()
+            .map(|k| (k.to_string(), some_layer_record()))
+            .collect();
+        project.drop_fetched(dir.path());
+        assert!(project.tree_layers.is_empty());
+        assert!(victim.exists(), "the file in the project folder is kept");
+        assert!(far.exists(), "the file outside the project is kept");
+    }
+
+    #[test]
+    fn potsdam_attribution_only_when_drawn() {
+        const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        // Nothing drawn: no line, even for a project whose tree file has trees.
+        let mut stored = project.clone();
+        stored
+            .tree_layers
+            .insert("potsdam".into(), some_layer_record());
+        assert!(!attribution_lines(&stored, &[]).contains(&POTSDAM.to_string()));
+        assert!(!attribution_lines(&project, &[]).contains(&POTSDAM.to_string()));
+        // A Berlin register that drew objects is not the tree cadastre.
+        assert!(!attribution_lines(&project, &["zierbrunnen"]).contains(&POTSDAM.to_string()));
+        // Drawn: the object's source names the dataset.
+        let object = |source: &str| MapObject {
+            symbol_id: 0,
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![MapCoord::new(0, 0)],
+            tags: vec![("freemapper:source".into(), source.into())],
+        };
+        assert!(drawn_registers(&[object("trees/other"), object("osm")]).is_empty());
+        let drawn = drawn_registers(&[object("osm"), object("trees/potsdam")]);
+        assert_eq!(drawn, ["potsdam"]);
+        let lines = attribution_lines(&project, &drawn);
+        assert_eq!(
+            lines.iter().filter(|l| *l == POTSDAM).count(),
+            1,
+            "{lines:?}"
+        );
+        drop(fetcher);
     }
 
     #[test]

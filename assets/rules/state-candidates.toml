@@ -3,8 +3,10 @@
 # differences:
 #
 # - Tags are `alkis:<property>` (string and number properties of the stored feature) plus
-#   `alkis:type` and `alkis:geom` (`point`, `line` or `area`: the stored geometry), so an OSM rule
-#   or a Berlin rule can never match them. Every rule names its type.
+#   `alkis:type` and `alkis:geom` (`point`, `line` or `area`: the stored geometry), and
+#   `tree:<field>` for the city tree cadastres (`tree:dataset`, `tree:kind`, `tree:crown_m`), so an
+#   OSM rule or a Berlin rule can never match them. Every rule names its type (or, for trees,
+#   `tree:dataset=*`).
 # - A polygon is its exterior as a closed line (`draw = "line"` or `"area"`) and a point on its
 #   surface (`draw = "point"`; the vereinfacht passages use the centroid). Holes are dropped:
 #   these are candidates only. A side longer than 3 m tags the point `freemapper:size=large`.
@@ -124,3 +126,23 @@ when = ["alkis:type=AX_UntergeordnetesGewaesser", "alkis:geom=line", "alkis:funk
 draw = "line"
 schoolyard = "305"
 sprint = "305"
+
+# --- City tree cadastres ---------------------------------------------------------------------------
+#
+# Trees of a city's cadastre (`sources/trees.rs`, one dataset per city): a crown of 10 m or more is
+# a large tree (417, ADR 0051), every other tree, and one without a crown diameter (Potsdam has
+# none), is 418. Stumps are no trees (the reader leaves them out, and this stays as the second
+# line). Candidates only: the cadastre can be older than the trees (`freemapper:currency` is the
+# tree's own survey date). The first matching rule wins. The species and crown are in
+# `freemapper:baum`.
+[[rule]]
+when = ["tree:dataset=*", "tree:kind!=Baumstumpf", "tree:crown_m>=10"]
+draw = "point"
+schoolyard = "417"
+sprint = "417"
+
+[[rule]]
+when = ["tree:dataset=*", "tree:kind!=Baumstumpf"]
+draw = "point"
+schoolyard = "418"
+sprint = "418"

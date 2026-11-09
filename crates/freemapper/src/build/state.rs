@@ -9,6 +9,8 @@
 //! - the walls, fences, hedges, monuments, bridges, embankment tops and ditches of the full
 //!   ALKIS (NAS) layers ([`nas_objects`]). The rules match the AdV codes; the labels for the
 //!   mapper come from `assets/rules/adv-codes.toml`.
+//! - the trees of the city tree cadastres ([`tree_objects`], `sources/trees.rs`), matched on
+//!   `tree:*` tags.
 
 use std::collections::BTreeMap;
 use std::sync::OnceLock;
@@ -261,6 +263,100 @@ pub fn nas_objects(
         )?);
     }
     Ok(objects)
+}
+
+/// One stored tree layer for [`tree_objects`].
+pub struct TreeInput<'a> {
+    /// The dataset (`potsdam`): the source is `trees/<dataset>`.
+    pub dataset: &'a str,
+    /// The stored features (`sources::trees`), in the map's CRS.
+    pub features: &'a [Value],
+    /// The fetch date, which stands in for a tree without `tree_date`.
+    pub fetched: NaiveDate,
+}
+
+/// The `freemapper:source` prefix of the tree candidates: `trees/<dataset>`.
+pub(crate) const TREE_SOURCE: &str = "trees";
+
+/// The tree candidates of the stored `layers` within `buffer_m` of `map_area`.
+pub fn tree_objects(
+    layers: &[TreeInput<'_>],
+    kind: MapKind,
+    map_area: &geo_types::Polygon<f64>,
+    buffer_m: f64,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let rules = Rules::states();
+    let mut objects = Vec::new();
+    for layer in layers {
+        let source = format!("{TREE_SOURCE}/{}", layer.dataset);
+        let features = tagged_features(
+            &source,
+            layer.features,
+            georef.crs(),
+            PointOn::Centroid,
+            tree_feature_tags,
+        );
+        objects.extend(osm_objects(
+            &features,
+            &rules,
+            Target::Candidates,
+            kind,
+            map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+            &source,
+            layer.fetched,
+        )?);
+    }
+    Ok(objects)
+}
+
+/// The tags of a stored tree for the rules: every `tree_<field>` property as `tree:<field>`
+/// (`tree:dataset`, `tree:kind`, `tree:crown_m`, …), and the provenance tags the objects carry
+/// on (`freemapper:source_id` = the tree number, `freemapper:currency` = the tree's own survey
+/// date, `freemapper:baum` = species or kind, with the crown when known).
+pub(crate) fn tree_feature_tags(feature: &Value) -> Vec<(String, String)> {
+    let empty = serde_json::Map::new();
+    let properties = feature["properties"].as_object().unwrap_or(&empty);
+    let text = |key: &str| -> Option<String> {
+        match properties.get(key)? {
+            Value::String(s) if !s.is_empty() => Some(s.clone()),
+            Value::Number(n) => Some(n.to_string()),
+            _ => None,
+        }
+    };
+    let mut tags = Vec::new();
+    for key in properties.keys() {
+        if let (Some(field), Some(value)) = (key.strip_prefix("tree_"), text(key)) {
+            tags.push((format!("tree:{field}"), value));
+        }
+    }
+    if let Some(id) = text("tree_id") {
+        tags.push(("freemapper:source_id".to_string(), id));
+    }
+    // A value that is no date leaves the fetch date (`osm_objects`).
+    let date = text("tree_date").filter(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
+    if let Some(date) = date {
+        tags.push(("freemapper:currency".to_string(), date));
+    }
+    let crown = properties
+        .get("tree_crown_m")
+        .and_then(Value::as_f64)
+        .filter(|c| *c > 0.0)
+        .map(|c| format!("Krone {c} m"));
+    let label = match (text("tree_species").or_else(|| text("tree_kind")), crown) {
+        (Some(name), Some(crown)) => Some(format!("{name}, {crown}")),
+        (Some(name), None) => Some(name),
+        (None, crown) => crown,
+    };
+    if let Some(label) = label {
+        tags.push(("freemapper:baum".to_string(), label));
+    }
+    tags.sort();
+    tags
 }
 
 #[cfg(test)]
@@ -1132,5 +1228,213 @@ mod tests {
             )
         );
         assert_eq!(found[0].coords.len(), 4);
+    }
+    /// The stored Potsdam fixture trees (the stump is not among them).
+    fn potsdam_trees() -> Vec<Value> {
+        use crate::sources::trees::{POTSDAM, parse_trees, test_support};
+        parse_trees(test_support::POTSDAM, &POTSDAM, Crs::Utm33)
+            .unwrap()
+            .features
+    }
+
+    /// A stored tree `kind` at `AT` plus (`de`, `dn`), with an optional crown diameter.
+    fn tree(id: &str, kind: &str, crown: Option<f64>, de: f64, dn: f64) -> Value {
+        let mut properties = serde_json::json!({
+            "tree_dataset": "potsdam", "tree_id": id, "tree_kind": kind, "tree_date": "2024-05-01"});
+        if let Some(crown) = crown {
+            properties["tree_crown_m"] = crown.into();
+        }
+        serde_json::json!({"type": "Feature", "id": id, "geometry": spot(de, dn),
+            "properties": properties})
+    }
+
+    fn tree_run(features: &[Value], kind: MapKind) -> Vec<MapObject> {
+        let mut extent = features.to_vec();
+        extent.push(nas("x", "AX_Turm", &[], spot(-40.0, -40.0)));
+        extent.push(nas("y", "AX_Turm", &[], spot(80.0, 80.0)));
+        let (georef, area, set) = setup(Crs::Utm33, kind, &extent);
+        tree_objects(
+            &[TreeInput {
+                dataset: "potsdam",
+                features,
+                fetched: "2026-11-09".parse().unwrap(),
+            }],
+            kind,
+            &area,
+            20.0,
+            &georef,
+            &set,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn potsdam_trees_are_418_candidates_with_their_own_date() {
+        let trees = potsdam_trees();
+        assert_eq!(trees.len(), 3);
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            let found = tree_run(&trees, kind);
+            assert_eq!(found.len(), 3, "{kind:?}");
+            for o in &found {
+                // No crown diameter in the data: every tree is the small one.
+                assert_eq!(code_of(kind, o), "418");
+                assert_eq!(tag(o, "freemapper:source"), Some("trees/potsdam"));
+                assert_eq!(tag(o, "freemapper:currency"), Some("2009-06-10"));
+                assert_eq!(tag(o, "freemapper:baum"), Some("Laubbaum"));
+                assert_eq!(tag(o, "tree:dataset"), Some("potsdam"));
+            }
+            let mut ids: Vec<&str> = found
+                .iter()
+                .filter_map(|o| tag(o, "freemapper:source_id"))
+                .collect();
+            ids.sort_unstable();
+            assert_eq!(ids, ["2005108M-305FD", "2005108M-30600", "2005108M-30603"]);
+        }
+    }
+
+    #[test]
+    fn crown_decides_417_and_stumps_stay_out() {
+        let trees = [
+            tree("a", "Laubbaum", Some(12.0), 0.0, 0.0),
+            tree("b", "Laubbaum", Some(9.9), 5.0, 0.0),
+            tree("c", "Nadelbaum", None, 10.0, 0.0),
+            // A stump that reached the file (a dataset without the stored filter) draws nothing.
+            tree("d", "Baumstumpf", Some(15.0), 15.0, 0.0),
+        ];
+        let found = tree_run(&trees, MapKind::Sprint);
+        let codes: Vec<(String, &str)> = found
+            .iter()
+            .map(|o| {
+                (
+                    code_of(MapKind::Sprint, o),
+                    tag(o, "freemapper:source_id").unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            codes,
+            [
+                ("417".into(), "a"),
+                ("418".into(), "b"),
+                ("418".into(), "c")
+            ]
+        );
+        assert_eq!(
+            tag(&found[0], "freemapper:baum"),
+            Some("Laubbaum, Krone 12 m")
+        );
+    }
+
+    #[test]
+    fn osm_tree_near_city_tree_is_dropped() {
+        use crate::build::dedup::drop_trees_by_rank;
+        let city = [tree("a", "Laubbaum", None, 0.0, 0.0)];
+        let (georef, area, set) = setup(
+            Crs::Utm33,
+            MapKind::Sprint,
+            &[city[0].clone(), nas("y", "AX_Turm", &[], spot(30.0, 30.0))],
+        );
+        let cadastre = tree_objects(
+            &[TreeInput {
+                dataset: "potsdam",
+                features: &city,
+                fetched: "2026-11-09".parse().unwrap(),
+            }],
+            MapKind::Sprint,
+            &area,
+            20.0,
+            &georef,
+            &set,
+        )
+        .unwrap();
+        assert_eq!(cadastre.len(), 1);
+        let osm = |osm: &str, de: f64, dn: f64| MapObject {
+            symbol_id: set.id_for_code("418").unwrap(),
+            kind: crate::omap::MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![
+                georef
+                    .projected_to_map(crate::crs::ProjectedPoint {
+                        easting: AT.0 + de,
+                        northing: AT.1 + dn,
+                    })
+                    .unwrap(),
+            ],
+            tags: vec![
+                ("freemapper:source".into(), "osm".into()),
+                ("freemapper:osm".into(), osm.into()),
+            ],
+        };
+        let (kept, cadastre) = drop_trees_by_rank(
+            vec![
+                osm("natural=tree", 1.0, 1.0), // 1.4 m: the same tree
+                osm("natural=tree", 0.0, 2.5), // another tree
+            ],
+            cadastre,
+            &set,
+            georef.scale_denominator,
+        );
+        assert_eq!(kept.len(), 1);
+        assert_eq!(cadastre.len(), 1, "the city tree stays");
+    }
+
+    #[test]
+    fn register_tree_beats_nas_tree() {
+        use crate::build::dedup::drop_trees_by_rank;
+        let city = [tree("a", "Laubbaum", Some(12.0), 0.0, 0.0)];
+        let nas_trees = [
+            nas(
+                "DEBBAL0000000001",
+                "AX_Vegetationsmerkmal",
+                &[("bewuchs", "1012")],
+                spot(1.0, 1.0),
+            ),
+            nas(
+                "DEBBAL0000000002",
+                "AX_Vegetationsmerkmal",
+                &[("bewuchs", "1012")],
+                spot(10.0, 0.0),
+            ),
+        ];
+        let mut extent = city.to_vec();
+        extent.extend(nas_trees.iter().cloned());
+        extent.push(nas("y", "AX_Turm", &[], spot(30.0, 30.0)));
+        let (georef, area, set) = setup(Crs::Utm33, MapKind::Sprint, &extent);
+        let mut cadastre = tree_objects(
+            &[TreeInput {
+                dataset: "potsdam",
+                features: &city,
+                fetched: "2026-11-09".parse().unwrap(),
+            }],
+            MapKind::Sprint,
+            &area,
+            20.0,
+            &georef,
+            &set,
+        )
+        .unwrap();
+        assert_eq!(cadastre.len(), 1);
+        cadastre.extend(
+            nas_objects(
+                &[NasInput {
+                    file: "vegetationsmerkmal",
+                    features: &nas_trees,
+                    fetched: "2026-11-09".parse().unwrap(),
+                }],
+                MapKind::Sprint,
+                &area,
+                20.0,
+                &georef,
+                &set,
+            )
+            .unwrap(),
+        );
+        assert_eq!(cadastre.len(), 3);
+        let (_, kept) = drop_trees_by_rank(vec![], cadastre, &set, georef.scale_denominator);
+        let sources: Vec<&str> = kept
+            .iter()
+            .map(|o| tag(o, "freemapper:source_id").unwrap())
+            .collect();
+        // The NAS tree 1.4 m from the city tree goes; the one 10 m away stays.
+        assert_eq!(sources, ["a", "DEBBAL0000000002"]);
     }
 }

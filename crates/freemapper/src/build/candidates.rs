@@ -451,6 +451,7 @@ pub fn osm_objects(
         for key in [
             "berlin:layer",
             "alkis:type",
+            "tree:dataset",
             "freemapper:also",
             "freemapper:alkis",
             "freemapper:size",

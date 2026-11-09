@@ -52,6 +52,11 @@ pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 const NAS_MB_PER_KM2: f64 = 2.0;
 /// Name of the NAS item in the estimate.
 pub(crate) const NAS_LAYERS_ITEM: &str = "full ALKIS structures (NAS)";
+/// The tree cadastres per km² where a dataset envelope is touched: Potsdam is about 390 bytes a
+/// tree in the stored GeoJSON and about 1 460 trees per km², 0.57 MB.
+const TREES_MB_PER_KM2: f64 = 1.0;
+/// Name of the tree cadastre item in the estimate.
+pub(crate) const TREE_LAYERS_ITEM: &str = "city tree cadastres";
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
 const SH_BDOM_TILE_MB: f64 = 105.0;
@@ -185,6 +190,14 @@ pub(crate) fn estimate_area(
             bbox,
             NAS_LAYERS_ITEM,
             NAS_MB_PER_KM2,
+            Part::StateLayers,
+        ));
+    }
+    if !crate::sources::trees::tree_datasets_for(bbox).is_empty() {
+        items.push(per_km2_item(
+            bbox,
+            TREE_LAYERS_ITEM,
+            TREES_MB_PER_KM2,
             Part::StateLayers,
         ));
     }
@@ -2125,6 +2138,66 @@ mod tests {
                     .all(|i| i.part != Part::StateLayers)
             );
         }
+    }
+
+    #[test]
+    fn trees_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let estimate_of = |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false);
+        let item = |estimate: &DownloadEstimate| {
+            estimate
+                .items
+                .iter()
+                .find(|i| i.what == TREE_LAYERS_ITEM)
+                .cloned()
+        };
+        // Sanssouci 0.54 km²: 1 MB per km² of stored trees, in the optional state layers part
+        // next to the NAS layers.
+        let sanssouci = BoundingBox {
+            min_e: 366_200.0,
+            min_n: 5_807_100.0,
+            max_e: 367_100.0,
+            max_n: 5_807_700.0,
+        };
+        let estimate = estimate_of(&sanssouci);
+        let trees = item(&estimate).expect("Potsdam trees");
+        assert!((trees.megabytes - 0.54).abs() < 1e-9, "{trees:?}");
+        assert!(!trees.cached);
+        assert_eq!(
+            (trees.part, trees.store),
+            (Part::StateLayers, Store::Project)
+        );
+        assert!(estimate.items.iter().any(|i| i.what == NAS_LAYERS_ITEM));
+        // Brandenburg outside Potsdam (NAS only), Berlin and Saxony: no tree item.
+        let strausberg = BoundingBox {
+            min_e: 421_000.0,
+            min_n: 5_821_000.0,
+            max_e: 422_500.0,
+            max_n: 5_822_000.0,
+        };
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        for bbox in [strausberg, mitte] {
+            assert!(item(&estimate_of(&bbox)).is_none(), "{bbox:?}");
+        }
+        // Skipped with the other state layers when there is no room.
+        let plan = crate::space::plan(
+            &estimate,
+            cache_dir.path(),
+            cache_dir.path(),
+            &crate::space::test_support::FixedSpace::default().with(
+                std::path::Path::new("/"),
+                "disk",
+                crate::space::RESERVE_BYTES,
+            ),
+        )
+        .unwrap();
+        assert!(!plan.fits(Part::StateLayers));
     }
 
     #[test]
