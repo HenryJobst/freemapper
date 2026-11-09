@@ -19,7 +19,9 @@ use chrono::NaiveDate;
 use serde_json::Value;
 
 use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::dedup::add_also;
 use crate::build::tagged::{PointOn, geom, tagged_features};
+use crate::build::walls::{PAIRED, PAIRED_ALSO, PAIRED_LABEL, pair_distance_m, pair_wall_edges};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
@@ -219,7 +221,12 @@ pub(crate) fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
     if let Some(date) = date {
         tags.push(("freemapper:currency".to_string(), date.to_string()));
     }
-    if let Some(label) = nas_label(nas_type, properties) {
+    let label = if text(PAIRED) == Some("yes") {
+        Some(PAIRED_LABEL.to_string())
+    } else {
+        nas_label(nas_type, properties)
+    };
+    if let Some(label) = label {
         tags.push(("freemapper:alkis".to_string(), label));
     }
     tags.sort();
@@ -228,7 +235,8 @@ pub(crate) fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
 
 /// The candidates of the stored NAS `layers` (in the map's CRS) within `buffer_m` of
 /// `map_area`, each tagged `freemapper:source=alkis-nas/<file>`. The point of an area (a
-/// monument) lies on its surface. Segments of one wall or fence are joined before the 1 mm drop
+/// monument) lies on its surface. The two edges of a wall become one centre line
+/// (`build/walls.rs`), then segments of one wall or fence are joined before the 1 mm drop
 /// (`osm_objects`).
 pub fn nas_objects(
     layers: &[NasInput<'_>],
@@ -239,15 +247,28 @@ pub fn nas_objects(
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, GeorefError> {
     let rules = Rules::states();
+    let distance = pair_distance_m(kind, georef.scale_denominator);
     let mut objects = Vec::new();
     for layer in layers {
         let source = format!("{NAS_SOURCE}/{}", layer.file);
+        // The edges of a wall become one centre line here, while each still says on which
+        // side the wall lies; the joins below would lose that.
+        let paired = pair_wall_edges(layer.features, distance);
         let features = tagged_features(
             &source,
-            layer.features,
+            &paired,
             georef.crs(),
             PointOn::Surface,
-            nas_feature_tags,
+            |feature| {
+                let mut tags = nas_feature_tags(feature);
+                let also = feature["properties"][PAIRED_ALSO]
+                    .as_str()
+                    .unwrap_or_default();
+                for oid in also.split("; ").filter(|o| !o.is_empty()) {
+                    add_also(&mut tags, &format!("{source}/{oid}"));
+                }
+                tags
+            },
         );
         objects.extend(osm_objects(
             &features,
@@ -1200,6 +1221,106 @@ mod tests {
             (0.0..=10.0).contains(&x) && (0.0..=10.0).contains(&y) && (x <= 1.0 || y <= 1.0),
             "({x:.2}, {y:.2}) is off the L"
         );
+    }
+
+    #[test]
+    fn nas_wall_edges_become_one_centre_line() {
+        const SB: &str = "AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        let edge = |id: &str, code: &str, dn: f64, beginnt: &str| {
+            let mut f = nas(id, SB, &[("bauwerksfunktion", code)], east(0.0, dn, 20.0));
+            f["properties"]["beginnt"] = beginnt.into();
+            f
+        };
+        // A wall 1 m thick: the right edge (wall on its left) below, the left edge above.
+        let features = [
+            edge("DEBBAL00000000r1", "1701", 0.0, "2015-03-01T10:00:00Z"),
+            edge("DEBBAL00000000l1", "1702", 1.0, "2013-01-29T19:47:33Z"),
+        ];
+        let found = nas_run("sonstiges-bauwerk", &features, MapKind::Sprint);
+        assert_eq!(found.len(), 1, "{found:?}");
+        let wall = &found[0];
+        assert_eq!(code_of(MapKind::Sprint, wall), "515");
+        assert_eq!(tag(wall, "freemapper:source_id"), Some("DEBBAL00000000r1"));
+        assert_eq!(
+            tag(wall, "freemapper:also"),
+            Some("alkis-nas/sonstiges-bauwerk/DEBBAL00000000l1")
+        );
+        assert_eq!(tag(wall, "freemapper:currency"), Some("2013-01-29"));
+        assert_eq!(
+            tag(wall, "freemapper:alkis"),
+            Some("Mauer (Mauerkanten gepaart)")
+        );
+        // 2.5 m apart is more than 0.55 mm at 1:4000 (2.2 m): two lines.
+        let features = [
+            edge("DEBBAL00000000r1", "1701", 0.0, "2015-03-01T10:00:00Z"),
+            edge("DEBBAL00000000l1", "1702", 2.5, "2013-01-29T19:47:33Z"),
+        ];
+        let found = nas_run("sonstiges-bauwerk", &features, MapKind::Sprint);
+        assert_eq!(found.len(), 2, "{found:?}");
+    }
+
+    #[test]
+    fn nas_sided_lines_join_only_same_way_and_side() {
+        const SB: &str = "AX_SonstigesBauwerkOderSonstigeEinrichtung";
+        let piece = |id: &str, code: &str, from: (f64, f64), to: (f64, f64)| {
+            let line = serde_json::json!({"type": "LineString", "coordinates": [
+                [AT.0 + from.0, AT.1 + from.1], [AT.0 + to.0, AT.1 + to.1]]});
+            nas(id, SB, &[("bauwerksfunktion", code)], line)
+        };
+        let ids = |found: &[MapObject]| -> Vec<String> {
+            found
+                .iter()
+                .map(|o| {
+                    tag(o, "freemapper:source_id")
+                        .unwrap_or_default()
+                        .to_string()
+                })
+                .collect()
+        };
+        // Retaining wall pieces (513.2, the ticks on one side): one runs the other way.
+        let found = nas_run(
+            "sonstiges-bauwerk",
+            &[
+                piece("a", "1721", (0.0, 0.0), (5.0, 0.0)),
+                piece("b", "1721", (10.0, 0.0), (5.0, 0.0)),
+            ],
+            MapKind::Sprint,
+        );
+        assert_eq!(ids(&found), ["a", "b"]);
+        // The same way round they join, whichever comes first.
+        let found = nas_run(
+            "sonstiges-bauwerk",
+            &[
+                piece("b", "1721", (5.0, 0.0), (10.0, 0.0)),
+                piece("a", "1721", (0.0, 0.0), (5.0, 0.0)),
+            ],
+            MapKind::Sprint,
+        );
+        assert_eq!(ids(&found), ["b"]);
+        let p = |c: &crate::omap::MapCoord| (c.x, c.y);
+        let first = p(&found[0].coords[0]);
+        let last = p(found[0].coords.last().unwrap());
+        assert!(first.0 < last.0, "runs east as stored: {first:?} {last:?}");
+        // A right and a left wall edge never join, even the same way round.
+        let found = nas_run(
+            "sonstiges-bauwerk",
+            &[
+                piece("r", "1701", (0.0, 20.0), (5.0, 20.0)),
+                piece("l", "1702", (5.0, 20.0), (10.0, 20.0)),
+            ],
+            MapKind::Sprint,
+        );
+        assert_eq!(ids(&found), ["r", "l"]);
+        // Fences have no side: a piece the other way round still joins.
+        let found = nas_run(
+            "sonstiges-bauwerk",
+            &[
+                piece("f", "1740", (0.0, 40.0), (5.0, 40.0)),
+                piece("g", "1740", (10.0, 40.0), (5.0, 40.0)),
+            ],
+            MapKind::Sprint,
+        );
+        assert_eq!(ids(&found), ["f"]);
     }
 
     #[test]

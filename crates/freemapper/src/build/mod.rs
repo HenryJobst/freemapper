@@ -12,4 +12,5 @@ pub mod points;
 pub mod stairs;
 pub mod state;
 pub mod tagged;
+pub mod walls;
 pub mod water;

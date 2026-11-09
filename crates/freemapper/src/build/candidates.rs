@@ -500,12 +500,34 @@ const JOIN_TOUCH_M: f64 = 0.1;
 /// Segments join when the bend between them is at most about 30 degrees (the cosine).
 const JOIN_MIN_COS: f64 = 0.866;
 
+/// Line symbols whose drawing has a side (ticks on the lower side), so their direction matters.
+const SIDED_CODES: [&str; 3] = ["104", "201", "513.2"];
+/// NAS codes of an edge, whose direction says on which side the object lies: wall edges,
+/// retaining wall edges and hedge edges (right and left).
+const SIDED_EDGES: [(&str, &[&str]); 2] = [
+    ("alkis:bauwerksfunktion", &["1701", "1702", "1721", "1722"]),
+    ("alkis:bewuchs", &["1101", "1102"]),
+];
+
+/// The side of a line feature drawn with `code`: `None` when its direction says nothing (it may
+/// be reversed), else its NAS edge code (`""` without one). Lines with a side join only lines
+/// with the same side, and only the same way round.
+fn line_side(tags: &Tags, code: &str) -> Option<String> {
+    let edge = SIDED_EDGES.iter().find_map(|(key, codes)| {
+        value(tags, key)
+            .filter(|v| codes.contains(v))
+            .map(str::to_string)
+    });
+    edge.or_else(|| SIDED_CODES.contains(&code).then(String::new))
+}
+
 /// Chains the line features that the rules draw as lines with the same symbol and touch end to
-/// end (within [`JOIN_TOUCH_M`], bend up to about 30 degrees) into one line each. The chain keeps
-/// the tags of its first segment and names the other segments in `freemapper:also`
-/// (`<source>/<source_id>`). A chain of dated segments (the survey) is as old as its oldest
-/// segment, and guessed when one of them is. Other features, and lines that no rule draws as
-/// lines, are passed on unchanged.
+/// end (within [`JOIN_TOUCH_M`], bend up to about 30 degrees) into one line each. A line with a
+/// side ([`line_side`]) is never turned round and joins only lines with the same side, so a
+/// later tick side stays right. The chain keeps the tags of its first segment and names the
+/// other segments in `freemapper:also` (`<source>/<source_id>`). A chain of dated segments (the
+/// survey) is as old as its oldest segment, and guessed when one of them is. Other features,
+/// and lines that no rule draws as lines, are passed on unchanged.
 fn join_touching_lines(
     features: &[OsmFeature],
     rules: &Rules,
@@ -519,22 +541,28 @@ fn join_touching_lines(
         let q = georef.crs().forward(*p);
         (q.easting, q.northing)
     };
-    // The symbol of each segment that is a plain open line.
-    let symbols: Vec<Option<u32>> = features
+    // The symbol and the side of each segment that is a plain open line.
+    let (symbols, sides): (Vec<Option<u32>>, Vec<Option<String>>) = features
         .iter()
         .map(|f| {
             let OsmGeometry::Line(points) = &f.geometry else {
-                return None;
+                return (None, None);
             };
             if points.len() < 2 || points.first() == points.last() {
-                return None;
+                return (None, None);
             }
-            let found = rules
+            let Some(found) = rules
                 .symbol_for(&f.tags, &f.geometry, kind)
-                .filter(|m| m.target == target && matches!(m.draw, Draw::Line))?;
-            symbol_set.id_for_code(&found.code)
+                .filter(|m| m.target == target && matches!(m.draw, Draw::Line))
+            else {
+                return (None, None);
+            };
+            (
+                symbol_set.id_for_code(&found.code),
+                line_side(&f.tags, &found.code),
+            )
         })
-        .collect();
+        .unzip();
     let cell = |(x, y): (f64, f64)| {
         (
             (x / JOIN_TOUCH_M).floor() as i64,
@@ -552,8 +580,10 @@ fn join_touching_lines(
             ends.entry((symbol, cx, cy)).or_default().push((i, at_end));
         }
     }
-    // The unused segment that continues `chain` at its last point, as (index, reversed).
-    let next = |chain: &[LatLon], used: &[bool], symbol: u32| -> Option<(usize, bool)> {
+    // The unused segment that continues `chain` (whose first segment is `first`) at its last
+    // point, as (index, reversed). A chain that is `turned` grows at its start: there a segment
+    // with a side must end where the chain starts.
+    let next = |chain: &[LatLon], used: &[bool], symbol: u32, first: usize, turned: bool| {
         let last = projected(chain.last()?);
         let before = projected(&chain[chain.len() - 2]);
         let heading = (last.0 - before.0, last.1 - before.1);
@@ -573,6 +603,9 @@ fn join_touching_lines(
                     if used[j] || (t.0 - last.0).hypot(t.1 - last.1) > JOIN_TOUCH_M {
                         continue;
                     }
+                    if sides[j] != sides[first] || (sides[j].is_some() && at_end != turned) {
+                        continue;
+                    }
                     let out = (s.0 - t.0, s.1 - t.1);
                     let norm = heading.0.hypot(heading.1) * out.0.hypot(out.1);
                     if norm > 0.0 && (heading.0 * out.0 + heading.1 * out.1) / norm >= JOIN_MIN_COS
@@ -582,7 +615,7 @@ fn join_touching_lines(
                 }
             }
         }
-        None
+        None::<(usize, bool)>
     };
     let mut used = vec![false; features.len()];
     let mut out = Vec::with_capacity(features.len());
@@ -598,8 +631,8 @@ fn join_touching_lines(
         let mut chain = points.clone();
         let mut members = vec![i];
         // Grow at the end, turn the chain round, grow at the other end.
-        for _ in 0..2 {
-            while let Some((j, reversed)) = next(&chain, &used, symbol) {
+        for turned in [false, true] {
+            while let Some((j, reversed)) = next(&chain, &used, symbol, i, turned) {
                 used[j] = true;
                 members.push(j);
                 let OsmGeometry::Line(more) = &features[j].geometry else {
