@@ -377,22 +377,27 @@ impl ProjectFile {
         Ok(project)
     }
 
-    /// Leaves out the Berlin layer records whose key is no plain file name or no layer of the
-    /// table, each with a warning. The key is shown escaped, as it may hold control characters.
+    /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
+    /// of the table, each with a warning. The key is shown escaped, as it may hold control
+    /// characters.
     fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(&str)) {
-        self.berlin_layers.retain(|key, _| {
+        let mut keep = |what: &str, key: &str, known: bool| {
             let reason = if !crate::fsutil::is_plain_name(key) {
                 "not a plain file name"
-            } else if known_berlin_layer(key).is_none() {
+            } else if !known {
                 "no layer freemapper knows"
             } else {
                 return true;
             };
             progress(&format!(
-                "warning: freemapper.toml: ignored the Berlin layer entry {key:?}: {reason}"
+                "warning: freemapper.toml: ignored the {what} layer entry {key:?}: {reason}"
             ));
             false
-        });
+        };
+        self.berlin_layers
+            .retain(|key, _| keep("Berlin", key, known_berlin_layer(key).is_some()));
+        self.nas_layers
+            .retain(|key, _| keep("NAS", key, known_nas_layer(key).is_some()));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -465,8 +470,8 @@ impl ProjectFile {
             remove_berlin_layer(dir, key);
         }
         self.berlin_layers.clear();
-        for file in self.nas_layers.keys() {
-            let _ = std::fs::remove_file(nas_layer_path(dir, file));
+        for key in self.nas_layers.keys() {
+            remove_nas_layer(dir, key);
         }
         self.nas_layers.clear();
         self.osm = None;
@@ -2344,9 +2349,29 @@ fn fetch_land_use_into(
     }
 }
 
-/// Path of the stored NAS layer `file` (without extension).
-fn nas_layer_path(dir: &Path, file: &str) -> PathBuf {
-    dir.join(NAS_LAYERS_DIR).join(format!("{file}.geojson"))
+/// The NAS layer the project file records under `key`, from the static table; `None` for a key
+/// no layer has.
+fn known_nas_layer(key: &str) -> Option<&'static alkis_nas::NasLayer> {
+    alkis_nas::NAS_LAYERS.iter().find(|layer| layer.file == key)
+}
+
+/// Path of the stored NAS `layer`: from a layer of the table, never from a name read from the
+/// project file (ADR 0059).
+fn nas_layer_path(dir: &Path, layer: &alkis_nas::NasLayer) -> PathBuf {
+    dir.join(NAS_LAYERS_DIR)
+        .join(format!("{}.geojson", layer.file))
+}
+
+/// Removes the stored NAS layer the project file records under `key`: only a layer of the
+/// table, and only when its file lies inside the project folder.
+fn remove_nas_layer(dir: &Path, key: &str) {
+    let Some(layer) = known_nas_layer(key) else {
+        return;
+    };
+    let path = nas_layer_path(dir, layer);
+    if crate::fsutil::stays_inside(dir, &path) {
+        let _ = std::fs::remove_file(path);
+    }
 }
 
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
@@ -2511,8 +2536,8 @@ fn fetch_nas_layers_into(
             progress(
                 "removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service",
             );
-            for file in previous.keys() {
-                let _ = std::fs::remove_file(nas_layer_path(dir, file));
+            for key in previous.keys() {
+                remove_nas_layer(dir, key);
             }
         }
         return BTreeMap::new();
@@ -2532,11 +2557,14 @@ fn fetch_nas_layers_into(
     let mut records = BTreeMap::new();
     for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind) {
         let file = fetched.layer.file;
-        let path = nas_layer_path(dir, file);
+        let path = nas_layer_path(dir, fetched.layer);
         let stored = fetched
             .features
             .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
             .and_then(|fetched| {
+                if !crate::fsutil::stays_inside(dir, &path) {
+                    return Err(format!("{NAS_LAYERS_DIR} leads out of the project folder"));
+                }
                 let parent = path.parent().expect("a file below the project folder");
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 write_atomically(
@@ -2599,8 +2627,8 @@ fn fetch_nas_layers_into(
         }
     }
     // Layers the map kind no longer uses, and failed ones that no longer cover the area.
-    for file in previous.keys().filter(|f| !records.contains_key(*f)) {
-        let _ = std::fs::remove_file(nas_layer_path(dir, file));
+    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
+        remove_nas_layer(dir, key);
     }
     records
 }
@@ -2627,7 +2655,7 @@ pub fn stored_nas_layers(
     let bbox = project.bbox()?;
     let mut layers = Vec::new();
     for layer in alkis_nas::nas_layers(project.map_kind) {
-        let path = nas_layer_path(dir, layer.file);
+        let path = nas_layer_path(dir, layer);
         let Some(record) = project
             .nas_layers
             .get(layer.file)
@@ -10182,6 +10210,80 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let saved = ProjectFile::load(dir.path()).unwrap();
         assert!(saved.berlin_layers.keys().all(|k| !k.contains("..")));
         assert!(saved.berlin_layers.contains_key("bauwerke-flaechen"));
+    }
+
+    #[test]
+    fn nas_layer_keys_never_name_paths() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        // `../../victim` leads to the project folder itself; an absolute key replaces the path.
+        let victim = dir.path().join("victim.geojson");
+        std::fs::write(&victim, b"{}").unwrap();
+        let elsewhere = tempfile::tempdir().unwrap();
+        let far = elsewhere.path().join("victim.geojson");
+        std::fs::write(&far, b"{}").unwrap();
+        let far_key = far.with_extension("").display().to_string();
+        let unsafe_keys = ["../../victim", far_key.as_str(), "no-such-layer"];
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        for key in unsafe_keys {
+            text.push_str(&format!(
+                "\n[nas_layers.{key:?}]\nbbox = [0.0, 0.0, 1.0, 1.0]\nfetched = \"2026-11-08\"\ncount = 1\n"
+            ));
+        }
+        std::fs::write(&file, text).unwrap();
+
+        // Loading drops them with a warning each.
+        let mut warnings = Vec::new();
+        let project =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(
+            project
+                .nas_layers
+                .keys()
+                .all(|k| alkis_nas::NAS_LAYERS.iter().any(|l| l.file == k)),
+            "{:?}",
+            project.nas_layers
+        );
+        let ignored: Vec<&String> = warnings
+            .iter()
+            .filter(|w| w.starts_with("warning: freemapper.toml: ignored the NAS layer entry"))
+            .collect();
+        assert_eq!(ignored.len(), 3, "{warnings:?}");
+
+        // An online fetch, the cleanup of a state left, and forgetting the fetched data delete
+        // only layers of the table.
+        fetch(dir.path(), &fetcher, &cache);
+        let previous: BTreeMap<String, AlkisRecord> = unsafe_keys
+            .iter()
+            .chain(&["sonstiges-bauwerk"])
+            .map(|k| (k.to_string(), some_layer_record()))
+            .collect();
+        let strausberg = FetchArea::new(project.region_bbox().unwrap(), Crs::Utm33);
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        for area in [strausberg, FetchArea::new(mitte, Crs::Utm33)] {
+            fetch_nas_layers_into(
+                dir.path(),
+                &fetcher,
+                &area,
+                MapKind::Sprint,
+                FetchMode::Online,
+                false,
+                &previous,
+                &mut |_| {},
+            );
+        }
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.nas_layers = previous;
+        project.drop_fetched(dir.path());
+        assert!(project.nas_layers.is_empty());
+        assert!(victim.exists(), "the file in the project folder is kept");
+        assert!(far.exists(), "the file outside the project is kept");
     }
 
     #[test]
