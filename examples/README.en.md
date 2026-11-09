@@ -8,8 +8,8 @@ made with `freemapper run --pdf --ocad`.
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 441 | 2574 | 25 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 783 | 2429 | 32 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 441 | 2584 | 24 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 783 | 2450 | 31 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
 | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1219 | 1218 | 25 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
 | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1605 | 1006 | 25 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
 | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 951 | 933 | 22 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
@@ -34,12 +34,13 @@ Canopies and carports from ALKIS are on the map as 522 in every state. Passages 
 candidates. Lübeck has 93 canopies and 185 passages and arcades, Wismar 113 canopies and carports. In Saxony and
 Saxony-Anhalt ALKIS has neither canopies nor passages, so those two examples have none.
 
-In Brandenburg freemapper also loads the full ALKIS (NAS) from the LGB. In Sanssouci that gives 271 wall edges (515),
-108 fences (518), 136 hedges (410.1), 124 embankment tops (104) and 4 bridges (501.5), all as candidates. ALKIS
-records both edges of a wall, so a wall often shows twice; delete the second line in OOM. Where OSM has the same wall,
-hedge or fence, only the ALKIS line stays, and it names the OSM line in `freemapper:also`. The Potsdam city map tree
-points are a tree cadastre as in Berlin. They give 1249 tree points, and OSM trees closer than 2 m to a cadastre tree
-are dropped.
+In Brandenburg freemapper also loads the full ALKIS (NAS) from the LGB. In Sanssouci that gives 264 wall lines (515),
+108 fences (518), 136 hedges (410.1), 125 embankment tops (104) and 4 bridges (501.5), all as candidates. ALKIS often
+records both edges of a wall. Where they face each other and lie closer than 0.55 mm on paper, freemapper draws one
+line in the middle; Sanssouci has 14 of these. Thicker walls and edges that face the same way stay double; delete the
+second line in OOM. Where OSM has the same wall, hedge or fence, only the ALKIS line stays, and it names the OSM line
+in `freemapper:also`. The Potsdam city map tree points are a tree cadastre as in Berlin. They give 1267 tree points,
+and OSM trees closer than 2 m to a cadastre tree are dropped.
 
 In Berlin, freemapper loads more layers from the Geoportal Berlin. Stairs, walls, fences, embankment edges, monuments
 and passages are candidates, and so are the trees from the tree cadastre, 1926 of them in the Viktoriapark. The Berlin
@@ -59,10 +60,10 @@ garden colony on the northern edge, in Wismar and Herrenhausen one more area eac
 
 Point symbols must not touch. Two points keep at least 0.15 mm apart; otherwise the larger one stays and names the
 other in the tag `freemapper:generalized`. Where three or more trees stand close together, freemapper turns them into
-an area: forest (405) at 50 % crown cover or more, otherwise open land with scattered trees (402), and 501.3 on paved
-ground. Rows of trees stay points. In the Viktoriapark 1527 of the 1926 cadastre trees stay points, 84 form four
-forest areas and 315 are dropped. In Sanssouci there are 1249 points and two forest areas made of 58 trees. Forest is
-white, so in a park these areas do not show in the PDF. The PDF leaves out points inside a 520 candidate; in the
+an area, but only on paving (501.3) or on open land the map already has: forest (405) at 50 % crown cover or more,
+otherwise open land with scattered trees (402). Rows of trees stay points. Neither park has open land under its tree
+groups, so neither gets a group area, and the trees are thinned. In the Viktoriapark 1550 of the 1926 cadastre trees
+stay points and 376 are dropped. Sanssouci keeps 1267 points. The PDF leaves out points inside a 520 candidate; in the
 template they carry `freemapper:hidden=520`.
 
 In the Viktoriapark the stairs on the plinth of the Nationaldenkmal lead up to the monument. Wide stairs such as the
