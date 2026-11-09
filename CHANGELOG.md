@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Sicherheit
+
+- Ein Link, der so heißt wie eine Teildatei von freemapper (`<Datei>.<Prozessnummer>.part`, eine halb geladene Datei im Zwischenspeicher oder im Projekt), ließ freemapper das Ziel des Links überschreiben, auch außerhalb des Projekts. freemapper löscht jetzt einen solchen Link, statt ihm zu folgen, und legt die Teildatei neu an. Erscheint in dem Moment wieder ein Link, bricht das Schreiben ab (ADR 0059).
+
 ## [0.6.1] - 2026-11-09
 
 ### Sicherheit

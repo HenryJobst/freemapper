@@ -32,6 +32,10 @@ Hesse) are already checked against strict patterns or replaced by names freemapp
   through a table lookup and the containment check, and loading drops unknown or unsafe keys with
   `warning: freemapper.toml: ignored the NAS layer entry "…": …`. The part file a NAS answer streams into
   lies in the same folder and is checked the same way.
+- Partial and temporary files (`<file>.<pid>.part` of the atomic writes, downloads streamed into a part file,
+  the NAS answer `data/alkis-nas/answer.gml.part`) are never opened through a link. `fsutil::create_new_file`
+  first removes whatever has that name without following it (a stale link goes, its target stays untouched).
+  It then creates the file with `create_new`, so a link put there in between makes the write fail.
 - New records in the project file follow the same rule. A name read from a record or a server goes into a
   path only after a lookup in a fixed table or a strict pattern check.
 

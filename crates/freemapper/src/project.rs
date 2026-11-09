@@ -10273,6 +10273,34 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!item(dir.path(), &cache, berlin).cached);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn nas_part_file_link_is_not_followed() {
+        use crate::sources::alkis_nas::{LGB_NAS, test_support};
+        let fetcher = MapFetcher::default();
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let bbox = ProjectFile::load(dir.path()).unwrap().bbox().unwrap();
+        fetcher.insert(
+            &LGB_NAS.get_feature_url("adv:AX_SonstigesBauwerkOderSonstigeEinrichtung", &bbox),
+            test_support::SONSTIGES_BAUWERK.as_bytes().to_vec(),
+        );
+        // A stale part file that is a link to a file outside the project.
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.geojson");
+        std::fs::write(&victim, b"secret").unwrap();
+        let layers = dir.path().join(NAS_LAYERS_DIR);
+        std::fs::create_dir_all(&layers).unwrap();
+        std::os::unix::fs::symlink(&victim, layers.join("answer.gml.part")).unwrap();
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(std::fs::read(&victim).unwrap(), b"secret");
+        assert_eq!(project.nas_layers["sonstiges-bauwerk"].count, 5);
+        assert!(std::fs::symlink_metadata(layers.join("answer.gml.part")).is_err());
+    }
+
     #[test]
     fn nas_layer_keys_never_name_paths() {
         let fetcher = MapFetcher::default();

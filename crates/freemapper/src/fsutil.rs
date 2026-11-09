@@ -45,7 +45,25 @@ pub(crate) fn write_files_atomically(
 }
 
 fn write_part(path: &Path, bytes: &[u8]) -> Result<PathBuf, (PathBuf, std::io::Error)> {
-    write_part_with(path, bytes, &|part, bytes| std::fs::write(part, bytes))
+    write_part_with(path, bytes, &|part, bytes| {
+        use std::io::Write as _;
+        create_new_file(part)?.write_all(bytes)
+    })
+}
+
+/// Creates the partial or temporary file `path` (a name freemapper made) for writing. Whatever
+/// is there is removed first, without following it: a stale link with that name (to a file
+/// outside the project or cache) is removed as a link, and its target is never written. The
+/// file is then created exclusively (`create_new`), so a link put there meanwhile makes the
+/// creation fail instead of being followed (ADR 0059).
+pub(crate) fn create_new_file(path: &Path) -> std::io::Result<std::fs::File> {
+    if std::fs::symlink_metadata(path).is_ok() {
+        std::fs::remove_file(path)?;
+    }
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
 }
 
 /// [`write_part`] through `write`, which tests replace with a full disk.
@@ -143,6 +161,25 @@ pub(crate) fn stays_inside(root: &Path, path: &Path) -> bool {
 mod tests {
     use super::*;
     use std::cell::Cell;
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_write_does_not_follow_a_linked_part_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let victim = outside.path().join("victim.txt");
+        std::fs::write(&victim, b"secret").unwrap();
+        let path = dir.path().join("a.txt");
+        // A stale partial file of this process id that is a link out of the folder.
+        let part = dir
+            .path()
+            .join(format!("a.txt.{}.part", std::process::id()));
+        std::os::unix::fs::symlink(&victim, &part).unwrap();
+        write_atomically(&path, b"new").unwrap();
+        assert_eq!(std::fs::read(&victim).unwrap(), b"secret");
+        assert_eq!(std::fs::read(&path).unwrap(), b"new");
+        assert!(std::fs::symlink_metadata(&part).is_err());
+    }
 
     #[test]
     fn pair_is_written_completely() {

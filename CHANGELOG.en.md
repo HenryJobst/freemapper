@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Security
+
+- A link named like one of freemapper's partial files (`<file>.<process id>.part`, a half-loaded file in the cache or the project) made freemapper overwrite the link's target, even outside the project. freemapper now removes such a link instead of following it and creates the partial file anew. If a link shows up there again in that moment, the write fails (ADR 0059).
+
 ## [0.6.1] - 2026-11-09
 
 ### Security
