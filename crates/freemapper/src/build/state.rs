@@ -127,6 +127,18 @@ pub fn state_objects(
 }
 
 #[cfg(test)]
+pub(crate) mod test_support {
+    use serde_json::Value;
+
+    /// The stored form of the Mecklenburg-Vorpommern vereinfacht fixture.
+    pub fn mv_features() -> Vec<Value> {
+        let text = include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-buildings.json");
+        let collection: Value = serde_json::from_str(text).unwrap();
+        collection["features"].as_array().unwrap().clone()
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::build::canopy::{CanopyInput, canopy_objects};
@@ -138,11 +150,7 @@ mod tests {
         parse_gml(text).unwrap()
     }
 
-    fn mv_features() -> Vec<Value> {
-        let text = include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-buildings.json");
-        let collection: Value = serde_json::from_str(text).unwrap();
-        collection["features"].as_array().unwrap().clone()
-    }
+    use super::test_support::mv_features;
 
     /// Every coordinate pair of the features.
     fn corners(features: &[Value]) -> Vec<(f64, f64)> {
@@ -340,5 +348,21 @@ mod tests {
         assert!(!stored.is_empty());
         assert!(passages(Crs::Utm33, MapKind::Sprint, &stored).is_empty());
         assert!(canopies(Crs::Utm33, &stored).is_empty());
+    }
+
+    #[test]
+    fn passage_values_match_the_rule_file() {
+        // `PASSAGES` is the spelling state.rs hands to the rule; the file must list the same.
+        let rules = include_str!("../../../../assets/rules/state-candidates.toml");
+        let line = rules
+            .lines()
+            .find(|l| l.contains("alkis:funktion="))
+            .expect("the passage rule");
+        let values = line
+            .split("alkis:funktion=")
+            .nth(1)
+            .and_then(|v| v.split('"').next())
+            .unwrap();
+        assert_eq!(values.split('|').collect::<Vec<_>>(), PASSAGES);
     }
 }

@@ -346,12 +346,7 @@ mod tests {
         assert_eq!(objects(MapKind::Sprint, &narrow, &[]).len(), 1);
     }
 
-    /// The Mecklenburg-Vorpommern vereinfacht fixture.
-    fn mv_features() -> Vec<Value> {
-        let text = include_str!("../../../../tests/fixtures/mecklenburg-vorpommern-buildings.json");
-        let collection: Value = serde_json::from_str(text).unwrap();
-        collection["features"].as_array().unwrap().clone()
-    }
+    use crate::build::state::test_support::mv_features;
 
     /// A map of `kind` around the fixture features (EPSG:25833), and its map area.
     fn mv_setup(kind: MapKind) -> (Georeferencing, Polygon<f64>, SymbolSet) {
