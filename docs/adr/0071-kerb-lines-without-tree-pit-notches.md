@@ -67,3 +67,16 @@ Rule 1 now reads: a detour is replaced by its chord when it returns within 10 mm
 (10 m at 1:4000), reaches out at least 0.3 of its chord from the chord and encloses less than 1.5 mm². The chord
 limit keeps a long gentle deviation, which a depth share alone would flatten. Rule 3 looks for curve start flags
 only. In the example the survey kerbs go from 6,522 to 5,105 vertices and from 81 to 76 lines.
+
+## Amendment 2026-11-10 (2): a notch returns to the line
+
+The depth rule of the first amendment let a detour end anywhere. In the Viktoriapark it cut from the last vertex
+on the street edge to the apex of a slot (Li_15.04.2015_251) and drew a spike at that tree. Next to the X mark
+it cut across a step of the kerb, where the kerb moves back by 5.7 m, and drew a diagonal instead of the
+survey's corner. The user saw both on the street along the park.
+
+A detour now also has to lie on a straight run: the kerb 0.5 mm before its start and 0.5 mm after its end
+points within 20 degrees of its chord. A side that has no point that far away (the start or end of a line, where
+the survey splits the kerb at a pit) is not tested. A spike chord is 31 degrees off the edge and a step chord
+54 degrees, a pit chord under 15. Tests carry the real geometry of both places. In the example the survey kerbs
+have 5,787 vertices in 76 lines.
