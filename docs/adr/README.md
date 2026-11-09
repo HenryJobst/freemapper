@@ -81,7 +81,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0033](0033-lower-saxony-dates-from-stac.md) | Lower Saxony: dates from STAC, the newest item at the centre | Accepted | 2026-11-08 |
 | [0034](0034-warning-for-areas-beyond-every-supported-state.md) | A warning for areas that reach beyond every supported state | Accepted | 2026-11-08 |
 | [0035](0035-bremen-outside-until-its-own-region.md) | Bremen stays outside until it gets its own region | Accepted | 2026-11-08 |
-| [0036](0036-water-from-alkis-as-fill-and-bank-lines.md) | Water from ALKIS as fill and bank lines, water from OSM as candidates | Accepted | 2026-11-08 |
+| [0036](0036-water-from-alkis-as-fill-and-bank-lines.md) | Water from ALKIS as fill and bank lines, water from OSM as candidates | Accepted, amended ADR 0070 | 2026-11-08 |
 | [0037](0037-ai-features-are-optional.md) | AI features inside the program are optional | Accepted | 2026-11-08 |
 | [0038](0038-rhineland-palatinate-orthophoto-from-the-wms-dated-by-its-creation-date.md) | Rhineland-Palatinate: orthophoto from the WMS, dated by its creation date | Accepted | 2026-11-08 |
 | [0039](0039-rhineland-palatinate-tile-names-from-the-laserbefliegung-index.md) | Rhineland-Palatinate: tile names from the Laserbefliegung index, the Metalink for unnamed tiles | Accepted | 2026-11-08 |
@@ -115,3 +115,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0067](0067-shared-crates-from-freemapper-core.md) | freemapper uses shared crates from freemapper-core | Accepted | 2026-11-09 |
 | [0068](0068-overlapping-walls-fences-and-hedges.md) | Overlapping walls, fences and hedges keep the stronger line | Accepted | 2026-11-10 |
 | [0069](0069-parks-as-open-land-and-the-walkable-area.md) | Parks are open land, and the walkable area lies under the sprint map | Accepted | 2026-11-09 |
+| [0070](0070-osm-multipolygon-relations.md) | OSM multipolygon relations are read | Accepted | 2026-11-10 |

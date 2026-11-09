@@ -2452,9 +2452,25 @@ pub(crate) mod test_support {
     /// An OSM node for [`osm_pbf`]: id, latitude, longitude, tags.
     pub type PbfNode<'a> = (i64, f64, f64, &'a [(&'a str, &'a str)]);
 
+    /// An OSM way for [`osm_pbf_with`]: id, node ids, tags.
+    pub type PbfWay<'a> = (i64, &'a [i64], &'a [(&'a str, &'a str)]);
+
+    /// An OSM relation for [`osm_pbf_with`]: id, way members (way id, role), tags.
+    pub type PbfRelation<'a> = (i64, &'a [(i64, &'a str)], &'a [(&'a str, &'a str)]);
+
     /// A minimal OSM PBF (uncompressed blobs, plain nodes): the header block, then one block
     /// with each node.
     pub fn osm_pbf(nodes: &[PbfNode<'_>]) -> Vec<u8> {
+        osm_pbf_with(nodes, &[], &[])
+    }
+
+    /// Like [`osm_pbf`], with ways and relations (way members only): one group each of nodes,
+    /// ways and relations.
+    pub fn osm_pbf_with(
+        nodes: &[PbfNode<'_>],
+        ways: &[PbfWay<'_>],
+        relations: &[PbfRelation<'_>],
+    ) -> Vec<u8> {
         fn varint(out: &mut Vec<u8>, mut v: u64) {
             while v >= 0x80 {
                 out.push((v as u8) | 0x80);
@@ -2508,6 +2524,50 @@ pub(crate) mod test_support {
             number(&mut node, 9, zigzag((lon * 1e7).round() as i64));
             bytes(&mut group, 1, &node);
         }
+        let mut way_group = Vec::new();
+        for &(id, refs, tags) in ways {
+            let (mut keys, mut vals) = (Vec::new(), Vec::new());
+            for (k, v) in tags {
+                varint(&mut keys, index(k));
+                varint(&mut vals, index(v));
+            }
+            let mut deltas = Vec::new();
+            let mut last = 0;
+            for &r in refs {
+                varint(&mut deltas, zigzag(r - last));
+                last = r;
+            }
+            let mut way = Vec::new();
+            number(&mut way, 1, id as u64);
+            bytes(&mut way, 2, &keys);
+            bytes(&mut way, 3, &vals);
+            bytes(&mut way, 8, &deltas);
+            bytes(&mut way_group, 3, &way);
+        }
+        let mut relation_group = Vec::new();
+        for &(id, members, tags) in relations {
+            let (mut keys, mut vals) = (Vec::new(), Vec::new());
+            for (k, v) in tags {
+                varint(&mut keys, index(k));
+                varint(&mut vals, index(v));
+            }
+            let (mut roles, mut ids, mut types) = (Vec::new(), Vec::new(), Vec::new());
+            let mut last = 0;
+            for &(way, role) in members {
+                varint(&mut roles, index(role));
+                varint(&mut ids, zigzag(way - last));
+                last = way;
+                varint(&mut types, 1); // MemberType::WAY
+            }
+            let mut relation = Vec::new();
+            number(&mut relation, 1, id as u64);
+            bytes(&mut relation, 2, &keys);
+            bytes(&mut relation, 3, &vals);
+            bytes(&mut relation, 8, &roles);
+            bytes(&mut relation, 9, &ids);
+            bytes(&mut relation, 10, &types);
+            bytes(&mut relation_group, 4, &relation);
+        }
         let mut table = Vec::new();
         for s in &strings {
             bytes(&mut table, 1, s.as_bytes());
@@ -2515,6 +2575,12 @@ pub(crate) mod test_support {
         let mut block = Vec::new();
         bytes(&mut block, 1, &table);
         bytes(&mut block, 2, &group);
+        if !way_group.is_empty() {
+            bytes(&mut block, 2, &way_group);
+        }
+        if !relation_group.is_empty() {
+            bytes(&mut block, 2, &relation_group);
+        }
         let mut header = Vec::new();
         bytes(&mut header, 4, b"OsmSchema-V0.6");
         let mut file = Vec::new();

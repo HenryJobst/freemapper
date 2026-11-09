@@ -242,6 +242,11 @@ Aus OSM kommen weitere Kandidaten:
   im Wasser stehen, lässt freemapper weg, denn meist sind es die Fontänen in einem Becken.
 - Brücken als befestigte Fläche (501.5), nur auf Sprintkarten. Sie liegen über dem Wasser.
 
+OSM-Flächen, die Multipolygon-Relationen sind, zählen wie Wege: ein See mit Inseln, ein Park mit einer Straße
+durch die Mitte oder ein Gebäude mit Innenhof. Die Löcher bleiben im Kartenobjekt leer, der Innenhof liegt also
+nicht im Gebäude. Entscheidend sind die Tags der Relation selbst; ihre Wege brauchen keine. Eine früher erstellte
+Karte bekommt diese Flächen erst mit `run --force`.
+
 Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlinie aus OSM nicht.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
