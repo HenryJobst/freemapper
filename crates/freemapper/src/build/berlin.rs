@@ -843,6 +843,102 @@ pub fn drop_points_near_registers(
     (keep(osm, dropped_osm), keep(berlin, dropped_berlin))
 }
 
+/// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
+const SHELTER_UNDER_CANOPY_SHARE: f64 = 0.5;
+
+/// The area of a map object in map coordinates: the first closed run of coordinates is the
+/// exterior, the others are holes. `None` for a point or a line too short for a ring.
+fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
+    use crate::omap::coord::FLAG_CLOSE;
+    if !matches!(object.kind, MapObjectKind::Path) {
+        return None;
+    }
+    let mut rings: Vec<geo_types::LineString<f64>> = Vec::new();
+    let mut ring = Vec::new();
+    for c in &object.coords {
+        ring.push((f64::from(c.x), f64::from(c.y)));
+        if c.flags & FLAG_CLOSE != 0 {
+            rings.push(std::mem::take(&mut ring).into());
+        }
+    }
+    if !ring.is_empty() {
+        rings.push(ring.into());
+    }
+    let mut rings = rings.into_iter().filter(|r| r.0.len() >= 3);
+    Some(geo_types::Polygon::new(rings.next()?, rings.collect()))
+}
+
+/// ALKIS wins over the survey for roofs too: a survey bus shelter (`br_fahrgastunterstand`, a
+/// 522 candidate) with at least [`SHELTER_UNDER_CANOPY_SHARE`] of its area under the ALKIS
+/// `canopies` (522 map objects) is dropped, and the canopy with the largest share names it in
+/// `freemapper:also`. Everything else stays.
+pub fn drop_shelters_under_canopies(
+    berlin: Vec<MapObject>,
+    canopies: &mut [MapObject],
+) -> Vec<MapObject> {
+    use geo::{Area as _, BooleanOps as _, Intersects as _};
+    let roofs: Vec<(usize, geo_types::Polygon<f64>, geo_types::Rect<f64>)> = canopies
+        .iter()
+        .enumerate()
+        .filter_map(|(i, o)| {
+            let polygon = object_polygon(o)?;
+            let bounds = polygon.bounding_rect()?;
+            Some((i, polygon, bounds))
+        })
+        .collect();
+    if roofs.is_empty() {
+        return berlin;
+    }
+    let is_shelter = |o: &MapObject| {
+        o.tags
+            .iter()
+            .any(|(k, v)| k == "berlin:layer" && v == "br_fahrgastunterstand")
+    };
+    let mut kept = Vec::with_capacity(berlin.len());
+    for object in berlin {
+        let shelter = is_shelter(&object)
+            .then(|| object_polygon(&object))
+            .flatten()
+            .and_then(|p| p.bounding_rect().map(|b| (p, b)));
+        let Some((shelter, bounds)) = shelter else {
+            kept.push(object);
+            continue;
+        };
+        let area = shelter.unsigned_area();
+        let shares: Vec<(usize, f64)> = roofs
+            .iter()
+            .filter(|(_, _, b)| b.intersects(&bounds))
+            .map(|(i, roof, _)| (*i, shelter.intersection(roof).unsigned_area()))
+            .filter(|&(_, share)| share > 0.0)
+            .collect();
+        // Canopies do not overlap each other (ALKIS areas), so the shares add up.
+        let covered: f64 = shares.iter().map(|(_, share)| share).sum();
+        if area <= 0.0 || covered < SHELTER_UNDER_CANOPY_SHARE * area {
+            kept.push(object);
+            continue;
+        }
+        let winner = shares
+            .iter()
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|&(i, _)| i)
+            .expect("some share is under a canopy");
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        let also = format!(
+            "{}/{}",
+            tag("freemapper:source"),
+            tag("freemapper:source_id")
+        );
+        add_also(&mut canopies[winner].tags, &also);
+    }
+    kept
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1158,6 +1254,69 @@ mod tests {
                 .map(|c| set.id_for_code(c))
                 .to_vec()
         );
+    }
+
+    #[test]
+    fn survey_shelter_under_an_alkis_canopy_is_dropped() {
+        let kind = MapKind::Sprint;
+        let (georef, area, set) = setup(kind);
+        let rect = |e: f64, n: f64, w: f64, h: f64| {
+            serde_json::json!([[[e, n], [e + w, n], [e + w, n + h], [e, n + h], [e, n]]])
+        };
+        // An ALKIS canopy of 10 × 4 m.
+        let canopy = serde_json::json!({
+            "type": "Feature", "id": "bauwerkeflaechen.D",
+            "geometry": {"type": "Polygon", "coordinates": rect(392_500.0, 5_820_500.0, 10.0, 4.0)},
+            "properties": {"uuid": "DEBE00DACH", "bezbwf": "Überdachung"}
+        });
+        let mut canopies = crate::build::canopy::canopy_objects(
+            &[canopy],
+            &[],
+            &area,
+            20.0,
+            &georef,
+            &set,
+            "2026-11-09".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(canopies.len(), 1);
+        let shelter = |id: &str, e: f64, n: f64| {
+            survey_feature(
+                "br_fahrgastunterstand",
+                serde_json::json!({
+                    "type": "Feature", "id": format!("br_fahrgastunterstand.{id}"),
+                    "geometry": {"type": "Polygon", "coordinates": rect(e, n, 4.0, 2.0)},
+                    "properties": {"gis_id": format!("Fl_20150413_{id}")}
+                }),
+            )
+        };
+        let shelters = [
+            // Wholly under the canopy: the same roof.
+            shelter("1", 392_501.0, 5_820_501.0),
+            // A quarter under it: another roof beside it.
+            shelter("2", 392_509.0, 5_820_500.0),
+            // Far away.
+            shelter("3", 392_550.0, 5_820_500.0),
+        ];
+        let mut berlin = survey_objects("sb-objekte", &shelters, kind);
+        // Another 522 candidate under the canopy that is no shelter stays.
+        let mut passage = berlin[0].clone();
+        passage.tags = vec![("berlin:layer".into(), "building-parts".into())];
+        berlin.push(passage);
+        assert_eq!(berlin.len(), 4);
+        let kept = drop_shelters_under_canopies(berlin, &mut canopies);
+        let ids: Vec<&str> = kept
+            .iter()
+            .map(|o| object_tag(o, "freemapper:source_id").unwrap_or("passage"))
+            .collect();
+        assert_eq!(ids, ["Fl_20150413_2", "Fl_20150413_3", "passage"]);
+        assert_eq!(
+            object_tag(&canopies[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-objekte/Fl_20150413_1")
+        );
+        // Without canopies every shelter stays.
+        let berlin = survey_objects("sb-objekte", &shelters, kind);
+        assert_eq!(drop_shelters_under_canopies(berlin, &mut []).len(), 3);
     }
 
     /// A survey or ALKIS line of `symbol` at `n`, `e0`..`e1` (metres from Alexanderplatz).

@@ -423,7 +423,9 @@ bis 2 m. Weiter entfernte vermessene Masten tragen meist Schilder oder Ampeln. E
 ersetzt die OSM- und die vermessenen Brunnen bis 3 m. Auf Schulhofkarten ersetzt ein vermessener Hydrant, eine
 Bank, ein Mast, ein Fahnenmast oder ein Spielgerät das OSM-Gegenstück bis 2 m. freemapper lässt eine
 vermessene Linie weg, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben einer ALKIS-Linie mit demselben
-Symbol liegt, ebenso eine vermessene Treppe, die sich mindestens zur Hälfte mit einer ALKIS-Treppe deckt. Eine
+Symbol liegt, ebenso eine vermessene Treppe, die sich mindestens zur Hälfte mit einer ALKIS-Treppe deckt.
+Auch ein vermessener Fahrgastunterstand, der mindestens zur Hälfte unter einer ALKIS-Überdachung liegt, fällt
+weg, denn die Überdachung steht schon in der Karte. Eine
 vermessene Mauer neben einer ALKIS-Stützmauer bleibt, denn die Symbole sind verschieden. Das bleibende Objekt
 nennt die weggelassenen in `freemapper:also`, ein vermessenes etwa als
 `geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. Liegt ein Brunnen aus einem Register oder der

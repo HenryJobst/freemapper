@@ -17,6 +17,9 @@ ALKIS lines, and ADR 0051 OSM trees near cadastre trees.
   with the same symbol is dropped. Then OSM lines are compared with ALKIS and the remaining survey lines.
 - Stairs: a survey stair covering at least 50 % of the smaller of it and an ALKIS stair area or step-edge flight
   is dropped. There are no OSM stair rules.
+- Roofs: a survey bus shelter (`br_fahrgastunterstand`, 522 candidate) with at least 50 % of its area under ALKIS
+  canopies (`Überdachung`, `Carport`, 522 map objects) is dropped. The live data gave no evidence either way, but
+  a shelter the cadastre already draws as a map object would only double it.
 - Points: OSM `highway=street_lamp` within 5 m of a lamp of the lighting cadastre is dropped, and so is a
   survey `as_mast` within 2 m. Within 3 m of a register fountain or drinking fountain, OSM `amenity=fountain` or
   `amenity=drinking_water` and the matching survey points are dropped. 3 m, because a fountain basin is larger

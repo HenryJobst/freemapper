@@ -253,7 +253,8 @@ these refinements.
   cut.
 - Surveyed paving is reduced by every parcel that `paved.rs` draws, not only by `Straßenverkehr`.
 - Curbs are sprint-only (user decision). Survey lines and stairs give way to ALKIS ones at the same place
-  (1.5 m and 80 % for lines, 50 % footprint overlap for stairs).
+  (1.5 m and 80 % for lines, 50 % footprint overlap for stairs). A bus shelter at least half under an ALKIS
+  canopy (522 map object) is dropped.
 - Short segments are joined before the 1 mm length limit.
 - `gis_id` dates: 1 964 YYYYMMDD and 6 993 DDMMYYYY ids in the samples, all parsed.
 

@@ -553,8 +553,9 @@ also carries `berlin:layer` as an object tag (`bauwerke-linien` for the plus 1 f
 - *duplicates (ADR 0055), order register > ALKIS > survey > OSM:* a survey line with at least 80 % of its length
   within 1.5 m of an ALKIS line with the same symbol is dropped (`drop_survey_lines_near_alkis`), then OSM lines
   against ALKIS and the remaining survey lines. A survey stair covering at least 50 % of the smaller of it and an
-  ALKIS stair area or step-edge flight is dropped. Survey walls (515) and ALKIS retaining walls (513.2) both
-  stay. Register points win for lamps within 5 m of OSM `highway=street_lamp` and within 2 m of survey
+  ALKIS stair area or step-edge flight is dropped, and so is a survey bus shelter with at least 50 % of its
+  area under ALKIS canopies (`drop_shelters_under_canopies`). Survey walls (515) and ALKIS retaining walls
+  (513.2) both stay. Register points win for lamps within 5 m of OSM `highway=street_lamp` and within 2 m of survey
   `as_mast`, and within 3 m for fountains (OSM `amenity=fountain`, survey `af_…`, `bv_…`) and drinking water
   (OSM `amenity=drinking_water`, survey `ac_…`). Then survey furniture wins within 2 m over OSM:
   `aq_hydrant` over `emergency=fire_hydrant`, `bj_sitzbank` over `amenity=bench`, `as_mast` and

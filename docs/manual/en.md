@@ -410,7 +410,8 @@ away. Surveyed masts further off are mostly sign and signal masts. A fountain of
 surveyed fountains up to 3 m away. On schoolyard maps a surveyed hydrant, bench, mast, flag pole or play item
 replaces the OSM one up to 2 m away. freemapper drops a surveyed line with at least 80 %
 of its length within 1.5 m of an ALKIS line with the same symbol, and a surveyed stair that overlaps an ALKIS
-stair by at least half. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
+stair by at least half. A surveyed bus shelter that lies at least half under an ALKIS canopy is dropped too,
+because the canopy is already on the map. A surveyed wall next to an ALKIS retaining wall stays, because the symbols differ. The
 object that stays names the dropped ones in `freemapper:also`, a surveyed one e.g. as
 `geoportal-berlin/sb-gelaender/Li_2015-05-02_1`. freemapper also leaves out a fountain of the register or of the
 street survey inside drawn water, as it does the OSM fountains.

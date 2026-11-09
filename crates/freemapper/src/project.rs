@@ -11,7 +11,7 @@ use crate::area::{AreaError, MapArea};
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
     drop_osm_lines_near_alkis, drop_osm_trees_near_cadastre, drop_points_near_registers,
-    drop_survey_lines_near_alkis,
+    drop_shelters_under_canopies, drop_survey_lines_near_alkis,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -3503,7 +3503,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
     )?;
     let berlin_layers = stored_berlin_layers(dir, &project)?;
-    let structures = stored_berlin_structures(
+    let mut structures = stored_berlin_structures(
         dir,
         &project,
         &berlin_layers,
@@ -3573,6 +3573,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         drop_points_near_registers(osm_candidates, berlin_candidates, georef.scale_denominator);
     let berlin_candidates =
         drop_points_in_water(berlin_candidates, &water.union, &georef, &symbol_set);
+    // A surveyed bus shelter under an ALKIS canopy is that canopy.
+    let berlin_candidates =
+        drop_shelters_under_canopies(berlin_candidates, &mut structures.canopies);
     // A register is named once its points are among the candidates.
     let registers = drawn_registers(&berlin_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
