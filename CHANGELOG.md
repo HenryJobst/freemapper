@@ -22,6 +22,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Beispiele Viktoriapark und Lübeck sind mit den neuen OSM-Regeln neu gebaut. Viktoriapark: Kartenobjekte 789 auf 740 (505.1: 58 auf 9, weil verdichteter Kies zum Kandidaten wird), Kandidaten 2.094 auf 2.332 (531: 5 auf 121, davon 116 Kontrollstandorte; 520: 73 auf 117; 522: 179 auf 211; 501.6: 45 neu, 501.9: 4 neu; 526: 1 auf 3). Lübeck: Kartenobjekte 2.294 auf 2.281, Kandidaten 1.528 auf 1.859 (522: 185 auf 280; 531: 0 auf 195; 520: 1.090 auf 1.125; 526: 0 auf 10; 501.6: 13 neu; 505.1: 35 auf 16). Die gespeicherten OSM-Objekte steigen von 755 auf 1.371 (Viktoriapark) und von 234 auf 927 (Lübeck).
 - Verdichteter Kies und Feinkies (`surface=compacted|fine_gravel`) ist nach ISSprOM 501 fest und deshalb kein unbefestigter Weg mehr in der Karte, sondern ein 501.6-bis-501.9-Kandidat nach `width`. Ab 3 m Breite sind unbefestigte Wege 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype` (ADR 0073).
 - Baumgruppenflächen (402, 405) verdecken keine Wege mehr. freemapper schneidet sie auch an befestigten Kandidaten und an Wegen (505, 506, 507) aus. Die punktierte Vegetationsgrenze (416) gibt es nur noch auf der Schulhofkarte, auf der Sprintkarte zeigt sich der weiße Wald auf Gelb oder Braun. Im Viktoriapark bleiben dadurch mehr Bäume Punkte (1 128 statt 835), die 49 Grenzlinien entfallen (ADR 0069).
 - Alle elf Beispielprojekte sind neu erzeugt, mit gelben Parks und der belaufbaren Fläche.
