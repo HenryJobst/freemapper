@@ -149,9 +149,11 @@ Development: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings
 Git hooks: `lefthook install`.
 
 Shared code of the suite comes step by step from
-[freemapper-core](https://github.com/HenryJobst/freemapper-core). To change it alongside freemapper,
-check freemapper-core out next to freemapper and use it during development through a local `[patch]`.
-The freemapper-core README has the details.
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). `Cargo.toml` pins it to a release tag
+through git, so the first build fetches it from GitHub. To change it alongside freemapper, check
+freemapper-core out next to freemapper and use it during development through a local `[patch]`, which comes
+out again before the merge. The freemapper-core README and
+[ADR 0067](docs/adr/0067-shared-crates-from-freemapper-core.md) have the details.
 
 ## Usage
 

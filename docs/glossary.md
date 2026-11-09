@@ -220,6 +220,7 @@ Orienteering Maps 2019 (IOF).
 | Teil (eines Abrufs) | part (of a fetch) | Downloads, die freemapper nur zusammen lädt oder auslässt: Kartendaten (ALKIS, OSM), Geländemodell, Luftbild, Oberflächenmodell, Aktualisierung des OSM-Auszugs. | `Part` |
 | Speicherplan | space plan | Welche Teile eines Abrufs auf die Datenträger passen; fehlt Platz, lässt freemapper die entbehrlichen aus und warnt. | `SpacePlan`, `Shortfall` |
 | Datenträger voll | disk full | Schreibfehler, weil der Datenträger voll ist (ENOSPC); freemapper löscht die halbe Datei und meldet es klar. | `is_storage_full` |
+| Gemeinsame Bibliothek | shared crate | Rust-Crate aus freemapper-core, die mehrere Programme der Suite nutzen; freemapper bindet sie über Git mit festem Release-Tag ein (ADR 0067). | `freemapper_fs` |
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |

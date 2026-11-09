@@ -3,6 +3,10 @@
 Date: 2026-11-09
 Status: Accepted
 
+Moved to freemapper-core ADR 0008; freemapper uses the crate `freemapper-fs` since v0.7.1 (ADR 0067).
+The text below stays as decided. What it says of `fsutil` now lives in the crate, and `fsutil` keeps only
+freemapper's wording of the refusals.
+
 ## Context
 
 freemapper stores each extra Berlin layer in `data/berlin/<file>.geojson` and records it in `freemapper.toml`

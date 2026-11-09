@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- freemapper now writes, copies and removes files in the project folder with the shared crate `freemapper-fs` from freemapper-core 0.2.0 and no longer keeps its own copy. Nothing changes for users, and the messages keep their wording (ADR 0067).
+
 ## [0.7.0] - 2026-11-09
 
 ### Added

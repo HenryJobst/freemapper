@@ -112,3 +112,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0064](0064-nas-stairs-from-the-bottom-edge.md) | NAS stairs run up from their bottom edge | Accepted | 2026-11-09 |
 | [0065](0065-city-tree-cadastres-through-one-reader-potsdam-first.md) | City tree cadastres through one reader, Potsdam first | Accepted | 2026-11-09 |
 | [0066](0066-point-symbol-generalization.md) | Point symbols keep the norm's gap; dense tree groups become areas | Accepted | 2026-11-09 |
+| [0067](0067-shared-crates-from-freemapper-core.md) | freemapper uses shared crates from freemapper-core | Accepted | 2026-11-09 |
