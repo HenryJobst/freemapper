@@ -79,19 +79,47 @@ fn copy_inside_with(
 }
 
 /// Opens the copy source `from` and makes sure the file opened is the one checked: a regular
-/// file, no link, still inside `root` after the open. Someone who swaps the file or its folder
-/// for a link between the check and the open gets [`NOT_COPIED`]. Errors name `from`.
+/// file, no link, and the very file that `from` resolves to inside `root` after the open.
+/// Someone who swaps the file or its folder for a link around the open gets [`NOT_COPIED`].
+/// Errors name `from`.
 fn open_source(root: &Path, from: &Path) -> Result<std::fs::File, (PathBuf, io::Error)> {
+    open_source_with(root, from, &|| {})
+}
+
+/// [`open_source`] that runs `after_open` right after the open (tests swap the folder back
+/// there).
+fn open_source_with(
+    root: &Path,
+    from: &Path,
+    after_open: &dyn Fn(),
+) -> Result<std::fs::File, (PathBuf, io::Error)> {
     let named = |e: io::Error| (from.to_path_buf(), e);
+    let refused = || named(io::Error::other(NOT_COPIED));
     let before = std::fs::symlink_metadata(from).map_err(named)?;
     let file = open_not_following(from).map_err(named)?;
+    after_open();
     let opened = file.metadata().map_err(named)?;
     let inside = stays_inside(root, from);
+    // The path as resolved now must lie in the project and name the opened file (volume and
+    // file index on Windows, device and inode on Unix), so a folder swapped and swapped back
+    // around the open does not pass.
+    let resolved = std::fs::canonicalize(from).map_err(named)?;
+    let root = std::fs::canonicalize(root).map_err(named)?;
+    let opened_handle = same_file::Handle::from_file(file.try_clone().map_err(named)?);
+    let resolved_handle = same_file::Handle::from_path(&resolved);
+    let is_resolved = matches!((opened_handle, resolved_handle), (Ok(a), Ok(b)) if a == b);
     let after = std::fs::symlink_metadata(from).map_err(named)?;
-    let unchanged = same_file(&before, &opened) && same_file(&after, &opened);
+    let unchanged = same_inode(&before, &opened) && same_inode(&after, &opened);
     let is_link = before.file_type().is_symlink() || after.file_type().is_symlink();
-    if !opened.is_file() || is_reparse_point(&opened) || is_link || !unchanged || !inside {
-        return Err(named(io::Error::other(NOT_COPIED)));
+    if !opened.is_file()
+        || is_reparse_point(&opened)
+        || is_link
+        || !unchanged
+        || !inside
+        || !resolved.starts_with(&root)
+        || !is_resolved
+    {
+        return Err(refused());
     }
     Ok(file)
 }
@@ -128,9 +156,9 @@ fn is_reparse_point(metadata: &std::fs::Metadata) -> bool {
     }
 }
 
-/// Whether `a` and `b` describe the same file (device and inode on Unix). Windows has no stable
-/// file id in std; there the reparse point check above stands in.
-fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+/// Whether `a` and `b` describe the same file by device and inode (Unix). std has no stable
+/// file id on Windows; there the `same_file` handle comparison in [`open_source_with`] does it.
+fn same_inode(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt as _;
@@ -727,5 +755,24 @@ mod tests {
         let (path, e) = copy_inside_with(dir.path(), &from, &to, &swap).unwrap_err();
         assert_eq!((path, e.to_string()), (from, NOT_COPIED.to_string()));
         assert!(!to.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_source_folder_swapped_around_the_open_is_refused() {
+        let (dir, outside, _secret) = project_and_secret();
+        let templates = dir.path().join("templates");
+        let from = templates.join("x.png");
+        let kept = dir.path().join("kept");
+        // The folder is a link to the secret's folder when the file is opened, and back when
+        // the path is checked again.
+        std::fs::rename(&templates, &kept).unwrap();
+        std::os::unix::fs::symlink(outside.path(), &templates).unwrap();
+        let swap_back = || {
+            std::fs::remove_file(&templates).unwrap();
+            std::fs::rename(&kept, &templates).unwrap();
+        };
+        let (path, e) = open_source_with(dir.path(), &from, &swap_back).unwrap_err();
+        assert_eq!((path, e.to_string()), (from, NOT_COPIED.to_string()));
     }
 }

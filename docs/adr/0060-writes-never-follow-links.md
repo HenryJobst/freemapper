@@ -38,10 +38,14 @@ Most other files already went through a partial file and a rename. The partial f
   (ADR 0059).
 - A copy reads only files of the project itself. `copy_inside` refuses a source that is a link or whose folder
   leads out of the project folder: `<path>: a link or outside the project folder, so freemapper does not copy
-  it`. It then opens the source and checks the opened file again. On Unix, its device and inode must match
-  those of the path before and after the open, it must be a regular file, and the path must still lie inside
-  the project. On Windows it opens a link or junction itself (`FILE_FLAG_OPEN_REPARSE_POINT`) and refuses it.
-  A source swapped for a link between the check and the open is refused the same way. The OCAD export checks each template image and world file first and leaves a refused template out with
+  it`. It then opens the source and checks the opened file again. It must be a regular file. The path,
+  resolved after the open, must lie inside the project and name the opened file: `same-file` compares the
+  two handles by volume serial number and file index on Windows, by device and inode on Unix. On Unix the
+  device and inode must also match those of the path before and after the open. On Windows the source is
+  opened with `FILE_FLAG_OPEN_REPARSE_POINT`, so a link or junction at the name is opened itself and refused.
+  A source or folder swapped for a link between the check and the open, or swapped back right after it, is
+  refused the same way. The workspace forbids `unsafe`, so the Windows calls come from `same-file`
+  (`=1.0.6`, already in `Cargo.lock` through `walkdir`) and not from `windows-sys` directly. The OCAD export checks each template image and world file first and leaves a refused template out with
   `warning: …; the OCAD map gets no background from it`, so the export goes on without it. A map file that is
   a link stops `run --force` and `export --force` before the backup, with the error above and `; replace the
   link with the real file and run the command again`.
@@ -55,9 +59,10 @@ Most other files already went through a partial file and a rename. The partial f
     who swaps a project folder (`data`, `templates`, `ocad`) for a link between the two makes freemapper
     replace a file of that fixed name (`terrain.tif`, `hillshade.png`, `<name>.ocd`) in the folder the link
     points to. That can be any folder the user may write to, also one the attacker cannot write to.
-  - Copies. The checks after the open close the swap of the file itself. A folder swapped for a link and back
-    again, in the short window between the open and the second check, can still slip a file the user
-    can read (a key, for example) into `ocad/`, where the attacker can then read it.
+  - Copies. The checks after the open compare the opened file with the file the path names inside the
+    project, so a swapped file or folder is refused. What remains is a hard link: a file inside the project
+    that is the same file as one elsewhere passes. An archive cannot carry such a link, and making one needs
+    local access to the user's files.
   Both need someone who can write to the project folder while freemapper runs on it, and who times the swap
   to the moment of a write. A folder from a download or a shared archive cannot do that. We accept the race
   for this release. Users should not run freemapper on a project folder that others can write to while it
