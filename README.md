@@ -24,7 +24,7 @@ in OOM oder OCAD.
 - Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz (Open Data von LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN und LVermGeo RP);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
-- Beispiele: je Land ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
+- Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte, siehe
   [Beispiele](#beispiele).
 
 ## Die freemapper-Suite
@@ -48,7 +48,7 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 Aktuelle Version ist [v0.6.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.6.2) vom
 9. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
-Schulhof- und Sprintkarten für elf Länder: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Schulhof- und Sprintkarten für elf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
@@ -60,8 +60,8 @@ Grünstreifen sind aus den Straßenflächen ausgeschnitten, Bordsteine, Gelände
 Brunnen kommen als Kandidaten, und die Gebäude tragen ihre Grundrissaktualität.
 
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
-Daten der anderen Länder. Danach folgen Hallenkarten
-für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
+Daten der anderen Bundesländer. Danach folgen Hallenkarten
+für Hallen-OL, deutsche und englische Programmtexte und die übrigen Bundesländer mit offenen Geodaten
 (Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
@@ -80,11 +80,11 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 
 ## Beispiele
 
-Für jedes unterstützte Land liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
+Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
 OCAD-Datei und PDF-Trainingskarte. Ein Klick auf das Bild öffnet das PDF. Wie die Gebiete ausgewählt
 wurden und wie viele Objekte jede Karte hat, steht in [`examples/README.md`](examples/README.md).
 
-| Land | Gebiet | Vorschau |
+| Bundesland | Gebiet | Vorschau |
 |---|---|---|
 | Brandenburg | [Park Sanssouci, Potsdam](examples/brandenburg-sanssouci/) | <a href="examples/brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="examples/brandenburg-sanssouci/preview.jpg" width="160" alt=""></a> |
 | Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="160" alt=""></a> |
@@ -109,7 +109,7 @@ freemapper select mein-schulhof --kind schoolyard
 ![Gebietsauswahl im Browser](docs/manual/images/area-selector.jpg)
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
-OpenStreetMap oder das Luftbild des Landes. Die Seite zeigt die Größe mit Puffer und den
+OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
 geschätzten Download. „Speichern“ legt das Projekt an, danach erzeugt
 `freemapper run mein-schulhof --pdf --ocad` die Karten. Die Seite läuft nur auf diesem Rechner
 (127.0.0.1). Mehr im [Handbuch, Kapitel 6](docs/manual/de.md#6-das-kartengebiet-im-browser-wählen).
@@ -175,10 +175,10 @@ Oder das Gebiet im Browser wählen, siehe [Gebiet im Browser wählen](#gebiet-im
 `run` führt drei Schritte nacheinander aus, die es auch einzeln gibt:
 
 - `freemapper fetch <ordner>` – lädt für Kartengebiet plus Puffer Luftbild, Geländemodell und nDOM des
-  zuständigen Landes, die ALKIS-Gebäude und -Nutzung sowie den OSM-Auszug des Landes von Geofabrik
+  zuständigen Bundeslandes, die ALKIS-Gebäude und -Nutzung sowie den OSM-Auszug des Bundeslandes von Geofabrik
   (beim ersten Mal 180–300 MB, danach nur, wenn er mehr als 7 Tage alt ist) in den Zwischenspeicher.
   Neu geladen wird nur, was neu veröffentlicht wurde; `--offline` nutzt nur bereits geladene Daten.
-  Woher die Daten je Land kommen, steht unter [Regionen](#regionen).
+  Woher die Daten je Bundesland kommen, steht unter [Regionen](#regionen).
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung und das nDOM
   (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
   (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve) als Kandidaten.
@@ -243,7 +243,7 @@ freemapper run vorstadt
 
 ## Regionen
 
-| Land | Daten | nDOM-Vorlage | Hinweise |
+| Bundesland | Daten | nDOM-Vorlage | Hinweise |
 |---|---|---|---|
 | Brandenburg | LGB | Laser-nDOM, 0,2 m | |
 | Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
@@ -257,9 +257,9 @@ freemapper run vorstadt
 | Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Bremen noch nicht dabei |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 
-An einer Landesgrenze fragt freemapper das Kataster beider Länder ab und liest beide OSM-Auszüge;
-Luftbild und Gelände kommen aus dem Land, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
-[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Land liegt unter
+An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide OSM-Auszüge;
+Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
+[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Bundesland liegt unter
 [`examples/`](examples/).
 
 ## Schnelle Trainingskarte (PDF)
