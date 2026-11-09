@@ -3,6 +3,8 @@
 Date: 2026-11-07
 Status: Accepted
 
+Amended by ADR 0067: the suite's own crates from freemapper-core are exempt.
+
 ## Context
 
 Each plan picks crate versions. The plans do not record why the age limit exists.

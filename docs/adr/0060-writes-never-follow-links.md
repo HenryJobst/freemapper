@@ -3,6 +3,10 @@
 Date: 2026-11-09
 Status: Accepted
 
+Moved to freemapper-core ADR 0009; freemapper uses the crate `freemapper-fs` since v0.7.1 (ADR 0067).
+The text below stays as decided. What it says of `fsutil` now lives in the crate, and `fsutil` keeps only
+freemapper's wording of the refusals.
+
 ## Context
 
 ADR 0059 made sure that names from the project file never become paths. The folder itself can still carry

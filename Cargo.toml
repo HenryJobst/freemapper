@@ -11,6 +11,8 @@ rust-version = "1.88"
 
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
+# Shared crates of the suite, pinned to a release tag of freemapper-core (ADR 0067).
+freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.2.0" }
 anyhow = "1.0.104"
 axum = "0.8.9"
 base64 = "0.23.1"
@@ -40,8 +42,6 @@ rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
-# Test only: certificate fingerprints (already in Cargo.lock through a dependency).
-same-file = "=1.0.6"
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"

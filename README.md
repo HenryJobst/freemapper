@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 955 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-955%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 964 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-964%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
@@ -154,9 +154,11 @@ Entwicklung: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings
 Git-Hooks: `lefthook install`.
 
 Gemeinsamer Code der Suite kommt nach und nach aus
-[freemapper-core](https://github.com/HenryJobst/freemapper-core). Wer dort mitändert, legt freemapper-core
-neben freemapper ab und bindet es während der Entwicklung über einen lokalen `[patch]` ein. Die
-Einzelheiten stehen in der README von freemapper-core.
+[freemapper-core](https://github.com/HenryJobst/freemapper-core). Die `Cargo.toml` bindet ihn über Git mit
+einem festen Release-Tag ein, deshalb lädt der erste Build ihn von GitHub. Wer dort mitändert, legt
+freemapper-core neben freemapper ab und bindet es während der Entwicklung über einen lokalen `[patch]` ein,
+der vor dem Merge wieder herauskommt. Die Einzelheiten stehen in der README von freemapper-core und in
+[ADR 0067](docs/adr/0067-shared-crates-from-freemapper-core.md).
 
 ## Benutzung
 

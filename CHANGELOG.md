@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- freemapper schreibt, kopiert und löscht im Projektordner jetzt mit der gemeinsamen Bibliothek `freemapper-fs` aus freemapper-core 0.2.0 und pflegt keine eigene Kopie mehr. Für Nutzer bleibt alles gleich, auch der Wortlaut der Meldungen (ADR 0067).
+
 ## [0.7.0] - 2026-11-09
 
 ### Hinzugefügt
