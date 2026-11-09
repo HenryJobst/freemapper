@@ -40,11 +40,13 @@ sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hambu
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
 2024. Each map comes with an OCAD starting point and a PDF training map. Before downloading, freemapper
-checks the free disk space (on the main branch, ships with the next version).
+checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
+1:5000 map as a template from further Geoportal Berlin data (both on the main branch, ship with the next
+version).
 
 freemapper is still under development. Work in progress: more detailed sprint maps from further open
-data, first for Berlin (canopies, stairs, walls, fences, hedges, street trees), then for the other
-states. After that come gym maps for indoor orienteering,
+data, for Berlin next the kerbs from the street survey and small objects such as bollards, then for the
+other states. After that come gym maps for indoor orienteering,
 program texts in German and English, and the remaining states with open geodata
 (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
@@ -141,7 +143,8 @@ freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule
 freemapper run clara-zetkin-schule
 ```
 
-Instead of a GeoJSON file, give the OSM object (`--osm way/992423119`) or the name
+Instead of a GeoJSON file, give the OSM object (`--osm way/992423119`, with `--part <n>` for an area of
+several separate parts) or the name
 (`--place "Clara-Zetkin-Schule Strausberg"`; the best match with an area is used, searched with
 OpenStreetMap's Nominatim).
 
@@ -219,7 +222,7 @@ freemapper run vorstadt
 | State | Data | nDSM template | Notes |
 |---|---|---|---|
 | Brandenburg | LGB | laser nDSM, 0.2 m | |
-| Berlin | LGB, ALKIS from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; street areas include verges |
+| Berlin | LGB, ALKIS, tree cadastre and K5 from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; street areas include verges; canopies as map objects; stairs, walls, fences, hedges and trees as candidates; the 1:5000 map (K5) as a template |
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
 | Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |
@@ -317,5 +320,6 @@ GPL-3.0-or-later, see [LICENSE](LICENSE). Generated maps carry the required attr
 sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
 `© OpenStreetMap contributors, ODbL`. In Berlin the LGB line reads, as LGB requires,
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
-Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added.
+Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added,
+and the K5 and the tree cadastre get a line each (see the [user manual, chapter 15](docs/manual/en.md#15-attribution)).
 In Saxony the line is `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

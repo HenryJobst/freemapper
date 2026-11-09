@@ -319,6 +319,43 @@ fn init_requires_exactly_one_area_source() {
 }
 
 #[test]
+fn init_part_picks_a_part_of_an_osm_area_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    // --part belongs to --osm.
+    let with_geojson = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--geojson",
+            FIXTURE,
+            "--part",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!with_geojson.status.success());
+    let stderr = String::from_utf8_lossy(&with_geojson.stderr);
+    assert!(stderr.contains("--osm"), "{stderr}");
+    assert!(!project.join("freemapper.toml").exists());
+    // With --osm the flag is taken (the bad id fails before any request).
+    let with_osm = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--osm",
+            "992423119",
+            "--part",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!with_osm.status.success());
+    let stderr = String::from_utf8_lossy(&with_osm.stderr);
+    assert!(stderr.contains("is not an OSM id"), "{stderr}");
+}
+
+#[test]
 fn init_with_a_bad_osm_id_fails_cleanly() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("p");

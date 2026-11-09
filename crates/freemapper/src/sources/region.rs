@@ -97,6 +97,22 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// The terrain model the contours come from, for `freemapper:source` on contour candidates.
+    pub fn terrain_source(self) -> &'static str {
+        match self {
+            Self::Lgb => "lgb-dgm1",
+            Self::GeoSn => "geosn-dgm1",
+            Self::LvermGeo => "lvermgeo-st-dgm1",
+            Self::Lgv => "lgv-dgm1",
+            Self::Hvbg => "hvbg-dgm1",
+            Self::LvermGeoSh => "lvermgeo-sh-dgm1",
+            Self::LaivMv => "laiv-mv-dgm1",
+            Self::GeobasisNrw => "geobasis-nrw-dgm1",
+            Self::Lgln => "lgln-dgm1",
+            Self::LvermGeoRp => "lvermgeo-rp-dgm1",
+        }
+    }
+
     /// Whether the provider's rasters are fetched per map area (WMS, WCS, zip members) instead of
     /// as recorded tiles.
     pub fn per_area(self) -> bool {
@@ -378,6 +394,39 @@ pub(crate) fn parse_boundary(text: &str) -> MultiPolygon<f64> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn each_provider_names_its_own_terrain_source() {
+        use super::Provider::*;
+        let all = [
+            Lgb,
+            GeoSn,
+            LvermGeo,
+            Lgv,
+            Hvbg,
+            LvermGeoSh,
+            LaivMv,
+            GeobasisNrw,
+            Lgln,
+            LvermGeoRp,
+        ];
+        let names: Vec<&str> = all.iter().map(|p| p.terrain_source()).collect();
+        assert_eq!(
+            names,
+            [
+                "lgb-dgm1",
+                "geosn-dgm1",
+                "lvermgeo-st-dgm1",
+                "lgv-dgm1",
+                "hvbg-dgm1",
+                "lvermgeo-sh-dgm1",
+                "laiv-mv-dgm1",
+                "geobasis-nrw-dgm1",
+                "lgln-dgm1",
+                "lvermgeo-rp-dgm1",
+            ]
+        );
+    }
+
     use super::*;
 
     fn around(e: f64, n: f64, half: f64) -> BoundingBox {

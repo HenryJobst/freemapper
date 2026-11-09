@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 latest_update = "2026-10-20"
 count = 2534
 regions = ["mecklenburgvorpommern"]
 
 [land_use]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 latest_update = "2026-10-20"
 count = 3296
 regions = ["mecklenburgvorpommern"]
@@ -32,15 +32,15 @@ count = 266
 
 [orthophoto]
 flight = "05.09.2024"
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [267262.5251579208, 5976928.022455963, 268193.39982325886, 5977667.31751661]
 
 [terrain]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [267262.5251579208, 5976928.022455963, 268193.39982325886, 5977667.31751661]
 date = "2023-03-01"
 
 [surface]
-fetched = "2026-11-08"
+fetched = "2026-11-09"
 bbox = [267262.5251579208, 5976928.022455963, 268193.39982325886, 5977667.31751661]
 date = "2024-09-01"

@@ -10,7 +10,9 @@ use serde_json::{Map, Value};
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
+use crate::project::MapKind;
 use crate::sources::alkis::invalid;
+use crate::sources::region::{Region, regions_for};
 
 pub const BUILDINGS_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis_gebaeude";
 pub const BUILDINGS_TYPE: &str = "alkis_gebaeude:gebaeude";
@@ -54,6 +56,111 @@ const LAND_USE_CLASSES: [(&str, &str); 19] = [
     ("AX_Hafenbecken", "Hafenbecken"),
 ];
 
+/// One extra Berlin layer: a WFS feature type stored as `data/berlin/<file>.geojson`.
+#[derive(Debug, PartialEq)]
+pub struct ExtraLayer {
+    /// Stored file name without the extension; also the `berlin:layer` value of its candidates.
+    pub file: &'static str,
+    pub service: &'static str,
+    pub type_name: &'static str,
+    /// The map kinds that use the layer.
+    pub kinds: &'static [MapKind],
+}
+
+const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
+const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
+
+/// The extra layers, in fetch order (ALKIS structures, relief and hedges, tree cadastre).
+pub const EXTRA_LAYERS: [ExtraLayer; 6] = [
+    ExtraLayer {
+        file: "bauwerke-flaechen",
+        service: LAND_USE_SERVICE,
+        type_name: "alkis:bauwerkeflaechen",
+        kinds: BOTH_KINDS,
+    },
+    ExtraLayer {
+        file: "bauwerke-linien",
+        service: LAND_USE_SERVICE,
+        type_name: "alkis:bauwerkelinien",
+        kinds: BOTH_KINDS,
+    },
+    ExtraLayer {
+        file: "relief",
+        service: LAND_USE_SERVICE,
+        type_name: "alkis:relief",
+        kinds: &[MapKind::Sprint],
+    },
+    ExtraLayer {
+        file: "vegetation-linien",
+        service: LAND_USE_SERVICE,
+        type_name: "alkis:gewaesservegetationlinien",
+        kinds: BOTH_KINDS,
+    },
+    ExtraLayer {
+        file: "strassenbaeume",
+        service: TREE_SERVICE,
+        type_name: "baumbestand:strassenbaeume",
+        kinds: BOTH_KINDS,
+    },
+    ExtraLayer {
+        file: "anlagenbaeume",
+        service: TREE_SERVICE,
+        type_name: "baumbestand:anlagenbaeume",
+        kinds: BOTH_KINDS,
+    },
+];
+
+/// The extra layers `kind` uses.
+pub fn extra_layers(kind: MapKind) -> impl Iterator<Item = &'static ExtraLayer> {
+    EXTRA_LAYERS.iter().filter(move |l| l.kinds.contains(&kind))
+}
+
+/// One extra layer as fetched; an empty `features` is a layer without objects in the area.
+#[derive(Debug)]
+pub struct FetchedLayer {
+    pub layer: &'static ExtraLayer,
+    /// The features as served (EPSG:25833), or why the layer could not be fetched.
+    pub features: Result<Vec<Value>, FetchError>,
+}
+
+/// Whether `region_bbox` (EPSG:25833) needs the Berlin services: the test of the Berlin ALKIS.
+pub fn near_berlin(region_bbox: &BoundingBox) -> bool {
+    regions_for(region_bbox).contains(&Region::Berlin)
+}
+
+/// The extra layers of `kind` in `region_bbox` (EPSG:25833), one request series per layer; none
+/// at all, and no request, when the area is not near Berlin. A layer that fails does not stop
+/// the others.
+pub fn fetch_extra_layers(
+    fetcher: &dyn Fetcher,
+    region_bbox: &BoundingBox,
+    kind: MapKind,
+) -> Vec<FetchedLayer> {
+    if !near_berlin(region_bbox) {
+        return Vec::new();
+    }
+    extra_layers(kind)
+        .map(|layer| FetchedLayer {
+            layer,
+            features: fetch_wfs(fetcher, layer.service, layer.type_name, region_bbox),
+        })
+        .collect()
+}
+
+/// `features` as the GeoJSON FeatureCollection stored for a layer (an empty one for no feature).
+pub fn layer_to_geojson(features: &[Value]) -> String {
+    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
+}
+
+/// The features of a stored layer file.
+pub fn parse_layer(text: &str) -> Result<Vec<Value>, serde_json::Error> {
+    let collection: Value = serde_json::from_str(text)?;
+    Ok(collection["features"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default())
+}
+
 /// URL of the first page of `type_name` features of `service` in `bbox`, rounded outward.
 pub fn wfs_url(service: &str, type_name: &str, bbox: &BoundingBox) -> String {
     format!(
@@ -67,7 +174,7 @@ pub fn wfs_url(service: &str, type_name: &str, bbox: &BoundingBox) -> String {
 }
 
 /// All features of `type_name` in `bbox`, following `links[rel=next]`; a feature repeated on a
-/// later page (same `uuid`) is kept once.
+/// later page (same GeoServer `id`; not every layer has a `uuid`) is kept once.
 pub fn fetch_wfs(
     fetcher: &dyn Fetcher,
     service: &str,
@@ -83,8 +190,8 @@ pub fn fetch_wfs(
         let page_features = page["features"].as_array().cloned().unwrap_or_default();
         let empty = page_features.is_empty();
         for feature in page_features {
-            let new = match feature["properties"]["uuid"].as_str() {
-                Some(uuid) => seen.insert(uuid.to_string()),
+            let new = match feature["id"].as_str() {
+                Some(id) => seen.insert(id.to_string()),
                 None => true,
             };
             if new {
@@ -138,6 +245,11 @@ pub fn normalise_building(feature: &Value) -> Value {
     properties.insert("gebnutzbez".into(), kind.into());
     properties.insert("funktion".into(), source["bezgfk"].clone());
     properties.insert("rellage".into(), source["bezofl"].clone());
+    // The kind of a building part (`Durchfahrt im Gebäude`, `Arkade`, …); the build ignores it,
+    // the Berlin rules read it.
+    if let Some(bauart) = source["bezbat"].as_str() {
+        properties.insert("bauart".into(), bauart.into());
+    }
     with_properties(feature, properties)
 }
 
@@ -195,6 +307,19 @@ pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Vec<V
 pub(crate) mod test_support {
     pub const BUILDINGS: &str = include_str!("../../../../tests/fixtures/berlin-buildings.json");
     pub const LAND_USE: &str = include_str!("../../../../tests/fixtures/berlin-land-use.json");
+    pub const BAUWERKE_FLAECHEN: &str =
+        include_str!("../../../../tests/fixtures/berlin-bauwerke-flaechen.json");
+    pub const BAUWERKE_LINIEN: &str =
+        include_str!("../../../../tests/fixtures/berlin-bauwerke-linien.json");
+    pub const RELIEF: &str = include_str!("../../../../tests/fixtures/berlin-relief.json");
+    pub const VEGETATION_LINIEN: &str =
+        include_str!("../../../../tests/fixtures/berlin-vegetation-linien.json");
+    pub const STRASSENBAEUME: &str =
+        include_str!("../../../../tests/fixtures/berlin-strassenbaeume.json");
+    pub const ANLAGENBAEUME: &str =
+        include_str!("../../../../tests/fixtures/berlin-anlagenbaeume.json");
+    pub const BUILDING_PARTS: &str =
+        include_str!("../../../../tests/fixtures/berlin-building-parts.json");
 }
 
 #[cfg(test)]
@@ -204,6 +329,7 @@ mod tests {
     use super::test_support::*;
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    use crate::project::MapKind;
     use crate::sources::alkis::{parse_buildings, parse_land_use};
 
     /// Helene-Haeusler-Schule, Berlin-Prenzlauer Berg.
@@ -315,6 +441,195 @@ mod tests {
             .unwrap();
         let normalised = normalise_land_use(&square);
         assert_eq!(normalised["properties"]["bez"], SQUARE_WITHOUT_FUNCTION);
+    }
+
+    /// Strausberg, Brandenburg, far from the Berlin border.
+    const STRAUSBERG: BoundingBox = BoundingBox {
+        min_e: 421_490.0,
+        min_n: 5_821_580.0,
+        max_e: 421_736.0,
+        max_n: 5_821_896.0,
+    };
+
+    /// Across the Berlin border at Schönefeld.
+    const BORDER: BoundingBox = BoundingBox {
+        min_e: 407_550.0,
+        min_n: 5_799_224.0,
+        max_e: 408_150.0,
+        max_n: 5_799_824.0,
+    };
+
+    /// A fetcher that answers every extra layer of the school area with its fixture.
+    fn extra_fetcher() -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        for (layer, body) in [
+            ("bauwerke-flaechen", BAUWERKE_FLAECHEN),
+            ("bauwerke-linien", BAUWERKE_LINIEN),
+            ("relief", RELIEF),
+            ("vegetation-linien", VEGETATION_LINIEN),
+            ("strassenbaeume", STRASSENBAEUME),
+            ("anlagenbaeume", ANLAGENBAEUME),
+        ] {
+            let layer = EXTRA_LAYERS.iter().find(|l| l.file == layer).unwrap();
+            fetcher.insert(
+                &wfs_url(layer.service, layer.type_name, &SCHOOL),
+                body.as_bytes().to_vec(),
+            );
+        }
+        fetcher
+    }
+
+    #[test]
+    fn extra_layers_only_inside_berlin() {
+        // Brandenburg only: no request at all, no layer.
+        let fetcher = MapFetcher::default();
+        assert!(fetch_extra_layers(&fetcher, &STRAUSBERG, MapKind::Sprint).is_empty());
+        assert_eq!(fetcher.calls.get(), 0);
+
+        // Inside Berlin: every layer of the map kind, in table order; relief is for sprint only.
+        let fetcher = extra_fetcher();
+        let sprint = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Sprint);
+        let files: Vec<&str> = sprint.iter().map(|l| l.layer.file).collect();
+        assert_eq!(
+            files,
+            [
+                "bauwerke-flaechen",
+                "bauwerke-linien",
+                "relief",
+                "vegetation-linien",
+                "strassenbaeume",
+                "anlagenbaeume"
+            ]
+        );
+        assert_eq!(fetcher.calls.get(), 6);
+        let fetcher = extra_fetcher();
+        let schoolyard = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Schoolyard);
+        assert_eq!(schoolyard.len(), 5);
+        assert!(schoolyard.iter().all(|l| l.layer.file != "relief"));
+        assert_eq!(fetcher.calls.get(), 5);
+
+        // A border area keeps the Berlin layers (nothing is served here, so they fail with a
+        // missing service, but they are asked for).
+        let fetcher = MapFetcher::default();
+        let border = fetch_extra_layers(&fetcher, &BORDER, MapKind::Sprint);
+        assert_eq!(border.len(), 6);
+        assert_eq!(fetcher.calls.get(), 6);
+    }
+
+    #[test]
+    fn extra_layer_url_matches_the_wfs() {
+        let by_file = |file: &str| EXTRA_LAYERS.iter().find(|l| l.file == file).unwrap();
+        let trees = by_file("strassenbaeume");
+        assert_eq!(
+            wfs_url(trees.service, trees.type_name, &SCHOOL),
+            "https://gdi.berlin.de/services/wfs/baumbestand?service=WFS&version=2.0.0\
+             &request=GetFeature&typeNames=baumbestand:strassenbaeume&outputFormat=application/json\
+             &count=5000&bbox=392700,5820750,392900,5820951,urn:ogc:def:crs:EPSG::25833"
+        );
+        let lines = by_file("bauwerke-linien");
+        assert_eq!(
+            wfs_url(lines.service, lines.type_name, &SCHOOL),
+            "https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0\
+             &request=GetFeature&typeNames=alkis:bauwerkelinien&outputFormat=application/json\
+             &count=5000&bbox=392700,5820750,392900,5820951,urn:ogc:def:crs:EPSG::25833"
+        );
+        // The whole table: service and type per file.
+        let table: Vec<(&str, &str, &str)> = EXTRA_LAYERS
+            .iter()
+            .map(|l| (l.file, l.service, l.type_name))
+            .collect();
+        let alkis = "https://gdi.berlin.de/services/wfs/alkis";
+        let trees = "https://gdi.berlin.de/services/wfs/baumbestand";
+        assert_eq!(
+            table,
+            [
+                ("bauwerke-flaechen", alkis, "alkis:bauwerkeflaechen"),
+                ("bauwerke-linien", alkis, "alkis:bauwerkelinien"),
+                ("relief", alkis, "alkis:relief"),
+                (
+                    "vegetation-linien",
+                    alkis,
+                    "alkis:gewaesservegetationlinien"
+                ),
+                ("strassenbaeume", trees, "baumbestand:strassenbaeume"),
+                ("anlagenbaeume", trees, "baumbestand:anlagenbaeume"),
+            ]
+        );
+    }
+
+    #[test]
+    fn dedup_by_feature_id_without_uuid() {
+        // Tree features have no `uuid`; the top-level GeoServer id decides.
+        let trees = features(STRASSENBAEUME);
+        assert!(trees.iter().all(|t| t["properties"]["uuid"].is_null()));
+        let layer = EXTRA_LAYERS
+            .iter()
+            .find(|l| l.file == "strassenbaeume")
+            .unwrap();
+        let fetcher = MapFetcher::default();
+        let first = wfs_url(layer.service, layer.type_name, &SCHOOL);
+        let second = format!("{}?STARTINDEX=3", layer.service);
+        let page = |fs: &[Value], next: Option<&str>| {
+            let links: Vec<Value> = next
+                .map(|href| serde_json::json!({ "rel": "next", "href": href }))
+                .into_iter()
+                .collect();
+            serde_json::json!({ "type": "FeatureCollection", "features": fs, "links": links })
+                .to_string()
+                .into_bytes()
+        };
+        fetcher.insert(&first, page(&trees[..3], Some(&second)));
+        fetcher.insert(&second, page(&trees[2..], None));
+        let fetched = fetch_wfs(&fetcher, layer.service, layer.type_name, &SCHOOL).unwrap();
+        assert_eq!(fetched.len(), 4);
+    }
+
+    #[test]
+    fn empty_layer_is_stored_not_an_error() {
+        // The hedge layer has no feature in the school area: an empty collection, not an error.
+        let fetcher = extra_fetcher();
+        let layers = fetch_extra_layers(&fetcher, &SCHOOL, MapKind::Sprint);
+        let hedges = layers
+            .iter()
+            .find(|l| l.layer.file == "vegetation-linien")
+            .unwrap();
+        let none = hedges.features.as_ref().unwrap();
+        assert_eq!(none.len(), 0);
+        // Written as a collection with no feature, it reads back as an empty layer.
+        assert_eq!(parse_layer(&layer_to_geojson(none)).unwrap().len(), 0);
+        // And a layer with content round-trips.
+        let areas = layers[0].features.as_ref().unwrap();
+        assert_eq!(areas.len(), 10);
+        assert_eq!(parse_layer(&layer_to_geojson(areas)).unwrap(), *areas);
+    }
+
+    #[test]
+    fn building_parts_keep_bauart() {
+        let parts: Vec<Value> = features(BUILDING_PARTS)
+            .iter()
+            .map(normalise_building)
+            .collect();
+        let bauart: Vec<&str> = parts
+            .iter()
+            .map(|p| p["properties"]["bauart"].as_str().unwrap())
+            .collect();
+        assert!(bauart.contains(&"Durchfahrt im Gebäude"));
+        assert!(bauart.contains(&"Arkade"));
+        // The no-break space of the source value is kept as it is.
+        assert!(bauart.contains(&"Durchfahrt an\u{a0}überbautem Verkehrsweg"));
+        // Still a Bauteil with LGB properties.
+        assert!(
+            parts
+                .iter()
+                .all(|p| p["properties"]["gebnutzbez"] == "Bauteil")
+        );
+        // A building without a part kind has no `bauart`.
+        let whole = normalise_building(&features(BUILDINGS)[0]);
+        assert!(whole["properties"]["bauart"].is_null());
+        // The extra property does not disturb the LGB parser.
+        let parsed = parse_buildings(&collection(&parts)).unwrap();
+        assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+        assert_eq!(parsed.buildings.len(), 5);
     }
 
     #[test]

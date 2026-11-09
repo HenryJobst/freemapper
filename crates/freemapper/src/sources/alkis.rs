@@ -444,6 +444,11 @@ pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
     let features = collection["features"]
         .as_array()
         .ok_or_else(|| invalid("no features"))?;
+    Ok(parse_building_features(features))
+}
+
+/// Like [`parse_buildings`] for the features of an already parsed collection.
+pub fn parse_building_features(features: &[Value]) -> ParsedBuildings {
     let mut parsed = ParsedBuildings {
         buildings: Vec::new(),
         skipped: Vec::new(),
@@ -454,7 +459,7 @@ pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {
             Err(e) => parsed.skipped.push(e.message),
         }
     }
-    Ok(parsed)
+    parsed
 }
 
 /// The oid, polygon footprint and `aktualit` date every ALKIS feature has.
@@ -1605,6 +1610,56 @@ mod tests {
         fetch_buildings(&fetcher, &BBOX).unwrap();
         fetch_land_use(&fetcher, &BBOX).unwrap();
         assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    #[test]
+    fn berlin_gate_is_the_alkis_gate() {
+        // Brandenburg, Berlin core, the border at Schönefeld, and 100 m outside Berlin's edge.
+        let areas = [
+            BBOX,
+            BoundingBox {
+                min_e: 392_700.0,
+                min_n: 5_820_750.0,
+                max_e: 392_900.0,
+                max_n: 5_820_950.0,
+            },
+            BoundingBox {
+                min_e: 407_550.0,
+                min_n: 5_799_224.0,
+                max_e: 408_150.0,
+                max_n: 5_799_824.0,
+            },
+            BoundingBox {
+                min_e: 360_000.0,
+                min_n: 5_805_000.0,
+                max_e: 360_200.0,
+                max_n: 5_805_200.0,
+            },
+        ];
+        let mut gates = Vec::new();
+        for area in areas {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(
+                crate::sources::berlin::BUILDINGS_SERVICE,
+                crate::sources::berlin::test_support::BUILDINGS
+                    .as_bytes()
+                    .to_vec(),
+            );
+            fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[], None));
+            fetch_buildings(&fetcher, &area).unwrap();
+            let asked_berlin = fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.starts_with(crate::sources::berlin::BUILDINGS_SERVICE));
+            assert_eq!(
+                crate::sources::berlin::near_berlin(&area),
+                asked_berlin,
+                "{area:?}"
+            );
+            gates.push(asked_berlin);
+        }
+        assert!(gates.contains(&true) && gates.contains(&false), "{gates:?}");
     }
 
     #[test]

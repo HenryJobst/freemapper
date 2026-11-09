@@ -502,6 +502,31 @@ mod tests {
     }
 
     #[test]
+    fn canopy_fill_lies_under_the_building_fill() {
+        // A 522 canopy that overlaps a 521 building is drawn below it (colour priority, 0 on
+        // top), on both map kinds.
+        for set in [SymbolSet::issprom_2019(), SymbolSet::school_2019()] {
+            let s = (RenderSymbols::from_set(&set), set);
+            let fill = |code: &str| {
+                let Symbol::Combined(parts) = by_code(&s, code) else {
+                    panic!("{code} is combined")
+                };
+                parts
+                    .iter()
+                    .find_map(|p| match p {
+                        Part::Ref(id) => match &s.0.symbols[id] {
+                            Symbol::Area { color } => Some(*color),
+                            _ => None,
+                        },
+                        Part::Inline(_) => None,
+                    })
+                    .expect("an area part")
+            };
+            assert!(fill("522") > fill("521"));
+        }
+    }
+
+    #[test]
     fn text_symbol() {
         let s = symbols();
         let Symbol::Text(title) = by_code(&s, "991") else {

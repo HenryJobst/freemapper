@@ -5,7 +5,7 @@ use geo_types::Polygon;
 
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
-use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
+use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::Building;
 
 /// ISSprOM 521 building.
@@ -56,28 +56,7 @@ pub fn building_objects(
             if Euclidean.distance(part, map_area) > buffer_m || part.unsigned_area() < min_area {
                 continue;
             }
-            let interiors = part
-                .interiors()
-                .iter()
-                .filter(|hole| Polygon::new((*hole).clone(), vec![]).unsigned_area() >= min_area)
-                .cloned()
-                .collect();
-            let part = Polygon::new(part.exterior().clone(), interiors).simplify(tolerance);
-            let mut coords = Vec::new();
-            for ring in std::iter::once(part.exterior()).chain(part.interiors()) {
-                let points = ring
-                    .coords()
-                    .map(|c| {
-                        georef
-                            .projected_to_map(ProjectedPoint {
-                                easting: c.x,
-                                northing: c.y,
-                            })
-                            .map(|m| (m.x, m.y))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                coords.extend(closed_ring(&points));
-            }
+            let coords = footprint_coords(part, min_area, tolerance, georef)?;
             let mut tags = vec![
                 ("freemapper:source".to_string(), "alkis".to_string()),
                 ("freemapper:source_id".to_string(), building.oid.clone()),
@@ -94,6 +73,39 @@ pub fn building_objects(
         }
     }
     Ok(objects)
+}
+
+/// The map coordinates of an area footprint: holes below `min_area` (m²) are dropped, the outline
+/// is simplified by `tolerance` (m), each ring is closed. Shared with the 522 canopies.
+pub(crate) fn footprint_coords(
+    part: &Polygon<f64>,
+    min_area: f64,
+    tolerance: f64,
+    georef: &Georeferencing,
+) -> Result<Vec<MapCoord>, GeorefError> {
+    let interiors = part
+        .interiors()
+        .iter()
+        .filter(|hole| Polygon::new((*hole).clone(), vec![]).unsigned_area() >= min_area)
+        .cloned()
+        .collect();
+    let part = Polygon::new(part.exterior().clone(), interiors).simplify(tolerance);
+    let mut coords = Vec::new();
+    for ring in std::iter::once(part.exterior()).chain(part.interiors()) {
+        let points = ring
+            .coords()
+            .map(|c| {
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: c.x,
+                        northing: c.y,
+                    })
+                    .map(|m| (m.x, m.y))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        coords.extend(closed_ring(&points));
+    }
+    Ok(coords)
 }
 
 #[cfg(test)]

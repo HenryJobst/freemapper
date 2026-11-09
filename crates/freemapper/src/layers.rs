@@ -9,9 +9,9 @@ use crate::area::MapArea;
 use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
-    BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
-    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area, check_size, map_crs,
-    map_path,
+    BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH,
+    NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area,
+    check_size, map_crs, map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
@@ -34,6 +34,15 @@ const ORTHOPHOTO_MB_PER_KM2: f64 = 8.0;
 /// A 1 m Float32 height model from a WCS (LVermGeo, LAiV M-V, LGLN) per km².
 const WCS_MB_PER_KM2: f64 = 4.0;
 const ALKIS_MB: f64 = 0.5;
+/// The Berlin ALKIS structure layers, relief, hedges and the tree cadastre, per km² (measured
+/// 3.7 MB in Kreuzberg and 4.6 MB in Prenzlauer Berg, 2026-11-09).
+const BERLIN_LAYERS_MB_PER_KM2: f64 = 4.0;
+/// The K5 map (1:5000) PNG template at 0.25 m per pixel, per km² (measured 9.1 MB around a park
+/// and 17 MB in dense blocks, 2026-11-09).
+const K5_MB_PER_KM2: f64 = 15.0;
+/// Names of the Berlin items in the estimate.
+pub(crate) const BERLIN_LAYERS_ITEM: &str = "Berlin ALKIS structures and tree cadastre";
+pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
 const SH_BDOM_TILE_MB: f64 = 105.0;
@@ -152,6 +161,16 @@ pub(crate) fn estimate_area(
         part: Part::MapData,
         store: Store::Project,
     });
+    // Areas that touch Berlin also get the extra Berlin layers and the K5 template.
+    if regions_for(bbox).contains(&Region::Berlin) {
+        items.push(per_km2_item(
+            bbox,
+            BERLIN_LAYERS_ITEM,
+            BERLIN_LAYERS_MB_PER_KM2,
+            Part::BerlinLayers,
+        ));
+        items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+    }
     let total_megabytes = items
         .iter()
         .filter(|i| !i.cached)
@@ -634,9 +653,11 @@ pub struct Layer {
 /// The steps that make the layers, for CLI and MCP users.
 const EXPORT_STEP: &str = "freemapper export or run (MCP: start_pipeline)";
 const DERIVE_STEP: &str = "freemapper derive or run (MCP: start_pipeline)";
+/// The K5 template is downloaded by `fetch`, not derived.
+const FETCH_STEP: &str = "freemapper fetch or run (MCP: start_pipeline); Berlin only";
 
 /// Raster templates that have previews.
-const RASTER_LAYERS: [(&str, &str, &str); 4] = [
+const RASTER_LAYERS: [(&str, &str, &str); 5] = [
     (
         "orthophoto",
         ORTHOPHOTO_RELPATH,
@@ -656,6 +677,11 @@ const RASTER_LAYERS: [(&str, &str, &str); 4] = [
         "ndsm",
         NDSM_RELPATH,
         "height above ground: hedges, walls, trees, playground equipment",
+    ),
+    (
+        "k5",
+        K5_RELPATH,
+        "Berlin map 1:5000 (K5), to draw on or compare with",
     ),
 ];
 
@@ -685,7 +711,11 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             file: dir.join(relpath).display().to_string(),
             role: LayerRole::Template,
             ready: dir.join(relpath).exists(),
-            made_by: DERIVE_STEP,
+            made_by: if name == "k5" {
+                FETCH_STEP
+            } else {
+                DERIVE_STEP
+            },
             description,
         });
     }
@@ -711,8 +741,13 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
                     .to_string(),
             ));
         }
+        let step = if layer == "k5" {
+            FETCH_STEP
+        } else {
+            DERIVE_STEP
+        };
         return Err(ProjectError::Layer(format!(
-            "{layer} is not made yet; run {DERIVE_STEP}"
+            "{layer} is not made yet; run {step}"
         )));
     }
     let image =
@@ -1961,6 +1996,57 @@ mod tests {
     }
 
     #[test]
+    fn berlin_plus_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let mitte = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_500.0,
+            max_n: 5_821_000.0,
+        };
+        let km2 = 1.5;
+        let estimate = estimate_area(&mitte, &mitte, &cache, today(), false);
+        let find = |what: &str| estimate.items.iter().find(|i| i.what == what).cloned();
+        // +4 MB per km² for the vector layers, +15 MB per km² for the K5 template (live runs
+        // 2026-11-09: Viktoriapark 3.7 and 9.1 MB per km², Helene-Haeusler-Schule 4.6 and 17).
+        let layers = find(BERLIN_LAYERS_ITEM).expect("Berlin layers");
+        assert!((layers.megabytes - km2 * 4.0).abs() < 1e-9, "{layers:?}");
+        assert!(!layers.cached);
+        let k5 = find(BERLIN_K5_ITEM).expect("K5 template");
+        assert!((k5.megabytes - km2 * 15.0).abs() < 1e-9, "{k5:?}");
+        assert_eq!((k5.part, k5.store), (Part::K5, Store::Project));
+        // The K5 map and the layers are optional, as the fetch treats them.
+        assert!(!k5.part.required());
+        assert_eq!(
+            (layers.part, layers.store),
+            (Part::BerlinLayers, Store::Project)
+        );
+        assert!(!layers.part.required());
+        let other: f64 = estimate
+            .items
+            .iter()
+            .filter(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
+            .map(|i| i.megabytes)
+            .sum();
+        assert!((estimate.total_megabytes - other - km2 * 19.0).abs() < 1e-6);
+        // Outside Berlin the estimate has neither.
+        let strausberg = BoundingBox {
+            min_e: 421_000.0,
+            min_n: 5_821_000.0,
+            max_e: 422_000.0,
+            max_n: 5_822_000.0,
+        };
+        let estimate = estimate_area(&strausberg, &strausberg, &cache, today(), false);
+        assert!(
+            estimate
+                .items
+                .iter()
+                .all(|i| i.what != BERLIN_LAYERS_ITEM && i.what != BERLIN_K5_ITEM)
+        );
+    }
+
+    #[test]
     fn berlin_estimate_counts_the_bdom() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
@@ -1988,6 +2074,30 @@ mod tests {
         project.save(dir.path()).unwrap();
         let err = estimate_download(dir.path(), &cache, today()).unwrap_err();
         assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn k5_template_has_a_layer_and_a_preview() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let k5 = |dir: &Path| {
+            list_layers(dir)
+                .into_iter()
+                .find(|l| l.name == "k5")
+                .unwrap()
+        };
+        assert!(!k5(dir.path()).ready);
+        assert!(k5(dir.path()).made_by.contains("fetch"));
+        let err = preview_png(dir.path(), "k5", 100).unwrap_err();
+        assert!(err.to_string().contains("freemapper fetch"), "{err}");
+        std::fs::create_dir_all(dir.path().join("templates")).unwrap();
+        image::RgbImage::new(400, 200)
+            .save(dir.path().join(K5_RELPATH))
+            .unwrap();
+        assert!(k5(dir.path()).ready);
+        let png = preview_png(dir.path(), "k5", 100).unwrap();
+        let small = image::load_from_memory(&png).unwrap();
+        assert_eq!((small.width(), small.height()), (100, 50));
     }
 
     #[test]
@@ -2111,7 +2221,8 @@ mod tests {
                 "orthophoto",
                 "hillshade",
                 "slope",
-                "ndsm"
+                "ndsm",
+                "k5"
             ]
         );
         assert!(list_layers(dir.path()).iter().all(|l| !l.ready));

@@ -169,6 +169,8 @@ struct CreateProject {
     osm_id: Option<String>,
     /// Instead of osm_id: a GeoJSON file with the map area polygon (EPSG:4326).
     geojson: Option<String>,
+    /// With osm_id: which part of an area of several separate parts to use (1 is the largest).
+    part: Option<usize>,
     /// "schoolyard" (default, 1:1000) or "sprint" (1:4000).
     kind: Option<String>,
     /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the kind).
@@ -363,6 +365,7 @@ fn summary(outcome: &RunOutcome) -> String {
             map,
             references_images,
             missing_buildings,
+            missing_canopies,
         } => {
             lines.push(format!(
                 "Kept the existing map {} (it may contain the mapper's work)",
@@ -379,6 +382,14 @@ fn summary(outcome: &RunOutcome) -> String {
                 lines.push(
                     "The map has no ALKIS buildings yet. Start the pipeline with force to add \
                      them; it replaces the map and keeps the old one as .omap.bak."
+                        .to_string(),
+                );
+            }
+            if *missing_canopies {
+                lines.push(
+                    "The map lacks the Berlin canopies and carports (522) that are now map \
+                     objects. Start the pipeline with force to add them; it replaces the map and \
+                     keeps the old one as .omap.bak."
                         .to_string(),
                 );
             }
@@ -489,11 +500,14 @@ impl FreemapperServer {
             Ok(kind) => kind,
             Err(e) => return failure(e),
         };
+        let part = req.part;
         let area = match (req.osm_id, req.geojson) {
             (Some(osm_id), None) => {
                 crate::nominatim::wait_turn().await;
-                blocking(move || place_area(&HttpFetcher::new(), &osm_id).map_err(|e| describe(&e)))
-                    .await
+                blocking(move || {
+                    place_area(&HttpFetcher::new(), &osm_id, part).map_err(|e| describe(&e))
+                })
+                .await
             }
             (None, Some(geojson)) => resolve(&geojson).and_then(|path| {
                 let text = std::fs::read_to_string(&path)

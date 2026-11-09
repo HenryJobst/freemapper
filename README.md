@@ -42,11 +42,13 @@ Schulhof- und Sprintkarten für elf Länder: Brandenburg, Berlin, Sachsen, Sachs
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Zu jeder Karte gehören ein Ausgangsstand für OCAD und eine PDF-Trainingskarte. Vor dem Laden prüft
-freemapper den freien Speicherplatz (im Hauptzweig, kommt mit der nächsten Version).
+freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
+Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage (beides im
+Hauptzweig, kommt mit der nächsten Version).
 
 Das Programm ist noch in Entwicklung. Gerade entstehen genauere Sprintkarten aus weiteren offenen
-Daten: zuerst für Berlin (Überdachungen, Treppen, Mauern, Zäune, Hecken, Straßenbäume), danach für
-die anderen Länder. Danach folgen Hallenkarten
+Daten: für Berlin als Nächstes Bordsteine aus der Straßenbefahrung und kleine Objekte wie Poller,
+danach für die anderen Länder. Danach folgen Hallenkarten
 für Hallen-OL, deutsche und englische Programmtexte und die übrigen Länder mit offenen Geodaten
 (Baden-Württemberg, Bremen, Bayern, Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
@@ -146,7 +148,8 @@ freemapper init clara-zetkin-schule --geojson tests/fixtures/clara-zetkin-schule
 freemapper run clara-zetkin-schule
 ```
 
-Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`) oder der Name
+Statt einer GeoJSON-Datei geht auch das OSM-Objekt (`--osm way/992423119`, bei mehreren getrennten Flächen
+mit `--part <n>`) oder der Name
 (`--place "Clara-Zetkin-Schule Strausberg"`; genommen wird der beste Treffer mit Fläche, gesucht über
 Nominatim von OpenStreetMap).
 
@@ -226,7 +229,7 @@ freemapper run vorstadt
 | Land | Daten | nDOM-Vorlage | Hinweise |
 |---|---|---|---|
 | Brandenburg | LGB | Laser-nDOM, 0,2 m | |
-| Berlin | LGB, ALKIS vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
+| Berlin | LGB, ALKIS, Baumkataster und K5 vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken und Bäume als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
 | Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026) |
@@ -326,5 +329,6 @@ GPL-3.0-or-later, siehe [LICENSE](LICENSE). Erzeugte Karten enthalten die Pflich
 Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` und
 `© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
 `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
-Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu.
+Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu,
+für K5 und Baumkataster je eine eigene Zeile (siehe [Handbuch, Kapitel 15](docs/manual/de.md#15-namensnennung)).
 In Sachsen lautet der Vermerk `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

@@ -105,24 +105,74 @@ pub fn parse_search(json: &str) -> Result<Vec<PlaceCandidate>, AreaError> {
     Ok(places)
 }
 
-/// The map area of a lookup answer for `osm_id`.
-pub fn area_from_lookup(json: &str, osm_id: &str) -> Result<MapArea, AreaError> {
+/// The map area of a lookup answer for `osm_id`. An area of several separate parts (a
+/// multipolygon with several outer rings) needs `part`: 1 is the largest. A single polygon is
+/// part 1.
+pub fn area_from_lookup(
+    json: &str,
+    osm_id: &str,
+    part: Option<usize>,
+) -> Result<MapArea, AreaError> {
     let found = results(json)?;
-    let place = found
-        .first()
-        .ok_or_else(|| AreaError::Place(format!("{osm_id} not found")))?;
-    // A multi-part area is not a point: from_geojson explains why it cannot be a map area.
-    if !matches!(
-        place["geojson"]["type"].as_str(),
-        Some("Polygon" | "MultiPolygon")
-    ) {
+    let place = found.first().ok_or_else(|| {
+        AreaError::Place(format!(
+            "{osm_id} not found. Nominatim lists only tagged OSM objects, so an untagged outer way \
+             of a multipolygon is not there. Use the multipolygon relation instead (--osm \
+             relation/<id>), or save the outline as GeoJSON and use --geojson"
+        ))
+    })?;
+    let geojson = &place["geojson"];
+    if !matches!(geojson["type"].as_str(), Some("Polygon" | "MultiPolygon")) {
         return Err(AreaError::Place(format!(
             "{osm_id} is a point, not an area; pick its grounds (a way or relation)"
         )));
     }
-    let mut area = MapArea::from_geojson(&place["geojson"].to_string())?;
+    let mut parts = match geojson["type"].as_str() {
+        Some("MultiPolygon") => geojson["coordinates"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|rings| {
+                let polygon = serde_json::json!({"type": "Polygon", "coordinates": rings});
+                MapArea::from_geojson(&polygon.to_string())
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        _ => vec![MapArea::from_geojson(&geojson.to_string())?],
+    };
+    let size = |a: &MapArea| {
+        use geo::Area as _;
+        a.projected_polygon().unsigned_area()
+    };
+    parts.sort_by(|a, b| size(b).total_cmp(&size(a)));
+    let count = parts.len();
+    let index = match part {
+        Some(n) if (1..=count).contains(&n) => n - 1,
+        Some(n) => {
+            return Err(AreaError::Place(format!(
+                "{osm_id} has {count} part{}; there is no part {n}",
+                if count == 1 { "" } else { "s" }
+            )));
+        }
+        None if count == 1 => 0,
+        None => {
+            let sizes: Vec<String> = parts.iter().map(|p| square_metres(size(p))).collect();
+            return Err(AreaError::Place(format!(
+                "{osm_id} is an area of {count} separate parts ({}). A map area is one polygon: \
+                 pick a part with --part <n> (1 is the largest), or save the outline you want as \
+                 GeoJSON and use --geojson",
+                sizes.join(", ")
+            )));
+        }
+    };
+    let mut area = parts.swap_remove(index);
     area.source_id = Some(osm_id.to_string());
     Ok(area)
+}
+
+/// `7900 m²`: an area rounded to 100 m² from 1000 m², else to 10 m².
+fn square_metres(area: f64) -> String {
+    let step = if area >= 1000.0 { 100.0 } else { 10.0 };
+    format!("{} m²", (area / step).round() * step)
 }
 
 pub fn find_places(fetcher: &dyn Fetcher, query: &str) -> Result<Vec<PlaceCandidate>, PlaceError> {
@@ -130,9 +180,17 @@ pub fn find_places(fetcher: &dyn Fetcher, query: &str) -> Result<Vec<PlaceCandid
     Ok(parse_search(&String::from_utf8_lossy(&bytes))?)
 }
 
-pub fn place_area(fetcher: &dyn Fetcher, osm_id: &str) -> Result<MapArea, PlaceError> {
+pub fn place_area(
+    fetcher: &dyn Fetcher,
+    osm_id: &str,
+    part: Option<usize>,
+) -> Result<MapArea, PlaceError> {
     let bytes = fetcher.get(&lookup_url(osm_id)?)?;
-    Ok(area_from_lookup(&String::from_utf8_lossy(&bytes), osm_id)?)
+    Ok(area_from_lookup(
+        &String::from_utf8_lossy(&bytes),
+        osm_id,
+        part,
+    )?)
 }
 
 #[cfg(test)]
@@ -230,7 +288,7 @@ mod tests {
 
     #[test]
     fn area_from_lookup_fixture() {
-        let area = area_from_lookup(LOOKUP, "way/992423119").unwrap();
+        let area = area_from_lookup(LOOKUP, "way/992423119", None).unwrap();
         assert_eq!(area.source_id.as_deref(), Some("way/992423119"));
         assert_eq!(area.polygon.exterior().0.len(), 9);
         let c = area.centroid();
@@ -243,10 +301,10 @@ mod tests {
     #[test]
     fn point_is_not_an_area() {
         let json = r#"[{"osm_type":"node","osm_id":7,"name":"Hydrant","geojson":{"type":"Point","coordinates":[13.8,52.5]}}]"#;
-        let err = area_from_lookup(json, "node/7").unwrap_err();
+        let err = area_from_lookup(json, "node/7", None).unwrap_err();
         assert!(err.to_string().contains("is a point, not an area"), "{err}");
         assert!(
-            area_from_lookup("[]", "way/1")
+            area_from_lookup("[]", "way/1", None)
                 .unwrap_err()
                 .to_string()
                 .contains("not found")
@@ -265,7 +323,7 @@ mod tests {
             SEARCH.as_bytes().to_vec(),
         );
         assert_eq!(
-            place_area(&fetcher, "way/992423119")
+            place_area(&fetcher, "way/992423119", None)
                 .unwrap()
                 .polygon
                 .exterior()
@@ -281,6 +339,63 @@ mod tests {
         );
     }
 
+    const MULTIPART: &str = include_str!("../../../tests/fixtures/nominatim-lookup-multipart.json");
+
+    #[test]
+    fn multi_part_lookup_names_the_parts_and_the_way_out() {
+        let err = area_from_lookup(MULTIPART, "relation/16446395", None).unwrap_err();
+        let text = err.to_string();
+        for needle in [
+            "relation/16446395 is an area of 2 separate parts",
+            "7900 m²",
+            "1400 m²",
+            "--part <n>",
+            "--geojson",
+        ] {
+            assert!(text.contains(needle), "{needle:?} in {text}");
+        }
+    }
+
+    #[test]
+    fn a_part_of_a_multi_part_area_can_be_picked() {
+        use geo::Area as _;
+        let size = |part| {
+            area_from_lookup(MULTIPART, "relation/16446395", Some(part))
+                .unwrap()
+                .projected_polygon()
+                .unsigned_area()
+        };
+        // Part 1 is the largest, though the lookup lists it second.
+        assert!((size(1) - 7900.0).abs() < 100.0, "{}", size(1));
+        assert!((size(2) - 1400.0).abs() < 100.0, "{}", size(2));
+        let area = area_from_lookup(MULTIPART, "relation/16446395", Some(1)).unwrap();
+        assert_eq!(area.source_id.as_deref(), Some("relation/16446395"));
+        let err = area_from_lookup(MULTIPART, "relation/16446395", Some(3)).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("relation/16446395 has 2 parts; there is no part 3"),
+            "{err}"
+        );
+        // A single polygon is part 1.
+        assert!(area_from_lookup(LOOKUP, "way/992423119", Some(1)).is_ok());
+        assert!(area_from_lookup(LOOKUP, "way/992423119", Some(2)).is_err());
+    }
+
+    #[test]
+    fn missing_way_suggests_the_relation_or_geojson() {
+        let text = area_from_lookup("[]", "way/48378476", None)
+            .unwrap_err()
+            .to_string();
+        for needle in [
+            "way/48378476 not found",
+            "untagged",
+            "relation",
+            "--geojson",
+        ] {
+            assert!(text.contains(needle), "{needle:?} in {text}");
+        }
+    }
+
     #[test]
     #[ignore = "network"]
     fn live_find_the_school() {
@@ -291,7 +406,7 @@ mod tests {
             Some("way/992423119")
         );
         std::thread::sleep(std::time::Duration::from_secs(1));
-        let area = place_area(&fetcher, "way/992423119").unwrap();
+        let area = place_area(&fetcher, "way/992423119", None).unwrap();
         assert!(area.polygon.exterior().0.len() >= 4);
     }
 }

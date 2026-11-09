@@ -125,6 +125,45 @@ geändert` (LGB's licence note); once Berlin ALKIS objects were fetched (`AlkisR
 `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added. bDOM tiles are fetched one by one,
 so one failing tile costs only its part of the nDSM.
 
+**Berlin extra layers (Berlin plus 1, verified live 2026-11-08, details `docs/regions/berlin-plus-reference.md`;
+ADRs 0046 to 0051):** for an area whose widened bbox touches the Berlin region (`berlin::near_berlin`, the same
+test as the Berlin ALKIS) `sources/berlin.rs` fetches six more WFS layers (`EXTRA_LAYERS`) with `fetch_wfs`
+(GeoJSON, `count=5000`, `links[rel=next]` paging, up to 3 attempts per page, de-duplication by the top-level
+GeoServer `id` instead of `properties.uuid`):
+
+| file | service | type | kinds |
+|---|---|---|---|
+| `bauwerke-flaechen` | `https://gdi.berlin.de/services/wfs/alkis` | `alkis:bauwerkeflaechen` | both |
+| `bauwerke-linien` | same | `alkis:bauwerkelinien` | both |
+| `relief` | same | `alkis:relief` | sprint |
+| `vegetation-linien` | same | `alkis:gewaesservegetationlinien` | both |
+| `strassenbaeume` | `https://gdi.berlin.de/services/wfs/baumbestand` | `baumbestand:strassenbaeume` | both |
+| `anlagenbaeume` | same | `baumbestand:anlagenbaeume` | both |
+
+Each layer is stored as served in `data/berlin/<file>.geojson` (EPSG:25833) and recorded in
+`ProjectFile.berlin_layers` (bbox, fetch date, count). An empty layer is stored as an empty collection. A failing
+layer never fails the fetch: a stored file that still covers the area stays, otherwise the layer is skipped, each
+with a warning. Offline the stored layers stay; outside Berlin no request is made and stored layers are removed.
+Building parts come from the stored `alkis_gebaeude:gebaeude` answer: `normalise_building` keeps `bezbat` as
+`bauart`. ALKIS kerb lines (`Fahrbahnbegrenzungslinie`) are not taken; plan 2 brings the surveyed curbs. Grün
+Berlin's tree layer is left out for its licence.
+
+The K5 (Karte von Berlin 1:5000, colour) is a template: WMS `https://gdi.berlin.de/services/wms/k5_farbe`, layer
+`k5_farbe`, `CRS=EPSG:25833`, `FORMAT=image/png`, `max_px` 4000 per GetMap, tiled like the orthophoto WMS, at
+0.25 m per pixel on both map kinds, coarser when the longest side would pass 6000 px (`K5_MAX_SIDE_PX`). Output
+`templates/k5.png` + `.pgw`, recorded as `ProjectFile.k5` with the dataset date 2026-01-02 (catalogue
+`karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`). Only for UTM 33 maps near Berlin. A failure is a warning; the
+disk plan treats K5 as an optional part (`Part::K5`). The starter map lists it hidden, opacity 0.7, behind the map;
+the OCAD file gets it as a background map. The download estimate adds 4 MB/km² for the vector layers
+(`Part::BerlinLayers`, optional like K5; its derived share of 1.0 covers `data/terrain.tif`) and 15 MB/km² for K5, measured in the live run of 2026-11-09 (Viktoriapark 3.7 and 9.1 MB/km²,
+Helene-Haeusler-Schule 4.6 and 17.4 MB/km²).
+
+For the stair direction, `derive` keeps the DTM mosaic of a tile provider (LGB) in `data/terrain.tif` (+ `.tfw`)
+when a stored Berlin layer has a `Treppe` or `Freitreppe` area, and removes it otherwise, so the export stays
+offline and needs no cache. Attribution adds `Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0`
+when the K5 template was written and `Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0` when a tree layer
+with trees is stored.
+
 **Saxony (verified live 2026-11-07, details `docs/regions/saxony-reference.md`):** regions are data
 (`sources/region.rs`, boundaries `assets/regions/{brandenburg,berlin,saxony}.geojson`). ALKIS comes from every region
 the widened bbox touches; rasters from the provider of the region holding the bbox centre (LGB for Brandenburg and
@@ -218,7 +257,10 @@ of the centre; the LVermGeo RP height tiles reach across the Rhine, its WMS does
 
 OSM: Geofabrik extract `brandenburg-latest.osm.pbf`, cached and read with `osmpbf`, filtered to the bbox.
 Public Overpass instances are not a backend. One exception: `area/` may resolve a single OSM element
-(e.g. the school polygon) through the OSM API or Nominatim when the user names a place.
+(e.g. the school polygon) through the OSM API or Nominatim when the user names a place. A lookup that returns
+several separate polygons needs `--part <n>` (MCP `part`; parts sorted by area, 1 the largest); without it the
+error lists the part sizes and names `--geojson`. An empty lookup names untagged outer ways (Nominatim does not
+index them) and suggests the relation or `--geojson`.
 
 Attribution, written to the map notes, a text object outside the map area, and `ATTRIBUTION.txt`:
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and `© OpenStreetMap contributors, ODbL`.
@@ -234,6 +276,7 @@ clara-zetkin-schule/
   clara-zetkin-schule.omap   the starter project
   templates/
     orthophoto.jpg  hillshade.png  slope.png  ndsm.png   (each with a world file .jgw/.pgw)
+    k5.png                   Berlin only: the K5 map 1:5000 (with .pgw)
     candidates.omap          template map with candidates (contours, out-of-bounds, impassable features,
                              school furniture …), symbolized with the same symbol set
   data/
@@ -241,6 +284,8 @@ clara-zetkin-schule/
     osm-candidates.geojson   OSM features matching the candidate rules (GeoJSON, EPSG:4326)
     contours.geojson         contour lines from derive (GeoJSON, EPSG:25833, property height)
     alkis-land-use.geojson   ALKIS land use per parcel part (nutzung_flurstueck), source of 520 candidates
+    berlin/<layer>.geojson   Berlin only: the extra Geoportal Berlin layers (§4.1), EPSG:25833
+    terrain.tif              Berlin only, when a stored layer has stair areas: the DTM mosaic (with .tfw)
   ATTRIBUTION.txt
 ```
 
@@ -313,6 +358,12 @@ reliability policy below**. It is not taken over literally.
 - *object 521:* existing, above-ground buildings (`rellage` not underground) above the minimum size of the
   map kind. Sheds and garages count.
 - *candidate 522 canopy:* roofed open structures (carports, shelters, canopies, identified by `funktion`/`gebnutzbez`).
+  **Amended for Berlin (user decision 2026-11-08, ADR 0046):** ALKIS Bauwerke `Überdachung` and `Carport`
+  (`bauwerke-flaechen`, `bezbwf`) are cadastral survey data, as trustworthy as the 521 buildings, so they become
+  *objects 522* on both map kinds (`build/canopy.rs`), in the map part right after the buildings. A canopy with at
+  least 90 % of its area inside 521 footprints is dropped (not doubled); otherwise the footprints are cut out, so no
+  522 outline crosses a building. Parts below `(0.5 mm × scale)²` are dropped and outlines simplified at 0.1 mm,
+  as for buildings. The 522 fill lies under the 521 fill by colour priority.
 - *dropped:* underground buildings, buildings under construction or planned, ruins, non-building structures
   (bridges, towers, tanks, walls). Walls may become impassable-feature candidates if the attribute is clear.
 - Verify the exact attribute values against live data for tile `33421-5821` and list them in the rule file.
@@ -361,12 +412,59 @@ reliability policy below**. It is not taken over literally.
 
 **Candidates (all map kinds), in `candidates.omap`:**
 - out-of-bounds 520: residential parcels minus buildings/traffic areas (sprint); for the schoolyard, the
-  non-school parcels inside map area + buffer;
+  non-school parcels inside map area + buffer. In every state the land use `Sport-, Freizeit- und
+  Erholungsfläche` with `bez = Kleingarten` (allotment gardens) is private too (`is_private`, ADR 0049); the
+  rest of that land use (parks, sports grounds, playgrounds) stays open;
 - impassable features: OSM `barrier=fence|wall|hedge|retaining_wall`;
 - schoolyard: OSM `leisure=pitch|track` (501 50 % / tartan), `playground=*` (541), `leisure=picnic_table`
   and `amenity=table` (542), `amenity=bench` (543), `highway=street_lamp` (545), `flagpole`/`man_made=mast` (544),
   `emergency=fire_hydrant` (321), `natural=tree` (ISSprOM tree symbol), `amenity=school` paved surfaces (501);
 - contours 101/102 (see §4.4).
+
+**Berlin candidates (Berlin plus 1, ADRs 0047, 0048, 0051):** the extra layers (§4.1) run through the same `Rules`
+engine as the OSM candidates, with their own embedded file `assets/rules/berlin-candidates.toml` (`Rules::berlin`).
+A feature becomes a tagged feature with `berlin:layer=<file>` plus `berlin:<property>` for its string and number
+properties, so OSM and Berlin rules can never match each other's features. A point stays a point, each part of a
+MultiLineString becomes a line, and a polygon becomes its exterior as a closed line plus a point at its centroid
+(holes dropped: candidates only). A value ending in `*` is a prefix; `key>=number` and `key<number` compare
+numbers. Height decides nothing: the ALKIS name picks the symbol, the same symbols as the OSM rules.
+- *walls and fences:* `bezbwf` `Mauer`, `Mauerkante*`, `Mauermitte` → 515 (a wall with edges and a centre line
+  keeps all its 515 lines; the mapper deletes the extras); `Stützmauer*` → 513.2; `Zaun` → 518; vegetation
+  `Heckenkante*` → 410.1. An OSM 515/513.2/518/410.1 candidate with at least 80 % of its length within 1.5 m of a
+  Berlin line with the same symbol is dropped; the ALKIS object records it as `freemapper:also=osm/way/…`
+  (ADR 0047);
+- *stairs:* `Treppe`/`Freitreppe` areas in `build/stairs.rs` (not in the rules) become a two-point 532.x line along
+  the walking direction. The oriented minimum rectangle gives two axes; the midpoints of its sides are sampled
+  bilinearly in the DTM (map CRS: `data/dgm1.tif` when it covers the area, else `data/terrain.tif`). The axis with
+  the larger height difference wins when it rises at least 0.3 m (`STAIR_MIN_RISE_M`); the line runs uphill.
+  Otherwise, or without terrain, an axis end within 0.5 m of a 521 footprint or a monument area picks the axis
+  running towards it (ties, e.g. a stair inside a monument area, go to the end nearest the area's centre), else
+  the short axis is used (a flat stair is most likely wide), and the line is tagged
+  `freemapper:direction=guessed`. The width across the
+  walking direction picks the footprint symbol by paper width: ground width / (scale/1000 × symbol enlargement)
+  against 0.4/0.5/0.75/1.0 mm (532.6 to 532.9), nearest wins (bounds 0.45/0.625/0.875 mm; sprint 1:4000:
+  1.8/2.5/3.5 m; schoolyard 1:1000 × 125 %: 0.56/0.78/1.09 m, so most schoolyard stairs are 532.9). A stair wider
+  than 3 × the 532.9 paper width (12 m at 1:4000) is tagged `freemapper:size=wide` and drawn as parallel 532.9
+  lines one 532.9 width apart (at most 100). The `Freitreppe` lines of `bauwerke-linien` are step edges, not rule
+  candidates: duplicates are dropped, edges parallel within about 15°, at most 2 m apart and overlapping along
+  their length form a flight, and a flight of two or more edges is one stair across the edges (width = extent
+  along the edges, length = extent across them; not `guessed`, the DGM1 only picks the uphill end; ADR 0048);
+- *passages:* building parts `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg` (no-break space after
+  "an") and `Arkade` → 522; the 521 building stays whole, because the data does not say whether a passage is gated.
+  `Auskragender Geschossteil / zurückspringendes Geschoss` is dropped (it mixes overhangs with set-back storeys);
+- *monuments:* `Denkmal, Denkstein, Standbild` areas → 526 point at the centroid, tagged `freemapper:size=large`
+  when a side passes 3 m, so the mapper can draw the outline instead;
+- *sprint only:* `Brücke` areas → 501.5; `relief` `Oberkante` → 104 (`Unterkante` and `Sonstige Begrenzungskante`
+  are skipped);
+- *trees:* the tree cadastre (`strassenbaeume`, `anlagenbaeume`): `kronedurch` ≥ 10 m (rule `berlin:kronedurch>=10`) → 417,
+  every other tree, also one without a crown diameter, → 418. Tag `freemapper:baum` = botanical name (else the
+  German one) and `Krone <n> m`. OSM `natural=tree` candidates within 2 m (`TREE_DEDUP_M`, map coordinates) of a
+  cadastre tree are dropped.
+
+Provenance: `freemapper:source=geoportal-berlin/<file>`, `freemapper:source_id` = `uuid` or `gisid`,
+`freemapper:currency` = the fetch date (the layers carry no feature dates), and `bezbwf`/`bezart`/`bezbws`/`bauart`
+copied as `freemapper:alkis`; the object id is `berlin/<file>/<GeoServer id>`. Berlin candidates follow the OSM
+candidates in `candidates.omap`, the stairs follow the rule candidates.
 
 Generalization: drop buildings below the minimum size and simplify outlines (≈0.1 mm map tolerance; at 1:1000
 that is 0.1 m).

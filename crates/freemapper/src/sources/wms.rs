@@ -37,12 +37,17 @@ pub struct WmsService {
 }
 
 impl WmsService {
-    /// The GetMap request for `piece`.
+    /// The GetMap request for `piece` (JPEG).
     fn piece_url(&self, piece: &GridSpec) -> String {
+        self.piece_url_as(piece, "image/jpeg")
+    }
+
+    /// The GetMap request for `piece` in `format` (a MIME type).
+    fn piece_url_as(&self, piece: &GridSpec, format: &str) -> String {
         let b = piece.bounds();
         format!(
             "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS={}&STYLES=\
-             &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT=image/jpeg{}",
+             &CRS=EPSG:{}&BBOX={},{},{},{}&WIDTH={}&HEIGHT={}&FORMAT={}{}",
             self.url,
             self.layer,
             self.crs.epsg(),
@@ -52,9 +57,29 @@ impl WmsService {
             mm(b.max_n),
             piece.width,
             piece.height,
+            format,
             self.extra
         )
     }
+}
+
+/// The Berlin 1:5000 map in colour (K5), template only: PNG pieces, not an orthophoto.
+pub const K5_WMS: WmsService = WmsService {
+    url: "https://gdi.berlin.de/services/wms/k5_farbe",
+    layer: "k5_farbe",
+    crs: Crs::Utm33,
+    extra: "",
+    max_px: 4000,
+};
+/// Pixel size of the K5 template on both map kinds: a 1:5000 map is fully resolved at this.
+pub const K5_PIXEL_M: f64 = 0.25;
+/// Longest side of the K5 image in pixels (about 108 MB while stitching); a larger area gets
+/// coarser pixels.
+const K5_MAX_SIDE_PX: f64 = 6_000.0;
+
+/// The GetMap requests covering `grid` for the K5 map (PNG).
+pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    pieces_as(&K5_WMS, grid, "image/png")
 }
 
 /// Where the orthophoto comes from.
@@ -106,7 +131,22 @@ pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> 
 /// The requests covering `grid` (in the source's CRS): pieces of at most the source's `max_px`
 /// per side, each with its own grid inside `grid`.
 pub fn source_pieces(source: &OrthophotoSource, grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    let max = source.max_px();
+    split_grid(source.max_px(), grid, |piece| source.piece_url(piece))
+}
+
+/// The GetMap requests of a WMS `service` in `format` covering `grid`.
+fn pieces_as(service: &WmsService, grid: &GridSpec, format: &str) -> Vec<(GridSpec, String)> {
+    split_grid(service.max_px, grid, |piece| {
+        service.piece_url_as(piece, format)
+    })
+}
+
+/// `grid` cut into pieces of at most `max` pixels per side, each with its request URL.
+fn split_grid(
+    max: u32,
+    grid: &GridSpec,
+    url_of: impl Fn(&GridSpec) -> String,
+) -> Vec<(GridSpec, String)> {
     let starts = |len: u32| (0..len.div_ceil(max)).map(|i| i * max);
     let mut pieces = Vec::new();
     for x0 in starts(grid.width) {
@@ -118,7 +158,7 @@ pub fn source_pieces(source: &OrthophotoSource, grid: &GridSpec) -> Vec<(GridSpe
                 width: max.min(grid.width - x0),
                 height: max.min(grid.height - y0),
             };
-            let url = source.piece_url(&piece);
+            let url = url_of(&piece);
             pieces.push((piece, url));
         }
     }
@@ -241,6 +281,69 @@ pub fn fetch_orthophoto_from(
         })?;
     write_atomically(out, &jpeg)?;
     write_atomically(&out.with_extension("jgw"), grid.world_file().as_bytes())?;
+    Ok(())
+}
+
+/// Downloads the K5 map over `bbox` (EPSG:25833) from the Berlin WMS, stitched at `pixel_size`
+/// (made coarser when the image would pass [`K5_MAX_SIDE_PX`]), as `out` (PNG) with its world
+/// file (`.pgw`), on the template grid of `bbox`.
+pub fn fetch_k5(
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+    pixel_size: f64,
+    out: &Path,
+) -> Result<(), FetchError> {
+    let longest = bbox.width().max(bbox.height());
+    let grid = GridSpec::covering(bbox, pixel_size.max(longest / K5_MAX_SIDE_PX));
+    let mut mosaic = image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([255; 3]));
+    for (piece, url) in k5_pieces(&grid) {
+        // A WMS reports errors as HTTP 200 with an XML document; that would come again.
+        let answer = get_with_retries(fetcher, &url, |bytes| {
+            let refused = |message: String| FetchError::Http {
+                url: url.clone(),
+                message,
+            };
+            if let Some(message) = xml_message(&String::from_utf8_lossy(
+                &bytes[..bytes.len().min(XML_PROBE_BYTES)],
+            )) {
+                return Ok(Err(refused(format!(
+                    "the WMS answered with an error: {message}"
+                ))));
+            }
+            let image = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
+                .map_err(|e| {
+                    let start =
+                        one_line(&String::from_utf8_lossy(&bytes[..bytes.len().min(80)]), 80);
+                    refused(format!("not a PNG ({e}): {start}"))
+                })?
+                .into_rgb8();
+            if (image.width(), image.height()) != (piece.width, piece.height) {
+                return Ok(Err(refused(format!(
+                    "{} × {} pixels instead of {} × {}",
+                    image.width(),
+                    image.height(),
+                    piece.width,
+                    piece.height
+                ))));
+            }
+            Ok(Ok(image))
+        })?;
+        let image = answer?;
+        let (x0, y0) = (
+            ((piece.west - grid.west) / grid.pixel_size).round() as i64,
+            ((grid.north - piece.north) / grid.pixel_size).round() as i64,
+        );
+        image::imageops::replace(&mut mosaic, &image, x0, y0);
+    }
+    let mut png = Vec::new();
+    mosaic
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .map_err(|e| FetchError::Http {
+            url: K5_WMS.url.to_string(),
+            message: e.to_string(),
+        })?;
+    write_atomically(out, &png)?;
+    write_atomically(&out.with_extension("pgw"), grid.world_file().as_bytes())?;
     Ok(())
 }
 
@@ -589,5 +692,85 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .expect("the stalled request did not time out")
             .unwrap();
         assert!(out.exists());
+    }
+
+    #[test]
+    fn k5_template_has_world_file() {
+        // 1100 m × 300 m at 0.25 m: two GetMap pieces of at most 4000 px.
+        let bbox = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 393_100.0,
+            max_n: 5_820_300.0,
+        };
+        let grid = GridSpec::covering(&bbox, K5_PIXEL_M);
+        let fetcher = MapFetcher::default();
+        let pieces = k5_pieces(&grid);
+        assert_eq!(pieces.len(), 2);
+        for (piece, url) in &pieces {
+            assert!(
+                url.starts_with("https://gdi.berlin.de/services/wms/k5_farbe?"),
+                "{url}"
+            );
+            assert!(url.contains("LAYERS=k5_farbe"), "{url}");
+            assert!(url.contains("CRS=EPSG:25833"), "{url}");
+            assert!(url.contains("FORMAT=image/png"), "{url}");
+            fetcher.insert(url, solid_png(piece.width, piece.height, [200, 180, 160]));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("k5.png");
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
+        let png = image::open(&out).unwrap().into_rgb8();
+        assert_eq!((png.width(), png.height()), (grid.width, grid.height));
+        assert_eq!(png.get_pixel(grid.width - 1, 0).0, [200, 180, 160]);
+        let world = std::fs::read_to_string(out.with_extension("pgw")).unwrap();
+        let stored = GridSpec::from_world_file(&world, png.width(), png.height()).unwrap();
+        assert!((stored.west - grid.west).abs() < 1e-6 && (stored.north - grid.north).abs() < 1e-6);
+        assert!((stored.pixel_size - 0.25).abs() < 1e-12);
+        // An XML error report is no image.
+        let broken = MapFetcher::default();
+        for (_, url) in &pieces {
+            broken.insert(
+                url,
+                b"<ServiceExceptionReport>no layer</ServiceExceptionReport>".to_vec(),
+            );
+        }
+        let err = fetch_k5(&broken, &bbox, K5_PIXEL_M, &dir.path().join("x.png")).unwrap_err();
+        assert!(err.to_string().contains("no layer"), "{err}");
+    }
+
+    #[test]
+    fn k5_image_is_capped_at_6000_px() {
+        // 3000 m at 0.25 m would be 12 000 px: the pixels grow to 0.5 m.
+        let bbox = BoundingBox {
+            min_e: 392_000.0,
+            min_n: 5_820_000.0,
+            max_e: 395_000.0,
+            max_n: 5_820_100.0,
+        };
+        let grid = GridSpec::covering(&bbox, 0.5);
+        let fetcher = MapFetcher::default();
+        for (piece, url) in k5_pieces(&grid) {
+            fetcher.insert(&url, solid_png(piece.width, piece.height, [1, 2, 3]));
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("k5.png");
+        fetch_k5(&fetcher, &bbox, K5_PIXEL_M, &out).unwrap();
+        let png = image::open(&out).unwrap();
+        assert_eq!(png.width(), 6000);
+        let world = std::fs::read_to_string(out.with_extension("pgw")).unwrap();
+        let stored = GridSpec::from_world_file(&world, png.width(), png.height()).unwrap();
+        assert!((stored.pixel_size - 0.5).abs() < 1e-12, "{stored:?}");
+    }
+
+    fn solid_png(width: u32, height: u32, rgb: [u8; 3]) -> Vec<u8> {
+        let img = image::RgbImage::from_pixel(width, height, image::Rgb(rgb));
+        let mut bytes = Vec::new();
+        img.write_to(
+            &mut std::io::Cursor::new(&mut bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
+        bytes
     }
 }

@@ -51,7 +51,12 @@ Orienteering Maps 2019 (IOF).
 | Formlinie | form line | Zwischenhöhenlinie für Geländeformen (ISSprOM 103). | `FormLine` |
 | Äquidistanz | contour interval | Höhenabstand benachbarter Höhenlinien in Metern (Sprint: 2 m). | `contour_interval_m` |
 | Gebäude | building | Gebäudeumriss (ISSprOM 521). | `Building` |
-| Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! | `Canopy` |
+| Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! In Berlin werden die ALKIS-Bauwerke `Überdachung` und `Carport` zu Kartenobjekten. | `Canopy`, `canopy_objects` |
+| Treppe | stairway | Treppe als Linie in Laufrichtung (ISSprOM 532.6–532.9); in Berlin Kandidaten aus den ALKIS-Bauwerken `Treppe` und `Freitreppe`. | `stair_objects` |
+| Laufrichtung (Treppe) | walking direction | Richtung, in der man eine Treppe hinauf- oder hinabgeht. freemapper nimmt die Achse des Treppenumrisses mit dem größeren Höhenunterschied im DGM; steigt keine um 0,3 m, die Achse zu einem angrenzenden Gebäude oder Denkmal oder sonst die kurze Achse, markiert mit `freemapper:direction=guessed`. | `STAIR_MIN_RISE_M` |
+| Stufenkante | step edge | Kante einer Stufe; in Berlin die `Freitreppe`-Linien der ALKIS-Bauwerke. Parallele Kanten bis 2 m Abstand werden eine Treppe quer zu den Kanten. | `StepEdge`, `STEP_GAP_M` |
+| Breite Treppe | wide stair | Treppe breiter als dreimal 532.9 auf dem Papier (Sprint 12 m), z. B. eine Tribüne: parallele Linien 532.9, Tag `freemapper:size=wide`. | `WIDE_STAIR_FACTOR` |
+| Treppenbreite | stair footprint | Breite der Treppe quer zur Laufrichtung. freemapper rechnet sie auf Papier um (Maßstab, Symbolvergrößerung) und wählt das nächste Symbol: 532.6 (0,4 mm, auf 1:4000 1,6 m) bis 532.9 (1 mm, 4 m). | `footprint_code` |
 | Befestigte Fläche | paved area | Asphalt-, Pflaster- oder Plattenfläche (ISSprOM 501). | `PavedArea` |
 | Unbefestigter Weg | unpaved path | Weg/Pfad ohne Befestigung (ISSprOM 505/506/507). | `UnpavedPath` |
 | Verkehrsfläche | traffic area | ALKIS-Nutzung `Straßenverkehr`, `Weg`, `Platz`; Quelle der befestigten Flächen der Sprintkarte. | `paved_area_objects` |
@@ -73,6 +78,12 @@ Orienteering Maps 2019 (IOF).
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |
 | Mauer | wall | Linienhafte Barriere aus Stein/Beton. | `Wall` |
 | Hecke | hedge | Linienhafte Barriere aus Pflanzen. | `Hedge` |
+| Stützmauer | retaining wall | Mauer, die einen Geländesprung abstützt; nur von einer Seite aus hoch (ISSprOM 513.2). In Berlin Kandidat aus ALKIS `Stützmauer*`. | `berlin-candidates.toml` |
+| Böschungsoberkante | top of an embankment | Obere Kante einer Böschung, ALKIS-Relief `Oberkante`; in Berlin auf Sprintkarten Kandidat für die Erdböschung (ISSprOM 104). | `berlin-candidates.toml` |
+| Durchfahrt | building passage | Weg durch oder unter einem Gebäude (ALKIS-Bauteile `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`, `Arkade`); in Berlin Kandidat für 522, das Gebäude bleibt ganz. | `building_part_features` |
+| Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `berlin-candidates.toml` |
+| Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `berlin-candidates.toml` |
+| Busch oder kleiner Baum | prominent bush or small tree | Markanter Busch oder kleiner Baum (ISSprOM 418); OSM `natural=tree` und die Bäume des Berliner Baumkatasters mit Krone unter 10 m. | `osm-candidates.toml`, `berlin-candidates.toml` |
 | Hydrant | hydrant | Hydrant, Handpumpe, markanter Wasserpunkt (Schulsatz 321). | `Hydrant` |
 | Spielgerät | playground equipment | Spielgerät oder Handballtor (Schulsatz 541). | `PlaygroundEquipment` |
 | Tisch | table | Tischtennis- oder Picknicktisch (Schulsatz 542). | `Table` |
@@ -124,11 +135,18 @@ Orienteering Maps 2019 (IOF).
 | Regierungsbezirk-Auszug | government district extract | OSM-Auszug eines Regierungsbezirks (Nordrhein-Westfalen: Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des ganzen Landes; gewählt nach der mitgelieferten Auszugsgrenze, an einer Bezirksgrenze mehrere. | `GovernmentDistrict`, `extracts_for` |
 | Weltdatei | world file | Textdatei mit Pixelgröße und Lage eines Rasterbilds (`.jgw`, `.pgw`, `.tfw`). | `GridSpec::from_world_file` |
 | Mosaik | mosaic | Zusammengesetzte Kacheln, auf Kartengebiet plus Puffer zugeschnitten. | `mosaic_dtm` |
+| Geländemosaik | terrain mosaic | Das DGM-Mosaik eines Kachelanbieters, das `derive` unter `data/terrain.tif` speichert, wenn eine Berlin-Zusatzebene Treppenflächen enthält, damit der Export die Laufrichtung der Treppen offline bestimmen kann. | `TERRAIN_MOSAIC_RELPATH` |
 | Rasterzelle | cell | Ein Pixel eines georeferenzierten Rasters. | `Cell` |
 | Auflösung | resolution | Kantenlänge einer Rasterzelle in Metern. | `resolution_m` |
 | Liegenschaftskataster (ALKIS) | cadastre (ALKIS) | Amtliches Kataster: Flurstücke, Gebäude, Nutzung. | `Alkis` |
 | Flurstück | parcel | Katasterfläche mit Eigentumsgrenze. | `Parcel` |
 | Tatsächliche Nutzung | actual land use | ALKIS-Klassifikation der Flächennutzung (`nutzart`). | `LandUse` |
+| Berlin-Zusatzebene | extra Berlin layer | Weitere WFS-Ebene des Geoportals Berlin (ALKIS-Bauwerke, Relief, Hecken, Baumbestand), unter `data/berlin/<Name>.geojson` gespeichert und nur für Gebiete bei Berlin geladen. | `ExtraLayer`, `EXTRA_LAYERS` |
+| Bauart (Bauteil) | part kind (building part) | Art eines ALKIS-Bauteils, z. B. „Durchfahrt im Gebäude“, „Arkade“ (`bezbat`). | `bauart` |
+| Berlin-Regeln | Berlin rules | Regeldatei `berlin-candidates.toml`: macht aus Geoportal-Berlin-Objekten (Tags `berlin:<Eigenschaft>`) Kandidaten, über dieselbe Regelmaschine wie die OSM-Regeln. | `Rules::berlin`, `berlin_objects` |
+| Baumkataster | tree cadastre | Die Baumdatenbank des Landes Berlin (Straßenbäume, Anlagenbäume) mit Art und Kronendurchmesser; Bäume mit Krone ab 10 m werden zu 417, die übrigen zu 418. | `strassenbaeume`, `anlagenbaeume`, `berlin-candidates.toml` |
+| Kleingarten | allotment garden | ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche / Kleingarten“; privates Gelände, in jedem Bundesland ein Kandidat für 520 (verbotenes Gebiet). | `is_private` |
+| K5 | K5 (Karte von Berlin 1:5000) | Die Berlin-Karte 1:5000 in Farbe (WMS `k5_farbe`), als Vorlage `templates/k5.png` mit Weltdatei gespeichert (0,25 m je Pixel, gröber bei Gebieten über 1,5 km Seitenlänge). | `K5_RELPATH`, `K5_WMS` |
 | OpenStreetMap (OSM) | OpenStreetMap (OSM) | Freie, gemeinschaftlich erstellte Geodaten. | `Osm` |
 
 ## Koordinaten & Georeferenzierung / coordinates & georeferencing
