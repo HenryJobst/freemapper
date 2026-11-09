@@ -21,7 +21,9 @@ Most other files already went through a partial file and a rename. The partial f
 
 - Every file freemapper writes, in the project and in the cache, goes through `fsutil`. It writes a new
   partial file next to the target, renames it over the target name and so replaces a link at that name. The
-  link's target stays untouched. The partial file is named `<file>.<process id>.<counter>.part` and opened
+  link's target stays untouched. On Windows, std renames by handle (`FileRenameInfoEx` with replace) and falls
+  back to `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING`; both replace a link at the target name. Cache files
+  go through `write_cache_file`, the OSM extract download through `rename_cache_file`. The partial file is named `<file>.<process id>.<counter>.part` and opened
   with `create_new`, which fails on any existing entry, a link included. A taken name is skipped. freemapper
   flushes the partial file to the disk before the rename.
 - Every project file goes through `write_inside`, `write_files_inside` or `copy_inside`, which take the
@@ -36,18 +38,30 @@ Most other files already went through a partial file and a rename. The partial f
   (ADR 0059).
 - A copy reads only files of the project itself. `copy_inside` refuses a source that is a link or whose folder
   leads out of the project folder: `<path>: a link or outside the project folder, so freemapper does not copy
-  it`. The OCAD export checks each template image and world file first and leaves a refused template out with
+  it`. It then opens the source and checks the opened file again. On Unix, its device and inode must match
+  those of the path before and after the open, it must be a regular file, and the path must still lie inside
+  the project. On Windows it opens a link or junction itself (`FILE_FLAG_OPEN_REPARSE_POINT`) and refuses it.
+  A source swapped for a link between the check and the open is refused the same way. The OCAD export checks each template image and world file first and leaves a refused template out with
   `warning: …; the OCAD map gets no background from it`, so the export goes on without it. A map file that is
-  a link stops `run --force` and `export --force` before the backup, with the error above.
+  a link stops `run --force` and `export --force` before the backup, with the error above and `; replace the
+  link with the real file and run the command again`.
 - Downloads that stream into a partial file of their own first remove an entry of that name, so they never
   write through a link either.
 - Folders inside the cache may be links. The cache is the user's own, and moving a large part of it to another
   drive is a normal setup.
-- No new dependency for `openat`-style access (such as `cap-std`). The check resolves the folder by its path,
-  and the rename uses the path again. A local attacker who swaps a project folder for a link between the two
-  can still win that race. We accept this: it needs write access to the project folder while the run is
-  going on, and such an attacker can already change the project's files directly. The case this ADR closes is
-  the folder that arrives with links already in it.
+- No new dependency for `openat`-style access (such as `cap-std`). Paths are checked and then used by name
+  again, so a race remains:
+  - Fixed-name writes. The check resolves the folder of a file, and the rename uses the path again. Someone
+    who swaps a project folder (`data`, `templates`, `ocad`) for a link between the two makes freemapper
+    replace a file of that fixed name (`terrain.tif`, `hillshade.png`, `<name>.ocd`) in the folder the link
+    points to. That can be any folder the user may write to, also one the attacker cannot write to.
+  - Copies. The checks after the open close the swap of the file itself. A folder swapped for a link and back
+    again, in the short window between the open and the second check, can still slip a file the user
+    can read (a key, for example) into `ocad/`, where the attacker can then read it.
+  Both need someone who can write to the project folder while freemapper runs on it, and who times the swap
+  to the moment of a write. A folder from a download or a shared archive cannot do that. We accept the race
+  for this release. Users should not run freemapper on a project folder that others can write to while it
+  runs; copy such a folder to a place only they can write to first.
 
 ## Consequences
 
