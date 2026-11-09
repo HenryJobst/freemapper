@@ -23,6 +23,8 @@ use crate::sources::osm::OsmFeature;
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 /// The tree cadastre layers.
 const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
+/// The stored kerb layer of the street survey.
+const KERB_LAYER: &str = "sb-bordstein";
 /// The CRS of all Geoportal Berlin layers.
 pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
 
@@ -300,7 +302,7 @@ pub fn berlin_objects(
     let rules = Rules::berlin();
     let mut objects = Vec::new();
     for layer in layers {
-        objects.extend(osm_objects(
+        let found = osm_objects(
             &tagged_features(layer.file, layer.features),
             &rules,
             Target::Candidates,
@@ -311,9 +313,79 @@ pub fn berlin_objects(
             symbol_set,
             &format!("geoportal-berlin/{}", layer.file),
             layer.currency,
-        )?);
+        )?;
+        if layer.file == KERB_LAYER {
+            objects.extend(found.into_iter().filter_map(drop_kerb_notches));
+        } else {
+            objects.extend(found);
+        }
     }
     Ok(objects)
+}
+
+/// A kerb detour that encloses less than this (1.5 mm² on paper, in (1/1000 mm)²) is no feature
+/// of the street. ISSprOM 2019-2 §3.3 asks 1.0 mm² for the smallest area of a brown dot screen,
+/// which paving is; the surveyed tree pits with their lead-in measure up to 1.1 mm² at 1:4000, so
+/// the limit takes half a square millimetre on top.
+const KERB_NOTCH_MAX_AREA: f64 = 1.5e6;
+/// A detour longer than this on paper (10 mm, 40 m at 1:4000) is never a pit.
+const KERB_NOTCH_MAX_PATH: f64 = 10_000.0;
+/// A detour is a pit when its way is at least this many times its chord: a curve is not.
+const KERB_NOTCH_MIN_RATIO: f64 = 2.0;
+
+/// The kerb line of the street survey (501.1) without the tree pits cut into it: the survey
+/// runs the kerb around each pit in a parking strip and the pit then shows as a hook along the
+/// street edge. Each detour that returns to the line within [`KERB_NOTCH_MAX_PATH`], runs
+/// [`KERB_NOTCH_MIN_RATIO`] times as far as its chord and encloses less than
+/// [`KERB_NOTCH_MAX_AREA`] is replaced by its chord. A closed kerb ring below that area, the
+/// kerb around a lone pit, goes. `None` when the object goes; a line with curves stays as it is.
+pub(crate) fn drop_kerb_notches(mut object: MapObject) -> Option<MapObject> {
+    if object.coords.iter().any(|c| c.flags != 0) {
+        return Some(object);
+    }
+    let points: Vec<(f64, f64)> = object
+        .coords
+        .iter()
+        .map(|c| (f64::from(c.x), f64::from(c.y)))
+        .collect();
+    let n = points.len();
+    if n < 3 {
+        return Some(object);
+    }
+    // Twice the signed area of the loop `points[i..=j]` closed by its chord.
+    let cross = |a: (f64, f64), b: (f64, f64)| a.0 * b.1 - b.0 * a.1;
+    if points[0] == points[n - 1] {
+        let area2: f64 = points.windows(2).map(|w| cross(w[0], w[1])).sum();
+        if area2.abs() / 2.0 < KERB_NOTCH_MAX_AREA {
+            return None;
+        }
+    }
+    let mut kept = vec![object.coords[0]];
+    let mut i = 0;
+    while i < n - 1 {
+        let mut best = None;
+        let (mut path, mut area2) = (0.0, 0.0);
+        for j in i + 1..n {
+            path += (points[j].0 - points[j - 1].0).hypot(points[j].1 - points[j - 1].1);
+            if path > KERB_NOTCH_MAX_PATH {
+                break;
+            }
+            area2 += cross(points[j - 1], points[j]);
+            let chord = (points[j].0 - points[i].0).hypot(points[j].1 - points[i].1);
+            let closed = area2 + cross(points[j], points[i]);
+            if j >= i + 2
+                && path >= KERB_NOTCH_MIN_RATIO * chord
+                && closed.abs() / 2.0 < KERB_NOTCH_MAX_AREA
+            {
+                best = Some(j);
+            }
+        }
+        let next = best.unwrap_or(i + 1);
+        kept.push(object.coords[next]);
+        i = next;
+    }
+    object.coords = kept;
+    Some(object)
 }
 
 /// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
@@ -420,6 +492,7 @@ mod tests {
         drop_trees_by_rank,
     };
     use crate::crs::ProjectedPoint;
+    use crate::omap::MapCoord;
     use crate::sources::berlin::normalise_building;
     use crate::sources::berlin::test_support::*;
     use crate::sources::osm::OsmGeometry;
@@ -590,6 +663,89 @@ mod tests {
         short["geometry"]["coordinates"] =
             serde_json::json!([[[392_500.0, 5_820_500.0], [392_500.4, 5_820_500.0]]]);
         assert!(survey_objects("sb-bordstein", &[short], MapKind::Sprint).is_empty());
+    }
+
+    /// A kerb line of the survey from `(x, y)` points in 1/1000 mm on paper (1:4000: 250 per
+    /// ground metre).
+    fn kerb(points: &[(i32, i32)]) -> MapObject {
+        let set = MapKind::Sprint.symbol_set();
+        MapObject {
+            symbol_id: set.id_for_code("501.1").unwrap(),
+            kind: MapObjectKind::Path,
+            coords: points.iter().map(|&(x, y)| MapCoord::new(x, y)).collect(),
+            tags: vec![(
+                "freemapper:source".into(),
+                "geoportal-berlin/sb-bordstein".into(),
+            )],
+        }
+    }
+
+    fn xy(object: &MapObject) -> Vec<(i32, i32)> {
+        object.coords.iter().map(|c| (c.x, c.y)).collect()
+    }
+
+    /// A tree pit cut into the parking strip: the kerb leaves the straight line, runs around a
+    /// 2 m by 4.5 m slot and comes back (about 0.8 mm² at 1:4000, the survey's own shape).
+    fn kerb_with_pit() -> MapObject {
+        kerb(&[
+            (0, 0),
+            (10_000, 0),
+            (10_200, 400),
+            (10_200, 1_100),
+            (10_450, 1_250),
+            (10_700, 1_100),
+            (10_700, 400),
+            (10_900, 0),
+            (20_000, 0),
+        ])
+    }
+
+    #[test]
+    fn tree_pit_notch_leaves_the_kerb_straight() {
+        let kept = drop_kerb_notches(kerb_with_pit()).expect("a long kerb stays");
+        assert_eq!(xy(&kept), [(0, 0), (10_000, 0), (10_900, 0), (20_000, 0)]);
+        assert_eq!(kept.symbol_id, kerb_with_pit().symbol_id);
+        assert_eq!(kept.tags, kerb_with_pit().tags);
+    }
+
+    #[test]
+    fn a_bay_larger_than_the_minimum_area_stays() {
+        // A 12 m by 6 m bay (4.5 mm²) is a feature of the street, not a pit.
+        let bay = kerb(&[
+            (0, 0),
+            (10_000, 0),
+            (10_000, 1_500),
+            (13_000, 1_500),
+            (13_000, 0),
+            (20_000, 0),
+        ]);
+        assert_eq!(xy(&drop_kerb_notches(bay.clone()).unwrap()), xy(&bay));
+    }
+
+    #[test]
+    fn a_curve_is_not_a_notch() {
+        // A quarter circle of 3 mm radius at the corner: path and chord are nearly equal.
+        let corner: Vec<(i32, i32)> = (0..=12)
+            .map(|i| {
+                let a = f64::from(i) / 12.0 * std::f64::consts::FRAC_PI_2;
+                (
+                    (3_000.0 * a.sin()) as i32,
+                    (3_000.0 * (1.0 - a.cos())) as i32,
+                )
+            })
+            .collect();
+        let line = kerb(&corner);
+        assert_eq!(xy(&drop_kerb_notches(line.clone()).unwrap()), xy(&line));
+    }
+
+    #[test]
+    fn a_tiny_closed_kerb_ring_is_dropped() {
+        // A tree pit ringed by its own kerb: 2 m by 2.5 m, 0.3 mm².
+        let ring = kerb(&[(0, 0), (500, 0), (500, 625), (0, 625), (0, 0)]);
+        assert!(drop_kerb_notches(ring).is_none());
+        // A square of 12 m by 12 m stays.
+        let square = kerb(&[(0, 0), (3_000, 0), (3_000, 3_000), (0, 3_000), (0, 0)]);
+        assert!(drop_kerb_notches(square).is_some());
     }
 
     #[test]

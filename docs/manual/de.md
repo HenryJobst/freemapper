@@ -520,7 +520,8 @@ Grünausschnitt liefert sie nur Kandidaten. Aus diesen Ebenen entstehen:
   beschnittenen befestigten Fläche liegt. Vermessene Gehwege, Fahrbahnen,
   Radwege, Parkflächen und Plätze außerhalb der gezeichneten ALKIS-Flächen werden Kandidaten 501.5, etwa
   Parkwege und Vorplätze. Auch hier bleiben schmale Stücke ab 2 m Breite. Bordsteine werden Kandidaten
-  501.1, Werbesäulen 531.
+  501.1, Werbesäulen 531. Ein Bordstein, der um eine Baumscheibe läuft, wird begradigt: Ein Umweg unter 1,5 mm²
+  auf dem Papier (24 m² bei 1:4000) wird zur Geraden, ein einzelner Ring dieser Größe entfällt.
 - Auf beiden Kartenarten: Treppen (532.6 bis 532.9, wie die ALKIS-Treppen; das Feld `trs`, vermutlich die
   Stufenzahl, steht als `berlin:trs` dabei), Mauern (515), Geländer, Verkehrsschutzgitter und Leitplanken
   (518, wie Zäune), Fahrgastunterstände (522) und Brunnen (311) aus der Straßenbefahrung und dem
