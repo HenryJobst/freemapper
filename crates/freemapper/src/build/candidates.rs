@@ -1,5 +1,7 @@
 //! OSM features → candidate objects for the candidates template map (spec §4.5).
 
+use std::collections::HashMap;
+
 use chrono::NaiveDate;
 use geo::{BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Length as _};
 use serde::Deserialize;
@@ -315,6 +317,14 @@ pub fn osm_objects(
     });
     let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
     let mut objects = Vec::new();
+    // The cadastre cuts a wall into short segments; the length limit holds for the whole wall.
+    let joined;
+    let features = if source == "osm" {
+        features
+    } else {
+        joined = join_touching_lines(features, rules, target, kind, symbol_set, georef);
+        &joined
+    };
     for feature in features {
         let Some(found) = rules
             .symbol_for(&feature.tags, &feature.geometry, kind)
@@ -457,6 +467,129 @@ pub fn osm_objects(
     Ok(objects)
 }
 
+/// Segments whose ends are within this distance (ground metres) touch.
+const JOIN_TOUCH_M: f64 = 0.1;
+/// Segments join when the bend between them is at most about 30 degrees (the cosine).
+const JOIN_MIN_COS: f64 = 0.866;
+
+/// Chains the line features that the rules draw as lines with the same symbol and touch end to
+/// end (within [`JOIN_TOUCH_M`], bend up to about 30 degrees) into one line each. The chain keeps
+/// the tags of its first segment. Other features, and lines that no rule draws as lines, are
+/// passed on unchanged.
+fn join_touching_lines(
+    features: &[OsmFeature],
+    rules: &Rules,
+    target: Target,
+    kind: MapKind,
+    symbol_set: &SymbolSet,
+    georef: &Georeferencing,
+) -> Vec<OsmFeature> {
+    let projected = |p: &LatLon| {
+        let q = georef.crs().forward(*p);
+        (q.easting, q.northing)
+    };
+    // The symbol of each segment that is a plain open line.
+    let symbols: Vec<Option<u32>> = features
+        .iter()
+        .map(|f| {
+            let OsmGeometry::Line(points) = &f.geometry else {
+                return None;
+            };
+            if points.len() < 2 || points.first() == points.last() {
+                return None;
+            }
+            let found = rules
+                .symbol_for(&f.tags, &f.geometry, kind)
+                .filter(|m| m.target == target && matches!(m.draw, Draw::Line))?;
+            symbol_set.id_for_code(&found.code)
+        })
+        .collect();
+    let cell = |(x, y): (f64, f64)| {
+        (
+            (x / JOIN_TOUCH_M).floor() as i64,
+            (y / JOIN_TOUCH_M).floor() as i64,
+        )
+    };
+    // The ends of the segments by symbol and cell: (segment, is the last point).
+    let mut ends: HashMap<(u32, i64, i64), Vec<(usize, bool)>> = HashMap::new();
+    for (i, f) in features.iter().enumerate() {
+        let (Some(symbol), OsmGeometry::Line(points)) = (symbols[i], &f.geometry) else {
+            continue;
+        };
+        for (at_end, p) in [(false, points[0]), (true, points[points.len() - 1])] {
+            let (cx, cy) = cell(projected(&p));
+            ends.entry((symbol, cx, cy)).or_default().push((i, at_end));
+        }
+    }
+    // The unused segment that continues `chain` at its last point, as (index, reversed).
+    let next = |chain: &[LatLon], used: &[bool], symbol: u32| -> Option<(usize, bool)> {
+        let last = projected(chain.last()?);
+        let before = projected(&chain[chain.len() - 2]);
+        let heading = (last.0 - before.0, last.1 - before.1);
+        let (cx, cy) = cell(last);
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                for &(j, at_end) in ends.get(&(symbol, cx + dx, cy + dy)).into_iter().flatten() {
+                    let OsmGeometry::Line(points) = &features[j].geometry else {
+                        continue;
+                    };
+                    let (touching, second) = if at_end {
+                        (points[points.len() - 1], points[points.len() - 2])
+                    } else {
+                        (points[0], points[1])
+                    };
+                    let (t, s) = (projected(&touching), projected(&second));
+                    if used[j] || (t.0 - last.0).hypot(t.1 - last.1) > JOIN_TOUCH_M {
+                        continue;
+                    }
+                    let out = (s.0 - t.0, s.1 - t.1);
+                    let norm = heading.0.hypot(heading.1) * out.0.hypot(out.1);
+                    if norm > 0.0 && (heading.0 * out.0 + heading.1 * out.1) / norm >= JOIN_MIN_COS
+                    {
+                        return Some((j, at_end));
+                    }
+                }
+            }
+        }
+        None
+    };
+    let mut used = vec![false; features.len()];
+    let mut out = Vec::with_capacity(features.len());
+    for (i, f) in features.iter().enumerate() {
+        if used[i] {
+            continue;
+        }
+        used[i] = true;
+        let (Some(symbol), OsmGeometry::Line(points)) = (symbols[i], &f.geometry) else {
+            out.push(f.clone());
+            continue;
+        };
+        let mut chain = points.clone();
+        // Grow at the end, turn the chain round, grow at the other end.
+        for _ in 0..2 {
+            while let Some((j, reversed)) = next(&chain, &used, symbol) {
+                used[j] = true;
+                let OsmGeometry::Line(more) = &features[j].geometry else {
+                    unreachable!("indexed as a line");
+                };
+                let more: Vec<LatLon> = if reversed {
+                    more.iter().rev().copied().collect()
+                } else {
+                    more.clone()
+                };
+                chain.extend(more.into_iter().skip(1));
+            }
+            chain.reverse();
+        }
+        out.push(OsmFeature {
+            id: f.id.clone(),
+            tags: f.tags.clone(),
+            geometry: OsmGeometry::Line(chain),
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -545,6 +678,68 @@ mod tests {
         )
         .unwrap();
         (objects, set)
+    }
+
+    #[test]
+    fn short_cadastre_segments_of_one_wall_are_joined() {
+        // Three 2 m wall segments end to end at 1:4000, where 1 mm on paper is 4 m: each alone is
+        // too short, the 6 m wall is not. A segment beside them that does not touch, a bend of
+        // 90 degrees and a segment of another symbol stay apart.
+        let date = "2026-11-07".parse().unwrap();
+        let georef = Georeferencing::new(SCHOOL, 4000, date).unwrap();
+        let (e, n) = (georef.ref_projected.easting, georef.ref_projected.northing);
+        let area = geo_types::Polygon::new(
+            vec![
+                (e - 60.0, n - 60.0),
+                (e + 60.0, n - 60.0),
+                (e + 60.0, n + 60.0),
+                (e - 60.0, n + 60.0),
+                (e - 60.0, n - 60.0),
+            ]
+            .into(),
+            vec![],
+        );
+        let step = 2.0 * 1.475e-5; // 2 m of longitude
+        let segment = |id: &str, name: &str, from: f64, to: f64, dlat: f64| {
+            line(
+                id,
+                &[("berlin:layer", "bauwerke-linien"), ("berlin:bezbwf", name)],
+                vec![at(dlat, from * step), at(dlat, to * step)],
+            )
+        };
+        let features = [
+            // Out of order and one reversed: the chain does not depend on the file order.
+            segment("b", "Mauer", 1.0, 2.0, 0.0),
+            segment("a", "Mauer", 0.0, 1.0, 0.0),
+            segment("c", "Mauer", 3.0, 2.0, 0.0),
+            // Far away, 2 m long: dropped.
+            segment("lone", "Mauer", 0.0, 1.0, 0.0002),
+            // Touches the end of the wall at a right angle: not the same wall, 2 m, dropped.
+            line(
+                "bend",
+                &[
+                    ("berlin:layer", "bauwerke-linien"),
+                    ("berlin:bezbwf", "Mauer"),
+                ],
+                vec![at(0.0, 3.0 * step), at(1.8e-5, 3.0 * step)],
+            ),
+        ];
+        let set = MapKind::Sprint.symbol_set();
+        let found = osm_objects(
+            &features,
+            &Rules::berlin(),
+            Target::Candidates,
+            MapKind::Sprint,
+            &area,
+            20.0,
+            &georef,
+            &set,
+            "geoportal-berlin/bauwerke-linien",
+            "2026-11-06".parse().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].coords.len(), 4);
     }
 
     #[test]

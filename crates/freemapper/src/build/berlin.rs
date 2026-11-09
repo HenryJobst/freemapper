@@ -407,6 +407,18 @@ pub fn drop_osm_lines_near_alkis(
     drop_lines_near(osm, berlin, |_| true, symbol_set, scale_denominator)
 }
 
+/// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
+pub(crate) fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
+    match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
+        Some((_, v)) if !v.split("; ").any(|x| x == also) => {
+            v.push_str("; ");
+            v.push_str(also);
+        }
+        Some(_) => {}
+        None => tags.push(("freemapper:also".to_string(), also.to_string())),
+    }
+}
+
 /// The surveyed (Straßenbefahrung) lines among the Berlin objects: `geoportal-berlin/sb-…`.
 fn from_survey(object: &MapObject) -> bool {
     object
@@ -573,15 +585,7 @@ fn drop_lines_near(
             tag("freemapper:source"),
             tag("freemapper:source_id")
         );
-        let tags = &mut berlin[winner].tags;
-        match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
-            Some((_, v)) if !v.split("; ").any(|x| x == also) => {
-                v.push_str("; ");
-                v.push_str(&also);
-            }
-            Some(_) => {}
-            None => tags.push(("freemapper:also".to_string(), also)),
-        }
+        add_also(&mut berlin[winner].tags, &also);
     }
     kept
 }

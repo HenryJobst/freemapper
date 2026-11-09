@@ -27,7 +27,9 @@ use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRe
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags, survey_tags};
+use crate::build::berlin::{
+    add_also, feature_lines, feature_polygons, provenance_tags, survey_tags,
+};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -488,18 +490,6 @@ pub fn stair_objects(
 fn same_stair(a: &Polygon<f64>, b: &Polygon<f64>) -> bool {
     let smaller = a.unsigned_area().min(b.unsigned_area());
     smaller > 0.0 && a.intersection(b).unsigned_area() >= DUPLICATE_STAIR_SHARE * smaller
-}
-
-/// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
-fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
-    match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
-        Some((_, v)) if !v.split("; ").any(|x| x == also) => {
-            v.push_str("; ");
-            v.push_str(also);
-        }
-        Some(_) => {}
-        None => tags.push(("freemapper:also".to_string(), also.to_string())),
-    }
 }
 
 /// Writes the lines of the stairs.
@@ -1051,6 +1041,27 @@ mod tests {
         assert_eq!(
             code(kind, &found[0]),
             code(kind, &objects(kind, &[rect_stair(2.0, 4.0)], None)[0])
+        );
+    }
+
+    #[test]
+    fn surveyed_stairs_are_drawn_on_the_schoolyard_map_too() {
+        let kind = MapKind::Schoolyard;
+        let survey = [survey_stair(
+            "Fl_20150416_163",
+            "5",
+            &rect_points(0.0, 0.0, 0.8, 3.0),
+        )];
+        let found = objects_with_survey(kind, &[], &[], &survey, None, &[]);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(["532.6", "532.7", "532.8", "532.9"].contains(&code(kind, &found[0]).as_str()));
+        assert_eq!(tag(&found[0], "berlin:trs"), Some("5"));
+        // ALKIS wins here as well.
+        let found = objects_with_survey(kind, &[rect_stair(0.8, 3.0)], &[], &survey, None, &[]);
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            tag(&found[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-treppe/Fl_20150416_163")
         );
     }
 
