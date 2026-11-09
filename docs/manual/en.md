@@ -264,6 +264,10 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   lamp in a series from its neighbour. A control site also gives way to every other symbol. Before you use a
   site, check on site that it is still there, and write the definition of 531 into the legend of the map, as
   ISSprOM requires.
+- Memorials and boundary stones (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) as points
+  (526) among the candidates. Stolpersteine, plaques and memorials that are a bench, a tree or a mural are left
+  out, because 526 is for objects that are obvious on the ground (ISSprOM 526). Where the cadastre also knows the
+  monument, you see two points; keep one.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
 attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit

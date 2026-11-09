@@ -276,6 +276,10 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   Ein Kontrollstandort weicht außerdem jedem anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
   Standort noch da ist, und schreiben Sie die Definition von 531 in die Legende der Karte, wie ISSprOM es
   verlangt.
+- Denkmäler und Grenzsteine (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) als Punkte (526)
+  unter den Kandidaten. Stolpersteine, Gedenktafeln und Gedenkstücke, die eine Bank, ein Baum oder ein Wandbild
+  sind, fehlen, denn 526 gilt für Objekte, die im Gelände auffallen (ISSprOM 526). Kennt auch das Kataster das
+  Denkmal, sehen Sie zwei Punkte; behalten Sie einen.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**

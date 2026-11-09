@@ -1793,6 +1793,53 @@ mod tests {
     }
 
     #[test]
+    fn stolpersteine_and_plaques_are_no_memorial_points() {
+        // ISSprOM 4.5, 526: a memorial "that is obvious". A Stolperstein is flush with the
+        // pavement and a plaque hangs on a wall: neither is seen from a distance (ADR 0075).
+        let rules = Rules::embedded();
+        let node = OsmGeometry::Point(SCHOOL);
+        for t in [
+            &[("historic", "memorial"), ("memorial", "stolperstein")][..],
+            &[("historic", "memorial"), ("memorial", "stolperschwelle")],
+            &[("historic", "memorial"), ("memorial", "plaque")],
+            &[("historic", "memorial"), ("memorial", "plate")],
+            &[("historic", "memorial"), ("memorial", "ground_plaque")],
+            &[("historic", "memorial"), ("memorial:type", "stolperstein")],
+            &[("historic", "memorial"), ("memorial", "bench")],
+            &[("historic", "memorial"), ("memorial", "ghost_bike")],
+            &[("historic", "memorial"), ("memorial", "mural")],
+            &[("historic", "memorial"), ("memorial", "tree")],
+        ] {
+            assert!(!rules.wants(&tags(t), MapKind::Sprint), "{t:?}");
+            assert_eq!(rules.symbol_for(&tags(t), &node, MapKind::Sprint), None);
+        }
+    }
+
+    #[test]
+    fn obvious_memorials_are_526_candidates() {
+        let rules = Rules::embedded();
+        let node = OsmGeometry::Point(SCHOOL);
+        for t in [
+            &[("historic", "memorial")][..],
+            &[("historic", "memorial"), ("memorial", "statue")],
+            &[("historic", "memorial"), ("memorial", "stele")],
+            &[("historic", "memorial"), ("memorial", "war_memorial")],
+            &[("historic", "monument")],
+            &[("historic", "wayside_cross")],
+            &[("historic", "boundary_stone")],
+        ] {
+            let found = rules.symbol_for(&tags(t), &node, MapKind::Sprint).unwrap();
+            assert_eq!(found.code, "526", "{t:?}");
+            assert_eq!(found.target, Target::Candidates, "{t:?}");
+            assert_eq!(found.draw, Draw::Point, "{t:?}");
+        }
+        // Not for the schoolyard, and not for a way.
+        let t = tags(&[("historic", "memorial")]);
+        assert_eq!(rules.symbol_for(&t, &node, MapKind::Schoolyard), None);
+        assert_eq!(rules.symbol_for(&t, &way(), MapKind::Sprint), None);
+    }
+
+    #[test]
     fn closed_fence_becomes_a_closed_line() {
         let ring = line("way/5", &[("barrier", "fence")], square());
         let (objects, _) = objects(&[ring], MapKind::Sprint);

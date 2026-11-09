@@ -40,6 +40,16 @@ draw = "line"
 point_as_short_line_mm = 1.5
 schoolyard = "543"
 
+# Memorials (sprint only, candidates only, ADR 0075). ISSprOM 4.5, 526 "Cairn, memorial, small
+# monument or boundary stone that is obvious". What is flush with the ground or hangs on a wall is
+# not obvious: Stolpersteine (the census found 118 in two small boxes), plaques and plates, and
+# memorials that are a bench, a tree, a mural or a ghost bike. Only nodes: an area memorial is a
+# building (521) or a 521 mapper job.
+[[rule]]
+when = ["historic=memorial|monument|wayside_cross|boundary_stone", "memorial!=stolperstein|stolperschwelle|plaque|plate|ground_plaque|blue_plaque|bench|ghost_bike|mural|tree", "memorial:type!=stolperstein|stolperschwelle|plaque"]
+draw = "point"
+sprint = "526"
+
 [[rule]]
 when = ["barrier=bollard"]
 draw = "point"

@@ -95,6 +95,7 @@ Orienteering Maps 2019 (IOF).
 | Sperrfläche | area that shall not be entered | ISSprOM 520: Fläche, die nicht betreten werden darf (Privatgelände, Beet, Bahngelände). Aus OSM: `access=private\|no` an Fläche oder Weg (ADR 0073). | `520`, `OUT_OF_BOUNDS_CODE` |
 | Fester Kies | firm gravel | `surface=compacted\|fine_gravel`: nach ISSprOM 501 („hard gravel“) befestigt, Kandidat 501.6 bis 501.9 statt 505 (ADR 0073). | – |
 | Kontrollstandort | control site | Kleines künstliches Objekt aus OSM (Poller, Laterne, Papierkorb, Fahrradständer, Bank), das sich als Posten eignet; 531-Kandidat mit dem Tag `freemapper:control`, nie Kartenobjekt (ADR 0074). | `CONTROL_KEY`, `control_sites` |
+| Stolperstein | Stolperstein | Messingplatte im Pflaster zur Erinnerung an Verfolgte; bündig, daher kein auffälliges Objekt und nie 526 (ADR 0075). | – |
 | Bahnleger | course setter | Person, die die Bahnen (Posten und Reihenfolge) eines Orientierungslaufs plant. | – |
 | Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `berlin-candidates.toml` |
 | Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `berlin-candidates.toml` |
