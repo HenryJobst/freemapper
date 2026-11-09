@@ -119,6 +119,38 @@ pub(crate) fn feature_polygons(feature: &Value, crs: Crs) -> Vec<geo_types::Poly
     }
 }
 
+/// The lines of a line feature (LineString or MultiLineString, one per part) in the map's `crs`;
+/// the layers are in EPSG:25833. Empty for other geometries. Used by the stair builder for the
+/// `Freitreppe` step edges.
+pub(crate) fn feature_lines(feature: &Value, crs: Crs) -> Vec<geo_types::LineString<f64>> {
+    let line = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
+        let points: Option<Vec<(f64, f64)>> = coordinates
+            .as_array()?
+            .iter()
+            .map(|c| {
+                let (easting, northing) = position(c)?;
+                if crs == LAYER_CRS {
+                    return Some((easting, northing));
+                }
+                let p = crs.forward(latlon((easting, northing))?);
+                Some((p.easting, p.northing))
+            })
+            .collect();
+        Some(geo_types::LineString::from(points?))
+    };
+    let coordinates = &feature["geometry"]["coordinates"];
+    match feature["geometry"]["type"].as_str() {
+        Some("LineString") => line(coordinates).into_iter().collect(),
+        Some("MultiLineString") => coordinates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(line)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// The provenance tags of a map object or candidate built from a Berlin feature directly (not
 /// through the rules), in the order [`osm_objects`] writes them: `freemapper:source`,
 /// `freemapper:source_id`, `freemapper:currency`, `freemapper:alkis`.
@@ -579,14 +611,16 @@ mod tests {
     }
 
     #[test]
-    fn freitreppe_line_is_a_stair_candidate() {
+    fn freitreppe_line_is_no_rule_candidate() {
         let line = some_line();
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            // `Freitreppe` lines are step edges: `build/stairs.rs` joins a flight of them into
+            // one stair; no rule draws a single edge.
             let tags = [
                 ("berlin:layer", "bauwerke-linien"),
                 ("berlin:bezbwf", "Freitreppe"),
             ];
-            assert_eq!(code(&tags, &line, kind), Some("532.7".to_string()));
+            assert_eq!(code(&tags, &line, kind), None);
             // Stair areas are built in `build/stairs.rs`, not by the rules.
             let area = [
                 ("berlin:layer", "bauwerke-flaechen"),

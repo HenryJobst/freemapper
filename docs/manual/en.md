@@ -257,9 +257,11 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
     building, freemapper cuts it at the wall. This can leave narrow slivers.
   - Building passages and arcades are only candidates. Is the passage open, or does it have a gate?
   - Stairs: the walking direction comes from the terrain model. If a stair rises less than 0.3 m in it,
-    freemapper guesses. The stair then points at the adjoining building or runs along its long side, and it
-    carries the tag `freemapper:direction=guessed`. Check these stairs first. Short stairs under about 2 m
-    often look flat in the terrain model at 1 m resolution.
+    freemapper guesses. A stair at a building or monument leads up to it, any other one runs across its
+    short side. These stairs carry the tag `freemapper:direction=guessed`. Check them first. Short stairs
+    under about 2 m often look flat in the terrain model at 1 m resolution.
+  - Wide stairs such as stadium stands come as several parallel 532.9 lines, one symbol width apart, tagged
+    `freemapper:size=wide`. Keep a few, or draw an area.
   - Walls: where ALKIS has both edges and the centre line of a wall, the candidates show two or three
     parallel 515 lines. Take one and delete the others. ALKIS has no height. Whether a wall can be crossed
     is for you to decide in the terrain.
@@ -347,7 +349,12 @@ sprint maps only), the hedges, and the street and park trees. They are stored in
   than 2 m from a cadastre tree, freemapper drops the OSM tree.
 
 freemapper picks the stair symbol by the stair's width on paper. On sprint maps a stair 3.5 m wide or more
-becomes 532.9, on schoolyard maps one from about 1.1 m. So nearly every schoolyard stair is 532.9.
+becomes 532.9, on schoolyard maps one from about 1.1 m. So nearly every schoolyard stair is 532.9. A stair
+wider than three times 532.9 (12 m on sprint maps) becomes parallel 532.9 lines.
+
+The `Freitreppe` lines of the ALKIS structures are step edges. freemapper joins parallel edges up to 2 m apart
+that overlap along their length into one stair. A doubled edge counts once. The stair runs across the edges,
+as wide as the edges are long and as long as the whole flight. A single edge gives no stair.
 
 Each candidate names its origin in the object tags: `freemapper:source=geoportal-berlin/<layer>`,
 `freemapper:alkis` with the ALKIS name (e.g. `Mauerkante, rechts`), and for trees `freemapper:baum` with
@@ -360,8 +367,8 @@ the image gets coarser. It shows park paths, stairs, walls, fences, embankments 
 good for comparing. OOM has it linked but hidden; in OCAD it is a background map. If the disk has too little
 room, freemapper leaves it out, as it does the surface model.
 
-The export needs the terrain model for the walking direction of the stairs. When the Berlin layers hold a stair
-area, `derive` therefore keeps the terrain mosaic in the project as `data/terrain.tif` (about 4 MB per km²);
+The export needs the terrain model for the walking direction of the stairs. When the Berlin layers hold a stair,
+`derive` therefore keeps the terrain mosaic in the project as `data/terrain.tif` (about 4 MB per km²);
 otherwise it deletes the file. This way `export` works without internet and without the cache.
 
 **Allotment gardens** are out-of-bounds candidates (520) in every state: the ALKIS land use "Sport-, Freizeit-

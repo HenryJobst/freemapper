@@ -1,19 +1,27 @@
-//! ALKIS stairs (Berlin `Treppe`, `Freitreppe` areas) → 532.6–532.9 candidates (Berlin plus 1).
+//! ALKIS stairs (Berlin `Treppe`, `Freitreppe` areas and `Freitreppe` step edges) →
+//! 532.6–532.9 candidates (Berlin plus 1).
 //!
 //! A stair polygon becomes one line along its walking direction. The oriented minimum rectangle
 //! of the polygon gives two axes; the walking direction is the axis whose ends differ more in
 //! height in the terrain model (DGM1, sampled in the map's CRS), and the line runs uphill. If
-//! neither axis rises [`STAIR_MIN_RISE_M`], or no terrain model is stored, the long axis is used
-//! and the candidate is tagged `freemapper:direction=guessed`; a stair at a building façade
-//! (entrance steps) then faces the building instead. The width across the walking direction,
-//! as paper width at the map scale, picks the footprint symbol nearest to it.
+//! neither axis rises [`STAIR_MIN_RISE_M`], or no terrain model is stored, the candidate is
+//! tagged `freemapper:direction=guessed`: a stair at a building or monument (entrance or plinth
+//! steps) faces it, any other one runs along its short axis.
+//!
+//! The `Freitreppe` lines of `bauwerke-linien` are step edges. Parallel edges up to
+//! [`STEP_GAP_M`] apart that overlap along their length form one flight (exact duplicates are
+//! dropped), and the flight is one stair whose walking direction runs across the edges.
+//!
+//! The width across the walking direction, as paper width at the map scale, picks the footprint
+//! symbol nearest to it. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest footprint (a
+//! stadium stand) is drawn as parallel 532.9 lines across its width.
 
 use chrono::NaiveDate;
 use geo::{Distance as _, Euclidean, MinimumRotatedRect as _};
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_polygons, provenance_tags};
+use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -32,8 +40,25 @@ pub const STAIR_MIN_RISE_M: f64 = 0.3;
 /// midpoints to the next one; wider stairs get 532.9.
 const FOOTPRINTS: [(f64, &str); 3] = [(0.45, "532.6"), (0.625, "532.7"), (0.875, "532.8")];
 const WIDEST_FOOTPRINT: &str = "532.9";
-/// A flat stair whose side lies this close to a building is taken for entrance steps.
+/// Paper width of 532.9 (mm, at 100 %).
+const WIDEST_FOOTPRINT_MM: f64 = 1.0;
+/// A stair wider than this many 532.9 widths is drawn as parallel lines across its width.
+const WIDE_STAIR_FACTOR: f64 = 3.0;
+/// At most this many parallel lines for one wide stair; wider ones get them farther apart.
+const MAX_WIDE_LINES: usize = 100;
+/// A flat stair whose side lies this close to a building or monument faces it.
 const FACADE_DISTANCE_M: f64 = 0.5;
+/// `bezbwf` of the monument areas (flat stairs at them face them).
+const MONUMENT_KIND: &str = "Denkmal, Denkstein, Standbild";
+/// The layer and `bezbwf` of the step edges.
+pub const STEP_EDGE_LAYER: &str = "bauwerke-linien";
+const STEP_EDGE_KIND: &str = "Freitreppe";
+/// Step edges whose middle lies this close to another edge's line belong to one flight.
+const STEP_GAP_M: f64 = 2.0;
+/// Step edges of one flight are parallel within about 15° (the sine of the angle).
+const STEP_PARALLEL_SIN: f64 = 0.26;
+/// Step edges whose ends are this close are the same edge (ALKIS has some twice).
+const DUPLICATE_EDGE_M: f64 = 0.05;
 
 /// The ISSprOM footprint symbol (532.6 … 532.9) nearest to a stair `paper_mm` wide on paper,
 /// measured at 100 % symbol size (the ground width over metres per mm and the enlargement).
@@ -50,6 +75,10 @@ fn is_stair(feature: &Value) -> bool {
         .is_some_and(|kind| STAIR_KINDS.contains(&kind))
 }
 
+fn is_step_edge(feature: &Value) -> bool {
+    feature["properties"]["bezbwf"] == STEP_EDGE_KIND
+}
+
 /// Whether any of the `features` of a layer is a stair area (`derive` keeps the terrain then).
 pub fn has_stairs(features: &[Value]) -> bool {
     features.iter().any(is_stair)
@@ -59,6 +88,8 @@ pub fn has_stairs(features: &[Value]) -> bool {
 pub struct StairInput<'a> {
     /// The `bauwerke-flaechen` features (EPSG:25833); only the stair areas are used.
     pub features: &'a [Value],
+    /// The `bauwerke-linien` features (EPSG:25833); only the `Freitreppe` step edges are used.
+    pub step_edges: &'a [Value],
     /// The DGM1 in the map's CRS, if one is stored.
     pub terrain: Option<&'a Raster<f32>>,
     /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
@@ -124,12 +155,13 @@ fn axes(polygon: &Polygon<f64>) -> Option<[Axis; 2]> {
 }
 
 /// The walking axis of a stair, uphill, and whether it is only guessed (no terrain model, or
-/// flatter than [`STAIR_MIN_RISE_M`]): then towards a building the stair lies at
-/// ([`FACADE_DISTANCE_M`]), else the long axis.
+/// flatter than [`STAIR_MIN_RISE_M`]): then towards a building or monument the stair lies at
+/// ([`FACADE_DISTANCE_M`]), else the short axis. A flight long enough to be the long axis of
+/// the rectangle would rise enough to show in the DGM1, so a flat stair is most likely wide.
 fn walking_axis(
     [long, short]: [Axis; 2],
     terrain: Option<&Raster<f32>>,
-    buildings: &[Polygon<f64>],
+    facades: &[Polygon<f64>],
 ) -> (Axis, bool) {
     let rises = terrain.and_then(|t| Some((long.rise(t)?, short.rise(t)?)));
     match rises {
@@ -141,15 +173,16 @@ fn walking_axis(
             };
             (if rise < 0.0 { axis.reversed() } else { axis }, false)
         }
-        _ => (facing_building([long, short], buildings), true),
+        _ => (facing_facade([long, short], facades), true),
     }
 }
 
-/// Of the four axis ends, the one nearest to a building within [`FACADE_DISTANCE_M`] gives the
-/// walking axis, towards the building; without one, the long (first) axis.
-fn facing_building([long, short]: [Axis; 2], buildings: &[Polygon<f64>]) -> Axis {
+/// Of the four axis ends, the one nearest to a building or monument within
+/// [`FACADE_DISTANCE_M`] gives the walking axis, towards it (across the edge the stair lies
+/// at); without one, the short (second) axis.
+fn facing_facade([long, short]: [Axis; 2], facades: &[Polygon<f64>]) -> Axis {
     let ends = geo_types::MultiPoint::from(vec![long.from, long.to, short.from, short.to]);
-    let near: Vec<&Polygon<f64>> = buildings
+    let near: Vec<&Polygon<f64>> = facades
         .iter()
         .filter(|b| Euclidean.distance(&ends, *b) <= FACADE_DISTANCE_M)
         .collect();
@@ -169,21 +202,151 @@ fn facing_building([long, short]: [Axis; 2], buildings: &[Polygon<f64>]) -> Axis
         .filter(|(d, _, _)| *d <= FACADE_DISTANCE_M)
         .min_by(|a, b| a.0.total_cmp(&b.0));
     match nearest {
-        Some((_, 1, reverse)) => {
-            if reverse {
-                short.reversed()
-            } else {
-                short
-            }
-        }
-        Some((_, _, true)) => long.reversed(),
-        _ => long,
+        Some((_, 0, true)) => long.reversed(),
+        Some((_, 0, false)) => long,
+        Some((_, _, true)) => short.reversed(),
+        _ => short,
     }
 }
 
-/// 532.6–532.9 candidates for the stair areas of `input` within `buffer_m` of `map_area` (map
-/// CRS), with the footprints of the symbols of `kind`; `currency` is the fetch date of the
-/// layer.
+/// A step edge (`Freitreppe` line) in the map's CRS: from its first to its last point.
+struct StepEdge<'a> {
+    a: Coord<f64>,
+    b: Coord<f64>,
+    feature: &'a Value,
+}
+
+impl StepEdge<'_> {
+    fn length(&self) -> f64 {
+        (self.b - self.a).x.hypot((self.b - self.a).y)
+    }
+
+    fn unit(&self) -> Coord<f64> {
+        (self.b - self.a) / self.length()
+    }
+
+    /// Whether `other` is the same edge (both ends within [`DUPLICATE_EDGE_M`], either way).
+    fn same_as(&self, other: &Self) -> bool {
+        let near = |p: Coord<f64>, q: Coord<f64>| (p - q).x.hypot((p - q).y) <= DUPLICATE_EDGE_M;
+        (near(self.a, other.a) && near(self.b, other.b))
+            || (near(self.a, other.b) && near(self.b, other.a))
+    }
+
+    /// Whether `other` is a step of the same flight: nearly parallel, its middle within
+    /// [`STEP_GAP_M`] of this edge's line, and overlapping it along its length.
+    fn same_flight(&self, other: &Self) -> bool {
+        let (u, v) = (self.unit(), other.unit());
+        let cross = |p: Coord<f64>, q: Coord<f64>| p.x * q.y - p.y * q.x;
+        let dot = |p: Coord<f64>, q: Coord<f64>| p.x * q.x + p.y * q.y;
+        if cross(u, v).abs() > STEP_PARALLEL_SIN {
+            return false;
+        }
+        let middle = (other.a + other.b) / 2.0;
+        if cross(u, middle - self.a).abs() > STEP_GAP_M {
+            return false;
+        }
+        let (s, t) = (dot(u, other.a - self.a), dot(u, other.b - self.a));
+        s.max(t).min(self.length()) - s.min(t).max(0.0) > 0.0
+    }
+}
+
+/// The `Freitreppe` step edges of the `bauwerke-linien` `features`, exact duplicates dropped.
+fn step_edges(features: &[Value], crs: Crs) -> Vec<StepEdge<'_>> {
+    let mut edges: Vec<StepEdge<'_>> = Vec::new();
+    for feature in features.iter().filter(|f| is_step_edge(f)) {
+        for line in feature_lines(feature, crs) {
+            let (Some(&a), Some(&b)) = (line.0.first(), line.0.last()) else {
+                continue;
+            };
+            let edge = StepEdge { a, b, feature };
+            if edge.length() > DUPLICATE_EDGE_M && !edges.iter().any(|e| e.same_as(&edge)) {
+                edges.push(edge);
+            }
+        }
+    }
+    edges
+}
+
+/// The flights of `edges`: groups of two or more edges linked by [`StepEdge::same_flight`], in
+/// the order of their first edge. A lone edge says nothing about the stair's length.
+fn flights<'e, 'a>(edges: &'e [StepEdge<'a>]) -> Vec<Vec<&'e StepEdge<'a>>> {
+    // Union-find over the edges; the flights of one area are few edges.
+    let mut parent: Vec<usize> = (0..edges.len()).collect();
+    fn root(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    for i in 0..edges.len() {
+        for j in i + 1..edges.len() {
+            if edges[i].same_flight(&edges[j]) || edges[j].same_flight(&edges[i]) {
+                let (a, b) = (root(&mut parent, i), root(&mut parent, j));
+                parent[a.max(b)] = a.min(b);
+            }
+        }
+    }
+    let mut groups: Vec<(usize, Vec<&StepEdge<'a>>)> = Vec::new();
+    for (i, edge) in edges.iter().enumerate() {
+        let r = root(&mut parent, i);
+        match groups.iter_mut().find(|(g, _)| *g == r) {
+            Some((_, group)) => group.push(edge),
+            None => groups.push((r, vec![edge])),
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(_, group)| group)
+        .filter(|group| group.len() >= 2)
+        .collect()
+}
+
+/// The walking axis of a flight of step edges: across the edges, through the middle of their
+/// extent along them; as wide as that extent and as long as the flight. Uphill when the
+/// terrain rises [`STAIR_MIN_RISE_M`] along it, otherwise in the order of the edges. The rectangle
+/// of the flight is returned for the distance to the map area.
+fn flight_axis(flight: &[&StepEdge<'_>], terrain: Option<&Raster<f32>>) -> (Axis, Polygon<f64>) {
+    let longest = flight
+        .iter()
+        .max_by(|a, b| a.length().total_cmp(&b.length()))
+        .expect("a flight has edges");
+    let d = longest.unit();
+    let n = Coord { x: -d.y, y: d.x };
+    let origin = flight[0].a;
+    let dot = |p: Coord<f64>, q: Coord<f64>| p.x * q.x + p.y * q.y;
+    let (mut s0, mut s1, mut t0, mut t1) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
+    for edge in flight {
+        for p in [edge.a, edge.b] {
+            let (s, t) = (dot(p - origin, d), dot(p - origin, n));
+            (s0, s1, t0, t1) = (s0.min(s), s1.max(s), t0.min(t), t1.max(t));
+        }
+    }
+    let at = |s: f64, t: f64| origin + d * s + n * t;
+    let middle = (s0 + s1) / 2.0;
+    let mut axis = Axis {
+        from: at(middle, t0),
+        to: at(middle, t1),
+        width: s1 - s0,
+    };
+    // The first edge lies at the start of the flight unless it is the other end.
+    if dot(flight[0].a - origin, n) - t0 > t1 - dot(flight[0].a - origin, n) {
+        axis = axis.reversed();
+    }
+    if let Some(rise) = terrain.and_then(|t| axis.rise(t))
+        && rise.abs() >= STAIR_MIN_RISE_M
+        && rise < 0.0
+    {
+        axis = axis.reversed();
+    }
+    let ring = vec![at(s0, t0), at(s1, t0), at(s1, t1), at(s0, t1), at(s0, t0)];
+    (axis, Polygon::new(ring.into(), vec![]))
+}
+
+/// 532.6–532.9 candidates for the stair areas and the flights of step edges of `input` within
+/// `buffer_m` of `map_area` (map CRS), with the footprints of the symbols of `kind`; `currency`
+/// is the fetch date of the layers. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest
+/// footprint becomes parallel 532.9 lines one footprint apart, tagged `freemapper:size=wide`.
 pub fn stair_objects(
     input: &StairInput<'_>,
     kind: MapKind,
@@ -194,15 +357,27 @@ pub fn stair_objects(
     currency: NaiveDate,
 ) -> Result<Vec<MapObject>, GeorefError> {
     let crs = Crs::from_epsg(georef.epsg).unwrap_or(Crs::Utm33);
-    let to_map = |c: Coord<f64>| {
-        georef.projected_to_map(ProjectedPoint {
-            easting: c.x,
-            northing: c.y,
-        })
-    };
     // Ground metres per paper millimetre at 100 % symbol size.
     let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0 * kind.symbol_enlargement();
-    let mut objects = Vec::new();
+    let mut stairs = StairWriter {
+        georef,
+        symbol_set,
+        metres_per_mm,
+        objects: Vec::new(),
+    };
+    // Flat stairs face the buildings and the monuments they lie at.
+    let facades: Vec<Polygon<f64>> = input
+        .buildings
+        .iter()
+        .cloned()
+        .chain(
+            input
+                .features
+                .iter()
+                .filter(|f| f["properties"]["bezbwf"] == MONUMENT_KIND)
+                .flat_map(|f| feature_polygons(f, crs)),
+        )
+        .collect();
     for feature in input.features.iter().filter(|f| is_stair(f)) {
         for part in feature_polygons(feature, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
@@ -211,23 +386,83 @@ pub fn stair_objects(
             let Some(axes) = axes(&part) else {
                 continue;
             };
-            let (axis, guessed) = walking_axis(axes, input.terrain, input.buildings);
-            let symbol_id = symbol_set
-                .id_for_code(footprint_code(axis.width / metres_per_mm))
-                .expect("symbol set defines 532.6-532.9");
+            let (axis, guessed) = walking_axis(axes, input.terrain, &facades);
             let mut tags = provenance_tags(STAIR_LAYER, feature, currency);
             if guessed {
                 tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
             }
-            objects.push(MapObject {
-                symbol_id,
-                kind: MapObjectKind::Path,
-                coords: vec![to_map(axis.from)?, to_map(axis.to)?],
-                tags,
-            });
+            stairs.push(&axis, tags)?;
         }
     }
-    Ok(objects)
+    let edges = step_edges(input.step_edges, crs);
+    for flight in flights(&edges) {
+        let (axis, outline) = flight_axis(&flight, input.terrain);
+        if Euclidean.distance(&outline, map_area) > buffer_m {
+            continue;
+        }
+        stairs.push(
+            &axis,
+            provenance_tags(STEP_EDGE_LAYER, flight[0].feature, currency),
+        )?;
+    }
+    Ok(stairs.objects)
+}
+
+/// Writes the lines of the stairs.
+struct StairWriter<'a> {
+    georef: &'a Georeferencing,
+    symbol_set: &'a SymbolSet,
+    metres_per_mm: f64,
+    objects: Vec<MapObject>,
+}
+
+impl StairWriter<'_> {
+    /// One line along `axis` with the footprint nearest to its width; a wide stair (more than
+    /// [`WIDE_STAIR_FACTOR`] × the widest footprint) as parallel lines of the widest footprint,
+    /// one footprint width apart and centred, tagged `freemapper:size=wide`.
+    fn push(&mut self, axis: &Axis, mut tags: Vec<(String, String)>) -> Result<(), GeorefError> {
+        let to_map = |c: Coord<f64>| {
+            self.georef.projected_to_map(ProjectedPoint {
+                easting: c.x,
+                northing: c.y,
+            })
+        };
+        let widest_m = WIDEST_FOOTPRINT_MM * self.metres_per_mm;
+        let wide = axis.width > WIDE_STAIR_FACTOR * widest_m;
+        let code = if wide {
+            WIDEST_FOOTPRINT
+        } else {
+            footprint_code(axis.width / self.metres_per_mm)
+        };
+        let symbol_id = self
+            .symbol_set
+            .id_for_code(code)
+            .expect("symbol set defines 532.6-532.9");
+        let offsets: Vec<f64> = if wide {
+            let count = ((axis.width / widest_m).floor() as usize).min(MAX_WIDE_LINES);
+            let spacing = widest_m.max(axis.width / MAX_WIDE_LINES as f64);
+            let first = -(count as f64 - 1.0) / 2.0 * spacing;
+            tags.push(("freemapper:size".to_string(), "wide".to_string()));
+            (0..count).map(|i| first + i as f64 * spacing).collect()
+        } else {
+            vec![0.0]
+        };
+        let along = (axis.to - axis.from) / axis.length();
+        let across = Coord {
+            x: -along.y,
+            y: along.x,
+        };
+        for offset in offsets {
+            let shift = across * offset;
+            self.objects.push(MapObject {
+                symbol_id,
+                kind: MapObjectKind::Path,
+                coords: vec![to_map(axis.from + shift)?, to_map(axis.to + shift)?],
+                tags: tags.clone(),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -296,6 +531,17 @@ mod tests {
         stair("Treppe", &[(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)])
     }
 
+    /// A `Freitreppe` step edge of `bauwerke-linien` from `a` to `b` (metres from the reference
+    /// point).
+    fn step_edge(id: &str, a: (f64, f64), b: (f64, f64)) -> Value {
+        serde_json::json!({
+            "type": "Feature", "id": format!("bauwerkelinien.{id}"),
+            "geometry": {"type": "MultiLineString",
+                         "coordinates": [[[E + a.0, N + a.1], [E + b.0, N + b.1]]]},
+            "properties": {"uuid": id, "bwf": "1630", "bezbwf": "Freitreppe"}
+        })
+    }
+
     fn objects(kind: MapKind, features: &[Value], dgm: Option<&Raster<f32>>) -> Vec<MapObject> {
         objects_beside(kind, features, dgm, &[])
     }
@@ -306,10 +552,21 @@ mod tests {
         terrain: Option<&Raster<f32>>,
         buildings: &[Polygon<f64>],
     ) -> Vec<MapObject> {
+        objects_with_edges(kind, features, &[], terrain, buildings)
+    }
+
+    fn objects_with_edges(
+        kind: MapKind,
+        features: &[Value],
+        step_edges: &[Value],
+        terrain: Option<&Raster<f32>>,
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
         let (georef, area, set) = setup(kind);
         stair_objects(
             &StairInput {
                 features,
+                step_edges,
                 terrain,
                 buildings,
             },
@@ -346,12 +603,16 @@ mod tests {
         (a.0 - b.0).abs() < 0.05 && (a.1 - b.1).abs() < 0.05
     }
 
-    fn direction(object: &MapObject) -> Option<&str> {
+    fn tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
         object
             .tags
             .iter()
-            .find(|(k, _)| k == "freemapper:direction")
+            .find(|(k, _)| k == key)
             .map(|(_, v)| v.as_str())
+    }
+
+    fn direction(object: &MapObject) -> Option<&str> {
+        tag(object, "freemapper:direction")
     }
 
     #[test]
@@ -413,35 +674,41 @@ mod tests {
     }
 
     #[test]
-    fn flat_stair_uses_long_axis_and_is_tagged() {
-        let kind = MapKind::Schoolyard;
-        // 0.25 m over 3 m: below the 0.3 m rise.
+    fn flat_stair_uses_short_axis_and_is_tagged() {
+        let kind = MapKind::Sprint;
+        // 0.24 m over 3 m: below the 0.3 m rise. A flight long enough to be the long axis
+        // would rise more, so a flat stair is most likely wide: the short axis.
         let gentle = terrain(|_, n| 30.0 + 0.08 * n as f32);
         let no_data = terrain(|_, _| f32::NAN);
         for dgm in [Some(&gentle), Some(&no_data), None] {
             let found = objects(kind, &[rect_stair(6.0, 3.0)], dgm);
             assert_eq!(found.len(), 1);
             let [from, to] = ends(kind, &found[0]);
-            assert!((from.1 - 1.5).abs() < 0.05 && (to.1 - 1.5).abs() < 0.05);
             assert!(
-                ((to.0 - from.0).abs() - 6.0).abs() < 0.05,
+                (from.0 - 3.0).abs() < 0.05 && (to.0 - 3.0).abs() < 0.05,
+                "{from:?} → {to:?}"
+            );
+            assert!(
+                ((to.1 - from.1).abs() - 3.0).abs() < 0.05,
                 "{from:?} → {to:?}"
             );
             assert_eq!(direction(&found[0]), Some("guessed"));
-            // 3 m wide at 1:1000 × 1.25: wider than the widest footprint (1.25 m).
+            // 6 m wide at 1:4000: the widest footprint (4 m), not yet wide (12 m).
             assert_eq!(code(kind, &found[0]), "532.9");
+            assert_eq!(tag(&found[0], "freemapper:size"), None);
         }
+    }
+
+    fn rect(e: f64, n: f64, w: f64, h: f64) -> Polygon<f64> {
+        let ring = vec![(e, n), (e + w, n), (e + w, n + h), (e, n + h), (e, n)];
+        Polygon::new(ring.into(), vec![])
     }
 
     #[test]
     fn flat_stair_at_a_building_faces_it() {
-        let kind = MapKind::Schoolyard;
+        let kind = MapKind::Sprint;
         let flat = terrain(|_, _| 30.0);
         // Entrance steps along a façade: 8 m east × 2 m north, the building north of them.
-        let rect = |e: f64, n: f64, w: f64, h: f64| -> Polygon<f64> {
-            let ring = vec![(e, n), (e + w, n), (e + w, n + h), (e, n + h), (e, n)];
-            Polygon::new(ring.into(), vec![])
-        };
         let building = rect(E - 5.0, N + 2.0, 20.0, 10.0);
         let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&flat), &[building]);
         let [from, to] = ends(kind, &found[0]);
@@ -450,25 +717,150 @@ mod tests {
             "{from:?} → {to:?}"
         );
         assert_eq!(direction(&found[0]), Some("guessed"));
-        // A building 5 m away is no façade of the stair: the long axis.
+        // A building east of the stair, at its short side: the stair runs towards that edge,
+        // along its long axis.
+        let east = rect(E + 8.0, N - 5.0, 10.0, 12.0);
+        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&flat), &[east]);
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            close(from, (0.0, 1.0)) && close(to, (8.0, 1.0)),
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), Some("guessed"));
+        // A building 5 m away is no façade of the stair: the short axis.
         let away = rect(E - 5.0, N + 7.0, 20.0, 10.0);
         let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&flat), &[away]);
         let [from, to] = ends(kind, &found[0]);
         assert!(
-            ((to.0 - from.0).abs() - 8.0).abs() < 0.05,
+            ((to.1 - from.1).abs() - 2.0).abs() < 0.05 && (to.0 - from.0).abs() < 0.05,
             "{from:?} → {to:?}"
         );
         assert_eq!(direction(&found[0]), Some("guessed"));
         // A rising DGM still decides over the building.
-        let east = terrain(|e, _| 30.0 + 0.1 * e as f32);
+        let rising = terrain(|e, _| 30.0 + 0.1 * e as f32);
         let building = rect(E - 5.0, N + 2.0, 20.0, 10.0);
-        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&east), &[building]);
+        let found = objects_beside(kind, &[rect_stair(8.0, 2.0)], Some(&rising), &[building]);
         let [from, to] = ends(kind, &found[0]);
         assert!(
             close(from, (0.0, 1.0)) && close(to, (8.0, 1.0)),
             "{from:?} → {to:?}"
         );
         assert_eq!(direction(&found[0]), None);
+    }
+
+    #[test]
+    fn flat_stair_at_a_monument_faces_it() {
+        let kind = MapKind::Sprint;
+        let flat = terrain(|_, _| 30.0);
+        // A plinth stair 8 m east × 2 m north, the monument area of the same layer east of it.
+        let monument = stair(
+            "Denkmal, Denkstein, Standbild",
+            &[(8.0, -4.0), (14.0, -4.0), (14.0, 6.0), (8.0, 6.0)],
+        );
+        let found = objects(kind, &[rect_stair(8.0, 2.0), monument], Some(&flat));
+        assert_eq!(found.len(), 1, "the monument is no stair");
+        let [from, to] = ends(kind, &found[0]);
+        assert!(
+            close(from, (0.0, 1.0)) && close(to, (8.0, 1.0)),
+            "{from:?} → {to:?}"
+        );
+        assert_eq!(direction(&found[0]), Some("guessed"));
+    }
+
+    #[test]
+    fn very_wide_stair_is_parallel_lines_tagged_wide() {
+        let kind = MapKind::Sprint;
+        let north = terrain(|_, n| 30.0 + 0.4 * n as f32);
+        // A stand 134 m wide and 5.3 m deep, rising north. 532.9 is 4 m wide at 1:4000, so
+        // the stand is wider than 3 × 4 m: 33 lines 4 m apart across it, each 532.9.
+        let found = objects(kind, &[rect_stair(134.0, 5.3)], Some(&north));
+        assert_eq!(found.len(), 33);
+        let mut xs: Vec<f64> = found
+            .iter()
+            .map(|o| {
+                let [from, to] = ends(kind, o);
+                assert!(
+                    (from.1).abs() < 0.05 && (to.1 - 5.3).abs() < 0.05,
+                    "{from:?} → {to:?}"
+                );
+                assert!((from.0 - to.0).abs() < 0.05, "{from:?} → {to:?}");
+                assert_eq!(code(kind, o), "532.9");
+                assert_eq!(tag(o, "freemapper:size"), Some("wide"));
+                assert_eq!(direction(o), None);
+                from.0
+            })
+            .collect();
+        xs.sort_by(f64::total_cmp);
+        for (i, x) in xs.iter().enumerate() {
+            let expected = 67.0 + (i as f64 - 16.0) * 4.0;
+            assert!(
+                (x - expected).abs() < 0.05,
+                "line {i} at {x}, not {expected}"
+            );
+        }
+        // 12 m (3 × 4 m) is not wide yet: one line.
+        let found = objects(kind, &[rect_stair(12.0, 5.3)], Some(&north));
+        assert_eq!(found.len(), 1);
+        assert_eq!(tag(&found[0], "freemapper:size"), None);
+    }
+
+    #[test]
+    fn step_edges_become_one_stair_across_them() {
+        let kind = MapKind::Sprint;
+        // A flight of 5 step edges 3 m long (east), 0.3 m apart (north), with the middle edge
+        // twice (the second one the other way round, as ALKIS has some); a collinear edge
+        // beside the bottom one that overlaps none of them; a flight of two 2 m edges 1.5 m
+        // apart further east; and a lone edge.
+        let mut edges: Vec<Value> = (0..5)
+            .map(|i| {
+                let n = 0.3 * f64::from(i);
+                step_edge(&format!("A{i}"), (0.0, n), (3.0, n))
+            })
+            .collect();
+        edges.push(step_edge("A2bis", (3.0, 0.6), (0.0, 0.6)));
+        edges.push(step_edge("C", (4.0, 0.0), (7.0, 0.0)));
+        edges.push(step_edge("B0", (20.0, 0.0), (22.0, 0.0)));
+        edges.push(step_edge("B1", (20.0, 1.5), (22.0, 1.5)));
+        edges.push(step_edge("D", (50.0, 50.0), (53.0, 50.0)));
+        let steep = |slope: f32| terrain(move |_, n| 30.0 + slope * n as f32);
+        let (up_north, up_south) = (steep(0.5), steep(-0.5));
+        for (dgm, north) in [
+            (Some(&up_north), true),
+            (Some(&up_south), false),
+            (None, true),
+        ] {
+            let found = objects_with_edges(kind, &[], &edges, dgm, &[]);
+            assert_eq!(found.len(), 2, "{found:?}");
+            // The walking direction is across the edges (no DGM needed: never guessed), the
+            // stair as wide as the edges are long and as long as the flight.
+            let [from, to] = ends(kind, &found[0]);
+            let (low, high) = if north { (0.0, 1.2) } else { (1.2, 0.0) };
+            assert!(
+                close(from, (1.5, low)) && close(to, (1.5, high)),
+                "{from:?} → {to:?}"
+            );
+            assert_eq!(code(kind, &found[0]), "532.8");
+            assert_eq!(direction(&found[0]), None);
+            assert_eq!(
+                tag(&found[0], "freemapper:source"),
+                Some("geoportal-berlin/bauwerke-linien")
+            );
+            assert_eq!(tag(&found[0], "freemapper:source_id"), Some("A0"));
+            assert_eq!(tag(&found[0], "freemapper:alkis"), Some("Freitreppe"));
+            let [from, to] = ends(kind, &found[1]);
+            assert!(
+                (from.0 - 21.0).abs() < 0.05 && (to.0 - 21.0).abs() < 0.05,
+                "{from:?} → {to:?}"
+            );
+            assert!(((to.1 - from.1).abs() - 1.5).abs() < 0.05);
+            assert_eq!(code(kind, &found[1]), "532.7");
+        }
+        // Other lines of the layer are no step edges.
+        let mut fence = step_edge("Z", (0.0, 0.0), (3.0, 0.0));
+        fence["properties"]["bezbwf"] = "Zaun".into();
+        let mut fence2 = step_edge("Z2", (0.0, 0.3), (3.0, 0.3));
+        fence2["properties"]["bezbwf"] = "Zaun".into();
+        assert!(objects_with_edges(kind, &[], &[fence, fence2], None, &[]).is_empty());
     }
 
     #[test]
@@ -486,6 +878,8 @@ mod tests {
         ] {
             assert_eq!(footprint_code(paper_mm), expected, "{paper_mm} mm");
         }
+        // The stairs below rise to the north, along their 8 m.
+        let north = terrain(|_, n| 30.0 + 0.2 * n as f32);
         // Sprint 1:4000: the names of the symbols (1.6 / 2 / 3 / 4 m on the ground).
         for (width, expected) in [
             (1.5, "532.6"),
@@ -493,7 +887,7 @@ mod tests {
             (3.0, "532.8"),
             (4.0, "532.9"),
         ] {
-            let found = objects(MapKind::Sprint, &[rect_stair(width, 8.0)], None);
+            let found = objects(MapKind::Sprint, &[rect_stair(width, 8.0)], Some(&north));
             assert_eq!(code(MapKind::Sprint, &found[0]), expected, "{width} m");
         }
         // Schoolyard 1:1000 with symbols at 125 %: 1.25 m per (100 %) mm, so most stairs are
@@ -504,7 +898,7 @@ mod tests {
             (1.5, "532.9"),
             (3.0, "532.9"),
         ] {
-            let found = objects(MapKind::Schoolyard, &[rect_stair(width, 8.0)], None);
+            let found = objects(MapKind::Schoolyard, &[rect_stair(width, 8.0)], Some(&north));
             assert_eq!(code(MapKind::Schoolyard, &found[0]), expected, "{width} m");
         }
         // Other areas are no stairs.

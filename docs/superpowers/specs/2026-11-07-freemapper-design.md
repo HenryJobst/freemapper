@@ -431,12 +431,17 @@ numbers. Height decides nothing: the ALKIS name picks the symbol, the same symbo
   the walking direction. The oriented minimum rectangle gives two axes; the midpoints of its sides are sampled
   bilinearly in the DTM (map CRS: `data/dgm1.tif` when it covers the area, else `data/terrain.tif`). The axis with
   the larger height difference wins when it rises at least 0.3 m (`STAIR_MIN_RISE_M`); the line runs uphill.
-  Otherwise, or without terrain, an axis end within 0.5 m of a 521 footprint picks the axis running towards the
-  building, else the long axis is used, and the line is tagged `freemapper:direction=guessed`. The width across the
+  Otherwise, or without terrain, an axis end within 0.5 m of a 521 footprint or a monument area picks the axis
+  running towards it, else the short axis is used (a flat stair is most likely wide), and the line is tagged
+  `freemapper:direction=guessed`. The width across the
   walking direction picks the footprint symbol by paper width: ground width / (scale/1000 × symbol enlargement)
   against 0.4/0.5/0.75/1.0 mm (532.6 to 532.9), nearest wins (bounds 0.45/0.625/0.875 mm; sprint 1:4000:
-  1.8/2.5/3.5 m; schoolyard 1:1000 × 125 %: 0.56/0.78/1.09 m, so most schoolyard stairs are 532.9).
-  `Freitreppe` lines of `bauwerke-linien` → 532.7;
+  1.8/2.5/3.5 m; schoolyard 1:1000 × 125 %: 0.56/0.78/1.09 m, so most schoolyard stairs are 532.9). A stair wider
+  than 3 × the 532.9 paper width (12 m at 1:4000) is tagged `freemapper:size=wide` and drawn as parallel 532.9
+  lines one 532.9 width apart (at most 100). The `Freitreppe` lines of `bauwerke-linien` are step edges, not rule
+  candidates: duplicates are dropped, edges parallel within about 15°, at most 2 m apart and overlapping along
+  their length form a flight, and a flight of two or more edges is one stair across the edges (width = extent
+  along the edges, length = extent across them; not `guessed`, the DGM1 only picks the uphill end; ADR 0048);
 - *passages:* building parts `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg` (no-break space after
   "an") and `Arkade` → 522; the 521 building stays whole, because the data does not say whether a passage is gated.
   `Auskragender Geschossteil / zurückspringendes Geschoss` is dropped (it mixes overhangs with set-back storeys);

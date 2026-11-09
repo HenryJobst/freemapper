@@ -263,9 +263,11 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
     ein Gebäude stößt, schneidet freemapper sie an der Wand ab. Dabei können schmale Reste bleiben.
   - Durchfahrten und Arkaden sind nur Kandidaten. Ist der Durchgang offen, oder hat er ein Tor?
   - Treppen: Die Laufrichtung kommt aus dem Geländemodell. Steigt eine Treppe darin um weniger als 0,3 m,
-    rät freemapper. Dann zeigt die Treppe zum angrenzenden Gebäude oder läuft entlang ihrer langen Seite, und
-    sie trägt den Tag `freemapper:direction=guessed`. Prüfen Sie diese Treppen zuerst. Kurze Treppen unter
-    etwa 2 m Länge wirken im Geländemodell mit 1 m Auflösung oft flach.
+    rät freemapper. Liegt sie an einem Gebäude oder Denkmal, führt sie darauf zu, sonst läuft sie über ihre
+    kurze Seite. Solche Treppen tragen den Tag `freemapper:direction=guessed`. Prüfen Sie sie zuerst. Kurze
+    Treppen unter etwa 2 m Länge wirken im Geländemodell mit 1 m Auflösung oft flach.
+  - Breite Treppen wie Tribünen zeichnet freemapper als mehrere parallele Linien 532.9 im Abstand einer
+    Symbolbreite, mit dem Tag `freemapper:size=wide`. Behalten Sie einige oder zeichnen Sie eine Fläche.
   - Mauern: Hat ALKIS für eine Mauer die Kanten und die Mittellinie, stehen in den Kandidaten zwei oder drei
     parallele Linien 515. Übernehmen Sie eine und löschen Sie die anderen. ALKIS kennt keine Höhe. Ob eine
     Mauer passierbar ist, entscheiden Sie im Gelände.
@@ -355,7 +357,13 @@ Böschungskanten (nur für Sprintkarten), die Hecken und die Straßen- und Anlag
   neben einem Katasterbaum, lässt freemapper den OSM-Baum weg.
 
 Das Treppensymbol wählt freemapper nach der Breite der Treppe auf dem Papier. Auf Sprintkarten wird eine Treppe ab
-3,5 m Breite 532.9, auf Schulhofkarten schon ab etwa 1,1 m. Fast jede Schulhoftreppe ist also 532.9.
+3,5 m Breite 532.9, auf Schulhofkarten schon ab etwa 1,1 m. Fast jede Schulhoftreppe ist also 532.9. Ist eine
+Treppe breiter als dreimal 532.9 (auf Sprintkarten 12 m), werden daraus parallele Linien 532.9.
+
+Die `Freitreppe`-Linien der ALKIS-Bauwerke sind Stufenkanten. freemapper fasst parallele Kanten mit höchstens 2 m
+Abstand, die sich der Länge nach überlappen, zu einer Treppe zusammen. Doppelte Kanten zählen einmal. Die Treppe
+läuft quer zu den Kanten, ist so breit, wie die Kanten lang sind, und so lang wie die ganze Folge. Eine einzelne
+Kante ergibt keine Treppe.
 
 Jeder Kandidat nennt seine Herkunft in den Objekt-Tags: `freemapper:source=geoportal-berlin/<Ebene>`,
 `freemapper:alkis` mit der ALKIS-Bezeichnung (z. B. `Mauerkante, rechts`), bei Bäumen `freemapper:baum` mit
@@ -369,7 +377,7 @@ aber ausgeblendet; in OCAD ist sie eine Hintergrundkarte. Reicht der Platz auf d
 freemapper sie weg, wie das Oberflächenmodell.
 
 Für die Laufrichtung der Treppen braucht der Export das Geländemodell. Enthalten die Berliner Ebenen eine
-Treppenfläche, speichert `derive` das Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je
+Treppe, speichert `derive` das Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je
 km²), sonst löscht es die Datei. So arbeitet `export` ohne Internet und ohne Zwischenspeicher.
 
 **Kleingärten** sind in jedem Land Kandidaten für verbotenes Gebiet (520): die ALKIS-Nutzung „Sport-, Freizeit-

@@ -18,7 +18,7 @@ use crate::build::canopy::{CANOPY_LAYER, canopy_objects};
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::paved::{PavedObjects, paved_area_objects, unpaved_streets};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
-use crate::build::stairs::{StairInput, has_stairs, stair_objects};
+use crate::build::stairs::{STEP_EDGE_LAYER, StairInput, has_stairs, stair_objects};
 use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -2463,7 +2463,8 @@ fn stored_berlin_objects(
 }
 
 /// The 522 canopy map objects and the 532.x stair candidates of the stored Berlin
-/// `bauwerke-flaechen` layer; none outside Berlin.
+/// `bauwerke-flaechen` layer (canopies, stair areas) and `bauwerke-linien` layer (step edges);
+/// none outside Berlin.
 struct BerlinStructures {
     canopies: Vec<MapObject>,
     stairs: Vec<MapObject>,
@@ -2478,28 +2479,44 @@ fn stored_berlin_structures(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<BerlinStructures, ProjectError> {
-    // The stairs are in the same layer as the canopies (`STAIR_LAYER`).
-    let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER) else {
+    // The stair areas are in the same layer as the canopies; the step edges are lines.
+    let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
+    let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
+    if areas.is_none() && edges.is_none() {
         return Ok(BerlinStructures {
             canopies: Vec::new(),
             stairs: Vec::new(),
         });
-    };
+    }
     let map_area = area.projected_polygon_in(project.crs());
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
-    let canopies = canopy_objects(
-        &layer.features,
-        footprints,
-        &map_area,
-        project.buffer_m,
-        georef,
-        symbol_set,
-        layer.fetched,
-    )?;
+    let canopies = match areas {
+        Some(layer) => canopy_objects(
+            &layer.features,
+            footprints,
+            &map_area,
+            project.buffer_m,
+            georef,
+            symbol_set,
+            layer.fetched,
+        )?,
+        None => Vec::new(),
+    };
     let terrain = stored_stair_terrain(dir, project)?;
+    fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
+        layer.map_or(&[], |l| &l.features)
+    }
+    // Both layers come from one fetch; the later date stands for the currency.
+    let fetched = areas
+        .iter()
+        .chain(edges.iter())
+        .map(|l| l.fetched)
+        .max()
+        .expect("one of the layers is stored");
     let stairs = stair_objects(
         &StairInput {
-            features: &layer.features,
+            features: features(areas),
+            step_edges: features(edges),
             terrain: terrain.as_ref(),
             buildings: footprints,
         },
@@ -2508,7 +2525,7 @@ fn stored_berlin_structures(
         project.buffer_m,
         georef,
         symbol_set,
-        layer.fetched,
+        fetched,
     )?;
     Ok(BerlinStructures { canopies, stairs })
 }
@@ -8621,11 +8638,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             source(canopies[0]).as_deref(),
             Some("geoportal-berlin/bauwerke-flaechen")
         );
-        // Before `derive` there is no terrain: the long axis, guessed.
+        // Before `derive` there is no terrain: the short axis, guessed. Then the stair is 6 m
+        // wide, more than 3 × 1.25 m: four parallel lines.
         let guessed = ("freemapper:direction".to_string(), "guessed".to_string());
+        let wide = ("freemapper:size".to_string(), "wide".to_string());
         let before = stairs(&documents);
-        assert_eq!(before.len(), 1);
-        assert!(before[0].tags.contains(&guessed));
+        assert_eq!(before.len(), 4);
+        assert!(
+            before
+                .iter()
+                .all(|o| o.tags.contains(&guessed) && o.tags.contains(&wide))
+        );
 
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
@@ -8633,6 +8656,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let after = stairs(&starter_documents(dir.path()).unwrap());
         assert_eq!(after.len(), 1);
         assert!(!after[0].tags.contains(&guessed), "{:?}", after[0].tags);
+        assert!(!after[0].tags.contains(&wide));
         assert!(
             after[0].coords[1].x > after[0].coords[0].x,
             "uphill to the east"
@@ -8648,6 +8672,55 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         .unwrap();
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+    }
+
+    #[test]
+    fn step_edges_of_the_stored_lines_become_one_stair() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = berlin_school(&fetcher);
+        let region_bbox = ProjectFile::load(dir.path())
+            .unwrap()
+            .region_bbox()
+            .unwrap();
+        serve_berlin_layers(&fetcher, &region_bbox);
+        fetch(dir.path(), &fetcher, &cache);
+        // Three step edges of one flight (one of them twice) and nothing else in the layer.
+        let edge = |id: &str, n: f64| {
+            serde_json::json!({
+                "type": "Feature", "id": format!("bauwerkelinien.{id}"),
+                "geometry": {"type": "MultiLineString", "coordinates": [[
+                    [392_760.0, n], [392_763.0, n]]]},
+                "properties": {"uuid": id, "bezbwf": "Freitreppe"}})
+        };
+        let n = 5_820_835.0;
+        let layer = serde_json::json!({"type": "FeatureCollection", "features": [
+            edge("E0", n), edge("E1", n + 0.3), edge("E1bis", n + 0.3), edge("E2", n + 0.6)]});
+        std::fs::write(
+            dir.path().join("data/berlin/bauwerke-linien.geojson"),
+            layer.to_string(),
+        )
+        .unwrap();
+        let set = MapKind::Schoolyard.symbol_set();
+        let stairs: Vec<MapObject> = starter_documents(dir.path()).unwrap().candidates.parts[0]
+            .objects
+            .iter()
+            .filter(|o| {
+                o.tags.contains(&(
+                    "freemapper:source".to_string(),
+                    "geoportal-berlin/bauwerke-linien".to_string(),
+                ))
+            })
+            .cloned()
+            .collect();
+        assert_eq!(stairs.len(), 1, "{stairs:?}");
+        // 3 m wide at 1:1000 × 1.25: the widest footprint, not yet wide.
+        assert_eq!(Some(stairs[0].symbol_id), set.id_for_code("532.9"));
+        // Across the edges: about north-south (the map is turned to magnetic north), 0.6 m on
+        // the ground = 0.6 mm on paper.
+        let [a, b] = [stairs[0].coords[0], stairs[0].coords[1]];
+        let (dx, dy) = (f64::from(b.x - a.x), f64::from(b.y - a.y));
+        assert!(dx.abs() < 0.2 * dy.abs(), "{a:?} → {b:?}");
+        assert!((dx.hypot(dy) - 600.0).abs() < 10.0, "{a:?} → {b:?}");
     }
 
     #[test]

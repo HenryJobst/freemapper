@@ -53,7 +53,9 @@ Orienteering Maps 2019 (IOF).
 | Gebäude | building | Gebäudeumriss (ISSprOM 521). | `Building` |
 | Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! In Berlin werden die ALKIS-Bauwerke `Überdachung` und `Carport` zu Kartenobjekten. | `Canopy`, `canopy_objects` |
 | Treppe | stairway | Treppe als Linie in Laufrichtung (ISSprOM 532.6–532.9); in Berlin Kandidaten aus den ALKIS-Bauwerken `Treppe` und `Freitreppe`. | `stair_objects` |
-| Laufrichtung (Treppe) | walking direction | Richtung, in der man eine Treppe hinauf- oder hinabgeht. freemapper nimmt die Achse des Treppenumrisses mit dem größeren Höhenunterschied im DGM; steigt keine um 0,3 m, die Achse zu einem angrenzenden Gebäude oder sonst die lange Achse, markiert mit `freemapper:direction=guessed`. | `STAIR_MIN_RISE_M` |
+| Laufrichtung (Treppe) | walking direction | Richtung, in der man eine Treppe hinauf- oder hinabgeht. freemapper nimmt die Achse des Treppenumrisses mit dem größeren Höhenunterschied im DGM; steigt keine um 0,3 m, die Achse zu einem angrenzenden Gebäude oder Denkmal oder sonst die kurze Achse, markiert mit `freemapper:direction=guessed`. | `STAIR_MIN_RISE_M` |
+| Stufenkante | step edge | Kante einer Stufe; in Berlin die `Freitreppe`-Linien der ALKIS-Bauwerke. Parallele Kanten bis 2 m Abstand werden eine Treppe quer zu den Kanten. | `StepEdge`, `STEP_GAP_M` |
+| Breite Treppe | wide stair | Treppe breiter als dreimal 532.9 auf dem Papier (Sprint 12 m), z. B. eine Tribüne: parallele Linien 532.9, Tag `freemapper:size=wide`. | `WIDE_STAIR_FACTOR` |
 | Treppenbreite | stair footprint | Breite der Treppe quer zur Laufrichtung. freemapper rechnet sie auf Papier um (Maßstab, Symbolvergrößerung) und wählt das nächste Symbol: 532.6 (0,4 mm, auf 1:4000 1,6 m) bis 532.9 (1 mm, 4 m). | `footprint_code` |
 | Befestigte Fläche | paved area | Asphalt-, Pflaster- oder Plattenfläche (ISSprOM 501). | `PavedArea` |
 | Unbefestigter Weg | unpaved path | Weg/Pfad ohne Befestigung (ISSprOM 505/506/507). | `UnpavedPath` |
