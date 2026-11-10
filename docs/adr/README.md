@@ -130,3 +130,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0082](0082-region-adapters-trait-and-manifests.md) | Region adapters: a trait, TOML manifests and adapter crates | Proposed | 2026-11-10 |
 | [0083](0083-map-area-checked-on-every-path.md) | The map area is checked on every path | Accepted | 2026-11-10 |
 | [0084](0084-allowed-map-scales-per-kind.md) | Allowed map scales per kind | Accepted | 2026-11-10 |
+| [0085](0085-title-always-in-the-project-file.md) | The project file always holds a title | Accepted | 2026-11-10 |

@@ -647,6 +647,10 @@ pub fn init_project(
         surface: None,
         ndsm_tiles: Vec::new(),
     };
+    // Always write a title: the PDF, freemapper-print and freemapper-courseplan then read the
+    // same one instead of each deriving its own from the folder name.
+    let mut project = project;
+    project.title = Some(project.display_title(dir));
     project.save(dir)?;
     Ok(project)
 }
@@ -5259,6 +5263,41 @@ mod tests {
         let mut warnings = Vec::new();
         ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
         assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn init_always_writes_a_title() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.53],[13.85,52.54],[13.84,52.54],[13.84,52.53]]]}"#,
+        )
+        .unwrap();
+        for (folder, given, expected) in [
+            ("clara-zetkin-schule", None, "Clara-Zetkin-Schule"),
+            (
+                "kreuz",
+                Some("Evangelisches Kreuzgymnasium"),
+                "Evangelisches Kreuzgymnasium",
+            ),
+            ("alte_schule", Some("  \n "), "Alte-Schule"),
+        ] {
+            let project = dir.path().join(folder);
+            let made = init_project(
+                &project,
+                &area,
+                MapKind::Schoolyard,
+                None,
+                date,
+                given.map(str::to_string),
+            )
+            .unwrap();
+            assert_eq!(made.title.as_deref(), Some(expected), "{folder}");
+            // The file holds it, so print and courseplan read the same title.
+            let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+            assert!(text.contains(&format!("title = \"{expected}\"")), "{text}");
+            assert_eq!(made.display_title(&project), expected);
+        }
     }
 
     #[test]
@@ -13098,6 +13137,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn project_without_title_loads() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        // A new project has a title (ADR 0085); older ones have none and still load.
+        assert!(project.title.is_some());
+        project.title = None;
+        project.save(dir.path()).unwrap();
         let project = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project.title, None);
         let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
@@ -13109,6 +13153,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.title = None;
         let folder = Path::new("/maps/clara-zetkin-schule");
         assert_eq!(project.display_title(folder), "Clara-Zetkin-Schule");
         assert_eq!(
@@ -13135,8 +13180,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             Some("  ".to_string()),
         )
         .unwrap();
-        assert_eq!(project.title, None);
-        assert_eq!(project.display_title(Path::new("/maps/--")), "Karte");
+        // The blank title is not kept; the folder name stands in and is written.
+        assert_eq!(
+            project.title.as_deref(),
+            Some(project.display_title(dir.path()).as_str())
+        );
+        let mut untitled = project.clone();
+        untitled.title = None;
+        assert_eq!(untitled.display_title(Path::new("/maps/--")), "Karte");
         let mut titled = project.clone();
         titled.title = Some("Schule\u{7} Nord".to_string());
         assert_eq!(titled.display_title(Path::new("/maps/x")), "Schule Nord");
@@ -13150,7 +13201,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         school_project(&real);
         let link = dir.path().join("clara-zetkin-schule");
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        let project = ProjectFile::load(&link).unwrap();
+        let mut project = ProjectFile::load(&link).unwrap();
+        project.title = None;
         assert_eq!(project.display_title(&link), "Clara-Zetkin-Schule");
         assert_eq!(
             map_path(&link).file_name().unwrap(),
@@ -13163,7 +13215,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let project_dir = dir.path().join("clara-zetkin-schule");
         school_project(&project_dir);
-        let project = ProjectFile::load(&project_dir).unwrap();
+        let mut project = ProjectFile::load(&project_dir).unwrap();
+        project.title = None;
         // Like `.` from inside the folder: the path has no file name of its own.
         std::fs::create_dir(project_dir.join("x")).unwrap();
         let unnamed = project_dir.join("x").join("..");

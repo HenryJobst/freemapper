@@ -160,6 +160,10 @@ nothing. Use the relation (`--osm relation/…`) instead, or save the outline as
 `init` refuses a sprint scale of 3000. Draw at 1:4000, and freemapper-print enlarges to 1:3000 when printing. A project
 whose `freemapper.toml` names another scale still loads; freemapper warns, and freemapper-print will not print the map.
 
+**Title.** `init` always writes a `title` into `freemapper.toml`. Without `--title` it is the folder name with
+capitalised words (`clara-zetkin-schule` becomes "Clara-Zetkin-Schule"). The PDF, freemapper-print and
+freemapper-courseplan then show the same title. Change it in the file if you want another.
+
 ## 6. Choosing the map area in the browser
 
 ![Area selection in the browser](images/area-selector.jpg)

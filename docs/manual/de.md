@@ -169,6 +169,10 @@ Symbole bleiben bei 100 %. Einen Sprintkarten-Maßstab 3000 lehnt `init` ab. Zei
 vergrößert beim Drucken auf 1:3000. Ein Projekt, dessen `freemapper.toml` einen anderen Maßstab nennt, lässt sich
 weiter laden; freemapper warnt, und freemapper-print druckt die Karte nicht.
 
+**Titel.** `init` schreibt immer einen `title` in die `freemapper.toml`. Ohne `--title` ist es der Ordnername mit
+großen Anfangsbuchstaben (`clara-zetkin-schule` wird zu „Clara-Zetkin-Schule“). PDF, freemapper-print und
+freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in der Datei.
+
 ## 6. Das Kartengebiet im Browser wählen
 
 ![Gebietsauswahl im Browser](images/area-selector.jpg)
