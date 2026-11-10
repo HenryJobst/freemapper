@@ -398,6 +398,146 @@ pub(crate) fn parse_boundary(text: &str) -> MultiPolygon<f64> {
     MultiPolygon::try_from(geometry.value).expect("embedded boundary is a MultiPolygon")
 }
 
+/// Every per-region fact the `Region` and `Provider` enums answer, for the golden net of the
+/// adapter migration (`tests/adapters_golden.rs`, layer G1). Test and `golden` feature only.
+#[cfg(any(test, feature = "golden"))]
+pub mod golden {
+    use sha2::{Digest as _, Sha256};
+
+    use std::path::Path;
+
+    use super::*;
+    use crate::fetch::Cache;
+    use crate::sources::lgb::Product;
+    use crate::sources::osm::golden::{OsmFacts, extracts_of};
+
+    /// The credit lines of one project record combination in one year.
+    #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+    pub struct CreditFacts {
+        pub year: i32,
+        /// `alkis`: only ALKIS objects were fetched; `rasters`: rasters (and tiles) as well.
+        pub records: &'static str,
+        pub lines: Vec<String>,
+    }
+
+    /// What the enums say about one region.
+    #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+    pub struct RegionFacts {
+        pub id: String,
+        pub provider: String,
+        /// The provider's folder in the shared cache, as [`Cache`] names it; `None` for a
+        /// provider that keeps nothing there. Four names are not the provider id, and a user's
+        /// cache holds several GB under them.
+        pub cache_dir: Option<String>,
+        pub terrain_source: String,
+        pub per_area: bool,
+        pub crs_epsg: u32,
+        pub object_id_prefix: String,
+        pub boundary_sha256: String,
+        pub osm: Vec<OsmFacts>,
+        pub credit: Vec<CreditFacts>,
+    }
+
+    /// The object id prefix and a point (longitude, latitude) inside each region: the centre of
+    /// its example area.
+    fn constants(region: Region) -> (&'static str, f64, f64) {
+        match region {
+            Region::Brandenburg => ("DEBB", 13.038, 52.403),
+            Region::Berlin => ("DEBE", 13.381, 52.488),
+            Region::Saxony => ("DESN", 14.421, 51.182),
+            Region::SaxonyAnhalt => ("DEST", 11.139, 51.788),
+            Region::Hamburg => ("DEHH", 9.803, 53.5585),
+            Region::Hessen => ("DEHE", 8.768, 50.81),
+            Region::SchleswigHolstein => ("DESH", 10.687, 53.866),
+            Region::MecklenburgVorpommern => ("DEMV", 11.465, 53.892),
+            Region::NordrheinWestfalen => ("DENW", 6.24, 50.555),
+            Region::Niedersachsen => ("DENI", 9.6971, 52.388),
+            Region::RheinlandPfalz => ("DERP", 7.165, 50.1443),
+        }
+    }
+
+    fn boundary_text(region: Region) -> &'static str {
+        match region {
+            Region::Brandenburg => BRANDENBURG_BOUNDARY,
+            Region::Berlin => BERLIN_BOUNDARY,
+            Region::Saxony => SAXONY_BOUNDARY,
+            Region::SaxonyAnhalt => SAXONY_ANHALT_BOUNDARY,
+            Region::Hamburg => HAMBURG_BOUNDARY,
+            Region::Hessen => HESSEN_BOUNDARY,
+            Region::SchleswigHolstein => SCHLESWIG_HOLSTEIN_BOUNDARY,
+            Region::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_BOUNDARY,
+            Region::NordrheinWestfalen => NORDRHEIN_WESTFALEN_BOUNDARY,
+            Region::Niedersachsen => NIEDERSACHSEN_BOUNDARY,
+            Region::RheinlandPfalz => RHEINLAND_PFALZ_BOUNDARY,
+        }
+    }
+
+    /// The first folder below the cache root that `provider` writes to.
+    fn cache_dir(provider: Provider) -> Option<String> {
+        let root = Path::new("cache");
+        let cache = Cache::new(root.to_path_buf());
+        let inside = match provider {
+            Provider::Lgb => cache.currency_csv_path(Product::Dtm),
+            Provider::GeoSn => cache.currency_csv_path(Product::SaxonyDtm),
+            Provider::Lgv => cache.lgv_dir(),
+            Provider::Hvbg => cache.hvbg_dir(),
+            Provider::LvermGeoSh => cache.lvermgeo_sh_dir(),
+            Provider::GeobasisNrw => cache.geobasis_nrw_dir(),
+            Provider::LvermGeoRp => cache.lvermgeo_rp_dir(),
+            Provider::LaivMv => cache.laiv_mv_dir(),
+            Provider::LvermGeo | Provider::Lgln => return None,
+        };
+        let first = inside.strip_prefix(root).ok()?.components().next()?;
+        Some(first.as_os_str().to_string_lossy().into_owned())
+    }
+
+    fn id_of<T: serde::Serialize>(value: T) -> String {
+        match serde_json::to_value(value) {
+            Ok(serde_json::Value::String(id)) => id,
+            other => panic!("an enum serialises to a string, not {other:?}"),
+        }
+    }
+
+    /// The facts of the eleven regions in [`Region::ALL`] order.
+    pub fn legacy_facts() -> Vec<RegionFacts> {
+        Region::ALL
+            .into_iter()
+            .map(|region| {
+                let (prefix, lon, lat) = constants(region);
+                assert_eq!(Region::of_object_id(prefix), Some(region));
+                let provider = region.provider();
+                let mut credit = Vec::new();
+                for year in [2025, 2026] {
+                    for (records, rasters) in [("alkis", false), ("rasters", true)] {
+                        credit.push(CreditFacts {
+                            year,
+                            records,
+                            lines: crate::project::golden::credit_lines(
+                                region, lon, lat, year, rasters,
+                            ),
+                        });
+                    }
+                }
+                RegionFacts {
+                    id: id_of(region),
+                    provider: id_of(provider),
+                    cache_dir: cache_dir(provider),
+                    terrain_source: provider.terrain_source().to_string(),
+                    per_area: provider.per_area(),
+                    crs_epsg: region.crs().epsg(),
+                    object_id_prefix: prefix.to_string(),
+                    boundary_sha256: Sha256::digest(boundary_text(region).as_bytes())
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect(),
+                    osm: extracts_of(region),
+                    credit,
+                }
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

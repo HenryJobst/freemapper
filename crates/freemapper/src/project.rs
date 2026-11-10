@@ -5348,6 +5348,96 @@ fn check_folders(dir: &Path, folders: &[&str]) -> Result<(), ProjectError> {
     Ok(())
 }
 
+/// The credit lines of a project as the attribution functions give them, for the golden net of
+/// the adapter migration (`tests/adapters_golden.rs`). Test and `golden` feature only.
+#[cfg(any(test, feature = "golden"))]
+pub mod golden {
+    use super::*;
+
+    /// The lines of `ATTRIBUTION.txt` that a project of `region` gets when everything it holds
+    /// was fetched in `year`. `rasters` adds the orthophoto, terrain and surface records (and
+    /// one recorded tile for the tile providers) to the ALKIS records. `lon` and `lat` place the
+    /// map area (a 150 m square) inside the region.
+    pub fn credit_lines(
+        region: Region,
+        lon: f64,
+        lat: f64,
+        year: i32,
+        rasters: bool,
+    ) -> Vec<String> {
+        let (dlon, dlat) = (0.001_1, 0.000_7);
+        let ring = [
+            [lon - dlon, lat - dlat],
+            [lon + dlon, lat - dlat],
+            [lon + dlon, lat + dlat],
+            [lon - dlon, lat + dlat],
+            [lon - dlon, lat - dlat],
+        ];
+        let date = NaiveDate::from_ymd_opt(year, 6, 15).expect("valid date");
+        let mut project = ProjectFile {
+            map_kind: crate::project::MapKind::Sprint,
+            scale_denominator: 4000,
+            declination_date: date,
+            buffer_m: 50.0,
+            map_area_source_id: None,
+            map_area: serde_json::json!({"type": "Polygon", "coordinates": [ring]}),
+            crs: Crs::Utm33.epsg(),
+            provider: None,
+            title: None,
+            tiles: Vec::new(),
+            buildings: None,
+            land_use: None,
+            berlin_layers: BTreeMap::new(),
+            nas_layers: BTreeMap::new(),
+            tree_layers: BTreeMap::new(),
+            osm: None,
+            orthophoto: None,
+            k5: None,
+            terrain: None,
+            surface: None,
+            ndsm_tiles: Vec::new(),
+        };
+        let bbox = [0.0, 0.0, 1.0, 1.0];
+        project.buildings = Some(AlkisRecord {
+            bbox,
+            fetched: date,
+            latest_update: None,
+            count: 1,
+            regions: vec![region],
+        });
+        if rasters {
+            project.orthophoto = Some(WmsRecord {
+                flight: None,
+                flight_label: None,
+                fetched: date,
+                bbox,
+            });
+            let wcs = WcsRecord {
+                fetched: date,
+                bbox,
+                date: None,
+            };
+            project.terrain = Some(wcs.clone());
+            project.surface = Some(wcs);
+            let product = match region.provider() {
+                Provider::GeoSn => Some(Product::SaxonyDtm),
+                Provider::Lgb => Some(Product::Dtm),
+                _ => None,
+            };
+            if let Some(product) = product {
+                project.tiles.push(TileRecord {
+                    product,
+                    tile: "t".to_string(),
+                    url: "https://example.invalid/t".to_string(),
+                    currency: date,
+                    published: date,
+                });
+            }
+        }
+        attribution_lines(&project, &[])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";

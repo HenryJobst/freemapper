@@ -1,0 +1,631 @@
+[
+  {
+    "id": "brandenburg",
+    "provider": "lgb",
+    "cache_dir": "lgb",
+    "terrain_source": "lgb-dgm1",
+    "per_area": false,
+    "crs_epsg": 25833,
+    "object_id_prefix": "DEBB",
+    "boundary_sha256": "43ca5b3071c599627e2ca59cdcf12e2b9d22673f6c02a3fba5dce487be26582f",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt",
+        "prefix": "brandenburg_",
+        "megabytes": 300.0,
+        "label": "Brandenburg"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "berlin",
+    "provider": "lgb",
+    "cache_dir": "lgb",
+    "terrain_source": "lgb-dgm1",
+    "per_area": false,
+    "crs_epsg": 25833,
+    "object_id_prefix": "DEBE",
+    "boundary_sha256": "ac957aa2b1294193e578deafb17eacb053787150c70d99c2c4e41707a078d596",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt",
+        "prefix": "brandenburg_",
+        "megabytes": 300.0,
+        "label": "Brandenburg"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2025, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+          "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+          "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "saxony",
+    "provider": "geosn",
+    "cache_dir": "geosn",
+    "terrain_source": "geosn-dgm1",
+    "per_area": false,
+    "crs_epsg": 25833,
+    "object_id_prefix": "DESN",
+    "boundary_sha256": "6d172fb003b13dcea9e061da058455dd94f3a2ab8a216ab83dace4b7ba311205",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt",
+        "prefix": "sachsen_",
+        "megabytes": 270.0,
+        "label": "Saxony"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "saxonyanhalt",
+    "provider": "lvermgeo",
+    "cache_dir": null,
+    "terrain_source": "lvermgeo-st-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DEST",
+    "boundary_sha256": "b1d2992f01e4414a51140555115956cf0cdee01916ae3e18027911eb8f4fc7b1",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt",
+        "prefix": "sachsen-anhalt_",
+        "megabytes": 177.0,
+        "label": "Saxony-Anhalt"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hamburg",
+    "provider": "lgv",
+    "cache_dir": "lgv",
+    "terrain_source": "lgv-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DEHH",
+    "boundary_sha256": "5b64f3c164f54db61dde9901f65269ef84e0ecfae2481a699ce4713defdac6c6",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt",
+        "prefix": "hamburg_",
+        "megabytes": 54.0,
+        "label": "Hamburg"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "hessen",
+    "provider": "hvbg",
+    "cache_dir": "hvbg",
+    "terrain_source": "hvbg-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DEHE",
+    "boundary_sha256": "507ad1570cab30125b704e866889aa6e7981e4e21cebc58ad74545600e494f09",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt",
+        "prefix": "hessen_",
+        "megabytes": 348.0,
+        "label": "Hesse"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "schleswigholstein",
+    "provider": "lvermgeosh",
+    "cache_dir": "lvermgeo_sh",
+    "terrain_source": "lvermgeo-sh-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DESH",
+    "boundary_sha256": "3912ab131b0ef9277cbfeb2e0ad8d82ef607ee177857abdbaa15276d3f9b2482",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt",
+        "prefix": "schleswig-holstein_",
+        "megabytes": 159.0,
+        "label": "Schleswig-Holstein"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "mecklenburgvorpommern",
+    "provider": "laivmv",
+    "cache_dir": "laiv_mv",
+    "terrain_source": "laiv-mv-dgm1",
+    "per_area": true,
+    "crs_epsg": 25833,
+    "object_id_prefix": "DEMV",
+    "boundary_sha256": "2391b72cb74dd1df493fe073928ce55c3507d95f782530129dc5a72fd8912afb",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt",
+        "prefix": "mecklenburg-vorpommern_",
+        "megabytes": 128.8,
+        "label": "Mecklenburg-Vorpommern"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "nordrheinwestfalen",
+    "provider": "geobasisnrw",
+    "cache_dir": "geobasis_nrw",
+    "terrain_source": "geobasis-nrw-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DENW",
+    "boundary_sha256": "505051aa26153103fa483f9fe4e9908fe9413be3b8fe527f99ebda09763ca3b3",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/arnsberg-regbez-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/arnsberg-regbez-updates/state.txt",
+        "prefix": "nrw-arnsberg_",
+        "megabytes": 195.2,
+        "label": "North Rhine-Westphalia, Arnsberg"
+      },
+      {
+        "url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/detmold-regbez-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/detmold-regbez-updates/state.txt",
+        "prefix": "nrw-detmold_",
+        "megabytes": 137.3,
+        "label": "North Rhine-Westphalia, Detmold"
+      },
+      {
+        "url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/duesseldorf-regbez-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/duesseldorf-regbez-updates/state.txt",
+        "prefix": "nrw-duesseldorf_",
+        "megabytes": 217.2,
+        "label": "North Rhine-Westphalia, Düsseldorf"
+      },
+      {
+        "url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt",
+        "prefix": "nrw-koeln_",
+        "megabytes": 225.2,
+        "label": "North Rhine-Westphalia, Köln"
+      },
+      {
+        "url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/muenster-regbez-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/muenster-regbez-updates/state.txt",
+        "prefix": "nrw-muenster_",
+        "megabytes": 140.9,
+        "label": "North Rhine-Westphalia, Münster"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "niedersachsen",
+    "provider": "lgln",
+    "cache_dir": null,
+    "terrain_source": "lgln-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DENI",
+    "boundary_sha256": "4c00a3c9d24118e0df29232de3276fe16c56bf061a4d1c6d460caefa3bb5ec10",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt",
+        "prefix": "niedersachsen_",
+        "megabytes": 510.0,
+        "label": "Lower Saxony"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+          "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rheinlandpfalz",
+    "provider": "lvermgeorp",
+    "cache_dir": "lvermgeo_rp",
+    "terrain_source": "lvermgeo-rp-dgm1",
+    "per_area": true,
+    "crs_epsg": 25832,
+    "object_id_prefix": "DERP",
+    "boundary_sha256": "f243a52c5f5943f488a76a7cda30fbcabac43a76cc8007e2cdd97a92eda8b95b",
+    "osm": [
+      {
+        "url": "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf",
+        "state_url": "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt",
+        "prefix": "rheinland-pfalz_",
+        "megabytes": 275.0,
+        "label": "Rhineland-Palatinate"
+      }
+    ],
+    "credit": [
+      {
+        "year": 2025,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+          "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+        ]
+      },
+      {
+        "year": 2025,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+          "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "alkis",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+          "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+        ]
+      },
+      {
+        "year": 2026,
+        "records": "rasters",
+        "lines": [
+          "© OpenStreetMap contributors, ODbL",
+          "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+          "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+        ]
+      }
+    ]
+  }
+]
