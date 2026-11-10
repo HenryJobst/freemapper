@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.9.0] - 2026-11-10
+
 ### Geändert
 
 - Alle elf Beispiele sind mit dem aktuellen Code neu erzeugt. Das PDF jedes Beispiels ist die Trainingskarte (`<name>-candidates.pdf`), und `preview.jpg` ist daraus gerendert, weil die Karte allein sehr schlicht ist. Kartenobjekte, Kandidaten und Symbole in der Beispielübersicht sind neu gezählt, und die Kieswege 501.6 bis 501.9 stehen in allen Beispielen als Kartenobjekte. Nur Cochem und Blankenese haben zusätzlich die Karte ohne Kandidaten (`<name>.pdf`, `preview-map.jpg`). Die Namensnennung des Viktoriaparks nennt wieder die Öffentliche Beleuchtung.
