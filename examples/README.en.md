@@ -4,24 +4,25 @@
 
 Each supported state has an example: an area from which freemapper can derive a lot (an old town, a palace or a
 park with relief, dense buildings, stairs, walls and hedges). All examples are sprint maps at 1:4000 (ISSprOM 2019),
-made with `freemapper run --pdf --pdf-candidates --ocad`.
+made with `freemapper run --pdf --ocad`. The PDF shows only the map objects; two examples also come with the
+training map that draws every candidate. How the two differ is on the [comparison page](compare.en.md).
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 469 | 1854 | 27 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 740 | 2312 | 36 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
-| Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1230 | 1289 | 29 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
-| Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1644 | 1048 | 28 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 968 | 947 | 24 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
-| Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 1543 | 945 | 28 | <a href="hessen-marburg/hessen-marburg.pdf"><img src="hessen-marburg/preview.jpg" width="220" alt=""></a> |
-| Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 2281 | 1779 | 31 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="schleswig-holstein-luebeck/preview.jpg" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 2489 | 1674 | 25 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="mecklenburg-vorpommern-wismar/preview.jpg" width="220" alt=""></a> |
-| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 999 | 819 | 28 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="nordrhein-westfalen-monschau/preview.jpg" width="220" alt=""></a> |
-| Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 285 | 1987 | 28 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="niedersachsen-herrenhausen/preview.jpg" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1315 | 790 | 28 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 443 | 1981 | 30 | <a href="brandenburg-sanssouci/brandenburg-sanssouci.pdf"><img src="brandenburg-sanssouci/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 766 | 2235 | 35 | <a href="berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 1226 | 1376 | 35 | <a href="sachsen-bautzen/sachsen-bautzen.pdf"><img src="sachsen-bautzen/preview.jpg" width="220" alt=""></a> |
+| Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 1642 | 1110 | 32 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg.pdf"><img src="sachsen-anhalt-quedlinburg/preview.jpg" width="220" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 969 | 979 | 27 | <a href="hamburg-blankenese/hamburg-blankenese.pdf"><img src="hamburg-blankenese/preview.jpg" width="220" alt=""></a> |
+| Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 1541 | 1065 | 31 | <a href="hessen-marburg/hessen-marburg.pdf"><img src="hessen-marburg/preview.jpg" width="220" alt=""></a> |
+| Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 2292 | 1766 | 32 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck.pdf"><img src="schleswig-holstein-luebeck/preview.jpg" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 2486 | 1756 | 29 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar.pdf"><img src="mecklenburg-vorpommern-wismar/preview.jpg" width="220" alt=""></a> |
+| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 993 | 850 | 31 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau.pdf"><img src="nordrhein-westfalen-monschau/preview.jpg" width="220" alt=""></a> |
+| Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 275 | 2142 | 32 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen.pdf"><img src="niedersachsen-herrenhausen/preview.jpg" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1315 | 894 | 33 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 **Map objects** are the reliable objects of the OOM map (ALKIS buildings, areas and water, canopies and carports).
-**Candidates** come as a separate template (`templates/candidates.omap`); the PDF with candidates (`<name>-candidates.pdf`) draws them too. They come from OSM,
+**Candidates** come as a separate template (`templates/candidates.omap`); the PDF `<name>.pdf` does not draw them; `--pdf-candidates` adds `<name>-candidates.pdf`, which does. They come from OSM,
 from ALKIS and from the terrain model, in Berlin also from the Geoportal Berlin, and in Potsdam from the city map tree
 points (Bäume der Stadtkarte). **Symbols** counts the distinct symbols in both together.
 
@@ -31,11 +32,11 @@ fountain points, which would mostly be the jets in a basin. Where ALKIS records 
 area, the water ends at the bridge with a bank line across the river; delete that line in OOM.
 
 Canopies and carports from ALKIS are on the map as 522 in every state. Passages and arcades through buildings are 522
-candidates. Lübeck has 93 canopies and 185 passages and arcades, Wismar 113 canopies and carports. In Saxony and
+candidates. Lübeck has 93 canopies and 221 passages and arcades, Wismar 113 canopies and carports. In Saxony and
 Saxony-Anhalt ALKIS has neither canopies nor passages, so those two examples have none.
 
-In Brandenburg freemapper also loads the full ALKIS (NAS) from the LGB. In Sanssouci that gives 270 wall lines (515),
-107 fences (518), 133 hedges (410.1), 125 embankment tops (104) and 4 bridges (501.5), all as candidates. ALKIS often
+In Brandenburg freemapper also loads the full ALKIS (NAS) from the LGB. In Sanssouci that gives 281 wall lines (515),
+123 fences (518), 149 hedges (410.1) and 125 embankment tops (104), all as candidates. ALKIS often
 records both edges of a wall. Where they face each other and lie closer than 0.55 mm on paper, freemapper draws one
 line in the middle; Sanssouci has 14 of these. Thicker walls and edges that face the same way stay double; delete the
 second line in OOM. Where OSM has the same wall, hedge or fence, only the ALKIS line stays, and it names the OSM line
@@ -52,8 +53,8 @@ and passages are candidates, and so are the trees from the tree cadastre, 1926 o
 Berlin projects also get the street survey (Straßenbefahrung, recorded 2014 to 2016), the registers of street
 lamps, ornamental fountains and drinking fountains, and the building heights from the Umweltatlas. The map itself
 barely changes. In the Viktoriapark freemapper cuts only five small green strips along the curb out of one ALKIS
-street area. The candidates gain 81 curbs (501.1) and 73 surveyed paved areas (501.5). Nearly all of them are
-sidewalks and the paved paths in the park, which the PDF with candidates shows. Also new are traffic barriers (518), walls (515),
+street area. The candidates gain 77 curbs (501.1) and 80 surveyed paved areas (501.5). Nearly all of them are
+sidewalks and the paved paths in the park, which only the PDF with candidates shows. Also new are traffic barriers (518), walls (515),
 bus shelters (522), advertising columns (531), and street pumps and ornamental fountains (311). Where a survey barrier
 lies on an OSM fence, only the barrier stays, and it names the fence in `freemapper:also`. Of the 602 buildings, 599
 carry the footprint date from the 2022 building heights as `freemapper:currency`.
@@ -85,9 +86,9 @@ OSM have appear once in the candidates, as the ALKIS line, which names the OSM l
 | `<name>.omap` | the OOM starter project (OpenOrienteering Mapper) |
 | `templates/candidates.omap` | the OSM candidates as a template |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | the OCAD starting point (OCAD 12) |
-| `<name>.pdf` | the print-ready map without candidates |
-| `<name>-candidates.pdf` | the training map with every candidate |
-| `preview.jpg`, `preview-candidates.jpg` | previews of both PDFs |
+| `<name>.pdf` | the print-ready map: the map objects only, without candidates and without a scale bar |
+| `preview.jpg` | preview of this PDF |
+| `<name>-candidates.pdf`, `preview-candidates.jpg` | only in Cochem and Blankenese: the training map with every candidate and its preview, see the [comparison page](compare.en.md) |
 | `freemapper.toml` | the project: area, scale and the fetched data versions |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 
@@ -95,11 +96,11 @@ The raster templates (orthophoto, hillshade, slope, nDSM, in Berlin the K5) and 
 repository, because they take over 20 MB per example. To get them back:
 
 ```sh
-freemapper run --ocad --pdf --pdf-candidates examples/sachsen-anhalt-quedlinburg
+freemapper run --ocad --pdf examples/sachsen-anhalt-quedlinburg
 ```
 
 freemapper fetches the data again, computes the templates and keeps the existing maps (`.omap`, `.ocd`) unchanged.
-The map then opens in OOM and OCAD with all templates.
+The map then opens in OOM and OCAD with all templates. `--pdf-candidates` also writes the training map.
 
 ## How the areas were chosen
 
@@ -107,9 +108,8 @@ For each state, five to six candidates were made as sprint maps, among them park
 grounds. The distinct symbols and the objects were counted; the best two or three areas of each state were then
 compared on the training map. The areas that show the most won: varied buildings, relief and many OSM candidates.
 
-In Lower Saxony the Großer Garten won, although its map has only 249 reliable objects. Its hedges, parterres,
-rows of trees and fountains give 2223 candidates, 2080 of them from OSM. No other example has as many OSM
-candidates.
+In Lower Saxony the Großer Garten won, although its map has only 275 map objects. Its hedges, parterres,
+rows of trees and fountains give 2142 candidates, 7.8 per map object, more than in any other example.
 
 In Rhineland-Palatinate eight rectangles ran: Koblenz at the Deutsches Eck, Trier, Speyer, Mainz, Bad Kreuznach and
 Cochem. Bad Kreuznach and Cochem ran twice, because the first rectangle in Bad Kreuznach missed the Nahe and the one
