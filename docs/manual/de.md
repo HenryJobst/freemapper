@@ -665,6 +665,12 @@ die Grünstreifen an ihrem Rand: `freemapper:cut=geoportal-berlin/sb-gruenflaech
 `freemapper:cut_currency_guessed=yes` dazu. Eine vorhandene Karte bekommt Grünausschnitt und Gebäudedaten
 erst mit `run --force`.
 
+Brunnen, Pumpen und Trinkbrunnen liefern in Berlin das Register, die Straßenbefahrung, ALKIS und OSM. Liegen zwei
+Punkte aus verschiedenen Quellen höchstens 0,75 mm auf dem Papier auseinander, im Gelände aber mindestens 3 m (bei
+1:4000 sind es 3 m), behält freemapper den der stärkeren Quelle: Register vor ALKIS vor Straßenbefahrung vor OSM. Den
+anderen nennt er in `freemapper:also`. Ein Brunnenpunkt im OSM-Brunnenbecken oder bis 1 m daneben entfällt, das Becken
+nennt ihn. Zwei Brunnen aus derselben Quelle bleiben beide, auch wenn sie nah beieinanderliegen.
+
 Die **K5** (Karte von Berlin 1:5000, farbig, Stand 02.01.2026) liegt als Vorlage `templates/k5.png` mit Weltdatei
 bei, mit 0,25 m je Bildpunkt. Ist das Gebiet mit Puffer länger als 1,5 km, wird sie gröber. Sie zeigt Parkwege,
 Treppen, Mauern, Zäune, Böschungen und Denkmäler und eignet sich zum Vergleichen. In OOM ist sie eingebunden,
