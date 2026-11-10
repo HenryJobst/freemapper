@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Wide stairs such as stadium stands (ADR 0048, amendment): the parallel 532.9 lines now stand one symbol width plus 0.15 mm apart, the norm's minimum gap between two lines of one colour. Before, the ticks of neighbouring lines met and the stand looked like a ladder. The width stays covered to its edge. The Viktoriapark goes from 94 to 86 lines 532.9. Existing maps get this with `run --force`.
 - Berlin: fountains, street pumps and drinking fountains no longer appear twice (ADR 0087). Measured in the Viktoriapark: a surveyed pump and the OSM well at the same spot lie 0.05 to 0.5 m apart, the next point of another source 9.8 m. The limit is 0.75 mm on paper (3 m at 1:4000), never under 3 m on the ground. The order is register, ALKIS, street survey, OSM. The street survey now beats OSM wells (`man_made=water_well`, `amenity=fountain`) and OSM drinking water (`amenity=drinking_water`), and the Zierbrunnen register beats an OSM well as well. The winner names the dropped point in `freemapper:also`. A register, ALKIS or street survey fountain inside an OSM fountain basin (`amenity=fountain` as an area) or within 1 m of it is dropped, and the basin names it. Two fountains under the limit without a higher source both stay. In the Viktoriapark 9 candidates 311 remain (3 register, 4 survey, 2 OSM) and 0 candidates 313; only the note changes from `freemapper:generalized` to `freemapper:also`. Existing maps get this with `run --force`.
 
 ## [0.9.1] - 2026-11-10
