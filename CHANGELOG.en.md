@@ -10,6 +10,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Coordinate systems and tiles now come from `freemapper-georef` (freemapper-core v0.5.1). `crs` and `tiles` in freemapper re-export the types under the old paths, and nothing changes in behaviour. The projection uses the shared transverse Mercator code. `freemapper-fs` is now on v0.5.1 too.
 
+### Added
+
+- Power lines, pipelines, towers and masts from OSM, sprint maps, candidates only. Overhead `power=line|minor_line` and `power=cable` with `location=overhead` are 510, lines of 110 kV and more 511. Pipelines with `location=overground|surface|overhead` are 528 (low) or 529 (high, uncrossable: overhead or `height` of 1.5 m or more). `power=tower`, `man_made=communications_tower|chimney|water_tower|lighthouse`, towers and masts are 524 or 525 points by height. Underground lines and pipelines, poles, masts under 10 m and storage tanks are left out. The lines keep the norm's minimum length (3.75, 2.2 and 3 mm on paper). Each tower point carries `freemapper:control=` and is thinned like the street furniture. ALKIS: the layers we fetch hold no towers or lines, so there is no ALKIS rule (follow-up in the ADR). No example area has a line or a pipeline. Wismar, Monschau and Quedlinburg get one tower each (candidates 1756 to 1757, 850 to 851, 1110 to 1111) (ADR 0083).
+
 ## [0.9.0] - 2026-11-10
 
 ### Changed
