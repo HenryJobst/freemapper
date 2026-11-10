@@ -10,6 +10,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Coordinate systems and tiles now come from `freemapper-georef` (freemapper-core v0.5.1). `crs` and `tiles` in freemapper re-export the types under the old paths, and nothing changes in behaviour. The projection uses the shared transverse Mercator code. `freemapper-fs` is now on v0.5.1 too.
 
+### Fixed
+
+- The scale bar carries `freemapper:source=sheet` again, like every sheet object (since 0.9.0 it said `scale-bar`). freemapper-print and freemapper-courseplan recognise the sheet only by that value; otherwise they printed the bar as map content and shifted the page centre and the extent. Every bar object also carries `freemapper:sheet=scale-bar`, which the PDF uses to leave the bar out without `--pdf-scale-bar`. The OOM and OCAD maps keep the bar. Maps already written with the old value stay readable (ADR 0080, amendment).
+
 ## [0.9.0] - 2026-11-10
 
 ### Changed

@@ -20,7 +20,7 @@ to be off unless asked.
   (`freemapper:hidden`). The two switches are independent; together they write both files side by side. File names
   follow the map file, and both go through the rooted no-follow writer (ADR 0060).
 - `--pdf-scale-bar` (MCP `pdf_scale_bar`) draws the scale bar on whichever PDFs are written. The scale number in the
-  title block stays. The scale bar objects carry `freemapper:source=scale-bar`; the OOM and OCAD maps keep the bar,
+  title block stays. The OOM and OCAD maps keep the bar,
   only the PDF leaves it out.
 - The choice is not stored in `freemapper.toml`: the project file records no output choices, and `--ocad` and `--pdf`
   never were. The area selection page has no output controls, so it changes nothing.
@@ -33,3 +33,15 @@ to be off unless asked.
   `<name>-candidates.pdf` and `preview-candidates.jpg`; they are the pair on the comparison page
   (`examples/vergleich.md`, `examples/compare.en.md`), chosen by the pixel difference between the two renders.
 - Cost if wrong: users who want the candidates by default pass one more switch.
+
+## Amendment 2026-11-10: the bar stays a sheet object
+
+The first version tagged the bar objects `freemapper:source=scale-bar`. freemapper-print and freemapper-courseplan
+recognise sheet objects (frame text, title, scale) only by `freemapper:source=sheet`, so a v0.9.0 map had its bar
+printed as map content, which shifted the page centre and widened the courseplan extent.
+
+- `freemapper:source=sheet` is the stable contract for every sheet object, the bar included.
+- The bar objects (line, ticks and labels) carry a second tag, `freemapper:sheet=scale-bar`. The PDF export filters on
+  that tag. The OOM and OCAD maps keep the bar as before.
+- No object carries the source `scale-bar` any more. Maps written by v0.9.0 (the examples among them) still have it;
+  print and courseplan accept both values, and freemapper does not rewrite old files.

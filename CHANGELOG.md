@@ -10,6 +10,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Koordinatensysteme und Kacheln kommen jetzt aus `freemapper-georef` (freemapper-core v0.5.1). `crs` und `tiles` in freemapper geben die Typen unter den alten Pfaden weiter, das Verhalten ändert sich nicht. Die Projektion rechnet mit der gemeinsamen Transversal-Mercator-Implementierung. `freemapper-fs` steht jetzt ebenfalls auf v0.5.1.
 
+### Behoben
+
+- Die Maßstabsleiste trägt wieder `freemapper:source=sheet` wie alle Blattobjekte (seit 0.9.0 stand dort `scale-bar`). freemapper-print und freemapper-courseplan erkennen das Blatt nur an diesem Wert; sonst druckten sie die Leiste als Karteninhalt und verschoben Seitenmitte und Ausdehnung. Zusätzlich trägt jedes Leistenobjekt `freemapper:sheet=scale-bar`; daran lässt das PDF die Leiste ohne `--pdf-scale-bar` weg. OOM- und OCAD-Karte behalten die Leiste. Bereits erzeugte Karten mit dem alten Wert bleiben lesbar (ADR 0080, Nachtrag).
+
 ## [0.9.0] - 2026-11-10
 
 ### Geändert

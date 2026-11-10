@@ -29,9 +29,7 @@ use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
-use crate::build::peripheral::{
-    PaperRect, PeripheralInfo, SCALE_BAR_SOURCE, info_block, north_lines,
-};
+use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar, north_lines};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
 use crate::build::source_block;
 use crate::build::stairs::{
@@ -4147,15 +4145,6 @@ fn pdf_objects(
         .chain(candidate_objects)
         .collect();
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
-}
-
-/// Whether a sheet object belongs to the scale bar (the graphic bar, not the scale number in
-/// the title block).
-fn is_scale_bar(object: &MapObject) -> bool {
-    object
-        .tags
-        .iter()
-        .any(|(k, v)| k == "freemapper:source" && v == SCALE_BAR_SOURCE)
 }
 
 /// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
@@ -13093,16 +13082,28 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!sheet.objects.is_empty());
         for o in &sheet.objects {
             assert!(sheet_ids.contains(&Some(o.symbol_id)), "{o:?}");
-            let source = if is_scale_bar(o) {
-                SCALE_BAR_SOURCE
-            } else {
-                "sheet"
-            };
-            assert_eq!(
-                o.tags,
-                [("freemapper:source".to_string(), source.to_string())]
+            let mut expected = vec![("freemapper:source".to_string(), "sheet".to_string())];
+            if is_scale_bar(o) {
+                expected.push(("freemapper:sheet".to_string(), "scale-bar".to_string()));
+            }
+            assert_eq!(o.tags, expected);
+            assert!(
+                !o.tags.iter().any(|(_, v)| v == "scale-bar") || is_scale_bar(o),
+                "{o:?}"
             );
         }
+        // The stable contract with freemapper-print and freemapper-courseplan: no object
+        // anywhere carries the source `scale-bar`.
+        for o in documents.map.parts.iter().flat_map(|p| &p.objects) {
+            assert!(
+                !o.tags
+                    .iter()
+                    .any(|(k, v)| k == "freemapper:source" && v == "scale-bar"),
+                "{o:?}"
+            );
+        }
+        let bars = sheet.objects.iter().filter(|o| is_scale_bar(o)).count();
+        assert!(bars > 1, "bar line, ticks and labels are all tagged");
     }
 
     #[test]
