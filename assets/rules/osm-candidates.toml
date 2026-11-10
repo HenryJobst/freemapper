@@ -219,33 +219,39 @@ draw = "line"
 corridor_m = 3.0
 sprint = "522"
 
-# Firm gravel (sprint only, ADR 0073). ISSprOM 4.5, 501: a paved area is "an area with a firm surface
-# such as asphalt, hard gravel, tiles, concrete"; 505 is a way "without a smooth, hard surface".
-# `compacted` and `fine_gravel` are firm: a paved line (501.6 to 501.9 by footprint 1.4, 2, 3 and
-# 4 m), as a candidate to check against the orthophoto. Loose gravel, sand and earth stay 505.
+# Firm gravel (sprint only, ADR 0073, amended by ADR 0079). ISSprOM 4.5, 501: a paved area is "an
+# area with a firm surface such as asphalt, hard gravel, tiles, concrete"; 505 is a way "without a
+# smooth, hard surface". `compacted` and `fine_gravel` are firm: a paved line (501.6 to 501.9 by
+# footprint 1.4, 2, 3 and 4 m), a map object like the unpaved ways below; `build/firm_paths.rs`
+# cuts it where ALKIS paving lies. Loose gravel, sand and earth stay 505.
 [[rule]]
 when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=4"]
 draw = "line"
+target = "map"
 sprint = "501.9"
 
 [[rule]]
 when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=3"]
 draw = "line"
+target = "map"
 sprint = "501.8"
 
 [[rule]]
 when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=2"]
 draw = "line"
+target = "map"
 sprint = "501.7"
 
 [[rule]]
 when = ["highway=track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel"]
 draw = "line"
+target = "map"
 sprint = "501.7"
 
 [[rule]]
 when = ["highway=footway|path|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel"]
 draw = "line"
+target = "map"
 sprint = "501.6"
 
 # Unpaved ways (sprint only). Paved ways and sidewalks have no rule: the ALKIS traffic areas and the
@@ -284,10 +290,11 @@ sprint = "505.1"
 # Any other way that is not known to be paved (no surface tag, an unusual surface, or one of the
 # ways above that is not in the open): a candidate to check against the orthophoto.
 # Tracks without a surface tag: `tracktype` says what they are. grade1 is paved, grade2 mostly firm
-# (501.7), grade3 to grade5 unpaved (505.2).
+# (501.7, a map object), grade3 to grade5 unpaved (505.2, a candidate).
 [[rule]]
 when = ["highway=track", "tracktype=grade2", "surface!=asphalt|chipseal|concrete|concrete:plates|concrete:lanes|paved|paving_stones|paving_stones:lanes|sett|cobblestone|unhewn_cobblestone|bricks|metal|wood|grass_paver"]
 draw = "line"
+target = "map"
 sprint = "501.7"
 
 [[rule]]

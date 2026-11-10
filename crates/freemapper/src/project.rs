@@ -20,6 +20,7 @@ use crate::build::dedup::{
     drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
     drop_points_near_registers, drop_trees_by_rank,
 };
+use crate::build::firm_paths::cut_firm_paths;
 use crate::build::open_land::{
     BASE_PART, drop_open_land_under_alkis, open_land_objects, walkable_base,
 };
@@ -4363,6 +4364,9 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &georef,
         &symbol_set,
     );
+    // The firm-gravel ways (501.6 to 501.9) are map objects; where ALKIS or the survey draws the
+    // paving they are the same object (ADR 0079).
+    let paving: Vec<MapObject> = paved.map.iter().chain(&paved.candidates).cloned().collect();
     let ground: Vec<MapObject> = paved
         .candidates
         .iter()
@@ -4372,7 +4376,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         .collect();
     let generalized = generalize_points(
         points,
-        osm_objects(Target::Map)?,
+        cut_firm_paths(osm_objects(Target::Map)?, &paving, &georef, &symbol_set),
         &out_of_bounds,
         &paved.map,
         &ground,
@@ -12238,6 +12242,88 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(map.contains(r#"<t k="freemapper:source_id">way/1</t>"#));
         assert!(map.contains(&format!(r#"<object type="1" symbol="{track}""#)));
         assert!(!map.contains("way/2"));
+    }
+
+    /// A firm-gravel footway from the open into the Straßenverkehr square (421 560–421 590 E,
+    /// 5 821 690–720 N): east to west along 5 821 705 N from 421 520 E to 421 575 E.
+    fn firm_footway_into_the_street(dir: &Path) {
+        let way = crate::sources::osm::OsmFeature {
+            id: "way/5".to_string(),
+            tags: vec![
+                ("highway".to_string(), "footway".to_string()),
+                ("surface".to_string(), "compacted".to_string()),
+            ],
+            geometry: crate::sources::osm::OsmGeometry::Line(vec![
+                lat_lon_at(421_520.0, 5_821_705.0),
+                lat_lon_at(421_575.0, 5_821_705.0),
+            ]),
+        };
+        std::fs::write(
+            dir.join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&[way]),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn export_draws_a_firm_gravel_footway_as_a_paved_line_map_object() {
+        // ADR 0079: surface=compacted is hard gravel, 501.6, a map object (ADR 0073 had made it
+        // a candidate), and no longer in the candidates.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        firm_footway_into_the_street(dir.path());
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        let firm = MapKind::Sprint.symbol_set().id_for_code("501.6").unwrap();
+        assert_eq!(symbols_of(&map, "way/5"), [firm]);
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(!candidates.contains("way/5<"));
+    }
+
+    /// The x of the last coordinate of the object `source_id` (map units).
+    fn last_x(omap: &str, source_id: &str) -> i32 {
+        let object = omap
+            .split("<object ")
+            .find(|o| o.contains(&format!(r#"<t k="freemapper:source_id">{source_id}</t>"#)))
+            .unwrap();
+        let coords = object.split("<coords").nth(1).unwrap();
+        let coords = coords.split("</coords>").next().unwrap();
+        let last = coords
+            .split(';')
+            .rev()
+            .find(|c| !c.trim().is_empty())
+            .unwrap();
+        last.rsplit('>')
+            .next()
+            .unwrap()
+            .split(' ')
+            .next()
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+
+    #[test]
+    fn export_cuts_a_firm_gravel_footway_at_the_alkis_street() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        firm_footway_into_the_street(dir.path());
+        let open =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        store_traffic_areas(dir.path());
+        let cut =
+            std::fs::read_to_string(export_starter_project(dir.path(), true).unwrap()).unwrap();
+        let firm = MapKind::Sprint.symbol_set().id_for_code("501.6").unwrap();
+        assert_eq!(symbols_of(&cut, "way/5"), [firm], "one piece, in the open");
+        // The street starts 15 m before the way's end (4 mm on paper at 1:4000): the cut piece
+        // ends clearly before the whole one.
+        assert!(
+            last_x(&open, "way/5") - last_x(&cut, "way/5") > 2_000,
+            "{} {}",
+            last_x(&open, "way/5"),
+            last_x(&cut, "way/5")
+        );
     }
 
     #[test]
