@@ -6,9 +6,9 @@ Status: Accepted, amends ADR 0002
 ## Context
 
 ADR 0002 made `--pdf` the quick training map: every candidate drawn as a map object, with a scale bar in the title
-block. A printed map of the sure objects only is the more common wish, and German orienteering maps usually carry no
-scale bar. The user asked on 2026-11-10 for the PDF without candidates by default, with candidates on request, and for
-the scale bar to be off unless asked.
+block. Most people print a map of the sure objects only, and German orienteering maps usually carry no scale bar. On
+2026-11-10 the user asked for the PDF without candidates by default, with candidates on request, and for the scale bar
+to be off unless asked.
 
 ## Decision
 
@@ -29,5 +29,7 @@ the scale bar to be off unless asked.
 
 - Default change: `--pdf` no longer draws candidates and no scale bar. The old output is `--pdf-candidates
   --pdf-scale-bar`. The changelog says so.
-- The examples need both PDFs and previews (`preview.jpg`, `preview-candidates.jpg`); a later run regenerates them.
+- Every example keeps `<name>.pdf` and `preview.jpg`. Only two examples, Cochem and Blankenese, also keep
+  `<name>-candidates.pdf` and `preview-candidates.jpg`; they are the pair on the comparison page
+  (`examples/vergleich.md`, `examples/compare.en.md`), chosen by the pixel difference between the two renders.
 - Cost if wrong: users who want the candidates by default pass one more switch.
