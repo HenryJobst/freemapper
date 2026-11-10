@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,046](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C046-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,049](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C049-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
@@ -92,11 +92,12 @@ file and the PDF. Two of them here; clicking a picture opens the PDF:
 
 | State | Area | Preview |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
-[examples overview](examples/README.en.md).
+[examples overview](examples/README.en.md). How the map looks with and without candidates is on the
+[comparison page](examples/compare.en.md).
 
 ## Choosing the area in the browser
 

@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 1.046 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.046%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 1.049 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.049%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
@@ -94,11 +94,12 @@ OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
-der [Beispielübersicht](examples/README.md).
+der [Beispielübersicht](examples/README.md). Wie die Karte mit und ohne Kandidaten aussieht, zeigt die
+[Gegenüberstellung](examples/vergleich.md).
 
 ## Gebiet im Browser wählen
 

@@ -8,7 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- **Default changed:** `--pdf` now writes `<name>.pdf` with exactly the objects of the OOM map, without candidates and without a scale bar. The training map with every candidate is `<name>-candidates.pdf`, written with `--pdf-candidates`; both switches together write both files. The scale bar on the PDFs only comes with `--pdf-scale-bar` (German orienteering maps usually have none); the scale number stays in the title block. The old behaviour is `--pdf-candidates --pdf-scale-bar`. This also holds for `run` and the MCP parameters `pdf`, `pdf_candidates`, `pdf_scale_bar`. The OOM and OCAD maps keep the bar. Amends ADR 0002 (ADR 0080).
+- All eleven examples are rebuilt with the current code. The PDF of each example is the training map (`<name>-candidates.pdf`), and `preview.jpg` is rendered from it, because the map alone is very plain. Map objects, candidates and symbols in the examples overview are counted again, and the gravel paths 501.6 to 501.9 are map objects in every example. Only Cochem and Blankenese also have the map without candidates (`<name>.pdf`, `preview-map.jpg`). The Viktoriapark attribution names the public lighting register again.
+- The default of `--pdf` changes. It now writes `<name>.pdf` with exactly the objects of the OOM map, without candidates and without a scale bar. The training map with every candidate is `<name>-candidates.pdf`, written with `--pdf-candidates`; both switches together write both files. The scale bar on the PDFs only comes with `--pdf-scale-bar` (German orienteering maps usually have none); the scale number stays in the title block. The old behaviour is `--pdf-candidates --pdf-scale-bar`. This also holds for `run` and the MCP parameters `pdf`, `pdf_candidates`, `pdf_scale_bar`. The OOM and OCAD maps keep the bar. Amends ADR 0002 (ADR 0080).
 
 ### Added
 
@@ -22,6 +23,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- A comparison of map and training map: [`examples/compare.en.md`](examples/compare.en.md) shows Cochem and Blankenese side by side, with the most frequent candidate symbols and the measurement on all eleven examples that decided the choice. The examples overview and the README link to it.
 - Berlin control sites on sprint maps. The street survey (bollards, masts, flag poles, benches) and the lighting cadastre (lamps in operation) now give 531 candidates with `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, plus `advertising_column` for the survey's advertising columns), like the OSM ones. Thinning is shared: a site of one kind within 25 m of another is left out, whichever source it comes from, after duplicates and sites in buildings are gone. A surveyed bollard replaces an OSM one within 2 m. Hydrants and play equipment stay schoolyard-only. A Berlin sprint project fetches seven more WFS requests (33 instead of 26); the disk estimate for the Berlin layers goes from 10.5 to 12 MB per km². Existing maps get this with `run --force` (ADR 0077).
 - Drinking fountains are 313 on sprint maps, from the Berlin register and survey and from OSM `amenity=drinking_water`.
 

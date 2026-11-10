@@ -16,3 +16,4 @@ timestamp_utc,total_usd,requests,sessions,by_model_usd
 2026-11-09T23:59:37Z,1041.70,13758,1,claude-opus-5-5=948.27;claude-sonnet-5-5=93.43
 2026-11-10T00:59:40Z,1042.08,13763,1,claude-opus-5-5=948.27;claude-sonnet-5-5=93.81
 2026-11-10T07:00:00Z,1045.55,13862,1,claude-opus-5-5=948.27;claude-sonnet-5-5=97.28
+2026-11-10T08:00:03Z,1049.30,14014,1,claude-opus-5-5=948.27;claude-sonnet-5-5=101.03
