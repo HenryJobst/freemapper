@@ -37,7 +37,10 @@ use crate::build::stairs::{
     has_stairs, stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
-use crate::build::water::{drop_covered_water, drop_points_in_water, outside_water, water_objects};
+use crate::build::water::{
+    drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water, outside_water,
+    water_objects,
+};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
@@ -4492,6 +4495,14 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     );
     let cadastre_candidates =
         drop_points_in_water(cadastre_candidates, &water.union, &georef, &symbol_set);
+    // The same in an OSM fountain basin, which the basin names in `freemapper:also` (ADR 0087).
+    let mut osm_candidates = osm_candidates;
+    let cadastre_candidates = drop_fountains_in_osm_basins(
+        cadastre_candidates,
+        &mut osm_candidates,
+        &georef,
+        &symbol_set,
+    );
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre_candidates =
         drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);

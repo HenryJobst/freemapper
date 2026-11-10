@@ -641,6 +641,12 @@ names the green strips at its edge: `freemapper:cut=geoportal-berlin/sb-gruenfla
 freemapper adds `freemapper:cut_currency_guessed=yes`. An existing map gets the green cut-out and the building dates
 only with `run --force`.
 
+Fountains, pumps and drinking fountains come in Berlin from the register, the street survey, ALKIS and OSM. When two
+points of different sources lie at most 0.75 mm apart on paper, but never under 3 m on the ground (3 m at 1:4000),
+freemapper keeps the one of the stronger source: register before ALKIS before street survey before OSM. It names the
+other in `freemapper:also`. A fountain point in an OSM fountain basin or within 1 m of it is dropped, and the basin
+names it. Two fountains of the same source both stay, however close they are.
+
 The **K5** (Karte von Berlin 1:5000, the Berlin map in colour, dated 02.01.2026) comes as the template
 `templates/k5.png` with a world file, at 0.25 m per pixel. If the area with its buffer is longer than 1.5 km,
 the image gets coarser. It shows park paths, stairs, walls, fences, embankments and monuments, which makes it
