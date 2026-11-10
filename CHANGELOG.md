@@ -10,6 +10,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Koordinatensysteme und Kacheln kommen jetzt aus `freemapper-georef` (freemapper-core v0.5.1). `crs` und `tiles` in freemapper geben die Typen unter den alten Pfaden weiter, das Verhalten ändert sich nicht. Die Projektion rechnet mit der gemeinsamen Transversal-Mercator-Implementierung. `freemapper-fs` steht jetzt ebenfalls auf v0.5.1.
 
+### Hinzugefügt
+
+- Freileitungen, Rohrleitungen, Türme und Masten aus OSM, Sprintkarten, nur als Kandidaten. Oberirdische `power=line|minor_line` und `power=cable` mit `location=overhead` sind 510, Leitungen ab 110 kV sind 511. Rohrleitungen mit `location=overground|surface|overhead` sind 528 (niedrig) oder 529 (hoch, nicht überquerbar: überirdisch auf Stützen oder `height` ab 1,5 m). `power=tower`, `man_made=communications_tower|chimney|water_tower|lighthouse`, Türme und Masten sind Punkte 524 oder 525, je nach Höhe. Unterirdische Leitungen und Rohrleitungen, `power=pole`, Masten unter 10 m und Tanks fehlen. Die Linien halten die Mindestlänge der Norm ein (3,75, 2,2 und 3 mm auf dem Papier). Jeder Turmpunkt trägt `freemapper:control=` und wird wie das Straßenmobiliar ausgedünnt. ALKIS: Die geladenen Ebenen enthalten keine Türme oder Leitungen, darum gibt es keine ALKIS-Regel (Folgearbeit im ADR). Kein Beispielgebiet hat eine Leitung oder Rohrleitung. Wismar, Monschau und Quedlinburg bekommen je einen Turm (Kandidaten 1756 auf 1757, 850 auf 851, 1110 auf 1111) (ADR 0083).
+
 ## [0.9.0] - 2026-11-10
 
 ### Geändert

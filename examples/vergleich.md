@@ -87,13 +87,13 @@ es zählt die Reihenfolge. Die Tabelle ist nach der Pixeldifferenz sortiert.
 |---|---:|---:|---:|---:|---:|
 | [Cochem](rheinland-pfalz-cochem/) | 1315 | 894 | 0,7 | 4,9 % | 16,8 % |
 | [Blankenese](hamburg-blankenese/) | 969 | 979 | 1,0 | 4,9 % | 16,3 % |
-| [Monschau](nordrhein-westfalen-monschau/) | 993 | 850 | 0,9 | 4,6 % | 16,1 % |
+| [Monschau](nordrhein-westfalen-monschau/) | 993 | 851 | 0,9 | 4,6 % | 16,1 % |
 | [Marburg](hessen-marburg/) | 1541 | 1065 | 0,7 | 3,9 % | 14,9 % |
 | [Bautzen](sachsen-bautzen/) | 1226 | 1376 | 1,1 | 3,9 % | 14,9 % |
 | [Viktoriapark](berlin-viktoriapark/) | 766 | 2263 | 3,0 | 3,7 % | 13,9 % |
-| [Quedlinburg](sachsen-anhalt-quedlinburg/) | 1642 | 1110 | 0,7 | 3,7 % | 13,2 % |
+| [Quedlinburg](sachsen-anhalt-quedlinburg/) | 1642 | 1111 | 0,7 | 3,7 % | 13,2 % |
 | [Sanssouci](brandenburg-sanssouci/) | 443 | 1981 | 4,5 | 3,5 % | 15,2 % |
-| [Wismar](mecklenburg-vorpommern-wismar/) | 2486 | 1756 | 0,7 | 2,5 % | 9,4 % |
+| [Wismar](mecklenburg-vorpommern-wismar/) | 2486 | 1757 | 0,7 | 2,5 % | 9,4 % |
 | [Herrenhausen](niedersachsen-herrenhausen/) | 275 | 2142 | 7,8 | 2,1 % | 9,3 % |
 | [Lübeck](schleswig-holstein-luebeck/) | 2292 | 1766 | 0,8 | 1,8 % | 6,9 % |
 

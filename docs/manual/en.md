@@ -269,6 +269,15 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   gives way to every other symbol. Before you use a
   site, check on site that it is still there, and write the definition of 531 into the legend of the map, as
   ISSprOM requires.
+- Power lines, pipelines, towers and masts (sprint, candidates only). Overhead power lines are 510, those of 110 kV
+  and more 511 (a double line); the norm leaves out a line that runs along a road or path without extra use for
+  navigation, and freemapper does not compare, so you do. Pipelines above ground are 528 (low) or 529 (high,
+  uncrossable); the norm asks for a definition of both in the legend, and a pipeline without `location` in OSM is
+  taken to be buried and missing. Towers, masts, chimneys, water towers, lighthouses and pylons are points: 524
+  (high) or 525 (under 20 m), each with `freemapper:control` (`pylon`, `mast`, `tower`, `chimney`, `water_tower`,
+  `lighthouse`); one of its kind within 25 m takes both out. Where a pylon stands on a 510 line, the bars already
+  show it: delete one. Lines are left out below the norm's minimum length (3.75 mm for 510 and 511, 2.2 mm for 528,
+  3 mm for 529).
 - Memorials and boundary stones (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) as points
   (526) among the candidates. Stolpersteine, plaques and memorials that are a bench, a tree or a mural are left
   out, because 526 is for objects that are obvious on the ground (ISSprOM 526). Where the cadastre also knows the
