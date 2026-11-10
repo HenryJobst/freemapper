@@ -112,7 +112,8 @@ fn mcp_lists_the_tools() {
         start["inputSchema"]["properties"]["ocad"].is_object()
             && start["inputSchema"]["properties"]["pdf"].is_object()
             && start["inputSchema"]["properties"]["pdf_candidates"].is_object()
-            && start["inputSchema"]["properties"]["pdf_scale_bar"].is_object(),
+            && start["inputSchema"]["properties"]["pdf_scale_bar"].is_object()
+            && start["inputSchema"]["properties"]["pdf_sources"].is_object(),
         "{start}"
     );
     let mut names: Vec<&str> = tools["tools"]

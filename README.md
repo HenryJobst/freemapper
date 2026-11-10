@@ -284,7 +284,8 @@ dazu. Gezeichnet wird mit dem Symbolsatz des Projekts so, wie OOM ihn zeichnet (
 Farbreihenfolge).
 
 Die Maßstabsleiste fehlt standardmäßig (deutsche OL-Karten haben meist keine); `--pdf-scale-bar` zeichnet sie, die
-Maßstabszahl steht immer im Titelblock.
+Maßstabszahl steht immer im Titelblock. `--pdf-sources` wählt die Quellenzeilen: `auto` (Standard) kürzt eine lange
+Liste, `full` kürzt nie, `credit-only` druckt nur die freemapper-Zeile; die freemapper-Zeile steht immer da.
 
 `--pdf-candidates` schreibt `<name>-candidates.pdf`, die Trainingskarte: Hier werden **alle Kandidaten zu
 Kartenobjekten**: Möblierung, Barrieren, Wege ohne Oberflächenangabe, Höhenlinien, Sperrgebiete und ALKIS-Wege.

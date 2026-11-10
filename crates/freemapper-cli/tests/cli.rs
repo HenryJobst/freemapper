@@ -488,3 +488,43 @@ fn export_pdf_scale_bar_is_opt_in() {
     assert_ne!(plain, with_bar, "the flag adds the bar");
     assert!(with_bar.len() > plain.len());
 }
+
+#[test]
+fn export_pdf_sources_modes_and_the_notice() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let run = |extra: &[&str]| {
+        let mut args = vec!["export", project.to_str().unwrap(), "--pdf"];
+        args.extend_from_slice(extra);
+        let out = freemapper().args(&args).output().unwrap();
+        assert!(out.status.success());
+        let pdf = std::fs::read(project.join("schule.pdf")).unwrap();
+        (String::from_utf8_lossy(&out.stdout).into_owned(), pdf)
+    };
+    let (auto_out, auto) = run(&[]);
+    let (full_out, full) = run(&["--pdf-sources", "full"]);
+    let (credit_out, credit) = run(&["--pdf-sources", "credit-only"]);
+    // A short block is the same in auto and full; credit-only has fewer lines.
+    assert_eq!(auto, full);
+    assert!(credit.len() < auto.len());
+    assert!(!auto_out.contains("without source credits"));
+    assert!(!full_out.contains("without source credits"));
+    assert!(credit_out.contains("PDF without source credits"));
+    assert!(credit_out.contains("ATTRIBUTION.txt"));
+    // The full list stays in ATTRIBUTION.txt.
+    let list = std::fs::read_to_string(project.join("ATTRIBUTION.txt")).unwrap();
+    assert!(list.contains("ODbL") && list.contains("freemapper"));
+    // Unknown modes are refused.
+    let bad = freemapper()
+        .args([
+            "export",
+            project.to_str().unwrap(),
+            "--pdf",
+            "--pdf-sources",
+            "none",
+        ])
+        .output()
+        .unwrap();
+    assert!(!bad.status.success());
+}

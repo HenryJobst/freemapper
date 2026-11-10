@@ -14,6 +14,7 @@ pub mod passages;
 pub mod paved;
 pub mod peripheral;
 pub mod points;
+pub mod source_block;
 pub mod stairs;
 pub mod state;
 pub mod tagged;

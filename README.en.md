@@ -277,7 +277,8 @@ orthophoto is not part of it. It is drawn with the project's symbol set the way 
 lines, colour order).
 
 The scale bar is off by default (German orienteering maps usually have none); `--pdf-scale-bar` draws it, and the
-scale number is always in the title block.
+scale number is always in the title block. `--pdf-sources` chooses the source lines: `auto` (default) shortens a long
+list, `full` never does, `credit-only` prints only the freemapper line; the freemapper line is always there.
 
 `--pdf-candidates` writes `<name>-candidates.pdf`, the training map: here **every candidate becomes a map object**:
 furniture, barriers, paths without a surface tag, contours, out-of-bounds areas and ALKIS ways. Points inside

@@ -431,9 +431,10 @@ Two switches write a print-ready PDF in A4 or A3, a third adds the scale bar:
 | `--pdf` (or "with a PDF" to the assistant) | `<name>.pdf` | the map: exactly the objects of the OOM file, so no candidates |
 | `--pdf-candidates` | `<name>-candidates.pdf` | the training map: the map plus every candidate |
 | `--pdf-scale-bar` | | draws the scale bar on the PDFs |
+| `--pdf-sources auto\|full\|credit-only` | | chooses the source lines on the PDFs (default `auto`) |
 
 You can combine both PDF switches; the two files then sit side by side in the project folder. `export` and `run`
-take all three, the MCP server as `pdf`, `pdf_candidates` and `pdf_scale_bar`. freemapper does not store the choice
+take all four, the MCP server as `pdf`, `pdf_candidates`, `pdf_scale_bar` and `pdf_sources`. freemapper does not store the choice
 in the project: it applies to that call.
 
 ![Training map as PDF](images/training-map.jpg)
@@ -445,6 +446,17 @@ The map PDF holds only what the OOM map holds: buildings, areas, water, the walk
 north lines, plus the title, the scale number, the contour interval, the data credits and the freemapper credit
 line. The scale bar is missing because German orienteering maps usually have none. If you want it, add
 `--pdf-scale-bar`; the number "Maßstab 1:4000" is always in the title block.
+
+**Source lines on the PDF.** The sources with their licences sit under the title block. freemapper prints up to five
+lines as they are (`--pdf-sources auto`, the default). A longer list, for example nine lines in Berlin, is shortened
+step by step: `dl-de/zero-2-0` sources of one provider become one line, long names get short forms ("K5" for "Karte
+1:5000 von Berlin (K5)"), lines are joined with " · ", and last the block points to "Vollständige Quellen:
+ATTRIBUTION.txt im Projektordner". The lines for OpenStreetMap, for every other licence (`dl-de/by-2-0`, CC BY) and for
+freemapper stay word for word. `--pdf-sources full` never shortens, `--pdf-sources credit-only` prints only the
+freemapper line. **Legal note:** ODbL and `dl-de/by-2-0` require naming the source when you pass the map on; with
+`credit-only` you must name it yourself, and freemapper reminds you. The freemapper line with the project address is
+in every mode and cannot be switched off. `ATTRIBUTION.txt` in the project folder and the OOM and OCAD maps always
+list every source.
 
 In the training map **every candidate becomes a map object**, also the uncertain ones. Only points inside an
 out-of-bounds candidate and unreachable passages are left out (chapter 9). The training map is good for a quick
