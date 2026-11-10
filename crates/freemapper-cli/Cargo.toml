@@ -13,13 +13,13 @@ path = "src/main.rs"
 
 [dependencies]
 freemapper.workspace = true
+freemapper-web.workspace = true
 anyhow.workspace = true
 axum.workspace = true
 clap.workspace = true
 chrono.workspace = true
 base64.workspace = true
 dirs.workspace = true
-getrandom.workspace = true
 rmcp.workspace = true
 rust-embed.workspace = true
 schemars.workspace = true

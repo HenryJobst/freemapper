@@ -11,12 +11,13 @@ rust-version = "1.88"
 
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
-# Shared crates of the suite, pinned to a release tag of freemapper-core (ADR 0067).
-freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.5.1" }
-freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.5.1" }
-# The suite contract (fixtures, vocabulary, rules); tests only. Its own tag: it brings its private
-# freemapper-omap and touches none of the crates above.
-freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.8.0", features = ["fixtures"] }
+# Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
+# lock file holds a single copy of the core workspace.
+freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
+freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
+freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
+# The suite contract (fixtures, vocabulary, rules); tests only.
+freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0", features = ["fixtures"] }
 anyhow = "1.0.104"
 axum = "0.8.9"
 base64 = "0.23.1"
@@ -33,7 +34,6 @@ geojson = "1.0.0"
 osmpbf = "0.3.8"
 # Pinned: newer releases are younger than two weeks.
 las = { version = "=0.11.1", features = ["laz"] }
-getrandom = "0.4.3"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 crc32fast = "1.5.4"
 miniz_oxide = "0.9.1"

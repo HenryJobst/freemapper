@@ -27,3 +27,5 @@ estimate, and saves the area to `freemapper.toml`. Rulings from M8 on 2026-11-07
   be overwritten.
 
 Source: spec §3, §4.6; plan-mode notes "Gebietsauswahl"; plan `2026-11-07-m8-area-selector.md`; M8 rulings.
+
+Update 2026-11-11 (ADR 0090, stage 1): the server runs on `freemapper-web` of freemapper-core. The token, the `Host` and `Origin` allow-list, the security headers and `open_browser` live there, not in `select.rs`. Two guards are stricter: a POST needs the page's `Origin` header and `Content-Type: application/json` (the page already sends both), and a request with `Sec-Fetch-Site: cross-site` gets 403. Every response carries `X-Content-Type-Options: nosniff`, and a request body may hold 1 MiB (a polygon of 5000 vertices takes about 150 KB). The tile proxy (ADR 0088) and the API routes stay in freemapper.
