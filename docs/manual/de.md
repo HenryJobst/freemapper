@@ -277,8 +277,9 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   an Schildern und Zäunen und halten Sie die Eingänge frei (ISSprOM 520).
 - Wege nach Oberfläche. Verdichteter Kies und Feinkies ist fest („hard gravel“ in ISSprOM 501), ein solcher Weg
   ist daher eine befestigte Linie in der Karte (501.6 bis 501.9 nach `width`: 1,4, 2, 3, 4 m) und kein
-  unbefestigter Weg. Liegt dort schon ALKIS- oder Befahrungs-Pflaster (501.5), zeichnet freemapper den Weg
-  nicht doppelt: Der Teil im Pflaster und Stücke unter 1 mm auf dem Papier entfallen. Loser Kies, Sand, Erde und Gras bleiben unbefestigt in der Karte: 506
+  unbefestigter Weg. Liegt dort schon ALKIS- oder Befahrungs-Pflaster (501.5) als Kartenobjekt, zeichnet freemapper den Weg
+  nicht doppelt: Der Teil im Pflaster und Stücke unter 1 mm auf dem Papier entfallen. Ein Weg in einem ALKIS-Flurstück `Weg`
+  (nur ein Kandidat 501.5) bleibt ganz. Loser Kies, Sand, Erde und Gras bleiben unbefestigt in der Karte: 506
   unter 1,5 m Breite, 505.1 und ab 3 m 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype`: grade1 ist
   befestigt, grade2 fest (501.7, Karte), grade3 bis grade5 unbefestigt (505.2, Kandidat).
 - Kontrollstandorte für Bahnleger: Poller, Straßenlaternen, Papierkörbe, Fahrradständer und Bänke als Punkte
