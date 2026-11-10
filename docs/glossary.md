@@ -212,7 +212,7 @@ Orienteering Maps 2019 (IOF).
 | Kartenkoordinate | map coordinate | Lage auf dem Papier, in OOM 1/1000 mm, y nach Süden. | `MapCoord` |
 | Missweisung / Deklination | magnetic declination | Winkel zwischen geografisch und magnetisch Nord. | `declination_deg` |
 | Meridiankonvergenz | grid convergence | Winkel zwischen Gitter-Nord und geografisch Nord. | `convergence_deg` |
-| Grivation | grivation | Winkel zwischen Gitter-Nord und magnetisch Nord (= Missweisung − Meridiankonvergenz). | `grivation_deg` |
+| Abweichung Gitter-Nord zu magnetisch Nord (Fachwort: Grivation) | grivation | Winkel zwischen Gitter-Nord und magnetisch Nord (= Missweisung − Meridiankonvergenz). „Grivation“ ist das Fachwort und der Name des Feldes in OOM- und OCAD-Dateien. Im Text steht die ausgeschriebene Form. | `grivation_deg` |
 | Maßstabsfaktor | scale factor | Projektionsbedingte Längenverzerrung (UTM ≈ 0,9996). | `grid_scale_factor` |
 | Höhenbezug | vertical datum | Bezugssystem der Höhen (hier DHHN2016). | `VerticalDatum` |
 
