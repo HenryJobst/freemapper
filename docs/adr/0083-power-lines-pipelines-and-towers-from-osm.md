@@ -51,21 +51,21 @@ orthophoto, as before (ADR 0072 to 0075).
 | `man_made=pipeline` without `location`, underground, underwater, in a tunnel | none | buried is the usual case |
 | `man_made=storage_tank` and similar | none | no symbol in the norm |
 
-- **Minimum lengths.** The OSM lines had no length limit. 510 and 511 now need 3.75 mm, 528 2.2 mm and 529 3 mm on paper
+- Minimum lengths. The OSM lines had no length limit. 510 and 511 now need 3.75 mm, 528 2.2 mm and 529 3 mm on paper
   (`norm_min_line_mm`); the limit holds for the piece inside the map area too.
-- **Points are nodes only.** A tower drawn as an outline is a building in the cadastre (521), and a candidate point in a
+- Points are nodes only. A tower drawn as an outline is a building in the cadastre (521), and a candidate point in a
   building footprint is dropped (ADR 0076).
-- **Control sites.** Towers, masts and pylons carry `freemapper:control=` with `pylon`, `mast`, `tower`, `chimney`,
+- Control sites. Towers, masts and pylons carry `freemapper:control=` with `pylon`, `mast`, `tower`, `chimney`,
   `water_tower` or `lighthouse`, next to the street furniture kinds of ADR 0074. They are thinned the same way: a second
   one of the same kind within 25 m takes both out (a pylon row is 200 m apart and stays), and they give way to other
   point symbols. The symbol stays 524 or 525, not 531, because the norm has a symbol for a tower.
-- **Not judged.** A line along a road or path should be omitted (510). freemapper does not compare the line with the
+- Not judged. A line along a road or path should be omitted (510). freemapper does not compare the line with the
   roads, so the mapper decides. 510 and 511 are drawn as given; the double line of 511 is part of the symbol.
-- **The definition on the map.** 528 and 529 need a definition in the legend. It is the mapper's to write.
-- **Mast and schoolyard.** The schoolyard keeps `man_made=mast` as 544 (any height) and gets no towers, lines or pipelines.
+- The definition on the map. 528 and 529 need a definition in the legend. It is the mapper's to write.
+- Mast and schoolyard. The schoolyard keeps `man_made=mast` as 544 (any height) and gets no towers, lines or pipelines.
   The flagpole rule is split from the mast rule for this.
-- **Point sizes.** `POINT_SIZES_MM` gets 524 (2.35 mm, the drawn extent, the norm says 2.1) and 525 (1.72 mm, the norm 1.5).
-- **Number lists.** A `>=` condition now holds when one value of a `;` list does (`voltage=110000;380000`).
+- Point sizes. `POINT_SIZES_MM` gets 524 (2.35 mm, the drawn extent, the norm says 2.1) and 525 (1.72 mm, the norm 1.5).
+- Number lists. A `>=` condition now holds when one value of a `;` list does (`voltage=110000;380000`).
 
 ## ALKIS
 

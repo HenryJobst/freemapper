@@ -9,9 +9,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The example preview images are now WebP instead of JPEG (`preview.webp`, `preview-map.webp`). They are rendered straight from the PDFs and are smaller than the JPEGs. The README title image (Viktoriapark) is sharper at 1600 pixels wide.
-
-### Changed
-
 - Tests: every test run now checks that the map and `freemapper.toml` keep the suite contract (ADR 0089, `freemapper-contract` from freemapper-core v0.8.0). A schoolyard map at 1:1000 and a sprint map at 1:4000 are tested against twelve rules and against the vocabulary freemapper-print and freemapper-courseplan rely on: part names, the tags of the peripheral information and of the walkable area, the contract keys of the project file. The program itself does not change.
 
 ## [0.9.2] - 2026-11-10
@@ -38,7 +35,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Duplicate areas by rank (ADR 0078): an area that was itself dropped for a higher one no longer drops another. In a chain A > B > C, C used to go because of the already removed B, and the `freemapper:also` note landed on B. Now the area that stays on the map carries it, and C stays when A alone does not reach the share. Existing maps get this with `run --force`.
 - The map area is checked on every path, not only on the selection page (ADR 0084). `init --geojson`, MCP `create_project` with `geojson`, `init_project` and the area in `freemapper.toml` now refuse a polygon without corners, with crossing edges or with more than 5000 corners, with "not a usable map area". An empty polygon (`"coordinates": []`) used to crash the server.
 - `init`, MCP `create_project` and the area selection page take only scales that freemapper-print prints (ADR 0085): schoolyard 1:1000, sprint 1:4000 or 1:5000. Before, `--kind schoolyard --scale 2000` ran through and freemapper-print then stopped with `MapScaleNotAllowed`. The error lists the allowed scales; for sprint 1:3000 it advises drawing at 1:4000, because freemapper-print enlarges to 1:3000 when printing. 1:5000 is not in the norm; `init` says so, and the symbols stay at 100 %. A project with another scale in `freemapper.toml` still loads and prints a warning. The selection page offers the allowed scales as a list.
-- `init` always writes a `title` into `freemapper.toml`, also without `--title`: the folder name with capitalised words, as the PDF already built it (`Clara-Zetkin-Schule`). freemapper-print and freemapper-courseplan thus read the same title (ADR 0086). Older projects without a `title` stay as they are.
+- `init` always writes a `title` into `freemapper.toml`, also without `--title`: the folder name with capitalised words, as the PDF already built it (`Clara-Zetkin-Schule`). freemapper-print and freemapper-courseplan now read the same title (ADR 0086). Older projects without a `title` stay as they are.
 
 ## [0.9.0] - 2026-11-10
 
@@ -46,24 +43,20 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - All eleven examples are rebuilt with the current code. The PDF of each example is the training map (`<name>-candidates.pdf`), and `preview.jpg` is rendered from it, because the map alone is very plain. Map objects, candidates and symbols in the examples overview are counted again, and the gravel paths 501.6 to 501.9 are map objects in every example. Only Cochem and Blankenese also have the map without candidates (`<name>.pdf`, `preview-map.jpg`). The Viktoriapark attribution names the public lighting register again.
 - The default of `--pdf` changes. It now writes `<name>.pdf` with exactly the objects of the OOM map, without candidates and without a scale bar. The training map with every candidate is `<name>-candidates.pdf`, written with `--pdf-candidates`; both switches together write both files. The scale bar on the PDFs only comes with `--pdf-scale-bar` (German orienteering maps usually have none); the scale number stays in the title block. The old behaviour is `--pdf-candidates --pdf-scale-bar`. This also holds for `run` and the MCP parameters `pdf`, `pdf_candidates`, `pdf_scale_bar`. The OOM and OCAD maps keep the bar. Amends ADR 0002 (ADR 0080).
-
 - The Viktoriapark training map (`berlin-viktoriapark-candidates.pdf`, `preview.jpg`) is regenerated with the shortened source block (four lines instead of nine). The other examples have at most five lines and stay unchanged; the map content is identical.
 
 ### Added
 
 - The source block on the PDF map is shortened when needed. `--pdf-sources auto` (the default, also MCP `pdf_sources`) prints up to five lines unchanged; a longer block gets the `dl-de/zero-2-0` sources merged for each provider, long names shortened, lines joined with " · " and, last, a pointer to `ATTRIBUTION.txt`. OpenStreetMap, every other licence and the freemapper line stay word for word. `full` never shortens; `credit-only` prints only the freemapper line and says in the output that ODbL and `dl-de/by-2-0` require naming the sources when you pass the map on. The freemapper line cannot be switched off in any mode. `ATTRIBUTION.txt` and the OOM and OCAD maps always list every source. The Viktoriapark block shrinks from nine lines to four (ADR 0081).
+- A comparison of map and training map: [`examples/compare.en.md`](examples/compare.en.md) shows Cochem and Blankenese side by side, with the most frequent candidate symbols and the measurement on all eleven examples that decided the choice. The examples overview and the README link to it.
+- Berlin control sites on sprint maps. The street survey (bollards, masts, flag poles, benches) and the lighting cadastre (lamps in operation) now give 531 candidates with `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, plus `advertising_column` for the survey's advertising columns), like the OSM ones. Thinning is shared: a site of one kind within 25 m of another is left out, whichever source it comes from, after duplicates and sites in buildings are gone. A surveyed bollard replaces an OSM one within 2 m. Hydrants and play equipment stay schoolyard-only. A Berlin sprint project fetches seven more WFS requests (33 instead of 26); the disk estimate for the Berlin layers goes from 10.5 to 12 MB per km². Existing maps get this with `run --force` (ADR 0077).
+- Drinking fountains are 313 on sprint maps, from the Berlin register and survey and from OSM `amenity=drinking_water`.
 
 ### Fixed
 
 - Firm gravel paths are map objects again. `surface=compacted|fine_gravel` and `tracktype=grade2` (paved by ISSprOM 501, "hard gravel") are drawn as a line 501.6 to 501.9 by `width` on the map, no longer only as a candidate; the park maps have their paths back. Where ALKIS or the street survey already draw paving (501.5), the part of the line within it goes (widened by 0.25 mm on paper), and remnants under 1 mm on paper go. Ways without `surface`, unknown surfaces and `tracktype=grade3` to `grade5` stay candidates, and tree groups are still cut at the lines. Viktoriapark: 26 map objects 501.6 instead of 49 candidates, Sanssouci: 192 instead of 218. Amends ADR 0073 (ADR 0079).
 - Duplicate areas from several sources are kept once. An OSM passage (`tunnel=building_passage`, `covered`) over a Berlin building part, an ALKIS passage or a canopy, an OSM private strip inside an ALKIS area that shall not be entered, and an OSM bridge over a Berlin bridge deck are dropped when half (520: 80 %) of their area lies under the higher-ranked area, widened by 0.25 mm on paper. The kept object names the other in `freemapper:also`. An OSM memorial within 5 m of a cadastre monument and OSM kerbs and embankments along cadastre ones go too. Viktoriapark: 520 from 117 to 94, 522 from 211 to 192. Lübeck: 520 from 1 125 to 1 112, 522 from 280 to 221 (ADR 0078).
 - Control sites in buildings no longer thin their neighbours. The 25 m rule now runs after the sites in buildings are dropped.
-
-### Added
-
-- A comparison of map and training map: [`examples/compare.en.md`](examples/compare.en.md) shows Cochem and Blankenese side by side, with the most frequent candidate symbols and the measurement on all eleven examples that decided the choice. The examples overview and the README link to it.
-- Berlin control sites on sprint maps. The street survey (bollards, masts, flag poles, benches) and the lighting cadastre (lamps in operation) now give 531 candidates with `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, plus `advertising_column` for the survey's advertising columns), like the OSM ones. Thinning is shared: a site of one kind within 25 m of another is left out, whichever source it comes from, after duplicates and sites in buildings are gone. A surveyed bollard replaces an OSM one within 2 m. Hydrants and play equipment stay schoolyard-only. A Berlin sprint project fetches seven more WFS requests (33 instead of 26); the disk estimate for the Berlin layers goes from 10.5 to 12 MB per km². Existing maps get this with `run --force` (ADR 0077).
-- Drinking fountains are 313 on sprint maps, from the Berlin register and survey and from OSM `amenity=drinking_water`.
 
 ## [0.8.0] - 2026-11-09
 
@@ -93,7 +86,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - The training map (PDF) draws the point patterns of areas, such as the white dots of 402. Until now 402 looked like 401 there.
 - Overlapping walls, fences and hedges. Where two such lines run parallel and closer than their symbols may come on paper, the weaker one loses that stretch: the worse source, and for one source the weaker symbol (wall before fence before hedge before retaining wall). Wall stretches within 0.5 m of a building outline are dropped, and so are trees within 1 m of one of these lines. In Park Sanssouci the parallel line pairs closer than 1 m drop from 162 to 4 (ADR 0068).
 - All eleven example projects are rebuilt with these rules; their map objects stay the same.
-
 - freemapper now writes, copies and removes files in the project folder with the shared crate `freemapper-fs` from freemapper-core 0.2.0 and no longer keeps its own copy. Nothing changes for users, and the messages keep their wording (ADR 0067).
 
 ## [0.7.0] - 2026-11-09

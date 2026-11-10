@@ -75,7 +75,7 @@ and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria,
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-**Planned: permits and contacts.** For every map area freemapper should also show who has to be asked: for forest maps the protected areas it touches (nature reserves, landscape protection, FFH, national parks) and the responsible forest authority; for sprint maps the municipality or borough, the road traffic and parks departments, heritage and palace administrations and, where open data allows, public landowners. The result would be a report `permits.md` next to the map, each entry with its source and data date. It is a pointer, not legal advice, and owners of private land are not in open data. The research is in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
+Planned: permits and contacts. For every map area freemapper should also show who has to be asked: for forest maps the protected areas it touches (nature reserves, landscape protection, FFH, national parks) and the responsible forest authority; for sprint maps the municipality or borough, the road traffic and parks departments, heritage and palace administrations and, where open data allows, public landowners. The result would be a report `permits.md` next to the map, each entry with its source and data date. It is a pointer, not legal advice, and owners of private land are not in open data. The research is in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## User manual
 

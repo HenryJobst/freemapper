@@ -9,9 +9,6 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.
-
-### Geändert
-
 - Tests: Jeder Testlauf prüft jetzt, ob Karte und `freemapper.toml` den Vertrag der Suite einhalten (ADR 0089, `freemapper-contract` aus freemapper-core v0.8.0). Geprüft werden eine Schulhofkarte 1:1000 und eine Sprintkarte 1:4000 gegen zwölf Regeln und gegen das Vokabular, auf das sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, Tags der Randangaben und der belaufbaren Fläche, Vertragsschlüssel der Projektdatei. Das Programm selbst ändert sich nicht.
 
 ## [0.9.2] - 2026-11-10
@@ -46,24 +43,20 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Alle elf Beispiele sind mit dem aktuellen Code neu erzeugt. Das PDF jedes Beispiels ist die Trainingskarte (`<name>-candidates.pdf`), und `preview.jpg` ist daraus gerendert, weil die Karte allein sehr schlicht ist. Kartenobjekte, Kandidaten und Symbole in der Beispielübersicht sind neu gezählt, und die Kieswege 501.6 bis 501.9 stehen in allen Beispielen als Kartenobjekte. Nur Cochem und Blankenese haben zusätzlich die Karte ohne Kandidaten (`<name>.pdf`, `preview-map.jpg`). Die Namensnennung des Viktoriaparks nennt wieder die Öffentliche Beleuchtung.
 - Der Standard von `--pdf` ändert sich. Es schreibt jetzt `<name>.pdf` mit genau den Objekten der OOM-Karte, ohne Kandidaten und ohne Maßstabsleiste. Die Trainingskarte mit allen Kandidaten steht in `<name>-candidates.pdf` und kommt mit `--pdf-candidates`; beide Schalter zusammen schreiben beide Dateien. Die Maßstabsleiste auf den PDFs gibt es nur mit `--pdf-scale-bar` (deutsche OL-Karten haben meist keine); die Maßstabszahl bleibt im Titelblock. Das alte Verhalten ist `--pdf-candidates --pdf-scale-bar`. Gilt auch für `run` und die MCP-Parameter `pdf`, `pdf_candidates`, `pdf_scale_bar`. OOM- und OCAD-Karte behalten die Leiste. Ändert ADR 0002 (ADR 0080).
-
 - Die Trainingskarte des Viktoriaparks (`berlin-viktoriapark-candidates.pdf`, `preview.jpg`) ist mit der gekürzten Quellenangabe neu erzeugt (vier statt neun Zeilen). Die übrigen Beispiele haben höchstens fünf Zeilen und bleiben unverändert; die Karteninhalte sind identisch.
 
 ### Hinzugefügt
 
 - Die Quellenangabe auf der PDF-Karte wird bei Bedarf gekürzt. `--pdf-sources auto` (Standard, auch MCP `pdf_sources`) druckt bis zu fünf Zeilen unverändert; ist der Block länger, fasst freemapper die Quellen mit `dl-de/zero-2-0` je Anbieter zusammen, kürzt lange Namen, verbindet Zeilen mit „ · “ und verweist zuletzt auf `ATTRIBUTION.txt`. OpenStreetMap, alle anderen Lizenzen und die freemapper-Zeile bleiben wörtlich. `full` kürzt nie; `credit-only` druckt nur die freemapper-Zeile und weist in der Ausgabe darauf hin, dass ODbL und `dl-de/by-2-0` die Nennung beim Weitergeben verlangen. Die freemapper-Zeile lässt sich in keinem Modus abschalten. `ATTRIBUTION.txt`, OOM- und OCAD-Karte führen immer alle Quellen. Der Viktoriapark-Block schrumpft von neun auf vier Zeilen (ADR 0081).
+- Eine Gegenüberstellung von Karte und Trainingskarte: [`examples/vergleich.md`](examples/vergleich.md) zeigt Cochem und Blankenese nebeneinander, mit den häufigsten Kandidatensymbolen und der Messung an allen elf Beispielen, aus der die Auswahl folgt. Die Beispielübersicht und die README verlinken sie.
+- Berliner Kontrollstandorte auf Sprintkarten. Die Straßenbefahrung (Poller, Masten, Fahnenmasten, Bänke) und das Beleuchtungskataster (Laternen in Betrieb) liefern jetzt 531-Kandidaten mit `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, dazu `advertising_column` für die Werbesäulen der Befahrung), wie die aus OSM. Die Ausdünnung gilt für alle Quellen gemeinsam: Ein Standort, der ein gleichartiges innerhalb von 25 m hat, fehlt, gleich aus welcher Quelle, nachdem Doppel und Standorte in Gebäuden entfallen sind. Ein vermessener Poller ersetzt einen OSM-Poller bis 2 m. Hydranten und Spielgeräte bleiben Schulhof-Sache. Ein Berliner Sprintprojekt lädt sieben WFS-Anfragen mehr (33 statt 26); die Platzschätzung für die Berliner Ebenen steigt von 10,5 auf 12 MB je km². Bestehende Karten bekommen das mit `run --force` (ADR 0077).
+- Trinkbrunnen sind auf Sprintkarten 313, aus dem Berliner Register, der Befahrung und aus OSM `amenity=drinking_water`.
 
 ### Behoben
 
 - Wege aus festem Kies sind wieder Kartenobjekte. `surface=compacted|fine_gravel` und `tracktype=grade2` (befestigt nach ISSprOM 501, „hard gravel“) zeichnet freemapper als Linie 501.6 bis 501.9 nach `width` in der Karte, nicht mehr nur als Kandidat; die Parkkarten haben ihre Wege zurück. Wo ALKIS oder die Befahrung schon Pflaster zeichnen (501.5), entfällt der Teil der Linie im Pflaster (aufgeweitet um 0,25 mm auf dem Papier), und Reststücke unter 1 mm auf dem Papier entfallen. Wege ohne `surface`, unbekannte Oberflächen und `tracktype=grade3` bis `grade5` bleiben Kandidaten, Baumgruppen werden weiter an den Linien geschnitten. Viktoriapark: 26 Kartenobjekte 501.6 statt 49 Kandidaten, Sanssouci: 192 statt 218. Ändert ADR 0073 (ADR 0079).
 - Doppelte Flächen aus mehreren Quellen bleiben nur einmal. Ein OSM-Durchgang (`tunnel=building_passage`, `covered`) über einem Berliner Gebäudeteil, einem ALKIS-Durchgang oder einer Überdachung, ein privater OSM-Streifen in einer ALKIS-Fläche, die nicht betreten werden darf, und eine OSM-Brücke über einer Berliner Brückenfläche entfallen, wenn die Hälfte (520: 80 %) ihrer Fläche unter der höherrangigen Fläche liegt, aufgeweitet um 0,25 mm auf dem Papier. Das bleibende Objekt nennt das andere in `freemapper:also`. Auch ein OSM-Denkmal bis 5 m neben einem Katasterdenkmal sowie OSM-Bordsteine und -Böschungen entlang von Katasterlinien entfallen. Viktoriapark: 520 von 117 auf 94, 522 von 211 auf 192. Lübeck: 520 von 1 125 auf 1 112, 522 von 280 auf 221 (ADR 0078).
 - Kontrollstandorte in Gebäuden dünnen ihre Nachbarn nicht mehr aus. Die 25-m-Regel läuft jetzt, nachdem die Standorte in Gebäuden entfallen sind.
-
-### Hinzugefügt
-
-- Eine Gegenüberstellung von Karte und Trainingskarte: [`examples/vergleich.md`](examples/vergleich.md) zeigt Cochem und Blankenese nebeneinander, mit den häufigsten Kandidatensymbolen und der Messung an allen elf Beispielen, aus der die Auswahl folgt. Die Beispielübersicht und die README verlinken sie.
-- Berliner Kontrollstandorte auf Sprintkarten. Die Straßenbefahrung (Poller, Masten, Fahnenmasten, Bänke) und das Beleuchtungskataster (Laternen in Betrieb) liefern jetzt 531-Kandidaten mit `freemapper:control` (`bollard`, `mast`, `flagpole`, `bench`, `street_lamp`, dazu `advertising_column` für die Werbesäulen der Befahrung), wie die aus OSM. Die Ausdünnung gilt für alle Quellen gemeinsam: Ein Standort, der ein gleichartiges innerhalb von 25 m hat, fehlt, gleich aus welcher Quelle, nachdem Doppel und Standorte in Gebäuden entfallen sind. Ein vermessener Poller ersetzt einen OSM-Poller bis 2 m. Hydranten und Spielgeräte bleiben Schulhof-Sache. Ein Berliner Sprintprojekt lädt sieben WFS-Anfragen mehr (33 statt 26); die Platzschätzung für die Berliner Ebenen steigt von 10,5 auf 12 MB je km². Bestehende Karten bekommen das mit `run --force` (ADR 0077).
-- Trinkbrunnen sind auf Sprintkarten 313, aus dem Berliner Register, der Befahrung und aus OSM `amenity=drinking_water`.
 
 ## [0.8.0] - 2026-11-09
 
@@ -93,7 +86,6 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Die Trainingskarte (PDF) zeichnet die Punktmuster von Flächen, etwa die weißen Punkte von 402. Bisher sah 402 dort aus wie 401.
 - Überlappende Mauern, Zäune und Hecken. Laufen zwei solche Linien parallel und näher, als ihre Symbole auf dem Papier dürfen, verliert die schwächere das Stück: die schlechtere Quelle, bei gleicher Quelle das schwächere Symbol (Mauer vor Zaun vor Hecke vor Stützmauer). Mauerstücke bis 0,5 m neben einem Gebäudeumriss fallen weg, ebenso Bäume bis 1 m neben einer dieser Linien. Im Park Sanssouci sinken die parallelen Linienpaare unter 1 m Abstand von 162 auf 4 (ADR 0068).
 - Alle elf Beispielprojekte sind mit diesen Regeln neu erzeugt, ihre Kartenobjekte bleiben gleich.
-
 - freemapper schreibt, kopiert und löscht im Projektordner jetzt mit der gemeinsamen Bibliothek `freemapper-fs` aus freemapper-core 0.2.0 und pflegt keine eigene Kopie mehr. Für Nutzer bleibt alles gleich, auch der Wortlaut der Meldungen (ADR 0067).
 
 ## [0.7.0] - 2026-11-09
