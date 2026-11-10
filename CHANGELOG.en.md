@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- `export` and `run` build the map and the candidates template once per command instead of once per output (ADR 0091). With `--ocad --pdf --pdf-candidates` that used to be four passes over all stored layers; now it is one for `export` and two for `run`. The written files are the same byte for byte.
+
 ### Fixed
 
 - Firm gravel paths (501.6 to 501.9) stay whole where only an ALKIS `Weg` parcel lies (ADR 0079, addendum). That parcel is only a 501.5 candidate, not a map object, yet it cut the OSM line away. Now only 501.5 map objects (roads, squares, the survey) cut. The 0.25 mm tolerance and the 1 mm minimum piece stay. Existing maps get this with `run --force`.

@@ -38,6 +38,8 @@ decided for option B on 2026-11-10 and recorded it here.
 - Option B (chosen): sprint maps are written only at 1:4000 (100 % symbols) or 1:5000. Exactly one place scales symbols,
   freemapper-print, which already does it for 1:3000.
 
+The user confirmed option B on 2026-11-11: 1:3000 stays out as a map scale for sprint maps.
+
 Cost if wrong: users who want a 1:3000 `.omap` or OCAD file wait for freemapper-side symbol scaling (option A) and meanwhile
 get the enlargement only in the printed PDF.
 
