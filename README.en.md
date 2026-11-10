@@ -6,6 +6,8 @@
 [![AI effort (Claude API): $1,104](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C104-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
+<p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.jpg" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
+
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
 georeferenced map with the reliable map objects already symbolized, plus templates for everything
@@ -72,6 +74,8 @@ Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, program 
 and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+
+**Planned: permits and contacts.** For every map area freemapper should also show who has to be asked: for forest maps the protected areas it touches (nature reserves, landscape protection, FFH, national parks) and the responsible forest authority; for sprint maps the municipality or borough, the road traffic and parks departments, heritage and palace administrations and, where open data allows, public landowners. The result would be a report `permits.md` next to the map, each entry with its source and data date. It is a pointer, not legal advice, and owners of private land are not in open data. The research is in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## User manual
 
