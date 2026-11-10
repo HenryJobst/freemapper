@@ -8,15 +8,25 @@ plus jeder Kandidat als Kartenobjekt. Kandidaten sind unsicher abgeleitete Objek
 Privatgrundstücke oder Treppen. Das Handbuch erklärt, [was im Gelände zu prüfen ist](../docs/manual/de.md#9-was-im-gelände-zu-prüfen-ist),
 und beschreibt die [PDF-Schalter](../docs/manual/de.md#10-karte-als-pdf).
 
-Zwei der elf Beispiele liegen in beiden Fassungen bei, Cochem und Blankenese. Die übrigen haben nur das PDF der
-Karte; die Trainingskarte entsteht bei ihnen mit `freemapper run --pdf-candidates <Projektordner>`. Die Bilder sind
-Vorschauen, ein Klick auf den Namen unter dem Bild öffnet das PDF.
+Alle elf Beispiele haben die Trainingskarte als PDF. Zwei davon, Cochem und Blankenese, liegen zusätzlich als Karte
+allein bei; bei den anderen entsteht sie mit `freemapper run --pdf <Projektordner>`. Die Bilder sind Vorschauen, der
+Link unter dem Bild öffnet das PDF.
+
+## Warum die Karte allein so schlicht ist
+
+freemapper legt nur verlässliche Registerdaten in die Karte: Gebäude, Straßen, Gewässer, Wald, offenes Land und die
+Grundfläche. Alles, was automatisch abgeleitet oder unsicher ist, bleibt Kandidat, damit ein Kartograf es prüft. Dazu
+gehören Höhenlinien, Bäume, Zäune und Mauern, Hecken, Sperrflächen und Kontrollstandorte. In Cochem stehen 1315
+Kartenobjekte (1156 davon Gebäude) 894 Kandidaten gegenüber: 234 Büsche und Bäume (418), 205 Sperrflächen (520),
+151 Höhenlinien (101), 78 Kontrollstandorte (531) und 46 unbefestigte Wege (505.1). Die Karte allein ist deshalb
+sicher, aber dünn. Die Trainingskarte zeigt, was freemapper ableiten kann, und jedes dieser Objekte prüfen Sie im
+Gelände, bevor Sie es übernehmen.
 
 ## Cochem
 
 | Karte (Standard) | mit Kandidaten |
 |---|---|
-| ![Cochem, nur Kartenobjekte](rheinland-pfalz-cochem/preview.jpg) | ![Cochem mit Kandidaten](rheinland-pfalz-cochem/preview-candidates.jpg) |
+| ![Cochem, nur Kartenobjekte](rheinland-pfalz-cochem/preview-map.jpg) | ![Cochem mit Kandidaten](rheinland-pfalz-cochem/preview.jpg) |
 | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf) |
 
 Die Karte hat 1315 Objekte, vor allem Gebäude (1156), dazu Wasser, Überdachungen und die Grundfläche. Dazu kommen
@@ -45,7 +55,7 @@ in die Karte.
 
 | Karte (Standard) | mit Kandidaten |
 |---|---|
-| ![Blankenese, nur Kartenobjekte](hamburg-blankenese/preview.jpg) | ![Blankenese mit Kandidaten](hamburg-blankenese/preview-candidates.jpg) |
+| ![Blankenese, nur Kartenobjekte](hamburg-blankenese/preview-map.jpg) | ![Blankenese mit Kandidaten](hamburg-blankenese/preview.jpg) |
 | [hamburg-blankenese.pdf](hamburg-blankenese/hamburg-blankenese.pdf) | [hamburg-blankenese-candidates.pdf](hamburg-blankenese/hamburg-blankenese-candidates.pdf) |
 
 Die Karte hat 969 Objekte, davon 880 Gebäude. Dazu kommen 979 Kandidaten, 1,0 je Kartenobjekt. 690 stammen aus der
@@ -80,7 +90,7 @@ es zählt die Reihenfolge. Die Tabelle ist nach der Pixeldifferenz sortiert.
 | [Monschau](nordrhein-westfalen-monschau/) | 993 | 850 | 0,9 | 4,6 % | 16,1 % |
 | [Marburg](hessen-marburg/) | 1541 | 1065 | 0,7 | 3,9 % | 14,9 % |
 | [Bautzen](sachsen-bautzen/) | 1226 | 1376 | 1,1 | 3,9 % | 14,9 % |
-| [Viktoriapark](berlin-viktoriapark/) | 766 | 2235 | 2,9 | 3,7 % | 13,9 % |
+| [Viktoriapark](berlin-viktoriapark/) | 766 | 2263 | 3,0 | 3,7 % | 13,9 % |
 | [Quedlinburg](sachsen-anhalt-quedlinburg/) | 1642 | 1110 | 0,7 | 3,7 % | 13,2 % |
 | [Sanssouci](brandenburg-sanssouci/) | 443 | 1981 | 4,5 | 3,5 % | 15,2 % |
 | [Wismar](mecklenburg-vorpommern-wismar/) | 2486 | 1756 | 0,7 | 2,5 % | 9,4 % |

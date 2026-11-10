@@ -8,15 +8,24 @@ drawn as a map object. Candidates are objects freemapper derives with less certa
 plots or stairs. The manual explains [what to check in the terrain](../docs/manual/en.md#9-what-to-check-in-the-terrain)
 and describes the [PDF switches](../docs/manual/en.md#10-map-as-pdf).
 
-Two of the eleven examples come in both versions, Cochem and Blankenese. The others have only the map PDF; run
-`freemapper run --pdf-candidates <project folder>` to get their training map. The images are previews. The links under
-them open the PDFs.
+All eleven examples have the training map as a PDF. Two of them, Cochem and Blankenese, also come with the map alone;
+for the others, `freemapper run --pdf <project folder>` writes it. The images are previews. The links under them open
+the PDFs.
+
+## Why the map alone is so plain
+
+freemapper puts only reliable register data on the map: buildings, streets, water, forest, open land and the walkable
+area. Whatever is derived automatically or is uncertain stays a candidate, so that a mapper checks it. That includes
+contours, trees, fences and walls, hedges, out-of-bounds areas and control sites. In Cochem, 1315 map objects (1156 of
+them buildings) face 894 candidates: 234 bushes and small trees (418), 205 out-of-bounds areas (520), 151 contours
+(101), 78 control sites (531) and 46 unpaved paths (505.1). The map alone is therefore safe but thin. The training map
+shows what freemapper can derive, and you check each of those objects in the terrain before you keep it.
 
 ## Cochem
 
 | Map (default) | with candidates |
 |---|---|
-| ![Cochem, map objects only](rheinland-pfalz-cochem/preview.jpg) | ![Cochem with candidates](rheinland-pfalz-cochem/preview-candidates.jpg) |
+| ![Cochem, map objects only](rheinland-pfalz-cochem/preview-map.jpg) | ![Cochem with candidates](rheinland-pfalz-cochem/preview.jpg) |
 | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf) |
 
 The map has 1315 objects, mostly buildings (1156), plus water, canopies and the walkable area. There are 894
@@ -44,7 +53,7 @@ prominent ones. The control sites (531) are suggestions for course setting and d
 
 | Map (default) | with candidates |
 |---|---|
-| ![Blankenese, map objects only](hamburg-blankenese/preview.jpg) | ![Blankenese with candidates](hamburg-blankenese/preview-candidates.jpg) |
+| ![Blankenese, map objects only](hamburg-blankenese/preview-map.jpg) | ![Blankenese with candidates](hamburg-blankenese/preview.jpg) |
 | [hamburg-blankenese.pdf](hamburg-blankenese/hamburg-blankenese.pdf) | [hamburg-blankenese-candidates.pdf](hamburg-blankenese/hamburg-blankenese-candidates.pdf) |
 
 The map has 969 objects, 880 of them buildings. There are 979 candidates on top, 1.0 per map object. 690 come from the
@@ -79,7 +88,7 @@ pixel difference.
 | [Monschau](nordrhein-westfalen-monschau/) | 993 | 850 | 0.9 | 4.6 % | 16.1 % |
 | [Marburg](hessen-marburg/) | 1541 | 1065 | 0.7 | 3.9 % | 14.9 % |
 | [Bautzen](sachsen-bautzen/) | 1226 | 1376 | 1.1 | 3.9 % | 14.9 % |
-| [Viktoriapark](berlin-viktoriapark/) | 766 | 2235 | 2.9 | 3.7 % | 13.9 % |
+| [Viktoriapark](berlin-viktoriapark/) | 766 | 2263 | 3.0 | 3.7 % | 13.9 % |
 | [Quedlinburg](sachsen-anhalt-quedlinburg/) | 1642 | 1110 | 0.7 | 3.7 % | 13.2 % |
 | [Sanssouci](brandenburg-sanssouci/) | 443 | 1981 | 4.5 | 3.5 % | 15.2 % |
 | [Wismar](mecklenburg-vorpommern-wismar/) | 2486 | 1756 | 0.7 | 2.5 % | 9.4 % |

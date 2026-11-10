@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- Alle elf Beispiele sind mit dem aktuellen Code neu erzeugt. `<name>.pdf` zeigt jetzt nur die Kartenobjekte, `preview.jpg` ist daraus gerendert. Kartenobjekte, Kandidaten und Symbole in der Beispielübersicht sind neu gezählt, und die Kieswege 501.6 bis 501.9 stehen in allen Beispielen als Kartenobjekte. Cochem und Blankenese haben zusätzlich `<name>-candidates.pdf` und `preview-candidates.jpg`.
+- Alle elf Beispiele sind mit dem aktuellen Code neu erzeugt. Das PDF jedes Beispiels ist die Trainingskarte (`<name>-candidates.pdf`), und `preview.jpg` ist daraus gerendert, weil die Karte allein sehr schlicht ist. Kartenobjekte, Kandidaten und Symbole in der Beispielübersicht sind neu gezählt, und die Kieswege 501.6 bis 501.9 stehen in allen Beispielen als Kartenobjekte. Nur Cochem und Blankenese haben zusätzlich die Karte ohne Kandidaten (`<name>.pdf`, `preview-map.jpg`). Die Namensnennung des Viktoriaparks nennt wieder die Öffentliche Beleuchtung.
 - Der Standard von `--pdf` ändert sich. Es schreibt jetzt `<name>.pdf` mit genau den Objekten der OOM-Karte, ohne Kandidaten und ohne Maßstabsleiste. Die Trainingskarte mit allen Kandidaten steht in `<name>-candidates.pdf` und kommt mit `--pdf-candidates`; beide Schalter zusammen schreiben beide Dateien. Die Maßstabsleiste auf den PDFs gibt es nur mit `--pdf-scale-bar` (deutsche OL-Karten haben meist keine); die Maßstabszahl bleibt im Titelblock. Das alte Verhalten ist `--pdf-candidates --pdf-scale-bar`. Gilt auch für `run` und die MCP-Parameter `pdf`, `pdf_candidates`, `pdf_scale_bar`. OOM- und OCAD-Karte behalten die Leiste. Ändert ADR 0002 (ADR 0080).
 
 ### Behoben

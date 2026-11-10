@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- All eleven examples are rebuilt with the current code. `<name>.pdf` now shows only the map objects, and `preview.jpg` is rendered from it. Map objects, candidates and symbols in the examples overview are counted again, and the gravel paths 501.6 to 501.9 are map objects in every example. Cochem and Blankenese also have `<name>-candidates.pdf` and `preview-candidates.jpg`.
+- All eleven examples are rebuilt with the current code. The PDF of each example is the training map (`<name>-candidates.pdf`), and `preview.jpg` is rendered from it, because the map alone is very plain. Map objects, candidates and symbols in the examples overview are counted again, and the gravel paths 501.6 to 501.9 are map objects in every example. Only Cochem and Blankenese also have the map without candidates (`<name>.pdf`, `preview-map.jpg`). The Viktoriapark attribution names the public lighting register again.
 - The default of `--pdf` changes. It now writes `<name>.pdf` with exactly the objects of the OOM map, without candidates and without a scale bar. The training map with every candidate is `<name>-candidates.pdf`, written with `--pdf-candidates`; both switches together write both files. The scale bar on the PDFs only comes with `--pdf-scale-bar` (German orienteering maps usually have none); the scale number stays in the title block. The old behaviour is `--pdf-candidates --pdf-scale-bar`. This also holds for `run` and the MCP parameters `pdf`, `pdf_candidates`, `pdf_scale_bar`. The OOM and OCAD maps keep the bar. Amends ADR 0002 (ADR 0080).
 
 ### Fixed
