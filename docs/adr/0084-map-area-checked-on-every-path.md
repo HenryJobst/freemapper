@@ -1,4 +1,4 @@
-# 0083. The map area is checked on every path
+# 0084. The map area is checked on every path
 
 Date: 2026-11-10
 Status: Accepted

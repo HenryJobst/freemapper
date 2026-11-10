@@ -603,7 +603,7 @@ $("clear").addEventListener("click", () => {
 
 // --- Settings, save, done --------------------------------------------------------------------
 
-// The scales freemapper-print accepts per map kind (ADR 0084); the first is the default.
+// The scales freemapper-print accepts per map kind (ADR 0085); the first is the default.
 const SCALES = { schoolyard: [1000], sprint: [4000, 5000] };
 
 // Fills the scale list for `kind`; a stored scale outside the table stays selectable.

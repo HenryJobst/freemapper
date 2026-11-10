@@ -1,4 +1,4 @@
-# 0084. Allowed map scales per kind
+# 0085. Allowed map scales per kind
 
 Date: 2026-11-10
 Status: Accepted

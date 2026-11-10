@@ -135,7 +135,8 @@ impl Condition {
                 allowed == v || allowed.strip_suffix('*').is_some_and(|p| v.starts_with(p))
             }),
             (Some(v), Test::Below(limit)) => number(v).is_some_and(|n| n < *limit),
-            (Some(v), Test::AtLeast(limit)) => number(v).is_some_and(|n| n >= *limit),
+            // A list (`110000;380000`) holds when one of its values does.
+            (Some(v), Test::AtLeast(limit)) => v.split(';').filter_map(number).any(|n| n >= *limit),
             (None, _) => false,
         };
         matches != self.negated
@@ -362,7 +363,8 @@ pub fn osm_objects(
             geo_types::coord! { x: r.max().x + buffer_m, y: r.max().y + buffer_m },
         )
     });
-    let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
+    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+    let min_length = metres_per_mm * MIN_LINE_MM;
     let mut objects = Vec::new();
     // The cadastre cuts a wall into short segments; the length limit holds for the whole wall.
     let joined;
@@ -396,7 +398,18 @@ pub fn osm_objects(
         if distance > buffer_m {
             continue;
         }
+        // The norm's minimum length of the line symbol, if it sets one the rules must keep.
+        let norm_min = norm_min_line_mm(&found.code).map(|mm| mm * metres_per_mm);
         let pieces = match (&feature.geometry, found.draw) {
+            (OsmGeometry::Line(points), Draw::Line)
+                if norm_min.is_some_and(|min| {
+                    Euclidean.length(&geo_types::LineString(
+                        points.iter().map(projected).collect(),
+                    )) < min
+                }) =>
+            {
+                continue;
+            }
             (OsmGeometry::Line(points), Draw::Line)
                 if clip.is_some_and(|clip| {
                     points.iter().map(projected).any(|c| {
@@ -411,7 +424,7 @@ pub fn osm_objects(
                 let line = geo_types::LineString(points.iter().map(projected).collect());
                 let mut pieces = Vec::new();
                 for piece in clip.clip(&geo_types::MultiLineString(vec![line]), false) {
-                    if Euclidean.length(&piece) < min_length {
+                    if Euclidean.length(&piece) < min_length.max(norm_min.unwrap_or(0.0)) {
                         continue;
                     }
                     let coords = piece
@@ -557,8 +570,13 @@ pub fn osm_objects(
         // A control site (ADR 0074) names its kind for the course planner.
         if source == "osm"
             && kind == MapKind::Sprint
-            && found.code == CONTROL_CODE
-            && let Some(site) = control_kind(&feature.tags)
+            && let Some(site) = if found.code == CONTROL_CODE {
+                control_kind(&feature.tags)
+            } else if TOWER_CODES.contains(&found.code.as_str()) {
+                tower_kind(&feature.tags)
+            } else {
+                None
+            }
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }
@@ -589,6 +607,18 @@ pub fn osm_objects(
     Ok(objects)
 }
 
+/// The minimum length on paper (mm) that ISSprOM 4.5 sets for a line symbol of the OSM rules:
+/// 510 and 511 power lines 3.75 mm, 528 prominent line feature 2.2 mm, 529 prominent uncrossable
+/// line feature 3 mm. A shorter line is not drawn.
+fn norm_min_line_mm(code: &str) -> Option<f64> {
+    match code {
+        "510" | "511" => Some(3.75),
+        "528" => Some(2.2),
+        "529" => Some(3.0),
+        _ => None,
+    }
+}
+
 /// The symbol of the control sites ([`control_kind`]): 531 prominent man-made feature, x.
 const CONTROL_CODE: &str = "531";
 
@@ -604,6 +634,25 @@ fn control_kind(tags: &Tags) -> Option<&'static str> {
     ]
     .into_iter()
     .find_map(|(key, v, kind)| (value(tags, key) == Some(v)).then_some(kind))
+}
+
+/// The symbols of towers and masts, 524 high tower and 525 small tower (ADR 0083).
+const TOWER_CODES: [&str; 2] = ["524", "525"];
+
+/// The kind of control site a tower, mast or pylon is, from its tags. The drawing of the tower
+/// does not say the kind, and a radio mast and a chimney are told apart on the ground.
+fn tower_kind(tags: &Tags) -> Option<&'static str> {
+    if value(tags, "power") == Some("tower") {
+        return Some("pylon");
+    }
+    match value(tags, "man_made")? {
+        "mast" | "communications_tower" => Some("mast"),
+        "tower" => Some("tower"),
+        "chimney" => Some("chimney"),
+        "water_tower" => Some("water_tower"),
+        "lighthouse" => Some("lighthouse"),
+        _ => None,
+    }
 }
 
 /// The kind of control site a Geoportal Berlin object is, from its `berlin:layer`: the survey
@@ -2332,6 +2381,162 @@ mod tests {
         );
         assert_eq!(objects.len(), 1);
         assert_eq!(Some(objects[0].symbol_id), set.id_for_code("501.5"));
+    }
+
+    #[test]
+    fn overhead_power_lines_are_510_and_major_ones_511_candidates() {
+        // ISSprOM 4.5, 510 "Power line, cableway or ski lift"; 511 "Major power line" (ADR 0083).
+        let l = way();
+        let code = |t: &[(&str, &str)]| sprint_code(t, &l);
+        let line = |c: &str| Some((c.to_string(), Draw::Line));
+        assert_eq!(code(&[("power", "line")]), line("510"));
+        assert_eq!(code(&[("power", "minor_line")]), line("510"));
+        assert_eq!(
+            code(&[("power", "line"), ("voltage", "20000")]),
+            line("510")
+        );
+        assert_eq!(
+            code(&[("power", "line"), ("voltage", "110000")]),
+            line("511")
+        );
+        assert_eq!(
+            code(&[("power", "line"), ("voltage", "110000;380000")]),
+            line("511")
+        );
+        assert_eq!(
+            code(&[("power", "cable"), ("location", "overhead")]),
+            line("510")
+        );
+        // Underground, underwater and station internals are no lines on the ground.
+        assert_eq!(code(&[("power", "cable")]), None);
+        for hidden in [
+            [("power", "line"), ("location", "underground")],
+            [("power", "line"), ("location", "underwater")],
+            [("power", "minor_line"), ("location", "underground")],
+            [("power", "line"), ("tunnel", "yes")],
+            [("power", "line"), ("line", "busbar")],
+            [("power", "line"), ("line", "bay")],
+        ] {
+            assert_eq!(code(&hidden), None, "{hidden:?}");
+        }
+        assert!(
+            Rules::embedded()
+                .symbol_for(&tags(&[("power", "line")]), &l, MapKind::Schoolyard)
+                .is_none()
+        );
+        let found = Rules::embedded()
+            .symbol_for(&tags(&[("power", "line")]), &l, MapKind::Sprint)
+            .unwrap();
+        assert_eq!(found.target, Target::Candidates);
+    }
+
+    #[test]
+    fn above_ground_pipelines_are_528_or_529_candidates() {
+        // ISSprOM 4.5, 528 prominent line feature "a low pipeline", 529 prominent uncrossable line
+        // feature "a high pipeline" (ADR 0083).
+        let l = way();
+        let code = |t: &[(&str, &str)]| sprint_code(t, &l);
+        let line = |c: &str| Some((c.to_string(), Draw::Line));
+        let pipe = ("man_made", "pipeline");
+        assert_eq!(code(&[pipe, ("location", "overground")]), line("528"));
+        assert_eq!(code(&[pipe, ("location", "surface")]), line("528"));
+        assert_eq!(code(&[pipe, ("location", "overhead")]), line("529"));
+        assert_eq!(
+            code(&[pipe, ("location", "overground"), ("height", "2")]),
+            line("529")
+        );
+        // Without a location a pipeline is taken to be buried, as is every other one.
+        assert_eq!(code(&[pipe]), None);
+        for location in ["underground", "underwater"] {
+            assert_eq!(code(&[pipe, ("location", location)]), None, "{location}");
+        }
+        assert_eq!(
+            code(&[pipe, ("location", "overground"), ("tunnel", "yes")]),
+            None
+        );
+    }
+
+    #[test]
+    fn towers_and_masts_are_524_or_525_points_with_their_kind() {
+        // ISSprOM 4.5, 524 "A high tower or large pylon", 525 "An obvious small tower, platform
+        // or seat" (ADR 0083). Candidates, with a control kind as the street furniture has.
+        let p = OsmGeometry::Point(SCHOOL);
+        let code = |t: &[(&str, &str)]| sprint_code(t, &p).map(|(c, _)| c);
+        let big = |c: &str| Some(c.to_string());
+        for (tag, symbol, kind) in [
+            (("power", "tower"), "524", "pylon"),
+            (("man_made", "communications_tower"), "524", "mast"),
+            (("man_made", "mast"), "524", "mast"),
+            (("man_made", "chimney"), "524", "chimney"),
+            (("man_made", "water_tower"), "524", "water_tower"),
+            (("man_made", "lighthouse"), "524", "lighthouse"),
+            (("man_made", "tower"), "524", "tower"),
+        ] {
+            assert_eq!(code(&[tag]), big(symbol), "{tag:?}");
+            let (found, set) = objects(&[point("node/1", &[tag])], MapKind::Sprint);
+            assert_eq!(found.len(), 1, "{tag:?}");
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code(symbol));
+            assert_eq!(value(&found[0].tags, "freemapper:control"), Some(kind));
+        }
+        // Small towers, observation platforms and short masts are 525.
+        assert_eq!(code(&[("man_made", "tower"), ("height", "12")]), big("525"));
+        assert_eq!(
+            code(&[("man_made", "tower"), ("tower:type", "observation")]),
+            big("525")
+        );
+        assert_eq!(
+            code(&[("man_made", "mast"), ("height", "12 m")]),
+            big("525")
+        );
+        assert_eq!(code(&[("man_made", "mast"), ("height", "40")]), big("524"));
+        // A mast under 10 m (a sign, a lamp, a flag) is no tower.
+        assert_eq!(code(&[("man_made", "mast"), ("height", "3")]), None);
+        assert_eq!(code(&[("man_made", "mast"), ("height", "tall")]), None);
+        // A pole is part of the bars of the 510 line and no feature of its own.
+        assert_eq!(code(&[("power", "pole")]), None);
+        // Only nodes: a tower drawn as an outline is a building of the cadastre.
+        assert_eq!(sprint_code(&[("man_made", "tower")], &ring()), None);
+        // Candidates only, and the schoolyard keeps its mast (544) and gets no tower.
+        let rules = Rules::embedded();
+        let found = rules
+            .symbol_for(&tags(&[("man_made", "chimney")]), &p, MapKind::Sprint)
+            .unwrap();
+        assert_eq!(found.target, Target::Candidates);
+        let school = |t: &[(&str, &str)]| {
+            rules
+                .symbol_for(&tags(t), &p, MapKind::Schoolyard)
+                .map(|m| m.code)
+        };
+        assert_eq!(school(&[("man_made", "mast")]), Some("544".to_string()));
+        assert_eq!(
+            school(&[("man_made", "mast"), ("height", "8")]),
+            Some("544".to_string())
+        );
+        assert_eq!(school(&[("man_made", "chimney")]), None);
+        let (found, _) = objects(
+            &[point("node/2", &[("man_made", "mast")])],
+            MapKind::Schoolyard,
+        );
+        assert_eq!(value(&found[0].tags, "freemapper:control"), None);
+    }
+
+    #[test]
+    fn power_lines_and_pipelines_below_the_norm_length_are_left_out() {
+        // 510 and 511: 3.75 mm, 528: 2.2 mm, 529: 3 mm. At 1:1000 that is 3.75, 2.2 and 3 m.
+        let metres = |m: f64| vec![at(0.0, 0.0), at(m / 111_195.0, 0.0)];
+        let kept = |t: &[(&str, &str)], m: f64| {
+            objects(&[line("w1", t, metres(m))], MapKind::Sprint)
+                .0
+                .len()
+        };
+        assert_eq!(kept(&[("power", "line")], 3.0), 0);
+        assert_eq!(kept(&[("power", "line")], 4.5), 1);
+        let low = [("man_made", "pipeline"), ("location", "overground")];
+        assert_eq!(kept(&low, 2.0), 0);
+        assert_eq!(kept(&low, 2.5), 1);
+        let high = [("man_made", "pipeline"), ("location", "overhead")];
+        assert_eq!(kept(&high, 2.5), 0);
+        assert_eq!(kept(&high, 3.5), 1);
     }
 
     #[test]

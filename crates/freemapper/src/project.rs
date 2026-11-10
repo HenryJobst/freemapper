@@ -166,7 +166,7 @@ impl MapKind {
 
     /// The map scales freemapper-print accepts for this kind (its `iof-print.toml` tables).
     /// Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000; 1:3000 needs 133 % symbols,
-    /// which only freemapper-print applies (ADR 0084).
+    /// which only freemapper-print applies (ADR 0085).
     pub fn allowed_scales(self) -> &'static [u32] {
         match self {
             Self::Schoolyard => &[1000],
@@ -13138,7 +13138,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let mut project = ProjectFile::load(dir.path()).unwrap();
-        // A new project has a title (ADR 0085); older ones have none and still load.
+        // A new project has a title (ADR 0086); older ones have none and still load.
         assert!(project.title.is_some());
         project.title = None;
         project.save(dir.path()).unwrap();
