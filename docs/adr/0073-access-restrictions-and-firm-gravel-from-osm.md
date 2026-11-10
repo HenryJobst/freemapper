@@ -1,7 +1,7 @@
 # 0073. Access restrictions and firm gravel from OSM
 
 Date: 2026-11-10
-Status: Accepted
+Status: Accepted, firm gravel part amended by ADR 0079
 
 ## Context
 
@@ -67,3 +67,9 @@ Surface and width:
 - A tagging mistake (`access=no` on a public path) now removes a path from the candidates and replaces it with a
   520 strip. The strip carries `freemapper:osm=highway=...; access=no` so the mapper sees why.
 - Existing maps get all of this with `run --force`.
+
+## Note (2026-11-10)
+
+ADR 0079 amends the firm gravel part: the 501.6 to 501.9 ways and `tracktype=grade2` tracks are map objects again, not
+candidates, and are cut where ALKIS or the survey draws paving. The access part (520) and the unpaved ways stand. The
+sentence in the Consequences about 505.1 map lines falling from 58 to 9 describes the state before ADR 0079.

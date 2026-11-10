@@ -1897,6 +1897,47 @@ mod tests {
     }
 
     #[test]
+    fn forest_never_covers_a_firm_gravel_path_map_object() {
+        // ADR 0079: the 501.6 to 501.9 ways are map objects now; a tree group is still cut at
+        // them, each by its own width on paper.
+        let f = fixture(MapKind::Sprint);
+        let land = f.rect("401", (-200.0, -200.0), (400.0, 400.0));
+        for code in ["501.6", "501.7", "501.8", "501.9"] {
+            let way = path(&f, code, (-10.0, 14.0), (40.0, 14.0));
+            let candidates = f.grid(REGISTER, (8, 8), 4.0, 6.0);
+            let found = f.run_with(
+                candidates,
+                vec![way.clone()],
+                &[],
+                &[],
+                std::slice::from_ref(&land),
+                &[],
+            );
+            let areas = group_areas_of(&f, &found.areas);
+            assert!(!areas.is_empty(), "{code}");
+            let line = geo_types::LineString::from(
+                way.coords
+                    .iter()
+                    .map(|c| {
+                        let p = f.georef.map_to_projected(*c);
+                        (p.easting, p.northing)
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            for area in &areas {
+                assert!(
+                    !projected(&f, area).intersects(&line),
+                    "{code}: the forest covers the path"
+                );
+            }
+            assert!(
+                found.map.contains(&way),
+                "{code}: the path stays on the map"
+            );
+        }
+    }
+
+    #[test]
     fn sparse_group_becomes_scattered_trees_area() {
         let f = fixture(MapKind::Sprint);
         let found = f.run_open(f.grid(REGISTER, (5, 4), 3.5, 2.0), vec![], &[], &[], &[]);
