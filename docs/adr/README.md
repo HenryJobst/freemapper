@@ -118,9 +118,10 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0070](0070-osm-multipolygon-relations.md) | OSM multipolygon relations are read | Accepted | 2026-11-10 |
 | [0071](0071-kerb-lines-without-tree-pit-notches.md) | Kerb lines of the street survey lose their tree pit notches | Accepted | 2026-11-10 |
 | [0072](0072-building-passages-from-osm-are-522-candidates.md) | Building passages from OSM are 522 candidates | Accepted | 2026-11-10 |
-| [0073](0073-access-restrictions-and-firm-gravel-from-osm.md) | Access restrictions and firm gravel from OSM | Accepted | 2026-11-10 |
+| [0073](0073-access-restrictions-and-firm-gravel-from-osm.md) | Access restrictions and firm gravel from OSM | Accepted, amended ADR 0079 | 2026-11-10 |
 | [0074](0074-control-sites-from-street-furniture.md) | Control sites from street furniture | Accepted | 2026-11-10 |
 | [0075](0075-obvious-memorials-without-stolpersteine.md) | Obvious memorials from OSM, without Stolpersteine and plaques | Accepted, amended ADR 0076 | 2026-11-10 |
 | [0076](0076-reachable-passages-and-points-in-buildings.md) | Passages must be reachable, and points inside buildings go | Accepted | 2026-11-10 |
 | [0077](0077-berlin-survey-and-registers-on-sprint-maps.md) | Berlin survey and registers on sprint maps | Accepted | 2026-11-10 |
 | [0078](0078-duplicate-areas-and-more-duplicate-kinds-by-rank.md) | Duplicate areas and more duplicate kinds, by rank | Accepted | 2026-11-10 |
+| [0079](0079-firm-gravel-paths-are-map-objects-again.md) | Firm gravel paths are map objects again | Accepted, amends ADR 0073 | 2026-11-10 |

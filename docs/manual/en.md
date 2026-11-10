@@ -255,9 +255,10 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   a private pool stays water. Check the 520 against the signs and fences on site, and keep the entrances
   clear (ISSprOM 520).
 - Paths by surface. Compacted and fine gravel is firm ("hard gravel" in ISSprOM 501), so such a path is a
-  paved line (501.6 to 501.9 by `width`: 1.4, 2, 3, 4 m) among the candidates, no longer an unpaved path on the
-  map. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
-  3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm, grade3 to grade5 unpaved.
+  paved line on the map (501.6 to 501.9 by `width`: 1.4, 2, 3, 4 m), not an unpaved path. Where ALKIS or the
+  survey already draw paving (501.5), freemapper does not draw the way twice: the part within the paving and
+  pieces under 1 mm on paper go. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
+  3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm (501.7, map), grade3 to grade5 unpaved (505.2, candidate).
 - Control sites for course setters: bollards, street lamps, waste baskets, bicycle racks and benches as
   points (531, prominent man-made feature) among the candidates, never on the map itself. In Berlin the street
   survey and the lighting cadastre add bollards, masts, flag poles, benches, lamps and advertising columns.

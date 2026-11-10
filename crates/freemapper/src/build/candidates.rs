@@ -1452,7 +1452,7 @@ mod tests {
     fn firm_gravel_is_a_paved_line_by_width() {
         // ISSprOM 4.5, 501: a paved area has "a firm surface such as asphalt, hard gravel"; 505 is
         // "without a smooth, hard surface". Compacted and fine gravel are firm: 501.6 to 501.9 by
-        // footprint (1.4, 2, 3, 4 m), as a candidate to check against the orthophoto.
+        // footprint (1.4, 2, 3, 4 m), as a map object (ADR 0079; ADR 0073 made them candidates).
         for (extra, code) in [
             (
                 &[("highway", "footway"), ("surface", "compacted")][..],
@@ -1495,7 +1495,7 @@ mod tests {
         ] {
             assert_eq!(
                 sprint_way(extra),
-                Some((code.to_string(), Target::Candidates)),
+                Some((code.to_string(), Target::Map)),
                 "{extra:?}"
             );
         }
@@ -1519,7 +1519,7 @@ mod tests {
         );
         assert_eq!(
             sprint_way(&[("highway", "track"), ("tracktype", "grade2")]),
-            Some(("501.7".to_string(), Target::Candidates))
+            Some(("501.7".to_string(), Target::Map))
         );
         for grade in ["grade3", "grade4", "grade5"] {
             assert_eq!(
