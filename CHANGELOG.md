@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Behoben
 
 - Die Maßstabsleiste trägt wieder `freemapper:source=sheet` wie alle Blattobjekte (seit 0.9.0 stand dort `scale-bar`). freemapper-print und freemapper-courseplan erkennen das Blatt nur an diesem Wert; sonst druckten sie die Leiste als Karteninhalt und verschoben Seitenmitte und Ausdehnung. Zusätzlich trägt jedes Leistenobjekt `freemapper:sheet=scale-bar`; daran lässt das PDF die Leiste ohne `--pdf-scale-bar` weg. OOM- und OCAD-Karte behalten die Leiste. Bereits erzeugte Karten mit dem alten Wert bleiben lesbar (ADR 0080, Nachtrag).
+- Doppelte Flächen nach Rang (ADR 0078): Eine Fläche, die selbst wegen einer höheren weggefallen ist, lässt keine weitere mehr wegfallen. Bei der Kette A > B > C fiel C sonst wegen des schon entfernten B weg, und der Hinweis `freemapper:also` landete auf B. Jetzt trägt ihn die Fläche, die auf der Karte bleibt, und C bleibt, wenn A allein den Anteil nicht erreicht. Bestehende Karten bekommen das mit `run --force`.
 
 ## [0.9.0] - 2026-11-10
 

@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Fixed
 
 - The scale bar carries `freemapper:source=sheet` again, like every sheet object (since 0.9.0 it said `scale-bar`). freemapper-print and freemapper-courseplan recognise the sheet only by that value; otherwise they printed the bar as map content and shifted the page centre and the extent. Every bar object also carries `freemapper:sheet=scale-bar`, which the PDF uses to leave the bar out without `--pdf-scale-bar`. The OOM and OCAD maps keep the bar. Maps already written with the old value stay readable (ADR 0080, amendment).
+- Duplicate areas by rank (ADR 0078): an area that was itself dropped for a higher one no longer drops another. In a chain A > B > C, C used to go because of the already removed B, and the `freemapper:also` note landed on B. Now the area that stays on the map carries it, and C stays when A alone does not reach the share. Existing maps get this with `run --force`.
 
 ## [0.9.0] - 2026-11-10
 
