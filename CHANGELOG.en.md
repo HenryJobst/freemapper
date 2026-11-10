@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Firm gravel paths (501.6 to 501.9) stay whole where only an ALKIS `Weg` parcel lies (ADR 0079, addendum). That parcel is only a 501.5 candidate, not a map object, yet it cut the OSM line away. Now only 501.5 map objects (roads, squares, the survey) cut. The 0.25 mm tolerance and the 1 mm minimum piece stay. Existing maps get this with `run --force`.
+
 ### Changed
 
 - The example preview images are now WebP instead of JPEG (`preview.webp`, `preview-map.webp`). They are rendered straight from the PDFs and are smaller than the JPEGs. The README title image (Viktoriapark) is sharper at 1600 pixels wide.

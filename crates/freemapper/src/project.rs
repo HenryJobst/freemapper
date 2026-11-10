@@ -4556,7 +4556,6 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     );
     // The firm-gravel ways (501.6 to 501.9) are map objects; where ALKIS or the survey draws the
     // paving they are the same object (ADR 0079).
-    let paving: Vec<MapObject> = paved.map.iter().chain(&paved.candidates).cloned().collect();
     let ground: Vec<MapObject> = paved
         .candidates
         .iter()
@@ -4566,7 +4565,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         .collect();
     let generalized = generalize_points(
         points,
-        cut_firm_paths(osm_objects(Target::Map)?, &paving, &georef, &symbol_set),
+        cut_firm_paths(osm_objects(Target::Map)?, &paved, &georef, &symbol_set),
         &out_of_bounds,
         &paved.map,
         &ground,
