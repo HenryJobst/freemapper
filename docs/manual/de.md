@@ -467,8 +467,8 @@ Schritt für Schritt: Quellen mit `dl-de/zero-2-0` desselben Anbieters werden ei
 („K5“ statt „Karte 1:5000 von Berlin (K5)“), Zeilen werden mit „ · “ verbunden, und zuletzt steht dort „Vollständige
 Quellen: ATTRIBUTION.txt im Projektordner“. Die Zeilen für OpenStreetMap, für jede andere Lizenz (`dl-de/by-2-0`,
 CC BY) und für freemapper bleiben dabei wörtlich. `--pdf-sources full` kürzt nie, `--pdf-sources credit-only` druckt
-nur die freemapper-Zeile. **Rechtlicher Hinweis:** ODbL und `dl-de/by-2-0` verlangen die Nennung der Quelle, wenn Sie
-die Karte weitergeben; mit `credit-only` müssen Sie sie selbst nennen, und freemapper erinnert daran. Die freemapper-Zeile
+nur die freemapper-Zeile. Rechtlich gilt: ODbL und `dl-de/by-2-0` verlangen die Nennung der Quelle, wenn Sie
+die Karte weitergeben. Mit `credit-only` nennen Sie sie selbst; freemapper erinnert Sie daran. Die freemapper-Zeile
 mit der Adresse des Projekts steht in jedem Modus und lässt sich nicht abschalten. `ATTRIBUTION.txt` im Projektordner
 und die OOM- und OCAD-Karte führen immer alle Quellen.
 

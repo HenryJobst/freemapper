@@ -453,8 +453,8 @@ step by step: `dl-de/zero-2-0` sources of one provider become one line, long nam
 1:5000 von Berlin (K5)"), lines are joined with " · ", and last the block points to "Vollständige Quellen:
 ATTRIBUTION.txt im Projektordner". The lines for OpenStreetMap, for every other licence (`dl-de/by-2-0`, CC BY) and for
 freemapper stay word for word. `--pdf-sources full` never shortens, `--pdf-sources credit-only` prints only the
-freemapper line. **Legal note:** ODbL and `dl-de/by-2-0` require naming the source when you pass the map on; with
-`credit-only` you must name it yourself, and freemapper reminds you. The freemapper line with the project address is
+freemapper line. Legally, ODbL and `dl-de/by-2-0` require naming the source when you pass the map on. With
+`credit-only` you name it yourself; freemapper reminds you. The freemapper line with the project address is
 in every mode and cannot be switched off. `ATTRIBUTION.txt` in the project folder and the OOM and OCAD maps always
 list every source.
 

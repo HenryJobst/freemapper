@@ -32,6 +32,6 @@ credit line is not switchable (suite rule: every PDF names freemapper and its UR
 
 - Short blocks (Sanssouci, Cochem and the other examples, 3 to 4 lines) stay as they are. Viktoriapark drops from
   nine lines to four.
-- `credit-only` is the user's choice and the user's duty: the notice says so.
+- With `credit-only` the user names the sources when passing the map on; the notice says so.
 - Cost if wrong: a source with a new licence format counts as unmergeable and stays word for word, so a long list
   of such lines can exceed the budget; the pointer line is still added.
