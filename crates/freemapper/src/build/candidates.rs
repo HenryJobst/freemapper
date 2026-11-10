@@ -570,8 +570,13 @@ pub fn osm_objects(
         // A control site (ADR 0074) names its kind for the course planner.
         if source == "osm"
             && kind == MapKind::Sprint
-            && found.code == CONTROL_CODE
-            && let Some(site) = control_kind(&feature.tags)
+            && let Some(site) = if found.code == CONTROL_CODE {
+                control_kind(&feature.tags)
+            } else if TOWER_CODES.contains(&found.code.as_str()) {
+                tower_kind(&feature.tags)
+            } else {
+                None
+            }
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }
@@ -629,6 +634,25 @@ fn control_kind(tags: &Tags) -> Option<&'static str> {
     ]
     .into_iter()
     .find_map(|(key, v, kind)| (value(tags, key) == Some(v)).then_some(kind))
+}
+
+/// The symbols of towers and masts, 524 high tower and 525 small tower (ADR 0083).
+const TOWER_CODES: [&str; 2] = ["524", "525"];
+
+/// The kind of control site a tower, mast or pylon is, from its tags. The drawing of the tower
+/// does not say the kind, and a radio mast and a chimney are told apart on the ground.
+fn tower_kind(tags: &Tags) -> Option<&'static str> {
+    if value(tags, "power") == Some("tower") {
+        return Some("pylon");
+    }
+    match value(tags, "man_made")? {
+        "mast" | "communications_tower" => Some("mast"),
+        "tower" => Some("tower"),
+        "chimney" => Some("chimney"),
+        "water_tower" => Some("water_tower"),
+        "lighthouse" => Some("lighthouse"),
+        _ => None,
+    }
 }
 
 /// The kind of control site a Geoportal Berlin object is, from its `berlin:layer`: the survey
@@ -2430,6 +2454,70 @@ mod tests {
             code(&[pipe, ("location", "overground"), ("tunnel", "yes")]),
             None
         );
+    }
+
+    #[test]
+    fn towers_and_masts_are_524_or_525_points_with_their_kind() {
+        // ISSprOM 4.5, 524 "A high tower or large pylon", 525 "An obvious small tower, platform
+        // or seat" (ADR 0083). Candidates, with a control kind as the street furniture has.
+        let p = OsmGeometry::Point(SCHOOL);
+        let code = |t: &[(&str, &str)]| sprint_code(t, &p).map(|(c, _)| c);
+        let big = |c: &str| Some(c.to_string());
+        for (tag, symbol, kind) in [
+            (("power", "tower"), "524", "pylon"),
+            (("man_made", "communications_tower"), "524", "mast"),
+            (("man_made", "mast"), "524", "mast"),
+            (("man_made", "chimney"), "524", "chimney"),
+            (("man_made", "water_tower"), "524", "water_tower"),
+            (("man_made", "lighthouse"), "524", "lighthouse"),
+            (("man_made", "tower"), "524", "tower"),
+        ] {
+            assert_eq!(code(&[tag]), big(symbol), "{tag:?}");
+            let (found, set) = objects(&[point("node/1", &[tag])], MapKind::Sprint);
+            assert_eq!(found.len(), 1, "{tag:?}");
+            assert_eq!(Some(found[0].symbol_id), set.id_for_code(symbol));
+            assert_eq!(value(&found[0].tags, "freemapper:control"), Some(kind));
+        }
+        // Small towers, observation platforms and short masts are 525.
+        assert_eq!(code(&[("man_made", "tower"), ("height", "12")]), big("525"));
+        assert_eq!(
+            code(&[("man_made", "tower"), ("tower:type", "observation")]),
+            big("525")
+        );
+        assert_eq!(
+            code(&[("man_made", "mast"), ("height", "12 m")]),
+            big("525")
+        );
+        assert_eq!(code(&[("man_made", "mast"), ("height", "40")]), big("524"));
+        // A mast under 10 m (a sign, a lamp, a flag) is no tower.
+        assert_eq!(code(&[("man_made", "mast"), ("height", "3")]), None);
+        assert_eq!(code(&[("man_made", "mast"), ("height", "tall")]), None);
+        // A pole is part of the bars of the 510 line and no feature of its own.
+        assert_eq!(code(&[("power", "pole")]), None);
+        // Only nodes: a tower drawn as an outline is a building of the cadastre.
+        assert_eq!(sprint_code(&[("man_made", "tower")], &ring()), None);
+        // Candidates only, and the schoolyard keeps its mast (544) and gets no tower.
+        let rules = Rules::embedded();
+        let found = rules
+            .symbol_for(&tags(&[("man_made", "chimney")]), &p, MapKind::Sprint)
+            .unwrap();
+        assert_eq!(found.target, Target::Candidates);
+        let school = |t: &[(&str, &str)]| {
+            rules
+                .symbol_for(&tags(t), &p, MapKind::Schoolyard)
+                .map(|m| m.code)
+        };
+        assert_eq!(school(&[("man_made", "mast")]), Some("544".to_string()));
+        assert_eq!(
+            school(&[("man_made", "mast"), ("height", "8")]),
+            Some("544".to_string())
+        );
+        assert_eq!(school(&[("man_made", "chimney")]), None);
+        let (found, _) = objects(
+            &[point("node/2", &[("man_made", "mast")])],
+            MapKind::Schoolyard,
+        );
+        assert_eq!(value(&found[0].tags, "freemapper:control"), None);
     }
 
     #[test]

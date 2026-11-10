@@ -82,7 +82,34 @@ schoolyard = "545"
 sprint = "531"
 
 [[rule]]
-when = ["man_made=flagpole|mast"]
+when = ["man_made=flagpole"]
+draw = "point"
+schoolyard = "544"
+
+# Masts (ADR 0083): the school flagpole symbol, and on a sprint map a tower, see the tower rules at
+# the end of this file. A mast of 20 m or more is a high tower (524), one of 10 to 20 m a small tower
+# (525), and one without a `height` a radio or telecom mast (524). A lower mast (a sign, a lamp, a
+# flag) is no tower: in the Viktoriapark a 3 m mast gave a 525 beside a Berlin column.
+[[rule]]
+when = ["man_made=mast", "height>=20"]
+draw = "point"
+schoolyard = "544"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=mast", "height>=10"]
+draw = "point"
+schoolyard = "544"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=mast", "height!=*"]
+draw = "point"
+schoolyard = "544"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=mast"]
 draw = "point"
 schoolyard = "544"
 
@@ -441,3 +468,31 @@ sprint = "529"
 when = ["man_made=pipeline", "location=overground|surface", "tunnel!=yes"]
 draw = "line"
 sprint = "528"
+
+# Towers and masts (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 524 "High tower": "A high
+# tower or large pylon. Very large towers shall be represented in plan shape with the symbol
+# Building (521)"; 525 "Small tower": "An obvious small tower, platform or seat". Only nodes: a
+# tower drawn as an outline is a cadastre building (521), and a point inside a building is dropped
+# anyway (ADR 0076). Each carries `freemapper:control=` (pylon, mast, tower, chimney, water_tower,
+# lighthouse), so that a course setter finds the ones that make a good control; `build/control_sites.rs`
+# drops a second one of the same kind within 25 m. `power=pole` has no rule: the bars of the 510
+# line are its poles. A pylon that stands on a 511 major line is a 524 as the norm asks.
+[[rule]]
+when = ["power=tower"]
+draw = "point"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=tower", "tower:type=observation|watchtower|platform"]
+draw = "point"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=tower", "height<20"]
+draw = "point"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=tower|communications_tower|chimney|water_tower|lighthouse"]
+draw = "point"
+sprint = "524"
