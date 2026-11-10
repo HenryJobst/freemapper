@@ -29,8 +29,8 @@ to be off unless asked.
 
 - Default change: `--pdf` no longer draws candidates and no scale bar. The old output is `--pdf-candidates
   --pdf-scale-bar`. The changelog says so.
-- Every example keeps `<name>.pdf` and `preview.jpg`. Only two examples, Cochem and Blankenese, also keep
-  `<name>-candidates.pdf` and `preview-candidates.jpg`; they are the pair on the comparison page
+- Every example keeps `<name>.pdf` and `preview.webp`. Only two examples, Cochem and Blankenese, also keep
+  `<name>-candidates.pdf` and `preview-candidates.webp`; they are the pair on the comparison page
   (`examples/vergleich.md`, `examples/compare.en.md`), chosen by the pixel difference between the two renders.
 - Cost if wrong: users who want the candidates by default pass one more switch.
 

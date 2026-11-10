@@ -26,7 +26,7 @@ Gelände, bevor Sie es übernehmen.
 
 | Karte (Standard) | mit Kandidaten |
 |---|---|
-| ![Cochem, nur Kartenobjekte](rheinland-pfalz-cochem/preview-map.jpg) | ![Cochem mit Kandidaten](rheinland-pfalz-cochem/preview.jpg) |
+| ![Cochem, nur Kartenobjekte](rheinland-pfalz-cochem/preview-map.webp) | ![Cochem mit Kandidaten](rheinland-pfalz-cochem/preview.webp) |
 | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf) |
 
 Die Karte hat 1315 Objekte, vor allem Gebäude (1156), dazu Wasser, Überdachungen und die Grundfläche. Dazu kommen
@@ -55,7 +55,7 @@ in die Karte.
 
 | Karte (Standard) | mit Kandidaten |
 |---|---|
-| ![Blankenese, nur Kartenobjekte](hamburg-blankenese/preview-map.jpg) | ![Blankenese mit Kandidaten](hamburg-blankenese/preview.jpg) |
+| ![Blankenese, nur Kartenobjekte](hamburg-blankenese/preview-map.webp) | ![Blankenese mit Kandidaten](hamburg-blankenese/preview.webp) |
 | [hamburg-blankenese.pdf](hamburg-blankenese/hamburg-blankenese.pdf) | [hamburg-blankenese-candidates.pdf](hamburg-blankenese/hamburg-blankenese-candidates.pdf) |
 
 Die Karte hat 969 Objekte, davon 880 Gebäude. Dazu kommen 979 Kandidaten, 1,0 je Kartenobjekt. 690 stammen aus der

@@ -25,7 +25,7 @@ shows what freemapper can derive, and you check each of those objects in the ter
 
 | Map (default) | with candidates |
 |---|---|
-| ![Cochem, map objects only](rheinland-pfalz-cochem/preview-map.jpg) | ![Cochem with candidates](rheinland-pfalz-cochem/preview.jpg) |
+| ![Cochem, map objects only](rheinland-pfalz-cochem/preview-map.webp) | ![Cochem with candidates](rheinland-pfalz-cochem/preview.webp) |
 | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf) |
 
 The map has 1315 objects, mostly buildings (1156), plus water, canopies and the walkable area. There are 894
@@ -53,7 +53,7 @@ prominent ones. The control sites (531) are suggestions for course setting and d
 
 | Map (default) | with candidates |
 |---|---|
-| ![Blankenese, map objects only](hamburg-blankenese/preview-map.jpg) | ![Blankenese with candidates](hamburg-blankenese/preview.jpg) |
+| ![Blankenese, map objects only](hamburg-blankenese/preview-map.webp) | ![Blankenese with candidates](hamburg-blankenese/preview.webp) |
 | [hamburg-blankenese.pdf](hamburg-blankenese/hamburg-blankenese.pdf) | [hamburg-blankenese-candidates.pdf](hamburg-blankenese/hamburg-blankenese-candidates.pdf) |
 
 The map has 969 objects, 880 of them buildings. There are 979 candidates on top, 1.0 per map object. 690 come from the
