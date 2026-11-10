@@ -33,6 +33,7 @@ use crate::build::peripheral::{
     PaperRect, PeripheralInfo, SCALE_BAR_SOURCE, info_block, north_lines,
 };
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
+use crate::build::source_block;
 use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
     has_stairs, stair_objects,
@@ -3968,6 +3969,7 @@ fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf,
         map,
         candidates,
         attribution_text,
+        ..
     } = starter_documents(dir)?;
     let map_path = map_path(dir);
     if let Some(force) = map_force
@@ -4158,15 +4160,23 @@ fn is_scale_bar(object: &MapObject) -> bool {
 
 /// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
 /// included) and the peripheral information on the sheet, without any candidate.
-pub fn export_pdf(dir: &Path, scale_bar: bool) -> Result<PathBuf, ProjectError> {
-    write_pdf_file(dir, false, scale_bar)
+pub fn export_pdf(
+    dir: &Path,
+    scale_bar: bool,
+    sources: PdfSources,
+) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, false, scale_bar, sources)
 }
 
 /// Writes `<name>-candidates.pdf`, the training map: the map objects and all candidates drawn
 /// with the project's symbol set (this deliberately goes beyond "only reliable data as map
 /// objects"), the peripheral information on the sheet.
-pub fn export_candidates_pdf(dir: &Path, scale_bar: bool) -> Result<PathBuf, ProjectError> {
-    write_pdf_file(dir, true, scale_bar)
+pub fn export_candidates_pdf(
+    dir: &Path,
+    scale_bar: bool,
+    sources: PdfSources,
+) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, true, scale_bar, sources)
 }
 
 /// The file `export_pdf` or `export_candidates_pdf` writes.
@@ -4181,15 +4191,27 @@ pub fn pdf_path(dir: &Path, candidates: bool) -> PathBuf {
     map.with_file_name(format!("{stem}-candidates.pdf"))
 }
 
-fn write_pdf_file(dir: &Path, candidates: bool, scale_bar: bool) -> Result<PathBuf, ProjectError> {
+fn write_pdf_file(
+    dir: &Path,
+    candidates: bool,
+    scale_bar: bool,
+    sources: PdfSources,
+) -> Result<PathBuf, ProjectError> {
     use crate::render::{draw, pdf, symbols::RenderSymbols};
     let project = ProjectFile::load(dir)?;
     let documents = starter_documents(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
-    let (map, mut sheet) = pdf_objects(&documents, candidates);
-    if !scale_bar {
-        sheet.retain(|o| !is_scale_bar(o));
-    }
+    let (map, _) = pdf_objects(&documents, candidates);
+    // The sheet is built again: its source block follows `sources`, the OOM map keeps the full list.
+    let info = PeripheralInfo {
+        attribution: pdf_attribution(&documents.info.attribution, &documents.content, sources),
+        ..documents.info.clone()
+    };
+    let sheet_objects = info_block(&documents.content, &info, &documents.map.symbol_set);
+    let sheet: Vec<&MapObject> = sheet_objects
+        .iter()
+        .filter(|o| scale_bar || !is_scale_bar(o))
+        .collect();
     let render = |objects: &[&MapObject]| -> Vec<draw::Primitive> {
         objects
             .iter()
@@ -4219,11 +4241,52 @@ fn write_pdf_file(dir: &Path, candidates: bool, scale_bar: bool) -> Result<PathB
     Ok(path)
 }
 
+/// Which source lines the PDF prints under the title block (ADR 0081). `ATTRIBUTION.txt` and the
+/// OOM map always list every source, and the freemapper credit line is printed in every mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PdfSources {
+    /// The full list if it fits the budget, else shortened (`dl-de/zero-2-0` lines merged first).
+    #[default]
+    Auto,
+    /// The full list, never shortened.
+    Full,
+    /// No data-source lines, only the freemapper credit line.
+    CreditOnly,
+}
+
+impl PdfSources {
+    /// Whether the data sources need a credit when the map is passed on (ODbL, `dl-de/by-2-0`):
+    /// the CLI warns when `CreditOnly` leaves them out.
+    pub fn leaves_out_required_credits(self) -> bool {
+        self == Self::CreditOnly
+    }
+}
+
+/// The source block of the PDF: `lines` is the attribution of the sheet, the freemapper credit
+/// line last; the credit line is in every result, as the last line.
+fn pdf_attribution(lines: &[String], content: &PaperRect, sources: PdfSources) -> Vec<String> {
+    let (credit, body) = match lines.split_last() {
+        Some((last, body)) if last == FREEMAPPER_CREDIT_DE => (last.clone(), body),
+        _ => (FREEMAPPER_CREDIT_DE.to_string(), lines),
+    };
+    match sources {
+        PdfSources::Full => body.iter().cloned().chain([credit]).collect(),
+        PdfSources::CreditOnly => vec![credit],
+        PdfSources::Auto => {
+            let width_mm = f64::from(content.max_x - content.min_x) / 1000.0;
+            source_block::compact(body, &credit, &source_block::Budget::for_content(width_mm))
+        }
+    }
+}
+
 /// The map and the candidates template map of a project, as written to OOM and OCAD files.
 struct StarterDocuments {
     map: MapDocument,
     candidates: MapDocument,
     attribution_text: String,
+    /// The map content on paper and the texts of the sheet, from which the PDF builds its own.
+    content: PaperRect,
+    info: PeripheralInfo,
 }
 
 fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
@@ -4540,6 +4603,7 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         name: SHEET_PART.to_string(),
         objects: info_block(&content, &info, &symbol_set),
     });
+    let sheet_info = info;
     let map = MapDocument {
         notes,
         georef,
@@ -4552,6 +4616,8 @@ fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         map,
         candidates,
         attribution_text,
+        content,
+        info: sheet_info,
     })
 }
 
@@ -7191,7 +7257,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     fn candidates_pdf_draws_map_and_candidates() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
-        let pdf_path = export_candidates_pdf(dir.path(), false).unwrap();
+        let pdf_path = export_candidates_pdf(dir.path(), false, PdfSources::Auto).unwrap();
         assert!(
             pdf_path.to_string_lossy().ends_with("-candidates.pdf"),
             "{pdf_path:?}"
@@ -7253,8 +7319,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(without.len(), own);
         assert!(with.len() > without.len());
         assert_eq!(sheet_with, sheet_without, "same sheet in both");
-        let map_pdf = export_pdf(dir.path(), false).unwrap();
-        let cand_pdf = export_candidates_pdf(dir.path(), false).unwrap();
+        let map_pdf = export_pdf(dir.path(), false, PdfSources::Auto).unwrap();
+        let cand_pdf = export_candidates_pdf(dir.path(), false, PdfSources::Auto).unwrap();
         assert_ne!(map_pdf, cand_pdf);
         assert_eq!(map_pdf.extension().unwrap(), "pdf");
         let a = crate::render::pdf::content_of(&std::fs::read(&map_pdf).unwrap());
@@ -7271,12 +7337,102 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
     }
 
+    fn hex(text: &str) -> String {
+        text.bytes().map(|b| format!("{b:02X}")).collect()
+    }
+
+    /// Whether the content stream of the PDF shows `text` (ASCII only).
+    fn pdf_shows(pdf: &std::path::Path, text: &str) -> bool {
+        let content = crate::render::pdf::content_of(&std::fs::read(pdf).unwrap());
+        contains(&content, hex(text).as_bytes())
+    }
+
+    #[test]
+    fn pdf_source_block_follows_the_mode_and_the_credit_stays() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let full_list = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).ok();
+        let credit = "freemapper";
+        for scale_bar in [false, true] {
+            for sources in [PdfSources::Auto, PdfSources::Full, PdfSources::CreditOnly] {
+                for candidates in [false, true] {
+                    let path = if candidates {
+                        export_candidates_pdf(dir.path(), scale_bar, sources).unwrap()
+                    } else {
+                        export_pdf(dir.path(), scale_bar, sources).unwrap()
+                    };
+                    // The credit line with the repository URL is in every mode.
+                    assert!(pdf_shows(&path, "Erstellt mit freemapper"), "{sources:?}");
+                    assert!(
+                        pdf_shows(&path, env!("CARGO_PKG_REPOSITORY")),
+                        "{sources:?}"
+                    );
+                    assert!(pdf_shows(&path, credit));
+                    // The title block stays.
+                    assert!(pdf_shows(&path, "stab 1:"), "{sources:?}");
+                    // Only the data sources go in credit-only.
+                    assert_eq!(
+                        pdf_shows(&path, "ODbL"),
+                        sources != PdfSources::CreditOnly,
+                        "{sources:?}"
+                    );
+                }
+            }
+        }
+        // ATTRIBUTION.txt is not touched by any PDF mode.
+        let after = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).ok();
+        assert_eq!(full_list, after);
+    }
+
+    #[test]
+    fn attribution_file_is_complete_whatever_the_pdf_shows() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        export_starter_project(dir.path(), true).unwrap();
+        let before = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert!(before.contains("ODbL"));
+        export_pdf(dir.path(), false, PdfSources::CreditOnly).unwrap();
+        let after = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
+        assert_eq!(before, after);
+        assert!(after.contains(FREEMAPPER_CREDIT));
+    }
+
+    #[test]
+    fn pdf_attribution_modes_keep_the_credit_line_last() {
+        let content = PaperRect {
+            min_x: 0,
+            min_y: 0,
+            max_x: 150_000,
+            max_y: 100_000,
+        };
+        let mut lines: Vec<String> = (0..7)
+            .map(|i| format!("Geoportal Berlin / Quelle {i}, dl-de/zero-2-0"))
+            .collect();
+        lines.insert(0, OSM_ATTRIBUTION_DE.to_string());
+        lines.push(FREEMAPPER_CREDIT_DE.to_string());
+        let credit = || Some(FREEMAPPER_CREDIT_DE.to_string());
+        let full = pdf_attribution(&lines, &content, PdfSources::Full);
+        assert_eq!(full, lines);
+        let only = pdf_attribution(&lines, &content, PdfSources::CreditOnly);
+        assert_eq!(only, [FREEMAPPER_CREDIT_DE]);
+        let auto = pdf_attribution(&lines, &content, PdfSources::Auto);
+        assert!(auto.len() < lines.len());
+        assert_eq!(auto.first().map(String::as_str), Some(OSM_ATTRIBUTION_DE));
+        assert_eq!(auto.last().cloned(), credit());
+        // A list that already fits is unchanged.
+        let short = vec![
+            OSM_ATTRIBUTION_DE.to_string(),
+            FREEMAPPER_CREDIT_DE.to_string(),
+        ];
+        assert_eq!(pdf_attribution(&short, &content, PdfSources::Auto), short);
+    }
+
     #[test]
     fn scale_bar_is_off_in_the_pdf_unless_asked() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let content = |bar: bool| {
-            let path = export_pdf(dir.path(), bar).unwrap();
+            let path = export_pdf(dir.path(), bar, PdfSources::Auto).unwrap();
             crate::render::pdf::content_of(&std::fs::read(path).unwrap())
         };
         let without = content(false);
@@ -7316,7 +7472,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     fn pdf_without_data_still_has_the_sheet() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
-        let file = std::fs::read(export_pdf(dir.path(), false).unwrap()).unwrap();
+        let file = std::fs::read(export_pdf(dir.path(), false, PdfSources::Auto).unwrap()).unwrap();
         assert!(contains(&file, b"/MediaBox"));
         assert!(
             contains(&crate::render::pdf::content_of(&file), b"Tj"),
@@ -11275,6 +11431,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             map: document(Vec::new()),
             candidates: document(vec![outline, hidden.clone(), shown.clone()]),
             attribution_text: String::new(),
+            content: PaperRect {
+                min_x: 0,
+                min_y: 0,
+                max_x: 1,
+                max_y: 1,
+            },
+            info: PeripheralInfo {
+                title: String::new(),
+                scale_denominator: 1000,
+                contour_interval_m: 5,
+                attribution: Vec::new(),
+            },
         };
         let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);

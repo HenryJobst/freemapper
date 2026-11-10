@@ -12,8 +12,9 @@ use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, derive_project, export_candidates_pdf, export_ocad,
-    export_pdf, export_starter_project, fetch_project, init_project, map_path, run_project,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, derive_project, export_candidates_pdf,
+    export_ocad, export_pdf, export_starter_project, fetch_project, init_project, map_path,
+    run_project,
 };
 
 #[derive(Parser)]
@@ -72,6 +73,12 @@ enum Commands {
         /// scale number stays in the title block).
         #[arg(long)]
         pdf_scale_bar: bool,
+        /// Source lines on the PDFs: `auto` prints the full list and shortens it only when it
+        /// would take more than 5 lines, `full` never shortens, `credit-only` prints only the
+        /// freemapper credit line (ODbL and dl-de/by-2-0 then ask you to name the sources when
+        /// you pass the map on). ATTRIBUTION.txt always lists every source.
+        #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
+        pdf_sources: SourcesArg,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -112,6 +119,12 @@ enum Commands {
         /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
         #[arg(long)]
         pdf_scale_bar: bool,
+        /// Source lines on the PDFs: `auto` prints the full list and shortens it only when it
+        /// would take more than 5 lines, `full` never shortens, `credit-only` prints only the
+        /// freemapper credit line (ODbL and dl-de/by-2-0 then ask you to name the sources when
+        /// you pass the map on). ATTRIBUTION.txt always lists every source.
+        #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
+        pdf_sources: SourcesArg,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -219,7 +232,12 @@ fn mode(offline: bool) -> FetchMode {
     }
 }
 
-fn report_pdf(path: &std::path::Path, candidates: bool) {
+fn report_pdf(path: &std::path::Path, candidates: bool, sources: PdfSources) {
+    if sources.leaves_out_required_credits() {
+        println!(
+            "PDF without source credits: ODbL and dl-de/by-2-0 ask you to name the sources when you pass the map on; see ATTRIBUTION.txt"
+        );
+    }
     if candidates {
         println!(
             "Wrote {} (training map with every candidate drawn as a map object; check it in the terrain)",
@@ -266,6 +284,23 @@ fn report(message: &str) {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
+enum SourcesArg {
+    Auto,
+    Full,
+    CreditOnly,
+}
+
+impl From<SourcesArg> for PdfSources {
+    fn from(arg: SourcesArg) -> Self {
+        match arg {
+            SourcesArg::Auto => PdfSources::Auto,
+            SourcesArg::Full => PdfSources::Full,
+            SourcesArg::CreditOnly => PdfSources::CreditOnly,
+        }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
 enum Kind {
     Schoolyard,
     Sprint,
@@ -303,6 +338,7 @@ fn main() -> anyhow::Result<()> {
             pdf,
             pdf_candidates,
             pdf_scale_bar,
+            pdf_sources,
         } => {
             let existing = map_path(&dir);
             if (ocad || pdf || pdf_candidates) && existing.exists() && !force {
@@ -315,10 +351,18 @@ fn main() -> anyhow::Result<()> {
                 report_ocad(&export_ocad(&dir, force)?);
             }
             if pdf {
-                report_pdf(&export_pdf(&dir, pdf_scale_bar)?, false);
+                report_pdf(
+                    &export_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    false,
+                    pdf_sources.into(),
+                );
             }
             if pdf_candidates {
-                report_pdf(&export_candidates_pdf(&dir, pdf_scale_bar)?, true);
+                report_pdf(
+                    &export_candidates_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    true,
+                    pdf_sources.into(),
+                );
             }
         }
         Commands::Fetch {
@@ -348,6 +392,7 @@ fn main() -> anyhow::Result<()> {
             pdf,
             pdf_candidates,
             pdf_scale_bar,
+            pdf_sources,
             cache,
         } => {
             let outcome = run_project(
@@ -396,10 +441,18 @@ fn main() -> anyhow::Result<()> {
                 report_ocad(&export_ocad(&dir, force)?);
             }
             if pdf {
-                report_pdf(&export_pdf(&dir, pdf_scale_bar)?, false);
+                report_pdf(
+                    &export_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    false,
+                    pdf_sources.into(),
+                );
             }
             if pdf_candidates {
-                report_pdf(&export_candidates_pdf(&dir, pdf_scale_bar)?, true);
+                report_pdf(
+                    &export_candidates_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    true,
+                    pdf_sources.into(),
+                );
             }
         }
         Commands::Select {
