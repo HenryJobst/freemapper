@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Feste Kieswege (501.6 bis 501.9) bleiben ganz, wo nur ein ALKIS-Flurstück `Weg` liegt (ADR 0079, Nachtrag). Dieses Flurstück ist nur ein Kandidat 501.5, kein Kartenobjekt, und schnitt trotzdem die OSM-Linie weg. Jetzt schneiden nur 501.5-Kartenobjekte (Straßenverkehr, Platz, Befahrung). Toleranz 0,25 mm und Mindeststück 1 mm bleiben. Bestehende Karten bekommen das mit `run --force`.
+
 ### Geändert
 
 - Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.

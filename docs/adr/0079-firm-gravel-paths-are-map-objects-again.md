@@ -70,3 +70,16 @@ the cut, or are shorter than 1 mm. The 501.9 ways of the Viktoriapark (four) lie
 - A `Weg` parcel of ALKIS is a 501.5 candidate, and it cuts the line too, so a path inside such a parcel is only a
   candidate (the parcel).
 - Existing maps get all of this with `run --force`.
+
+## Addendum 2026-11-10: only paving map objects cut the line
+
+Cause: the first version cut the line at all 501.5 areas, map objects and candidates alike. An ALKIS `Weg` parcel is
+a candidate only (sidewalks and lanes in town, unpaved tracks in the woods), so a firm path inside it vanished from
+the map and the candidate parcel was all that was left. Decision (user, 2026-11-10): the line is a map object and stays
+where only a candidate parcel lies. `cut_firm_paths` now takes `PavedObjects` and cuts at `paved.map` only. The
+0.25 mm tolerance, the 1 mm minimum piece and the no-doubling where a 501.5 map object exists are unchanged. In the
+candidates PDF the parcel fill and the line now overlap; that is intended, as the parcel is a candidate and the line
+a map object. Cost if wrong: where the `Weg` parcel is the same path, the path is drawn on the map although the
+mapper may reject the parcel. Measured on the same stored data, the 501.6 to 501.9 map objects rise from 26 to 44 in
+the Viktoriapark and from 192 to 199 in Sanssouci. Existing maps get this with `run --force`.
+
