@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.9.1] - 2026-11-10
+
 ### Geändert
 
 - Koordinatensysteme und Kacheln kommen jetzt aus `freemapper-georef` (freemapper-core v0.5.1). `crs` und `tiles` in freemapper geben die Typen unter den alten Pfaden weiter, das Verhalten ändert sich nicht. Die Projektion rechnet mit der gemeinsamen Transversal-Mercator-Implementierung. `freemapper-fs` steht jetzt ebenfalls auf v0.5.1.

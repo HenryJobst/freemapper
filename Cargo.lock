@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "chrono",
  "contour",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper-cli"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow",
  "axum",

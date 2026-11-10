@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-10
+
 ### Changed
 
 - Coordinate systems and tiles now come from `freemapper-georef` (freemapper-core v0.5.1). `crs` and `tiles` in freemapper re-export the types under the old paths, and nothing changes in behaviour. The projection uses the shared transverse Mercator code. `freemapper-fs` is now on v0.5.1 too.
