@@ -133,3 +133,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0085](0085-allowed-map-scales-per-kind.md) | Allowed map scales per kind | Accepted | 2026-11-10 |
 | [0086](0086-title-always-in-the-project-file.md) | The project file always holds a title | Accepted | 2026-11-10 |
 | [0087](0087-berlin-fountains-from-register-survey-and-osm-once.md) | Berlin fountains from register, survey and OSM once | Accepted | 2026-11-10 |
+| [0088](0088-osm-base-tiles-through-the-local-server.md) | OSM base tiles through the local server | Accepted | 2026-11-10 |
