@@ -17,6 +17,7 @@ estimate, and saves the area to `freemapper.toml`. Rulings from M8 on 2026-11-07
 - The server listens on 127.0.0.1 only, with a random 128-bit token in every path, a Host check against DNS
   rebinding, a CSP, `X-Frame-Options: DENY` and `no-store`.
 - The MCP tool `open_area_selector` opens the browser by default and returns the URL too.
+- The OSM tiles come through the local server, not straight from the browser (ADR 0088).
 - There is no lock between a CLI `run` and a page in another terminal.
 
 ## Consequences

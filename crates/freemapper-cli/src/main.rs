@@ -3,6 +3,7 @@
 mod mcp;
 mod nominatim;
 mod select;
+mod tiles;
 
 use std::path::PathBuf;
 

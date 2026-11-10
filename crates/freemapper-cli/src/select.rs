@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
 use axum::extract::{Path as UrlPath, Query, Request, State};
@@ -35,7 +36,7 @@ struct Assets;
 /// Hosts can only be reached from this machine; the page tells the user so.
 const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \
      style-src 'self' 'unsafe-inline'; connect-src 'self'; \
-     img-src 'self' data: https://tile.openstreetmap.org https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de https://www.geodaten-mv.de https://www.wms.nrw.de https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de; \
+     img-src 'self' data: https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de https://www.geodaten-mv.de https://www.wms.nrw.de https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de; \
      frame-ancestors 'none'";
 
 /// Settings for a project the page creates (an existing project keeps its own).
@@ -62,6 +63,8 @@ struct AppState {
     /// Saves one after the other.
     saving: tokio::sync::Mutex<()>,
     done: Notify,
+    /// The OpenStreetMap base layer, fetched here with an identifying `User-Agent`.
+    tiles: TileProxy,
 }
 
 /// A running area selection page.
@@ -78,6 +81,17 @@ impl Selector {
         cache: Cache,
         port: u16,
         busy: Option<Busy>,
+    ) -> anyhow::Result<Self> {
+        Self::start_with_tiles(dir, defaults, cache, port, busy, TileProxy::new()).await
+    }
+
+    async fn start_with_tiles(
+        dir: PathBuf,
+        defaults: Defaults,
+        cache: Cache,
+        port: u16,
+        busy: Option<Busy>,
+        tiles: TileProxy,
     ) -> anyhow::Result<Self> {
         let listener = tokio::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port)))
             .await
@@ -102,6 +116,7 @@ impl Selector {
             busy,
             saving: tokio::sync::Mutex::new(()),
             done: Notify::new(),
+            tiles,
         });
         let app = router(&token, Arc::clone(&state));
         let shutdown = Arc::clone(&state);
@@ -140,6 +155,10 @@ fn router(token: &str, state: Arc<AppState>) -> Router {
     Router::new()
         .route(&format!("/{token}/"), get(index))
         .route(&format!("/{token}/assets/{{*path}}"), get(asset))
+        .route(
+            &format!("/{token}/tiles/osm/{{z}}/{{x}}/{{y}}"),
+            get(osm_tile),
+        )
         .route(&format!("/{token}/api/project"), get(project))
         .route(&format!("/{token}/api/preview"), post(preview))
         .route(&format!("/{token}/api/places"), get(places))
@@ -169,7 +188,10 @@ fn router(token: &str, state: Arc<AppState>) -> Router {
                 }
                 let mut response = next.run(request).await;
                 let headers = response.headers_mut();
-                headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+                // Tiles set their own lifetime.
+                if !headers.contains_key(header::CACHE_CONTROL) {
+                    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+                }
                 headers.insert(
                     header::CONTENT_SECURITY_POLICY,
                     HeaderValue::from_static(CONTENT_SECURITY_POLICY),
@@ -202,6 +224,28 @@ fn embedded(path: &str) -> Response {
         )
             .into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// One tile of the OpenStreetMap base layer. The address is checked before anything is fetched.
+async fn osm_tile(
+    State(state): State<Arc<AppState>>,
+    UrlPath((z, x, y)): UrlPath<(String, String, String)>,
+) -> Response {
+    match state.tiles.get(&z, &x, &y).await {
+        Ok(tile) => {
+            let max_age = tile.remaining.as_secs();
+            let mut response =
+                ([(header::CONTENT_TYPE, tile.content_type)], tile.bytes).into_response();
+            if let Ok(value) = HeaderValue::from_str(&format!("private, max-age={max_age}")) {
+                response.headers_mut().insert(header::CACHE_CONTROL, value);
+            }
+            response
+        }
+        Err(TileError::BadRequest(message)) => bad_request(message),
+        Err(TileError::Upstream(message)) => {
+            (StatusCode::BAD_GATEWAY, Json(json!({ "error": message }))).into_response()
+        }
     }
 }
 
@@ -667,5 +711,155 @@ mod tests {
         assert_eq!(status, 409, "{text}");
         assert!(text.contains("pipeline"), "{text}");
         assert!(!dir.path().join("p").exists());
+    }
+
+    /// A stand-in for the tile server: answers every request with `status` and collects the
+    /// request heads.
+    struct StubTiles {
+        base: String,
+        heads: Arc<std::sync::Mutex<Vec<String>>>,
+    }
+
+    fn stub_tiles(status: u16, cache_control: &'static str) -> StubTiles {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let heads = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = Arc::clone(&heads);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { break };
+                let mut buf = [0u8; 4096];
+                let n = stream.read(&mut buf).unwrap_or(0);
+                seen.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&buf[..n]).to_string());
+                let body = b"\x89PNG-stub";
+                let head = format!(
+                    "HTTP/1.1 {status} X\r\nContent-Type: image/png\r\nCache-Control: {cache_control}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(head.as_bytes());
+                let _ = stream.write_all(body);
+            }
+        });
+        StubTiles { base, heads }
+    }
+
+    async fn selector_with(tiles: TileProxy) -> (Selector, tempfile::TempDir) {
+        let dir = tempfile::tempdir().unwrap();
+        let defaults = Defaults {
+            kind: MapKind::Schoolyard,
+            scale: None,
+            title: None,
+            from_agent: false,
+        };
+        let cache = Cache::new(dir.path().join("cache"));
+        let selector =
+            Selector::start_with_tiles(dir.path().join("p"), defaults, cache, 0, None, tiles)
+                .await
+                .unwrap();
+        (selector, dir)
+    }
+
+    /// Status, content type, cache control, content security policy and body of a GET.
+    async fn get(url: String) -> (u16, String, String, String, Vec<u8>) {
+        tokio::task::spawn_blocking(move || {
+            let agent: ureq::Agent = ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .build()
+                .into();
+            let mut response = agent.get(&url).call().unwrap();
+            let header = |name: &str| {
+                response
+                    .headers()
+                    .get(name)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or_default()
+                    .to_string()
+            };
+            let content_type = header("content-type");
+            let cache_control = header("cache-control");
+            let csp = header("content-security-policy");
+            let status = response.status().as_u16();
+            let body = response.body_mut().read_to_vec().unwrap();
+            (status, content_type, cache_control, csp, body)
+        })
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn tile_route_refuses_bad_addresses_without_asking_upstream() {
+        let stub = stub_tiles(200, "max-age=3600");
+        let (selector, _dir) = selector_with(TileProxy::with_base(&stub.base)).await;
+        for path in [
+            "tiles/osm/20/0/0.png",
+            "tiles/osm/5/32/0.png",
+            "tiles/osm/5/0/32.png",
+            "tiles/osm/5/-1/0.png",
+            "tiles/osm/5/0/0",
+            "tiles/osm/5/0/0.jpg",
+            "tiles/osm/x/0/0.png",
+        ] {
+            let (status, ..) = get(format!("{}{path}", selector.url)).await;
+            assert_eq!(status, 400, "{path}");
+        }
+        assert!(stub.heads.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn tile_route_fetches_with_an_identifying_user_agent_and_caches() {
+        let stub = stub_tiles(200, "public, max-age=3600");
+        let (selector, _dir) = selector_with(TileProxy::with_base(&stub.base)).await;
+        let url = format!("{}tiles/osm/5/17/10.png", selector.url);
+        let (status, content_type, cache_control, _, body) = get(url.clone()).await;
+        assert_eq!(status, 200);
+        assert_eq!(content_type, "image/png");
+        assert!(
+            cache_control.starts_with("private, max-age="),
+            "{cache_control}"
+        );
+        assert_eq!(body, b"\x89PNG-stub");
+        // The second request comes from the cache.
+        let (status, ..) = get(url).await;
+        assert_eq!(status, 200);
+        let heads = stub.heads.lock().unwrap();
+        assert_eq!(heads.len(), 1, "{heads:?}");
+        let head = heads[0].to_ascii_lowercase();
+        assert!(head.starts_with("get /5/17/10.png "), "{head}");
+        let agent = head
+            .lines()
+            .find_map(|l| l.strip_prefix("user-agent: "))
+            .unwrap();
+        assert!(agent.starts_with("freemapper/0."), "{agent}");
+        assert!(
+            agent.contains("https://github.com/henryjobst/freemapper"),
+            "{agent}"
+        );
+        assert!(!head.contains('@'), "{head}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn tile_route_maps_an_upstream_refusal_to_502() {
+        let stub = stub_tiles(403, "no-store");
+        let (selector, _dir) = selector_with(TileProxy::with_base(&stub.base)).await;
+        let (status, _, _, _, body) = get(format!("{}tiles/osm/5/17/10.png", selector.url)).await;
+        assert_eq!(status, 502);
+        let text = String::from_utf8(body).unwrap();
+        assert!(text.contains("HTTP 403"), "{text}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn page_does_not_load_tiles_from_the_tile_server_directly() {
+        let stub = stub_tiles(200, "max-age=60");
+        let (selector, _dir) = selector_with(TileProxy::with_base(&stub.base)).await;
+        let (_, _, _, csp, _) = get(selector.url.clone()).await;
+        assert!(!csp.contains("tile.openstreetmap.org"), "{csp}");
+        assert!(csp.contains("img-src 'self'"), "{csp}");
+        let app = Assets::get("app.js").unwrap();
+        let app = String::from_utf8_lossy(&app.data);
+        assert!(!app.contains("https://tile.openstreetmap.org"));
+        assert!(app.contains("tiles/osm/{z}/{x}/{y}.png"));
     }
 }

@@ -179,7 +179,8 @@ async function api(path, body) {
 // --- Map -------------------------------------------------------------------------------------
 
 const map = L.map("map", { doubleClickZoom: true }).setView([52.45, 13.4], 8);
-const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+// Through the local server, which sends the User-Agent OpenStreetMap's tile policy asks for.
+const osm = L.tileLayer("tiles/osm/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
