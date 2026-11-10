@@ -399,3 +399,45 @@ sprint = "306"
 when = ["man_made=bridge"]
 draw = "area"
 sprint = "501.5"
+
+# Power lines (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 510 "Power line, cableway or ski
+# lift": "The bars indicate the exact location of the pylons. If a section of a power line ...
+# goes along a road or path (and does not offer significant additional navigational value) it
+# should be omitted." Minimum length 3.75 mm (footprint 15 m). 511 "Major power line" is drawn with a
+# double line; 110 kV and up is taken as major (`voltage` may list several values, one is enough).
+# Underground and underwater cables, tunnels and the busbars inside a substation are not on the
+# ground. A bare `power=cable` is underground in OSM; only `location=overhead` is a line.
+[[rule]]
+when = ["power=line", "voltage>=110000", "location!=underground|underwater", "tunnel!=yes", "line!=busbar|bay|connection"]
+draw = "line"
+sprint = "511"
+
+[[rule]]
+when = ["power=line|minor_line", "location!=underground|underwater", "tunnel!=yes", "line!=busbar|bay|connection"]
+draw = "line"
+sprint = "510"
+
+[[rule]]
+when = ["power=cable", "location=overhead"]
+draw = "line"
+sprint = "510"
+
+# Pipelines above ground (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 528 prominent line
+# feature: "a low pipeline (gas, water, oil, heat, etc.)", minimum length 2.2 mm; 529 prominent
+# uncrossable line feature: "a high pipeline", minimum length 3 mm. "The definition of the symbol
+# must be given on the map." OSM does not say whether a pipeline can be crossed: `location=overhead`
+# or a `height` of 1.5 m is high. A pipeline without a `location` is taken to be buried.
+[[rule]]
+when = ["man_made=pipeline", "location=overhead", "tunnel!=yes"]
+draw = "line"
+sprint = "529"
+
+[[rule]]
+when = ["man_made=pipeline", "location=overground|surface", "height>=1.5", "tunnel!=yes"]
+draw = "line"
+sprint = "529"
+
+[[rule]]
+when = ["man_made=pipeline", "location=overground|surface", "tunnel!=yes"]
+draw = "line"
+sprint = "528"
