@@ -82,7 +82,34 @@ schoolyard = "545"
 sprint = "531"
 
 [[rule]]
-when = ["man_made=flagpole|mast"]
+when = ["man_made=flagpole"]
+draw = "point"
+schoolyard = "544"
+
+# Masts (ADR 0083): the school flagpole symbol, and on a sprint map a tower, see the tower rules at
+# the end of this file. A mast of 20 m or more is a high tower (524), one of 10 to 20 m a small tower
+# (525), and one without a `height` a radio or telecom mast (524). A lower mast (a sign, a lamp, a
+# flag) is no tower: in the Viktoriapark a 3 m mast gave a 525 beside a Berlin column.
+[[rule]]
+when = ["man_made=mast", "height>=20"]
+draw = "point"
+schoolyard = "544"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=mast", "height>=10"]
+draw = "point"
+schoolyard = "544"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=mast", "height!=*"]
+draw = "point"
+schoolyard = "544"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=mast"]
 draw = "point"
 schoolyard = "544"
 
@@ -399,3 +426,73 @@ sprint = "306"
 when = ["man_made=bridge"]
 draw = "area"
 sprint = "501.5"
+
+# Power lines (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 510 "Power line, cableway or ski
+# lift": "The bars indicate the exact location of the pylons. If a section of a power line ...
+# goes along a road or path (and does not offer significant additional navigational value) it
+# should be omitted." Minimum length 3.75 mm (footprint 15 m). 511 "Major power line" is drawn with a
+# double line; 110 kV and up is taken as major (`voltage` may list several values, one is enough).
+# Underground and underwater cables, tunnels and the busbars inside a substation are not on the
+# ground. A bare `power=cable` is underground in OSM; only `location=overhead` is a line.
+[[rule]]
+when = ["power=line", "voltage>=110000", "location!=underground|underwater", "tunnel!=yes", "line!=busbar|bay|connection"]
+draw = "line"
+sprint = "511"
+
+[[rule]]
+when = ["power=line|minor_line", "location!=underground|underwater", "tunnel!=yes", "line!=busbar|bay|connection"]
+draw = "line"
+sprint = "510"
+
+[[rule]]
+when = ["power=cable", "location=overhead"]
+draw = "line"
+sprint = "510"
+
+# Pipelines above ground (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 528 prominent line
+# feature: "a low pipeline (gas, water, oil, heat, etc.)", minimum length 2.2 mm; 529 prominent
+# uncrossable line feature: "a high pipeline", minimum length 3 mm. "The definition of the symbol
+# must be given on the map." OSM does not say whether a pipeline can be crossed: `location=overhead`
+# or a `height` of 1.5 m is high. A pipeline without a `location` is taken to be buried.
+[[rule]]
+when = ["man_made=pipeline", "location=overhead", "tunnel!=yes"]
+draw = "line"
+sprint = "529"
+
+[[rule]]
+when = ["man_made=pipeline", "location=overground|surface", "height>=1.5", "tunnel!=yes"]
+draw = "line"
+sprint = "529"
+
+[[rule]]
+when = ["man_made=pipeline", "location=overground|surface", "tunnel!=yes"]
+draw = "line"
+sprint = "528"
+
+# Towers and masts (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 524 "High tower": "A high
+# tower or large pylon. Very large towers shall be represented in plan shape with the symbol
+# Building (521)"; 525 "Small tower": "An obvious small tower, platform or seat". Only nodes: a
+# tower drawn as an outline is a cadastre building (521), and a point inside a building is dropped
+# anyway (ADR 0076). Each carries `freemapper:control=` (pylon, mast, tower, chimney, water_tower,
+# lighthouse), so that a course setter finds the ones that make a good control; `build/control_sites.rs`
+# drops a second one of the same kind within 25 m. `power=pole` has no rule: the bars of the 510
+# line are its poles. A pylon that stands on a 511 major line is a 524 as the norm asks.
+[[rule]]
+when = ["power=tower"]
+draw = "point"
+sprint = "524"
+
+[[rule]]
+when = ["man_made=tower", "tower:type=observation|watchtower|platform"]
+draw = "point"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=tower", "height<20"]
+draw = "point"
+sprint = "525"
+
+[[rule]]
+when = ["man_made=tower|communications_tower|chimney|water_tower|lighthouse"]
+draw = "point"
+sprint = "524"

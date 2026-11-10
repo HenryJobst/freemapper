@@ -95,6 +95,9 @@ Orienteering Maps 2019 (IOF).
 | Sperrfläche | area that shall not be entered | ISSprOM 520: Fläche, die nicht betreten werden darf (Privatgelände, Beet, Bahngelände). Aus OSM: `access=private\|no` an Fläche oder Weg (ADR 0073). | `520`, `OUT_OF_BOUNDS_CODE` |
 | Fester Kies | firm gravel | `surface=compacted\|fine_gravel`: nach ISSprOM 501 („hard gravel“) befestigt, Kartenobjekt 501.6 bis 501.9 statt 505 (ADR 0073, 0079); im ALKIS-Pflaster geschnitten. | – |
 | Kontrollstandort | control site | Kleines künstliches Objekt aus OSM, der Berliner Straßenbefahrung oder dem Beleuchtungskataster (Poller, Laterne, Papierkorb, Fahrradständer, Bank, Mast, Fahnenmast, Werbesäule), das sich als Posten eignet; 531-Kandidat mit dem Tag `freemapper:control`, nie Kartenobjekt, gleichartige innerhalb von 25 m fallen weg (ADR 0074, 0077). | `CONTROL_KEY`, `control_sites` |
+| Freileitung | overhead power line | Oberirdische Stromleitung (OSM `power=line\|minor_line`); ISSprOM 510, ab 110 kV 511; Kandidat (ADR 0083). | – |
+| Rohrleitung | pipeline | Rohrleitung über der Erde (OSM `man_made=pipeline` mit `location`); niedrig 528, hoch und nicht überquerbar 529; Kandidat (ADR 0083). | – |
+| Turm | tower | Hoher Turm oder großer Mast (ISSprOM 524), kleiner Turm (525); aus OSM-Punkten, mit `freemapper:control`; Kandidat (ADR 0083). | `TOWER_CODES` |
 | Stolperstein | Stolperstein | Messingplatte im Pflaster zur Erinnerung an Verfolgte; bündig, daher kein auffälliges Objekt und nie 526 (ADR 0075). | – |
 | Erreichbarer Durchgang | reachable passage | 522-Durchgang, der (allein oder über eine Kette von Durchgängen) an belaufbaren Grund grenzt, der mit dem Straßennetz zusammenhängt; sonst `freemapper:hidden=unreachable` (ADR 0076). | `hide_unreachable` |
 | Bahnleger | course setter | Person, die die Bahnen (Posten und Reihenfolge) eines Orientierungslaufs plant. | – |

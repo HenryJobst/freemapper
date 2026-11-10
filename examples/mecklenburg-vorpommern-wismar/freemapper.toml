@@ -28,7 +28,7 @@ regions = ["mecklenburgvorpommern"]
 [osm]
 extract = "2026-11-07"
 area = [53.888855910887536, 11.458140442224481, 53.89514408911247, 11.471859557775518]
-count = 607
+count = 612
 
 [orthophoto]
 flight = "05.09.2024"

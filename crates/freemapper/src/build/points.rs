@@ -26,7 +26,7 @@ use crate::project::MapKind;
 /// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
 /// symbol. `true`: a native
 /// school symbol, whose size is already the school size and is not enlarged.
-pub const POINT_SIZES_MM: [(&str, f64, bool); 11] = [
+pub const POINT_SIZES_MM: [(&str, f64, bool); 13] = [
     // Small fountain or well: OM 0.9.
     ("311", 0.90, false),
     // Spring: OM 1.2 × 0.6, the longer side.
@@ -39,6 +39,10 @@ pub const POINT_SIZES_MM: [(&str, f64, bool); 11] = [
     ("417", 1.40, false),
     // Prominent bush or small tree.
     ("418", 0.80, false),
+    // High tower: OM 2.1, drawn 2.35.
+    ("524", 2.35, false),
+    // Small tower: OM 1.5, drawn 1.72.
+    ("525", 1.72, false),
     // Cairn, memorial or small monument: OM 1.0.
     ("526", 1.00, false),
     // Prominent man-made feature – x: OM 1.2, drawn 1.264.

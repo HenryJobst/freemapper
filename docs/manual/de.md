@@ -281,6 +281,15 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   anderen Symbol. Prüfen Sie vor der Nutzung vor Ort, ob der
   Standort noch da ist, und schreiben Sie die Definition von 531 in die Legende der Karte, wie ISSprOM es
   verlangt.
+- Freileitungen, Rohrleitungen, Türme und Masten (Sprint, nur Kandidaten). Oberirdische Leitungen sind 510, die ab
+  110 kV 511 (Doppellinie). Die Norm lässt eine Leitung weg, die an einer Straße oder einem Weg entlangläuft und für
+  die Orientierung nichts bringt; freemapper vergleicht das nicht, das tun Sie. Rohrleitungen über der Erde sind 528
+  (niedrig) oder 529 (hoch, nicht überquerbar); die Norm verlangt für beide eine Definition in der Legende, und eine
+  Rohrleitung ohne `location` in OSM gilt als vergraben und fehlt. Türme, Masten, Schornsteine, Wassertürme,
+  Leuchttürme und Strommasten sind Punkte: 524 (hoch) oder 525 (unter 20 m), jeder mit `freemapper:control`
+  (`pylon`, `mast`, `tower`, `chimney`, `water_tower`, `lighthouse`); einer gleicher Art innerhalb von 25 m nimmt
+  beide heraus. Steht ein Strommast an einer 510-Linie, zeigen ihn schon die Querstriche: löschen Sie einen. Linien
+  unter der Mindestlänge der Norm fehlen (3,75 mm bei 510 und 511, 2,2 mm bei 528, 3 mm bei 529).
 - Denkmäler und Grenzsteine (`historic=memorial`, `monument`, `wayside_cross`, `boundary_stone`) als Punkte (526)
   unter den Kandidaten. Stolpersteine, Gedenktafeln und Gedenkstücke, die eine Bank, ein Baum oder ein Wandbild
   sind, fehlen, denn 526 gilt für Objekte, die im Gelände auffallen (ISSprOM 526). Kennt auch das Kataster das
