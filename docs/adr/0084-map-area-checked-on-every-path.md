@@ -26,6 +26,6 @@ crossing check is quadratic.
 ## Consequences
 
 - No panic on user input for these paths.
-- A project file with a crossing outline that used to run now stops with a clear error. Fix: draw the area again with
+- A project file with a crossing outline that used to run now stops with an error that names the reason. Fix: draw the area again with
   `select`.
 - Cost if wrong: a legitimate outline with more than 5000 corners needs simplifying first. That limit was there already.

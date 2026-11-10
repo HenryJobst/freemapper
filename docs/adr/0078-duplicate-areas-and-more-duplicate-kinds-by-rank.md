@@ -25,7 +25,7 @@ fences and hedges had no pair within 8 m (points) or 3 m (lines) after the exist
 
 ## Decision
 
-**Areas** (`drop_areas_by_rank`, run in `project.rs` on all candidates once they are joined, before the unreachable
+Areas (`drop_areas_by_rank`, run in `project.rs` on all candidates once they are joined, before the unreachable
 passages are hidden). Of the 522, 520 and 501.5 candidates, one is dropped when enough of its area lies under the
 areas with the same symbol of a higher rank. The higher-ranked areas are the other candidates and the map objects
 that carry the symbol (the canopies of ALKIS and the Berlin structures, the ALKIS land use 520).
@@ -37,18 +37,18 @@ that carry the symbol (the canopies of ALKIS and the Berlin structures, the ALKI
 - 522: 50 %. An OSM way is a strip of a default width along the way, the cadastre polygon is the real shape, so the
   strip can be wider or longer than the polygon.
 - 520: 80 %. An OSM strip along a private road partly outside the land use area (a measured pair at 62 % and one at
-  73 %) is news for the part outside, so it stays.
+  73 %) adds the part outside, so it stays.
 - 501.5: only an OSM bridge (`man_made=bridge`) can lose, and only to a Berlin bridge deck (`bauwerke-flaechen`). The other
   501.5 candidates are paved ground that lies under bridges and paths by design.
 - Two areas of the same rank never drop each other. The winner names the dropped one in `freemapper:also`, also when
   the winner is a map object (a canopy).
 - The land use candidates (`freemapper:source=alkis-nutzung`) rank as ALKIS. They had no rank before.
 
-**Points.** A Berlin monument (`bauwerke-flaechen`, 526) or a NAS 526 beats an OSM memorial within 5 m
+Points. A Berlin monument (`bauwerke-flaechen`, 526) or a NAS 526 beats an OSM memorial within 5 m
 (`MEMORIAL_DEDUP_M`; the cadastre point is the centre of an area, the OSM node can stand anywhere on it). ADR 0077 added
 the surveyed bollard against the OSM bollard (2 m). No other pair was found.
 
-**Lines.** Kerb (501.1) and embankment top (104) join the symbols whose OSM lines are dropped along a cadastre line.
+Lines. Kerb (501.1) and embankment top (104) join the symbols whose OSM lines are dropped along a cadastre line.
 
 ## Consequences
 

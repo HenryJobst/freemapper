@@ -36,22 +36,22 @@ a separate question and not changed here.
 
 ## Decision
 
-- **Limit.** `FOUNTAIN_DEDUP` is 0.75 mm on paper (3 m at 1:4000, 3.75 m at 1:5000), never under 3 m on the ground
+- Limit. `FOUNTAIN_DEDUP` is 0.75 mm on paper (3 m at 1:4000, 3.75 m at 1:5000), never under 3 m on the ground
   (1:1000). It lies in the gap of the measurement and under the 1.05 mm at which the symbols touch. The ground floor
   stays because source positions differ by metres at any scale. Other point rules keep their ground metres.
-- **Order of winners.** Register, then full ALKIS, then survey, then OSM. New entries: the survey pump
+- Order of winners. Register, then full ALKIS, then survey, then OSM. New entries: the survey pump
   (`af_wasserpumpen_brunnen`), the survey jet (`bv_springbrunnen_zierbrunnen`) and the survey drinking fountain
   (`ac_trinkwasserbrunnen_wasserspender`) beat OSM `man_made=water_well`, `amenity=fountain` and
   `amenity=drinking_water`. The Zierbrunnen register beats an OSM well as well as an OSM fountain. A point dropped by
   an earlier entry wins nothing later. The winner names the dropped one in `freemapper:also` (`osm/node/1313558844`).
-- **Fountain basin.** `drop_fountains_in_osm_basins` drops a cadastre, register or survey fountain (not a pump) that
+- Fountain basin. `drop_fountains_in_osm_basins` drops a cadastre, register or survey fountain (not a pump) that
   lies in, or within 0.25 mm on paper (1 m at 1:4000, `AREA_DEDUP_TOLERANCE_MM`) of, an OSM 301 area from
   `amenity=fountain`. The basin names the dropped point in `freemapper:also`. Before, only ALKIS water and OSM points
   were compared with such a basin, so a register jet stayed beside the polygon that already shows the fountain.
   Other OSM water does not count: the stream channel of the Viktoriapark waterfall (`natural=water`, `water=stream`)
   lies 1.0 m from the register point `WA-FK-5`, which is the fountain and stays. ALKIS water kept its rule
   (`drop_points_in_water`, ADR 0036 and 0055).
-- **Kept on purpose.** Two fountains closer than the limit but without a higher source stay (two OSM wells 3 m apart).
+- Kept on purpose. Two fountains closer than the limit but without a higher source stay (two OSM wells 3 m apart).
   A well 3.2 m from a pump stays at 1:4000 (0.8 mm).
 
 ## Consequences
