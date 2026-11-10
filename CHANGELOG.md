@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- `export` und `run` bauen Karte und Kandidatenvorlage nur noch einmal je Befehl statt einmal je Ausgabe (ADR 0090). Mit `--ocad --pdf --pdf-candidates` waren es bisher vier Durchläufe über alle gespeicherten Ebenen, jetzt ist es bei `export` einer und bei `run` zwei. Die geschriebenen Dateien sind Byte für Byte dieselben.
+
 ### Behoben
 
 - Feste Kieswege (501.6 bis 501.9) bleiben ganz, wo nur ein ALKIS-Flurstück `Weg` liegt (ADR 0079, Nachtrag). Dieses Flurstück ist nur ein Kandidat 501.5, kein Kartenobjekt, und schnitt trotzdem die OSM-Linie weg. Jetzt schneiden nur 501.5-Kartenobjekte (Straßenverkehr, Platz, Befahrung). Toleranz 0,25 mm und Mindeststück 1 mm bleiben. Bestehende Karten bekommen das mit `run --force`.

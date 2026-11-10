@@ -13,9 +13,9 @@ use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, derive_project, export_candidates_pdf,
-    export_ocad, export_pdf, export_starter_project, fetch_project, init_project, map_path,
-    run_project,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, derive_project, export_candidates_pdf_from,
+    export_ocad_from, export_pdf_from, export_starter_project_from, fetch_project, init_project,
+    map_path, run_project, starter_documents,
 };
 
 #[derive(Parser)]
@@ -348,26 +348,33 @@ fn main() -> anyhow::Result<()> {
             pdf_scale_bar,
             pdf_sources,
         } => {
+            // Built once for every output of this command (ADR 0090).
+            let documents = starter_documents(&dir)?;
             let existing = map_path(&dir);
             if (ocad || pdf || pdf_candidates) && existing.exists() && !force {
                 println!("Kept {} (it may contain your work)", existing.display());
             } else {
-                let map = export_starter_project(&dir, force)?;
+                let map = export_starter_project_from(&dir, &documents, force)?;
                 println!("Wrote {}", map.display());
             }
             if ocad {
-                report_ocad(&export_ocad(&dir, force)?);
+                report_ocad(&export_ocad_from(&dir, &documents, force)?);
             }
             if pdf {
                 report_pdf(
-                    &export_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    &export_pdf_from(&dir, &documents, pdf_scale_bar, pdf_sources.into())?,
                     false,
                     pdf_sources.into(),
                 );
             }
             if pdf_candidates {
                 report_pdf(
-                    &export_candidates_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
+                    &export_candidates_pdf_from(
+                        &dir,
+                        &documents,
+                        pdf_scale_bar,
+                        pdf_sources.into(),
+                    )?,
                     true,
                     pdf_sources.into(),
                 );
@@ -445,22 +452,31 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
-            if ocad {
-                report_ocad(&export_ocad(&dir, force)?);
-            }
-            if pdf {
-                report_pdf(
-                    &export_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
-                    false,
-                    pdf_sources.into(),
-                );
-            }
-            if pdf_candidates {
-                report_pdf(
-                    &export_candidates_pdf(&dir, pdf_scale_bar, pdf_sources.into())?,
-                    true,
-                    pdf_sources.into(),
-                );
+            if ocad || pdf || pdf_candidates {
+                // Built once for the outputs after the run (ADR 0090).
+                let documents = starter_documents(&dir)?;
+                if ocad {
+                    report_ocad(&export_ocad_from(&dir, &documents, force)?);
+                }
+                if pdf {
+                    report_pdf(
+                        &export_pdf_from(&dir, &documents, pdf_scale_bar, pdf_sources.into())?,
+                        false,
+                        pdf_sources.into(),
+                    );
+                }
+                if pdf_candidates {
+                    report_pdf(
+                        &export_candidates_pdf_from(
+                            &dir,
+                            &documents,
+                            pdf_scale_bar,
+                            pdf_sources.into(),
+                        )?,
+                        true,
+                        pdf_sources.into(),
+                    );
+                }
             }
         }
         Commands::Select {

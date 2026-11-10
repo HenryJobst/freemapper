@@ -11,8 +11,9 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, RunOutcome, export_candidates_pdf,
-    export_ocad, export_pdf, init_project, run_project,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, RunOutcome,
+    export_candidates_pdf_from, export_ocad_from, export_pdf_from, init_project, run_project,
+    starter_documents,
 };
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
@@ -645,11 +646,22 @@ impl FreemapperServer {
                     run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
                         .map(|outcome| summary(&outcome))
                         .map_err(|e| describe(&e))?;
+                // Built once for the outputs after the run (ADR 0090); a failure is reported by
+                // each output that needed them.
+                let documents = (ocad || pdf || pdf_candidates)
+                    .then(|| starter_documents(&job_dir).map_err(|e| describe(&e)));
+                let documents = || match &documents {
+                    Some(Ok(documents)) => Ok(documents),
+                    Some(Err(e)) => Err(e.clone()),
+                    None => unreachable!("built when an output asks for them"),
+                };
                 // The OOM project is written already: an OCAD failure is reported, not fatal.
                 if ocad {
-                    match export_ocad(&job_dir, force) {
+                    match documents().and_then(|d| {
+                        export_ocad_from(&job_dir, d, force).map_err(|e| describe(&e))
+                    }) {
                         Ok(outcome) => text.push_str(&ocad_summary(&outcome)),
-                        Err(e) => text.push_str(&format!("\nOCAD export failed: {}", describe(&e))),
+                        Err(e) => text.push_str(&format!("\nOCAD export failed: {e}")),
                     }
                 }
                 if (pdf || pdf_candidates) && pdf_sources.leaves_out_required_credits() {
@@ -659,22 +671,27 @@ impl FreemapperServer {
                     );
                 }
                 if pdf {
-                    match export_pdf(&job_dir, pdf_scale_bar, pdf_sources) {
+                    match documents().and_then(|d| {
+                        export_pdf_from(&job_dir, d, pdf_scale_bar, pdf_sources)
+                            .map_err(|e| describe(&e))
+                    }) {
                         Ok(path) => text.push_str(&format!(
                             "\nWrote the map {} (without candidates)",
                             path.display()
                         )),
-                        Err(e) => text.push_str(&format!("\nPDF export failed: {}", describe(&e))),
+                        Err(e) => text.push_str(&format!("\nPDF export failed: {e}")),
                     }
                 }
                 if pdf_candidates {
-                    match export_candidates_pdf(&job_dir, pdf_scale_bar, pdf_sources) {
+                    match documents().and_then(|d| {
+                        export_candidates_pdf_from(&job_dir, d, pdf_scale_bar, pdf_sources)
+                            .map_err(|e| describe(&e))
+                    }) {
                         Ok(path) => text.push_str(&format!(
                             "\nWrote the training map {} (every candidate drawn as a map object)",
                             path.display()
                         )),
-                        Err(e) => text
-                            .push_str(&format!("\nCandidates PDF export failed: {}", describe(&e))),
+                        Err(e) => text.push_str(&format!("\nCandidates PDF export failed: {e}")),
                     }
                 }
                 Ok(text)

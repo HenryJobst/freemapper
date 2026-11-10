@@ -3700,7 +3700,7 @@ pub fn run_project(
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
-        write_starter_project(dir, None)?;
+        write_starter_project(dir, &starter_documents(dir)?, None)?;
         MapOutcome::Kept {
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
@@ -4047,19 +4047,32 @@ const CANOPY_SOURCE_TAGS: [&str; 3] = [
 /// An existing map file may already contain the mapper's work: it is only replaced when
 /// `force` is set, and then kept as `<name>.omap.bak`.
 pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, ProjectError> {
-    write_starter_project(dir, Some(force))
+    write_starter_project(dir, &starter_documents(dir)?, Some(force))
+}
+
+/// [`export_starter_project`] from `documents`, which [`starter_documents`] built for `dir`.
+pub fn export_starter_project_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+    force: bool,
+) -> Result<PathBuf, ProjectError> {
+    write_starter_project(dir, documents, Some(force))
 }
 
 /// Writes the candidates template map and the attribution, and the map unless `map_force` is
 /// `None` (the map is kept: it may contain the mapper's work). Candidates are a template that
 /// always follows the current map area.
-fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf, ProjectError> {
+fn write_starter_project(
+    dir: &Path,
+    documents: &StarterDocuments,
+    map_force: Option<bool>,
+) -> Result<PathBuf, ProjectError> {
     let StarterDocuments {
         map,
         candidates,
         attribution_text,
         ..
-    } = starter_documents(dir)?;
+    } = documents;
     let map_path = map_path(dir);
     if let Some(force) = map_force
         && map_path.exists()
@@ -4069,9 +4082,9 @@ fn write_starter_project(dir: &Path, map_force: Option<bool>) -> Result<PathBuf,
         }
         back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
     }
-    write_document(dir, &candidates, &dir.join(CANDIDATES_RELPATH))?;
+    write_document(dir, candidates, &dir.join(CANDIDATES_RELPATH))?;
     if map_force.is_some() {
-        write_document(dir, &map, &map_path)?;
+        write_document(dir, map, &map_path)?;
     }
     let attribution = format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n");
     write_inside(dir, &dir.join("ATTRIBUTION.txt"), attribution.as_bytes())?;
@@ -4113,8 +4126,16 @@ fn world_file_path(image: &Path) -> Option<PathBuf> {
 /// `<name>-candidates.ocd`, and the raster templates with their world files as background maps.
 /// An existing `<name>.ocd` is only replaced when `force` is set (kept as `.ocd.bak`).
 pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError> {
+    export_ocad_from(dir, &starter_documents(dir)?, force)
+}
+
+/// [`export_ocad`] from `documents`, which [`starter_documents`] built for `dir`.
+pub fn export_ocad_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+    force: bool,
+) -> Result<OcadOutcome, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let documents = starter_documents(dir)?;
     let ocad_dir = dir.join(OCAD_DIR);
     check_folders(dir, &[OCAD_DIR])?;
     std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
@@ -4245,7 +4266,17 @@ pub fn export_pdf(
     scale_bar: bool,
     sources: PdfSources,
 ) -> Result<PathBuf, ProjectError> {
-    write_pdf_file(dir, false, scale_bar, sources)
+    write_pdf_file(dir, &starter_documents(dir)?, false, scale_bar, sources)
+}
+
+/// [`export_pdf`] from `documents`, which [`starter_documents`] built for `dir`.
+pub fn export_pdf_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+    scale_bar: bool,
+    sources: PdfSources,
+) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, documents, false, scale_bar, sources)
 }
 
 /// Writes `<name>-candidates.pdf`, the training map: the map objects and all candidates drawn
@@ -4256,7 +4287,17 @@ pub fn export_candidates_pdf(
     scale_bar: bool,
     sources: PdfSources,
 ) -> Result<PathBuf, ProjectError> {
-    write_pdf_file(dir, true, scale_bar, sources)
+    write_pdf_file(dir, &starter_documents(dir)?, true, scale_bar, sources)
+}
+
+/// [`export_candidates_pdf`] from `documents`, which [`starter_documents`] built for `dir`.
+pub fn export_candidates_pdf_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+    scale_bar: bool,
+    sources: PdfSources,
+) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, documents, true, scale_bar, sources)
 }
 
 /// The file `export_pdf` or `export_candidates_pdf` writes.
@@ -4273,15 +4314,15 @@ pub fn pdf_path(dir: &Path, candidates: bool) -> PathBuf {
 
 fn write_pdf_file(
     dir: &Path,
+    documents: &StarterDocuments,
     candidates: bool,
     scale_bar: bool,
     sources: PdfSources,
 ) -> Result<PathBuf, ProjectError> {
     use crate::render::{draw, pdf, symbols::RenderSymbols};
     let project = ProjectFile::load(dir)?;
-    let documents = starter_documents(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
-    let (map, _) = pdf_objects(&documents, candidates);
+    let (map, _) = pdf_objects(documents, candidates);
     // The sheet is built again: its source block follows `sources`, the OOM map keeps the full list.
     let info = PeripheralInfo {
         attribution: pdf_attribution(&documents.info.attribution, &documents.content, sources),
@@ -4359,8 +4400,11 @@ fn pdf_attribution(lines: &[String], content: &PaperRect, sources: PdfSources) -
     }
 }
 
-/// The map and the candidates template map of a project, as written to OOM and OCAD files.
-struct StarterDocuments {
+/// The map and the candidates template map of a project, as written to OOM and OCAD files and
+/// drawn into the PDFs. Building them reads every stored layer of the project, so a command that
+/// writes several outputs builds them once with [`starter_documents`] and passes them to the
+/// `export_*_from` functions (ADR 0090).
+pub struct StarterDocuments {
     map: MapDocument,
     candidates: MapDocument,
     attribution_text: String,
@@ -4369,7 +4413,9 @@ struct StarterDocuments {
     info: PeripheralInfo,
 }
 
-fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
+/// Builds the documents of the project in `dir` from its stored data. They belong to that folder
+/// and to the data as stored at this moment: build them again after a fetch or a derive.
+pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = project.area()?;
     let georef = Georeferencing::new_in(
@@ -14120,6 +14166,39 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         assert!(!map.with_extension("omap.bak").exists());
         assert_eq!(std::fs::read_to_string(&secret).unwrap(), "precious");
+    }
+
+    #[test]
+    fn outputs_from_one_build_equal_those_of_separate_builds() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        let dir = dir.path();
+        let outputs = |written: [PathBuf; 4]| -> Vec<Vec<u8>> {
+            written
+                .iter()
+                .chain([&dir.join(CANDIDATES_RELPATH), &dir.join("ATTRIBUTION.txt")])
+                .map(|path| std::fs::read(path).unwrap())
+                .collect()
+        };
+        let sources = PdfSources::Auto;
+        let separate = outputs([
+            export_starter_project(dir, true).unwrap(),
+            export_ocad(dir, true).unwrap().map,
+            export_pdf(dir, true, sources).unwrap(),
+            export_candidates_pdf(dir, true, sources).unwrap(),
+        ]);
+        let documents = starter_documents(dir).unwrap();
+        let shared = outputs([
+            export_starter_project_from(dir, &documents, true).unwrap(),
+            export_ocad_from(dir, &documents, true).unwrap().map,
+            export_pdf_from(dir, &documents, true, sources).unwrap(),
+            export_candidates_pdf_from(dir, &documents, true, sources).unwrap(),
+        ]);
+        assert_eq!(separate.len(), 6);
+        for (index, (one, other)) in separate.iter().zip(&shared).enumerate() {
+            assert!(!one.is_empty(), "output {index}");
+            assert!(one == other, "output {index} differs");
+        }
     }
 
     /// The fixtures of the suite contract in freemapper-core (crate `freemapper-contract`): the
