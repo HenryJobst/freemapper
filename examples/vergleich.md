@@ -15,7 +15,7 @@ Link unter dem Bild öffnet das PDF.
 ## Warum die Karte allein so schlicht ist
 
 freemapper legt nur verlässliche Registerdaten in die Karte: Gebäude, Straßen, Gewässer, Wald, offenes Land und die
-Grundfläche. Alles, was automatisch abgeleitet oder unsicher ist, bleibt Kandidat, damit ein Kartograf es prüft. Dazu
+Grundfläche. Alles, was automatisch abgeleitet oder unsicher ist, bleibt Kandidat, damit ein Kartierer es prüft. Dazu
 gehören Höhenlinien, Bäume, Zäune und Mauern, Hecken, Sperrflächen und Kontrollstandorte. In Cochem stehen 1315
 Kartenobjekte (1156 davon Gebäude) 894 Kandidaten gegenüber: 234 Büsche und Bäume (418), 205 Sperrflächen (520),
 151 Höhenlinien (101), 78 Kontrollstandorte (531) und 46 unbefestigte Wege (505.1). Die Karte allein ist deshalb
@@ -46,8 +46,8 @@ Die fünf häufigsten Symbole der Kandidaten:
 Dazu kommen 42 Zählkurven (102). Zusammen machen die Höhenlinien den größten Unterschied im Bild: Sie legen die
 Burgberge und Talhänge über das ganze Blatt. Die Bäume und die Sperrflächen füllen den Rest.
 
-Mit der Karte allein sehen Sie nur die Stadt. Mit den Kandidaten sehen Sie, wo es steil wird. Sie übernehmen die
-Höhenlinien, wenn sie zum Gelände passen, und prüfen jede 520-Fläche vor Ort, bevor sie als Sperrgebiet gilt. Von den
+Die Karte allein zeigt nur die Stadt, erst die Kandidaten zeigen, wo es steil wird. Sie übernehmen die
+Höhenlinien, wenn sie zum Gelände passen, und prüfen jede 520-Fläche vor Ort, bevor sie als Sperrfläche gilt. Von den
 Bäumen behalten Sie die markanten, die Kontrollstandorte (531) sind Vorschläge für die Bahnlegung und gehören nicht
 in die Karte.
 

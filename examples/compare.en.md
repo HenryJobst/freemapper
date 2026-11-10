@@ -45,7 +45,7 @@ The five most frequent candidate symbols:
 There are also 42 index contours (102). Together the contours change the picture most: they cover the castle hill and
 the valley sides across the whole sheet. The trees and the out-of-bounds areas fill the rest.
 
-The map alone shows the town. With the candidates you see where the ground gets steep. You keep the contours if they
+The map alone shows only the town; the candidates show where the ground gets steep. You keep the contours if they
 match the terrain and check every 520 area on site before it counts as out of bounds. Of the trees you keep the
 prominent ones. The control sites (531) are suggestions for course setting and do not belong on the map.
 
