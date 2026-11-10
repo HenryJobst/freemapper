@@ -330,3 +330,29 @@ fn mcp_page_and_pipeline_do_not_overlap() {
     let reopened: Value = serde_json::from_str(&text).unwrap();
     assert_ne!(reopened["url"], url.as_str());
 }
+
+#[test]
+fn mcp_refuses_unusable_areas_and_keeps_serving() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    for (name, text) in [
+        ("empty", r#"{"type":"Polygon","coordinates":[]}"#),
+        (
+            "bowtie",
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]]}"#,
+        ),
+    ] {
+        let file = dir.path().join(format!("{name}.geojson"));
+        std::fs::write(&file, text).unwrap();
+        let project = dir.path().join(name);
+        let (error, text) =
+            session.call("create_project", json!({ "dir": project, "geojson": file }));
+        assert!(error, "{name}");
+        assert!(text.contains("not a usable map area"), "{name}: {text}");
+        assert!(!project.join("freemapper.toml").exists(), "{name}");
+    }
+    // The server still answers.
+    let (error, _) = session.call("project_status", json!({ "job_id": "job-1" }));
+    assert!(error);
+}

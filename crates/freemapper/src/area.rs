@@ -82,6 +82,11 @@ impl MapArea {
                 Some(polygon.map(|p| (p, source_id)))
             })
             .ok_or(AreaError::NoPolygon)??;
+        if polygon.exterior().0.is_empty() {
+            return Err(AreaError::NotAnArea(
+                "the polygon has no corners".to_string(),
+            ));
+        }
         for c in polygon
             .exterior()
             .coords()
@@ -103,6 +108,11 @@ impl MapArea {
             return Err(AreaError::NotAnArea(format!(
                 "{corners} corners, at most {MAX_CORNERS}; simplify the outline"
             )));
+        }
+        if corners == 0 {
+            return Err(AreaError::NotAnArea(
+                "the polygon has no corners".to_string(),
+            ));
         }
         let polygon = self.projected_polygon();
         // Corners on one line enclose (almost) nothing: area against perimeter², 1/(4π) for a
@@ -359,5 +369,23 @@ mod tests {
             MapArea::from_geojson(point),
             Err(AreaError::NoPolygon)
         ));
+    }
+
+    #[test]
+    fn an_empty_polygon_is_an_error_not_a_panic() {
+        for text in [
+            r#"{"type":"Polygon","coordinates":[]}"#,
+            r#"{"type":"Polygon","coordinates":[[]]}"#,
+            r#"{"type":"MultiPolygon","coordinates":[[]]}"#,
+        ] {
+            let err = MapArea::from_geojson(text).unwrap_err();
+            assert!(
+                matches!(
+                    err,
+                    AreaError::NotAnArea(_) | AreaError::NoPolygon | AreaError::GeoJson(_)
+                ),
+                "{text}: {err:?}"
+            );
+        }
     }
 }

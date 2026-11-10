@@ -526,7 +526,9 @@ impl FreemapperServer {
             (None, Some(geojson)) => resolve(&geojson).and_then(|path| {
                 let text = std::fs::read_to_string(&path)
                     .map_err(|e| format!("reading {}: {e}", path.display()))?;
-                MapArea::from_geojson(&text).map_err(|e| describe(&e))
+                let area = MapArea::from_geojson(&text).map_err(|e| describe(&e))?;
+                area.validate().map_err(|e| describe(&e))?;
+                Ok(area)
             }),
             _ => Err("give exactly one of osm_id (from find_place) or geojson".to_string()),
         };

@@ -449,15 +449,24 @@ impl ProjectFile {
         Crs::from_epsg(self.crs).unwrap_or(Crs::Utm33)
     }
 
+    /// The stored map area, checked like a drawn one ([`MapArea::validate`]): a hand-edited or
+    /// crafted project file with an empty, crossing or oversized outline is an error, not a
+    /// panic further down.
+    pub fn area(&self) -> Result<MapArea, ProjectError> {
+        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        area.validate()?;
+        Ok(area)
+    }
+
     /// Map area plus buffer in the map's CRS.
     pub fn bbox(&self) -> Result<BoundingBox, ProjectError> {
-        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        let area = self.area()?;
         Ok(area.projected_bbox_in(self.crs()).buffered(self.buffer_m))
     }
 
     /// Map area plus buffer in EPSG:25833, where the region boundaries are.
     pub fn region_bbox(&self) -> Result<BoundingBox, ProjectError> {
-        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        let area = self.area()?;
         Ok(area.projected_bbox().buffered(self.buffer_m))
     }
 
@@ -531,6 +540,7 @@ pub fn init_project(
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
     }
+    area.validate()?;
     let region_bbox = area.projected_bbox().buffered(map_kind.default_buffer_m());
     check_area(&region_bbox)?;
     let crs = map_crs(&region_bbox);
@@ -621,6 +631,7 @@ pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 /// Sets the map area of the project in `dir` (from the area selection page), keeping every other
 /// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
 pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
+    area.validate()?;
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     // Projects saved before the provider was recorded: that of the old area.
@@ -2194,7 +2205,7 @@ fn fetch_osm_into(
     project: &ProjectFile,
     progress: &mut dyn FnMut(&str),
 ) -> Result<OsmRecord, ProjectError> {
-    let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
+    let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
         let mode = if skip_update && cached_extract_date(cache, source).is_some() {
@@ -3879,7 +3890,7 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -3905,7 +3916,7 @@ fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> 
     }
     let project = ProjectFile::load(dir)?;
     let layers = stored_berlin_layers(dir, &project)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -4280,7 +4291,7 @@ struct StarterDocuments {
 
 fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -5039,6 +5050,72 @@ mod tests {
         assert_eq!(loaded.title.as_deref(), Some("Vorstadt"));
         assert_eq!(loaded.map_kind, MapKind::Sprint);
         assert_eq!(loaded.declination_date, date);
+    }
+
+    fn bad_areas() -> Vec<(&'static str, String)> {
+        let ring: Vec<String> = (0..=crate::area::MAX_CORNERS + 1)
+            .map(|i| {
+                let a = i as f64 / (crate::area::MAX_CORNERS + 1) as f64 * std::f64::consts::TAU;
+                format!("[{},{}]", 13.84 + 0.002 * a.cos(), 52.54 + 0.001 * a.sin())
+            })
+            .collect();
+        vec![
+            (
+                "bow-tie",
+                r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]]}"#.to_string(),
+            ),
+            (
+                "too many corners",
+                format!(
+                    r#"{{"type":"Polygon","coordinates":[[{},{}]]}}"#,
+                    ring.join(","),
+                    ring[0]
+                ),
+            ),
+        ]
+    }
+
+    #[test]
+    fn init_checks_the_area_like_the_selection_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        for (what, text) in bad_areas() {
+            let project = dir.path().join("p");
+            let area = MapArea::from_geojson(&text).unwrap();
+            let err = init_project(&project, &area, MapKind::Sprint, None, date, None).unwrap_err();
+            assert!(
+                matches!(err, ProjectError::Area(AreaError::NotAnArea(_))),
+                "{what}: {err:?}"
+            );
+            assert!(!project.exists(), "{what}");
+        }
+        // A polygon without any corner, built by hand, is an error too, not a panic.
+        let empty = MapArea {
+            polygon: geo_types::Polygon::new(geo_types::LineString::new(Vec::new()), Vec::new()),
+            source_id: None,
+        };
+        let project = dir.path().join("empty");
+        let err = init_project(&project, &empty, MapKind::Sprint, None, date, None).unwrap_err();
+        assert!(matches!(err, ProjectError::Area(_)), "{err:?}");
+    }
+
+    #[test]
+    fn a_stored_bad_area_is_an_error_when_used() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        for (what, text) in bad_areas() {
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.map_area = serde_json::from_str(&text).unwrap();
+            project.save(dir.path()).unwrap();
+            // The file still loads, so the area selection can replace the area.
+            let project = ProjectFile::load(dir.path()).unwrap();
+            assert!(project.area().is_err(), "{what}");
+            assert!(project.bbox().is_err(), "{what}");
+            assert!(project.region_bbox().is_err(), "{what}");
+        }
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_area = serde_json::json!({"type":"Polygon","coordinates":[]});
+        assert!(project.bbox().is_err());
     }
 
     #[test]

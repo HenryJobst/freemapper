@@ -186,7 +186,9 @@ impl AreaArgs {
         if let Some(geojson) = self.geojson {
             let text = std::fs::read_to_string(&geojson)
                 .with_context(|| format!("reading {}", geojson.display()))?;
-            return Ok(MapArea::from_geojson(&text)?);
+            let area = MapArea::from_geojson(&text)?;
+            area.validate()?;
+            return Ok(area);
         }
         let fetcher = HttpFetcher::new();
         if let Some(osm) = self.osm {
