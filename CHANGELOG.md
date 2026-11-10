@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie sind etwa ein Drittel kleiner bei gleicher Größe, und die README lädt schneller.
+- Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.
 
 ### Geändert
 
