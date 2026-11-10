@@ -58,3 +58,5 @@ Facts that limit the design:
 Source: user request 2026-11-11; spec `docs/superpowers/specs/2026-11-11-browser-run-design.md`; plan
 `docs/superpowers/plans/2026-11-11-browser-run.md`; ADRs 0009, 0045, 0059, 0060, 0085, 0086, 0088; core
 `freemapper-web` v0.11.0.
+
+Update 2026-11-11, stage 1 done: `select` runs on `freemapper-web` v0.11.0 with `strict_post` on and a 1 MiB body limit. `Selector::start` keeps its signature. The duplicated token, host and origin middleware, security headers and `open_browser` are gone from `select.rs`. All core crates moved to the tag v0.11.0 (ADR 0067). `Selector::is_running` is true until the user presses "done", because the shared crate has no query for a finished server.

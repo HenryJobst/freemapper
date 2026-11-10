@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Area selection: the local server now runs on the shared library `freemapper-web` from freemapper-core v0.11.0 (ADR 0090, stage 1; ADR 0009 and 0067, updates). The page looks the same. The checks are stricter: a POST needs the page's `Origin` and `Content-Type: application/json`, or the server answers 403. A script that calls the routes must send both. Requests with `Sec-Fetch-Site: cross-site` are refused, every response carries `X-Content-Type-Options: nosniff`, and a request body may be at most 1 MiB (an outline with 5000 points takes about 150 KB). All core crates are now pinned to the same tag v0.11.0.
 - The example preview images are now WebP instead of JPEG (`preview.webp`, `preview-map.webp`). They are rendered straight from the PDFs and are smaller than the JPEGs. The README title image (Viktoriapark) is sharper at 1600 pixels wide.
 - Tests: every test run now checks that the map and `freemapper.toml` keep the suite contract (ADR 0089, `freemapper-contract` from freemapper-core v0.8.0). A schoolyard map at 1:1000 and a sprint map at 1:4000 are tested against twelve rules and against the vocabulary freemapper-print and freemapper-courseplan rely on: part names, the tags of the peripheral information and of the walkable area, the contract keys of the project file. The program itself does not change.
 
