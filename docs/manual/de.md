@@ -688,7 +688,7 @@ neu.
 **An einer Bundeslandgrenze** fragt freemapper das Kataster beider Bundesländer ab und liest beide OSM-Auszüge.
 Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt. Reicht das Gebiet
 weit über die Grenze, bleiben die Vorlagen jenseits davon leer, soweit Luftbild und Höhenmodelle dieses
-Landes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
+Bundeslandes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
 Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei Mainz über den Rhein. freemapper meldet, wenn ein Gebiet über eine Grenze reicht.
 
 ## 13. Später weiterarbeiten
