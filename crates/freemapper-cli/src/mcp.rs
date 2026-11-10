@@ -11,8 +11,8 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_candidates_pdf, export_ocad,
-    export_pdf, init_project, run_project,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, RunOutcome, export_candidates_pdf,
+    export_ocad, export_pdf, init_project, run_project,
 };
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
@@ -205,6 +205,11 @@ struct StartPipeline {
     /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale
     /// number stays in the title block).
     pdf_scale_bar: Option<bool>,
+    /// Source lines on the PDFs: "auto" (default; the full list, shortened only when it takes
+    /// more than 5 lines), "full" (never shortened) or "credit-only" (only the freemapper credit
+    /// line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on).
+    /// ATTRIBUTION.txt always lists every source.
+    pdf_sources: Option<String>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -598,6 +603,16 @@ impl FreemapperServer {
                  the area and press Done on the page, then start the pipeline",
             );
         }
+        let pdf_sources = match req.pdf_sources.as_deref() {
+            None | Some("auto") => PdfSources::Auto,
+            Some("full") => PdfSources::Full,
+            Some("credit-only") => PdfSources::CreditOnly,
+            Some(other) => {
+                return failure(format!(
+                    "pdf_sources must be auto, full or credit-only, not {other:?}"
+                ));
+            }
+        };
         let id = match lock(&self.jobs).start(&dir) {
             Ok(id) => id,
             Err(e) => return failure(e),
@@ -629,8 +644,14 @@ impl FreemapperServer {
                         Err(e) => text.push_str(&format!("\nOCAD export failed: {}", describe(&e))),
                     }
                 }
+                if (pdf || pdf_candidates) && pdf_sources.leaves_out_required_credits() {
+                    text.push_str(
+                        "\nPDF without source credits: ODbL and dl-de/by-2-0 ask you to name the \
+                         sources when you pass the map on; see ATTRIBUTION.txt",
+                    );
+                }
                 if pdf {
-                    match export_pdf(&job_dir, pdf_scale_bar) {
+                    match export_pdf(&job_dir, pdf_scale_bar, pdf_sources) {
                         Ok(path) => text.push_str(&format!(
                             "\nWrote the map {} (without candidates)",
                             path.display()
@@ -639,7 +660,7 @@ impl FreemapperServer {
                     }
                 }
                 if pdf_candidates {
-                    match export_candidates_pdf(&job_dir, pdf_scale_bar) {
+                    match export_candidates_pdf(&job_dir, pdf_scale_bar, pdf_sources) {
                         Ok(path) => text.push_str(&format!(
                             "\nWrote the training map {} (every candidate drawn as a map object)",
                             path.display()

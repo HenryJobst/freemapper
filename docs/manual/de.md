@@ -439,16 +439,17 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
 
 ## 10. Karte als PDF
 
-Zwei Schalter schreiben ein PDF in A4 oder A3, druckfertig, ein dritter ergänzt die Maßstabsleiste:
+Zwei Schalter schreiben ein PDF in A4 oder A3, druckfertig, zwei weitere stellen Maßstabsleiste und Quellenangabe ein:
 
 | Schalter | Datei | Inhalt |
 |---|---|---|
 | `--pdf` (oder „mit PDF“ beim Assistenten) | `<name>.pdf` | die Karte: genau die Objekte der OOM-Datei, also ohne Kandidaten |
 | `--pdf-candidates` | `<name>-candidates.pdf` | die Trainingskarte: die Karte plus alle Kandidaten |
 | `--pdf-scale-bar` | | zeichnet auf den PDFs die Maßstabsleiste |
+| `--pdf-sources auto\|full\|credit-only` | | wählt die Quellenangabe auf den PDFs (Standard `auto`) |
 
 Beide PDF-Schalter lassen sich verbinden; dann liegen beide Dateien nebeneinander im Projektordner. `export` und `run`
-kennen alle drei, der MCP-Server als `pdf`, `pdf_candidates` und `pdf_scale_bar`. freemapper merkt sich die Wahl nicht
+kennen alle vier, der MCP-Server als `pdf`, `pdf_candidates`, `pdf_scale_bar` und `pdf_sources`. freemapper merkt sich die Wahl nicht
 im Projekt: Sie gilt für den Aufruf.
 
 ![Trainingskarte als PDF](images/training-map.jpg)
@@ -459,6 +460,17 @@ Das PDF der Karte enthält nur, was auch in der OOM-Karte steht: Gebäude, Fläc
 Sprintkarten und die Nordlinien, dazu Titel, Maßstabszahl, Äquidistanz, Namensnennung und den Hinweis auf freemapper.
 Die Maßstabsleiste fehlt, weil deutsche Orientierungslaufkarten meist keine haben. Wer sie braucht, setzt
 `--pdf-scale-bar`; die Zahl „Maßstab 1:4000“ steht immer im Titelblock.
+
+**Quellenangabe auf dem PDF.** Unter dem Titelblock stehen die Quellen mit Lizenz. Bis zu fünf Zeilen druckt freemapper
+unverändert (`--pdf-sources auto`, der Standard). Ist die Liste länger, etwa in Berlin mit neun Zeilen, kürzt es sie
+Schritt für Schritt: Quellen mit `dl-de/zero-2-0` desselben Anbieters werden eine Zeile, lange Namen werden kurz
+(„K5“ statt „Karte 1:5000 von Berlin (K5)“), Zeilen werden mit „ · “ verbunden, und zuletzt steht dort „Vollständige
+Quellen: ATTRIBUTION.txt im Projektordner“. Die Zeilen für OpenStreetMap, für jede andere Lizenz (`dl-de/by-2-0`,
+CC BY) und für freemapper bleiben dabei wörtlich. `--pdf-sources full` kürzt nie, `--pdf-sources credit-only` druckt
+nur die freemapper-Zeile. Rechtlich gilt: ODbL und `dl-de/by-2-0` verlangen die Nennung der Quelle, wenn Sie
+die Karte weitergeben. Mit `credit-only` nennen Sie sie selbst; freemapper erinnert Sie daran. Die freemapper-Zeile
+mit der Adresse des Projekts steht in jedem Modus und lässt sich nicht abschalten. `ATTRIBUTION.txt` im Projektordner
+und die OOM- und OCAD-Karte führen immer alle Quellen.
 
 In der Trainingskarte werden **alle Kandidaten zu Kartenobjekten**, auch die unsicheren. Nur Punkte in einem
 Sperrgebiet-Kandidaten und nicht erreichbare Durchgänge fehlen (Kapitel 9). Die Trainingskarte ist gut für ein
