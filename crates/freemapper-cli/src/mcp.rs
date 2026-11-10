@@ -11,8 +11,8 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_ocad, export_training_pdf,
-    init_project, run_project,
+    MapKind, MapOutcome, OcadOutcome, ProjectFile, RunOutcome, export_candidates_pdf, export_ocad,
+    export_pdf, init_project, run_project,
 };
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
@@ -196,9 +196,15 @@ struct StartPipeline {
     /// Also write an OCAD starting point into the folder ocad/ (OCAD 12 format, for users who
     /// edit in OCAD). Default false.
     ocad: Option<bool>,
-    /// Also write <name>.pdf, a fully generated training map ready to print (every candidate drawn
-    /// as a map object; check them in the terrain). Default false.
+    /// Also write <name>.pdf, the map ready to print (the map objects only, no candidates).
+    /// Default false.
     pdf: Option<bool>,
+    /// Also write <name>-candidates.pdf, the training map (the map plus every candidate drawn as
+    /// a map object; check them in the terrain). Default false.
+    pdf_candidates: Option<bool>,
+    /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale
+    /// number stays in the title block).
+    pdf_scale_bar: Option<bool>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -606,6 +612,8 @@ impl FreemapperServer {
         let force = req.force.unwrap_or(false);
         let ocad = req.ocad.unwrap_or(false);
         let pdf = req.pdf.unwrap_or(false);
+        let pdf_candidates = req.pdf_candidates.unwrap_or(false);
+        let pdf_scale_bar = req.pdf_scale_bar.unwrap_or(false);
         let job_id = id.clone();
         let job_dir = dir.clone();
         tokio::task::spawn_blocking(move || {
@@ -622,12 +630,22 @@ impl FreemapperServer {
                     }
                 }
                 if pdf {
-                    match export_training_pdf(&job_dir) {
+                    match export_pdf(&job_dir, pdf_scale_bar) {
+                        Ok(path) => text.push_str(&format!(
+                            "\nWrote the map {} (without candidates)",
+                            path.display()
+                        )),
+                        Err(e) => text.push_str(&format!("\nPDF export failed: {}", describe(&e))),
+                    }
+                }
+                if pdf_candidates {
+                    match export_candidates_pdf(&job_dir, pdf_scale_bar) {
                         Ok(path) => text.push_str(&format!(
                             "\nWrote the training map {} (every candidate drawn as a map object)",
                             path.display()
                         )),
-                        Err(e) => text.push_str(&format!("\nPDF export failed: {}", describe(&e))),
+                        Err(e) => text
+                            .push_str(&format!("\nCandidates PDF export failed: {}", describe(&e))),
                     }
                 }
                 Ok(text)

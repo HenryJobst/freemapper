@@ -15,7 +15,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - always an OOM map (`.omap`);
   - with `--ocad`, also an OCAD map (`.ocd`, OCAD 12 and newer), see
     [Starting point for OCAD](#starting-point-for-ocad);
-  - with `--pdf`, a print-ready training map, see [Quick training map](#quick-training-map-pdf).
+  - with `--pdf`, the print-ready map as a PDF, and with `--pdf-candidates` also the training map with every candidate, see [Map as PDF](#map-as-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line, through a page in the browser for choosing the map area (see
   [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or through AI agents (MCP
@@ -23,7 +23,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
   schoolyard maps 1:1000 and sprint maps 1:4000.
-- Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF training map, see
+- Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
 
 ## The freemapper suite
@@ -50,8 +50,8 @@ The current version is [v0.8.0](https://github.com/HenryJobst/freemapper/release
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
-2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF training map
-(`--pdf`). Before downloading, freemapper
+2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF map
+(`--pdf`, with candidates `--pdf-candidates`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
 1:5000 map as a template from further Geoportal Berlin data. They also use the street survey of 2014
 to 2016: the surveyed green strips are cut out of the street areas,
@@ -88,7 +88,7 @@ experience needed. The chapters people use most:
 ## Examples
 
 The repository holds a finished sprint map project for every supported state, with the OOM map, the OCAD
-file and the PDF training map. Two of them here; clicking a picture opens the PDF:
+file and the PDF. Two of them here; clicking a picture opens the PDF:
 
 | State | Area | Preview |
 |---|---|---|
@@ -264,18 +264,25 @@ orthophoto and terrain come from the state holding the centre of the map area. M
 [user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas). One example project per state is in
 [`examples/`](examples/README.en.md).
 
-## Quick training map (PDF)
+## Map as PDF
 
 ```sh
-freemapper export clara-zetkin-schule --pdf      # or: freemapper run clara-zetkin-schule --pdf
+freemapper export clara-zetkin-schule --pdf                 # or: freemapper run clara-zetkin-schule --pdf
+freemapper export clara-zetkin-schule --pdf-candidates      # training map with every candidate
 ```
 
-writes `<name>.pdf`: a fully generated map ready to print (A4 or A3, CMYK). Unlike the starter
-project, **every candidate becomes a map object** here: furniture, barriers, paths without a surface
-tag, contours, out-of-bounds areas and ALKIS ways. Points inside out-of-bounds candidates are left out. It is drawn with the project's symbol set the way
-OOM draws it (dashes, symbols along lines, colour order), with the peripheral information, the data
-credits and the freemapper credit line. The orthophoto is not part of it. Because uncertain data is
-drawn too, check the map in the terrain before training.
+`--pdf` writes `<name>.pdf`: the map ready to print (A4 or A3, CMYK) with exactly the objects of the OOM map, so
+without candidates, plus the peripheral information with the data credits and the freemapper credit line. The
+orthophoto is not part of it. It is drawn with the project's symbol set the way OOM draws it (dashes, symbols along
+lines, colour order).
+
+The scale bar is off by default (German orienteering maps usually have none); `--pdf-scale-bar` draws it, and the
+scale number is always in the title block.
+
+`--pdf-candidates` writes `<name>-candidates.pdf`, the training map: here **every candidate becomes a map object**:
+furniture, barriers, paths without a surface tag, contours, out-of-bounds areas and ALKIS ways. Points inside
+out-of-bounds candidates are left out. Because uncertain data is drawn too, check this map in the terrain before
+training. With both switches you get both files side by side.
 
 ## Starting point for OCAD
 
@@ -331,7 +338,7 @@ The workflow the agent follows:
 2. `create_project` – creates the project folder (absolute path or `~/…`), map kind and scale optional.
 3. `estimate_download` – tells how much will be downloaded (about 300 MB OSM extract the first time).
 4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id
-   (with `ocad: true` also the OCAD starting point, with `pdf: true` the training map).
+   (with `ocad: true` also the OCAD starting point, with `pdf: true` the map PDF, with `pdf_candidates: true` the PDF with candidates).
 5. `project_status` – polls the progress until the job has finished or failed.
 6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
 

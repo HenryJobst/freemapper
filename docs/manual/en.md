@@ -16,7 +16,7 @@ geodata or the command line. It describes the current state, with Brandenburg, B
 7. [The result](#7-the-result)
 8. [What the templates show](#8-what-the-templates-show)
 9. [What to check in the terrain](#9-what-to-check-in-the-terrain)
-10. [Quick training map (PDF)](#10-quick-training-map-pdf)
+10. [Map as PDF](#10-map-as-pdf)
 11. [OCAD](#11-ocad)
 12. [Regions and border areas](#12-regions-and-border-areas)
 13. [Working on later](#13-working-on-later)
@@ -37,7 +37,7 @@ buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) 
   ponds, streams, fountains and bridges.
 - You still draw and check the map in the terrain, in **OpenOrienteering Mapper (OOM)** or **OCAD**.
 
-On request freemapper also writes a **print-ready training map as a PDF** (chapter 10).
+On request freemapper also writes the **print-ready map as a PDF** and a **training map with every candidate** (chapter 10).
 
 ## 2. What you need
 
@@ -108,7 +108,7 @@ Simply tell the assistant what you need, for example:
 > Use freemapper to make a schoolyard map of the Evangelisches Kreuzgymnasium in Dresden.
 > Save the project in Documents/O-maps/kreuzgymnasium.
 
-> Make me a sprint map of Strausberg's old town, with an OCAD file and a training map as PDF.
+> Make me a sprint map of Strausberg's old town, with an OCAD file and a PDF.
 
 The assistant then goes through these steps:
 
@@ -141,7 +141,7 @@ It does not work entirely without the command line, but two commands are enough.
    ./freemapper run kreuzgymnasium
    ```
 
-   `--ocad` also writes the OCAD file, `--pdf` the training map.
+   `--ocad` also writes the OCAD file, `--pdf` the map as a PDF, `--pdf-candidates` the training map with candidates.
 
 If you know the OSM object of the grounds, you can skip the browser:
 
@@ -189,7 +189,8 @@ Among other files, the project folder then holds:
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
 | `templates/` | the templates: orthophoto, hillshade, slope, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
-| `<name>.pdf` | with `--pdf`: the training map |
+| `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
+| `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 | `freemapper.toml` | the project's settings and data currency |
 
@@ -291,7 +292,7 @@ in the map part "default part". Break them in OOM where they hide small objects,
 or wall corners.
 
 The example projects in the repository show what the result looks like, one per state:
-[`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF training map.
+[`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF.
 
 ## 8. What the templates show
 
@@ -421,19 +422,36 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   street survey and the lighting cadastre. It is often incomplete.
 - **Contours:** small banks and steps show better in the hillshade or slope.
 
-## 10. Quick training map (PDF)
+## 10. Map as PDF
 
-With `--pdf` (or "with a training map" to the assistant), freemapper writes `<name>.pdf`: a fully
-drawn map in A4 or A3, ready to print.
+Two switches write a print-ready PDF in A4 or A3, a third adds the scale bar:
+
+| Switch | File | Content |
+|---|---|---|
+| `--pdf` (or "with a PDF" to the assistant) | `<name>.pdf` | the map: exactly the objects of the OOM file, so no candidates |
+| `--pdf-candidates` | `<name>-candidates.pdf` | the training map: the map plus every candidate |
+| `--pdf-scale-bar` | | draws the scale bar on the PDFs |
+
+You can combine both PDF switches; the two files then sit side by side in the project folder. `export` and `run`
+take all three, the MCP server as `pdf`, `pdf_candidates` and `pdf_scale_bar`. freemapper does not store the choice
+in the project: it applies to that call.
 
 ![Training map as PDF](images/training-map.jpg)
 
 *The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*
 
-Unlike the starting point, **every candidate becomes a map object** here, also the uncertain ones. Only
-points inside an out-of-bounds candidate are left out (chapter 9). The map is good for a quick training
-session. Still check it in the terrain first.
+The map PDF holds only what the OOM map holds: buildings, areas, water, the walkable area on sprint maps and the
+north lines, plus the title, the scale number, the contour interval, the data credits and the freemapper credit
+line. The scale bar is missing because German orienteering maps usually have none. If you want it, add
+`--pdf-scale-bar`; the number "Maßstab 1:4000" is always in the title block.
+
+In the training map **every candidate becomes a map object**, also the uncertain ones. Only points inside an
+out-of-bounds candidate and unreachable passages are left out (chapter 9). The training map is good for a quick
+training session. Still check it in the terrain first.
+
+> **Note on the change:** up to version 0.8.0, `--pdf` wrote the training map with candidates and a scale bar.
+> That is now `--pdf-candidates --pdf-scale-bar`.
 
 The colours are CMYK values after the IOF Printing and Colour Definitions Rev. 4 (valid from 1 December
 2024), the same as in the OOM and OCAD files. If your printer prints brown or green clearly differently,
@@ -628,7 +646,7 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 - **Water in an older map:** a map made before this version has no water yet. Running `run` again does
   not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
   map is kept as `.omap.bak`, the OCAD map as `.ocd.bak`. Every `run` renews the candidates and the
-  training map (`--pdf`). So the training map shows the water without `--force`, and the candidates show
+  training map (`--pdf-candidates`). So the training map shows the water without `--force`, and the candidates show
   the water from OSM and the narrow water from the cadastre.
 - **Change the area:** run `select` on the existing folder, then `run` again.
 - **Without internet:** `--offline` works with the data downloaded before.

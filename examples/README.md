@@ -4,7 +4,7 @@
 
 Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem freemapper besonders viel ableiten kann
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
-Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --ocad`.
+Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --pdf-candidates --ocad`.
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
@@ -21,8 +21,7 @@ Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pd
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 1315 | 790 | 28 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die sicheren Objekte der OOM-Karte (ALKIS-Gebäude, -Flächen und -Gewässer, Überdachungen und
-Carports). **Kandidaten** liegen als eigene Vorlage bei (`templates/candidates.omap`); im PDF sind sie
-mitgezeichnet. Sie kommen aus OSM, aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin,
+Carports). **Kandidaten** liegen als eigene Vorlage bei (`templates/candidates.omap`); das PDF mit Kandidaten (`<name>-candidates.pdf`) zeichnet sie mit. Sie kommen aus OSM, aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin,
 in Potsdam aus den Bäumen der Stadtkarte. **Symbole** zählt die verschiedenen Symbole in beiden zusammen.
 
 Flüsse, Kanäle, Teiche und Hafenbecken aus ALKIS stehen als unpassierbares Gewässer (301.1) mit Uferlinie (301.6) in
@@ -56,7 +55,7 @@ Dazu kommen die Straßenbefahrung (aufgenommen 2014 bis 2016), die Register für
 Trinkwasserbrunnen und die Gebäudehöhen aus dem Umweltatlas. Die Karte selbst ändert sich dadurch kaum. Im
 Viktoriapark schneidet freemapper nur fünf kleine Grünstreifen am Bordstein aus einer ALKIS-Straßenfläche aus. Bei den
 Kandidaten kommen 81 Bordsteine (501.1) und 73 vermessene befestigte Flächen (501.5) hinzu. Das sind fast alles Gehwege
-und die befestigten Wege im Park, die das PDF jetzt zeigt. Neu sind außerdem Schutzgitter (518), Mauern (515),
+und die befestigten Wege im Park, die das PDF mit Kandidaten zeigt. Neu sind außerdem Schutzgitter (518), Mauern (515),
 Wartehallen (522), Litfaßsäulen (531) sowie Straßenbrunnen und Zierbrunnen (311). Liegt ein Schutzgitter der
 Befahrung auf einem OSM-Zaun, bleibt nur das Gitter und nennt den Zaun in `freemapper:also`. Von den 602 Gebäuden
 tragen 599 die Grundrissaktualität aus den Gebäudehöhen von 2022 als `freemapper:currency`.
@@ -76,7 +75,7 @@ Punkt, 634 liegen in Baumgruppenflächen.
 Parks sind gelbes offenes Gelände (401). Parks, Grünanlagen und Grünland aus ALKIS sind Kartenobjekte, in Sanssouci
 27 Flächen, im Viktoriapark 5. Wald aus ALKIS wird 405, in Monschau 153 Flächen. Unter allem liegt die belaufbare
 Fläche, eine braune Fläche über das ganze Blatt (Symbol 990, Kartenteil `base`). Sie füllt alles, was sonst nichts
-zeigt. Punkte in einer Kandidatenfläche 520 zeichnet das PDF nicht, in der Vorlage tragen sie
+zeigt. Punkte in einer Kandidatenfläche 520 zeichnet das PDF mit Kandidaten nicht, in der Vorlage tragen sie
 `freemapper:hidden=520`.
 
 Im Viktoriapark führen die Treppen am Sockel des Nationaldenkmals auf das Denkmal zu. Breite Treppen wie die
@@ -91,8 +90,9 @@ ALKIS und OSM beide haben, stehen nur einmal in den Kandidaten: als ALKIS-Linie,
 | `<name>.omap` | das OOM-Startprojekt (OpenOrienteering Mapper) |
 | `templates/candidates.omap` | die OSM-Kandidaten als Vorlage |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | der OCAD-Ausgangsstand (OCAD 12) |
-| `<name>.pdf` | die fertig erzeugte Trainingskarte |
-| `preview.jpg` | eine Vorschau der Trainingskarte |
+| `<name>.pdf` | die druckfertige Karte ohne Kandidaten |
+| `<name>-candidates.pdf` | die Trainingskarte mit allen Kandidaten |
+| `preview.jpg`, `preview-candidates.jpg` | Vorschauen beider PDFs |
 | `freemapper.toml` | das Projekt: Gebiet, Maßstab und die abgerufenen Datenstände |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 
@@ -100,7 +100,7 @@ Die Raster-Vorlagen (Luftbild, Schummerung, Hangneigung, nDOM, in Berlin die K5)
 nicht im Repository, weil sie pro Beispiel über 20 MB groß sind. So holen Sie sie zurück:
 
 ```sh
-freemapper run --ocad --pdf examples/sachsen-anhalt-quedlinburg
+freemapper run --ocad --pdf --pdf-candidates examples/sachsen-anhalt-quedlinburg
 ```
 
 freemapper lädt die Daten erneut, berechnet die Vorlagen und behält die vorhandenen Karten (`.omap`, `.ocd`)
@@ -126,7 +126,7 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 ## Lizenzen
 
 Die Karten enthalten abgeleitete amtliche Geodaten und OpenStreetMap-Daten. Die Namensnennung steht in jeder
-`ATTRIBUTION.txt`, in den Randangaben des PDF und in den Kartennotizen:
+`ATTRIBUTION.txt`, in den Randangaben der PDFs und in den Kartennotizen:
 
 - OpenStreetMap: © OpenStreetMap-Mitwirkende, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;

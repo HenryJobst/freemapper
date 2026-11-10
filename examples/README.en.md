@@ -4,7 +4,7 @@
 
 Each supported state has an example: an area from which freemapper can derive a lot (an old town, a palace or a
 park with relief, dense buildings, stairs, walls and hedges). All examples are sprint maps at 1:4000 (ISSprOM 2019),
-made with `freemapper run --pdf --ocad`.
+made with `freemapper run --pdf --pdf-candidates --ocad`.
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
@@ -21,7 +21,7 @@ made with `freemapper run --pdf --ocad`.
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1315 | 790 | 28 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf"><img src="rheinland-pfalz-cochem/preview.jpg" width="220" alt=""></a> |
 
 **Map objects** are the reliable objects of the OOM map (ALKIS buildings, areas and water, canopies and carports).
-**Candidates** come as a separate template (`templates/candidates.omap`); the PDF draws them too. They come from OSM,
+**Candidates** come as a separate template (`templates/candidates.omap`); the PDF with candidates (`<name>-candidates.pdf`) draws them too. They come from OSM,
 from ALKIS and from the terrain model, in Berlin also from the Geoportal Berlin, and in Potsdam from the city map tree
 points (Bäume der Stadtkarte). **Symbols** counts the distinct symbols in both together.
 
@@ -53,7 +53,7 @@ Berlin projects also get the street survey (Straßenbefahrung, recorded 2014 to 
 lamps, ornamental fountains and drinking fountains, and the building heights from the Umweltatlas. The map itself
 barely changes. In the Viktoriapark freemapper cuts only five small green strips along the curb out of one ALKIS
 street area. The candidates gain 81 curbs (501.1) and 73 surveyed paved areas (501.5). Nearly all of them are
-sidewalks and the paved paths in the park, which the PDF now shows. Also new are traffic barriers (518), walls (515),
+sidewalks and the paved paths in the park, which the PDF with candidates shows. Also new are traffic barriers (518), walls (515),
 bus shelters (522), advertising columns (531), and street pumps and ornamental fountains (311). Where a survey barrier
 lies on an OSM fence, only the barrier stays, and it names the fence in `freemapper:also`. Of the 602 buildings, 599
 carry the footprint date from the 2022 building heights as `freemapper:currency`.
@@ -71,7 +71,7 @@ and 5 m crowns do not cover half of a group. The Viktoriapark, with measured cro
 
 Parks are yellow open land (401). ALKIS parks, green spaces and grassland are map objects, in Sanssouci 27 areas,
 in the Viktoriapark 5. ALKIS woods become forest (405), in Monschau 153 areas. Under everything lies the walkable
-area, one brown area over the whole sheet (symbol 990, map part `base`). It fills whatever nothing else shows. The PDF leaves out points inside a 520 candidate; in the
+area, one brown area over the whole sheet (symbol 990, map part `base`). It fills whatever nothing else shows. The PDF with candidates leaves out points inside a 520 candidate; in the
 template they carry `freemapper:hidden=520`.
 
 In the Viktoriapark the stairs on the plinth of the Nationaldenkmal lead up to the monument. Wide stairs such as the
@@ -85,8 +85,9 @@ OSM have appear once in the candidates, as the ALKIS line, which names the OSM l
 | `<name>.omap` | the OOM starter project (OpenOrienteering Mapper) |
 | `templates/candidates.omap` | the OSM candidates as a template |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | the OCAD starting point (OCAD 12) |
-| `<name>.pdf` | the fully generated training map |
-| `preview.jpg` | a preview of the training map |
+| `<name>.pdf` | the print-ready map without candidates |
+| `<name>-candidates.pdf` | the training map with every candidate |
+| `preview.jpg`, `preview-candidates.jpg` | previews of both PDFs |
 | `freemapper.toml` | the project: area, scale and the fetched data versions |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 
@@ -94,7 +95,7 @@ The raster templates (orthophoto, hillshade, slope, nDSM, in Berlin the K5) and 
 repository, because they take over 20 MB per example. To get them back:
 
 ```sh
-freemapper run --ocad --pdf examples/sachsen-anhalt-quedlinburg
+freemapper run --ocad --pdf --pdf-candidates examples/sachsen-anhalt-quedlinburg
 ```
 
 freemapper fetches the data again, computes the templates and keeps the existing maps (`.omap`, `.ocd`) unchanged.
@@ -120,7 +121,7 @@ little relief.
 ## Licences
 
 The maps contain derived official geodata and OpenStreetMap data. The attribution is in each `ATTRIBUTION.txt`, in
-the PDF's peripheral information and in the map notes:
+the PDFs' peripheral information and in the map notes:
 
 - OpenStreetMap: © OpenStreetMap contributors, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;

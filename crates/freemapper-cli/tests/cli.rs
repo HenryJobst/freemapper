@@ -420,7 +420,7 @@ fn export_ocad_keeps_an_existing_oom_map() {
 }
 
 #[test]
-fn export_pdf_writes_the_training_map() {
+fn export_pdf_writes_the_map_without_candidates() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("schule");
     init_and_export(&project);
@@ -437,4 +437,54 @@ fn export_pdf_writes_the_training_map() {
     assert!(pdf.starts_with(b"%PDF-"));
     let stdout = String::from_utf8_lossy(&export.stdout);
     assert!(stdout.contains("schule.pdf"), "{stdout}");
+    assert!(
+        !project.join("schule-candidates.pdf").exists(),
+        "--pdf alone writes no candidates PDF"
+    );
+}
+
+#[test]
+fn export_pdf_candidates_writes_the_second_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let only = freemapper()
+        .args(["export", project.to_str().unwrap(), "--pdf-candidates"])
+        .output()
+        .unwrap();
+    assert!(only.status.success());
+    assert!(project.join("schule-candidates.pdf").exists());
+    assert!(!project.join("schule.pdf").exists());
+    let both = freemapper()
+        .args([
+            "export",
+            project.to_str().unwrap(),
+            "--pdf",
+            "--pdf-candidates",
+        ])
+        .output()
+        .unwrap();
+    assert!(both.status.success());
+    let plain = std::fs::read(project.join("schule.pdf")).unwrap();
+    let cand = std::fs::read(project.join("schule-candidates.pdf")).unwrap();
+    assert!(plain.starts_with(b"%PDF-") && cand.starts_with(b"%PDF-"));
+    let stdout = String::from_utf8_lossy(&both.stdout);
+    assert!(stdout.contains("schule-candidates.pdf"), "{stdout}");
+}
+
+#[test]
+fn export_pdf_scale_bar_is_opt_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let write = |extra: &[&str]| {
+        let mut args = vec!["export", project.to_str().unwrap(), "--pdf"];
+        args.extend_from_slice(extra);
+        assert!(freemapper().args(&args).output().unwrap().status.success());
+        std::fs::read(project.join("schule.pdf")).unwrap()
+    };
+    let plain = write(&[]);
+    let with_bar = write(&["--pdf-scale-bar"]);
+    assert_ne!(plain, with_bar, "the flag adds the bar");
+    assert!(with_bar.len() > plain.len());
 }

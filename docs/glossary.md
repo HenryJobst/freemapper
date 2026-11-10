@@ -235,7 +235,9 @@ Orienteering Maps 2019 (IOF).
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
-| Trainingskarte | training map | Voll generierte, druckfertige PDF-Karte, in der alle Kandidaten als Kartenobjekte gezeichnet sind. | `export_training_pdf` |
+| Karten-PDF | map PDF | Druckfertige PDF-Karte mit genau den Objekten der OOM-Karte, ohne Kandidaten und standardmäßig ohne Maßstabsleiste (ADR 0080). | `export_pdf` |
+| Trainingskarte | training map | Voll generierte, druckfertige PDF-Karte, in der alle Kandidaten als Kartenobjekte gezeichnet sind (`<name>-candidates.pdf`). | `export_candidates_pdf` |
+| Maßstabsleiste | scale bar | Grafischer Maßstab im Titelblock; im PDF nur mit `--pdf-scale-bar`, die Maßstabszahl steht immer da. | `SCALE_BAR_SOURCE` |
 | OCAD-Datei | OCD file | Karte im Binärformat von OCAD (freemapper schreibt Version 12). | `ocd`, `export_ocad` |
 | Farbtabelle | colour table | Farben des Symbolsatzes mit Name, Priorität und CMYK; freemapper nutzt die Werte der IOF-Druck- und Farbdefinitionen Rev. 4 (ADR 0044). | `colors_xml`, `RenderColour`, `OcdColour` |
 | Volltonfarbe | spot colour | Benannte Druckfarbe (PURPLE, BLACK, GREEN, BLUE, BROWN, YELLOW), aus der OOM die Rasterfarben ableitet; maßgeblich für den Druck ist das CMYK. | `<spotcolors>` |
