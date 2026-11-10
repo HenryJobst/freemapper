@@ -135,3 +135,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0087](0087-berlin-fountains-from-register-survey-and-osm-once.md) | Berlin fountains from register, survey and OSM once | Accepted | 2026-11-10 |
 | [0088](0088-osm-base-tiles-through-the-local-server.md) | OSM base tiles through the local server | Accepted | 2026-11-10 |
 | [0089](0089-output-tested-against-the-suite-contract.md) | The output is tested against the suite contract | Accepted | 2026-11-10 |
+| [0090](0090-create-the-map-from-the-browser-page.md) | Create the map from the browser page | Proposed | 2026-11-11 |
