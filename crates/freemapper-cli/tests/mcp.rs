@@ -356,3 +356,32 @@ fn mcp_refuses_unusable_areas_and_keeps_serving() {
     let (error, _) = session.call("project_status", json!({ "job_id": "job-1" }));
     assert!(error);
 }
+
+#[test]
+fn mcp_create_project_checks_the_scale_per_kind() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("a"), "geojson": FIXTURE, "kind": "sprint", "scale": 3000 }),
+    );
+    assert!(error);
+    assert!(text.contains("1:4000, 1:5000"), "{text}");
+    assert!(
+        text.contains("freemapper-print enlarges to 1:3000"),
+        "{text}"
+    );
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("b"), "geojson": FIXTURE, "scale": 2000 }),
+    );
+    assert!(error);
+    assert!(text.contains("1:1000"), "{text}");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("c"), "geojson": FIXTURE, "kind": "sprint", "scale": 5000 }),
+    );
+    assert!(!error, "{text}");
+    assert!(text.contains("not in the sprint norm"), "{text}");
+}

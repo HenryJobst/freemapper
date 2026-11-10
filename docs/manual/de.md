@@ -163,6 +163,12 @@ nächste. Die äußeren Wege einer solchen Relation tragen oft keine Tags. Nomin
 `--osm way/…` findet nichts. Nehmen Sie dann die Relation (`--osm relation/…`) oder speichern Sie den Umriss
 als GeoJSON und nutzen Sie `--geojson`.
 
+**Maßstab.** `--scale` nimmt nur Werte an, die freemapper-print druckt: bei Schulhofkarten 1000, bei
+Sprintkarten 4000 (Standard) oder 5000. Mit 5000 warnt freemapper-print, weil der Maßstab nicht in der Norm steht; die
+Symbole bleiben bei 100 %. Einen Sprintkarten-Maßstab 3000 lehnt `init` ab. Zeichnen Sie bei 1:4000, freemapper-print
+vergrößert beim Drucken auf 1:3000. Ein Projekt, dessen `freemapper.toml` einen anderen Maßstab nennt, lässt sich
+weiter laden; freemapper warnt, und freemapper-print druckt die Karte nicht.
+
 ## 6. Das Kartengebiet im Browser wählen
 
 ![Gebietsauswahl im Browser](images/area-selector.jpg)

@@ -559,3 +559,48 @@ fn init_refuses_unusable_geojson_areas_without_panicking() {
         assert!(!project.join("freemapper.toml").exists(), "{name}");
     }
 }
+
+#[test]
+fn init_refuses_scales_print_would_refuse() {
+    let dir = tempfile::tempdir().unwrap();
+    for (kind, scale, hint) in [
+        ("schoolyard", "2000", "1:1000"),
+        ("sprint", "3000", "freemapper-print enlarges to 1:3000"),
+    ] {
+        let project = dir.path().join(format!("{kind}{scale}"));
+        let output = freemapper()
+            .args([
+                "init",
+                project.to_str().unwrap(),
+                "--geojson",
+                FIXTURE,
+                "--kind",
+                kind,
+                "--scale",
+                scale,
+            ])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(!output.status.success(), "{kind} {scale}");
+        assert!(stderr.contains(hint), "{kind} {scale}: {stderr}");
+        assert!(!project.join("freemapper.toml").exists());
+    }
+    let project = dir.path().join("sprint5000");
+    let output = freemapper()
+        .args([
+            "init",
+            project.to_str().unwrap(),
+            "--geojson",
+            FIXTURE,
+            "--kind",
+            "sprint",
+            "--scale",
+            "5000",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("not in the sprint norm"), "{stdout}");
+}

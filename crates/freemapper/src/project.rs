@@ -87,6 +87,15 @@ pub enum ProjectError {
     MapExists(PathBuf),
     #[error("invalid scale 1:{0}")]
     InvalidScale(u32),
+    #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
+    ScaleNotAllowed {
+        kind: &'static str,
+        scale: u32,
+        /// The allowed scales as `1:4000, 1:5000`.
+        allowed: String,
+        /// Starts with `. ` when present, or is empty.
+        hint: &'static str,
+    },
     #[error("invalid project file: {0}")]
     Toml(String),
     #[error(transparent)]
@@ -153,6 +162,59 @@ impl MapKind {
             Self::Schoolyard => 1000,
             Self::Sprint => 4000,
         }
+    }
+
+    /// The map scales freemapper-print accepts for this kind (its `iof-print.toml` tables).
+    /// Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000; 1:3000 needs 133 % symbols,
+    /// which only freemapper-print applies (ADR 0084).
+    pub fn allowed_scales(self) -> &'static [u32] {
+        match self {
+            Self::Schoolyard => &[1000],
+            Self::Sprint => &[4000, 5000],
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Schoolyard => "schoolyard",
+            Self::Sprint => "sprint",
+        }
+    }
+
+    fn allowed_text(self) -> String {
+        self.allowed_scales()
+            .iter()
+            .map(|s| format!("1:{s}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// Refuses a scale freemapper-print would refuse later.
+    pub fn check_scale(self, scale: u32) -> Result<(), ProjectError> {
+        if scale == 0 {
+            return Err(ProjectError::InvalidScale(scale));
+        }
+        if self.allowed_scales().contains(&scale) {
+            return Ok(());
+        }
+        let hint = if self == Self::Sprint && scale == 3000 {
+            ". Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing"
+        } else {
+            ""
+        };
+        Err(ProjectError::ScaleNotAllowed {
+            kind: self.name(),
+            scale,
+            allowed: self.allowed_text(),
+            hint,
+        })
+    }
+
+    /// A note for an allowed scale that has a catch, shown after `init`.
+    pub fn scale_note(self, scale: u32) -> Option<&'static str> {
+        (self == Self::Sprint && scale == 5000).then_some(
+            "note: 1:5000 is not in the sprint norm; freemapper-print warns about it and the symbols stay at 100 %",
+        )
     }
 
     pub fn default_buffer_m(self) -> f64 {
@@ -393,6 +455,19 @@ impl ProjectFile {
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
         project.drop_unknown_names(progress);
+        if project
+            .map_kind
+            .check_scale(project.scale_denominator)
+            .is_err()
+        {
+            // Loadable all the same: the project may predate the table, and print decides.
+            progress(&format!(
+                "warning: freemapper.toml: scale 1:{} is none of the scales for {} maps ({}); freemapper-print will refuse the map",
+                project.scale_denominator,
+                project.map_kind.name(),
+                project.map_kind.allowed_text()
+            ));
+        }
         Ok(project)
     }
 
@@ -533,9 +608,7 @@ pub fn init_project(
     title: Option<String>,
 ) -> Result<ProjectFile, ProjectError> {
     let scale_denominator = scale_denominator.unwrap_or(map_kind.default_scale());
-    if scale_denominator == 0 {
-        return Err(ProjectError::InvalidScale(scale_denominator));
-    }
+    map_kind.check_scale(scale_denominator)?;
     let path = dir.join(PROJECT_FILE_NAME);
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
@@ -5116,6 +5189,76 @@ mod tests {
         let mut project = ProjectFile::load(dir.path()).unwrap();
         project.map_area = serde_json::json!({"type":"Polygon","coordinates":[]});
         assert!(project.bbox().is_err());
+    }
+
+    #[test]
+    fn init_accepts_only_the_scales_print_knows() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.53],[13.85,52.54],[13.84,52.54],[13.84,52.53]]]}"#,
+        )
+        .unwrap();
+        assert_eq!(MapKind::Schoolyard.allowed_scales(), [1000]);
+        assert_eq!(MapKind::Sprint.allowed_scales(), [4000, 5000]);
+        for (kind, scale, hint) in [
+            (MapKind::Schoolyard, 2000, "1:1000"),
+            (MapKind::Schoolyard, 4000, "1:1000"),
+            (MapKind::Sprint, 2000, "1:4000, 1:5000"),
+            (MapKind::Sprint, 3000, "freemapper-print enlarges to 1:3000"),
+        ] {
+            let project = dir.path().join(format!("p{scale}"));
+            let err = init_project(&project, &area, kind, Some(scale), date, None).unwrap_err();
+            assert!(
+                matches!(err, ProjectError::ScaleNotAllowed { .. }),
+                "{kind:?} {scale}: {err:?}"
+            );
+            assert!(err.to_string().contains(hint), "{err}");
+            assert!(!project.exists());
+        }
+        for (kind, scale) in [
+            (MapKind::Schoolyard, 1000),
+            (MapKind::Sprint, 4000),
+            (MapKind::Sprint, 5000),
+        ] {
+            let project = dir.path().join(format!("ok{scale}"));
+            let made = init_project(&project, &area, kind, Some(scale), date, None).unwrap();
+            assert_eq!(made.scale_denominator, scale);
+        }
+        let err = init_project(
+            &dir.path().join("zero"),
+            &area,
+            MapKind::Sprint,
+            Some(0),
+            date,
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ProjectError::InvalidScale(0)), "{err:?}");
+    }
+
+    #[test]
+    fn a_stored_scale_outside_the_table_loads_with_a_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.scale_denominator = 2000;
+        project.save(dir.path()).unwrap();
+        let mut warnings = Vec::new();
+        let loaded =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert_eq!(loaded.scale_denominator, 2000);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("warning: freemapper.toml: scale 1:2000")
+                && warnings[0].contains("1:1000"),
+            "{warnings:?}"
+        );
+        project.scale_denominator = 1000;
+        project.save(dir.path()).unwrap();
+        let mut warnings = Vec::new();
+        ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 
     #[test]

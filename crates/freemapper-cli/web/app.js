@@ -603,8 +603,19 @@ $("clear").addEventListener("click", () => {
 
 // --- Settings, save, done --------------------------------------------------------------------
 
+// The scales freemapper-print accepts per map kind (ADR 0084); the first is the default.
+const SCALES = { schoolyard: [1000], sprint: [4000, 5000] };
+
+// Fills the scale list for `kind`; a stored scale outside the table stays selectable.
+function fillScales(kind, current) {
+  const list = [...(SCALES[kind] || SCALES.schoolyard)];
+  if (current && !list.includes(current)) list.push(current);
+  $("scale").replaceChildren(...list.map((s) => new Option(String(s), String(s))));
+  $("scale").value = String(current || list[0]);
+}
+
 $("kind").addEventListener("change", () => {
-  $("scale").value = $("kind").value === "sprint" ? 4000 : 1000;
+  fillScales($("kind").value);
   // The buffer depends on the map kind.
   updatePreview();
 });
@@ -649,7 +660,7 @@ $("done").addEventListener("click", async () => {
 
 function showSettings() {
   $("kind").value = project.kind;
-  $("scale").value = project.scale;
+  fillScales(project.kind, project.scale);
   $("title").value = project.title || "";
   for (const id of ["kind", "scale", "title"]) $(id).disabled = project.exists;
   $("settings-fixed").hidden = !project.exists;

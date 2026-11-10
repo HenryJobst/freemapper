@@ -173,7 +173,8 @@ struct CreateProject {
     part: Option<usize>,
     /// "schoolyard" (default, 1:1000) or "sprint" (1:4000).
     kind: Option<String>,
-    /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the kind).
+    /// Scale denominator: schoolyard 1000 (default); sprint 4000 (default) or 5000. Other values
+    /// are refused; for 1:3000 draw at 4000, freemapper-print enlarges when printing.
     scale: Option<u32>,
     /// Map title for the peripheral information (default: the folder name).
     title: Option<String>,
@@ -224,7 +225,8 @@ struct OpenAreaSelector {
     dir: String,
     /// Map kind of a new project: "schoolyard" (default, 1:1000) or "sprint" (1:4000).
     kind: Option<String>,
-    /// Scale denominator of a new project.
+    /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default) or
+    /// 5000. Other values are refused.
     scale: Option<u32>,
     /// Map title of a new project.
     title: Option<String>,
@@ -539,14 +541,18 @@ impl FreemapperServer {
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => text(format!(
-                "Created project {} for {} ({}, 1:{}). Next: estimate_download, then start_pipeline.",
+                "Created project {} for {} ({}, 1:{}). Next: estimate_download, then start_pipeline.{}",
                 dir.display(),
                 area.source_id.as_deref().unwrap_or("the given area"),
                 match kind {
                     MapKind::Schoolyard => "schoolyard",
                     MapKind::Sprint => "sprint",
                 },
-                project.scale_denominator
+                project.scale_denominator,
+                project
+                    .map_kind
+                    .scale_note(project.scale_denominator)
+                    .map_or_else(String::new, |note| format!(" {note}"))
             )),
             Err(e) => failure(describe(&e)),
         }

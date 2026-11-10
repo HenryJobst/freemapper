@@ -155,6 +155,11 @@ freemapper lists the parts with their sizes. `--part 1` takes the largest, `--pa
 ways of such a relation often carry no tags. Nominatim then does not know them, and `--osm way/…` finds
 nothing. Use the relation (`--osm relation/…`) instead, or save the outline as GeoJSON and use `--geojson`.
 
+**Scale.** `--scale` takes only values freemapper-print prints: 1000 for schoolyard maps, 4000 (default) or
+5000 for sprint maps. At 5000 freemapper-print warns, because the scale is not in the norm; the symbols stay at 100 %.
+`init` refuses a sprint scale of 3000. Draw at 1:4000, and freemapper-print enlarges to 1:3000 when printing. A project
+whose `freemapper.toml` names another scale still loads; freemapper warns, and freemapper-print will not print the map.
+
 ## 6. Choosing the map area in the browser
 
 ![Area selection in the browser](images/area-selector.jpg)
