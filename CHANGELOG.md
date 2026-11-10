@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.9.2] - 2026-11-10
+
 ### Behoben
 
 - Gebietsauswahl: Die Hintergrundkarte zeigte bei manchen Browsern „access blocked“ (403) von OpenStreetMap (Issue 11). Die Seite schickt kein `Referer`, und die Kachelrichtlinie von OpenStreetMap verlangt ein gültiges `Referer` oder einen erkennbaren `User-Agent`. Jetzt holt der lokale Server die Kacheln selbst (`/tiles/osm/{z}/{x}/{y}.png`) mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)`, ohne weitere Daten. Er prüft Zoom (0 bis 19), Spalte und Zeile, folgt keiner Weiterleitung, fragt höchstens zweimal gleichzeitig an und behält die Kacheln im Speicher so lange, wie OpenStreetMap erlaubt (höchstens 1024 Kacheln, 32 MB). Die Seite lädt nichts mehr direkt von `tile.openstreetmap.org`. Die Luftbilder der Bundesländer bleiben unverändert (ADR 0088).

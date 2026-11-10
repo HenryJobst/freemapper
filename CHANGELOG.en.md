@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-10
+
 ### Fixed
 
 - Area selection: in some browsers the base map showed "access blocked" (403) from OpenStreetMap (issue 11). The page sends no `Referer`, and OpenStreetMap's tile policy asks for a valid `Referer` or an identifiable `User-Agent`. Now the local server fetches the tiles itself (`/tiles/osm/{z}/{x}/{y}.png`) with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and nothing else. It checks zoom (0 to 19), column and row, follows no redirect, makes at most two requests at once and keeps the tiles in memory for as long as OpenStreetMap allows (at most 1024 tiles, 32 MB). The page no longer loads anything directly from `tile.openstreetmap.org`. The state aerial images stay as they are (ADR 0088).

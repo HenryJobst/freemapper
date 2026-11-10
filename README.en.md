@@ -45,7 +45,7 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.9.1](https://github.com/HenryJobst/freemapper/releases/tag/v0.9.1) of
+The current version is [v0.9.2](https://github.com/HenryJobst/freemapper/releases/tag/v0.9.2) of
 10 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
