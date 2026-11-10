@@ -330,3 +330,58 @@ fn mcp_page_and_pipeline_do_not_overlap() {
     let reopened: Value = serde_json::from_str(&text).unwrap();
     assert_ne!(reopened["url"], url.as_str());
 }
+
+#[test]
+fn mcp_refuses_unusable_areas_and_keeps_serving() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    for (name, text) in [
+        ("empty", r#"{"type":"Polygon","coordinates":[]}"#),
+        (
+            "bowtie",
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]]}"#,
+        ),
+    ] {
+        let file = dir.path().join(format!("{name}.geojson"));
+        std::fs::write(&file, text).unwrap();
+        let project = dir.path().join(name);
+        let (error, text) =
+            session.call("create_project", json!({ "dir": project, "geojson": file }));
+        assert!(error, "{name}");
+        assert!(text.contains("not a usable map area"), "{name}: {text}");
+        assert!(!project.join("freemapper.toml").exists(), "{name}");
+    }
+    // The server still answers.
+    let (error, _) = session.call("project_status", json!({ "job_id": "job-1" }));
+    assert!(error);
+}
+
+#[test]
+fn mcp_create_project_checks_the_scale_per_kind() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("a"), "geojson": FIXTURE, "kind": "sprint", "scale": 3000 }),
+    );
+    assert!(error);
+    assert!(text.contains("1:4000, 1:5000"), "{text}");
+    assert!(
+        text.contains("freemapper-print enlarges to 1:3000"),
+        "{text}"
+    );
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("b"), "geojson": FIXTURE, "scale": 2000 }),
+    );
+    assert!(error);
+    assert!(text.contains("1:1000"), "{text}");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("c"), "geojson": FIXTURE, "kind": "sprint", "scale": 5000 }),
+    );
+    assert!(!error, "{text}");
+    assert!(text.contains("not in the sprint norm"), "{text}");
+}

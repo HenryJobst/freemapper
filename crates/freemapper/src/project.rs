@@ -29,9 +29,7 @@ use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
-use crate::build::peripheral::{
-    PaperRect, PeripheralInfo, SCALE_BAR_SOURCE, info_block, north_lines,
-};
+use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar, north_lines};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
 use crate::build::source_block;
 use crate::build::stairs::{
@@ -89,6 +87,15 @@ pub enum ProjectError {
     MapExists(PathBuf),
     #[error("invalid scale 1:{0}")]
     InvalidScale(u32),
+    #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
+    ScaleNotAllowed {
+        kind: &'static str,
+        scale: u32,
+        /// The allowed scales as `1:4000, 1:5000`.
+        allowed: String,
+        /// Starts with `. ` when present, or is empty.
+        hint: &'static str,
+    },
     #[error("invalid project file: {0}")]
     Toml(String),
     #[error(transparent)]
@@ -155,6 +162,59 @@ impl MapKind {
             Self::Schoolyard => 1000,
             Self::Sprint => 4000,
         }
+    }
+
+    /// The map scales freemapper-print accepts for this kind (its `iof-print.toml` tables).
+    /// Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000; 1:3000 needs 133 % symbols,
+    /// which only freemapper-print applies (ADR 0085).
+    pub fn allowed_scales(self) -> &'static [u32] {
+        match self {
+            Self::Schoolyard => &[1000],
+            Self::Sprint => &[4000, 5000],
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Schoolyard => "schoolyard",
+            Self::Sprint => "sprint",
+        }
+    }
+
+    fn allowed_text(self) -> String {
+        self.allowed_scales()
+            .iter()
+            .map(|s| format!("1:{s}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    /// Refuses a scale freemapper-print would refuse later.
+    pub fn check_scale(self, scale: u32) -> Result<(), ProjectError> {
+        if scale == 0 {
+            return Err(ProjectError::InvalidScale(scale));
+        }
+        if self.allowed_scales().contains(&scale) {
+            return Ok(());
+        }
+        let hint = if self == Self::Sprint && scale == 3000 {
+            ". Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing"
+        } else {
+            ""
+        };
+        Err(ProjectError::ScaleNotAllowed {
+            kind: self.name(),
+            scale,
+            allowed: self.allowed_text(),
+            hint,
+        })
+    }
+
+    /// A note for an allowed scale that has a catch, shown after `init`.
+    pub fn scale_note(self, scale: u32) -> Option<&'static str> {
+        (self == Self::Sprint && scale == 5000).then_some(
+            "note: 1:5000 is not in the sprint norm; freemapper-print warns about it and the symbols stay at 100 %",
+        )
     }
 
     pub fn default_buffer_m(self) -> f64 {
@@ -395,6 +455,19 @@ impl ProjectFile {
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
         project.drop_unknown_names(progress);
+        if project
+            .map_kind
+            .check_scale(project.scale_denominator)
+            .is_err()
+        {
+            // Loadable all the same: the project may predate the table, and print decides.
+            progress(&format!(
+                "warning: freemapper.toml: scale 1:{} is none of the scales for {} maps ({}); freemapper-print will refuse the map",
+                project.scale_denominator,
+                project.map_kind.name(),
+                project.map_kind.allowed_text()
+            ));
+        }
         Ok(project)
     }
 
@@ -451,15 +524,24 @@ impl ProjectFile {
         Crs::from_epsg(self.crs).unwrap_or(Crs::Utm33)
     }
 
+    /// The stored map area, checked like a drawn one ([`MapArea::validate`]): a hand-edited or
+    /// crafted project file with an empty, crossing or oversized outline is an error, not a
+    /// panic further down.
+    pub fn area(&self) -> Result<MapArea, ProjectError> {
+        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        area.validate()?;
+        Ok(area)
+    }
+
     /// Map area plus buffer in the map's CRS.
     pub fn bbox(&self) -> Result<BoundingBox, ProjectError> {
-        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        let area = self.area()?;
         Ok(area.projected_bbox_in(self.crs()).buffered(self.buffer_m))
     }
 
     /// Map area plus buffer in EPSG:25833, where the region boundaries are.
     pub fn region_bbox(&self) -> Result<BoundingBox, ProjectError> {
-        let area = MapArea::from_geojson(&self.map_area.to_string())?;
+        let area = self.area()?;
         Ok(area.projected_bbox().buffered(self.buffer_m))
     }
 
@@ -526,13 +608,12 @@ pub fn init_project(
     title: Option<String>,
 ) -> Result<ProjectFile, ProjectError> {
     let scale_denominator = scale_denominator.unwrap_or(map_kind.default_scale());
-    if scale_denominator == 0 {
-        return Err(ProjectError::InvalidScale(scale_denominator));
-    }
+    map_kind.check_scale(scale_denominator)?;
     let path = dir.join(PROJECT_FILE_NAME);
     if path.exists() {
         return Err(ProjectError::AlreadyExists(path));
     }
+    area.validate()?;
     let region_bbox = area.projected_bbox().buffered(map_kind.default_buffer_m());
     check_area(&region_bbox)?;
     let crs = map_crs(&region_bbox);
@@ -566,6 +647,10 @@ pub fn init_project(
         surface: None,
         ndsm_tiles: Vec::new(),
     };
+    // Always write a title: the PDF, freemapper-print and freemapper-courseplan then read the
+    // same one instead of each deriving its own from the folder name.
+    let mut project = project;
+    project.title = Some(project.display_title(dir));
     project.save(dir)?;
     Ok(project)
 }
@@ -623,6 +708,7 @@ pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 /// Sets the map area of the project in `dir` (from the area selection page), keeping every other
 /// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
 pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
+    area.validate()?;
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     // Projects saved before the provider was recorded: that of the old area.
@@ -2196,7 +2282,7 @@ fn fetch_osm_into(
     project: &ProjectFile,
     progress: &mut dyn FnMut(&str),
 ) -> Result<OsmRecord, ProjectError> {
-    let area = MapArea::from_geojson(&project.map_area.to_string())?.geo_box(project.buffer_m);
+    let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
         let mode = if skip_update && cached_extract_date(cache, source).is_some() {
@@ -3881,7 +3967,7 @@ fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, ProjectError>
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -3907,7 +3993,7 @@ fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> 
     }
     let project = ProjectFile::load(dir)?;
     let layers = stored_berlin_layers(dir, &project)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -4149,15 +4235,6 @@ fn pdf_objects(
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
 }
 
-/// Whether a sheet object belongs to the scale bar (the graphic bar, not the scale number in
-/// the title block).
-fn is_scale_bar(object: &MapObject) -> bool {
-    object
-        .tags
-        .iter()
-        .any(|(k, v)| k == "freemapper:source" && v == SCALE_BAR_SOURCE)
-}
-
 /// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
 /// included) and the peripheral information on the sheet, without any candidate.
 pub fn export_pdf(
@@ -4291,7 +4368,7 @@ struct StarterDocuments {
 
 fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let project = ProjectFile::load(dir)?;
-    let area = MapArea::from_geojson(&project.map_area.to_string())?;
+    let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
         area.centroid(),
@@ -5050,6 +5127,177 @@ mod tests {
         assert_eq!(loaded.title.as_deref(), Some("Vorstadt"));
         assert_eq!(loaded.map_kind, MapKind::Sprint);
         assert_eq!(loaded.declination_date, date);
+    }
+
+    fn bad_areas() -> Vec<(&'static str, String)> {
+        let ring: Vec<String> = (0..=crate::area::MAX_CORNERS + 1)
+            .map(|i| {
+                let a = i as f64 / (crate::area::MAX_CORNERS + 1) as f64 * std::f64::consts::TAU;
+                format!("[{},{}]", 13.84 + 0.002 * a.cos(), 52.54 + 0.001 * a.sin())
+            })
+            .collect();
+        vec![
+            (
+                "bow-tie",
+                r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.54],[13.85,52.53],[13.84,52.54],[13.84,52.53]]]}"#.to_string(),
+            ),
+            (
+                "too many corners",
+                format!(
+                    r#"{{"type":"Polygon","coordinates":[[{},{}]]}}"#,
+                    ring.join(","),
+                    ring[0]
+                ),
+            ),
+        ]
+    }
+
+    #[test]
+    fn init_checks_the_area_like_the_selection_page() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        for (what, text) in bad_areas() {
+            let project = dir.path().join("p");
+            let area = MapArea::from_geojson(&text).unwrap();
+            let err = init_project(&project, &area, MapKind::Sprint, None, date, None).unwrap_err();
+            assert!(
+                matches!(err, ProjectError::Area(AreaError::NotAnArea(_))),
+                "{what}: {err:?}"
+            );
+            assert!(!project.exists(), "{what}");
+        }
+        // A polygon without any corner, built by hand, is an error too, not a panic.
+        let empty = MapArea {
+            polygon: geo_types::Polygon::new(geo_types::LineString::new(Vec::new()), Vec::new()),
+            source_id: None,
+        };
+        let project = dir.path().join("empty");
+        let err = init_project(&project, &empty, MapKind::Sprint, None, date, None).unwrap_err();
+        assert!(matches!(err, ProjectError::Area(_)), "{err:?}");
+    }
+
+    #[test]
+    fn a_stored_bad_area_is_an_error_when_used() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        for (what, text) in bad_areas() {
+            let mut project = ProjectFile::load(dir.path()).unwrap();
+            project.map_area = serde_json::from_str(&text).unwrap();
+            project.save(dir.path()).unwrap();
+            // The file still loads, so the area selection can replace the area.
+            let project = ProjectFile::load(dir.path()).unwrap();
+            assert!(project.area().is_err(), "{what}");
+            assert!(project.bbox().is_err(), "{what}");
+            assert!(project.region_bbox().is_err(), "{what}");
+        }
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_area = serde_json::json!({"type":"Polygon","coordinates":[]});
+        assert!(project.bbox().is_err());
+    }
+
+    #[test]
+    fn init_accepts_only_the_scales_print_knows() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.53],[13.85,52.54],[13.84,52.54],[13.84,52.53]]]}"#,
+        )
+        .unwrap();
+        assert_eq!(MapKind::Schoolyard.allowed_scales(), [1000]);
+        assert_eq!(MapKind::Sprint.allowed_scales(), [4000, 5000]);
+        for (kind, scale, hint) in [
+            (MapKind::Schoolyard, 2000, "1:1000"),
+            (MapKind::Schoolyard, 4000, "1:1000"),
+            (MapKind::Sprint, 2000, "1:4000, 1:5000"),
+            (MapKind::Sprint, 3000, "freemapper-print enlarges to 1:3000"),
+        ] {
+            let project = dir.path().join(format!("p{scale}"));
+            let err = init_project(&project, &area, kind, Some(scale), date, None).unwrap_err();
+            assert!(
+                matches!(err, ProjectError::ScaleNotAllowed { .. }),
+                "{kind:?} {scale}: {err:?}"
+            );
+            assert!(err.to_string().contains(hint), "{err}");
+            assert!(!project.exists());
+        }
+        for (kind, scale) in [
+            (MapKind::Schoolyard, 1000),
+            (MapKind::Sprint, 4000),
+            (MapKind::Sprint, 5000),
+        ] {
+            let project = dir.path().join(format!("ok{scale}"));
+            let made = init_project(&project, &area, kind, Some(scale), date, None).unwrap();
+            assert_eq!(made.scale_denominator, scale);
+        }
+        let err = init_project(
+            &dir.path().join("zero"),
+            &area,
+            MapKind::Sprint,
+            Some(0),
+            date,
+            None,
+        )
+        .unwrap_err();
+        assert!(matches!(err, ProjectError::InvalidScale(0)), "{err:?}");
+    }
+
+    #[test]
+    fn a_stored_scale_outside_the_table_loads_with_a_warning() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.scale_denominator = 2000;
+        project.save(dir.path()).unwrap();
+        let mut warnings = Vec::new();
+        let loaded =
+            ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert_eq!(loaded.scale_denominator, 2000);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].starts_with("warning: freemapper.toml: scale 1:2000")
+                && warnings[0].contains("1:1000"),
+            "{warnings:?}"
+        );
+        project.scale_denominator = 1000;
+        project.save(dir.path()).unwrap();
+        let mut warnings = Vec::new();
+        ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn init_always_writes_a_title() {
+        let dir = tempfile::tempdir().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[13.84,52.53],[13.85,52.53],[13.85,52.54],[13.84,52.54],[13.84,52.53]]]}"#,
+        )
+        .unwrap();
+        for (folder, given, expected) in [
+            ("clara-zetkin-schule", None, "Clara-Zetkin-Schule"),
+            (
+                "kreuz",
+                Some("Evangelisches Kreuzgymnasium"),
+                "Evangelisches Kreuzgymnasium",
+            ),
+            ("alte_schule", Some("  \n "), "Alte-Schule"),
+        ] {
+            let project = dir.path().join(folder);
+            let made = init_project(
+                &project,
+                &area,
+                MapKind::Schoolyard,
+                None,
+                date,
+                given.map(str::to_string),
+            )
+            .unwrap();
+            assert_eq!(made.title.as_deref(), Some(expected), "{folder}");
+            // The file holds it, so print and courseplan read the same title.
+            let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+            assert!(text.contains(&format!("title = \"{expected}\"")), "{text}");
+            assert_eq!(made.display_title(&project), expected);
+        }
     }
 
     #[test]
@@ -12889,6 +13137,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn project_without_title_loads() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        // A new project has a title (ADR 0086); older ones have none and still load.
+        assert!(project.title.is_some());
+        project.title = None;
+        project.save(dir.path()).unwrap();
         let project = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project.title, None);
         let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
@@ -12900,6 +13153,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.title = None;
         let folder = Path::new("/maps/clara-zetkin-schule");
         assert_eq!(project.display_title(folder), "Clara-Zetkin-Schule");
         assert_eq!(
@@ -12926,8 +13180,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             Some("  ".to_string()),
         )
         .unwrap();
-        assert_eq!(project.title, None);
-        assert_eq!(project.display_title(Path::new("/maps/--")), "Karte");
+        // The blank title is not kept; the folder name stands in and is written.
+        assert_eq!(
+            project.title.as_deref(),
+            Some(project.display_title(dir.path()).as_str())
+        );
+        let mut untitled = project.clone();
+        untitled.title = None;
+        assert_eq!(untitled.display_title(Path::new("/maps/--")), "Karte");
         let mut titled = project.clone();
         titled.title = Some("Schule\u{7} Nord".to_string());
         assert_eq!(titled.display_title(Path::new("/maps/x")), "Schule Nord");
@@ -12941,7 +13201,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         school_project(&real);
         let link = dir.path().join("clara-zetkin-schule");
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        let project = ProjectFile::load(&link).unwrap();
+        let mut project = ProjectFile::load(&link).unwrap();
+        project.title = None;
         assert_eq!(project.display_title(&link), "Clara-Zetkin-Schule");
         assert_eq!(
             map_path(&link).file_name().unwrap(),
@@ -12954,7 +13215,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let project_dir = dir.path().join("clara-zetkin-schule");
         school_project(&project_dir);
-        let project = ProjectFile::load(&project_dir).unwrap();
+        let mut project = ProjectFile::load(&project_dir).unwrap();
+        project.title = None;
         // Like `.` from inside the folder: the path has no file name of its own.
         std::fs::create_dir(project_dir.join("x")).unwrap();
         let unnamed = project_dir.join("x").join("..");
@@ -13093,16 +13355,28 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!sheet.objects.is_empty());
         for o in &sheet.objects {
             assert!(sheet_ids.contains(&Some(o.symbol_id)), "{o:?}");
-            let source = if is_scale_bar(o) {
-                SCALE_BAR_SOURCE
-            } else {
-                "sheet"
-            };
-            assert_eq!(
-                o.tags,
-                [("freemapper:source".to_string(), source.to_string())]
+            let mut expected = vec![("freemapper:source".to_string(), "sheet".to_string())];
+            if is_scale_bar(o) {
+                expected.push(("freemapper:sheet".to_string(), "scale-bar".to_string()));
+            }
+            assert_eq!(o.tags, expected);
+            assert!(
+                !o.tags.iter().any(|(_, v)| v == "scale-bar") || is_scale_bar(o),
+                "{o:?}"
             );
         }
+        // The stable contract with freemapper-print and freemapper-courseplan: no object
+        // anywhere carries the source `scale-bar`.
+        for o in documents.map.parts.iter().flat_map(|p| &p.objects) {
+            assert!(
+                !o.tags
+                    .iter()
+                    .any(|(k, v)| k == "freemapper:source" && v == "scale-bar"),
+                "{o:?}"
+            );
+        }
+        let bars = sheet.objects.iter().filter(|o| is_scale_bar(o)).count();
+        assert!(bars > 1, "bar line, ticks and labels are all tagged");
     }
 
     #[test]

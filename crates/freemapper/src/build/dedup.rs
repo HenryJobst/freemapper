@@ -355,7 +355,8 @@ fn area_may_win(code: &str, object: &MapObject) -> bool {
 /// of the areas with the same symbol and a higher [`Rank`], among the `candidates` themselves
 /// and the `others` (map objects such as the canopies, other candidates such as the ALKIS land
 /// use areas). The share is the area of the dropped one under the union of the winners. The
-/// winner under most of it names the dropped area in `freemapper:also`. Everything else stays,
+/// winner under most of it names the dropped area in `freemapper:also`. Only an area that stays can
+/// win: one dropped for a higher rank drops nothing (ADR 0078, amendment). Everything else stays,
 /// in its order. Two areas of one rank never drop each other, whatever their overlap.
 pub fn drop_areas_by_rank(
     candidates: Vec<MapObject>,
@@ -414,7 +415,15 @@ pub fn drop_areas_by_rank(
     let style = BufferStyle::new(tolerance);
     let mut gone = vec![false; candidates.len()];
     let mut also: Vec<(usize, usize, String)> = Vec::new();
-    for (i, object) in candidates.iter().enumerate() {
+    // Highest rank first: only an area that survives may drop a lower one, so a winner is
+    // always decided before the areas it could drop.
+    let mut order: Vec<usize> = (0..candidates.len()).collect();
+    order.sort_by(|&a, &b| {
+        let (ra, rb) = (rank(&candidates[a]), rank(&candidates[b]));
+        rb.partial_cmp(&ra).unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for i in order {
+        let object = &candidates[i];
         let Some((symbol, code, share)) = code_of(object) else {
             continue;
         };
@@ -439,7 +448,7 @@ pub fn drop_areas_by_rank(
         for w in &winners {
             if w.symbol != symbol
                 || w.rank <= own
-                || (w.slot == 0 && w.index == i)
+                || (w.slot == 0 && (w.index == i || gone[w.index]))
                 || !w.bounds.intersects(&reach)
             {
                 continue;
@@ -1159,6 +1168,68 @@ mod tests {
         assert_eq!(
             tag(&kept[3], "freemapper:also"),
             Some("geoportal-berlin/sb-objekte/S2")
+        );
+    }
+
+    #[test]
+    fn a_dropped_area_drops_nothing_else() {
+        // Chain A > B > C (building part, survey shelter, OSM strip). B lies mostly under A and
+        // goes; C lies mostly under B but only 44 % under A, so C stays.
+        let set = sprint();
+        let osm_tags = [("freemapper:osm", "tunnel=building_passage")];
+        let a = area(
+            "522",
+            "geoportal-berlin/building-parts",
+            "A",
+            (0.0, 0.0),
+            (6.0, 3.0),
+            &[],
+        );
+        let b = area(
+            "522",
+            "geoportal-berlin/sb-objekte",
+            "B",
+            (0.0, 0.0),
+            (12.0, 3.0),
+            &[],
+        );
+        let c = area("522", "osm", "way/C", (0.0, 0.0), (16.0, 3.0), &osm_tags);
+        let kept = drop_areas_by_rank(vec![c, b, a], &mut [], &set);
+        assert_eq!(ids(&kept), ["way/C", "A"]);
+        assert_eq!(
+            tag(&kept[1], "freemapper:also"),
+            Some("geoportal-berlin/sb-objekte/B")
+        );
+        assert_eq!(tag(&kept[0], "freemapper:also"), None);
+    }
+
+    #[test]
+    fn the_note_goes_to_the_surviving_winner() {
+        // C lies under A (58 %) and under B; B goes because of A, so A, not B, gets the note.
+        let set = sprint();
+        let osm_tags = [("freemapper:osm", "tunnel=building_passage")];
+        let a = area(
+            "522",
+            "geoportal-berlin/building-parts",
+            "A",
+            (0.0, 0.0),
+            (6.0, 3.0),
+            &[],
+        );
+        let b = area(
+            "522",
+            "geoportal-berlin/sb-objekte",
+            "B",
+            (0.0, 0.0),
+            (12.0, 3.0),
+            &[],
+        );
+        let c = area("522", "osm", "way/C", (0.0, 0.0), (12.0, 3.0), &osm_tags);
+        let kept = drop_areas_by_rank(vec![a, b, c], &mut [], &set);
+        assert_eq!(ids(&kept), ["A"]);
+        assert_eq!(
+            tag(&kept[0], "freemapper:also"),
+            Some("geoportal-berlin/sb-objekte/B; osm/way/C")
         );
     }
 

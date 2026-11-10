@@ -9,8 +9,11 @@ const NORTH_LINE_CODE: &str = "601";
 const TITLE_CODE: &str = "991";
 const TEXT_CODE: &str = "992";
 const SMALL_TEXT_CODE: &str = "993";
-/// The `freemapper:source` of the scale bar objects: the PDF leaves them out unless asked.
-pub const SCALE_BAR_SOURCE: &str = "scale-bar";
+/// Tag key of the role of a sheet object. Every sheet object has `freemapper:source=sheet`
+/// (the contract with freemapper-print and freemapper-courseplan); the scale bar objects add
+/// `freemapper:sheet=scale-bar`, which the PDF export uses to leave them out unless asked.
+const SHEET_ROLE_KEY: &str = "freemapper:sheet";
+const SCALE_BAR_ROLE: &str = "scale-bar";
 const BAR_LINE_CODE: &str = "994";
 /// Longest bar scale on paper; the bar is the longest round ground distance that fits.
 const BAR_MAX_MM: f64 = 60.0;
@@ -69,6 +72,15 @@ pub struct PeripheralInfo {
 
 fn sheet_tags() -> Vec<(String, String)> {
     source_tags("sheet")
+}
+
+/// Whether a sheet object belongs to the scale bar (the graphic bar with ticks and labels, not
+/// the scale number in the title block).
+pub fn is_scale_bar(object: &MapObject) -> bool {
+    object
+        .tags
+        .iter()
+        .any(|(k, v)| k == SHEET_ROLE_KEY && v == SCALE_BAR_ROLE)
 }
 
 fn source_tags(source: &str) -> Vec<(String, String)> {
@@ -200,7 +212,11 @@ pub fn info_block(
         bar_scale((x0, y), info.scale_denominator, bar, small)
             .into_iter()
             .map(|o| MapObject {
-                tags: source_tags(SCALE_BAR_SOURCE),
+                tags: {
+                    let mut tags = sheet_tags();
+                    tags.push((SHEET_ROLE_KEY.to_string(), SCALE_BAR_ROLE.to_string()));
+                    tags
+                },
                 ..o
             }),
     );

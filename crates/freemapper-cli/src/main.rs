@@ -43,7 +43,8 @@ enum Commands {
         /// Map kind.
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
-        /// Scale denominator, e.g. 1000 for 1:1000 (default depends on the map kind).
+        /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default)
+        /// or 5000. Other values are refused, because freemapper-print refuses them.
         #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
         /// Map title for the peripheral information (default: the folder name).
@@ -136,7 +137,8 @@ enum Commands {
         /// Map kind of a new project.
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
-        /// Scale denominator of a new project (default depends on the map kind).
+        /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default)
+        /// or 5000. Other values are refused, because freemapper-print refuses them.
         #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
         /// Map title of a new project.
@@ -186,7 +188,9 @@ impl AreaArgs {
         if let Some(geojson) = self.geojson {
             let text = std::fs::read_to_string(&geojson)
                 .with_context(|| format!("reading {}", geojson.display()))?;
-            return Ok(MapArea::from_geojson(&text)?);
+            let area = MapArea::from_geojson(&text)?;
+            area.validate()?;
+            return Ok(area);
         }
         let fetcher = HttpFetcher::new();
         if let Some(osm) = self.osm {
@@ -328,8 +332,11 @@ fn main() -> anyhow::Result<()> {
         } => {
             let area = area.area(part.map(|p| p as usize))?;
             let today = chrono::Local::now().date_naive();
-            init_project(&dir, &area, kind.into(), scale, today, title)?;
+            let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!("Created project {}", dir.display());
+            if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
+                println!("{note}");
+            }
         }
         Commands::Export {
             dir,

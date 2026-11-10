@@ -60,3 +60,15 @@ the surveyed bollard against the OSM bollard (2 m). No other pair was found.
 - A distinct object under the 50 % or 80 % limit is never dropped. Crops of the dropped pairs (the red outlines lie
   inside blue cadastre areas) are in the pull request.
 - Existing maps get this with `run --force`.
+
+## Amendment 2026-11-10: only a surviving area wins
+
+The first version let every higher-ranked area win, dropped ones included. In a chain A > B > C, B could go because of
+A, and C then went because of B although only a small part of C lay under A. The `freemapper:also` note landed on the
+dropped B, and the part of C outside A was missing from the map.
+
+- `drop_areas_by_rank` now works from the highest rank down, and an area that is already dropped covers nothing. C
+  stays when A alone does not reach the share; when A does, C goes and the note names C on A, the winner that is
+  still on the map.
+- Points already behaved this way.
+- Existing maps get this with `run --force`.
