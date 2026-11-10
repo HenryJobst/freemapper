@@ -41,6 +41,7 @@ winapi-util.workspace = true
 workspace = true
 
 [dev-dependencies]
+freemapper-contract.workspace = true
 quick-xml.workspace = true
 sha2.workspace = true
 tempfile.workspace = true
