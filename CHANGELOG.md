@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Tests: Jeder Testlauf prüft jetzt, ob Karte und `freemapper.toml` den Vertrag der Suite einhalten (ADR 0089, `freemapper-contract` aus freemapper-core v0.8.0). Geprüft werden eine Schulhofkarte 1:1000 und eine Sprintkarte 1:4000 gegen zwölf Regeln und gegen das Vokabular, auf das sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, Tags der Randangaben und der belaufbaren Fläche, Vertragsschlüssel der Projektdatei. Das Programm selbst ändert sich nicht.
+
 ## [0.9.2] - 2026-11-10
 
 ### Behoben

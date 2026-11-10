@@ -225,6 +225,7 @@ Orienteering Maps 2019 (IOF).
 |---|---|---|---|
 | Projekt | project | Ordner mit Projektdatei, Karte, Vorlagen und Namensnennung. | `Project` |
 | Projektdatei | project file | `freemapper.toml`: Gebiet, Kartenart, Parameter, Datenstände. | `ProjectFile` |
+| Vertrag der Suite | suite contract | Was freemapper in Karte und Projektdatei schreibt und worauf sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, die Tags `freemapper:source=sheet`, `base` und `north-lines`, die Schlüssel `map_kind`, `title`, `scale_denominator` und `crs`. Festgehalten in `freemapper-contract` (freemapper-core, dort ADR 0018) und in jedem Testlauf geprüft (ADR 0089). | `contract_*` (Tests) |
 | Anlegen | init | Projekt mit Kartengebiet und Kartenart erzeugen. | `init` |
 | Abrufen | fetch | Benötigte Kacheln laden (über den Zwischenspeicher). | `fetch` |
 | Download-Schätzung | download estimate | Was ein Abruf laden wird, je Download mit Größe in MB und ob er schon im Zwischenspeicher liegt. | `DownloadEstimate`, `estimate_download` |

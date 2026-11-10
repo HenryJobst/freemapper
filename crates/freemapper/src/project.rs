@@ -14122,4 +14122,76 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!map.with_extension("omap.bak").exists());
         assert_eq!(std::fs::read_to_string(&secret).unwrap(), "precious");
     }
+
+    /// The fixtures of the suite contract in freemapper-core (crate `freemapper-contract`): the
+    /// map kind a fixture is built from, and its name there.
+    const CONTRACT_FIXTURES: [(MapKind, &str); 2] = [
+        (MapKind::Schoolyard, "schoolyard-1000"),
+        (MapKind::Sprint, "sprint-4000"),
+    ];
+
+    /// Map XML and sidecar text of an exported project of `kind`, as freemapper-print and
+    /// freemapper-courseplan read them.
+    fn contract_project(kind: MapKind) -> (String, String) {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = match kind {
+            MapKind::Schoolyard => derived_school(&fetcher),
+            MapKind::Sprint => sprint_with_ways(&fetcher),
+        };
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.title = Some("Clara-Zetkin-Schule".to_string());
+        project.save(dir.path()).unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        (map, sidecar)
+    }
+
+    #[test]
+    fn contract_output_breaks_no_rule() {
+        for (kind, name) in CONTRACT_FIXTURES {
+            let (map, sidecar) = contract_project(kind);
+            let violations = freemapper_contract::check(&map, &sidecar).unwrap();
+            assert!(violations.is_empty(), "{name}: {violations:#?}");
+        }
+    }
+
+    #[test]
+    fn contract_vocabulary_matches_the_fixture() {
+        for (kind, name) in CONTRACT_FIXTURES {
+            let (map, sidecar) = contract_project(kind);
+            let written = freemapper_contract::Vocabulary::of(&map, &sidecar).unwrap();
+            let agreed = freemapper_contract::fixture(name).unwrap().vocabulary();
+            let differences = written.differences(&agreed);
+            assert!(
+                differences.is_empty(),
+                "{name}: {differences:#?}\nA change to these words is a change to the suite \
+                 contract: refresh the fixtures in freemapper-core first (core ADR 0018)."
+            );
+        }
+    }
+
+    /// Writes map, sidecar, vocabulary and census of every fixture into
+    /// `$FREEMAPPER_CONTRACT_OUT/<name>/`. Run by hand when the contract changes:
+    /// `FREEMAPPER_CONTRACT_OUT=<freemapper-core>/crates/freemapper-contract/fixtures/v1
+    /// cargo test -p freemapper contract_write_fixtures -- --ignored`
+    #[test]
+    #[ignore = "writes the fixtures of freemapper-core; run by hand"]
+    fn contract_write_fixtures() {
+        let out = PathBuf::from(
+            std::env::var_os("FREEMAPPER_CONTRACT_OUT")
+                .expect("FREEMAPPER_CONTRACT_OUT names the folder fixtures/v1 in freemapper-core"),
+        );
+        for (kind, name) in CONTRACT_FIXTURES {
+            let (map, sidecar) = contract_project(kind);
+            let vocabulary = freemapper_contract::Vocabulary::of(&map, &sidecar).unwrap();
+            let census = freemapper_contract::census(&map).unwrap();
+            let dir = out.join(name);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("map.omap"), map).unwrap();
+            std::fs::write(dir.join(PROJECT_FILE_NAME), sidecar).unwrap();
+            std::fs::write(dir.join("vocabulary.toml"), vocabulary.to_toml()).unwrap();
+            std::fs::write(dir.join("census.toml"), toml::to_string(&census).unwrap()).unwrap();
+        }
+    }
 }

@@ -641,6 +641,7 @@ dependencies = [
  "contour",
  "crc32fast",
  "dirs",
+ "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
  "fs4",
@@ -690,6 +691,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "freemapper-contract"
+version = "0.8.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.8.0#5028aeb7bb57fa283f61100563cd34bd5c1fd7eb"
+dependencies = [
+ "freemapper-omap",
+ "serde",
+ "thiserror 2.0.21",
+ "toml",
+]
+
+[[package]]
 name = "freemapper-fs"
 version = "0.5.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.5.1#d033348838c07ebbd7794e34b6e8e4c1e41b51c2"
@@ -701,6 +713,15 @@ dependencies = [
 name = "freemapper-georef"
 version = "0.5.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.5.1#d033348838c07ebbd7794e34b6e8e4c1e41b51c2"
+
+[[package]]
+name = "freemapper-omap"
+version = "0.8.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.8.0#5028aeb7bb57fa283f61100563cd34bd5c1fd7eb"
+dependencies = [
+ "quick-xml",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "fs4"
