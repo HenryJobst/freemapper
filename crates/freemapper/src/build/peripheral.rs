@@ -9,6 +9,8 @@ const NORTH_LINE_CODE: &str = "601";
 const TITLE_CODE: &str = "991";
 const TEXT_CODE: &str = "992";
 const SMALL_TEXT_CODE: &str = "993";
+/// The `freemapper:source` of the scale bar objects: the PDF leaves them out unless asked.
+pub const SCALE_BAR_SOURCE: &str = "scale-bar";
 const BAR_LINE_CODE: &str = "994";
 /// Longest bar scale on paper; the bar is the longest round ground distance that fits.
 const BAR_MAX_MM: f64 = 60.0;
@@ -194,7 +196,14 @@ pub fn info_block(
     ));
 
     y += mm(7.0);
-    objects.extend(bar_scale((x0, y), info.scale_denominator, bar, small));
+    objects.extend(
+        bar_scale((x0, y), info.scale_denominator, bar, small)
+            .into_iter()
+            .map(|o| MapObject {
+                tags: source_tags(SCALE_BAR_SOURCE),
+                ..o
+            }),
+    );
 
     y += mm(6.0);
     for line_text in &info.attribution {

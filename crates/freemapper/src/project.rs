@@ -29,7 +29,9 @@ use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
-use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, north_lines};
+use crate::build::peripheral::{
+    PaperRect, PeripheralInfo, SCALE_BAR_SOURCE, info_block, north_lines,
+};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
 use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
@@ -4118,39 +4120,76 @@ fn copy_backgrounds(
 /// are map content in the default part.
 const SHEET_PART: &str = "peripheral information";
 
-/// The objects of the training map: everything of the map and every candidate except the map
-/// area outline (the first candidate) and the points hidden under a 520 candidate
+/// The objects of a PDF: the map's own objects, with `candidates` also every candidate except
+/// the map area outline (the first candidate) and the points hidden under a 520 candidate
 /// (`freemapper:hidden`), and separately the sheet objects, which are not clipped.
-fn training_objects(documents: &StarterDocuments) -> (Vec<&MapObject>, Vec<&MapObject>) {
+fn pdf_objects(
+    documents: &StarterDocuments,
+    candidates: bool,
+) -> (Vec<&MapObject>, Vec<&MapObject>) {
     let (sheet, own): (Vec<&MapPart>, Vec<&MapPart>) = documents
         .map
         .parts
         .iter()
         .partition(|p| p.name == SHEET_PART);
+    let candidate_objects = documents
+        .candidates
+        .parts
+        .iter()
+        .flat_map(|p| p.objects.iter().skip(1))
+        .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY))
+        .take(if candidates { usize::MAX } else { 0 });
     let map = own
         .iter()
         .flat_map(|p| &p.objects)
-        .chain(
-            documents
-                .candidates
-                .parts
-                .iter()
-                .flat_map(|p| p.objects.iter().skip(1))
-                .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY)),
-        )
+        .chain(candidate_objects)
         .collect();
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
 }
 
-/// Writes `<name>.pdf`, a fully generated training map: the map objects and all candidates
-/// drawn with the project's symbol set (this deliberately goes beyond "only reliable data as map
+/// Whether a sheet object belongs to the scale bar (the graphic bar, not the scale number in
+/// the title block).
+fn is_scale_bar(object: &MapObject) -> bool {
+    object
+        .tags
+        .iter()
+        .any(|(k, v)| k == "freemapper:source" && v == SCALE_BAR_SOURCE)
+}
+
+/// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
+/// included) and the peripheral information on the sheet, without any candidate.
+pub fn export_pdf(dir: &Path, scale_bar: bool) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, false, scale_bar)
+}
+
+/// Writes `<name>-candidates.pdf`, the training map: the map objects and all candidates drawn
+/// with the project's symbol set (this deliberately goes beyond "only reliable data as map
 /// objects"), the peripheral information on the sheet.
-pub fn export_training_pdf(dir: &Path) -> Result<PathBuf, ProjectError> {
+pub fn export_candidates_pdf(dir: &Path, scale_bar: bool) -> Result<PathBuf, ProjectError> {
+    write_pdf_file(dir, true, scale_bar)
+}
+
+/// The file `export_pdf` or `export_candidates_pdf` writes.
+pub fn pdf_path(dir: &Path, candidates: bool) -> PathBuf {
+    let map = map_path(dir);
+    if !candidates {
+        return map.with_extension("pdf");
+    }
+    let stem = map
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    map.with_file_name(format!("{stem}-candidates.pdf"))
+}
+
+fn write_pdf_file(dir: &Path, candidates: bool, scale_bar: bool) -> Result<PathBuf, ProjectError> {
     use crate::render::{draw, pdf, symbols::RenderSymbols};
     let project = ProjectFile::load(dir)?;
     let documents = starter_documents(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
-    let (map, sheet) = training_objects(&documents);
+    let (map, mut sheet) = pdf_objects(&documents, candidates);
+    if !scale_bar {
+        sheet.retain(|o| !is_scale_bar(o));
+    }
     let render = |objects: &[&MapObject]| -> Vec<draw::Primitive> {
         objects
             .iter()
@@ -4175,7 +4214,7 @@ pub fn export_training_pdf(dir: &Path) -> Result<PathBuf, ProjectError> {
         &symbols.colours,
         &project.display_title(dir),
     );
-    let path = map_path(dir).with_extension("pdf");
+    let path = pdf_path(dir, candidates);
     write_inside(dir, &path, &bytes)?;
     Ok(path)
 }
@@ -7149,10 +7188,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
-    fn training_pdf_draws_map_and_candidates() {
+    fn candidates_pdf_draws_map_and_candidates() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
-        let pdf_path = export_training_pdf(dir.path()).unwrap();
+        let pdf_path = export_candidates_pdf(dir.path(), false).unwrap();
+        assert!(
+            pdf_path.to_string_lossy().ends_with("-candidates.pdf"),
+            "{pdf_path:?}"
+        );
         assert_eq!(pdf_path.extension().unwrap(), "pdf");
         let file = std::fs::read(&pdf_path).unwrap();
         assert!(file.starts_with(b"%PDF-"));
@@ -7178,7 +7221,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
         let documents = starter_documents(dir.path()).unwrap();
-        let (map, sheet) = training_objects(&documents);
+        let (map, sheet) = pdf_objects(&documents, true);
         let outline = &documents.candidates.parts[0].objects[0];
         assert!(!map.iter().any(|o| std::ptr::eq(*o, outline)));
         let candidates = documents.candidates.parts[0].objects.len() - 1;
@@ -7194,10 +7237,86 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
-    fn training_pdf_without_data_still_has_the_sheet() {
+    fn map_pdf_leaves_out_the_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let (with, sheet_with) = pdf_objects(&documents, true);
+        let (without, sheet_without) = pdf_objects(&documents, false);
+        let own = documents
+            .map
+            .parts
+            .iter()
+            .filter(|p| p.name != SHEET_PART)
+            .map(|p| p.objects.len())
+            .sum::<usize>();
+        assert_eq!(without.len(), own);
+        assert!(with.len() > without.len());
+        assert_eq!(sheet_with, sheet_without, "same sheet in both");
+        let map_pdf = export_pdf(dir.path(), false).unwrap();
+        let cand_pdf = export_candidates_pdf(dir.path(), false).unwrap();
+        assert_ne!(map_pdf, cand_pdf);
+        assert_eq!(map_pdf.extension().unwrap(), "pdf");
+        let a = crate::render::pdf::content_of(&std::fs::read(&map_pdf).unwrap());
+        let b = crate::render::pdf::content_of(&std::fs::read(&cand_pdf).unwrap());
+        assert_ne!(a, b);
+        assert!(a.len() < b.len(), "the candidates add drawing operators");
+        let credit: String = "github.com/HenryJobst/freemapper"
+            .bytes()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert!(contains(&a, credit.as_bytes()), "sheet is complete");
+        // The tartan pitch is a candidate: only the candidates PDF paints it.
+        assert!(!contains(&a, b"0.1 0.35 0.5 0 k"));
+        assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
+    }
+
+    #[test]
+    fn scale_bar_is_off_in_the_pdf_unless_asked() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
-        let file = std::fs::read(export_training_pdf(dir.path()).unwrap()).unwrap();
+        let content = |bar: bool| {
+            let path = export_pdf(dir.path(), bar).unwrap();
+            crate::render::pdf::content_of(&std::fs::read(path).unwrap())
+        };
+        let without = content(false);
+        let with = content(true);
+        assert!(with.len() > without.len(), "the bar adds drawing operators");
+        // The scale number in the title block stays in both.
+        let label: String = "stab 1:".bytes().map(|b| format!("{b:02X}")).collect();
+        assert!(contains(&without, label.as_bytes()));
+        assert!(contains(&with, label.as_bytes()));
+        // The OOM map keeps the bar.
+        let documents = starter_documents(dir.path()).unwrap();
+        assert!(
+            documents
+                .map
+                .parts
+                .iter()
+                .flat_map(|p| &p.objects)
+                .any(is_scale_bar)
+        );
+    }
+
+    #[test]
+    fn pdf_names_sit_next_to_each_other() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let plain = pdf_path(dir.path(), false);
+        let cand = pdf_path(dir.path(), true);
+        assert_eq!(plain.parent(), cand.parent());
+        let stem = plain.file_stem().unwrap().to_string_lossy().into_owned();
+        assert_eq!(
+            cand.file_name().unwrap().to_string_lossy(),
+            format!("{stem}-candidates.pdf")
+        );
+    }
+
+    #[test]
+    fn pdf_without_data_still_has_the_sheet() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let file = std::fs::read(export_pdf(dir.path(), false).unwrap()).unwrap();
         assert!(contains(&file, b"/MediaBox"));
         assert!(
             contains(&crate::render::pdf::content_of(&file), b"Tj"),
@@ -11135,7 +11254,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
-    fn hidden_candidates_stay_out_of_the_training_pdf() {
+    fn hidden_candidates_stay_out_of_the_candidates_pdf() {
         use crate::build::points::test_support::fixture;
         let f = fixture(MapKind::Sprint);
         let outline = f.rect("520", (0.0, 0.0), (1.0, 1.0));
@@ -11157,7 +11276,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             candidates: document(vec![outline, hidden.clone(), shown.clone()]),
             attribution_text: String::new(),
         };
-        let (map, _) = training_objects(&documents);
+        let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);
         // The candidates map keeps it.
         assert!(documents.candidates.parts[0].objects.contains(&hidden));
@@ -12716,7 +12835,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             documents.map.symbol_set.id_for_code("990")
         );
         // It is drawn in the training map.
-        let (drawn, _) = training_objects(&documents);
+        let (drawn, _) = pdf_objects(&documents, true);
         assert!(drawn.iter().any(|o| std::ptr::eq(*o, &base.objects[0])));
     }
 
@@ -12780,7 +12899,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!part(SHEET_PART).objects.iter().any(is_north_line));
         // The training map clips them to the content and paints them first within their colour,
         // so walls and fences of the same black lie on top.
-        let (map, sheet) = training_objects(&documents);
+        let (map, sheet) = pdf_objects(&documents, true);
         let first_other = map.iter().position(|o| !is_north_line(o));
         let last_line = map.iter().rposition(|o| is_north_line(o)).unwrap();
         assert!(first_other.is_none_or(|i| last_line < i), "{first_other:?}");
@@ -12806,9 +12925,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!sheet.objects.is_empty());
         for o in &sheet.objects {
             assert!(sheet_ids.contains(&Some(o.symbol_id)), "{o:?}");
+            let source = if is_scale_bar(o) {
+                SCALE_BAR_SOURCE
+            } else {
+                "sheet"
+            };
             assert_eq!(
                 o.tags,
-                [("freemapper:source".to_string(), "sheet".to_string())]
+                [("freemapper:source".to_string(), source.to_string())]
             );
         }
     }
@@ -13111,7 +13235,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             }
         }
         // The training PDF paints the same candidates.
-        let (map, _) = training_objects(&documents);
+        let (map, _) = pdf_objects(&documents, true);
         let painted = map
             .iter()
             .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))

@@ -17,7 +17,7 @@ Stand mit Brandenburg, Berlin und Sachsen.
 7. [Das Ergebnis](#7-das-ergebnis)
 8. [Was die Vorlagen zeigen](#8-was-die-vorlagen-zeigen)
 9. [Was im Gelände zu prüfen ist](#9-was-im-gelände-zu-prüfen-ist)
-10. [Schnelle Trainingskarte (PDF)](#10-schnelle-trainingskarte-pdf)
+10. [Karte als PDF](#10-karte-als-pdf)
 11. [OCAD](#11-ocad)
 12. [Regionen und Grenzgebiete](#12-regionen-und-grenzgebiete)
 13. [Später weiterarbeiten](#13-später-weiterarbeiten)
@@ -40,7 +40,7 @@ OpenStreetMap (OSM).
 - Gezeichnet und im Gelände geprüft wird weiterhin von Ihnen, in **OpenOrienteering Mapper (OOM)** oder
   **OCAD**.
 
-Auf Wunsch erzeugt freemapper zusätzlich eine **druckfertige Trainingskarte als PDF** (Kapitel 10).
+Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF** und eine **Trainingskarte mit allen Kandidaten** (Kapitel 10).
 
 ## 2. Was Sie brauchen
 
@@ -115,7 +115,7 @@ Schreiben Sie dem Assistenten einfach, was Sie brauchen, zum Beispiel:
 > Erstelle mit freemapper eine Schulhofkarte für das Evangelische Kreuzgymnasium in Dresden.
 > Speichere das Projekt unter Dokumente/OL-Karten/kreuzgymnasium.
 
-> Mach mir eine Sprintkarte für die Altstadt von Strausberg, mit OCAD-Datei und Trainingskarte als PDF.
+> Mach mir eine Sprintkarte für die Altstadt von Strausberg, mit OCAD-Datei und PDF.
 
 Der Assistent geht dann so vor:
 
@@ -148,7 +148,7 @@ Windows die PowerShell, im Ordner mit freemapper.
    ./freemapper run kreuzgymnasium
    ```
 
-   Mit `--ocad` entsteht zusätzlich die OCAD-Datei, mit `--pdf` die Trainingskarte.
+   Mit `--ocad` entsteht zusätzlich die OCAD-Datei, mit `--pdf` das PDF der Karte, mit `--pdf-candidates` die Trainingskarte mit Kandidaten.
 
 Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
 
@@ -196,7 +196,8 @@ Im Projektordner liegen danach unter anderem:
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
 | `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
-| `<name>.pdf` | mit `--pdf`: die Trainingskarte |
+| `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
+| `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 | `freemapper.toml` | die Einstellungen und der Datenstand des Projekts |
 
@@ -304,7 +305,7 @@ gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie
 verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Land:
-[`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF-Trainingskarte.
+[`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
 
 ## 8. Was die Vorlagen zeigen
 
@@ -436,17 +437,35 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
 - **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
 
-## 10. Schnelle Trainingskarte (PDF)
+## 10. Karte als PDF
 
-Mit `--pdf` (oder „mit Trainingskarte“ beim Assistenten) schreibt freemapper `<name>.pdf`: eine fertig
-gezeichnete Karte in A4 oder A3, druckfertig.
+Zwei Schalter schreiben ein PDF in A4 oder A3, druckfertig, ein dritter ergänzt die Maßstabsleiste:
+
+| Schalter | Datei | Inhalt |
+|---|---|---|
+| `--pdf` (oder „mit PDF“ beim Assistenten) | `<name>.pdf` | die Karte: genau die Objekte der OOM-Datei, also ohne Kandidaten |
+| `--pdf-candidates` | `<name>-candidates.pdf` | die Trainingskarte: die Karte plus alle Kandidaten |
+| `--pdf-scale-bar` | | zeichnet auf den PDFs die Maßstabsleiste |
+
+Beide PDF-Schalter lassen sich verbinden; dann liegen beide Dateien nebeneinander im Projektordner. `export` und `run`
+kennen alle drei, der MCP-Server als `pdf`, `pdf_candidates` und `pdf_scale_bar`. freemapper merkt sich die Wahl nicht
+im Projekt: Sie gilt für den Aufruf.
 
 ![Trainingskarte als PDF](images/training-map.jpg)
 
 *Die Trainingskarte des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
 
-Anders als im Ausgangsstand werden hier **alle Kandidaten zu Kartenobjekten**, auch die unsicheren. Nur
-Punkte in einem Sperrgebiet-Kandidaten fehlen (Kapitel 9). Die Karte ist gut für ein schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
+Das PDF der Karte enthält nur, was auch in der OOM-Karte steht: Gebäude, Flächen, Gewässer, die Grundfläche unter
+Sprintkarten und die Nordlinien, dazu Titel, Maßstabszahl, Äquidistanz, Namensnennung und den Hinweis auf freemapper.
+Die Maßstabsleiste fehlt, weil deutsche Orientierungslaufkarten meist keine haben. Wer sie braucht, setzt
+`--pdf-scale-bar`; die Zahl „Maßstab 1:4000“ steht immer im Titelblock.
+
+In der Trainingskarte werden **alle Kandidaten zu Kartenobjekten**, auch die unsicheren. Nur Punkte in einem
+Sperrgebiet-Kandidaten und nicht erreichbare Durchgänge fehlen (Kapitel 9). Die Trainingskarte ist gut für ein
+schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
+
+> **Hinweis zur Umstellung:** Bis Version 0.8.0 schrieb `--pdf` die Trainingskarte mit Kandidaten und Maßstabsleiste.
+> Das ist jetzt `--pdf-candidates --pdf-scale-bar`.
 
 Die Farben sind CMYK-Werte nach den IOF-Druck- und Farbdefinitionen Rev. 4 (gültig ab 1.12.2024), dieselben
 wie in der OOM- und der OCAD-Datei. Druckt Ihr Drucker Braun oder Grün deutlich anders, vergleichen Sie mit dem
@@ -650,7 +669,7 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 - **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
   keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
   mit Gewässern, wie bei allen anderen Kartenobjekten. Die alte Karte bleibt als `.omap.bak` erhalten,
-  die OCAD-Karte als `.ocd.bak`. Jedes `run` erneuert die Kandidaten und die Trainingskarte (`--pdf`).
+  die OCAD-Karte als `.ocd.bak`. Jedes `run` erneuert die Kandidaten und die Trainingskarte (`--pdf-candidates`).
   Die Trainingskarte zeigt die Gewässer deshalb auch ohne `--force`, die Kandidaten die Gewässer aus
   OSM und die schmalen aus dem Kataster.
 - **Gebiet ändern:** `select` auf den vorhandenen Ordner und dann erneut `run`.

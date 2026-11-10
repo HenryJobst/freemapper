@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- **Default changed:** `--pdf` now writes `<name>.pdf` with exactly the objects of the OOM map, without candidates and without a scale bar. The training map with every candidate is `<name>-candidates.pdf`, written with `--pdf-candidates`; both switches together write both files. The scale bar on the PDFs only comes with `--pdf-scale-bar` (German orienteering maps usually have none); the scale number stays in the title block. The old behaviour is `--pdf-candidates --pdf-scale-bar`. This also holds for `run` and the MCP parameters `pdf`, `pdf_candidates`, `pdf_scale_bar`. The OOM and OCAD maps keep the bar. Amends ADR 0002 (ADR 0080).
+
 ### Fixed
 
 - Firm gravel paths are map objects again. `surface=compacted|fine_gravel` and `tracktype=grade2` (paved by ISSprOM 501, "hard gravel") are drawn as a line 501.6 to 501.9 by `width` on the map, no longer only as a candidate; the park maps have their paths back. Where ALKIS or the street survey already draw paving (501.5), the part of the line within it goes (widened by 0.25 mm on paper), and remnants under 1 mm on paper go. Ways without `surface`, unknown surfaces and `tracktype=grade3` to `grade5` stay candidates, and tree groups are still cut at the lines. Viktoriapark: 26 map objects 501.6 instead of 49 candidates, Sanssouci: 192 instead of 218. Amends ADR 0073 (ADR 0079).

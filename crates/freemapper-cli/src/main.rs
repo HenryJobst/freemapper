@@ -12,8 +12,8 @@ use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, derive_project, export_ocad, export_starter_project,
-    export_training_pdf, fetch_project, init_project, map_path, run_project,
+    MapKind, MapOutcome, OcadOutcome, derive_project, export_candidates_pdf, export_ocad,
+    export_pdf, export_starter_project, fetch_project, init_project, map_path, run_project,
 };
 
 #[derive(Parser)]
@@ -60,10 +60,18 @@ enum Commands {
         /// then stays unless you pass --force.
         #[arg(long)]
         ocad: bool,
-        /// Also write `<name>.pdf`, a fully generated training map (all candidates drawn as map
-        /// objects); an existing OOM map then stays unless you pass --force.
+        /// Also write `<name>.pdf`, the printable map (the map objects only, no candidates); an
+        /// existing OOM map then stays unless you pass --force.
         #[arg(long)]
         pdf: bool,
+        /// Also write `<name>-candidates.pdf`, the training map (the map plus every candidate
+        /// drawn as a map object); an existing OOM map then stays unless you pass --force.
+        #[arg(long)]
+        pdf_candidates: bool,
+        /// Draw the scale bar on the PDFs (off by default, German maps usually have none; the
+        /// scale number stays in the title block).
+        #[arg(long)]
+        pdf_scale_bar: bool,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -95,9 +103,15 @@ enum Commands {
         /// Also write an OCAD starting point into `ocad/` (OCAD 12 format).
         #[arg(long)]
         ocad: bool,
-        /// Also write `<name>.pdf`, a fully generated training map.
+        /// Also write `<name>.pdf`, the printable map (the map objects only, no candidates).
         #[arg(long)]
         pdf: bool,
+        /// Also write `<name>-candidates.pdf`, the training map (the map plus every candidate).
+        #[arg(long)]
+        pdf_candidates: bool,
+        /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
+        #[arg(long)]
+        pdf_scale_bar: bool,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -205,11 +219,15 @@ fn mode(offline: bool) -> FetchMode {
     }
 }
 
-fn report_pdf(path: &std::path::Path) {
-    println!(
-        "Wrote {} (training map with every candidate drawn as a map object; check it in the terrain)",
-        path.display()
-    );
+fn report_pdf(path: &std::path::Path, candidates: bool) {
+    if candidates {
+        println!(
+            "Wrote {} (training map with every candidate drawn as a map object; check it in the terrain)",
+            path.display()
+        );
+    } else {
+        println!("Wrote {} (the map without candidates)", path.display());
+    }
 }
 
 /// What the OCAD export wrote and what the user does next in OCAD.
@@ -283,9 +301,11 @@ fn main() -> anyhow::Result<()> {
             force,
             ocad,
             pdf,
+            pdf_candidates,
+            pdf_scale_bar,
         } => {
             let existing = map_path(&dir);
-            if (ocad || pdf) && existing.exists() && !force {
+            if (ocad || pdf || pdf_candidates) && existing.exists() && !force {
                 println!("Kept {} (it may contain your work)", existing.display());
             } else {
                 let map = export_starter_project(&dir, force)?;
@@ -295,7 +315,10 @@ fn main() -> anyhow::Result<()> {
                 report_ocad(&export_ocad(&dir, force)?);
             }
             if pdf {
-                report_pdf(&export_training_pdf(&dir)?);
+                report_pdf(&export_pdf(&dir, pdf_scale_bar)?, false);
+            }
+            if pdf_candidates {
+                report_pdf(&export_candidates_pdf(&dir, pdf_scale_bar)?, true);
             }
         }
         Commands::Fetch {
@@ -323,6 +346,8 @@ fn main() -> anyhow::Result<()> {
             force,
             ocad,
             pdf,
+            pdf_candidates,
+            pdf_scale_bar,
             cache,
         } => {
             let outcome = run_project(
@@ -371,7 +396,10 @@ fn main() -> anyhow::Result<()> {
                 report_ocad(&export_ocad(&dir, force)?);
             }
             if pdf {
-                report_pdf(&export_training_pdf(&dir)?);
+                report_pdf(&export_pdf(&dir, pdf_scale_bar)?, false);
+            }
+            if pdf_candidates {
+                report_pdf(&export_candidates_pdf(&dir, pdf_scale_bar)?, true);
             }
         }
         Commands::Select {
