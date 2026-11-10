@@ -52,3 +52,5 @@ freemapper-core is not on crates.io. Its repository on GitHub is public.
 
 Source: user request of 2026-11-09 (move freemapper onto `freemapper-fs` of freemapper-core v0.2.0);
 freemapper-core ADRs 0001, 0004, 0005, 0006, 0008, 0009; branch `core-fs`.
+
+Update 2026-11-10: freemapper also uses `freemapper-georef` (core ADR 0015) and both crates are pinned to freemapper-core v0.5.1. `crs.rs` and `tiles.rs` re-export the crate; the 12 tests of those modules moved with the code. Branch `core-georef`.
