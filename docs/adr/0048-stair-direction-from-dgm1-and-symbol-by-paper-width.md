@@ -64,5 +64,16 @@ long, some of them twice at the same place.
   stair. No OSM rule emits stairs (532.x), so there is no OSM stair to deduplicate; when one is added it takes
   the same overlap rule with ALKIS winning.
 
+## Amendment 2026-11-10: gap between the lines of a wide stair
+
+The parallel 532.9 lines of a wide stair stood exactly one footprint apart, so the 1 mm ticks of neighbouring
+lines met end to end and the stand read as a ladder with a rail every 4 m. The norm has no rule for wide stairs
+(symbol 532 only asks for generalised steps, at least 3 steps long and 0.4 mm wide), but section 3.2 sets a minimum
+gap of 0.15 mm between two line symbols of one colour. The lines are now one footprint plus that gap apart
+(`WIDE_LINE_GAP_MM`, 4.6 m at 1:4000), centred, and the count is the number that fits the width. The width is still
+covered end to end. The 134 m stadium stand of the Viktoriapark gets 29 lines instead of 33, the 120 m one 26 instead of 30; the example has
+86 instead of 94 lines 532.9 in the candidates (two stands). One line per stand would not honour its width, so the
+lines stay. Existing maps get this with `run --force`.
+
 Source: ISSprOM 2019-2 symbol 532; `docs/regions/berlin-plus-reference.md` §3.6; branch `berlin-plus`, Task 3 and
 its fix round, the Task 5b live run and the final review.

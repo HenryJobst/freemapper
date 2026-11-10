@@ -26,7 +26,8 @@
 //!
 //! The width across the walking direction, as paper width at the map scale, picks the footprint
 //! symbol nearest to it. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest footprint (a
-//! stadium stand) is drawn as parallel 532.9 lines across its width.
+//! stadium stand) is drawn as parallel 532.9 lines across its width, one footprint plus the
+//! minimum gap of 0.15 mm apart, so the ticks of neighbouring lines do not run into each other.
 
 use chrono::NaiveDate;
 use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRect as _};
@@ -60,6 +61,9 @@ const WIDEST_FOOTPRINT: &str = "532.9";
 const WIDEST_FOOTPRINT_MM: f64 = 1.0;
 /// A stair wider than this many 532.9 widths is drawn as parallel lines across its width.
 const WIDE_STAIR_FACTOR: f64 = 3.0;
+/// Paper gap (mm) kept between the ticks of two neighbouring lines of a wide stair: the
+/// minimum gap between two line symbols of one colour (ISSprOM 3.2, 0.15 mm).
+const WIDE_LINE_GAP_MM: f64 = 0.15;
 /// At most this many parallel lines for one wide stair; wider ones get them farther apart.
 const MAX_WIDE_LINES: usize = 100;
 /// A flat stair whose side lies this close to a building or monument faces it.
@@ -472,7 +476,7 @@ fn flight_axis(flight: &[&StepEdge<'_>], terrain: Option<&Raster<f32>>) -> (Axis
 /// 532.6–532.9 candidates for the stair areas and the flights of step edges of `input` within
 /// `buffer_m` of `map_area` (map CRS), with the footprints of the symbols of `kind`; `currency`
 /// is the fetch date of the layers. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest
-/// footprint becomes parallel 532.9 lines one footprint apart, tagged `freemapper:size=wide`.
+/// footprint becomes parallel 532.9 lines one footprint plus the minimum gap apart, tagged `freemapper:size=wide`.
 pub fn stair_objects(
     input: &StairInput<'_>,
     kind: MapKind,
@@ -638,7 +642,7 @@ struct StairWriter<'a> {
 impl StairWriter<'_> {
     /// One line along `axis` with the footprint nearest to its width; a wide stair (more than
     /// [`WIDE_STAIR_FACTOR`] × the widest footprint) as parallel lines of the widest footprint,
-    /// one footprint width apart and centred, tagged `freemapper:size=wide`.
+    /// one footprint width plus the minimum gap ([`WIDE_LINE_GAP_MM`]) apart and centred, tagged `freemapper:size=wide`.
     fn push(&mut self, axis: &Axis, mut tags: Vec<(String, String)>) -> Result<(), GeorefError> {
         let to_map = |c: Coord<f64>| {
             self.georef.projected_to_map(ProjectedPoint {
@@ -658,8 +662,10 @@ impl StairWriter<'_> {
             .id_for_code(code)
             .expect("symbol set defines 532.6-532.9");
         let offsets: Vec<f64> = if wide {
-            let count = ((axis.width / widest_m).floor() as usize).min(MAX_WIDE_LINES);
-            let spacing = widest_m.max(axis.width / MAX_WIDE_LINES as f64);
+            let gap_m = WIDE_LINE_GAP_MM * self.metres_per_mm;
+            let step = widest_m + gap_m;
+            let count = (((axis.width + gap_m) / step).floor() as usize).clamp(1, MAX_WIDE_LINES);
+            let spacing = step.max(axis.width / MAX_WIDE_LINES as f64);
             let first = -(count as f64 - 1.0) / 2.0 * spacing;
             tags.push(("freemapper:size".to_string(), "wide".to_string()));
             (0..count).map(|i| first + i as f64 * spacing).collect()
@@ -1066,9 +1072,11 @@ mod tests {
         let kind = MapKind::Sprint;
         let north = terrain(|_, n| 30.0 + 0.4 * n as f32);
         // A stand 134 m wide and 5.3 m deep, rising north. 532.9 is 4 m wide at 1:4000, so
-        // the stand is wider than 3 × 4 m: 33 lines 4 m apart across it, each 532.9.
+        // the stand is wider than 3 × 4 m: lines of 532.9 across it, each 4.6 m from the next
+        // (4 m footprint plus the 0.15 mm = 0.6 m minimum gap between two lines of one colour,
+        // ISSprOM 3.2), so their ticks do not run into each other: 29 of them.
         let found = objects(kind, &[rect_stair(134.0, 5.3)], Some(&north));
-        assert_eq!(found.len(), 33);
+        assert_eq!(found.len(), 29);
         let mut xs: Vec<f64> = found
             .iter()
             .map(|o| {
@@ -1086,7 +1094,7 @@ mod tests {
             .collect();
         xs.sort_by(f64::total_cmp);
         for (i, x) in xs.iter().enumerate() {
-            let expected = 67.0 + (i as f64 - 16.0) * 4.0;
+            let expected = 67.0 + (i as f64 - 14.0) * 4.6;
             assert!(
                 (x - expected).abs() < 0.05,
                 "line {i} at {x}, not {expected}"
@@ -1096,6 +1104,38 @@ mod tests {
         let found = objects(kind, &[rect_stair(12.0, 5.3)], Some(&north));
         assert_eq!(found.len(), 1);
         assert_eq!(tag(&found[0], "freemapper:size"), None);
+    }
+
+    #[test]
+    fn the_stadium_stand_of_the_viktoriapark_keeps_a_gap_between_its_lines() {
+        let kind = MapKind::Sprint;
+        // The surveyed stand of the Viktoriapark stadium (ALKIS Berlin `Treppe`, 130 m × 5.3 m),
+        // moved to the reference point. The stand leans 2.6° off north; its terraces rise to the
+        // west, square to its long side.
+        let origin = (389_888.0, 5_816_330.0);
+        let ring = [
+            (389_894.245, 5_816_265.815),
+            (389_900.185, 5_816_395.732),
+            (389_900.295, 5_816_398.027),
+            (389_895.013, 5_816_398.161),
+            (389_894.912, 5_816_395.973),
+            (389_888.972, 5_816_266.056),
+            (389_888.878, 5_816_264.009),
+            (389_894.154, 5_816_263.75),
+        ]
+        .map(|(e, n)| (e - origin.0, n - origin.1));
+        let west = terrain(|e, n| 30.0 - 0.4 * (e - 0.0457 * n) as f32);
+        let found = objects(kind, &[stair("Treppe", &ring)], Some(&west));
+        // Footprint 4 m (532.9 at 1:4000) plus 0.6 m of gap: at most one line per 4.6 m.
+        assert!(found.len() > 20, "{}", found.len());
+        let mut ys: Vec<f64> = found.iter().map(|o| ends(kind, o)[0].1).collect();
+        ys.sort_by(f64::total_cmp);
+        for pair in ys.windows(2) {
+            assert!(pair[1] - pair[0] > 4.59, "{pair:?}");
+        }
+        // They still cover the stand from end to end (the outer lines half a footprint in).
+        assert!((ys[ys.len() - 1] - ys[0]) + 4.0 > 0.95 * 130.0, "{ys:?}");
+        assert!(found.iter().all(|o| code(kind, o) == "532.9"));
     }
 
     #[test]

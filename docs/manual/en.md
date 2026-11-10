@@ -354,7 +354,7 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
     freemapper guesses. A stair at a building or monument leads up to it, any other one runs across its
     short side. These stairs carry the tag `freemapper:direction=guessed`. Check them first. Short stairs
     under about 2 m often look flat in the terrain model at 1 m resolution.
-  - Wide stairs such as stadium stands come as several parallel 532.9 lines, one symbol width apart, tagged
+  - Wide stairs such as stadium stands come as several parallel 532.9 lines, one symbol width plus 0.15 mm apart (the norm's minimum gap), tagged
     `freemapper:size=wide`. Keep a few, or draw an area.
   - Walls: where ALKIS has both edges and the centre line of a wall, the candidates show two or three
     parallel 515 lines. Take one and delete the others. ALKIS has no height. Whether a wall can be crossed
