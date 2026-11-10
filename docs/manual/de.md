@@ -369,7 +369,7 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
     kurze Seite. Solche Treppen tragen den Tag `freemapper:direction=guessed`. Prüfen Sie sie zuerst. Kurze
     Treppen unter etwa 2 m Länge wirken im Geländemodell mit 1 m Auflösung oft flach.
   - Breite Treppen wie Tribünen zeichnet freemapper als mehrere parallele Linien 532.9 im Abstand einer
-    Symbolbreite, mit dem Tag `freemapper:size=wide`. Behalten Sie einige oder zeichnen Sie eine Fläche.
+    Symbolbreite plus 0,15 mm (Mindestabstand der Norm), mit dem Tag `freemapper:size=wide`. Behalten Sie einige oder zeichnen Sie eine Fläche.
   - Mauern: Hat ALKIS für eine Mauer die Kanten und die Mittellinie, stehen in den Kandidaten zwei oder drei
     parallele Linien 515. Übernehmen Sie eine und löschen Sie die anderen. ALKIS kennt keine Höhe. Ob eine
     Mauer passierbar ist, entscheiden Sie im Gelände.
