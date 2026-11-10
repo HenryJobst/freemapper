@@ -608,10 +608,11 @@ pub fn osm_objects(
 }
 
 /// The minimum length on paper (mm) that ISSprOM 4.5 sets for a line symbol of the OSM rules:
-/// 510 and 511 power lines 3.75 mm, 528 prominent line feature 2.2 mm, 529 prominent uncrossable
-/// line feature 3 mm. A shorter line is not drawn.
+/// 509.1 railway 4 mm, 510 and 511 power lines 3.75 mm, 528 prominent line feature 2.2 mm, 529
+/// prominent uncrossable line feature 3 mm. A shorter line is not drawn.
 fn norm_min_line_mm(code: &str) -> Option<f64> {
     match code {
+        "509.1" => Some(4.0),
         "510" | "511" => Some(3.75),
         "528" => Some(2.2),
         "529" => Some(3.0),
@@ -945,13 +946,21 @@ mod tests {
     }
 
     fn objects(features: &[OsmFeature], kind: MapKind) -> (Vec<MapObject>, SymbolSet) {
+        objects_of(features, kind, Target::Candidates)
+    }
+
+    fn objects_of(
+        features: &[OsmFeature],
+        kind: MapKind,
+        target: Target,
+    ) -> (Vec<MapObject>, SymbolSet) {
         let f = fixture();
         let set = kind.symbol_set();
         let currency = "2026-11-06".parse().unwrap();
         let objects = osm_objects(
             features,
             &Rules::embedded(),
-            Target::Candidates,
+            target,
             kind,
             &f.area,
             20.0,
@@ -2431,6 +2440,59 @@ mod tests {
     }
 
     #[test]
+    fn railways_are_509_1_map_objects_and_trams_candidates() {
+        // ISSprOM 4.5, 509.1 Railway and 509.2 Tramway (ADR 0091).
+        let code = |t: &[(&str, &str)]| sprint_way(t);
+        let map = |c: &str| Some((c.to_string(), Target::Map));
+        let candidate = |c: &str| Some((c.to_string(), Target::Candidates));
+        for track in ["rail", "light_rail", "narrow_gauge"] {
+            assert_eq!(code(&[("railway", track)]), map("509.1"), "{track}");
+            assert_eq!(
+                code(&[("railway", track), ("bridge", "yes"), ("layer", "1")]),
+                map("509.1"),
+                "{track} on a bridge"
+            );
+        }
+        for service in ["siding", "yard", "spur"] {
+            assert_eq!(
+                code(&[("railway", "rail"), ("service", service)]),
+                map("509.1"),
+                "{service}"
+            );
+        }
+        assert_eq!(code(&[("railway", "rail"), ("service", "crossover")]), None);
+        // Not on the ground, not in use or not built: no line.
+        for hidden in [
+            [("railway", "rail"), ("tunnel", "yes")],
+            [("railway", "light_rail"), ("tunnel", "building_passage")],
+            [("railway", "rail"), ("tunnel", "culvert")],
+            [("railway", "disused"), ("service", "siding")],
+            [("railway", "abandoned"), ("name", "x")],
+            [("railway", "razed"), ("name", "x")],
+            [("railway", "proposed"), ("name", "x")],
+            [("railway", "construction"), ("name", "x")],
+            [("railway", "tram"), ("tunnel", "yes")],
+            [("railway", "subway"), ("tunnel", "yes")],
+            [("railway", "platform"), ("name", "x")],
+        ] {
+            assert_eq!(code(&hidden), None, "{hidden:?}");
+        }
+        // The norm: trams "are generally not represented"; a subway is below ground unless the
+        // viaduct says otherwise.
+        assert_eq!(code(&[("railway", "tram")]), candidate("509.2"));
+        assert_eq!(code(&[("railway", "subway")]), candidate("509.1"));
+        assert_eq!(
+            code(&[("railway", "subway"), ("bridge", "yes")]),
+            map("509.1")
+        );
+        assert!(
+            Rules::embedded()
+                .symbol_for(&tags(&[("railway", "rail")]), &way(), MapKind::Schoolyard)
+                .is_none()
+        );
+    }
+
+    #[test]
     fn above_ground_pipelines_are_528_or_529_candidates() {
         // ISSprOM 4.5, 528 prominent line feature "a low pipeline", 529 prominent uncrossable line
         // feature "a high pipeline" (ADR 0083).
@@ -2537,6 +2599,24 @@ mod tests {
         let high = [("man_made", "pipeline"), ("location", "overhead")];
         assert_eq!(kept(&high, 2.5), 0);
         assert_eq!(kept(&high, 3.5), 1);
+    }
+
+    #[test]
+    fn a_railway_below_the_norm_length_is_left_out() {
+        // 509.1: minimum length (isolated) two dashes, 4 mm on paper; 4 m at 1:1000.
+        let metres = |m: f64| vec![at(0.0, 0.0), at(m / 111_195.0, 0.0)];
+        let kept = |m: f64| {
+            let rail = [("railway", "rail")];
+            objects_of(
+                &[line("w1", &rail, metres(m))],
+                MapKind::Sprint,
+                Target::Map,
+            )
+            .0
+            .len()
+        };
+        assert_eq!(kept(3.0), 0);
+        assert_eq!(kept(5.0), 1);
     }
 
     #[test]
