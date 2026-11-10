@@ -15,6 +15,7 @@ use geo::{
 };
 use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Polygon, Rect, coord};
 
+use crate::build::dedup::AREA_DEDUP_TOLERANCE_MM;
 use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
@@ -583,6 +584,93 @@ pub fn drop_points_in_water(
             !(point.intersects(union) || basins.iter().any(|b| point.intersects(b)))
         })
         .collect()
+}
+
+/// `objects` without the cadastre, register and survey fountains (311, [`cadastre_fountain`]) that
+/// stand in, or within [`AREA_DEDUP_TOLERANCE_MM`] of, an OSM fountain basin among `basins`: a 301
+/// area from `amenity=fountain` (ADR 0087). The polygon is the real shape of the fountain, the
+/// point only repeats it. Other OSM water (a pond, a stream channel such as the waterfall of the
+/// Viktoriapark) is no fountain: a register point at its edge is the fountain, not a duplicate.
+/// The basin names each dropped point in its `freemapper:also`. A basin that is no simple ring
+/// (an OSM relation with islands) takes no part, and a surveyed pump stays.
+pub fn drop_fountains_in_osm_basins(
+    objects: Vec<MapObject>,
+    basins: &mut [MapObject],
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
+    use geo::Distance as _;
+    let (Some(area_id), Some(point_id)) = (
+        symbol_set.id_for_code(OSM_AREA_CODE),
+        symbol_set.id_for_code(OSM_POINT_CODE),
+    ) else {
+        return objects;
+    };
+    let tolerance_m = AREA_DEDUP_TOLERANCE_MM * f64::from(georef.scale_denominator) / 1000.0;
+    let rings: Vec<(usize, Polygon<f64>)> = basins
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| {
+            o.symbol_id == area_id
+                && from_osm(o)
+                && o.coords.len() >= 4
+                && o.tags.iter().any(|(k, v)| {
+                    k == "freemapper:osm" && crate::build::dedup::tag_holds(v, "amenity=fountain")
+                })
+        })
+        .map(|(i, o)| (i, projected_area(o, georef)))
+        .filter(|(_, polygon)| polygon.is_valid())
+        .collect();
+    if rings.is_empty() {
+        return objects;
+    }
+    let mut named: Vec<(usize, String)> = Vec::new();
+    let kept = objects
+        .into_iter()
+        .filter(|object| {
+            let is_point = matches!(object.kind, MapObjectKind::Point { .. });
+            if object.symbol_id != point_id || !is_point || !cadastre_fountain(object) {
+                return true;
+            }
+            let Some(&c) = object.coords.first() else {
+                return true;
+            };
+            let p = georef.map_to_projected(c);
+            let point = geo_types::Point::new(p.easting, p.northing);
+            let Some(&(basin, _)) = rings
+                .iter()
+                .filter(|(_, ring)| Euclidean.distance(&point, ring) <= tolerance_m)
+                .min_by(|(_, a), (_, b)| {
+                    Euclidean
+                        .distance(&point, a)
+                        .total_cmp(&Euclidean.distance(&point, b))
+                })
+            else {
+                return true;
+            };
+            let tag = |key: &str| {
+                object
+                    .tags
+                    .iter()
+                    .find(|(k, _)| k == key)
+                    .map(|(_, v)| v.as_str())
+                    .unwrap_or_default()
+            };
+            named.push((
+                basin,
+                format!(
+                    "{}/{}",
+                    tag("freemapper:source"),
+                    tag("freemapper:source_id")
+                ),
+            ));
+            false
+        })
+        .collect();
+    for (basin, name) in named {
+        crate::build::dedup::add_also(&mut basins[basin].tags, &name);
+    }
+    kept
 }
 
 /// A point of the Berlin fountain register (`zierbrunnen`), a surveyed fountain
@@ -1745,6 +1833,68 @@ mod tests {
             kept,
             vec![objects[1].clone(), objects[2].clone(), objects[4].clone()]
         );
+    }
+
+    #[test]
+    fn register_fountain_in_an_osm_basin_is_dropped_and_named() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set();
+        let (e, n) = f.centre;
+        let mut basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        basin
+            .tags
+            .push(("freemapper:source_id".into(), "way/7".into()));
+        basin
+            .tags
+            .push(("freemapper:osm".into(), "amenity=fountain".into()));
+        // An OSM stream channel (natural=water) beside it is no fountain basin.
+        let mut stream = osm_water(&f.georef, &set, e + 30.0, n - 10.0, 20.0, 20.0);
+        stream
+            .tags
+            .push(("freemapper:osm".into(), "natural=water".into()));
+        let from = |source: &str, layer: Option<&str>, id: &str, de: f64| {
+            let mut o = osm_point(&f.georef, &set, "311", e + de, n);
+            o.tags = vec![
+                ("freemapper:source".into(), source.into()),
+                ("freemapper:source_id".into(), id.into()),
+            ];
+            if let Some(layer) = layer {
+                o.tags.push(("berlin:layer".into(), layer.into()));
+            }
+            o
+        };
+        let register = "geoportal-berlin/zierbrunnen";
+        let survey = "geoportal-berlin/sb-objekte";
+        let objects = vec![
+            from(register, None, "in", 0.0),
+            // 0.5 m outside the basin edge (10 m): the tolerance of 1 m at 1:4000.
+            from(register, None, "edge", 10.5),
+            // 3 m outside: another fountain.
+            from(register, None, "out", 13.0),
+            from(survey, Some("af_wasserpumpen_brunnen"), "pump", 0.0),
+            from(survey, Some("bv_springbrunnen_zierbrunnen"), "jet", 2.0),
+            from(register, None, "waterfall", 40.0),
+        ];
+        let mut basins = vec![basin, stream];
+        let kept = drop_fountains_in_osm_basins(objects.clone(), &mut basins, &f.georef, &set);
+        assert_eq!(
+            kept,
+            vec![objects[2].clone(), objects[3].clone(), objects[5].clone()]
+        );
+        let also = basins[0]
+            .tags
+            .iter()
+            .find(|(k, _)| k == "freemapper:also")
+            .map(|(_, v)| v.as_str())
+            .unwrap();
+        assert_eq!(
+            also,
+            "geoportal-berlin/zierbrunnen/in; geoportal-berlin/zierbrunnen/edge; \
+             geoportal-berlin/sb-objekte/jet"
+        );
+        // Without a basin nothing is dropped.
+        let kept = drop_fountains_in_osm_basins(objects.clone(), &mut [], &f.georef, &set);
+        assert_eq!(kept, objects);
     }
 
     #[test]

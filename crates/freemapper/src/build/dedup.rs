@@ -509,13 +509,41 @@ pub fn drop_areas_by_rank(
 /// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
 /// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
 /// to 30 m apart, so 5 m stays well under half the spacing.
-const OSM_LAMP_DEDUP_M: f64 = 5.0;
+const OSM_LAMP_DEDUP_M: Limit = Limit::Metres(5.0);
 /// A survey mast this close to a cadastre lamp is the lamp, and an OSM hydrant, bench, mast or
 /// play item this close to the survey one is that one. Survey masts 2 m or more from a lamp are
 /// mostly sign and signal masts.
-const FURNITURE_DEDUP_M: f64 = 2.0;
-/// The same for a fountain or drinking-water point of the fountain registers.
-const FOUNTAIN_DEDUP_M: f64 = 3.0;
+const FURNITURE_DEDUP_M: Limit = Limit::Metres(2.0);
+/// The same for the fountain, well and drinking-water points of two sources (ADR 0087): 0.75 mm
+/// on paper (3 m at 1:4000, 3.75 m at 1:5000), a little under the 1.05 mm at which two 311
+/// symbols touch, and never under 3 m on the ground (1:1000), because the sources place the same
+/// fountain a few metres apart whatever the scale. The measured pairs lie at 0.05 to 0.5 m, the
+/// next point of another source 9.8 m away.
+const FOUNTAIN_DEDUP: Limit = Limit::PaperMm {
+    mm: 0.75,
+    at_least_m: 3.0,
+};
+
+/// How close two points of different sources must be to count as one object.
+#[derive(Clone, Copy)]
+enum Limit {
+    /// Ground metres.
+    Metres(f64),
+    /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
+    /// ground metres: the positional error of the sources does not shrink with the scale.
+    PaperMm { mm: f64, at_least_m: f64 },
+}
+
+impl Limit {
+    /// The limit in map coordinates (1/1000 mm on paper) at `scale_denominator`.
+    fn map_units(self, scale_denominator: u32) -> f64 {
+        let metre = 1e6 / f64::from(scale_denominator);
+        match self {
+            Self::Metres(m) => m * metre,
+            Self::PaperMm { mm, at_least_m } => (mm * 1000.0).max(at_least_m * metre),
+        }
+    }
+}
 
 /// One kind of winning point and the points that give way to it.
 struct PointDedup {
@@ -524,16 +552,16 @@ struct PointDedup {
     winner: (&'static str, &'static str),
     /// The symbol a winner must have; `None`: any.
     winner_code: Option<&'static str>,
-    /// `(tag key, value, limit in ground metres)` of the losers: an OSM rule (`freemapper:osm`,
+    /// `(tag key, value, limit)` of the losers: an OSM rule (`freemapper:osm`,
     /// one of its `; `-separated parts; a value ending in `*` is a prefix) or a survey type
     /// (`berlin:layer`).
-    losers: &'static [(&'static str, &'static str, f64)],
+    losers: &'static [(&'static str, &'static str, Limit)],
 }
 
 /// In order: the registers beat the survey and OSM, the full ALKIS fountains beat OSM, then the
 /// survey furniture beats OSM (on a sprint map it is the control sites, ADR 0077). A point dropped by an earlier entry wins nothing
 /// later.
-const POINT_DEDUPS: [PointDedup; 12] = [
+const POINT_DEDUPS: [PointDedup; 15] = [
     PointDedup {
         winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
@@ -546,12 +574,13 @@ const POINT_DEDUPS: [PointDedup; 12] = [
         winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
         losers: &[
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
-            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP_M),
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP),
             (
                 "berlin:layer",
                 "bv_springbrunnen_zierbrunnen",
-                FOUNTAIN_DEDUP_M,
+                FOUNTAIN_DEDUP,
             ),
         ],
     },
@@ -559,11 +588,11 @@ const POINT_DEDUPS: [PointDedup; 12] = [
         winner_code: None,
         winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
         losers: &[
-            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP_M),
+            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP),
             (
                 "berlin:layer",
                 "ac_trinkwasserbrunnen_wasserspender",
-                FOUNTAIN_DEDUP_M,
+                FOUNTAIN_DEDUP,
             ),
         ],
     },
@@ -573,9 +602,33 @@ const POINT_DEDUPS: [PointDedup; 12] = [
         winner_code: Some("311"),
         winner: ("freemapper:source", "alkis-nas/*"),
         losers: &[
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP_M),
-            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP_M),
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
         ],
+    },
+    // The surveyed fountains, pumps and drinking fountains beat the OSM ones (ADR 0087). The
+    // fountain registers and the full ALKIS above have gone first, so a survey point they
+    // dropped wins nothing.
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "af_wasserpumpen_brunnen"),
+        losers: &[
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "bv_springbrunnen_zierbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "ac_trinkwasserbrunnen_wasserspender"),
+        losers: &[("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP)],
     },
     // The cadastre monuments (526) beat the OSM memorials beside them (ADR 0075, 0078).
     PointDedup {
@@ -627,8 +680,8 @@ const POINT_DEDUPS: [PointDedup; 12] = [
 
 /// The OSM memorial kinds of the 526 rule. A cadastre monument is an area, its point the centre
 /// of the area, and the OSM node can stand anywhere on it: 5 m is 1.25 mm on paper at 1:4000.
-const MEMORIAL_DEDUP_M: f64 = 5.0;
-const MEMORIAL_LOSERS: &[(&str, &str, f64)] = &[
+const MEMORIAL_DEDUP_M: Limit = Limit::Metres(5.0);
+const MEMORIAL_LOSERS: &[(&str, &str, Limit)] = &[
     ("freemapper:osm", "historic=memorial", MEMORIAL_DEDUP_M),
     ("freemapper:osm", "historic=monument", MEMORIAL_DEDUP_M),
     ("freemapper:osm", "historic=wayside_cross", MEMORIAL_DEDUP_M),
@@ -641,14 +694,14 @@ const MEMORIAL_LOSERS: &[(&str, &str, f64)] = &[
 
 /// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
 /// each source uses.
-const SURVEY_MAST_LOSERS: &[(&str, &str, f64)] = &[
+const SURVEY_MAST_LOSERS: &[(&str, &str, Limit)] = &[
     ("freemapper:osm", "man_made=mast", FURNITURE_DEDUP_M),
     ("freemapper:osm", "man_made=flagpole", FURNITURE_DEDUP_M),
 ];
 
 /// Whether the tag value `value` holds `wanted`: one of its `; `-separated parts equals it, or
 /// starts with it when `wanted` ends in `*`.
-fn tag_holds(value: &str, wanted: &str) -> bool {
+pub(crate) fn tag_holds(value: &str, wanted: &str) -> bool {
     value
         .split("; ")
         .any(|part| match wanted.strip_suffix('*') {
@@ -660,8 +713,9 @@ fn tag_holds(value: &str, wanted: &str) -> bool {
 /// The registers win over the survey and OSM, and the survey furniture over OSM
 /// ([`POINT_DEDUPS`]): an OSM street lamp within [`OSM_LAMP_DEDUP_M`] or a survey mast within
 /// [`FURNITURE_DEDUP_M`] of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
-/// water) within [`FOUNTAIN_DEDUP_M`] of a point of the fountain (drinking water) register, an
-/// OSM fountain or well within [`FOUNTAIN_DEDUP_M`] of a full ALKIS (NAS) one, and
+/// water) within [`FOUNTAIN_DEDUP`] of a point of the fountain (drinking water) register, an
+/// OSM fountain or well within [`FOUNTAIN_DEDUP`] of a full ALKIS (NAS) one, an OSM fountain,
+/// well or drinking-water point within [`FOUNTAIN_DEDUP`] of the survey one (ADR 0087), and
 /// an OSM hydrant, bench, mast, flag pole or play item within [`FURNITURE_DEDUP_M`] of the
 /// survey one are dropped. A line (bench, play item) counts by the middle of its extent. The
 /// winner names each dropped object in `freemapper:also` (`osm/node/1`,
@@ -694,8 +748,6 @@ pub fn drop_points_near_registers(
         }
         _ => None,
     };
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let metre = 1e6 / f64::from(scale_denominator);
     let mut dropped_osm = vec![false; osm.len()];
     let mut dropped_cadastre = vec![false; cadastre.len()];
     let mut also: Vec<(usize, String)> = Vec::new();
@@ -714,18 +766,18 @@ pub fn drop_points_near_registers(
             continue;
         }
         let mut check = |object: &MapObject, gone: &mut bool| {
-            let Some(limit_m) = rule
+            let Some(limit) = rule
                 .losers
                 .iter()
                 .find(|&&(key, value, _)| holds(object, (key, value)))
-                .map(|&(_, _, limit_m)| limit_m)
+                .map(|&(_, _, limit)| limit)
             else {
                 return;
             };
             let Some((x, y)) = position(object).filter(|_| !*gone) else {
                 return;
             };
-            let limit = limit_m * metre;
+            let limit = limit.map_units(scale_denominator);
             let nearest = winners
                 .iter()
                 .map(|&(i, (wx, wy))| (i, (x - wx).hypot(y - wy)))
@@ -917,6 +969,153 @@ mod tests {
             drop_osm_lines_near_cadastre(osm, &mut passages, &set(), SCALE).len(),
             1
         );
+    }
+
+    const SURVEY: &str = "geoportal-berlin/sb-objekte";
+    const WELL: (&str, &str) = ("freemapper:osm", "man_made=water_well");
+
+    fn survey_pump(id: &str, de: f64) -> MapObject {
+        point(
+            "311",
+            SURVEY,
+            id,
+            de,
+            &[("berlin:layer", "af_wasserpumpen_brunnen")],
+        )
+    }
+
+    fn osm_well(id: &str, de: f64) -> MapObject {
+        point("311", "osm", id, de, &[WELL])
+    }
+
+    /// The pairs measured in the Viktoriapark (Berlin, 2026-11-10): the surveyed street pump and
+    /// the OSM well lie 0.05, 0.44 and 0.49 m apart; the fourth pair is 9.77 m apart.
+    #[test]
+    fn survey_pump_beats_the_osm_well_at_the_measured_distances() {
+        let cadastre = vec![
+            survey_pump("Pk_25.09.2014_3", 0.0),
+            survey_pump("Pk_29.04.2015_4", 100.0),
+            survey_pump("Pk_29.04.2015_6", 200.0),
+            survey_pump("Pk_29.04.2015_7", 300.0),
+        ];
+        let osm = vec![
+            osm_well("node/1313558844", 0.05),
+            osm_well("node/6005240121", 100.44),
+            osm_well("node/1154543493", 200.49),
+            osm_well("node/966049521", 309.77),
+        ];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        assert_eq!(ids(&osm), ["node/966049521"], "9.77 m is another object");
+        assert_eq!(ids(&cadastre).len(), 4);
+        assert_eq!(
+            tag(&cadastre[0], "freemapper:also"),
+            Some("osm/node/1313558844")
+        );
+        assert_eq!(
+            tag(&cadastre[2], "freemapper:also"),
+            Some("osm/node/1154543493")
+        );
+        assert_eq!(tag(&cadastre[3], "freemapper:also"), None);
+    }
+
+    #[test]
+    fn register_beats_survey_beats_osm_for_one_fountain() {
+        let register = "geoportal-berlin/zierbrunnen";
+        let cadastre = vec![
+            point("311", register, "TB-FK-5", 0.0, &[]),
+            survey_pump("Pk_1", 1.0),
+            // Beside the survey pump, 3.2 m from the register point.
+            survey_pump("Pk_2", 50.0),
+        ];
+        let osm = vec![
+            osm_well("node/1", 2.0),
+            osm_well("node/2", 50.5),
+            osm_well("node/3", 3.2),
+        ];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        // node/1 goes to the register, node/2 to the second pump; node/3 is 3.2 m from the
+        // register and the first pump is gone: it stays (0.8 mm on paper).
+        assert_eq!(ids(&osm), ["node/3"]);
+        assert_eq!(ids(&cadastre), ["TB-FK-5", "Pk_2"]);
+        let also = tag(&cadastre[0], "freemapper:also").unwrap();
+        assert!(also.contains("geoportal-berlin/sb-objekte/Pk_1"), "{also}");
+        assert!(also.contains("osm/node/1"), "{also}");
+        assert_eq!(tag(&cadastre[1], "freemapper:also"), Some("osm/node/2"));
+    }
+
+    #[test]
+    fn fountains_close_but_different_stay() {
+        // Two OSM wells 3 m apart without a winner, and a pump with a well just over the limit
+        // (0.8 mm on paper).
+        let osm = vec![
+            osm_well("node/1", 0.0),
+            osm_well("node/2", 3.0),
+            osm_well("node/3", 103.2),
+        ];
+        let cadastre = vec![survey_pump("Pk_1", 100.0)];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        assert_eq!(ids(&osm), ["node/1", "node/2", "node/3"]);
+        assert_eq!(ids(&cadastre), ["Pk_1"]);
+        assert_eq!(tag(&cadastre[0], "freemapper:also"), None);
+    }
+
+    /// The limit is 0.75 mm on paper, and 3 m on the ground at least. The points stand 0.625
+    /// and 0.875 mm apart on paper.
+    #[test]
+    fn the_fountain_limit_is_paper_based_with_a_ground_floor() {
+        for (scale, dropped) in [
+            (1000, ["near", "far"].as_slice()),
+            (4000, &["near"]),
+            (5000, &["near"]),
+        ] {
+            let cadastre = vec![survey_pump("Pk_1", 0.0)];
+            let osm = vec![osm_well("near", 2.5), osm_well("far", 3.5)];
+            let (osm, _) = drop_points_near_registers(osm, cadastre, &set(), scale);
+            let kept: Vec<&str> = ["near", "far"]
+                .into_iter()
+                .filter(|id| !dropped.contains(id))
+                .collect();
+            assert_eq!(ids(&osm), kept, "1:{scale}");
+        }
+    }
+
+    #[test]
+    fn survey_tap_beats_the_osm_drinking_water() {
+        let cadastre = vec![point(
+            "313",
+            SURVEY,
+            "Pk_9",
+            0.0,
+            &[("berlin:layer", "ac_trinkwasserbrunnen_wasserspender")],
+        )];
+        let drinking = |id: &str, de: f64| {
+            point(
+                "313",
+                "osm",
+                id,
+                de,
+                &[("freemapper:osm", "amenity=drinking_water")],
+            )
+        };
+        let osm = vec![drinking("node/1", 0.4), drinking("node/2", 6.0)];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        assert_eq!(ids(&osm), ["node/2"]);
+        assert_eq!(tag(&cadastre[0], "freemapper:also"), Some("osm/node/1"));
+    }
+
+    #[test]
+    fn register_fountain_beats_the_osm_well() {
+        let cadastre = vec![point(
+            "311",
+            "geoportal-berlin/zierbrunnen",
+            "TB-FK-5",
+            0.0,
+            &[],
+        )];
+        let osm = vec![osm_well("node/1", 1.0)];
+        let (osm, cadastre) = drop_points_near_registers(osm, cadastre, &set(), SCALE);
+        assert!(osm.is_empty());
+        assert_eq!(tag(&cadastre[0], "freemapper:also"), Some("osm/node/1"));
     }
 
     #[test]

@@ -1352,14 +1352,14 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 <part name="peripheral information"><objects count="19">
 <object type="4" symbol="185" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 113996;</coords><text>Viktoriapark, Berlin-Kreuzberg</text></object>
 <object type="4" symbol="186" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 119996;</coords><text>Maßstab 1:4000 · Äquidistanz 2 m</text></object>
-<object type="1" symbol="188"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="2">-123742 126996;-73742 126996;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="188"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="2">-123742 126996;-123742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="1">-123742 124496;</coords><text>0</text></object>
-<object type="1" symbol="188"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="2">-98742 126996;-98742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="1">-98742 124496;</coords><text>100</text></object>
-<object type="1" symbol="188"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="2">-73742 126996;-73742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="1">-73742 124496;</coords><text>200</text></object>
-<object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">scale-bar</t></tags><coords count="1">-72242 126996;</coords><text>m</text></object>
+<object type="1" symbol="188"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="2">-123742 126996;-73742 126996;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<object type="1" symbol="188"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="2">-123742 126996;-123742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="1">-123742 124496;</coords><text>0</text></object>
+<object type="1" symbol="188"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="2">-98742 126996;-98742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="1">-98742 124496;</coords><text>100</text></object>
+<object type="1" symbol="188"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="2">-73742 126996;-73742 125496;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<object type="4" symbol="187" h_align="1" v_align="0"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="1">-73742 124496;</coords><text>200</text></object>
+<object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t><t k="freemapper:sheet">scale-bar</t></tags><coords count="1">-72242 126996;</coords><text>m</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 132996;</coords><text>© OpenStreetMap-Mitwirkende, ODbL</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 135496;</coords><text>© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert</text></object>
 <object type="4" symbol="187" h_align="0" v_align="0"><tags><t k="freemapper:source">sheet</t></tags><coords count="1">-123742 137996;</coords><text>© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert</text></object>

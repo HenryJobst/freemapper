@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Berlin: Brunnen, Brunnenpumpen und Trinkbrunnen kommen nicht mehr doppelt vor (ADR 0087). Gemessen am Viktoriapark: Vermessene Pumpen und OSM-Brunnen derselben Stelle liegen 0,05 bis 0,5 m auseinander, der nächste Punkt einer anderen Quelle 9,8 m. Die Grenze ist 0,75 mm auf dem Papier (3 m bei 1:4000), im Gelände nie unter 3 m. Die Rangfolge ist Register, ALKIS, Straßenbefahrung, OSM. Die Straßenbefahrung schlägt jetzt OSM-Brunnen (`man_made=water_well`, `amenity=fountain`) und OSM-Trinkwasser (`amenity=drinking_water`), das Zierbrunnen-Register auch den OSM-Brunnen. Der Gewinner nennt den weggelassenen Punkt in `freemapper:also`. Ein Register-, ALKIS- oder Straßenbefahrungs-Brunnen im OSM-Brunnenbecken (`amenity=fountain` als Fläche) oder bis 1 m daneben fällt weg, und das Becken nennt ihn. Zwei Brunnen unterhalb der Grenze ohne höhere Quelle bleiben beide. Am Viktoriapark bleiben 9 Kandidaten 311 (3 Register, 4 Straßenbefahrung, 2 OSM) und 0 Kandidaten 313, nur der Vermerk wechselt von `freemapper:generalized` zu `freemapper:also`. Bestehende Karten bekommen das mit `run --force`.
+
 ## [0.9.1] - 2026-11-10
 
 ### Geändert
