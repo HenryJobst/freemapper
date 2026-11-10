@@ -47,7 +47,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | Number | Title | Status | Date |
 |---|---|---|---|
 | [0001](0001-rust-with-a-pure-rust-core.md) | Rust with a pure-Rust core | Accepted | 2026-11-06 |
-| [0002](0002-oom-as-primary-output-ocad-and-pdf-as-extras.md) | OOM as the primary output, OCAD and PDF as extra outputs | Accepted | 2026-11-06 |
+| [0002](0002-oom-as-primary-output-ocad-and-pdf-as-extras.md) | OOM as the primary output, OCAD and PDF as extra outputs | Accepted, amended by ADR 0080 | 2026-11-06 |
 | [0003](0003-sure-objects-as-map-objects-rest-as-templates.md) | Sure objects as map objects, the rest as templates | Accepted | 2026-11-06 |
 | [0004](0004-provenance-tags-on-generated-objects.md) | Provenance tags on generated objects | Accepted | 2026-11-06 |
 | [0005](0005-mcp-over-stdio-as-the-lay-interface.md) | MCP over stdio as the interface for non-technical users | Accepted | 2026-11-06 |
@@ -125,3 +125,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0077](0077-berlin-survey-and-registers-on-sprint-maps.md) | Berlin survey and registers on sprint maps | Accepted | 2026-11-10 |
 | [0078](0078-duplicate-areas-and-more-duplicate-kinds-by-rank.md) | Duplicate areas and more duplicate kinds, by rank | Accepted | 2026-11-10 |
 | [0079](0079-firm-gravel-paths-are-map-objects-again.md) | Firm gravel paths are map objects again | Accepted, amends ADR 0073 | 2026-11-10 |
+| [0080](0080-map-pdf-without-candidates-by-default.md) | The PDF is the map without candidates, the scale bar is optional | Accepted, amends ADR 0002 | 2026-11-10 |

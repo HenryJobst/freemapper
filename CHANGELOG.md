@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- **Standard geändert:** `--pdf` schreibt jetzt `<name>.pdf` mit genau den Objekten der OOM-Karte, ohne Kandidaten und ohne Maßstabsleiste. Die Trainingskarte mit allen Kandidaten steht in `<name>-candidates.pdf` und kommt mit `--pdf-candidates`; beide Schalter zusammen schreiben beide Dateien. Die Maßstabsleiste auf den PDFs gibt es nur mit `--pdf-scale-bar` (deutsche OL-Karten haben meist keine); die Maßstabszahl bleibt im Titelblock. Das alte Verhalten ist `--pdf-candidates --pdf-scale-bar`. Gilt auch für `run` und die MCP-Parameter `pdf`, `pdf_candidates`, `pdf_scale_bar`. OOM- und OCAD-Karte behalten die Leiste. Ändert ADR 0002 (ADR 0080).
+
 ### Behoben
 
 - Wege aus festem Kies sind wieder Kartenobjekte. `surface=compacted|fine_gravel` und `tracktype=grade2` (befestigt nach ISSprOM 501, „hard gravel“) zeichnet freemapper als Linie 501.6 bis 501.9 nach `width` in der Karte, nicht mehr nur als Kandidat; die Parkkarten haben ihre Wege zurück. Wo ALKIS oder die Befahrung schon Pflaster zeichnen (501.5), entfällt der Teil der Linie im Pflaster (aufgeweitet um 0,25 mm auf dem Papier), und Reststücke unter 1 mm auf dem Papier entfallen. Wege ohne `surface`, unbekannte Oberflächen und `tracktype=grade3` bis `grade5` bleiben Kandidaten, Baumgruppen werden weiter an den Linien geschnitten. Viktoriapark: 26 Kartenobjekte 501.6 statt 49 Kandidaten, Sanssouci: 192 statt 218. Ändert ADR 0073 (ADR 0079).

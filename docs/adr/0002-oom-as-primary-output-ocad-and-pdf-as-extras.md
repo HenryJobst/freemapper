@@ -1,7 +1,7 @@
 # 0002. OOM as the primary output, OCAD and PDF as extra outputs
 
 Date: 2026-11-06
-Status: Accepted
+Status: Accepted, amended by ADR 0080 (PDF without candidates by default)
 
 ## Context
 
