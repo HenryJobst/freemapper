@@ -21,7 +21,7 @@ freemapper is one executable without an installer and without dependencies. Do n
 the user asks; the release archives are ready to run.
 
 1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
-   `tag_name`, for example `v0.10.0`. The release page is
+   `tag_name`, for example `v0.11.0`. The release page is
    <https://github.com/HenryJobst/freemapper/releases/latest>.
 2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
 
@@ -38,7 +38,7 @@ the user asks; the release archives are ready to run.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh
-   tag=v0.10.0; platform=macos-arm64
+   tag=v0.11.0; platform=macos-arm64
    base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
@@ -49,7 +49,7 @@ the user asks; the release archives are ready to run.
    Windows (PowerShell):
 
    ```powershell
-   $tag = "v0.10.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $tag = "v0.11.0"; $name = "freemapper-$tag-windows-x86_64.zip"
    $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
    Invoke-WebRequest "$base/$name" -OutFile $name
    Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"

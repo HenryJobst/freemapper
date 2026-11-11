@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-11
+
 ### Added
 
 - Program language, third stage (ADR 0092): progress lines and warnings come in the program's language, on the command line, in the MCP server and in the log of the area page. A German warning starts with `Warnung:`. An error inside a warning, such as a failed download, is translated as well. That includes the warnings about the height models of the single states (tile lists, dates).

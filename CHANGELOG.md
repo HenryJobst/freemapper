@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.11.0] - 2026-11-11
+
 ### Hinzugefügt
 
 - Programmsprache, dritte Stufe (ADR 0092): Fortschrittszeilen und Warnungen kommen in der Sprache des Programms, auf der Kommandozeile, im MCP-Server und im Protokoll der Gebietsseite. Eine Warnung beginnt deutsch mit `Warnung:`. Steckt in einer Warnung ein Fehler, etwa ein fehlgeschlagener Download, ist auch er übersetzt. Das gilt auch für die Warnungen zu den Höhenmodellen der einzelnen Bundesländer (Kachellisten, Datumsangaben).
