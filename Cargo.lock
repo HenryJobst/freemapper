@@ -721,7 +721,12 @@ dependencies = [
 name = "freemapper-adapter-api"
 version = "0.12.0"
 dependencies = [
+ "chrono",
+ "freemapper-fs",
+ "freemapper-georef",
  "freemapper-text",
+ "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

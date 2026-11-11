@@ -2,6 +2,7 @@
 //! MCP server and the CLI).
 
 use crate::note::note;
+use crate::sources::lgb::ProductTiles as _;
 use std::path::Path;
 
 use chrono::NaiveDate;
@@ -74,17 +75,7 @@ const NRW_DOM1_TILE_MB: f64 = 3.0;
 const RP_DGM1_TILE_MB: f64 = 1.5;
 const RP_DOM1_TILE_MB: f64 = 3.0;
 
-/// One download of a project.
-#[derive(Debug, Clone, PartialEq)]
-pub struct EstimateItem {
-    pub what: String,
-    pub megabytes: f64,
-    pub cached: bool,
-    /// The part of the fetch it belongs to, kept or left out as a whole when space runs short.
-    pub part: Part,
-    /// Where the download is stored.
-    pub store: Store,
-}
+pub use freemapper_adapter_api::records::EstimateItem;
 
 /// What `fetch` will download for a project.
 #[derive(Debug, Clone, PartialEq)]

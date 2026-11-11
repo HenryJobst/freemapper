@@ -1,6 +1,7 @@
 //! GeoSN Saxony open data (dl-de/by-2-0, source note "GeoSN"): 2 km tiles of the terrain and
 //! surface models, their currency and download links from the ArcGIS tile index.
 
+use crate::sources::lgb::ProductTiles as _;
 use std::path::Path;
 
 use chrono::NaiveDate;

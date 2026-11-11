@@ -13,76 +13,25 @@ pub const RESERVE_BYTES: u64 = 1 << 30;
 /// One MB as the download estimate counts it.
 const MB: f64 = (1u64 << 20) as f64;
 
-/// A part of a fetch: downloads freemapper loads or leaves out together. The order is the order
-/// in which they are kept when space runs short.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Part {
-    /// ALKIS buildings and land use, and an OSM extract not cached yet: the map objects.
-    MapData,
-    /// The terrain model: hillshade, slope and contours.
-    Terrain,
-    /// The orthophoto, the template the mapper draws on.
-    Orthophoto,
-    /// The extra Berlin layers (ALKIS structures, tree cadastre): candidates and a few map
-    /// objects, optional like the K5 map.
-    BerlinLayers,
-    /// The state layers outside Berlin (full ALKIS from a NAS service, tree cadastres):
-    /// candidates, optional like the Berlin layers.
-    StateLayers,
-    /// The surface model (nDOM, bDOM, DOM1): only the nDSM template.
-    Surface,
-    /// A newer OSM extract where an older one is cached; the older one serves meanwhile.
-    OsmUpdate,
-    /// The Berlin K5 map (1:5000), a template the mapper may draw on.
-    K5,
-}
+// The parts of a fetch, where a download is stored and the wording of a write error live in
+// `freemapper-adapter-api` (ADR 0082); the old paths stay.
+pub use freemapper_adapter_api::error::{io_error_text, is_storage_full};
+pub use freemapper_adapter_api::records::{Part, Store};
 
-impl Part {
-    /// Whether a run cannot go on without the part: derive needs the terrain model and the
-    /// orthophoto, and the map objects come from the map data.
-    pub fn required(self) -> bool {
-        matches!(self, Part::MapData | Part::Terrain | Part::Orthophoto)
+/// What the files derived from a download (mosaics in `data/`, templates) add in the project
+/// folder, as a share of the download. Generous on purpose: the templates of a raster are
+/// about as large as its download, the nDSM template is smaller than the surface model it
+/// comes from, and the OSM candidates are a small cut of the extract. Where the Berlin
+/// layers have stairs, `derive` keeps the DGM mosaic as `data/terrain.tif` (Float32, LZW,
+/// about 4 MB per km², as much as the layers): their share covers it. The state layers get
+/// the same share for the NAS stairs of later states.
+fn derived_share(part: Part) -> f64 {
+    match part {
+        // The K5 image is written straight into the templates, so it needs no extra room.
+        Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
+        Part::Terrain | Part::Orthophoto | Part::BerlinLayers | Part::StateLayers => 1.0,
+        Part::Surface => 0.5,
     }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Part::MapData => "the ALKIS and OSM map data",
-            Part::Terrain => "the terrain model",
-            Part::Orthophoto => "the orthophoto",
-            Part::Surface => "the surface model for the nDSM template",
-            Part::OsmUpdate => "the update of the cached OSM extract",
-            Part::K5 => "the Berlin K5 map template",
-            Part::BerlinLayers => {
-                "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
-            }
-            Part::StateLayers => "the full ALKIS structures and the tree cadastres",
-        }
-    }
-
-    /// What the files derived from a download (mosaics in `data/`, templates) add in the project
-    /// folder, as a share of the download. Generous on purpose: the templates of a raster are
-    /// about as large as its download, the nDSM template is smaller than the surface model it
-    /// comes from, and the OSM candidates are a small cut of the extract. Where the Berlin
-    /// layers have stairs, `derive` keeps the DGM mosaic as `data/terrain.tif` (Float32, LZW,
-    /// about 4 MB per km², as much as the layers): their share covers it. The state layers get
-    /// the same share for the NAS stairs of later states.
-    fn derived_share(self) -> f64 {
-        match self {
-            // The K5 image is written straight into the templates, so it needs no extra room.
-            Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
-            Part::Terrain | Part::Orthophoto | Part::BerlinLayers | Part::StateLayers => 1.0,
-            Part::Surface => 0.5,
-        }
-    }
-}
-
-/// Where a download is stored.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Store {
-    /// The cache shared by all projects.
-    Cache,
-    /// The project folder (`data/`).
-    Project,
 }
 
 /// The volume a path lies on.
@@ -155,29 +104,6 @@ fn volume_id(path: &Path) -> io::Result<String> {
 #[cfg(not(any(unix, windows)))]
 fn volume_id(_path: &Path) -> io::Result<String> {
     Err(io::Error::from(io::ErrorKind::Unsupported))
-}
-
-/// Whether `e` says the volume is full or the user's quota is used up. The standard library maps
-/// the systems' codes to these kinds: ENOSPC and EDQUOT on Linux and macOS, ERROR_DISK_FULL,
-/// ERROR_HANDLE_DISK_FULL and ERROR_DISK_QUOTA_EXCEEDED on Windows.
-pub fn is_storage_full(e: &io::Error) -> bool {
-    matches!(
-        e.kind(),
-        io::ErrorKind::StorageFull | io::ErrorKind::QuotaExceeded
-    )
-}
-
-/// The text of an error writing or reading `path`: plain words when the disk is full, else the
-/// path and the system's message.
-pub fn io_error_text(path: &Path, e: &io::Error) -> String {
-    if is_storage_full(e) {
-        format!(
-            "the disk is full, so freemapper could not write {}. Free some space and try again",
-            path.display()
-        )
-    } else {
-        format!("{}: {e}", path.display())
-    }
 }
 
 /// What a fetch needs on one volume.
@@ -300,7 +226,7 @@ pub fn plan(
         need[stored] += bytes(item.megabytes);
         // Files that replace stored ones of the area need no new room once written.
         if !estimate.in_place.contains(&item.part) {
-            need[project_index] += bytes(item.megabytes * item.part.derived_share());
+            need[project_index] += bytes(item.megabytes * derived_share(item.part));
         }
     }
     for (i, volume) in volumes.iter_mut().enumerate() {

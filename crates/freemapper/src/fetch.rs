@@ -9,105 +9,21 @@ use std::time::Duration;
 
 use chrono::NaiveDate;
 
-use crate::sources::alkis::AlkisError;
 use crate::sources::lgb::ndsm_tile_url;
-use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
+use crate::sources::lgb::{Product, ProductTiles as _, TileCurrency, parse_currency_csv};
 use crate::sources::region::Provider;
 use crate::space::{DiskSpace, SystemDiskSpace};
 use crate::tiles::TileId;
 
+// The fetcher, its errors and the tile types live in `freemapper-adapter-api` (ADR 0082); the
+// old paths stay.
+pub use freemapper_adapter_api::error::FetchError;
+pub(crate) use freemapper_adapter_api::error::tile_names;
+pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
+use freemapper_adapter_api::fetch::{megabytes, too_large};
+
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
-
-#[derive(Debug, thiserror::Error)]
-pub enum FetchError {
-    #[error("download of {url} failed: {message}")]
-    Http { url: String, message: String },
-    #[error("{}", crate::space::io_error_text(.0, .1))]
-    Io(PathBuf, std::io::Error),
-    #[error("download of {url} is not a complete tile archive: {message}")]
-    CorruptArchive { url: String, message: String },
-    #[error("download of {url} is not a complete OSM extract: {message}")]
-    CorruptExtract { url: String, message: String },
-    #[error(
-        "{} not covered by the published tiles; reduce the map area or buffer_m in freemapper.toml",
-        tiles_are(.0)
-    )]
-    TilesNotCovered(Vec<TileId>),
-    #[error(
-        "offline and not cached: {product} {tiles}; run `freemapper fetch` online",
-        product = .0,
-        tiles = tile_list(.1)
-    )]
-    MissingOffline(Product, Vec<TileId>),
-    #[error(transparent)]
-    CurrencyCsv(#[from] CurrencyCsvError),
-    #[error(transparent)]
-    Alkis(#[from] AlkisError),
-    #[error("no OSM extract cached; run `freemapper fetch` online")]
-    OsmExtractMissing,
-    #[error("{0} not found on the server")]
-    NotFound(String),
-    /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
-    /// `detail` is what an OGC exception report in the answer says.
-    #[error(
-        "{url}: the server refused the request (HTTP {status}){}",
-        detail.as_deref().map(|d| format!(": {d}")).unwrap_or_default()
-    )]
-    Refused {
-        url: String,
-        status: u16,
-        detail: Option<String>,
-    },
-    /// A streamed download grew past its limit (a misbehaving server); asking again does not
-    /// help.
-    #[error("download of {url} is larger than {limit_mb} MB; stopped")]
-    TooLarge { url: String, limit_mb: u64 },
-    /// Offline: the model `label` stored at `path` is missing, cannot be read or does not cover
-    /// the map area.
-    #[error(
-        "no {label} stored for this map area: {path} is missing, cannot be read or does not cover it; run `freemapper fetch` online first",
-        path = .path.display()
-    )]
-    NotStored { label: String, path: PathBuf },
-    /// The server answered a byte range with the whole file; asking again does not help.
-    #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
-    RangeIgnored {
-        url: String,
-        range: String,
-        status: u16,
-    },
-    /// The caller asked to stop; no request was made.
-    #[error("cancelled")]
-    Cancelled,
-}
-
-impl FetchError {
-    /// Whether writing failed because the volume is full.
-    pub fn is_disk_full(&self) -> bool {
-        matches!(self, FetchError::Io(_, e) if crate::space::is_storage_full(e))
-    }
-}
-
-pub(crate) fn tile_names(tiles: &[TileId]) -> String {
-    tiles
-        .iter()
-        .map(TileId::name)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// `tile X` or `tiles X, Y`.
-fn tile_list(tiles: &[TileId]) -> String {
-    let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
-    format!("{noun} {}", tile_names(tiles))
-}
-
-/// `tile X is` or `tiles X, Y are`.
-fn tiles_are(tiles: &[TileId]) -> String {
-    let verb = if tiles.len() == 1 { "is" } else { "are" };
-    format!("{} {verb}", tile_list(tiles))
-}
 
 /// Partial files older than this are left over from interrupted runs.
 pub(crate) const STALE_PART_AGE: Duration = Duration::from_secs(3600);
@@ -155,57 +71,6 @@ impl Fetcher for CancelCheck<'_> {
     ) -> Result<(), FetchError> {
         self.check()?;
         self.inner.download_to(url, path, max_bytes, progress)
-    }
-}
-
-/// Source of downloads; HTTP in production, in-memory in tests.
-pub trait Fetcher {
-    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
-
-    /// The `Last-Modified` date of `url`, if the server sends one.
-    fn last_modified(&self, _url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        Ok(None)
-    }
-
-    /// Bytes `range` of `url`, for reading single members of very large archives.
-    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
-        let bytes = self.get(url)?;
-        let len = bytes.len() as u64;
-        let (start, end) = match range {
-            ByteRange::From { start, len: n } => (start.min(len), (start + n).min(len)),
-            ByteRange::Last(n) => (len.saturating_sub(n), len),
-        };
-        Ok(bytes[start as usize..end as usize].to_vec())
-    }
-
-    /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
-    /// being held in memory. More than `max_bytes` is [`FetchError::TooLarge`], and `path` is
-    /// removed.
-    fn download_to(
-        &self,
-        url: &str,
-        path: &Path,
-        max_bytes: u64,
-        progress: &mut dyn FnMut(Note),
-    ) -> Result<(), FetchError> {
-        let bytes = self.get(url)?;
-        if bytes.len() as u64 > max_bytes {
-            let _ = std::fs::remove_file(path);
-            return Err(too_large(url, max_bytes));
-        }
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
-        }
-        let written = freemapper_fs::create_new_file(path).and_then(|mut f| f.write_all(&bytes));
-        if let Err(e) = written {
-            let _ = std::fs::remove_file(path);
-            return Err(FetchError::Io(path.to_path_buf(), e));
-        }
-        progress(note!(
-            "progress-downloaded",
-            megabytes = megabytes(bytes.len() as u64).to_string()
-        ));
-        Ok(())
     }
 }
 
@@ -279,15 +144,6 @@ fn stream(
     Ok(())
 }
 
-/// A part of a file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ByteRange {
-    /// `len` bytes from `start`.
-    From { start: u64, len: u64 },
-    /// The last `n` bytes.
-    Last(u64),
-}
-
 /// A redirect answer as an error. Only the agents of [`PORTAL_HOST`] return one: they follow
 /// none, as a followed redirect would keep the portal's pinned trust.
 fn refuse_redirect(
@@ -315,14 +171,6 @@ fn refuse_redirect(
             status.as_u16()
         ),
     })
-}
-
-/// [`FetchError::TooLarge`] for `url` over `max_bytes`.
-fn too_large(url: &str, max_bytes: u64) -> FetchError {
-    FetchError::TooLarge {
-        url: url.to_string(),
-        limit_mb: max_bytes.div_ceil(1024 * 1024),
-    }
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -479,10 +327,6 @@ const BODY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 /// Progress is reported after each step of a large download.
 const PROGRESS_STEP_BYTES: u64 = 25 * 1024 * 1024;
-
-fn megabytes(bytes: u64) -> u64 {
-    bytes / (1024 * 1024)
-}
 
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
@@ -853,23 +697,6 @@ impl Cache {
     pub fn currency_index_path(&self, product: Product) -> PathBuf {
         self.product_dir(product).join("currency.json")
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FetchMode {
-    Online,
-    /// Use the cache only.
-    Offline,
-}
-
-/// A tile archive available in the cache.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FetchedTile {
-    pub product: Product,
-    pub tile: TileId,
-    pub url: String,
-    pub currency: TileCurrency,
-    pub zip: PathBuf,
 }
 
 /// Makes `tiles` of `product` available in `cache` and returns them in the given order.
@@ -1481,6 +1308,7 @@ fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError>
 
 #[cfg(test)]
 pub(crate) mod test_support {
+    use crate::sources::lgb::ProductTiles as _;
     use std::cell::{Cell, RefCell};
     use std::collections::HashMap;
     use std::io::Write as _;

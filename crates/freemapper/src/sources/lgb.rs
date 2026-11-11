@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
 
 use crate::sources::region::Provider;
 use crate::tiles::TileId;
@@ -22,35 +21,49 @@ const GEOSN_DOM1_SHARE: &str = "S6wwnFwX7882sZm";
 const BDOM_CURRENCY_CSV: &str =
     "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv";
 
-/// LGB product used by freemapper.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Product {
-    /// DOP20 RGB orthophoto, JPEG + world file, 0.2 m.
-    Orthophoto,
-    /// DGM1 digital terrain model, GeoTIFF f32 + world file, 1 m.
-    Dtm,
-    /// bDOM image-matched surface model, GeoTIFF f32 + world file, 0.2 m; the nDSM source
-    /// where no nDOM point cloud is published (Berlin).
-    ImageDsm,
-    /// GeoSN DGM1 terrain model, 2 km tiles, GeoTIFF f32 + world file, 1 m.
-    SaxonyDtm,
-    /// GeoSN DOM1 laser surface model, 2 km tiles, GeoTIFF f32 + world file, 1 m; the nDSM
-    /// source in Saxony, where no nDOM is published.
-    SaxonyDsm,
+pub use freemapper_adapter_api::error::CurrencyCsvError;
+pub use freemapper_adapter_api::records::{Product, TileCurrency};
+
+/// What the tile fetch asks a [`Product`]: who serves it, where its tiles and its currency list
+/// are, and how its files are named. The product itself lives in `freemapper-adapter-api`, because
+/// the tile records name it; these answers name LGB and GeoSN and stay here until the tile
+/// backends move (ADR 0082).
+pub trait ProductTiles: Copy {
+    /// Who serves the product.
+    fn provider(self) -> Provider;
+
+    /// Edge length of the product's tiles in km.
+    fn grid_km(self) -> u32;
+
+    /// Download URL of a tile. GeoSN rotates its share tokens, so its tiles are downloaded from
+    /// the URL in the tile index; this one is the fallback.
+    fn tile_url(self, t: TileId) -> String;
+
+    /// The LGB currency CSV; GeoSN products take their currency from the tile index instead.
+    fn currency_csv_url(self) -> &'static str;
+
+    /// Name of the raster file inside the tile archive.
+    fn raster_member(self, t: TileId) -> String;
+
+    /// Name of the world file inside the tile archive.
+    fn world_file_member(self, t: TileId) -> String;
+
+    /// Folder of the product's provider in the cache.
+    fn provider_dir_name(self) -> &'static str;
+
+    /// Folder of this product in its provider's cache folder.
+    fn cache_dir_name(self) -> &'static str;
 }
 
-impl Product {
-    /// Who serves the product.
-    pub fn provider(self) -> Provider {
+impl ProductTiles for Product {
+    fn provider(self) -> Provider {
         match self {
             Self::Orthophoto | Self::Dtm | Self::ImageDsm => Provider::Lgb,
             Self::SaxonyDtm | Self::SaxonyDsm => Provider::GeoSn,
         }
     }
 
-    /// Edge length of the product's tiles in km.
-    pub fn grid_km(self) -> u32 {
+    fn grid_km(self) -> u32 {
         match self.provider() {
             Provider::Lgb => 1,
             Provider::GeoSn => 2,
@@ -67,59 +80,23 @@ impl Product {
         }
     }
 
-    fn file_prefix(self) -> &'static str {
+    fn tile_url(self, t: TileId) -> String {
         match self {
-            Self::Orthophoto => "dop",
-            Self::Dtm => "dgm",
-            Self::ImageDsm => "bdom",
-            Self::SaxonyDtm => "dgm1",
-            Self::SaxonyDsm => "dom1",
-        }
-    }
-
-    /// File stem of a tile: `dgm_33421-5821` (LGB), `dgm1_33414_5654_2_sn` (GeoSN).
-    fn stem(self, t: TileId) -> String {
-        match self.provider() {
-            Provider::Lgb => format!("{}_{}", self.file_prefix(), t.name()),
-            Provider::GeoSn => format!(
-                "{}_33{:03}_{:04}_2_sn",
-                self.file_prefix(),
-                t.east_km,
-                t.north_km
-            ),
-            provider @ (Provider::LvermGeo
-            | Provider::Lgv
-            | Provider::Hvbg
-            | Provider::LvermGeoSh
-            | Provider::LaivMv
-            | Provider::GeobasisNrw
-            | Provider::Lgln
-            | Provider::LvermGeoRp) => {
-                unreachable!("{provider:?} rasters are fetched per area, not as tiles")
-            }
-        }
-    }
-
-    /// Download URL of a tile. GeoSN rotates its share tokens, so its tiles are downloaded from
-    /// the URL in the tile index; this one is the fallback.
-    pub fn tile_url(self, t: TileId) -> String {
-        match self {
-            Self::Orthophoto => format!("{DATA_URL}/dop/rgb_jpg/{}.zip", self.stem(t)),
-            Self::Dtm => format!("{DATA_URL}/dgm/tif/{}.zip", self.stem(t)),
-            Self::ImageDsm => format!("{DATA_URL}/bdom/tif/{}.zip", self.stem(t)),
+            Self::Orthophoto => format!("{DATA_URL}/dop/rgb_jpg/{}.zip", stem(self, t)),
+            Self::Dtm => format!("{DATA_URL}/dgm/tif/{}.zip", stem(self, t)),
+            Self::ImageDsm => format!("{DATA_URL}/bdom/tif/{}.zip", stem(self, t)),
             Self::SaxonyDtm => format!(
                 "{GEOSN_SHARES}/{GEOSN_DGM1_SHARE}/{}_tiff.zip",
-                self.stem(t)
+                stem(self, t)
             ),
             Self::SaxonyDsm => format!(
                 "{GEOSN_SHARES}/{GEOSN_DOM1_SHARE}/{}_tiff.zip",
-                self.stem(t)
+                stem(self, t)
             ),
         }
     }
 
-    /// The LGB currency CSV; GeoSN products take their currency from the tile index instead.
-    pub fn currency_csv_url(self) -> &'static str {
+    fn currency_csv_url(self) -> &'static str {
         match self {
             Self::Orthophoto => DOP_CURRENCY_CSV,
             Self::Dtm => DGM_CURRENCY_CSV,
@@ -128,37 +105,23 @@ impl Product {
         }
     }
 
-    /// Name of the raster file inside the tile archive.
-    pub fn raster_member(self, t: TileId) -> String {
+    fn raster_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jpg",
             _ => "tif",
         };
-        format!("{}.{ext}", self.stem(t))
+        format!("{}.{ext}", stem(self, t))
     }
 
-    /// Name of the world file inside the tile archive.
-    pub fn world_file_member(self, t: TileId) -> String {
+    fn world_file_member(self, t: TileId) -> String {
         let ext = match self {
             Self::Orthophoto => "jgw",
             _ => "tfw",
         };
-        format!("{}.{ext}", self.stem(t))
+        format!("{}.{ext}", stem(self, t))
     }
 
-    /// Human-readable name for messages.
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Orthophoto => "orthophoto (DOP20)",
-            Self::Dtm => "terrain model (DGM1)",
-            Self::ImageDsm => "surface model (bDOM)",
-            Self::SaxonyDtm => "terrain model (GeoSN DGM1)",
-            Self::SaxonyDsm => "surface model (GeoSN DOM1)",
-        }
-    }
-
-    /// Folder of the product's provider in the cache.
-    pub fn provider_dir_name(self) -> &'static str {
+    fn provider_dir_name(self) -> &'static str {
         match self.provider() {
             Provider::Lgb => "lgb",
             Provider::GeoSn => "geosn",
@@ -173,8 +136,7 @@ impl Product {
         }
     }
 
-    /// Folder of this product in its provider's cache folder.
-    pub fn cache_dir_name(self) -> &'static str {
+    fn cache_dir_name(self) -> &'static str {
         match self {
             Self::Orthophoto => "dop20rgb",
             Self::Dtm | Self::SaxonyDtm => "dgm1",
@@ -184,36 +146,41 @@ impl Product {
     }
 }
 
+fn file_prefix(product: Product) -> &'static str {
+    match product {
+        Product::Orthophoto => "dop",
+        Product::Dtm => "dgm",
+        Product::ImageDsm => "bdom",
+        Product::SaxonyDtm => "dgm1",
+        Product::SaxonyDsm => "dom1",
+    }
+}
+
+/// File stem of a tile: `dgm_33421-5821` (LGB), `dgm1_33414_5654_2_sn` (GeoSN).
+fn stem(product: Product, t: TileId) -> String {
+    match product.provider() {
+        Provider::Lgb => format!("{}_{}", file_prefix(product), t.name()),
+        Provider::GeoSn => format!(
+            "{}_33{:03}_{:04}_2_sn",
+            file_prefix(product),
+            t.east_km,
+            t.north_km
+        ),
+        provider @ (Provider::LvermGeo
+        | Provider::Lgv
+        | Provider::Hvbg
+        | Provider::LvermGeoSh
+        | Provider::LaivMv
+        | Provider::GeobasisNrw
+        | Provider::Lgln
+        | Provider::LvermGeoRp) => {
+            unreachable!("{provider:?} rasters are fetched per area, not as tiles")
+        }
+    }
+}
+
 /// First columns of an LGB currency CSV.
 const CURRENCY_CSV_HEADER: &str = "sheetnr;sheetname;creationdate;revisiondate;publicationdate";
-
-impl std::fmt::Display for Product {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.label())
-    }
-}
-
-/// Data currency of one tile from the LGB currency CSV.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TileCurrency {
-    pub created: NaiveDate,
-    pub revised: Option<NaiveDate>,
-    pub published: NaiveDate,
-}
-
-impl TileCurrency {
-    /// Date the data describes: the revision date, else the creation date.
-    pub fn currency(&self) -> NaiveDate {
-        self.revised.unwrap_or(self.created)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-#[error("currency CSV line {line}: {message}")]
-pub struct CurrencyCsvError {
-    pub line: usize,
-    pub message: String,
-}
 
 /// Parses an LGB currency CSV (`sheetnr;sheetname;creationdate;revisiondate;publicationdate;…`).
 pub fn parse_currency_csv(text: &str) -> Result<HashMap<TileId, TileCurrency>, CurrencyCsvError> {

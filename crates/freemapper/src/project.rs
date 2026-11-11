@@ -1,6 +1,7 @@
 //! Project folder and project file (`freemapper.toml`).
 
 use crate::note::{Arg, Note, note};
+use crate::sources::lgb::ProductTiles as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -358,88 +359,17 @@ pub struct ProjectFile {
     pub ndsm_tiles: Vec<NdsmRecord>,
 }
 
-/// The grid the area of a raster record is stored on, in metres. A projected coordinate differs
-/// in its last digits from one maths library to the next; on this grid the project file is the
-/// same bytes on every system.
-const STORED_METRE: f64 = 0.001;
+// The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
+pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
+use freemapper_adapter_api::records::{on_grid, stored_bbox};
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
 const STORED_DEGREE: f64 = 1e-8;
-
-/// `value` on the grid of `step`. Dividing by the whole number of steps in one unit gives the
-/// number that is written with as few digits as the grid has; multiplying by the step would
-/// leave `5816416.924000001` in the file.
-fn on_grid(value: f64, step: f64) -> f64 {
-    let per_unit = (1.0 / step).round();
-    (value * per_unit).round() / per_unit
-}
-
-/// `bbox` as a raster record stores it: rounded to the millimetre.
-fn stored_bbox(bbox: &BoundingBox) -> [f64; 4] {
-    [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n].map(|value| on_grid(value, STORED_METRE))
-}
 
 /// `area` as the OSM record stores it.
 fn stored_geo_box(area: &GeoBox) -> [f64; 4] {
     [area.min_lat, area.min_lon, area.max_lat, area.max_lon]
         .map(|value| on_grid(value, STORED_DEGREE))
-}
-
-/// Whether the stored area of a raster record covers `bbox`. The rounding of [`stored_bbox`]
-/// may leave it up to half a millimetre short, which counts as covered.
-fn stored_bbox_covers(stored: [f64; 4], bbox: &BoundingBox) -> bool {
-    let [min_e, min_n, max_e, max_n] = stored;
-    min_e <= bbox.min_e + STORED_METRE
-        && min_n <= bbox.min_n + STORED_METRE
-        && max_e >= bbox.max_e - STORED_METRE
-        && max_n >= bbox.max_n - STORED_METRE
-}
-
-/// The orthophoto fetched from a WMS for one area.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WmsRecord {
-    /// The flight date text the server gives, e.g. `19.03. + 07.04.2024`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flight: Option<String>,
-    /// What the service calls the date in `flight` when it is no flight date as such
-    /// (LVermGeo RP: `Aktualität (Erstellung)`, the date taken as the flight date).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flight_label: Option<String>,
-    pub fetched: NaiveDate,
-    /// Area in the map's CRS: min easting, min northing, max easting, max northing.
-    pub bbox: [f64; 4],
-}
-
-impl WmsRecord {
-    fn covers(&self, bbox: &BoundingBox) -> bool {
-        stored_bbox_covers(self.bbox, bbox)
-    }
-}
-
-/// A height model fetched from a WCS for one area.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WcsRecord {
-    pub fetched: NaiveDate,
-    /// Area in the map's CRS: min easting, min northing, max easting, max northing.
-    pub bbox: [f64; 4],
-    /// The date the provider gives for the data, e.g. `13.05.2024`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub date: Option<String>,
-}
-
-impl WcsRecord {
-    fn covers(&self, bbox: &BoundingBox) -> bool {
-        stored_bbox_covers(self.bbox, bbox)
-    }
-}
-
-/// One fetched nDSM tile; LGB publishes no currency for it, only the server date.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NdsmRecord {
-    pub tile: String,
-    pub url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub published: Option<NaiveDate>,
 }
 
 /// Which OSM extract the stored candidates come from and the area they cover.
@@ -481,16 +411,6 @@ impl AlkisRecord {
         let [min_e, min_n, max_e, max_n] = self.bbox;
         min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
     }
-}
-
-/// One fetched tile: where it came from and its data currency.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TileRecord {
-    pub product: Product,
-    pub tile: String,
-    pub url: String,
-    pub currency: NaiveDate,
-    pub published: NaiveDate,
 }
 
 impl ProjectFile {
@@ -6043,6 +5963,7 @@ mod tests {
     /// grid, and a record still covers the area it was fetched for.
     #[test]
     fn stored_areas_are_on_a_grid() {
+        use freemapper_adapter_api::records::{STORED_METRE, stored_bbox_covers};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);

@@ -21,11 +21,7 @@ const PAGE_LIMIT: u32 = 10_000;
 /// `rellage` value of building parts below ground.
 const UNDERGROUND: &str = "Unter der Erdoberfläche";
 
-#[derive(Debug, Clone, PartialEq, thiserror::Error)]
-#[error("invalid ALKIS data: {message}")]
-pub struct AlkisError {
-    pub message: String,
-}
+pub use freemapper_adapter_api::error::AlkisError;
 
 pub(crate) fn invalid(message: impl Into<String>) -> AlkisError {
     AlkisError {
