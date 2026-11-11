@@ -692,6 +692,7 @@ dependencies = [
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-sources",
  "freemapper-text",
  "fs4",
  "geo",
@@ -788,6 +789,24 @@ source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.0#6a9dc9ce
 dependencies = [
  "quick-xml",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "freemapper-sources"
+version = "0.12.0"
+dependencies = [
+ "chrono",
+ "crc32fast",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "image",
+ "miniz_oxide 0.9.1",
+ "quick-xml",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tiff",
+ "weezl",
+ "zip",
 ]
 
 [[package]]
