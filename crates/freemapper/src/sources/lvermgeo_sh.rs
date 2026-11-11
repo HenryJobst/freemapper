@@ -6,6 +6,7 @@
 //! `massen.php` links are built from the same attributes as the portal's own index
 //! (`link_data`).
 
+use crate::note::Note;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
@@ -363,7 +364,7 @@ pub fn fetch_model(
     bbox: &BoundingBox,
     root: &Path,
     out: &Path,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<HeightModel, FetchError> {
     fetch_model_with(
         fetcher, cache, mode, model, bbox, root, out, progress, XYZ_CELLS,
@@ -380,7 +381,7 @@ fn fetch_model_with(
     bbox: &BoundingBox,
     root: &Path,
     out: &Path,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     xyz_cells: u32,
 ) -> Result<HeightModel, FetchError> {
     let dir = cache.lvermgeo_sh_dir();
@@ -439,12 +440,12 @@ fn fetch_model_with(
                 part
             }
             Model::Bdom => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "downloading bDOM tile {} ({BDOM_MB} MB, {} of {})",
                     short_name(entry.tile),
                     n + 1,
                     pending.len()
-                ));
+                )));
                 bdom_tile(fetcher, &dir, entry, progress)?
             }
         };
@@ -640,7 +641,7 @@ fn dgm1_tile(
     dir: &Path,
     entry: &PortalTile,
     xyz_cells: u32,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(Raster<f32>, Option<String>), FetchError> {
     let path = cache_path(dir, Model::Dgm1, entry);
     let what = format!("{} tile {}", Model::Dgm1.label(), entry.name);
@@ -663,9 +664,9 @@ fn dgm1_tile(
         Err(e) => format!("from the INSPIRE ATOM directory does not read ({e})"),
     };
     let tile = format!("DGM1 tile {}", short_name(entry.tile));
-    progress(&format!(
+    progress(Note::plain(format!(
         "{tile} {atom_failed}; downloading its XYZ ({XYZ_MB} MB)"
-    ));
+    )));
     let raster = download_checked(
         fetcher,
         dir,
@@ -693,7 +694,7 @@ fn bdom_tile(
     fetcher: &dyn Fetcher,
     dir: &Path,
     entry: &PortalTile,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Raster<f32>, FetchError> {
     let what = format!("{} tile {}", Model::Bdom.label(), entry.name);
     let raster = download_checked(
@@ -761,7 +762,7 @@ fn download_checked<T>(
     entry: &PortalTile,
     what: &str,
     max_bytes: u64,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     read: impl Fn(&mut BufReader<std::fs::File>) -> Result<T, String>,
 ) -> Result<T, FetchError> {
     let downloads = dir.join("downloads");
@@ -771,7 +772,7 @@ fn download_checked<T>(
     let mut attempt = 1;
     loop {
         download_with_retries(fetcher, &entry.link, &temp.0, max_bytes, &mut |m| {
-            progress(&format!("tile {tile}: {m}"))
+            progress(Note::plain(format!("tile {tile}: {m}")))
         })?;
         let file = std::fs::File::open(&temp.0).map_err(|e| FetchError::Io(temp.0.clone(), e))?;
         let message = match read(&mut BufReader::with_capacity(1 << 16, file)) {
@@ -784,9 +785,9 @@ fn download_checked<T>(
                 message: format!("{what}: {message} (downloaded twice)"),
             });
         }
-        progress(&format!(
+        progress(Note::plain(format!(
             "tile {tile}: the download does not read ({message}); downloading it once more"
-        ));
+        )));
         attempt += 1;
     }
 }

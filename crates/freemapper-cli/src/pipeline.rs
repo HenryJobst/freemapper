@@ -108,8 +108,10 @@ impl Step {
 pub enum Event<'a> {
     /// `step` starts; `index` counts from 1 among `total` selected steps.
     Phase { step: Step, index: u8, total: u8 },
-    /// A progress line of the engine.
+    /// A progress line of the engine, in the language of the run.
     Line(&'a str),
+    /// A warning of the engine, in the language of the run. The run report lists it again.
+    Warning(&'a str),
     /// A step's result, sent as soon as it exists, so the command line can print it before a
     /// later step fails.
     Written(Written<'a>),
@@ -218,6 +220,11 @@ pub fn describe(error: &(dyn std::error::Error + 'static)) -> String {
     crate::errors::message(error, &crate::text::lang())
 }
 
+/// A progress line or a warning of the engine in the language of the run, its errors included.
+pub fn line(note: &freemapper::note::Note) -> String {
+    note.text(&crate::text::lang(), &crate::errors::message)
+}
+
 /// The steps `options` selects, in running order.
 fn selected_steps(options: &RunOptions) -> Vec<Step> {
     let mut steps = vec![Step::Fetch, Step::Derive, Step::Map];
@@ -278,11 +285,14 @@ pub fn run(
         cache,
         mode,
         options.force,
-        &mut |text| {
-            if text.starts_with("warning:") {
-                warnings.borrow_mut().push(text.to_string());
+        &mut |note| {
+            let text = line(&note);
+            if note.is_warning() {
+                (progress.borrow_mut())(Event::Warning(&text));
+                warnings.borrow_mut().push(text);
+            } else {
+                (progress.borrow_mut())(Event::Line(&text));
             }
-            (progress.borrow_mut())(Event::Line(text));
         },
         &mut |stage| {
             let step = match stage {

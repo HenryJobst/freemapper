@@ -790,6 +790,7 @@ pub fn fetch_model(
 mod tests {
     use super::*;
     use crate::fetch::test_support::{MapFetcher, rp_tile_list, serve_synthetic_rp_heights};
+    use crate::note::Note;
     use crate::raster::GridSpec;
     use crate::sources::float_tiff::decode_float_tiff;
 
@@ -1308,7 +1309,7 @@ mod tests {
             url: &str,
             path: &Path,
             max_bytes: u64,
-            progress: &mut dyn FnMut(&str),
+            progress: &mut dyn FnMut(Note),
         ) -> Result<(), FetchError> {
             self.0.download_to(url, path, max_bytes, progress)
         }

@@ -1,5 +1,6 @@
 //! Project folder and project file (`freemapper.toml`).
 
+use crate::note::{Arg, Note, note};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -455,7 +456,7 @@ impl ProjectFile {
     /// with a warning through `progress`; the rest of the project loads (ADR 0059).
     pub fn load_reporting(
         dir: &Path,
-        progress: &mut dyn FnMut(&str),
+        progress: &mut dyn FnMut(Note),
     ) -> Result<Self, ProjectError> {
         let path = dir.join(PROJECT_FILE_NAME);
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
@@ -468,11 +469,11 @@ impl ProjectFile {
             .is_err()
         {
             // Loadable all the same: the project may predate the table, and print decides.
-            progress(&format!(
-                "warning: freemapper.toml: scale 1:{} is none of the scales for {} maps ({}); freemapper-print will refuse the map",
-                project.scale_denominator,
-                project.map_kind.name(),
-                project.map_kind.allowed_text()
+            progress(note!(
+                "warning-scale-not-allowed",
+                scale = project.scale_denominator.to_string(),
+                kind = project.map_kind.name(),
+                allowed = project.map_kind.allowed_text()
             ));
         }
         Ok(project)
@@ -481,17 +482,21 @@ impl ProjectFile {
     /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
     /// of the table, each with a warning. The key is shown escaped, as it may hold control
     /// characters.
-    fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(&str)) {
+    fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(Note)) {
         let mut keep = |what: &str, key: &str, known: bool| {
+            // The catalogs word the reason by this key.
             let reason = if !freemapper_fs::is_plain_name(key) {
-                "not a plain file name"
+                "name"
             } else if !known {
-                "no layer freemapper knows"
+                "unknown"
             } else {
                 return true;
             };
-            progress(&format!(
-                "warning: freemapper.toml: ignored the {what} layer entry {key:?}: {reason}"
+            progress(note!(
+                "warning-layer-entry-ignored",
+                what = what,
+                key = format!("{key:?}"),
+                reason = reason
             ));
             false
         };
@@ -783,7 +788,7 @@ pub fn fetch_project(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<ProjectFile, ProjectError> {
     fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
 }
@@ -805,7 +810,7 @@ pub fn fetch_project_cancellable(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<ProjectFile, ProjectError> {
     let guarded = crate::fetch::CancelCheck {
@@ -828,7 +833,7 @@ fn fetch_project_parts(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<ProjectFile, ProjectError> {
     stop_if(cancelled)?;
@@ -839,10 +844,10 @@ fn fetch_project_parts(
     // The stored CRS may be stale (written by hand, or by a version that only knew zone 33).
     let crs = map_crs(&region_bbox);
     if crs != project.crs() {
-        progress(&format!(
-            "warning: the map area lies in UTM zone {} (EPSG:{}); freemapper fetches everything again in that zone",
-            if crs == Crs::Utm32 { 32 } else { 33 },
-            crs.epsg()
+        progress(note!(
+            "warning-other-zone",
+            zone = if crs == Crs::Utm32 { "32" } else { "33" },
+            epsg = crs.epsg().to_string()
         ));
         project.crs = crs.epsg();
         project.drop_fetched(dir);
@@ -850,9 +855,7 @@ fn fetch_project_parts(
     }
     let provider = raster_region(&region_bbox).map(Region::provider);
     if project.provider.is_some() && project.provider != provider {
-        progress(
-            "warning: the map area now lies in another state's data; freemapper fetches everything again",
-        );
+        progress(note!("warning-other-state"));
         project.drop_fetched(dir);
         project.provider = provider;
         project.save(dir)?;
@@ -861,7 +864,7 @@ fn fetch_project_parts(
     let bbox = project.bbox()?;
     check_size(&bbox)?;
     if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
-        progress(BEYOND_COVERAGE_WARNING);
+        progress(note!("warning-beyond-coverage"));
     }
     // Offline nothing is downloaded, so nothing needs room.
     let plan = match mode {
@@ -1062,7 +1065,7 @@ fn check_space(
     project: &ProjectFile,
     region_bbox: &BoundingBox,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Option<SpacePlan>, ProjectError> {
     let today = chrono::Local::now().date_naive();
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
@@ -1071,9 +1074,10 @@ fn check_space(
     let plan = match crate::space::plan(&estimate, cache.root(), dir, cache.disk_space()) {
         Ok(plan) => plan,
         Err((path, e)) => {
-            progress(&format!(
-                "warning: cannot read the free disk space of {} ({e}), so freemapper does not check it",
-                path.display()
+            progress(note!(
+                "warning-disk-space-unreadable",
+                path = path.display().to_string(),
+                error = Arg::error(e)
             ));
             return Ok(None);
         }
@@ -1082,7 +1086,7 @@ fn check_space(
         return Err(ProjectError::NotEnoughSpace(missing.clone()));
     }
     for skipped in plan.skipped() {
-        progress(&format!("warning: {skipped}"));
+        progress(note!("warning-error", error = Arg::error(skipped.clone())));
     }
     Ok(Some(plan))
 }
@@ -1099,7 +1103,7 @@ fn fetch_lgb_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     let tiles = raster_tiles(bbox, Provider::Lgb, 1, progress);
     let mut records = Vec::new();
@@ -1117,9 +1121,12 @@ fn fetch_lgb_rasters(
                 .iter()
                 .find(|r| r.product == product && r.tile == record.tile);
             if let Some(previous) = previous.filter(|p| p.published != record.published) {
-                progress(&format!(
-                    "warning: {product:?} tile {} changed upstream ({} → {})",
-                    record.tile, previous.published, record.published
+                progress(note!(
+                    "warning-tile-changed",
+                    product = format!("{product:?}"),
+                    tile = &record.tile,
+                    old = previous.published.to_string(),
+                    new = record.published.to_string()
                 ));
             }
             records.push(record);
@@ -1177,9 +1184,12 @@ fn fetch_lgb_rasters(
         if let Some(previous) = previous.filter(|p| p.published != record.published)
             && let (Some(old), Some(new)) = (previous.published, record.published)
         {
-            progress(&format!(
-                "warning: nDSM tile {} changed upstream ({old} → {new})",
-                record.tile
+            progress(note!(
+                "warning-tile-changed",
+                product = "nDSM",
+                tile = &record.tile,
+                old = old.to_string(),
+                new = new.to_string()
             ));
         }
     }
@@ -1205,17 +1215,15 @@ fn fetch_lgb_rasters(
                     let fetched = match result {
                         Ok(fetched) => fetched,
                         Err(e) => {
-                            progress(&format!(
-                                "warning: surface model (bDOM) of tile {} unavailable ({e}); no nDSM template there",
-                                tile.name()
+                            progress(note!(
+                                "warning-bdom-tile-unavailable",
+                                tile = tile.name(),
+                                error = Arg::error(e)
                             ));
                             continue;
                         }
                     };
-                    progress(&format!(
-                        "nDSM of tile {} from the surface model (bDOM)",
-                        tile.name()
-                    ));
+                    progress(note!("progress-ndsm-from-bdom", tile = tile.name()));
                     let record = TileRecord {
                         product: Product::ImageDsm,
                         tile: tile.name(),
@@ -1227,20 +1235,21 @@ fn fetch_lgb_rasters(
                         .iter()
                         .find(|p| p.tile == record.tile && p.published != record.published)
                     {
-                        progress(&format!(
-                            "warning: {:?} tile {} changed upstream ({} → {})",
-                            Product::ImageDsm,
-                            record.tile,
-                            previous.published,
-                            record.published
+                        progress(note!(
+                            "warning-tile-changed",
+                            product = format!("{:?}", Product::ImageDsm),
+                            tile = &record.tile,
+                            old = previous.published.to_string(),
+                            new = record.published.to_string()
                         ));
                     }
                     project.tiles.push(record);
                 }
             }
-            Err(e) => progress(&format!(
-                "warning: surface model (bDOM) unavailable ({e}); no nDSM template for {}",
-                crate::fetch::tile_names(&without_ndsm)
+            Err(e) => progress(note!(
+                "warning-bdom-unavailable",
+                error = Arg::error(e),
+                tiles = crate::fetch::tile_names(&without_ndsm)
             )),
         }
     }
@@ -1271,7 +1280,7 @@ fn fetch_geosn_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     let tiles = raster_tiles(
         bbox,
@@ -1313,17 +1322,19 @@ fn fetch_geosn_rasters(
                     Ok(fetched) => project
                         .tiles
                         .push(tile_record(fetched, &previous, progress)),
-                    Err(e) => progress(&format!(
-                        "warning: {} of tile {} unavailable ({e}); no nDSM template there",
-                        Product::SaxonyDsm,
-                        tile.name()
+                    Err(e) => progress(note!(
+                        "warning-model-tile-unavailable",
+                        model = crate::note::model(Product::SaxonyDsm.label()),
+                        tile = tile.name(),
+                        error = Arg::error(e)
                     )),
                 }
             }
         }
-        Err(e) => progress(&format!(
-            "warning: {} unavailable ({e}); no nDSM template",
-            Product::SaxonyDsm
+        Err(e) => progress(note!(
+            "warning-model-unavailable",
+            model = crate::note::model(Product::SaxonyDsm.label()),
+            error = Arg::error(e)
         )),
     }
     let flight = || crate::sources::geosn::flight_date(fetcher, bbox);
@@ -1361,7 +1372,7 @@ fn fetch_wms_orthophoto(
         &dyn Fn() -> Option<String>,
         Option<&DateLabel>,
     ),
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
     match mode {
@@ -1386,14 +1397,21 @@ fn fetch_wms_orthophoto(
                     .as_deref()
                     .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
                 let shown = label.map_or("flight", |l| l.shown);
-                progress(&match kept {
-                    Some(date) => format!("orthophoto unchanged ({shown} {date})"),
-                    None => "orthophoto unchanged".to_string(),
+                progress(match kept {
+                    Some(date) => {
+                        note!(
+                            "progress-orthophoto-unchanged-dated",
+                            label = shown,
+                            date = date
+                        )
+                    }
+                    None => note!("progress-orthophoto-unchanged"),
                 });
             } else {
-                progress(&format!(
-                    "downloading the orthophoto from the {provider} {}",
-                    source.kind()
+                progress(note!(
+                    "progress-orthophoto-download",
+                    provider = provider,
+                    service = source.kind()
                 ));
                 crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, dir, &path)?;
                 let flight_label = label
@@ -1432,7 +1450,7 @@ fn fetch_k5_into(
     project: &mut ProjectFile,
     region_bbox: &BoundingBox,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) {
     if mode == FetchMode::Offline {
         return;
@@ -1457,10 +1475,10 @@ fn fetch_k5_into(
     let unchanged =
         project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && check_template(&path, bbox).is_ok();
     if unchanged {
-        progress("K5 template unchanged");
+        progress(note!("progress-k-five-unchanged"));
         return;
     }
-    progress("downloading the K5 map (1:5000) from the Geoportal Berlin WMS");
+    progress(note!("progress-k-five-download"));
     match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path) {
         Ok(()) => {
             project.k5 = Some(WmsRecord {
@@ -1471,9 +1489,9 @@ fn fetch_k5_into(
             });
         }
         Err(e) => {
-            progress(&format!(
-                "warning: the K5 map template is unavailable ({}); skipped",
-                crate::fetch::one_line(&e.to_string(), 300)
+            progress(note!(
+                "warning-k-five-unavailable",
+                detail = crate::fetch::one_line(&e.to_string(), 300)
             ));
             remove(project);
         }
@@ -1484,8 +1502,6 @@ fn fetch_k5_into(
 /// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
 /// Bavaria, Baden-Württemberg, Saarland). The states' services stop at
 /// their borders.
-const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
-
 /// How many days a stored orthophoto is reused while the service gives no flight date (none known,
 /// or the query failed) before the next online fetch downloads it again.
 const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
@@ -1499,7 +1515,7 @@ fn fetch_lvermgeo_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::lvermgeo::{self, Model};
     project.tiles.clear();
@@ -1528,7 +1544,10 @@ fn fetch_lvermgeo_rasters(
     };
     match mode {
         FetchMode::Online => {
-            progress(&format!("downloading the {}", Model::Dgm1.label()));
+            progress(note!(
+                "progress-model-download",
+                model = crate::note::model(Model::Dgm1.label())
+            ));
             lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, dir, &dir.join(TERRAIN_RELPATH))?;
             project.terrain = Some(record(None));
             if skip_surface {
@@ -1536,13 +1555,17 @@ fn fetch_lvermgeo_rasters(
                 project.save(dir)?;
                 return Ok(());
             }
-            progress(&format!("downloading the {}", Model::Dom1.label()));
+            progress(note!(
+                "progress-model-download",
+                model = crate::note::model(Model::Dom1.label())
+            ));
             match lvermgeo::fetch_model(fetcher, Model::Dom1, bbox, dir, &dir.join(SURFACE_RELPATH))
             {
                 Ok(()) => project.surface = Some(record(lvermgeo::surface_date(fetcher, bbox))),
-                Err(e) => progress(&format!(
-                    "warning: {} unavailable ({e}); no nDSM template",
-                    Model::Dom1.label()
+                Err(e) => progress(note!(
+                    "warning-model-unavailable",
+                    model = crate::note::model(Model::Dom1.label()),
+                    error = Arg::error(e)
                 )),
             }
         }
@@ -1554,9 +1577,7 @@ fn fetch_lvermgeo_rasters(
                 return Err(ProjectError::TerrainNotFetched);
             }
             if !stored(&project.surface, SURFACE_RELPATH) {
-                progress(
-                    "warning: no surface model stored; run `freemapper fetch` online for the nDSM template",
-                );
+                progress(note!("warning-no-surface-stored"));
             }
         }
     }
@@ -1576,7 +1597,7 @@ fn fetch_lgv_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::lgv::{self, Model};
     project.tiles.clear();
@@ -1601,16 +1622,21 @@ fn fetch_lgv_rasters(
         bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
         date: Some(model.date().to_string()),
     };
-    let warn_missing = |progress: &mut dyn FnMut(&str), model: Model, missing: Vec<_>| {
+    let warn_missing = |progress: &mut dyn FnMut(Note), model: Model, missing: Vec<_>| {
         if !missing.is_empty() {
-            progress(&format!(
-                "warning: the {} has no {} inside Hamburg; the templates stay empty there",
-                model.label(),
-                lgv::tile_names(&missing)
+            progress(note!(
+                "warning-model-tiles-missing",
+                model = crate::note::model(model.label()),
+                count = missing.len(),
+                names = lgv::names(&missing),
+                state = "hamburg"
             ));
         }
     };
-    progress(&format!("reading the {}", Model::Dgm1.label()));
+    progress(note!(
+        "progress-model-read",
+        model = crate::note::model(Model::Dgm1.label())
+    ));
     let missing = lgv::fetch_model(
         fetcher,
         cache,
@@ -1627,7 +1653,10 @@ fn fetch_lgv_rasters(
         project.save(dir)?;
         return Ok(());
     }
-    progress(&format!("reading the {}", Model::Bdom.label()));
+    progress(note!(
+        "progress-model-read",
+        model = crate::note::model(Model::Bdom.label())
+    ));
     match lgv::fetch_model(
         fetcher,
         cache,
@@ -1641,9 +1670,10 @@ fn fetch_lgv_rasters(
             warn_missing(progress, Model::Bdom, missing);
             project.surface = Some(record(Model::Bdom, &project.surface));
         }
-        Err(e) => progress(&format!(
-            "warning: {} unavailable ({e}); no nDSM template",
-            Model::Bdom.label()
+        Err(e) => progress(note!(
+            "warning-model-unavailable",
+            model = crate::note::model(Model::Bdom.label()),
+            error = Arg::error(e)
         )),
     }
     project.save(dir)?;
@@ -1659,15 +1689,13 @@ fn warn_beyond_state(
     project: &ProjectFile,
     provider: Provider,
     name: &str,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     if regions_for(&project.region_bbox()?)
         .iter()
         .any(|r| r.provider() != provider)
     {
-        progress(&format!(
-            "the map area reaches beyond the state border; beyond it the templates are empty wherever the {name} orthophoto and height models end. ALKIS and OSM come from both states"
-        ));
+        progress(note!("progress-beyond-border", provider = name));
     }
     Ok(())
 }
@@ -1698,15 +1726,19 @@ fn height_record(
 
 /// The warning for the tiles of `label` that the provider lacks inside `state`.
 fn warn_missing_tiles(
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     state: &str,
     label: &str,
     found: &crate::sources::height_model::HeightModel,
 ) {
     if !found.missing.is_empty() {
-        progress(&format!(
-            "warning: the {label} has no {} inside {state}; the templates stay empty there",
-            crate::sources::lgv::tile_names(&found.missing)
+        progress(note!(
+            "warning-model-tiles-missing",
+            model = crate::note::model(label),
+            count = found.missing.len(),
+            names = crate::sources::lgv::names(&found.missing),
+            // The catalogs name the state by this key.
+            state = state.to_lowercase().replace(' ', "-")
         ));
     }
 }
@@ -1723,7 +1755,7 @@ fn fetch_hvbg_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::hvbg::{self, Model};
     project.tiles.clear();
@@ -1777,22 +1809,20 @@ fn fetch_hvbg_rasters(
         progress,
     )?;
     for warning in &list_warnings {
-        progress(&format!("warning: {warning}"));
+        progress(Note::plain(format!("warning: {warning}")));
     }
     if !unresolved.is_empty() {
         let places: Vec<String> = unresolved.iter().map(|p| format!("\"{p}\"")).collect();
-        let empty = if unresolved_empty.is_empty() {
-            String::new()
+        progress(if unresolved_empty.is_empty() {
+            note!("warning-downloadcenter-no-file", places = places.join(", "))
         } else {
-            format!(
-                "; {} stayed empty",
-                crate::sources::lgv::tile_names(&unresolved_empty)
+            note!(
+                "warning-downloadcenter-no-file-empty",
+                places = places.join(", "),
+                count = unresolved_empty.len(),
+                names = crate::sources::lgv::names(&unresolved_empty)
             )
-        };
-        progress(&format!(
-            "warning: the Downloadcenter has no file for {}{empty}",
-            places.join(", ")
-        ));
+        });
     }
     project.save(dir)?;
     Ok(())
@@ -1809,7 +1839,7 @@ fn fetch_nrw_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::geobasis_nrw::{self, Model};
     project.tiles.clear();
@@ -1843,7 +1873,7 @@ fn fetch_nrw_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
         },
         progress,
@@ -1864,7 +1894,7 @@ fn fetch_rp_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::lvermgeo_rp::{self, Model};
     project.tiles.clear();
@@ -1900,7 +1930,7 @@ fn fetch_rp_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
         },
         progress,
@@ -1921,7 +1951,7 @@ fn fetch_sh_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::lvermgeo_sh::{self, Model};
     project.tiles.clear();
@@ -1955,7 +1985,7 @@ fn fetch_sh_rasters(
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
             if !surface {
                 return;
@@ -1977,8 +2007,10 @@ fn fetch_sh_rasters(
             if let (Some(photo), Some(surface)) = (flight_year, surface_year)
                 && photo - surface >= 1
             {
-                progress(&format!(
-                    "warning: the surface model (bDOM {surface}) is older than the orthophoto ({photo}); new buildings may be missing in the nDSM"
+                progress(note!(
+                    "warning-surface-older-than-orthophoto",
+                    surface = surface.to_string(),
+                    photo = photo.to_string()
                 ));
             }
         },
@@ -2000,7 +2032,7 @@ fn fetch_mv_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::laiv_mv::{self, Model};
     project.tiles.clear();
@@ -2034,7 +2066,7 @@ fn fetch_mv_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
         },
         progress,
@@ -2053,7 +2085,7 @@ fn fetch_lgln_rasters(
     skip_surface: bool,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
     use crate::sources::lgln::{self, Model};
     project.tiles.clear();
@@ -2063,13 +2095,10 @@ fn fetch_lgln_rasters(
     let (flown, missing) = match mode {
         FetchMode::Online => match lgln::orthophoto_date(fetcher, bbox) {
             Ok(Some(date)) => (Some(date), None),
-            Ok(None) => (
-                None,
-                Some("the STAC lists no image at the centre of the map area".to_string()),
-            ),
+            Ok(None) => (None, Some(note!("word-stac-no-image"))),
             Err(e) => (
                 None,
-                Some(format!("the STAC search gave no usable answer ({e})")),
+                Some(note!("word-stac-no-answer", error = Arg::error(e))),
             ),
         },
         FetchMode::Offline => (None, None),
@@ -2089,18 +2118,16 @@ fn fetch_lgln_rasters(
     // `fetch_wms_orthophoto`); the warning says which of the two happened.
     let stored = project.orthophoto.as_ref().and_then(|o| o.flight.clone());
     if let Some(reason) = missing {
-        progress(&match &stored {
-            Some(date) => format!(
-                "warning: orthophoto (LGLN WMS): {reason}; kept the stored orthophoto and its flight date {date}"
-            ),
-            None => format!("warning: orthophoto (LGLN WMS): no flight date, {reason}"),
+        progress(match &stored {
+            Some(date) => note!("warning-lgln-orthophoto-kept", reason = reason, date = date),
+            None => note!("warning-lgln-orthophoto-undated", reason = reason),
         });
     }
     let shown = stored
         .as_deref()
         .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
     if let (FetchMode::Online, Some(date)) = (mode, shown) {
-        progress(&lgln::leaf_state(date));
+        progress(lgln::leaf_state(date));
     }
     fetch_area_heights(
         dir,
@@ -2115,7 +2142,7 @@ fn fetch_lgln_rasters(
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
             if !surface {
                 return;
@@ -2133,7 +2160,7 @@ fn fetch_lgln_rasters(
             if let (Some(scanned), Some(flight)) = (scanned, flight)
                 && let Some(warning) = lgln::surface_age_warning(scanned, flight)
             {
-                progress(&format!("warning: {warning}"));
+                progress(Note::plain(format!("warning: {warning}")));
             }
         },
         progress,
@@ -2158,17 +2185,20 @@ fn fetch_area_heights(
     fetch: &mut dyn FnMut(
         bool,
         &Path,
-        &mut dyn FnMut(&str),
+        &mut dyn FnMut(Note),
     ) -> Result<crate::sources::height_model::HeightModel, FetchError>,
     after: &mut dyn FnMut(
         bool,
         &crate::sources::height_model::HeightModel,
         &ProjectFile,
-        &mut dyn FnMut(&str),
+        &mut dyn FnMut(Note),
     ),
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), ProjectError> {
-    progress(&format!("reading the {terrain_label}"));
+    progress(note!(
+        "progress-model-read",
+        model = crate::note::model(terrain_label)
+    ));
     let found = fetch(false, &dir.join(TERRAIN_RELPATH), progress)?;
     warn_missing_tiles(progress, state, terrain_label, &found);
     after(false, &found, project, progress);
@@ -2178,14 +2208,25 @@ fn fetch_area_heights(
         project.save(dir)?;
         return Ok(());
     }
-    progress(&format!("reading the {surface_label}"));
+    progress(note!(
+        "progress-model-read",
+        model = crate::note::model(surface_label)
+    ));
     match fetch(true, &dir.join(SURFACE_RELPATH), progress) {
         Ok(found) => {
             warn_missing_tiles(progress, state, surface_label, &found);
             after(true, &found, project, progress);
             project.surface = Some(height_record(mode, bbox, &found, &project.surface));
         }
-        Err(e) => keep_surface(dir, mode, project, bbox, surface_label, &e, progress),
+        Err(e) => keep_surface(
+            dir,
+            mode,
+            project,
+            bbox,
+            surface_label,
+            Arg::error(e),
+            progress,
+        ),
     }
     project.save(dir)?;
     Ok(())
@@ -2200,16 +2241,18 @@ fn keep_surface(
     project: &mut ProjectFile,
     bbox: &BoundingBox,
     label: &str,
-    e: &dyn std::fmt::Display,
-    progress: &mut dyn FnMut(&str),
+    e: Arg,
+    progress: &mut dyn FnMut(Note),
 ) {
+    let model = crate::note::model(label);
     match stored_surface_or_drop(dir, mode, project, bbox) {
-        Some(fetched) => progress(&format!(
-            "warning: {label} unavailable ({e}); kept the surface model fetched on {fetched}"
+        Some(fetched) => progress(note!(
+            "warning-model-unavailable-kept",
+            model = model,
+            error = e,
+            fetched = fetched.to_string()
         )),
-        None => progress(&format!(
-            "warning: {label} unavailable ({e}); no nDSM template"
-        )),
+        None => progress(note!("warning-model-unavailable", model = model, error = e)),
     }
 }
 
@@ -2220,22 +2263,23 @@ fn keep_stored_surface(
     mode: FetchMode,
     project: &mut ProjectFile,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) {
     if let Some(fetched) = stored_surface_or_drop(dir, mode, project, bbox) {
-        progress(&format!(
-            "freemapper keeps the surface model fetched on {fetched} for the nDSM template"
+        progress(note!(
+            "progress-surface-kept",
+            fetched = fetched.to_string()
         ));
     }
 }
 
 /// After the surface model of a tile provider was left out: the cached tiles that still serve.
-fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(&str)) {
+fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(Note)) {
     if !tiles.is_empty() {
-        let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
-        progress(&format!(
-            "freemapper keeps the cached surface model of {noun} {} for the nDSM template",
-            tiles.join(", ")
+        progress(note!(
+            "progress-surface-tiles-kept",
+            count = tiles.len(),
+            names = tiles.join(", ")
         ));
     }
 }
@@ -2272,7 +2316,7 @@ fn raster_tiles(
     bbox: &BoundingBox,
     provider: Provider,
     km: u32,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Vec<TileId> {
     if provider.per_area() {
         // No 25833 tile grid (Hesse even has negative eastings, which a `TileId` cannot hold).
@@ -2284,9 +2328,9 @@ fn raster_tiles(
         .filter(|t| !tiles.contains(t))
         .collect();
     if !outside.is_empty() {
-        progress(&format!(
-            "the map area reaches beyond the state border; no {} data for {}, so the templates stay empty there",
-            match provider {
+        progress(note!(
+            "progress-beyond-border-no-data",
+            provider = match provider {
                 Provider::Lgb => "LGB",
                 Provider::GeoSn => "GeoSN",
                 Provider::LvermGeo => "LVermGeo",
@@ -2298,7 +2342,7 @@ fn raster_tiles(
                 Provider::Lgln => "LGLN",
                 Provider::LvermGeoRp => "LVermGeo RP",
             },
-            crate::fetch::tile_names(&outside)
+            tiles = crate::fetch::tile_names(&outside)
         ));
     }
     tiles
@@ -2308,7 +2352,7 @@ fn raster_tiles(
 fn tile_record(
     fetched: FetchedTile,
     previous: &[TileRecord],
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> TileRecord {
     let record = TileRecord {
         product: fetched.product,
@@ -2320,9 +2364,12 @@ fn tile_record(
     if let Some(old) = previous.iter().find(|p| {
         p.product == record.product && p.tile == record.tile && p.published != record.published
     }) {
-        progress(&format!(
-            "warning: {:?} tile {} changed upstream ({} → {})",
-            record.product, record.tile, old.published, record.published
+        progress(note!(
+            "warning-tile-changed",
+            product = format!("{:?}", record.product),
+            tile = &record.tile,
+            old = old.published.to_string(),
+            new = record.published.to_string()
         ));
     }
     record
@@ -2340,7 +2387,7 @@ fn fetch_osm_into(
     mode: FetchMode,
     skip_update: bool,
     project: &ProjectFile,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<OsmRecord, ProjectError> {
     let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
@@ -2358,10 +2405,10 @@ fn fetch_osm_into(
                     && project.osm.as_ref().is_some_and(|r| r.covers(&area)) =>
             {
                 let record = project.osm.clone().expect("checked above");
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: no OSM extract cached; keeping the stored OSM candidates from {}",
                     record.extract
-                ));
+                )));
                 return Ok(record);
             }
             Err(e) => return Err(e.into()),
@@ -2370,11 +2417,11 @@ fn fetch_osm_into(
     let rules = Rules::embedded();
     let mut parts = Vec::new();
     for (source, extract) in &extracts {
-        progress(&format!(
+        progress(Note::plain(format!(
             "reading OSM extract {} from {}",
             source.label(),
             extract.data_date
-        ));
+        )));
         parts.push(read_extract(&extract.path, &area, &|tags| {
             rules.wants(tags, project.map_kind)
         })?);
@@ -2382,7 +2429,10 @@ fn fetch_osm_into(
     let features = merge_features(parts);
     let path = dir.join(OSM_CANDIDATES_RELPATH);
     write_inside(dir, &path, features_to_geojson(&features).as_bytes())?;
-    progress(&format!("{} OSM candidate features", features.len()));
+    progress(Note::plain(format!(
+        "{} OSM candidate features",
+        features.len()
+    )));
     let extract_date = extracts
         .iter()
         .map(|(_, e)| e.data_date)
@@ -2420,15 +2470,15 @@ fn fetch_buildings_into(
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
-            progress(
+            progress(Note::plain(
                 "warning: ALKIS buildings coverage unknown; run `freemapper fetch` online to record it",
-            );
+            ));
         }
         let covered = previous.is_none_or(|record| record.covers(bbox));
         return if path.exists() && covered {
@@ -2437,24 +2487,26 @@ fn fetch_buildings_into(
             Err(ProjectError::BuildingsNotFetched)
         };
     }
-    progress("downloading ALKIS buildings");
+    progress(Note::plain("downloading ALKIS buildings"));
     let text = fetch_buildings_in(fetcher, area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_inside(dir, &path, text.as_bytes())?;
     let count = parsed.buildings.len();
-    progress(&format!("{count} ALKIS buildings"));
+    progress(Note::plain(format!("{count} ALKIS buildings")));
     if count == 0 {
-        progress("warning: no ALKIS buildings found in the map area");
+        progress(Note::plain(
+            "warning: no ALKIS buildings found in the map area",
+        ));
     }
     if !parsed.skipped.is_empty() {
         let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
         let more = parsed.skipped.len() > SKIPPED_SHOWN;
-        progress(&format!(
+        progress(Note::plain(format!(
             "skipped {} ALKIS features: {}{}",
             parsed.skipped.len(),
             shown.collect::<Vec<_>>().join("; "),
             if more { "; …" } else { "" }
-        ));
+        )));
     }
     let record = AlkisRecord {
         bbox: [
@@ -2480,10 +2532,10 @@ fn fetch_buildings_into(
             changes.push(format!("{} → {} buildings", old.count, record.count));
         }
         if !changes.is_empty() {
-            progress(&format!(
+            progress(Note::plain(format!(
                 "warning: ALKIS buildings changed upstream ({})",
                 changes.join(", ")
-            ));
+            )));
         }
     }
     Ok(Some(record))
@@ -2499,19 +2551,19 @@ fn fetch_land_use_into(
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
     if mode == FetchMode::Offline {
         if previous.is_none() || !path.exists() {
-            progress(
+            progress(Note::plain(
                 "no ALKIS land use stored; run `freemapper fetch` online for out-of-bounds candidates",
-            );
+            ));
         }
         return None;
     }
-    progress("downloading ALKIS land use");
+    progress(Note::plain("downloading ALKIS land use"));
     let downloaded = fetch_land_use_in(fetcher, area).and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_inside(dir, &dir.join(LAND_USE_RELPATH), text.as_bytes())?;
@@ -2519,7 +2571,10 @@ fn fetch_land_use_into(
     });
     match downloaded {
         Ok(land_use) => {
-            progress(&format!("{} ALKIS land use parts", land_use.len()));
+            progress(Note::plain(format!(
+                "{} ALKIS land use parts",
+                land_use.len()
+            )));
             Some(Some(AlkisRecord {
                 bbox: [
                     bbox.min_e.floor(),
@@ -2535,22 +2590,22 @@ fn fetch_land_use_into(
         }
         Err(e) => match previous.filter(|_| path.exists()) {
             Some(record) if record.covers(bbox) => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: ALKIS land use unavailable ({e}); keeping the stored land use"
-                ));
+                )));
                 None
             }
             Some(_) => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: ALKIS land use unavailable ({e}); the stored land use no longer covers the map area, so freemapper removed it"
-                ));
+                )));
                 freemapper_fs::remove_inside(dir, &path);
                 Some(None)
             }
             None => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: ALKIS land use unavailable ({e}); no out-of-bounds candidates"
-                ));
+                )));
                 None
             }
         },
@@ -2618,19 +2673,21 @@ fn fetch_berlin_layers_into(
     mode: FetchMode,
     skip: bool,
     previous: &BTreeMap<String, AlkisRecord>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
     if mode == FetchMode::Offline {
         if berlin::near_berlin(region_bbox) && previous.is_empty() {
-            progress(
+            progress(Note::plain(
                 "no Berlin ALKIS structures stored; run `freemapper fetch` online for stairs, walls, trees and canopies",
-            );
+            ));
         }
         return previous.clone();
     }
     if !berlin::near_berlin(region_bbox) {
         if !previous.is_empty() {
-            progress("removing the stored Berlin layers: the map area is no longer near Berlin");
+            progress(Note::plain(
+                "removing the stored Berlin layers: the map area is no longer near Berlin",
+            ));
             for key in previous.keys() {
                 remove_berlin_layer(dir, key);
             }
@@ -2641,7 +2698,9 @@ fn fetch_berlin_layers_into(
         // The disk plan already said that the layers are left out; stored ones stay.
         return previous.clone();
     }
-    progress("downloading Berlin ALKIS structures, tree cadastre, street survey and point layers");
+    progress(Note::plain(
+        "downloading Berlin ALKIS structures, tree cadastre, street survey and point layers",
+    ));
     let bbox = [
         region_bbox.min_e.floor(),
         region_bbox.min_n.floor(),
@@ -2667,7 +2726,7 @@ fn fetch_berlin_layers_into(
             });
         match stored {
             Ok(count) => {
-                progress(&format!("{count} Berlin {file} features"));
+                progress(Note::plain(format!("{count} Berlin {file} features")));
                 records.insert(
                     file.to_string(),
                     AlkisRecord {
@@ -2684,16 +2743,16 @@ fn fetch_berlin_layers_into(
                 .filter(|r| path.exists() && r.covers(region_bbox))
             {
                 Some(record) => {
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: Berlin {file} unavailable ({e}); keeping the stored layer"
-                    ));
+                    )));
                     records.insert(file.to_string(), record.clone());
                 }
                 None => {
                     // Nothing was written for it; a stale file is removed with the unused layers.
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: Berlin {file} unavailable ({e}); layer skipped"
-                    ));
+                    )));
                 }
             },
         }
@@ -2721,22 +2780,22 @@ fn fetch_nas_layers_into(
     mode: FetchMode,
     skip: bool,
     previous: &BTreeMap<String, AlkisRecord>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
     let in_nas_state = !alkis_nas::nas_services_for(&area.region_bbox).is_empty();
     if mode == FetchMode::Offline {
         if in_nas_state && previous.is_empty() {
-            progress(
+            progress(Note::plain(
                 "no full ALKIS structures stored; run `freemapper fetch` online for walls, fences, hedges and bridges",
-            );
+            ));
         }
         return previous.clone();
     }
     if !in_nas_state {
         if !previous.is_empty() {
-            progress(
+            progress(Note::plain(
                 "removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service",
-            );
+            ));
             for key in previous.keys() {
                 remove_nas_layer(dir, key);
             }
@@ -2751,9 +2810,9 @@ fn fetch_nas_layers_into(
     // right before each download (ADR 0060), removed after each one.
     let layers_dir = dir.join(NAS_LAYERS_DIR);
     if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
-        progress(&format!(
+        progress(Note::plain(format!(
             "warning: full ALKIS layers skipped ({NAS_LAYERS_DIR} leads out of the project folder)"
-        ));
+        )));
         return BTreeMap::new();
     }
     // Only after the check: a linked folder never has its part files removed.
@@ -2763,7 +2822,7 @@ fn fetch_nas_layers_into(
         crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
         Ok(part)
     };
-    progress("downloading the full ALKIS structures (NAS)");
+    progress(Note::plain("downloading the full ALKIS structures (NAS)"));
     let bbox = &area.bbox;
     let rounded = [
         bbox.min_e.floor(),
@@ -2789,11 +2848,11 @@ fn fetch_nas_layers_into(
         match stored {
             Ok(fetched) => {
                 let count = fetched.features.len();
-                progress(&format!("{count} ALKIS NAS {file} features"));
+                progress(Note::plain(format!("{count} ALKIS NAS {file} features")));
                 if !fetched.skipped.is_empty() {
                     let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
                     let more = fetched.skipped.len() > SKIPPED_SHOWN;
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "skipped {} ALKIS NAS {file} features: {}{}",
                         fetched.skipped.len(),
                         shown
@@ -2801,7 +2860,7 @@ fn fetch_nas_layers_into(
                             .collect::<Vec<_>>()
                             .join("; "),
                         if more { "; …" } else { "" }
-                    ));
+                    )));
                 }
                 let latest_update = fetched
                     .features
@@ -2824,16 +2883,16 @@ fn fetch_nas_layers_into(
                 .filter(|r| path.exists() && r.covers(bbox))
             {
                 Some(record) => {
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: ALKIS NAS {file} unavailable ({e}); keeping the stored layer"
-                    ));
+                    )));
                     records.insert(file.to_string(), record.clone());
                 }
                 None => {
                     // Nothing was written for it; a stale file is removed with the unused layers.
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: ALKIS NAS {file} unavailable ({e}); layer skipped"
-                    ));
+                    )));
                 }
             },
         }
@@ -2927,22 +2986,22 @@ fn fetch_tree_layers_into(
     mode: FetchMode,
     skip: bool,
     previous: &BTreeMap<String, AlkisRecord>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
     let in_city = !trees::tree_datasets_for(&area.region_bbox).is_empty();
     if mode == FetchMode::Offline {
         if in_city && previous.is_empty() {
-            progress(
+            progress(Note::plain(
                 "no city tree cadastre stored; run `freemapper fetch` online for the single trees",
-            );
+            ));
         }
         return previous.clone();
     }
     if !in_city {
         if !previous.is_empty() {
-            progress(
+            progress(Note::plain(
                 "removing the stored tree cadastres: the map area is no longer in a city with one",
-            );
+            ));
             for key in previous.keys() {
                 remove_tree_layer(dir, key);
             }
@@ -2956,9 +3015,9 @@ fn fetch_tree_layers_into(
     // Answers stream into a part file beside the datasets, as for the NAS layers (ADR 0060).
     let trees_dir = dir.join(TREE_LAYERS_DIR);
     if crate::fsutil::check_folder_inside(dir, &trees_dir).is_err() {
-        progress(&format!(
+        progress(Note::plain(format!(
             "warning: city tree cadastres skipped ({TREE_LAYERS_DIR} leads out of the project folder)"
-        ));
+        )));
         return BTreeMap::new();
     }
     crate::fsutil::remove_stale_parts_inside(dir, &trees_dir, crate::fetch::STALE_PART_AGE);
@@ -2967,7 +3026,7 @@ fn fetch_tree_layers_into(
         crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
         Ok(part)
     };
-    progress("downloading the city tree cadastres");
+    progress(Note::plain("downloading the city tree cadastres"));
     let bbox = &area.bbox;
     let rounded = [
         bbox.min_e.floor(),
@@ -2993,11 +3052,11 @@ fn fetch_tree_layers_into(
         match stored {
             Ok(fetched) => {
                 let count = fetched.features.len();
-                progress(&format!("{count} {id} trees"));
+                progress(Note::plain(format!("{count} {id} trees")));
                 if !fetched.skipped.is_empty() {
                     let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
                     let more = fetched.skipped.len() > SKIPPED_SHOWN;
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "skipped {} {id} trees: {}{}",
                         fetched.skipped.len(),
                         shown
@@ -3005,7 +3064,7 @@ fn fetch_tree_layers_into(
                             .collect::<Vec<_>>()
                             .join("; "),
                         if more { "; …" } else { "" }
-                    ));
+                    )));
                 }
                 let latest_update = fetched
                     .features
@@ -3025,15 +3084,15 @@ fn fetch_tree_layers_into(
             }
             Err(e) => match previous.get(id).filter(|r| path.exists() && r.covers(bbox)) {
                 Some(record) => {
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: {id} tree cadastre unavailable ({e}); keeping the stored one"
-                    ));
+                    )));
                     records.insert(id.to_string(), record.clone());
                 }
                 None => {
-                    progress(&format!(
+                    progress(Note::plain(format!(
                         "warning: {id} tree cadastre unavailable ({e}); trees skipped"
-                    ));
+                    )));
                 }
             },
         }
@@ -3449,7 +3508,7 @@ fn stored_paved_objects(
 pub fn derive_project(
     dir: &Path,
     cache: &Cache,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<PathBuf>, ProjectError> {
     derive_project_cancellable(dir, cache, progress, &|| false)
 }
@@ -3460,7 +3519,7 @@ pub fn derive_project(
 pub fn derive_project_cancellable(
     dir: &Path,
     cache: &Cache,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<PathBuf>, ProjectError> {
     stop_if(cancelled)?;
@@ -3543,7 +3602,7 @@ pub fn derive_project_cancellable(
 
     crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
-    progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
+    progress(Note::plain(format!("writing {ORTHOPHOTO_RELPATH}")));
     stop_if(cancelled)?;
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, dir, &orthophoto)?,
@@ -3598,7 +3657,7 @@ pub fn derive_project_cancellable(
             })
     };
     if stairs {
-        progress(&format!("writing {TERRAIN_MOSAIC_RELPATH}"));
+        progress(Note::plain(format!("writing {TERRAIN_MOSAIC_RELPATH}")));
         crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
     } else {
         for file in [mosaic.clone(), mosaic.with_extension("tfw")] {
@@ -3606,16 +3665,16 @@ pub fn derive_project_cancellable(
         }
     }
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
-    progress(&format!("writing {HILLSHADE_RELPATH}"));
+    progress(Note::plain(format!("writing {HILLSHADE_RELPATH}")));
     stop_if(cancelled)?;
     write_gray_png(&hillshade(&dtm), dir, &hillshade_path)?;
     let slope_path = dir.join(SLOPE_RELPATH);
-    progress(&format!("writing {SLOPE_RELPATH}"));
+    progress(Note::plain(format!("writing {SLOPE_RELPATH}")));
     stop_if(cancelled)?;
     let black_deg = project.map_kind.slope_black_deg();
     write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), dir, &slope_path)?;
 
-    progress(&format!("writing {CONTOURS_RELPATH}"));
+    progress(Note::plain(format!("writing {CONTOURS_RELPATH}")));
     stop_if(cancelled)?;
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
     let interval = f64::from(project.map_kind.contour_interval_m());
@@ -3628,16 +3687,18 @@ pub fn derive_project_cancellable(
 
     let mut written = vec![orthophoto, hillshade_path, slope_path];
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
-        progress(
+        progress(Note::plain(
             "warning: no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin",
-        );
+        ));
     }
     let dsm_recorded = match tile_products {
         Some((_, _, dsm_product)) => project.tiles.iter().any(|r| r.product == dsm_product),
         None => stored_model(&project.surface, SURFACE_RELPATH),
     };
     if project.ndsm_tiles.is_empty() && !dsm_recorded {
-        progress("no nDSM recorded; run `freemapper fetch` for the nDSM template");
+        progress(Note::plain(
+            "no nDSM recorded; run `freemapper fetch` for the nDSM template",
+        ));
     }
     let ndsm_files: Vec<PathBuf> = project
         .ndsm_tiles
@@ -3645,27 +3706,27 @@ pub fn derive_project_cancellable(
         .filter_map(|record| {
             // The tile comes from the project file: only a valid tile id names a cache file.
             let Some(tile) = TileId::parse(&record.tile) else {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: invalid nDSM tile {:?} in freemapper.toml; skipped",
                     record.tile
-                ));
+                )));
                 return None;
             };
             let path = cache.ndsm_path(tile, record.published);
             if !path.exists() {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: nDSM {} not cached; run `freemapper fetch`",
                     record.tile
-                ));
+                )));
                 return None;
             }
             // A damaged cached file costs only its part of the template, not the whole derive.
             if let Err(e) = las::Reader::from_path(&path) {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: nDSM {} unreadable ({e}); delete {} and run `freemapper fetch`",
                     record.tile,
                     path.display()
-                ));
+                )));
                 return None;
             }
             Some(path)
@@ -3683,9 +3744,9 @@ pub fn derive_project_cancellable(
         match model {
             Ok(dsm) => Some(dsm),
             Err(e) => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: surface model unusable ({e}); run `freemapper fetch`"
-                ));
+                )));
                 None
             }
         }
@@ -3698,7 +3759,7 @@ pub fn derive_project_cancellable(
             freemapper_fs::remove_inside(dir, &stale);
         }
     } else {
-        progress(&format!("writing {NDSM_RELPATH}"));
+        progress(Note::plain(format!("writing {NDSM_RELPATH}")));
         stop_if(cancelled)?;
         let mut ndsm = rasterize(&ndsm_files, &bbox)?;
         // Consumed here: the 0.2 m surface model is as large as the nDSM itself.
@@ -3777,7 +3838,7 @@ pub fn run_project(
     cache: &Cache,
     mode: FetchMode,
     force: bool,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<RunOutcome, ProjectError> {
     run_project_steps(dir, fetcher, cache, mode, force, progress, &mut |_| {})
 }
@@ -3789,7 +3850,7 @@ pub fn run_project_steps(
     cache: &Cache,
     mode: FetchMode,
     force: bool,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     stage: &mut dyn FnMut(RunStage),
 ) -> Result<RunOutcome, ProjectError> {
     run_project_steps_cancellable(dir, fetcher, cache, mode, force, progress, stage, &|| false)
@@ -3804,7 +3865,7 @@ pub fn run_project_cancellable(
     cache: &Cache,
     mode: FetchMode,
     force: bool,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<RunOutcome, ProjectError> {
     run_project_steps_cancellable(
@@ -3827,7 +3888,7 @@ pub fn run_project_steps_cancellable(
     cache: &Cache,
     mode: FetchMode,
     force: bool,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
     stage: &mut dyn FnMut(RunStage),
     cancelled: &dyn Fn() -> bool,
 ) -> Result<RunOutcome, ProjectError> {
@@ -5297,6 +5358,8 @@ fn check_folders(dir: &Path, folders: &[&str]) -> Result<(), ProjectError> {
 
 #[cfg(test)]
 mod tests {
+    const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
+
     use super::*;
 
     #[test]
@@ -7839,7 +7902,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let error = derive_project_cancellable(
             dir.path(),
             &cache,
-            &mut |line| flag.set(flag.get() || line.contains("hillshade")),
+            &mut |line| flag.set(flag.get() || line.to_string().contains("hillshade")),
             &|| flag.get(),
         )
         .unwrap_err();
@@ -11373,7 +11436,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             FetchMode::Online,
             true,
             &project.berlin_layers,
-            &mut |m: &str| messages.push(m.to_string()),
+            &mut |m: Note| messages.push(m.to_string()),
         );
         assert_eq!(fetcher.calls.get(), calls);
         assert_eq!(records, project.berlin_layers);
@@ -11649,7 +11712,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         };
         let fetcher = MapFetcher::default();
         let mut messages = Vec::new();
-        let mut progress = |m: &str| messages.push(m.to_string());
+        let mut progress = |m: Note| messages.push(m.to_string());
         let kept = fetch_berlin_layers_into(
             dir.path(),
             &fetcher,

@@ -13,6 +13,7 @@ contour.workspace = true
 dirs.workspace = true
 freemapper-fs.workspace = true
 freemapper-georef.workspace = true
+freemapper-text.workspace = true
 fs4.workspace = true
 geo.workspace = true
 geo-types.workspace = true

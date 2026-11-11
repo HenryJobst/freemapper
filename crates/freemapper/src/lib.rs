@@ -10,6 +10,7 @@ pub mod fetch;
 mod fsutil;
 pub mod georef;
 pub mod layers;
+pub mod note;
 pub mod ocd;
 pub mod omap;
 pub mod places;

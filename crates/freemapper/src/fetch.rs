@@ -1,5 +1,6 @@
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
+use crate::note::Note;
 use std::collections::HashMap;
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
@@ -150,7 +151,7 @@ impl Fetcher for CancelCheck<'_> {
         url: &str,
         path: &Path,
         max_bytes: u64,
-        progress: &mut dyn FnMut(&str),
+        progress: &mut dyn FnMut(Note),
     ) -> Result<(), FetchError> {
         self.check()?;
         self.inner.download_to(url, path, max_bytes, progress)
@@ -185,7 +186,7 @@ pub trait Fetcher {
         url: &str,
         path: &Path,
         max_bytes: u64,
-        progress: &mut dyn FnMut(&str),
+        progress: &mut dyn FnMut(Note),
     ) -> Result<(), FetchError> {
         let bytes = self.get(url)?;
         if bytes.len() as u64 > max_bytes {
@@ -200,7 +201,10 @@ pub trait Fetcher {
             let _ = std::fs::remove_file(path);
             return Err(FetchError::Io(path.to_path_buf(), e));
         }
-        progress(&format!("downloaded {} MB", megabytes(bytes.len() as u64)));
+        progress(Note::plain(format!(
+            "downloaded {} MB",
+            megabytes(bytes.len() as u64)
+        )));
         Ok(())
     }
 }
@@ -214,7 +218,7 @@ fn stream_to_file(
     path: &Path,
     create: &dyn Fn(&Path) -> std::io::Result<Box<dyn std::io::Write>>,
     max_bytes: u64,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), FetchError> {
     let result = stream(url, reader, total, path, create, max_bytes, progress);
     // A partial file is of no use; on a full disk it also takes the space others need.
@@ -232,7 +236,7 @@ fn stream(
     path: &Path,
     create: &dyn Fn(&Path) -> std::io::Result<Box<dyn std::io::Write>>,
     max_bytes: u64,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), FetchError> {
     let mut file = create(path).map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
     let mut buffer = vec![0u8; 1 << 16];
@@ -256,12 +260,15 @@ fn stream(
             let of = total
                 .map(|t| format!(" of {} MB", megabytes(t)))
                 .unwrap_or_default();
-            progress(&format!("downloaded {} MB{of}", megabytes(done)));
+            progress(Note::plain(format!(
+                "downloaded {} MB{of}",
+                megabytes(done)
+            )));
         }
     }
     file.flush()
         .map_err(|e| FetchError::Io(path.to_path_buf(), e))?;
-    progress(&format!("downloaded {} MB", megabytes(done)));
+    progress(Note::plain(format!("downloaded {} MB", megabytes(done))));
     Ok(())
 }
 
@@ -637,7 +644,7 @@ impl Fetcher for HttpFetcher {
         url: &str,
         path: &Path,
         max_bytes: u64,
-        progress: &mut dyn FnMut(&str),
+        progress: &mut dyn FnMut(Note),
     ) -> Result<(), FetchError> {
         let http_error = |message: String| FetchError::Http {
             url: url.to_string(),
@@ -868,7 +875,7 @@ pub fn fetch_tiles(
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<FetchedTile>, FetchError> {
     let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
     let uncovered: Vec<TileId> = tiles
@@ -912,7 +919,7 @@ pub fn fetch_tiles_each(
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<TileOutcome>, FetchError> {
     let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
     Ok(tiles
@@ -954,7 +961,7 @@ fn currency_table(
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<CurrencyTable, FetchError> {
     match product.provider() {
         Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
@@ -977,13 +984,13 @@ fn lgb_currency_table(
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<CurrencyTable, FetchError> {
     let csv_path = cache.currency_csv_path(product);
     let csv = match mode {
         FetchMode::Online => {
             let url = product.currency_csv_url();
-            progress(&format!("downloading {url}"));
+            progress(Note::plain(format!("downloading {url}")));
             fetcher.get(url)?
         }
         FetchMode::Offline => match std::fs::read(&csv_path) {
@@ -1010,7 +1017,7 @@ fn geosn_currency_table(
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<CurrencyTable, FetchError> {
     let path = cache.currency_index_path(product);
     let mut cached: std::collections::BTreeMap<String, (NaiveDate, String)> = std::fs::read(&path)
@@ -1019,7 +1026,7 @@ fn geosn_currency_table(
         .unwrap_or_default();
     if mode == FetchMode::Online {
         let url = crate::sources::geosn::index_url(product, tiles);
-        progress(&format!("downloading the {product} tile index"));
+        progress(Note::plain(format!("downloading the {product} tile index")));
         let rows = get_with_retries(fetcher, &url, |answer| {
             crate::sources::geosn::parse_index(&String::from_utf8_lossy(answer)).map_err(
                 |message| FetchError::Http {
@@ -1058,26 +1065,26 @@ fn fetch_tile(
     tile: TileId,
     (mut currency, url): (TileCurrency, String),
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Option<FetchedTile>, FetchError> {
     let mut zip = cache.tile_path(product, tile, currency.published);
     if zip.exists() {
-        progress(&format!("cached {}", tile.name()));
+        progress(Note::plain(format!("cached {}", tile.name())));
     } else if mode == FetchMode::Offline {
         match newest_cached_version(&zip, tile) {
             Some((published, older)) => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "warning: using cached {product} tile {} from {published} (newer {} not downloaded)",
                     tile.name(),
                     currency.published
-                ));
+                )));
                 currency.published = published;
                 zip = older;
             }
             None => return Ok(None),
         }
     } else {
-        progress(&format!("downloading {url}"));
+        progress(Note::plain(format!("downloading {url}")));
         let bytes = fetcher.get(&url)?;
         check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
             url: url.clone(),
@@ -1114,7 +1121,7 @@ pub fn fetch_ndsm_tiles(
     cache: &Cache,
     tiles: &[TileId],
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Vec<NdsmTile>, FetchError> {
     let dir = cache.ndsm_dir();
     let mut fetched = Vec::new();
@@ -1129,14 +1136,17 @@ pub fn fetch_ndsm_tiles(
                     published,
                     path,
                 }),
-                None => progress(&format!("warning: no cached nDSM for tile {}", tile.name())),
+                None => progress(Note::plain(format!(
+                    "warning: no cached nDSM for tile {}",
+                    tile.name()
+                ))),
             }
             continue;
         }
         // The nDSM is only a template: a failing server falls back to the cache or skips the tile.
-        let unavailable = |reason: String, progress: &mut dyn FnMut(&str)| {
+        let unavailable = |reason: String, progress: &mut dyn FnMut(Note)| {
             let fallback = cached.first().cloned();
-            progress(&format!(
+            progress(Note::plain(format!(
                 "warning: nDSM tile {} unavailable ({reason}); {}",
                 tile.name(),
                 if fallback.is_some() {
@@ -1144,16 +1154,16 @@ pub fn fetch_ndsm_tiles(
                 } else {
                     "skipped"
                 }
-            ));
+            )));
             fallback
         };
         let published = match fetcher.last_modified(&url) {
             Ok(date) => date,
             Err(FetchError::NotFound(_)) => {
-                progress(&format!(
+                progress(Note::plain(format!(
                     "no nDSM point cloud published for tile {}",
                     tile.name()
-                ));
+                )));
                 continue;
             }
             Err(e) => {
@@ -1170,9 +1180,9 @@ pub fn fetch_ndsm_tiles(
         };
         let path = cache.ndsm_path(tile, published);
         if path.exists() {
-            progress(&format!("cached nDSM {}", tile.name()));
+            progress(Note::plain(format!("cached nDSM {}", tile.name())));
         } else {
-            progress(&format!("downloading {url}"));
+            progress(Note::plain(format!("downloading {url}")));
             let bytes = match fetcher.get(&url).and_then(|b| check_las(&url, b)) {
                 Ok(bytes) => bytes,
                 Err(e) => {
@@ -1369,7 +1379,7 @@ pub(crate) fn download_with_retries(
     url: &str,
     path: &Path,
     max_bytes: u64,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<(), FetchError> {
     let mut attempt = 1;
     loop {
@@ -3691,7 +3701,7 @@ mod tests {
             _url: &str,
             path: &Path,
             _max_bytes: u64,
-            _progress: &mut dyn FnMut(&str),
+            _progress: &mut dyn FnMut(Note),
         ) -> Result<(), FetchError> {
             self.attempts.set(self.attempts.get() + 1);
             Err(FetchError::Io(

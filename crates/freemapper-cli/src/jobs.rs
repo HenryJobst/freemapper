@@ -174,9 +174,9 @@ impl JobHub {
         };
         match event {
             Event::Phase { step, index, total } => job.phase = Some((step, index, total)),
-            Event::Line(line) => {
+            Event::Line(line) | Event::Warning(line) => {
                 let line = cut(line);
-                if line.starts_with("warning:") {
+                if matches!(event, Event::Warning(_)) {
                     job.warnings.push(line.clone());
                 }
                 if job.lines.len() == KEPT_LINES {
