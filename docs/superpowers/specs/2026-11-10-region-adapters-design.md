@@ -15,6 +15,14 @@ cancel of ADR 0090 (section 3.3); program language exists now (section 3.12); so
 are deferred and one new state tests the design before the guide (D27). The changed sections say so where they
 change.
 
+Revision 3, 2026-11-11 (evening), after a review against `main` at v0.11.0 (`3b95e7a`) that read the code and
+measured the cache: 481 enum references in 16 files, about 290 of them in tests. The recorded answers do not fit
+into the repository and live in a fixture store (D28); G4 goes on from the replayed fetch of G3 (D29); file ages
+go through the clock (D30); a pilot on three systems comes before the full recording (D31); the raster fetch gets
+its adapter parameters in place before anything moves, and the notes move to the api crate (D32); `Product`, the
+map kind and the cache folder names are settled (D33); the guard reads a trailer (D34); the net shrinks after the
+migration (D35). Sections 2.2, 3.2, 3.3, 3.4, 3.8, 3.12, 3.14, 3.15 and 3.18 changed.
+
 ## 1. Intent
 
 Other developers should add their own country or state to freemapper with as little work as possible. The
@@ -115,7 +123,10 @@ area and stored in `data/`; "tiles" means 1 km or 2 km tiles in the shared cache
 | Rhineland-Palatinate (`rheinlandpfalz`) | 25832 | WMS dated by creation date | DGM1 and DOM1 1 km tiles; tile list is the `Laserbefliegung` WFS; bulk by Metalink (11 MB) | WFS (`LVERMGEO_RP`, `ave:Nutzung`, `gml:timePosition`) | none |
 
 The persisted ids are the lower-case variant names (`saxonyanhalt`). They appear in `freemapper.toml`
-(`provider = "lvermgeo"`, `regions = ["saxonyanhalt"]`) and in cache folder names (`lvermgeosh`).
+(`provider = "lvermgeo"`, `regions = ["saxonyanhalt"]`). The cache folders are named apart from them (revision 3;
+the first versions said the ids name the folders): `lgb`, `geosn`, `lgv` and `hvbg` happen to equal the id, but
+`lvermgeo_sh`, `geobasis_nrw`, `lvermgeo_rp` and `laiv_mv` carry an underscore the id (`lvermgeosh`) does not have.
+A user's cache holds several GB under these names, so they are kept as data of the provider (D33).
 
 | State | OSM extract (Geofabrik, MB) | Licence and credit | Quirks the adapter must keep |
 |---|---|---|---|
@@ -187,9 +198,11 @@ freemapper-core (separate repo)
   freemapper-georef     done in v0.5.0: Crs, LatLon, ProjectedPoint, BoundingBox, TileId  (from crs.rs, tiles.rs)
   freemapper-fs         link-safe writes (already used)
   freemapper-text       Fluent catalogs (program language, in use since v0.10.0)
+  freemapper-contract   MapKind and the reserved words of the suite contract (in use since v0.11.0, ADR 0095)
 
 freemapper (this repo, workspace)
-  crates/freemapper-adapter-api   NEW  traits and data types, Fetcher/FetchError/FetchMode, records, AdapterError
+  crates/freemapper-adapter-api   NEW  traits and data types, Fetcher/FetchError/FetchMode, records, Product,
+                                       AdapterEnv, RasterProject, AdapterError, the notes and their catalog
   crates/freemapper-sources       NEW  the generic readers: wms, wcs, wfs/gml, ogc api, nas, trees, zip_range, xlsx,
                                        float_tiff, height_model, metalink, tile-list helpers
   crates/freemapper-manifest      NEW  manifest schema, parser, validator, UrlPolicy, ManifestAdapter, loader
@@ -203,8 +216,15 @@ Why these cuts:
 
 - The api crate holds no HTTP client and no TOML. A code adapter depends on it and on `freemapper-sources`, nothing
   else. It can be tested without the pipeline.
+- The api crate holds the notes (`Note`, `note!`) and their one catalog (revision 3, D32). The readers and every
+  backend report through notes, and a note reads its text from the catalog, so the type cannot sit above them. A
+  code adapter adds its messages to that catalog in its pull request.
 - `freemapper-sources` must not depend on `freemapper`. Today the readers use `crate::fetch::Fetcher`,
-  `crate::crs`, `crate::raster`. The first three stage-B tasks move those down.
+  `crate::crs`, `crate::raster`, `crate::note`, and three of them reach into a state module or name `Region`
+  (plan task B4 lists them). The stage-B tasks move those down.
+- `Registry` is a type of the api crate and knows no adapter. The built-in list is a function of `freemapper`
+  (`adapters::builtin()`), which depends on `crates/adapters/de`; the CLI adds feature crates and folder adapters
+  and installs the registry once.
 - The readers fetch, so core ADR 0007 (no network in core) keeps them out of core. Their pure parts (GML parsing,
   Metalink parsing, the zip directory parser, tile-name arithmetic) can move to core later if a second app needs
   them. Not now.
@@ -248,8 +268,9 @@ pub trait RegionAdapter: Send + Sync {
 
 pub trait RasterBackend: Send + Sync {
     fn provider(&self) -> &ProviderInfo;        // id, terrain_source label, kind: Tiles { grid_km } | PerArea
-    /// Move of `fetch_*_rasters`: fetches into the cache or `data/` and updates the raster records.
-    fn fetch(&self, env: &mut AdapterEnv<'_>, area: &RasterArea, records: &mut RasterRecords)
+    /// Move of `fetch_*_rasters`: fetches into the cache or `data/`, updates the raster records and saves
+    /// the project file at the points where the function saves it today.
+    fn fetch(&self, env: &mut AdapterEnv<'_>, project: &mut dyn RasterProject, bbox: &BoundingBox)
         -> Result<(), AdapterError>;
     /// Move of the match in `derive_project`: what `derive` reads.
     fn derive_inputs(&self, env: &AdapterEnv<'_>, records: &RasterRecords, area: &RasterArea)
@@ -266,12 +287,28 @@ pub trait AlkisSource: Send + Sync {
 helpers of `freemapper-fs`, no knowledge of disk-space accounting), `mode: FetchMode`, `progress`, `today` (the date
 from the injectable clock, so an adapter never reads the system clock). The fetcher may be the `CancelCheck` wrapper
 of ADR 0090; an adapter passes `FetchError::Cancelled` up inside `AdapterError` unchanged, and the pipeline maps it
-back to a cancel in one place, so the cancel button of the browser page keeps working. It cannot reach
-the project folder directly. Writes into the project go through `ProjectSink`, which wraps `write_inside` and
-`copy_inside`. So an adapter cannot break ADR 0059 or ADR 0060 by accident.
+back to a cancel in one place, so the cancel button of the browser page keeps working.
 
-`RasterRecords` is today's set of project fields (`tiles`, `ndsm_tiles`, `orthophoto`, `terrain`, `surface`) moved
-into the api crate unchanged. `DeriveInputs` is `{ orthophoto: Tiles(Vec<FetchedTile>) | Image(PathBuf), dtm:
+Revision 3: the env also carries `progress` (a callback that takes a `Note`) and `skip_surface`. The disk-space
+plan decides before the fetch whether the surface model fits, and the ten functions get that as a flag today; the
+env passes the flag on and knows nothing else about disk space.
+
+The project is reached through `RasterProject`: `records()` (the view below), `save()`, `dir()`, `region_bbox()`
+and `crs()`. `save()` is there because the functions save the project file in between (15 calls in the ten), and
+what is on disk after a failed or cancelled fetch is behaviour: the next fetch goes on from it. `dir()` is there
+because the state modules write through `write_inside(dir, …)` today. The first version of this section said an
+adapter cannot reach the project folder and writes through a `ProjectSink` only. That stays the target for
+adapters that are not built in, but the move of the eleven states does not wait for it: a code adapter is a
+workspace crate reviewed in a pull request, and a manifest adapter never sees the folder, because it reaches the
+project only through the readers. The rules of ADR 0059 and ADR 0060 hold as before, since every write still goes
+through `freemapper-fs`.
+
+`AdapterError` has one variant for every `ProjectError` variant the fetch functions can return and maps back
+without loss, because the CLI words errors by variant in both languages.
+
+`RasterRecords` is today's set of project fields (`tiles`, `ndsm_tiles`, `orthophoto`, `terrain`, `surface`) as
+mutable borrows, a view and not a struct inside the project file: a flattened struct would change the key order
+of `freemapper.toml`. `DeriveInputs` is `{ orthophoto: Tiles(Vec<FetchedTile>) | Image(PathBuf), dtm:
 Tiles(..) | Stored(PathBuf), dsm: Option<..> }`. The first migration keeps the two raster kinds (tile providers and
 per-area providers) as they are. Unifying them would change which files `derive` reads and risks byte changes, so
 it is a possible later cleanup (D9).
@@ -303,7 +340,7 @@ checked as in ADR 0059. A manifest cannot name an output path; freemapper decide
 | `[terrain]`, `[surface]` | `kind = "wcs" or "backend"`, url, coverage, `multipart`, `envelope`, `max_m`, `date = {..}` | `surface` is optional. |
 | `[date]` kinds | `wfs-geojson` (layer, field, format), `stac-newest` (collection URL), `wms-featureinfo` (layer, field), `none` | A source with no date lookup says `none` and the log says the date is unknown. |
 | `[[extra.nas]]`, `[[extra.trees]]` | the fields of `NasService` and `TreeDataset` | `layers`, `max_count`, `max_bytes`, `namespaces`; tree `format`, `fields`, `envelope`. |
-| `[preview]` | `wms`, `layer`, `attribution` | The aerial layer of the selection page (replaces the hard-coded list in `app.js`). |
+| `[preview]` | `wms`, `layer`, `format`, `params = {..}`, `attribution` | The aerial layer of the selection page (replaces the hard-coded list in `app.js`). Its URL and layer often differ from `[orthophoto]`; `format` is `image/png` or `image/jpeg`; Hamburg needs `params = { time = "2026" }`. |
 | `[estimate]` | `orthophoto_mb_per_km2`, `terrain_mb_per_km2`, `surface_mb_per_km2` | Defaults are the constants of `layers.rs`. |
 | `backend = "<name>"` | in `[orthophoto]`, `[terrain]`, `[surface]` | Names a `RasterBackend` registered by a code adapter. Unknown name: error naming the crate and feature. |
 
@@ -517,8 +554,9 @@ Manifests are untrusted input, even from the user folder: people copy them from 
   its call type (NAS answers 256 MB as `MAX_ANSWER_BYTES` today, JSON 32 MB, images and tiles 200 MB). A response over the
   limit is `TooLarge`, as now.
 - Paths. Names that come from a server or a manifest reach a path only through a fixed table or a strict pattern
-  (ADR 0059). The manifest cannot name `data/` files, cache files or output files. The adapter id is part of cache
-  folder names, so it matches `[a-z][a-z0-9]{1,31}`.
+  (ADR 0059). The manifest cannot name `data/` files, cache files or output files. A new adapter's cache folder is
+  its provider id, so the id matches `[a-z][a-z0-9]{1,31}`; the built-in providers keep their folder names from a
+  fixed table (section 2.2).
 - Writes. All through `ProjectSink` and `freemapper-fs` (ADR 0060).
 - Credit and rules. `[attribution].text` is printed into PDFs and `ATTRIBUTION.txt`: at most 400 characters, no
   control characters, no newline. A `rules.toml` in an adapter folder may add candidate rules only (never map
@@ -569,8 +607,9 @@ library reports `Note`s with a message id and arguments, rendered in the caller'
 yet stay plain English. For adapters: manifest names and the preview attribution are `{en, de}` tables (the shape of
 `LocalizedText` in `freemapper-rules`), with English as fallback; `AdapterError` carries a stable code
 (`manifest.unknown-key`, `policy.host-not-declared`) that becomes the Fluent message id; adapter messages are notes
-like the rest. The supported-states sentence (the error in `project.rs`, the MCP text in `mcp.rs`, the page texts in
-`app.js`) is built from `names` of the registry in the active language. The goldens render notes in English, so
+like the rest. The supported-states sentence stands in five places at v0.11.0 (the error's English text in
+`project.rs`, `error-project-outside-coverage` and `mcp-instructions` in the two catalogs of the CLI, and the
+German and English tables of `app.js`); all are built from `names` of the registry in the active language. The goldens render notes in English, so
 they do not depend on `FREEMAPPER_LANG`.
 
 ### 3.13 Persisted ids and old projects
@@ -590,31 +629,52 @@ did. `regions` in the buildings and land-use records do the same. `Product` (the
 | Golden G1 to G5 | section 3.15 | `crates/freemapper/tests/adapters_golden.rs` |
 | Live | `adapter check --live --bbox ...` and a weekly scheduled workflow that runs it for every built-in adapter and opens an issue on failure; never part of the normal CI | `.github/workflows/adapters-live.yml` |
 
-Fixture size is the constraint. A golden area is 150 m by 150 m (a sprint-map core, about 0.02 km²). The expected
-size is 0.5 to 1.5 MB per state (orthophoto JPEG at 0.2 m is the bulk: about 750 by 750 px, 150 KB). The CI check
-refuses a fixtures folder over 2 MB.
+Fixture size is the constraint. A golden area is 150 m by 150 m (a sprint-map core, about 0.02 km²). For a state
+with per-area services (Saxony-Anhalt, Lower Saxony, Mecklenburg-Vorpommern) the expected size is 0.5 to 1.5 MB
+(orthophoto JPEG at 0.2 m is the bulk: about 750 by 750 px, 150 KB), and the CI check refuses an adapter's
+fixtures folder over 2 MB.
+
+Revision 3: that estimate was wrong for the other eight states. They fetch whole tiles, and a tile cannot be cut
+to the golden area without forging the answer. Measured in the cache at v0.11.0: Brandenburg 6.8 MB orthophoto,
+1.2 MB DGM and 28.6 MB bDOM per 1 km square; Saxony 12.9 MB DGM and 14.4 MB DOM per 2 km square; 1 to 4 MB per
+GeoTIFF tile elsewhere; two Metalinks of 11 MB in Rhineland-Palatinate. The recorded answers of the eleven states
+come to an estimated 120 to 180 MB, and the repository has 173 MB today. So the bodies live in a fixture store
+outside the repository (D28) and the repository keeps the index, the traces and the hashes.
 
 ### 3.15 Migration and the behaviour-preserving net
 
 Byte-stable examples are the goal. The examples in the repo ship their outputs (`.omap`, candidates, PDF, toml) but
 not their `data/` folders or the cache, and the OSM extracts are 54 to 510 MB each. So an offline rebuild of an
 example is not possible from the repo as it is. The net therefore has five layers, all offline, all recorded from
-v0.10.0 code before the first refactor commit (revision 2026-11-11; the first version said v0.9.0):
+v0.11.0 code before the first refactor commit (revision 3; earlier versions said v0.9.0 and v0.10.0):
 
 | Layer | Records | Proves |
 |---|---|---|
 | G1 registry data | JSON of every per-region fact the old enums gave: CRS, provider, terrain source label, `per_area`, object-id prefix, OSM extract URL, state URL, prefix, MB, label, boundary SHA-256, attribution text for the years 2025 and 2026 and with each project record combination | the data moved without change |
 | G2 geometry | `regions_for`, `raster_region`, `provider_tiles` (1 km and 2 km), `reaches_beyond_coverage`, `tile_touches`, `tile_centre_in`, `extracts_for` for the 11 example boxes plus a grid of 200 boxes on borders (BB/BE, ST/NI, NI/Bremen, HE/RP, NW/NI, MV/SH, MV/BB) | the dispatch picks the same adapter and tiles |
 | G3 request trace | the ordered list of URLs, with method and range, that `fetch_project` (online) and `estimate_download` issue per state against a canned `Fetcher`; also `warning:` lines | the same requests go out |
-| G4 pipeline | per state a mini project (`freemapper.toml`, `data/`, `templates/` inputs, tile cache, a 1 MB cut-down OSM PBF) for the golden area; offline fetch, `derive`, one document build and all four exports (ADR 0091); SHA-256 of the written `freemapper.toml`, `.omap`, `.ocd`, both PDFs, `candidates.omap`, `ATTRIBUTION.txt`, `contours.geojson`, the three template images | the output bytes are the same |
+| G4 pipeline | per state, on from the replayed fetch of G3 (no stored project, no stored cache): an offline fetch that must leave `freemapper.toml` alone, the OSM candidates of the real extract put in place of the empty ones, `derive`, one document build and all four exports (ADR 0091); SHA-256 of the written `freemapper.toml`, `.omap`, `.ocd`, both PDFs, `candidates.omap`, `ATTRIBUTION.txt`, `contours.geojson`, the three template images | the output bytes are the same |
 | G5 persisted format | load, save and byte-compare each `examples/*/freemapper.toml`; load each with a missing adapter and check the message | old projects keep working |
 
 Recording G3 and G4 needs the network once, run by the maintainer (or an agent) with the brief that forbids the user
-e-mail address in any request (memory: no e-mail in requests). The files are then committed under
-`tests/golden/adapters/`. `FREEMAPPER_BLESS=1` rewrites a golden file; a CI step on every push and pull request
-fails when a commit whose subject starts with `refactor(adapters):` changes `tests/golden/adapters/**`, so a
-refactor cannot bless its own change (D26). G3 and G4 run under a fixed clock (D25): the project stores fetch dates,
-the credit line takes its year from them, and two states decide by date whether to ask again.
+e-mail address in any request (memory: no e-mail in requests). The index, the traces and the hashes are committed
+under `tests/golden/adapters/`; the bodies go into the fixture store, one archive published as a prerelease of the
+repository and pinned by SHA-256 in `tests/golden/adapters/store.lock` (D28). G1, G2 and G5 run with every
+`cargo test`; G3 and G4 need the store, are ignored by default and run through `scripts/golden.sh` and a CI job on
+three systems. `FREEMAPPER_BLESS=1` rewrites a golden file; a CI step on every push and pull request fails when a
+commit changes `tests/golden/adapters/**` without the trailer `Golden-Bless:`, or changes it at all under a
+subject that starts with `refactor(`, so a refactor cannot bless its own change (D26, D34). G3 and G4 run under a
+fixed clock (D25, D30): the project stores fetch dates, the credit line takes its year from them, and two states
+decide by date whether to ask again.
+
+Two more things belong to the net since revision 3. A pilot takes two states (one per-area, one with tiles)
+through all three systems before the other nine are recorded, because `derive` and `render` use each system's
+maths library and equal bytes across systems were never shown (D31). And a golden of interrupted fetches records
+what the project file holds when a fetch fails at three points, before the fetch functions are touched (plan
+task B5).
+
+The net is paid for by every later change to a request, which needs a new recording. After the migration G3 and
+G4 stay for three states only, one of each kind (D35).
 
 The migration is a strangler: first the net (stage A), then the crates (B), then a registry with a `LegacyAdapter`
 shim that wraps the enums (C1), then one concern at a time moved behind the trait (boundary and CRS, OSM, credit,
@@ -629,7 +689,7 @@ states in one task, so the `match` and the trait never both own a concern.
 bounding rectangle so `intersects` checks the rectangle first; that is an exact pre-filter and changes no result.
 Trait calls per tile cost one virtual call; the loops stay inside the adapter. Manifest parsing: 11 embedded
 manifests at start, target under 5 ms in total (boundaries parse lazily on first use, as now). G2 includes a timing
-test with a generous bound (twice the v0.10.0 time) to catch a quadratic regression, not to benchmark; it is
+test with a generous bound (twice the v0.11.0 time) to catch a quadratic regression, not to benchmark; it is
 ignored on the shared CI runners and run by hand.
 
 ### 3.17 Documentation
@@ -656,7 +716,9 @@ documents in `docs/regions/` stay as they are.
 
 - `freemapper-georef` (new, freemapper-owned): `Crs`, `BoundingBox`, `TileId`, reprojection.
 - `freemapper-fs`: unchanged use; `CacheDir` and `ProjectSink` wrap it.
-- `freemapper-text`: later, for the adapter error codes and the names, when program language lands.
+- `freemapper-text`: the notes and their catalog (in the api crate since revision 3), the adapter error codes
+  and the names.
+- `freemapper-contract`: `MapKind` for the map kinds an extra layer serves (ADR 0095).
 - `freemapper-rules`: not used for manifests. Its schema pattern (validate a file against an app schema) is the
   model, but its profiles are rule files for courses and checks, and a manifest has a different shape. The
   `LocalizedText` shape is copied as a convention only, not as code.
@@ -674,7 +736,10 @@ documents in `docs/regions/` stay as they are.
 | Risk | Likelihood | Effect | Mitigation |
 |---|---|---|---|
 | Behaviour drifts while 13 840 lines of `project.rs` are rearranged | medium | silent change in an example | G1 to G5 before the first move; every task move-only; golden changes forbidden in refactor PRs |
-| Fixtures and PBF cut-downs bloat the repository | medium | slow clones | 2 MB per state cap, one golden area, PBF cut by a script kept in the repo |
+| Fixtures bloat the repository | certain if they were committed (120 to 180 MB) | slow clones | the bodies live in a fixture store outside the repository, pinned by SHA-256; no PBF is stored at all (D28, D29) |
+| The store is not reachable (GitHub down, the asset deleted) | low | G3 and G4 cannot run | the CI caches the store by its lock; the archive is rebuilt from a recording run; a store version is never changed |
+| Outputs differ between Linux, macOS and Windows | unknown | G4 red on two of three systems, or weakened to make it green | pilot with two states first; vector outputs are made identical in production code, images and contours may compare decoded (D31) |
+| The net slows other work: every changed request needs a recording | high while the net is full | features wait or skip the net | B5 to C14 in one stretch, announced; the net shrinks to three states after the migration (D35) |
 | Recorded fixtures hide a service change | high over time | green tests, live failure | weekly live workflow; fixtures are for regression, not for truth |
 | Manifest language creep | medium | a second programming language | closed lists, a format revision for every new kind, review rule: "if it needs an `if`, it is code" |
 | SSRF or request smuggling through URL templates | low after the policy | internal network access | declared hosts, address checks at connect time, no raw query strings, percent-encoded placeholders, tests with a stub resolver |
@@ -711,16 +776,16 @@ For a reviewer of this design:
 
 | Stage | Result | Tasks | Size |
 |---|---|---:|---|
-| A | Net: clock, glossary, G1 to G5, CI guard | 6 | about 200 lines production, 1 200 lines of tests and fixtures |
-| B | Crates: api, sources (georef in core is done) | 2 | moves, about 6 000 lines moved, 400 new |
+| A | Net: clock, glossary, fixture store, G1 to G5, pilot on three systems, CI guard | 6 | about 250 lines production, 1 500 lines of tests and scripts, a store of 120 to 180 MB outside the repository |
+| B | Crates: api with the notes, sources; the raster fetch gets its adapter parameters in place (georef in core is done) | 3 | about 6 500 lines moved, 600 new |
 | C | Trait and registry, all concerns, enums deleted | 14 | about 4 000 lines moved, 1 500 new |
 | D | Manifest: schema, loader, policy, manifests for 11 states | 7 (+1 deferred) | about 2 300 new, 11 manifests |
 | E | Tooling: replay in the library, `adapter check`; then one new state as the gate | 2 (+2 deferred) | about 800 new |
 | F | Docs: guide, reference, manual, README | 2 | docs only |
 | G | New states BW, Bremen, Bayern, Saarland (separate plans) | 4 | one plan each |
 
-The plan file has the detail. 33 active tasks in stages A to F (revision 2026-11-11; the first version had 37);
-stage G has plans of its own.
+The plan file has the detail. 34 active tasks in stages A to F (revision 3; the first version had 37, the second
+33); stage G has plans of its own.
 
 ## 8. Alternatives considered
 
@@ -755,7 +820,7 @@ Every call below was made without a human partner, taking the recommended option
 | D12 | Closed licence list: `dl-de/zero-2-0`, `dl-de/by-2-0`, `cc-by-4.0`, `odbl`, `cc0-1.0`, `other` (needs `licence_text`, flagged by `check`) | the credit is a legal duty and `source_block` merges lines by licence | a licence outside the list waits for a release or uses `other` |
 | D13 | Boundaries come from a file in the folder, EPSG:4326 or 25833, simplified to 25 m by `adapter boundary` | matches ADR 0025 and the current assets; one rule for everyone | a 25 m simplification can put a point near a border in the wrong state (known, as today) |
 | D14 | OSM extracts are declared by Geofabrik path; URLs are derived | host fixed, nothing to mistype | a non-Geofabrik source needs a new `kind` |
-| D15 | Golden net of five layers, recorded from v0.10.0 code (first version: v0.9.0), with the guard that refactor commits may not edit goldens | the examples do not ship their input data, so "rebuild an example offline" needs recorded inputs | recording needs the network once; stale services do not matter afterwards |
+| D15 | Golden net of five layers, recorded from v0.11.0 code (earlier versions: v0.9.0, v0.10.0), with the guard that refactor commits may not edit goldens | the examples do not ship their input data, so "rebuild an example offline" needs recorded inputs | recording needs the network once; stale services do not matter afterwards |
 | D16 | Strangler migration with a `LegacyAdapter` shim and one concern per task, all states at once per concern | a concern never has two owners; every task is revertible | the shim exists for about 13 tasks and is removed in C14 |
 | D17 | Manifest format integer, N and N-1 accepted, `deny_unknown_fields`, `min_freemapper` | typos fail; old manifests keep working for two releases | users with old manifests see warnings |
 | D18 | `adapter_revision` stored only for non-built-in adapters | examples stay byte-identical | built-in adapter data changes are not flagged in projects |
@@ -764,10 +829,18 @@ Every call below was made without a human partner, taking the recommended option
 | D21 | The selection page's aerial layers and the supported-states texts come from the registry (`/api/adapters`) | removes 4 hard-coded lists | one more endpoint to secure; text built at runtime |
 | D22 | Stage G states follow in separate plans | their research is separate work | none |
 | D23 | The registry is process-global (`registry()`, installed once at start); every function also has an `_in(&Registry, ..)` form | the free functions of `region.rs` are called from 40 sites and keep their signatures, so each move stays small | tests with custom registries must use the `_in` forms; hidden global state |
-| D24 | The golden area is 150 m by 150 m per state and fixtures are capped at 2 MB | the repository stays cloneable; a larger area adds little to the dispatch coverage | a bug that shows only on a larger area is not caught by G4 (G2 and G3 cover borders) |
+| D24 | The golden area is 150 m by 150 m per state and fixtures are capped at 2 MB (for the golden net the cap fell with D28) | the repository stays cloneable; a larger area adds little to the dispatch coverage | a bug that shows only on a larger area is not caught by G4 (G2 and G3 cover borders) |
 | D25 | One injectable clock (`freemapper::clock`) replaces the direct `Local::now()` and `SystemTime::now()` calls of the library before the net is recorded; goldens fix it to 2026-11-11 | stored fetch dates, the credit year and the 30-day rechecks would otherwise make G3 and G4 change with the day | one more module every date must go through; a test refuses direct calls |
 | D26 | The golden guard checks the subject of every commit on push and pull request, not the pull-request title | about half of the merges reach `main` as local merges, which a title check never sees | a refactor commit with another subject prefix slips through; reviews still see it |
 | D27 | `tile-pattern` (D8 of the plan), `adapter record`, `adapter new`, `adapter boundary` and the weekly live workflow wait for the first outside contributor; one new state (Saarland or Bremen) tests the design after `adapter check` and before the guide | the saving is for new states; the first one shows which tools matter | the first contributor waits for a tool, or writes a manifest by hand from the guide |
+| D28 | The recorded answers live in a fixture store: one archive, published as a prerelease of this repository (never "latest"), pinned by SHA-256 in `store.lock`; the repository keeps index, traces and hashes. This replaces the 2 MB cap of D24 for the golden net; the cap stays for a contributed adapter folder with per-area services | eight states fetch whole tiles of 1 to 29 MB, and a cut tile is a forged answer with hashes of its own to keep in step (Metalink). A repository of its own was the other option; a prerelease needs no new repository and no new access | a prerelease entry on the releases page; if it ever became "latest", the install steps and the self-update would read the wrong release, so the plan checks that after publishing |
+| D29 | G4 keeps no project folder and no cache. It goes on from the replayed fetch of G3 and puts the OSM candidates of the real extract in place of the empty ones | each tile is stored once; no file's modification time comes from a checkout; no PBF has to be cut down | the PBF reader is outside G4 (the adapter work does not touch it; its own tests stay) |
+| D30 | A file's age is the clock's now minus its modification time, through `clock::age_of`; a file dated after the clock's now has age zero | the two 30-day checks of Rhineland-Palatinate read the system clock through `elapsed()` without naming it; under a fixed clock a file written by the test is dated later than now | a clock set back by hand makes an old note look fresh until its date is passed |
+| D31 | A pilot with two states runs on three systems before the rest is recorded. `freemapper.toml`, `.omap`, `.ocd`, `ATTRIBUTION.txt` and the PDFs must be byte-identical everywhere (fix the rounding in production code if not); the three images and `contours.geojson` may compare decoded on a system where the hash differs | the maths library differs per system and nothing had tested equal bytes; one hash file per system would make every later bless a three-system job | a decoded comparison is weaker than a hash for those four files on two of three systems |
+| D32 | Before anything moves, the ten raster fetch functions get adapter-shaped parameters in `project.rs` (`AdapterEnv`, `RasterProject`, `AdapterError` with a lossless mapping back); the notes and their catalog move to the api crate | the functions take the folder and the project file, save in between, get `skip_surface` from the disk plan and call ten helpers; "move without edits" was not possible. A note reads its text from the catalog, and the readers need notes | the api crate carries the engine's whole message catalog and hands the project folder to built-in backends; both can be narrowed later |
+| D33 | `Product` lives in the api crate; the map kind there is the contract's; a built-in provider's cache folder is a field of its own (`lvermgeo_sh`), a new adapter's folder is its provider id | `TileRecord` and `FetchedTile` carry a `Product`; ADR 0095 made the contract's kind the shared one; users have several GB under the old folder names | an enum of LGB and GeoSN products in the general crate until the raster kinds are unified (D9) |
+| D34 | The golden guard reads a trailer: a commit that changes a golden path needs `Golden-Bless: <reason>`, and a commit whose subject starts with `refactor(` may not change one at all. This widens D26 | a list of forbidden subject prefixes missed every other kind of commit, such as the `feat` commits of the manifest stage | a bless without a good reason passes the script; the review reads the reason |
+| D35 | After the migration G3 and G4 stay for three states (Brandenburg, Saxony-Anhalt, Berlin); G1, G2 and G5 stay whole | the net proves the migration; afterwards every changed request would pay for eleven recordings | a regression in one of the other eight states shows only in its unit tests and in live use |
 
 ## 10. The eight rulings that matter most
 
@@ -779,3 +852,6 @@ Every call below was made without a human partner, taking the recommended option
 6. D7: project-local adapters are opt-in and never reachable through MCP.
 7. D9 and D10: raster kinds, `Product` and the legacy ids stay as they are in the first pass, for byte stability.
 8. D12 and D17: closed lists (licences, kinds, presets) and a versioned, `deny_unknown_fields` format.
+
+Revision 3 adds two of the same weight: D28 (the fixture store outside the repository) and D32 (adapter-shaped
+parameters in place before any backend moves).
