@@ -15,6 +15,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - `AGENTS.md`: agents that can run commands use the command line first. One `freemapper run` waits until the map is written, while through MCP every status poll costs a turn. MCP stays the way for assistants without a shell. New: a command-line workflow, the pointer to `--help`, the note on too short timeouts, and that `init --place` takes the best match without naming the others.
 - Map kind and reserved words come from the shared crate `freemapper-contract` (ADR 0095, stage 4 of the contract test). The names `schoolyard` and `sprint`, the scales of a kind, the tag `freemapper:source` with its reserved values, the part names and the file name `freemapper.toml` now exist once, in freemapper-core v0.18.0, and freemapper-print and freemapper-courseplan can use the same definitions. Maps and project files stay the same byte for byte. All core crates are pinned to v0.18.0. Library: `MapKind` gains `ALL`, `name`, `from_name` and `contract`.
 
+### Fixed
+
+- Area page: when the program language differs from the browser's language (for example `--lang en` in a German browser), three texts stayed in the browser's language: the hint under "Draw it yourself", the names in the map's layer control and the title of the browser tab. All three now follow the program language.
+
 ## [0.11.0] - 2026-11-11
 
 ### Added

@@ -26,8 +26,13 @@ need code (tile lists, zip ranges, Metalink, a pinned certificate).
 - `Crs`, `BoundingBox` and `TileId` move to `freemapper-georef` in freemapper-core, as ADR 0067 planned (done in core
   v0.5.0).
 - The migration keeps the example output byte for byte. An injectable clock comes first, then five offline golden
-  layers are recorded from v0.10.0 under a fixed date, and a CI step on every push rejects goldens edited in a commit
-  whose subject starts with `refactor(adapters):`.
+  layers are recorded from v0.11.0 under a fixed date. A CI step on every push rejects a commit that changes a
+  golden without the trailer `Golden-Bless:`, and any `refactor(` commit that changes one.
+- The recorded answers of the services (whole tiles, 120 to 180 MB) live in a fixture store outside the repository:
+  one archive, published as a prerelease of this repository and pinned by SHA-256. The repository keeps the index,
+  the request traces and the output hashes. Two states go through the three CI systems before the rest is recorded.
+- Before a backend moves, the raster fetch functions get their adapter parameters in place, and the notes with
+  their catalog move to the api crate. Built-in providers keep their cache folder names.
 - The trait passes the cancel of ADR 0090 through unchanged, and the goldens render notes in English (ADR 0092).
 
 ## Consequences
@@ -36,7 +41,9 @@ need code (tile lists, zip ranges, Metalink, a pinned certificate).
 - Two of eleven current states become pure manifests, nine manifest plus backend, Berlin stays code. The saving is
   for new states, not for the existing ones.
 - Persisted ids (`saxonyanhalt`, `lvermgeosh`) and the record types stay as they are, so old projects load.
-- The migration is 33 small tasks. The registry stays process-global so the free functions keep their signatures.
+- The migration is 34 small tasks. The registry stays process-global so the free functions keep their signatures.
+- While the full net stands, a change to a request needs a new recording and a new store version. After the
+  migration the request traces and the pipeline hashes stay for three states, one of each kind.
   The tile-pattern kind, `adapter record`, `adapter new`, `adapter boundary` and the weekly live check wait for the
   first outside contributor; one new state (Saarland or Bremen) tests the design before the guide is written.
 - Cost if wrong: a manifest format that is too narrow forces a format revision per new `kind`; contributor adapters
@@ -44,6 +51,11 @@ need code (tile lists, zip ranges, Metalink, a pinned certificate).
 
 Revised on 2026-11-11 after a review against v0.10.0 (user's go): the first version recorded the net from v0.9.0, had
 no fixed clock, checked pull-request titles only and predated cancel, program language and ADR 0091.
+
+Revised again on 2026-11-11 after a review against v0.11.0 that measured the cache and read the fetch functions
+(user's go): the second version planned 2 MB of fixtures per state inside the repository, moved the fetch functions
+without changing their parameters, put `Product` into a crate that could not hold it and took the cache folder
+names for the provider ids. The spec's decisions D28 to D35 record the changes.
 
 Source: user request of 2026-11-09 (memory "Adapter architecture"); spec
 `docs/superpowers/specs/2026-11-10-region-adapters-design.md`; plan `docs/superpowers/plans/2026-11-10-region-adapters.md`;
