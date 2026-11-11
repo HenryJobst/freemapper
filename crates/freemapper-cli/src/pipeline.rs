@@ -16,7 +16,7 @@ use freemapper::project::{
 use serde::Deserialize;
 
 /// What a run does besides fetch, derive and the OOM map.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RunOptions {
     /// Replace an existing map and keep the old one as `.omap.bak`.
     pub force: bool,
@@ -67,6 +67,15 @@ pub fn parse(request: RunRequest) -> Result<RunOptions, String> {
         pdf_sources,
         fail_fast: false,
     })
+}
+
+/// The spelling of `sources` in requests, flags and the project answer.
+pub fn pdf_sources_name(sources: PdfSources) -> &'static str {
+    match sources {
+        PdfSources::Auto => "auto",
+        PdfSources::Full => "full",
+        PdfSources::CreditOnly => "credit-only",
+    }
 }
 
 /// One step of a run, in the order they run.

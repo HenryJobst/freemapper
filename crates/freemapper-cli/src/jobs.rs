@@ -264,25 +264,26 @@ impl JobHub {
         }
     }
 
-    /// The running job, or else the latest one.
-    #[allow(dead_code)] // The page routes of stage 4 read it.
-    pub fn current(&self) -> Option<JobStatus> {
+    /// The job of the folder `dir` that runs, or else its latest one. Jobs of other folders (the
+    /// hub is shared by pages and MCP) are not shown.
+    pub fn current_for(&self, dir: &Path) -> Option<JobStatus> {
+        let key = folder_key(dir);
         let table = self.table();
-        let (id, job) = table
-            .jobs
-            .iter()
+        let mine = || {
+            table
+                .jobs
+                .iter()
+                .filter(|(_, job)| folder_key(&job.dir) == key)
+        };
+        let (id, job) = mine()
             .find(|(_, job)| job.state == JobState::Running)
             .or_else(|| {
-                table
-                    .jobs
-                    .iter()
-                    .max_by_key(|(id, _)| id.trim_start_matches("job-").parse::<u64>().ok())
+                mine().max_by_key(|(id, _)| id.trim_start_matches("job-").parse::<u64>().ok())
             })?;
         Some(Self::snapshot(id, job, 0))
     }
 
     /// Asks the running job `id` to stop; false when it does not run.
-    #[allow(dead_code)] // The cancel route of stage 4 calls it.
     pub fn cancel(&self, id: &str) -> bool {
         let table = self.table();
         match table.jobs.get(id) {
@@ -469,12 +470,23 @@ mod tests {
     #[test]
     fn current_prefers_the_running_job() {
         let hub = JobHub::default();
-        assert!(hub.current().is_none());
+        assert!(hub.current_for(Path::new("/p")).is_none());
         let first = hub.register(Path::new("/p")).unwrap();
         hub.finish(&first, Err("offline".into()));
-        assert_eq!(hub.current().unwrap().job_id, "job-1");
+        assert_eq!(hub.current_for(Path::new("/p")).unwrap().job_id, "job-1");
         hub.register(Path::new("/p")).unwrap();
-        assert_eq!(hub.current().unwrap().job_id, "job-2");
+        assert_eq!(hub.current_for(Path::new("/p")).unwrap().job_id, "job-2");
+    }
+
+    #[test]
+    fn current_for_ignores_the_jobs_of_other_folders() {
+        let hub = JobHub::default();
+        let mine = hub.register(Path::new("/mine")).unwrap();
+        hub.finish(&mine, Err("offline".into()));
+        hub.register(Path::new("/other")).unwrap();
+        // The latest and the running job belong to another folder.
+        assert_eq!(hub.current_for(Path::new("/mine")).unwrap().job_id, "job-1");
+        assert!(hub.current_for(Path::new("/third")).is_none());
     }
 
     #[tokio::test(flavor = "multi_thread")]

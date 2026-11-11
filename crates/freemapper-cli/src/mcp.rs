@@ -113,6 +113,19 @@ struct OpenAreaSelector {
     title: Option<String>,
     /// Also open the page in the default browser of this computer. Default true.
     open_browser: Option<bool>,
+    /// The run panel starts with "cache only, no network" ticked. Default false.
+    offline: Option<bool>,
+    /// The run panel starts with the OCAD starter project ticked. Default false.
+    ocad: Option<bool>,
+    /// The run panel starts with the printable PDF ticked. Default false.
+    pdf: Option<bool>,
+    /// The run panel starts with the training PDF (every candidate) ticked. Default false.
+    pdf_candidates: Option<bool>,
+    /// The run panel starts with the scale bar on the PDFs ticked. Default false.
+    pdf_scale_bar: Option<bool>,
+    /// Source lines on the PDFs the panel starts with: "auto" (default), "full" or
+    /// "credit-only", as for start_pipeline.
+    pdf_sources: Option<String>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -470,6 +483,18 @@ impl FreemapperServer {
             Ok(kind) => kind,
             Err(e) => return failure(e),
         };
+        let run = match pipeline::parse(pipeline::RunRequest {
+            offline: req.offline,
+            ocad: req.ocad,
+            pdf: req.pdf,
+            pdf_candidates: req.pdf_candidates,
+            pdf_scale_bar: req.pdf_scale_bar,
+            pdf_sources: req.pdf_sources,
+            ..Default::default()
+        }) {
+            Ok(run) => run,
+            Err(e) => return failure(e),
+        };
         let key = folder_key(&dir);
         let mut selectors = self.selectors.lock().await;
         selectors.retain(|_, selector| selector.is_running());
@@ -487,6 +512,7 @@ impl FreemapperServer {
                     scale: req.scale,
                     title: req.title,
                     from_agent: true,
+                    run,
                 };
                 let hub = Arc::clone(&self.jobs);
                 let started =
