@@ -145,6 +145,54 @@ pub struct FreemapperServer {
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
 }
 
+/// The id of a tool's description in the catalog.
+fn tool_id(tool: &str) -> String {
+    format!("mcp-tool-{}", tool.replace('_', "-"))
+}
+
+/// The ids a parameter's description is looked up under, the tool's own first; the second is
+/// for a parameter that reads the same in every tool.
+fn param_ids(tool: &str, param: &str) -> [String; 2] {
+    let param = param.replace('_', "-");
+    [
+        format!("mcp-param-{}-{param}", tool.replace('_', "-")),
+        format!("mcp-param-{param}"),
+    ]
+}
+
+/// The descriptions of the parameters in a tool's input schema, by parameter name.
+fn param_descriptions(schema: &mut serde_json::Map<String, Value>) -> Vec<(String, &mut Value)> {
+    let Some(Value::Object(properties)) = schema.get_mut("properties") else {
+        return Vec::new();
+    };
+    properties
+        .iter_mut()
+        .filter_map(|(name, property)| {
+            let description = property.as_object_mut()?.get_mut("description")?;
+            Some((name.clone(), description))
+        })
+        .collect()
+}
+
+/// Replaces the descriptions of the tools and their parameters by the catalog's texts in
+/// `lang`. The macros hold the English texts; a test compares them with the English catalog.
+fn localize_router(router: &mut ToolRouter<FreemapperServer>, lang: &crate::text::Lang) {
+    let english = crate::text::TEXTS.message_ids("en");
+    let text = |id: &str| crate::text::TEXTS.text(lang, id, &[]);
+    for (name, route) in &mut router.map {
+        if english.contains(&tool_id(name)) {
+            route.attr.description = Some(text(&tool_id(name)).into());
+        }
+        let mut schema = (*route.attr.input_schema).clone();
+        for (param, description) in param_descriptions(&mut schema) {
+            if let Some(id) = param_ids(name, &param).iter().find(|id| english.contains(*id)) {
+                *description = Value::String(text(id));
+            }
+        }
+        route.attr.input_schema = Arc::new(schema);
+    }
+}
+
 /// A tool result with one text block.
 fn text(text: impl Into<String>) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
@@ -224,8 +272,10 @@ async fn blocking<T: Send + 'static>(
 #[tool_router]
 impl FreemapperServer {
     pub fn new(cache: Cache) -> Self {
+        let mut tool_router = Self::tool_router();
+        localize_router(&mut tool_router, &crate::text::lang());
         Self {
-            tool_router: Self::tool_router(),
+            tool_router,
             cache,
             jobs: Arc::default(),
             selectors: Arc::default(),
@@ -572,7 +622,7 @@ impl ServerHandler for FreemapperServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("freemapper", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+            .with_instructions(crate::text::text("mcp-instructions", &[]))
     }
 }
 
@@ -588,6 +638,92 @@ pub async fn serve(cache: Cache) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every tool and parameter description of the macros: the ids and the English text.
+    fn described() -> Vec<([String; 2], String)> {
+        let mut out = Vec::new();
+        let mut router = FreemapperServer::tool_router();
+        let mut names: Vec<String> = router.map.keys().map(ToString::to_string).collect();
+        names.sort();
+        for name in names {
+            let route = router.map.get_mut(name.as_str()).unwrap();
+            let description = route.attr.description.clone().unwrap_or_default();
+            out.push(([tool_id(&name), tool_id(&name)], description.to_string()));
+            let mut schema = (*route.attr.input_schema).clone();
+            for (param, description) in param_descriptions(&mut schema) {
+                let text = description.as_str().unwrap_or_default().to_owned();
+                out.push((param_ids(&name, &param), text));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_english_descriptions_equal_the_catalog() {
+        let english = crate::text::TEXTS.message_ids("en");
+        for (ids, text) in described() {
+            let id = ids
+                .iter()
+                .find(|id| english.contains(*id))
+                .unwrap_or_else(|| panic!("no text for {} in the catalog", ids[0]));
+            let catalog = crate::text::TEXTS.text(&crate::text::Lang::english(), id, &[]);
+            // A doc comment keeps its line breaks; the catalog has one line.
+            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert_eq!(catalog, text, "{id}");
+        }
+        assert_eq!(
+            crate::text::TEXTS.text(&crate::text::Lang::english(), "mcp-instructions", &[]),
+            INSTRUCTIONS
+        );
+    }
+
+    #[test]
+    fn every_description_in_the_catalog_belongs_to_a_tool_or_a_parameter() {
+        let reachable: std::collections::BTreeSet<String> =
+            described().into_iter().flat_map(|(ids, _)| ids).collect();
+        for id in crate::text::TEXTS.message_ids("en") {
+            if id.starts_with("mcp-tool-") || id.starts_with("mcp-param-") {
+                assert!(reachable.contains(&id), "{id} names no tool or parameter");
+            }
+        }
+    }
+
+    #[test]
+    fn the_tools_are_described_in_german() {
+        let german = crate::text::TEXTS.parse_lang_arg("de").unwrap();
+        let mut router = FreemapperServer::tool_router();
+        localize_router(&mut router, &german);
+        let route = router.map.get("find_place").unwrap();
+        let description = route.attr.description.clone().unwrap();
+        assert!(description.contains("OpenStreetMap Nominatim"), "{description}");
+        assert!(description.starts_with("Sucht"), "{description}");
+        let schema = Value::Object((*route.attr.input_schema).clone());
+        let query = schema["properties"]["query"]["description"].as_str().unwrap();
+        assert!(query.starts_with("Name der Schule"), "{query}");
+    }
+
+    /// Prints the English catalog entries from the macros: `cargo test -p freemapper-cli
+    /// print_the_english_descriptions -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "a tool for the catalog, not a test"]
+    fn print_the_english_descriptions() {
+        let all = described();
+        let mut texts: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
+        let mut uses: HashMap<String, usize> = HashMap::new();
+        for (ids, text) in &all {
+            texts.entry(ids[1].clone()).or_default().insert(text.clone());
+            *uses.entry(ids[1].clone()).or_default() += 1;
+        }
+        let mut printed = std::collections::BTreeSet::new();
+        for (ids, text) in &all {
+            let shared = ids[0] != ids[1] && texts[&ids[1]].len() == 1 && uses[&ids[1]] > 1;
+            let id = if shared { &ids[1] } else { &ids[0] };
+            if printed.insert(id.clone()) {
+                println!("{id} = {text}");
+            }
+        }
+        println!("mcp-instructions = {INSTRUCTIONS}");
+    }
 
     #[test]
     fn project_dir_needs_a_project() {
