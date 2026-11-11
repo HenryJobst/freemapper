@@ -463,7 +463,7 @@ pub(crate) fn is_ogc_report(body: &[u8]) -> bool {
 const MAX_ERROR_BODY_BYTES: u64 = 64 * 1024;
 
 /// Identifies freemapper to the servers (Nominatim requires it).
-const USER_AGENT: &str = concat!(
+pub const USER_AGENT: &str = concat!(
     "freemapper/",
     env!("CARGO_PKG_VERSION"),
     " (+",

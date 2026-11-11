@@ -12,6 +12,9 @@ mod select_page;
 mod select_run;
 mod text;
 mod tiles;
+// The update command (task B2) and the daily check (task B3) are its first users.
+#[allow(dead_code, unused_imports)]
+mod update;
 
 use std::path::PathBuf;
 
