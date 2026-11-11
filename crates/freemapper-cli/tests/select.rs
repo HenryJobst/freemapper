@@ -469,3 +469,18 @@ fn busy_port_names_the_port() {
         "{stderr}"
     );
 }
+
+#[test]
+fn the_page_takes_over_a_named_program_language() {
+    let cache = tempfile::tempdir().unwrap();
+    let lang_of = |extra: &[&str]| {
+        let dir = tempfile::tempdir().unwrap();
+        let selector = Selector::start(&dir.path().join("p"), cache.path(), extra);
+        let (status, body) = selector.get("api/project");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str::<Value>(&body).unwrap()["lang"].clone()
+    };
+    // The test environment names English; the switch wins over it.
+    assert_eq!(lang_of(&[]), "en");
+    assert_eq!(lang_of(&["--lang", "de"]), "de");
+}

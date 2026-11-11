@@ -260,7 +260,7 @@ die beiden Optionen schon an. Es gibt `--ocad`, `--pdf`, `--pdf-candidates`, `--
 `--pdf-sources auto|full|credit-only` und `--offline`; der KI-Assistent kann dieselben Felder an
 `open_area_selector` übergeben. „Vorhandene Karte ersetzen“ hat keine Voreinstellung.
 
-Die Seite spricht Deutsch oder Englisch, je nach Sprache des Browsers. Sie ruft keine Adresse außerhalb Ihres
+Die Seite spricht Deutsch oder Englisch: in der Sprache des Programms (Kapitel 14), sonst in der des Browsers. Sie ruft keine Adresse außerhalb Ihres
 Rechners auf, außer den Kartenkacheln im Hintergrund (über den lokalen Server) und den Luftbild-Diensten,
 wenn Sie sie einschalten.
 
@@ -801,8 +801,9 @@ das Programm endet dann mit dem Exit-Code 1. Auch der MCP-Server und die Gebiets
 Sprache des Programms. Englisch bleibt in einer deutschen Fehlermeldung, was ein Server, das Betriebssystem oder
 ein Parser dazu sagt, und einige Einzelheiten, etwa bei der Ortssuche.
 
-Fortschrittszeilen, Warnungen und die Hilfe (`--help`) sind noch Englisch; die Gebietsseite richtet sich nach
-der Sprache des Browsers. Die Tabelle nennt die Meldungen deshalb im englischen Wortlaut; mit `--lang en` zeigt
+Fortschrittszeilen, Warnungen und die Hilfe (`--help`) sind noch Englisch. Die Gebietsseite nimmt die Sprache
+des Programms, wenn `--lang`, `FREEMAPPER_LANG` oder das System eine nennt; sonst richtet sie sich nach der
+Sprache des Browsers. Die Tabelle nennt die Meldungen deshalb im englischen Wortlaut; mit `--lang en` zeigt
 freemapper auch die Fehler so. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |

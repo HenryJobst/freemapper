@@ -248,7 +248,7 @@ options already. The switches are `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-
 `--pdf-sources auto|full|credit-only` and `--offline`; the AI assistant can pass the same fields to
 `open_area_selector`. "Replace the existing map" has no default.
 
-The page speaks German or English, by the language of the browser. It calls no address outside your computer,
+The page speaks German or English: the language of the program (chapter 14), else that of the browser. It calls no address outside your computer,
 apart from the background map tiles (through the local server) and the orthophoto services when you switch
 them on.
 
@@ -771,8 +771,9 @@ then ends with exit code 1. The MCP server and the area page report errors in th
 a server, the operating system or a parser says inside an error stays as it is, and so do a few details, for
 example of the place search.
 
-Progress lines, warnings and the help (`--help`) are English in both languages; the area page follows the
-browser's language. The most important messages, in their English wording:
+Progress lines, warnings and the help (`--help`) are English in both languages. The area page takes the
+program's language when `--lang`, `FREEMAPPER_LANG` or the system names one; otherwise it follows the browser's
+language. The most important messages, in their English wording:
 
 | Message (start) | Meaning | What to do |
 |---|---|---|

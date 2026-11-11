@@ -29,7 +29,7 @@ freemapper-core.
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
   | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
   | 3 | progress lines and warnings, which the library formats today | open |
-  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | open |
+  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page done, see below; rest open |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
 
@@ -47,6 +47,13 @@ freemapper-core.
 - What stays as it is inside a translated error: words of the operating system, of parsers and of servers, and the
   details the library carries as free text (`AreaError::Place`, `ProjectError::Layer`, the `message` fields). Turning
   those into variants is work for the library and can follow where a message matters.
+
+### Stage 4, first part: the language of the selection page (2026-11-11)
+
+- `api/project` carries `lang` when `--lang` or one of the environment variables named a language freemapper has
+  texts for. The page then uses it. When nothing named one, `lang` is null and the page follows the browser as before.
+- English as the mere fallback does not count as named. Otherwise a German browser on Windows, where `LANG` is
+  usually missing, would get an English page after this change.
 
 ## Consequences
 
