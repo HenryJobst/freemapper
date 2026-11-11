@@ -166,6 +166,41 @@ fn every_text_id_the_scripts_use_is_in_the_catalog() {
 }
 
 #[test]
+fn every_page_message_is_used() {
+    let mut used: BTreeSet<String> = BTreeSet::new();
+    let html = asset("index.html");
+    for attribute in TEXT_ATTRIBUTES {
+        used.extend(attribute_values(&html, attribute));
+    }
+    for name in SCRIPTS {
+        used.extend(script_ids(&asset(name)));
+    }
+    for (name, bytes) in freemapper_web::suite_assets() {
+        if name.ends_with(".js") {
+            used.extend(script_ids(&String::from_utf8(bytes).unwrap()));
+        }
+    }
+    // The server's own sentences for the page, such as a stale save.
+    used.extend(freemapper_text::ids_in_source(
+        include_str!("select.rs"),
+        &["page-"],
+    ));
+    used.extend(step_ids());
+    used.extend(
+        FILE_KINDS
+            .iter()
+            .map(|kind| format!("page-file-kind-{kind}")),
+    );
+    for id in used.clone() {
+        used.insert(format!("{id}-one"));
+        used.insert(format!("{id}-other"));
+    }
+    for id in page_ids("en") {
+        assert!(used.contains(&id), "{id} is in the catalog but not used");
+    }
+}
+
+#[test]
 fn every_id_the_scripts_use_exists_in_the_page() {
     let html = asset("index.html");
     let ids: BTreeSet<String> = attribute_values(&html, "id").into_iter().collect();
@@ -384,4 +419,31 @@ fn every_server_call_goes_through_the_suite_api() {
     assert!(app.contains("from \"../suite/api.js\""));
     // The save names the revision of freemapper.toml the page last read.
     assert!(function_body(&app, "saveArea").contains("project.revision"));
+}
+
+#[test]
+fn page_follows_the_suite_rules() {
+    // The page's own files and the suite's, without the vendored Leaflet (its own limit below).
+    let mut files: Vec<(String, Vec<u8>)> = crate::select::Assets::iter()
+        .filter(|name| !name.starts_with("vendor/"))
+        .map(|name| {
+            let data = crate::select::Assets::get(&name).unwrap().data.into_owned();
+            (name.into_owned(), data)
+        })
+        .collect();
+    assert!(files.iter().any(|(name, _)| name == "index.html"));
+    files.extend(freemapper_web::suite_assets());
+    let pairs: Vec<(&str, &[u8])> = files
+        .iter()
+        .map(|(name, data)| (name.as_str(), data.as_slice()))
+        .collect();
+    if let Err(problems) = freemapper_web::check_page_rules(&pairs, 300 * 1024) {
+        panic!("{}", problems.join("\n"));
+    }
+    // Leaflet 1.9.4 with its CSS, images and licence.
+    let vendored: usize = crate::select::Assets::iter()
+        .filter(|name| name.starts_with("vendor/"))
+        .map(|name| crate::select::Assets::get(&name).unwrap().data.len())
+        .sum();
+    assert!(vendored < 300 * 1024, "{vendored} bytes");
 }
