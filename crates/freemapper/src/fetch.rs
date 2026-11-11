@@ -1199,13 +1199,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        let saxony = crate::sources::osm::extract_of("saxony", 0);
         fetcher.insert(
-            saxony.state_url(),
+            &saxony.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            saxony.url(),
+            &saxony.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -1263,13 +1263,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::SaxonyAnhalt;
+        let extract = crate::sources::osm::extract_of("saxonyanhalt", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -1353,13 +1353,13 @@ pub(crate) mod test_support {
             alkis::MV_LAND_USE_ENDPOINT,
             include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-land-use.json").to_vec(),
         );
-        let extract = crate::sources::osm::ExtractSource::MecklenburgVorpommern;
+        let extract = crate::sources::osm::extract_of("mecklenburgvorpommern", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -1438,13 +1438,13 @@ pub(crate) mod test_support {
             lgv::LAND_USE_ENDPOINT,
             lgv::test_support::LAND_USE.as_bytes().to_vec(),
         );
-        let extract = crate::sources::osm::ExtractSource::Hamburg;
+        let extract = crate::sources::osm::extract_of("hamburg", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -1486,13 +1486,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::Hessen;
+        let extract = crate::sources::osm::extract_of("hessen", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -1585,13 +1585,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::SchleswigHolstein;
+        let extract = crate::sources::osm::extract_of("schleswigholstein", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }

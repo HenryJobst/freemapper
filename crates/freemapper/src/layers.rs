@@ -152,7 +152,7 @@ pub(crate) fn estimate_area(
     };
     // The estimate stays quiet; the fetch prints any extract warning.
     for source in extracts_for(bbox, &mut |_| {}) {
-        let date = cached_extract_date(cache, source);
+        let date = cached_extract_date(cache, &source);
         let cached = date.is_some_and(|date| (today - date).num_days() <= MAX_EXTRACT_AGE_DAYS);
         items.push(EstimateItem {
             what: format!("OSM extract {} (shared by all projects)", source.label()),
@@ -797,7 +797,6 @@ mod tests {
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_ndsm, serve_synthetic_tile};
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};
-    use crate::sources::osm::ExtractSource;
     use crate::tiles::TileId;
     use chrono::NaiveDate;
 
@@ -2025,7 +2024,7 @@ mod tests {
         assert_eq!(osm.part, Part::OsmUpdate);
         assert_eq!(
             estimate.total_megabytes,
-            ExtractSource::Brandenburg.megabytes()
+            crate::sources::osm::extract_of("brandenburg", 0).megabytes()
         );
     }
 

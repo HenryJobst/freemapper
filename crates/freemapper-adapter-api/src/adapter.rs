@@ -14,6 +14,13 @@ pub trait RegionAdapter: Send + Sync {
     /// The boundary in EPSG:25833, parsed once and valid.
     fn boundary(&self) -> &MultiPolygon<f64>;
 
+    /// The boundary (EPSG:25833) of the OSM extract `index` of [`RegionInfo::osm`], for a region
+    /// with several extracts: a map reads those whose boundary lies near it. `None`: the extract
+    /// has no boundary of its own and is always read.
+    fn extract_boundary(&self, _index: usize) -> Option<&MultiPolygon<f64>> {
+        None
+    }
+
     /// The box around the boundary (EPSG:25833). The region functions ask it before the
     /// boundary itself: what lies outside the box cannot touch the region. An adapter that
     /// keeps the box answers faster than this default, which goes through the boundary.

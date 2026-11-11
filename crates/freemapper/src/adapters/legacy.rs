@@ -9,15 +9,16 @@ use freemapper_adapter_api::records::AdapterId;
 use geo_types::MultiPolygon;
 
 use crate::crs::BoundingBox;
-use crate::sources::osm::ExtractSource;
-use crate::sources::region::Region;
+use std::sync::OnceLock;
+
+use crate::sources::region::{Region, parse_boundary};
 
 /// One built-in state.
 pub struct LegacyAdapter {
     region: Region,
     info: RegionInfo,
     /// The box around the boundary, found when first asked for.
-    bounds: std::sync::OnceLock<BoundingBox>,
+    bounds: OnceLock<BoundingBox>,
 }
 
 /// The names of a state in English and German.
@@ -41,19 +42,90 @@ fn names(region: Region) -> Names {
     }
 }
 
-/// An extract as the info names it: the path on the Geofabrik server is what its URL holds
-/// between the host and `-latest.osm.pbf`.
-fn extract_info(source: ExtractSource) -> OsmExtractInfo {
-    let path = source
-        .url()
-        .strip_prefix("https://download.geofabrik.de/")
-        .and_then(|rest| rest.strip_suffix("-latest.osm.pbf"))
-        .expect("an extract of Geofabrik");
-    OsmExtractInfo {
-        geofabrik_path: path.to_string(),
-        megabytes: source.megabytes(),
-        label: source.label().to_string(),
-        prefix: source.prefix().to_string(),
+/// The government districts (Regierungsbezirke) of North Rhine-Westphalia: Geofabrik's slug, the
+/// size of the extract in MB (Geofabrik, 2026-11-08) and the name. Geofabrik serves each as its
+/// own extract, so a map reads one or two of them instead of the 917 MB state extract.
+const NRW_DISTRICTS: [(&str, f64, &str); 5] = [
+    ("arnsberg", 195.2, "Arnsberg"),
+    ("detmold", 137.3, "Detmold"),
+    ("duesseldorf", 217.2, "Düsseldorf"),
+    ("koeln", 225.2, "Köln"),
+    ("muenster", 140.9, "Münster"),
+];
+
+/// The extract boundary of the NRW district `index`: Geofabrik's `<district>-regbez.poly` in
+/// EPSG:25833, simplified 25 m (ODbL), parsed once. Neighbouring boundaries overlap by a few
+/// hundred metres, as the extracts do.
+fn nrw_district_boundary(index: usize) -> Option<&'static MultiPolygon<f64>> {
+    static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 5] = [
+        OnceLock::new(),
+        OnceLock::new(),
+        OnceLock::new(),
+        OnceLock::new(),
+        OnceLock::new(),
+    ];
+    const TEXTS: [&str; 5] = [
+        include_str!("../../../../assets/regions/osm/nrw-arnsberg.geojson"),
+        include_str!("../../../../assets/regions/osm/nrw-detmold.geojson"),
+        include_str!("../../../../assets/regions/osm/nrw-duesseldorf.geojson"),
+        include_str!("../../../../assets/regions/osm/nrw-koeln.geojson"),
+        include_str!("../../../../assets/regions/osm/nrw-muenster.geojson"),
+    ];
+    Some(
+        BOUNDARIES
+            .get(index)?
+            .get_or_init(|| parse_boundary(TEXTS[index])),
+    )
+}
+
+/// The Geofabrik extracts of a state: the path on the server, the size in MB, the English label
+/// and what the cached file's name starts with. Berlin reads the extract of Brandenburg, which
+/// holds it; the extract of Niedersachsen holds Bremen.
+fn extracts(region: Region) -> Vec<OsmExtractInfo> {
+    let one = |path: &str, megabytes: f64, label: &str, prefix: &str| {
+        vec![OsmExtractInfo {
+            geofabrik_path: format!("europe/germany/{path}"),
+            megabytes,
+            label: label.to_string(),
+            prefix: prefix.to_string(),
+        }]
+    };
+    match region {
+        Region::Brandenburg | Region::Berlin => {
+            one("brandenburg", 300.0, "Brandenburg", "brandenburg_")
+        }
+        Region::Saxony => one("sachsen", 270.0, "Saxony", "sachsen_"),
+        Region::SaxonyAnhalt => one("sachsen-anhalt", 177.0, "Saxony-Anhalt", "sachsen-anhalt_"),
+        Region::Hamburg => one("hamburg", 54.0, "Hamburg", "hamburg_"),
+        Region::Hessen => one("hessen", 348.0, "Hesse", "hessen_"),
+        Region::SchleswigHolstein => one(
+            "schleswig-holstein",
+            159.0,
+            "Schleswig-Holstein",
+            "schleswig-holstein_",
+        ),
+        Region::MecklenburgVorpommern => one(
+            "mecklenburg-vorpommern",
+            128.8,
+            "Mecklenburg-Vorpommern",
+            "mecklenburg-vorpommern_",
+        ),
+        Region::Niedersachsen => one("niedersachsen", 510.0, "Lower Saxony", "niedersachsen_"),
+        Region::RheinlandPfalz => one(
+            "rheinland-pfalz",
+            275.0,
+            "Rhineland-Palatinate",
+            "rheinland-pfalz_",
+        ),
+        Region::NordrheinWestfalen => NRW_DISTRICTS
+            .iter()
+            .map(|(slug, megabytes, name)| OsmExtractInfo {
+                geofabrik_path: format!("europe/germany/nordrhein-westfalen/{slug}-regbez"),
+                megabytes: *megabytes,
+                label: format!("North Rhine-Westphalia, {name}"),
+                prefix: format!("nrw-{slug}_"),
+            })
+            .collect(),
     }
 }
 
@@ -65,16 +137,13 @@ impl LegacyAdapter {
             names: names(region),
             crs: region.crs(),
             object_id_prefix: Some(region.object_id_prefix().to_string()),
-            osm: ExtractSource::of_region(region)
-                .into_iter()
-                .map(extract_info)
-                .collect(),
+            osm: extracts(region),
             credit_short: None,
         };
         Self {
             region,
             info,
-            bounds: std::sync::OnceLock::new(),
+            bounds: OnceLock::new(),
         }
     }
 
@@ -91,6 +160,13 @@ impl RegionAdapter for LegacyAdapter {
 
     fn boundary(&self) -> &MultiPolygon<f64> {
         self.region.boundary()
+    }
+
+    fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {
+        match self.region {
+            Region::NordrheinWestfalen => nrw_district_boundary(index),
+            _ => None,
+        }
     }
 
     fn bounds(&self) -> BoundingBox {

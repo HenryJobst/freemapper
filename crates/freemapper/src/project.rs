@@ -2101,12 +2101,12 @@ fn fetch_osm_into(
     let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
-        let mode = if skip_update && cached_extract_date(cache, source).is_some() {
+        let mode = if skip_update && cached_extract_date(cache, &source).is_some() {
             FetchMode::Offline
         } else {
             mode
         };
-        match fetch_extract(fetcher, cache, source, mode, progress) {
+        match fetch_extract(fetcher, cache, &source, mode, progress) {
             Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
             Err(FetchError::OsmExtractMissing)
@@ -5258,10 +5258,10 @@ mod tests {
             (102, south.lat, south.lon, hydrant),
         ]);
         for extract in [
-            crate::sources::osm::ExtractSource::Hamburg,
-            crate::sources::osm::ExtractSource::SchleswigHolstein,
+            crate::sources::osm::extract_of("hamburg", 0),
+            crate::sources::osm::extract_of("schleswigholstein", 0),
         ] {
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // The rasters come from the centre's provider (Schleswig-Holstein).
@@ -6072,10 +6072,10 @@ mod tests {
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         for extract in [
-            crate::sources::osm::ExtractSource::Brandenburg,
-            crate::sources::osm::ExtractSource::MecklenburgVorpommern,
+            crate::sources::osm::extract_of("brandenburg", 0),
+            crate::sources::osm::extract_of("mecklenburgvorpommern", 0),
         ] {
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // Both states' ALKIS, each OSM extract once, nothing twice.
@@ -8018,13 +8018,13 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             &crate::sources::alkis_wfs::GEOSN.url,
             include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
         );
-        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        let saxony = crate::sources::osm::extract_of("saxony", 0);
         fetcher.insert(
-            saxony.state_url(),
+            &saxony.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            saxony.url(),
+            &saxony.url(),
             std::fs::read(crate::fetch::test_support::OSM_FIXTURE).unwrap(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -8120,11 +8120,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -8477,11 +8477,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -9018,11 +9018,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -9317,7 +9317,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn regbez_border_reads_two_extracts() {
-        use crate::sources::osm::{ExtractSource, GovernmentDistrict};
         let fetcher = MapFetcher::default();
         let dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
@@ -9353,8 +9352,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
         assert_eq!(project.crs(), Crs::Utm32);
-        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
-        let duesseldorf = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Duesseldorf);
+        let koeln = crate::sources::osm::extract_of("nordrheinwestfalen", 3);
+        let duesseldorf = crate::sources::osm::extract_of("nordrheinwestfalen", 2);
         let centre = BoundingBox {
             min_e: ce,
             min_n: cn,
@@ -9363,11 +9362,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         };
         assert_eq!(
             crate::sources::osm::extracts_for(&centre, &mut |_| {}),
-            [koeln]
+            std::slice::from_ref(&koeln)
         );
         assert_eq!(
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {}),
-            [duesseldorf, koeln]
+            [duesseldorf.clone(), koeln.clone()]
         );
         // Geofabrik's district extracts overlap at the border: both hold the same two hydrants.
         let (south, north) = (at(0.0, -300.0), at(0.0, 300.0));
@@ -9378,10 +9377,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         ]);
         for extract in [koeln, duesseldorf] {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         crate::fetch::test_support::serve_synthetic_nrw(&fetcher, &project.bbox().unwrap());
         // No ALKIS objects in this box.
