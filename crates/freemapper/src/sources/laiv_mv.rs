@@ -6,6 +6,7 @@
 //! the WCS fills areas without a tile (Brandenburg beyond the MV tiles, open sea) with 0.0 too.
 //! So the tile set decides: cells outside it become NaN, zeros inside it stay.
 
+use crate::note::{Arg, Note, note};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -229,7 +230,7 @@ fn tile_list(
     mode: FetchMode,
     bbox: &BoundingBox,
     model: Model,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<Vec<ListedTile>, FetchError> {
     let url = overview_url(bbox, model);
     let path =
@@ -271,10 +272,10 @@ fn tile_list(
             let Some(tiles) = cached() else {
                 return Err(e);
             };
-            warnings.push(format!(
-                "the Downloadportal's tile list of the {} could not be read ({e}); used the one \
-                 kept from an earlier run",
-                model.label()
+            warnings.push(note!(
+                "warning-portal-list-unreadable-kept",
+                model = crate::note::model(model.label()),
+                error = Arg::error(e)
             ));
             Ok(tiles)
         }
@@ -360,7 +361,10 @@ pub fn fetch_model(
         let set = match tile_list(fetcher, &dir, mode, bbox, model, &mut warnings) {
             Ok(listed) => tile_set(listed, &area),
             Err(e) => {
-                warnings.push(format!("{e}; the stored model keeps its recorded date"));
+                warnings.push(note!(
+                    "warning-mv-list-failed-date-kept",
+                    error = Arg::error(e)
+                ));
                 return Ok(HeightModel {
                     warnings,
                     ..HeightModel::default()
@@ -408,9 +412,10 @@ pub fn fetch_model(
         }
     }
     if empty > 0 {
-        warnings.push(format!(
-            "{}: {empty} cells inside the Mecklenburg-Vorpommern tiles have no height",
-            model.label()
+        warnings.push(note!(
+            "warning-mv-cells-empty",
+            model = crate::note::model(model.label()),
+            count = empty
         ));
     }
     write_float_raster(&raster, root, out, model.wcs().url)?;
@@ -432,7 +437,7 @@ fn summary(
     area: &BoundingBox,
     bbox: &BoundingBox,
     model: Model,
-    mut warnings: Vec<String>,
+    mut warnings: Vec<Note>,
 ) -> HeightModel {
     let missing = tiles_covering_grid(area, TILE_KM)
         .into_iter()
@@ -451,11 +456,10 @@ fn summary(
     // Listed without a date, or not listed (a border map centred beyond the MV tiles).
     let date = set.get(&centre).cloned().flatten();
     if date.is_none() {
-        warnings.push(format!(
-            "{}: no date for the centre tile 33_{:03}_{:04}",
-            model.label(),
-            centre.east_km,
-            centre.north_km
+        warnings.push(note!(
+            "warning-mv-centre-no-date",
+            model = crate::note::model(model.label()),
+            tile = format!("33_{:03}_{:04}", centre.east_km, centre.north_km)
         ));
     }
     HeightModel {

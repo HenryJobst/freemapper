@@ -25,18 +25,8 @@ pub static NOTES: Catalog = Catalog::new(&[
 /// What the engine reports while it works: a progress line or a warning.
 #[derive(Debug, Clone)]
 pub struct Note {
-    body: Body,
-}
-
-#[derive(Debug, Clone)]
-enum Body {
-    Message {
-        id: &'static str,
-        args: Vec<(&'static str, Arg)>,
-    },
-    /// A finished English line; a warning when it starts with `warning:`. For the lines that
-    /// have no message yet.
-    Plain(String),
+    id: &'static str,
+    args: Vec<(&'static str, Arg)>,
 }
 
 /// A value a message names.
@@ -126,43 +116,26 @@ impl Note {
     /// The message `id` without values.
     pub fn new(id: &'static str) -> Note {
         Note {
-            body: Body::Message {
-                id,
-                args: Vec::new(),
-            },
+            id,
+            args: Vec::new(),
         }
     }
 
     /// Adds the value the message calls `name`.
     #[must_use]
     pub fn with(mut self, name: &'static str, value: impl Into<Arg>) -> Note {
-        if let Body::Message { args, .. } = &mut self.body {
-            args.push((name, value.into()));
-        }
+        self.args.push((name, value.into()));
         self
     }
 
-    /// A finished English line. It stays English in every language.
-    pub fn plain(line: impl Into<String>) -> Note {
-        Note {
-            body: Body::Plain(line.into()),
-        }
-    }
-
-    /// The message id; `None` for a finished line.
-    pub fn id(&self) -> Option<&'static str> {
-        match &self.body {
-            Body::Message { id, .. } => Some(id),
-            Body::Plain(_) => None,
-        }
+    /// The message id.
+    pub fn id(&self) -> &'static str {
+        self.id
     }
 
     /// Whether this is a warning. Callers collect warnings and show them again at the end.
     pub fn is_warning(&self) -> bool {
-        match &self.body {
-            Body::Message { id, .. } => id.starts_with("warning-"),
-            Body::Plain(line) => line.starts_with("warning:"),
-        }
+        self.id.starts_with("warning-")
     }
 
     /// The line in `lang`, a warning with its prefix ("warning: …"). `error` words the errors
@@ -173,7 +146,7 @@ impl Note {
         error: &dyn Fn(&(dyn Error + 'static), &Lang) -> String,
     ) -> String {
         let body = self.body_text(lang, error);
-        if self.is_warning() && self.id().is_some() {
+        if self.is_warning() {
             NOTES.text(lang, "note-warning", &[("text", FluentValue::from(body))])
         } else {
             body
@@ -186,11 +159,9 @@ impl Note {
         lang: &Lang,
         error: &dyn Fn(&(dyn Error + 'static), &Lang) -> String,
     ) -> String {
-        let (id, args) = match &self.body {
-            Body::Message { id, args } => (id, args),
-            Body::Plain(line) => return line.clone(),
-        };
-        let values: Vec<(&str, FluentValue)> = args
+        let id = self.id;
+        let values: Vec<(&str, FluentValue)> = self
+            .args
             .iter()
             .map(|(name, arg)| {
                 let value = match arg {
@@ -204,10 +175,46 @@ impl Note {
             .collect();
         let text = NOTES.text(lang, id, &values);
         // A missing text comes back as the id, a missing value as `{$name}`.
-        debug_assert!(text != *id && !text.contains("{$"), "{id}: {text}");
+        debug_assert!(text != id && !text.contains("{$"), "{id}: {text}");
         text
     }
 }
+
+/// For the tests of the sources, which look at a warning's English sentence without its prefix.
+#[cfg(test)]
+impl Note {
+    fn sentence(&self) -> String {
+        self.body_text(&Lang::english(), &|e, _| e.to_string())
+    }
+
+    pub(crate) fn contains(&self, part: &str) -> bool {
+        self.sentence().contains(part)
+    }
+
+    pub(crate) fn starts_with(&self, start: &str) -> bool {
+        self.sentence().starts_with(start)
+    }
+
+    pub(crate) fn ends_with(&self, end: &str) -> bool {
+        self.sentence().ends_with(end)
+    }
+}
+
+#[cfg(test)]
+impl PartialEq<&str> for Note {
+    fn eq(&self, other: &&str) -> bool {
+        self.sentence() == *other
+    }
+}
+
+/// Two notes are the same when they read the same; the sources use it to say a thing once.
+impl PartialEq for Note {
+    fn eq(&self, other: &Note) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+
+impl Eq for Note {}
 
 /// The English line, errors in their `Display` text.
 impl fmt::Display for Note {
@@ -336,17 +343,5 @@ mod tests {
             german,
             "Warnung: nDSM der Kachel 33421-5821 aus dem Oberflächenmodell (bDOM)"
         );
-    }
-
-    #[test]
-    fn a_finished_line_stays_as_it_is() {
-        let note = Note::plain("warning: no hillshade");
-        assert!(note.is_warning());
-        assert_eq!(note.id(), None);
-        assert_eq!(
-            note.text(&de(), &|e, _| e.to_string()),
-            "warning: no hillshade"
-        );
-        assert!(!Note::plain("reading the DGM1").is_warning());
     }
 }

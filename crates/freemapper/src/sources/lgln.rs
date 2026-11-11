@@ -4,7 +4,7 @@
 //!
 //! The STAC answers are not cached: a date reaches the project record only.
 
-use crate::note::{Note, note};
+use crate::note::{Arg, Note, note};
 use std::path::Path;
 
 use chrono::{Datelike as _, NaiveDate};
@@ -234,14 +234,14 @@ pub const SURFACE_AGE_WARNING_MONTHS: u32 = 24;
 
 /// The warning when the surface model of `surface` is more than [`SURFACE_AGE_WARNING_MONTHS`]
 /// older than the orthophoto flown on `flight`; `None` when they are close.
-pub fn surface_age_warning(surface: NaiveDate, flight: NaiveDate) -> Option<String> {
+pub fn surface_age_warning(surface: NaiveDate, flight: NaiveDate) -> Option<Note> {
     let limit = surface.checked_add_months(chrono::Months::new(SURFACE_AGE_WARNING_MONTHS))?;
     (limit < flight).then(|| {
-        format!(
-            "the {} is from {}, the orthophoto from {}. The nDSM may lack newer buildings and trees.",
-            Model::Dom1.label(),
-            surface.format("%d.%m.%Y"),
-            flight.format("%d.%m.%Y")
+        note!(
+            "warning-surface-much-older",
+            model = crate::note::model(Model::Dom1.label()),
+            surface = surface.format("%d.%m.%Y").to_string(),
+            flight = flight.format("%d.%m.%Y").to_string()
         )
     })
 }
@@ -295,14 +295,18 @@ pub fn fetch_model(
     let date = match newest_item(fetcher, model.stac(), bbox) {
         Ok(Some(item)) => Some(item.date.format("%Y-%m-%d").to_string()),
         Ok(None) => {
-            warnings.push(format!(
-                "{}: no date, the STAC lists no tile at the centre of the map area",
-                model.label()
+            warnings.push(note!(
+                "warning-lgln-no-date-unlisted",
+                model = crate::note::model(model.label())
             ));
             None
         }
         Err(e) => {
-            warnings.push(format!("{}: no date ({e})", model.label()));
+            warnings.push(note!(
+                "warning-lgln-no-date",
+                model = crate::note::model(model.label()),
+                error = Arg::error(e)
+            ));
             None
         }
     };

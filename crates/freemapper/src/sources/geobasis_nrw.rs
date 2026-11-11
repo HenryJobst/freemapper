@@ -5,6 +5,7 @@
 //! dates come from the product's `*_meta.zip` (one CSV row per tile), never from the directory
 //! listing, which still holds stale duplicates of older years.
 
+use crate::note::{Arg, Note, note};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -139,7 +140,7 @@ struct Meta {
     /// The date the list was last updated (`Aktualitaet_Kachelinformationen`).
     release: String,
     tiles: HashMap<TileId, MetaTile>,
-    warnings: Vec<String>,
+    warnings: Vec<Note>,
 }
 
 /// The tile a name like `dgm1_32_354_5642_1_nw_2022` stands for.
@@ -213,15 +214,17 @@ fn parse_meta_csv(model: Model, text: &str) -> Result<Meta, String> {
     }
     let mut warnings = Vec::new();
     if unreadable > 0 {
-        warnings.push(format!(
-            "{unreadable} rows of the {} tile list have no usable tile name; skipped",
-            model.label()
+        warnings.push(note!(
+            "warning-nrw-list-rows-unusable",
+            count = unreadable,
+            model = crate::note::model(model.label())
         ));
     }
     if undated > 0 {
-        warnings.push(format!(
-            "{undated} rows of the {} tile list have no readable date",
-            model.label()
+        warnings.push(note!(
+            "warning-nrw-list-rows-undated",
+            count = undated,
+            model = crate::note::model(model.label())
         ));
     }
     Ok(Meta {
@@ -299,7 +302,7 @@ fn meta_list(
     dir: &Path,
     mode: FetchMode,
     model: Model,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<Meta, FetchError> {
     let url = meta_url(model);
     if mode == FetchMode::Offline {
@@ -329,12 +332,11 @@ fn meta_list(
         Ok((meta, _)) if kept.as_ref().is_some_and(|k| k.release > meta.release) => {
             // A mirror or cache behind the origin: keep the newer list we have.
             let kept = kept.expect("checked above");
-            warnings.push(format!(
-                "the server's tile list of the {} dates from {}, older than the kept one from \
-                 {}; used the kept one",
-                model.label(),
-                meta.release,
-                kept.release
+            warnings.push(note!(
+                "warning-nrw-list-older",
+                model = crate::note::model(model.label()),
+                server = meta.release.to_string(),
+                kept = kept.release.to_string()
             ));
             Ok(kept)
         }
@@ -363,10 +365,10 @@ fn meta_list(
             let Some(meta) = kept else {
                 return Err(e);
             };
-            warnings.push(format!(
-                "the tile list of the {} could not be read ({e}); used the one kept from an \
-                 earlier run",
-                model.label()
+            warnings.push(note!(
+                "warning-list-unreadable-kept",
+                model = crate::note::model(model.label()),
+                error = Arg::error(e)
             ));
             Ok(meta)
         }
@@ -443,10 +445,10 @@ pub fn fetch_model(
     let centre = centre_tile(bbox);
     let listed = meta.tiles.get(&centre).map(|entry| {
         entry.date.clone().ok_or_else(|| {
-            format!(
-                "the tile list gives no date for the {} tile {}",
-                model.label(),
-                short_name(centre)
+            note!(
+                "warning-nrw-list-no-date",
+                model = crate::note::model(model.label()),
+                tile = short_name(centre)
             )
         })
     });

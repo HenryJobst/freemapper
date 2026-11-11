@@ -400,10 +400,11 @@ fn fetch_model_with(
             message: format!("{} tile {}: {message}", model.label(), entry.name),
         })?;
         if empty > 0 {
-            warnings.push(format!(
-                "{} tile {}: {empty} cells of the map area have no height",
-                model.label(),
-                short_name(entry.tile)
+            warnings.push(note!(
+                "warning-model-tile-cells-empty",
+                model = crate::note::model(model.label()),
+                tile = short_name(entry.tile),
+                count = empty
             ));
         }
         Ok::<(), FetchError>(())
@@ -469,10 +470,10 @@ fn fetch_model_with(
     };
     let date = match listed.iter().find(|t| t.tile == centre) {
         Some(entry) if entry.date.is_none() => {
-            warnings.push(format!(
-                "the Downloadportal gives no date for the {} tile {}",
-                model.label(),
-                short_name(centre)
+            warnings.push(note!(
+                "warning-sh-portal-no-date",
+                model = crate::note::model(model.label()),
+                tile = short_name(centre)
             ));
             None
         }
@@ -499,7 +500,7 @@ fn tile_list(
     mode: FetchMode,
     bbox: &BoundingBox,
     product: Product,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<Vec<PortalTile>, FetchError> {
     let url = overview_url(bbox, product);
     let path = dir.join("overview").join(format!(
@@ -537,10 +538,10 @@ fn tile_list(
             let Some(tiles) = cached() else {
                 return Err(e);
             };
-            warnings.push(format!(
-                "the Downloadportal's tile list of the {} could not be read ({e}); used the one \
-                 kept from an earlier run",
-                product.label()
+            warnings.push(note!(
+                "warning-portal-list-unreadable-kept",
+                model = crate::note::model(product.label()),
+                error = Arg::error(e)
             ));
             Ok(tiles)
         }
@@ -643,7 +644,7 @@ fn dgm1_tile(
     entry: &PortalTile,
     xyz_cells: u32,
     progress: &mut dyn FnMut(Note),
-) -> Result<(Raster<f32>, Option<String>), FetchError> {
+) -> Result<(Raster<f32>, Option<Note>), FetchError> {
     let path = cache_path(dir, Model::Dgm1, entry);
     let what = format!("{} tile {}", Model::Dgm1.label(), entry.name);
     let url = format!("{ATOM_DATA}/{}.tif", entry.name);
@@ -681,7 +682,6 @@ fn dgm1_tile(
             megabytes = XYZ_MB.to_string()
         ),
     });
-    let tile = format!("DGM1 tile {}", short_name(entry.tile));
     let raster = download_checked(
         fetcher,
         dir,
@@ -698,9 +698,14 @@ fn dgm1_tile(
     cache_raster(&path, &raster, &what)?;
     Ok((
         raster,
-        Some(format!(
-            "{tile} {atom_failed}; used its XYZ from the Downloadportal"
-        )),
+        Some(match atom_error {
+            None => note!("warning-sh-dgm-xyz-used", tile = short_name(entry.tile)),
+            Some(error) => note!(
+                "warning-sh-dgm-xyz-used-unreadable",
+                tile = short_name(entry.tile),
+                error = error
+            ),
+        }),
     ))
 }
 
@@ -1398,11 +1403,7 @@ mod tests {
                 found,
                 HeightModel {
                     date: Some("2022-03-10".to_string()),
-                    warnings: vec![
-                        "DGM1 tile 32_565_5949 is not in the INSPIRE ATOM directory; used its \
-                         XYZ from the Downloadportal"
-                            .to_string()
-                    ],
+                    warnings: vec![note!("warning-sh-dgm-xyz-used", tile = "32_565_5949")],
                     ..HeightModel::default()
                 }
             );

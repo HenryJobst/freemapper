@@ -8,11 +8,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- Program language, third stage (ADR 0092): progress lines and warnings come in the program's language, on the command line, in the MCP server and in the log of the area page. A German warning starts with `Warnung:`. An error inside a warning, such as a failed download, is translated as well. Still English are `--help` and about 25 warnings about the height models of single states (tile lists, dates).
+- Program language, third stage (ADR 0092): progress lines and warnings come in the program's language, on the command line, in the MCP server and in the log of the area page. A German warning starts with `Warnung:`. An error inside a warning, such as a failed download, is translated as well. That includes the warnings about the height models of the single states (tile lists, dates). Still English is `--help`.
 
 ### Changed
 
-- Library: the progress callback receives a `Note` (a message id and its values) instead of a finished line (`&str`); `to_string()` gives the English line as before, `Note::text` the line in a language, and `Note::is_warning` tells whether it is a warning. The texts live in `crates/freemapper/i18n/`.
+- Library: the progress callback receives a `Note` (a message id and its values) instead of a finished line (`&str`); `to_string()` gives the English line as before, `Note::text` the line in a language, and `Note::is_warning` tells whether it is a warning. `HeightModel::warnings` holds such values instead of strings. The texts live in `crates/freemapper/i18n/`.
 
 ## [0.10.0] - 2026-11-11
 

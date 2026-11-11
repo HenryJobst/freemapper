@@ -1,6 +1,7 @@
 //! What a fetch of a tiled height model (HVBG Hesse, LVermGeo SH) found besides the raster, and
 //! the mosaic of 1 km tiles named by a tile list (Geobasis NRW, LVermGeo RP).
 
+use crate::note::{Note, note};
 use std::path::{Path, PathBuf};
 
 use crate::crs::BoundingBox;
@@ -26,7 +27,7 @@ pub struct HeightModel {
     pub unresolved_empty: Vec<TileId>,
     /// Problems that did not stop the fetch (a date that cannot be read, a list that fell back
     /// to a kept older one, cells without height).
-    pub warnings: Vec<String>,
+    pub warnings: Vec<Note>,
 }
 
 /// How a provider's 1 km zone-32 tiles (named by its tile list) are downloaded, cached and
@@ -84,7 +85,7 @@ pub(crate) fn mosaic_tiles(
     area: AreaTiles,
     root: &Path,
     out: &Path,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<Vec<TileId>, FetchError> {
     let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let mut reasons = area.missing;
@@ -97,10 +98,11 @@ pub(crate) fn mosaic_tiles(
             message: format!("{} tile {name}: {message}", store.label),
         })?;
         if empty > 0 {
-            warnings.push(format!(
-                "{} tile {}: {empty} cells of the map area have no height",
-                store.label,
-                short_name(tile)
+            warnings.push(note!(
+                "warning-model-tile-cells-empty",
+                model = crate::note::model(store.label),
+                tile = short_name(tile),
+                count = empty
             ));
         }
         Ok::<(), FetchError>(())
@@ -204,16 +206,17 @@ pub(crate) fn centre_tile(bbox: &BoundingBox) -> TileId {
 pub(crate) fn centre_date(
     bbox: &BoundingBox,
     label: &str,
-    listed: Option<Result<String, String>>,
+    listed: Option<Result<String, Note>>,
     missing: &[TileId],
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Option<String> {
     let centre = centre_tile(bbox);
     match listed {
         Some(_) if missing.contains(&centre) => {
-            warnings.push(format!(
-                "the {label} tile {} at the centre of the map area is missing, so there is no date",
-                short_name(centre)
+            warnings.push(note!(
+                "warning-centre-tile-missing",
+                model = crate::note::model(label),
+                tile = short_name(centre)
             ));
             None
         }
@@ -223,10 +226,10 @@ pub(crate) fn centre_date(
         }
         Some(Ok(date)) => Some(date),
         None => {
-            warnings.push(format!(
-                "the tile list names no {label} tile {} at the centre of the map area, so there is \
-                 no date",
-                short_name(centre)
+            warnings.push(note!(
+                "warning-centre-tile-unlisted",
+                model = crate::note::model(label),
+                tile = short_name(centre)
             ));
             None
         }
@@ -401,7 +404,7 @@ mod tests {
             centre_date(
                 &BBOX,
                 "x",
-                Some(Err("no date".to_string())),
+                Some(Err(note!("warning-lgln-no-date-unlisted", model = "x"))),
                 &[],
                 &mut warnings
             ),
@@ -409,6 +412,9 @@ mod tests {
         );
         assert_eq!(centre_date(&BBOX, "x", None, &[], &mut warnings), None);
         assert_eq!(warnings.len(), 3, "{warnings:?}");
-        assert_eq!(warnings[1], "no date");
+        assert_eq!(
+            warnings[1],
+            "x: no date, the STAC lists no tile at the centre of the map area"
+        );
     }
 }

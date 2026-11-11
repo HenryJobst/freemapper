@@ -772,8 +772,7 @@ a server, the operating system or a parser says inside an error stays as it is, 
 example of the place search.
 
 Progress lines and warnings come in the program's language too; a warning starts with `warning:` (German
-`Warnung:`). Still English in both languages are the help (`--help`) and a few warnings about the height models
-of single states, for example about tile lists and dates. The area page takes the
+`Warnung:`). Still English in both languages is the help (`--help`). The area page takes the
 program's language when `--lang`, `FREEMAPPER_LANG` or the system names one; otherwise it follows the browser's
 language. The most important messages, in their English wording:
 
