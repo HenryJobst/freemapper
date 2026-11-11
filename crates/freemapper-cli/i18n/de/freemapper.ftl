@@ -76,6 +76,156 @@ cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ord
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
 
+## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
+## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine
+## Selektoren: Eine Anzahl hat zwei Meldungen, `<id>-one` und `<id>-other`. Die Seite duzt.
+## AGENTS.md, das Handbuch und scripts/browser-smoke.md zitieren diese Wörter.
+
+page-title = freemapper – Gebietsauswahl
+page-heading = Kartengebiet wählen
+page-update-available = freemapper { $version } ist verfügbar. Aktualisieren mit
+page-update-notes = Versionshinweise
+page-folder = Projektordner
+page-pick = Ort suchen
+page-query-placeholder = z. B. Clara-Zetkin-Schule Strausberg
+page-search-button = Suchen
+page-searching = Suche …
+page-no-results = Nichts gefunden.
+page-point-only = nur ein Punkt, keine Fläche
+page-draw = Selbst zeichnen
+page-rectangle = Rechteck
+page-polygon = Polygon
+page-finish-polygon = Polygon schließen
+page-clear = Löschen
+page-hint-rectangle = Klicke zwei gegenüberliegende Ecken in die Karte.
+page-hint-polygon = Klicke die Ecken nacheinander. Zum Schließen die erste Ecke anklicken, doppelklicken oder „Polygon schließen“ wählen. Esc bricht ab, Rücktaste nimmt die letzte Ecke zurück.
+page-hint-idle = Wähle einen Ort aus der Suche oder zeichne das Gebiet selbst.
+page-summary = Gebiet
+page-source-osm = Aus OpenStreetMap: { $name }
+page-source-drawn = Selbst gezeichnet
+page-size = Größe mit Puffer: { $width } × { $height } m
+page-tiles-one = { $n } Kachel: { $names }
+page-tiles-other = { $n } Kacheln: { $names }
+page-download = Download: etwa { $mb } MB
+page-download-none = Download: alles schon im Zwischenspeicher
+page-download-details = Was geladen wird
+page-cached = schon geladen
+page-disk = Speicherplatz: { $volumes }
+page-disk-volume = { $free } frei, gebraucht etwa { $needed }
+page-cache-volume = Zwischenspeicher
+page-project-volume = Projektordner
+page-no-room = passt nicht auf den Datenträger
+page-no-room-skip = Nicht alles passt auf den Datenträger (freemapper lässt { $reserve } frei). Das Laden lässt die markierten Teile aus. Schaffe vorher Platz, wenn du sie brauchst:
+page-no-room-stop = Zu wenig Speicherplatz (freemapper lässt { $reserve } frei). Ohne die markierten Teile entsteht keine Karte, deshalb bricht das Laden ab, bevor es etwas lädt. Schaffe vorher Platz:
+page-disk-unknown = Den freien Speicherplatz kann freemapper nicht lesen ({ $error }). Es lädt dann ohne Prüfung.
+page-too-large = Das Gebiet ist zu groß: höchstens { $max } m Seitenlänge (mit Puffer). Bitte kleiner wählen.
+page-outside = Das Gebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.
+page-settings = Karte
+page-kind = Kartenart
+page-schoolyard = Schulhofkarte (1:1000)
+page-sprint = Sprintkarte (1:4000)
+page-scale = Maßstab 1:
+page-map-title = Titel
+page-settings-fixed = Das Projekt gibt es schon; Kartenart, Maßstab und Titel stehen in freemapper.toml.
+page-save = Speichern
+page-saving = Speichere …
+page-saved = Gespeichert in freemapper.toml.
+page-zone-changed = Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; freemapper ruft seine Daten beim nächsten Lauf neu ab.
+page-provider-changed = Gespeichert. Für das neue Gebiet liefert ein anderer Datenanbieter die Höhen- und Luftbilddaten; freemapper ruft seine Daten beim nächsten Lauf neu ab.
+page-save-stale = freemapper.toml wurde in einem anderen Fenster oder von einem anderen Programm geändert, seit diese Seite sie gelesen hat. Es wurde nichts gespeichert; die Seite kennt jetzt den gespeicherten Stand. Speichere noch einmal, um ihn durch das hier gezeigte Gebiet zu ersetzen.
+page-has-map = Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. Mit der Option „Vorhandene Karte ersetzen“ unten (oder „freemapper run --force“) entsteht auch die Karte neu, die alte bleibt als .omap.bak.
+page-done = Fertig
+page-closed = Fertig. Du kannst dieses Fenster schließen.
+page-next = Weiter: freemapper run "{ $dir }"
+page-made-files = Erzeugt: { $files }. Ordner: { $dir }
+page-back-to-agent = Sag deinem KI-Assistenten, dass das Gebiet gespeichert ist.
+page-nothing-saved = Es wurde nichts gespeichert.
+page-failed = Fehler: { $error }
+page-layer-osm = OpenStreetMap
+page-layer-aerial = Luftbild Brandenburg/Berlin (LGB)
+page-layer-aerial-saxony = Luftbild Sachsen (GeoSN)
+page-layer-aerial-saxony-anhalt = Luftbild Sachsen-Anhalt (LVermGeo)
+page-layer-aerial-hamburg = Luftbild Hamburg (LGV)
+page-layer-aerial-hessen = Luftbild Hessen (HVBG)
+page-layer-aerial-schleswig-holstein = Luftbild Schleswig-Holstein (LVermGeo SH)
+page-layer-aerial-mecklenburg-vorpommern = Luftbild Mecklenburg-Vorpommern (LAiV M-V)
+page-layer-aerial-nordrhein-westfalen = Luftbild Nordrhein-Westfalen (Geobasis NRW)
+page-layer-aerial-niedersachsen = Luftbild Niedersachsen (LGLN)
+page-layer-aerial-rheinland-pfalz = Luftbild Rheinland-Pfalz (LVermGeo RP)
+
+## Das Lauf-Feld der Gebietsauswahl-Seite (ADR 0090)
+
+page-run-heading = Karte erzeugen
+page-opt-ocad = OCAD-Startprojekt schreiben
+page-help-ocad = Für alle, die in OCAD weiterarbeiten.
+page-opt-pdf = Druckfertige PDF
+page-help-pdf = Nur die Kartenobjekte, ohne Kandidaten.
+page-opt-pdf-candidates = Trainings-PDF mit allen Kandidaten
+page-opt-scale-bar = Maßstabsleiste in die PDFs
+page-help-scale-bar = Deutsche Karten haben meist keine.
+page-opt-sources = Quellenangabe in den PDFs
+page-sources-auto = automatisch
+page-sources-full = vollständig
+page-sources-credit-only = nur freemapper
+page-warn-credit-only = Die PDFs nennen dann nur freemapper. Die Lizenzen der Daten (ODbL, dl-de/by-2-0) verlangen die Quellenangabe, wenn du die Karte weitergibst; dann nennst du die Quellen selbst. ATTRIBUTION.txt listet sie alle.
+page-need-pdf = Maßstabsleiste und Quellenangabe gelten nur, wenn eine PDF entsteht.
+page-opt-offline = Nur Zwischenspeicher, kein Netz
+page-opt-force = Vorhandene Karte ersetzen
+page-help-force = Die alte Datei bleibt als .omap.bak.
+page-run-start = Karte erzeugen
+page-run-again = Nochmal erzeugen
+page-run-cancel = Abbrechen
+page-run-cancelling = Wird abgebrochen …
+page-warnings-heading = Warnungen
+page-where-files = Die Dateien liegen im Projektordner:
+page-open-folder = Ordner öffnen
+page-log-label = Protokoll des Laufs
+page-force-title = Vorhandene Karte ersetzen?
+page-force-text = Die vorhandene Karte wird ersetzt. Deine Änderungen darin gehen nicht verloren: Die alte Datei bleibt als .omap.bak im Projektordner. Fortfahren?
+page-force-cancel = Abbrechen
+page-force-confirm = Ersetzen
+page-step-fetch = Daten laden
+page-step-derive = Vorlagen berechnen
+page-step-map = Karte schreiben
+page-step-ocad = OCAD-Projekt schreiben
+page-step-pdf = PDF schreiben
+page-step-pdf-candidates = Trainings-PDF schreiben
+page-step-line = Schritt { $index } von { $total }: { $label }
+page-starting = Der Lauf startet …
+page-file-kind-map = Karte
+page-file-kind-template = Vorlage
+page-file-kind-ocad = OCAD-Karte
+page-file-kind-ocad-candidates = OCAD-Kandidaten
+page-file-kind-pdf = PDF
+page-file-kind-pdf-candidates = Trainings-PDF
+page-file-line = { $path } ({ $kind }, { $size })
+page-result-done = Fertig. Die Dateien sind geschrieben.
+page-result-failed = Der Lauf ist fehlgeschlagen: { $error }
+page-result-failed-kept = Was schon geschrieben ist, bleibt im Projektordner; ein neuer Lauf macht dort weiter.
+page-result-cancelled = Abgebrochen. Was schon geladen ist, bleibt im Zwischenspeicher; ein neuer Lauf macht dort weiter.
+page-result-title-done = Karte erzeugt
+page-result-title-failed = Lauf fehlgeschlagen
+page-result-title-cancelled = Lauf abgebrochen
+page-kept-map = Die vorhandene Karte blieb unverändert. Mit „Vorhandene Karte ersetzen“ entsteht sie neu, die alte bleibt als .omap.bak.
+page-no-files = Es sind keine Dateien entstanden.
+page-opened-folder = Der Ordner ist geöffnet.
+page-open-failed = { $message } Ordner: { $dir }
+page-why-no-area = Wähle zuerst ein Gebiet.
+page-why-checking = Die Vorschau wird berechnet …
+page-why-too-large = Das Gebiet ist zu groß.
+page-why-outside = Das Gebiet liegt außerhalb der unterstützten Bundesländer.
+page-why-disk = Es ist zu wenig Speicherplatz frei (siehe oben).
+page-why-running = Ein Lauf ist im Gang.
+page-err-scale-bar-no-pdf = Die Maßstabsleiste braucht eine PDF.
+page-err-sources-no-pdf = Die Quellenangabe braucht eine PDF.
+page-save-failed = Das Gebiet ist nicht gespeichert; es gibt noch keinen Lauf.
+page-poll-lost = Keine Antwort vom Server. freemapper versucht es weiter.
+page-run-unknown = Der Lauf ist dem Server nicht mehr bekannt.
+
+## Die gemeinsamen Module der Seiten der Suite (core ADR 0030)
+
+suite-banner-dismiss = Ausblenden
+
 ## update (Spezifikation 3.4 bis 3.6)
 
 update-source-build = Dieses freemapper wurde aus dem Quellcode gebaut. Aktualisieren Sie es mit git pull und cargo build --release --locked.

@@ -164,9 +164,23 @@ mod tests {
             ("version", v("0.12.0")),
             ("mode", v("notify")),
             ("platform", v("linux-riscv")),
+            // The area page's patterns (`page-*`); the page fills them in itself.
+            ("n", n(2)),
+            ("names", v("33421-5821, 33421-5822")),
+            ("mb", v(350)),
+            ("volumes", v("1 GB free, about 350 MB needed")),
+            ("free", v("1 GB")),
+            ("max", v(1500)),
+            ("dir", v("/p")),
+            ("index", v(1)),
+            ("total", v(3)),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
+
+    /// The id families the Rust code names: `page-` for the area page's sentences the server
+    /// writes (a stale save), the others as in `i18n/README.md`.
+    const PREFIXES: [&str; 6] = ["cli-", "error-", "word-", "mcp-", "update-", "page-"];
 
     #[test]
     fn every_id_used_in_the_code_exists() {
@@ -175,6 +189,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
@@ -186,10 +201,7 @@ mod tests {
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
         ] {
-            for id in freemapper_text::ids_in_source(
-                source,
-                &["cli-", "error-", "word-", "mcp-", "update-"],
-            ) {
+            for id in freemapper_text::ids_in_source(source, &PREFIXES) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
@@ -198,6 +210,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
@@ -210,14 +223,12 @@ mod tests {
             include_str!("update/source.rs"),
         ]
         .iter()
-        .flat_map(|source| {
-            freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-", "update-"])
-        })
+        .flat_map(|source| freemapper_text::ids_in_source(source, &PREFIXES))
         .collect();
         // The help and the MCP descriptions are looked up by name; `help.rs` and `mcp.rs` test
-        // those.
+        // those. The area page's texts are used by its scripts; `select_page.rs` tests those.
         for id in english.iter().filter(|id| {
-            !["help-", "mcp-tool-", "mcp-param-"]
+            !["help-", "mcp-tool-", "mcp-param-", "page-", "suite-"]
                 .iter()
                 .any(|p| id.starts_with(p))
         }) {
