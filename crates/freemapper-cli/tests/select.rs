@@ -721,7 +721,7 @@ fn refusals_come_in_the_language_of_the_page() {
         (status, german.as_str()),
         (
             400,
-            "Unbekannte Kartenart \"forest\"; möglich sind schoolyard und sprint"
+            "Unbekannte Kartenart „forest“. Möglich sind schoolyard und sprint."
         )
     );
 }

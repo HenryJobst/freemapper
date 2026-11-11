@@ -218,6 +218,11 @@ fn bad_request(message: impl Into<String>) -> Response {
         .into_response()
 }
 
+/// The answer to a request whose task stopped unexpectedly, in the page's language.
+fn internal_error(lang: &Lang, error: impl ToString) -> Response {
+    bad_request(TEXTS.text(lang, "cli-internal-error", &[("message", v(error))]))
+}
+
 /// One tile of the OpenStreetMap base layer. The address is checked before anything is fetched.
 async fn osm_tile(
     State(state): State<Arc<AppState>>,
@@ -268,13 +273,8 @@ fn kind_name(kind: MapKind) -> &'static str {
 }
 
 fn parse_kind(kind: &str, lang: &Lang) -> Result<MapKind, String> {
-    MapKind::from_name(kind).ok_or_else(|| {
-        TEXTS.text(
-            lang,
-            "cli-save-unknown-kind",
-            &[("kind", v(format!("{kind:?}")))],
-        )
-    })
+    MapKind::from_name(kind)
+        .ok_or_else(|| TEXTS.text(lang, "cli-save-unknown-kind", &[("kind", v(kind))]))
 }
 
 /// The saved project, if there is one; an error in `lang` when its file cannot be read.
@@ -409,8 +409,10 @@ async fn preview(
 ) -> Response {
     let today = chrono::Local::now().date_naive();
     let lang = page_lang(&headers);
+    let task_lang = lang.clone();
     // Validating a large outline takes a while: off the async workers.
     let answer = tokio::task::spawn_blocking(move || -> Result<Value, String> {
+        let lang = task_lang;
         let area = area_of(&body, &lang)?;
         // An existing project keeps its buffer; a new one gets the buffer of the kind chosen
         // on the page.
@@ -428,7 +430,7 @@ async fn preview(
     match answer {
         Ok(Ok(answer)) => Json(answer).into_response(),
         Ok(Err(e)) => bad_request(e),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -437,7 +439,8 @@ struct PlacesQuery {
     q: String,
 }
 
-async fn places(Query(query): Query<PlacesQuery>) -> Response {
+async fn places(headers: HeaderMap, Query(query): Query<PlacesQuery>) -> Response {
+    let lang = page_lang(&headers);
     crate::nominatim::wait_turn().await;
     let found =
         tokio::task::spawn_blocking(move || find_places(&HttpFetcher::new(), &query.q)).await;
@@ -458,8 +461,8 @@ async fn places(Query(query): Query<PlacesQuery>) -> Response {
                 .collect::<Vec<_>>(),
         )
         .into_response(),
-        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Ok(Err(e)) => bad_request(message(&e, &lang)),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -468,7 +471,8 @@ struct PlaceQuery {
     osm_id: String,
 }
 
-async fn place(Query(query): Query<PlaceQuery>) -> Response {
+async fn place(headers: HeaderMap, Query(query): Query<PlaceQuery>) -> Response {
+    let lang = page_lang(&headers);
     crate::nominatim::wait_turn().await;
     let osm_id = query.osm_id.clone();
     let found =
@@ -478,8 +482,8 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
         Ok(Ok(area)) => {
             Json(json!({ "area": area.to_geojson_value(), "source_id": osm_id })).into_response()
         }
-        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Ok(Err(e)) => bad_request(message(&e, &lang)),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -577,7 +581,7 @@ async fn save(
             freemapper_web::stale(&current, &TEXTS.text(&lang, "page-save-stale", &[]))
         }
         Ok(Err(SaveError::Other(e))) => bad_request(e),
-        Err(e) => bad_request(TEXTS.text(&lang, "cli-internal-error", &[("message", v(e))])),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -641,7 +645,7 @@ pub(crate) mod tests {
         .await
         .unwrap();
         for ((status, text), expected) in [
-            (english, "a pipeline is running for this project"),
+            (english, "A run is going on for this project."),
             (german, "Für dieses Projekt läuft gerade ein Lauf"),
         ] {
             assert_eq!(status, 409, "{text}");
@@ -681,7 +685,7 @@ pub(crate) mod tests {
         let origin = origin_of(&selector.url);
         // The page names the revision of the file it read (core ADR 0030).
         let seen = freemapper_web::revision(before.as_bytes());
-        let post = |url: String, origin: String, seen: String| {
+        let post = |url: String, origin: String, seen: String, accept: &str| {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
                 .build()
@@ -692,6 +696,7 @@ pub(crate) mod tests {
                 .header("Content-Type", "application/json")
                 .header("Origin", &origin)
                 .header(freemapper_web::REVISION_HEADER, &seen)
+                .header("Accept-Language", accept)
                 .send(body)
                 .unwrap();
             (
@@ -701,13 +706,24 @@ pub(crate) mod tests {
         };
         let (u, o) = (url.clone(), origin.clone());
         let s = seen.clone();
-        let (status, text) = tokio::task::spawn_blocking(move || post(u, o, s))
+        let (status, text) = tokio::task::spawn_blocking(move || post(u, o, s, "en"))
             .await
             .unwrap();
         assert_eq!(status, 409, "{text}");
         assert!(
             text.contains("another freemapper run is using this folder"),
             "{text}"
+        );
+        // In the page's language, also when the program's is another.
+        let (u, o) = (url.clone(), origin.clone());
+        let s = seen.clone();
+        let (status, german) = tokio::task::spawn_blocking(move || post(u, o, s, "de-DE,de"))
+            .await
+            .unwrap();
+        assert_eq!(status, 409, "{german}");
+        assert!(
+            german.contains("Ein anderer freemapper-Lauf verwendet diesen Ordner"),
+            "{german}"
         );
         assert!(
             !text.contains(&dir.path().display().to_string()),
@@ -719,7 +735,7 @@ pub(crate) mod tests {
         );
         // Let go, and the same save goes through; the page leaves no lock behind.
         drop(held);
-        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin, seen))
+        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin, seen, "en"))
             .await
             .unwrap();
         assert_eq!(status, 200, "{text}");

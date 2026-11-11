@@ -17,7 +17,7 @@ use freemapper_update::{
 
 use super::command::describe;
 use super::{freemapper_app, mode_from_env, release_build, settings_dir, update_source};
-use crate::text::{text, v};
+use crate::text::{text, v, warning};
 
 /// The record of the last attempt, in the cache folder.
 const RECORD: &str = "update-check.json";
@@ -147,10 +147,10 @@ impl BackgroundCheck {
             // A release that does not verify is an error that says so (spec 3.2), but only a
             // warning here: the command ran. The record keeps it to once a day.
             Err(unverified @ (UpdateError::Signature | UpdateError::UnknownKey)) => {
-                Some(Report::Warning(text(
+                Some(Report::Warning(warning(&text(
                     "update-check-bad-signature",
                     &[("error", v(unverified))],
-                )))
+                ))))
             }
             // Anything else, a missing manifest too, stays silent; the record says it failed.
             _ => None,
@@ -221,10 +221,10 @@ impl BackgroundCheck {
                 ),
                 text("update-applies-next-start", &[])
             )),
-            Err(e) => Report::Warning(text(
+            Err(e) => Report::Warning(warning(&text(
                 "update-install-failed",
                 &[("new", v(version)), ("error", v(describe(&e)))],
-            )),
+            ))),
         }
     }
 

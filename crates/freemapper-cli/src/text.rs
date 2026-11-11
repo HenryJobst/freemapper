@@ -142,6 +142,12 @@ pub fn text(id: &str, args: &[(&str, FluentValue)]) -> String {
     TEXTS.text(&lang(), id, args)
 }
 
+/// `body` as a warning line in the language of this run, with the prefix every warning of the
+/// program has ("warning: …"), from the engine's catalog (`note-warning`).
+pub fn warning(body: &str) -> String {
+    freemapper::note::NOTES.text(&lang(), "note-warning", &[("text", v(body))])
+}
+
 /// A path, a name or another text as a message variable.
 pub fn v(value: impl ToString) -> FluentValue<'static> {
     FluentValue::from(value.to_string())
