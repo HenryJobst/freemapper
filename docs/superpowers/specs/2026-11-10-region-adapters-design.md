@@ -8,6 +8,13 @@ This document is design only. It changes no production code. The brainstorming r
 every open question was settled by taking the recommended option; section 9 lists each call with its reason and
 what it costs if wrong. Counts below were taken from `main` at v0.9.0 (8004542) on 2026-11-10.
 
+Revision 2026-11-11, after a review against `main` at v0.10.0 (c393575): the counts of section 2 still hold (440
+enum references in 16 files); `freemapper-georef` is done (core v0.5.0, pinned at v0.11.0); the net is recorded from
+v0.10.0 with an injectable clock (D25); the guard checks commit subjects on every push (D26); the trait keeps the
+cancel of ADR 0090 (section 3.3); program language exists now (section 3.12); some tools and the weekly live check
+are deferred and one new state tests the design before the guide (D27). The changed sections say so where they
+change.
+
 ## 1. Intent
 
 Other developers should add their own country or state to freemapper with as little work as possible. The
@@ -177,9 +184,9 @@ provider share the cache folder and the record in the project file.
 
 ```
 freemapper-core (separate repo)
-  freemapper-georef     NEW, v0.4.0: Crs, LatLon, ProjectedPoint, BoundingBox, TileId  (from crs.rs, tiles.rs)
+  freemapper-georef     done in v0.5.0: Crs, LatLon, ProjectedPoint, BoundingBox, TileId  (from crs.rs, tiles.rs)
   freemapper-fs         link-safe writes (already used)
-  freemapper-text       Fluent catalogs (program language, when it lands)
+  freemapper-text       Fluent catalogs (program language, in use since v0.10.0)
 
 freemapper (this repo, workspace)
   crates/freemapper-adapter-api   NEW  traits and data types, Fetcher/FetchError/FetchMode, records, AdapterError
@@ -203,9 +210,8 @@ Why these cuts:
   them. Not now.
 - `HttpFetcher`, `Cache` and the project types stay in `freemapper`. Adapters see them through `AdapterEnv`
   (section 3.3).
-- `freemapper-georef` is the crate that ADR 0067 and core ADR 0005 already plan; freemapper owns it. `crs.rs` has no
-  imports, so the move is cheap. If the core release is late, stage B can start with the types inside the api crate
-  and re-export from core later (D4).
+- `freemapper-georef` is the crate that ADR 0067 and core ADR 0005 planned; freemapper owns it. The move is done:
+  `crs.rs` and `tiles.rs` re-export it, and the api crate depends on it directly (D4).
 
 Adding an adapter crate is three edits: the crate under `crates/adapters/`, a feature line in
 `freemapper-cli/Cargo.toml`, and one line in `freemapper-cli/src/adapters.rs`:
@@ -257,7 +263,10 @@ pub trait AlkisSource: Send + Sync {
 ```
 
 `AdapterEnv` is what an adapter may touch: `fetcher: &dyn Fetcher`, `cache: CacheDir` (a path with the link-safe
-helpers of `freemapper-fs`, no knowledge of disk-space accounting), `mode: FetchMode`, `progress`. It cannot reach
+helpers of `freemapper-fs`, no knowledge of disk-space accounting), `mode: FetchMode`, `progress`, `today` (the date
+from the injectable clock, so an adapter never reads the system clock). The fetcher may be the `CancelCheck` wrapper
+of ADR 0090; an adapter passes `FetchError::Cancelled` up inside `AdapterError` unchanged, and the pipeline maps it
+back to a cancel in one place, so the cancel button of the browser page keeps working. It cannot reach
 the project folder directly. Writes into the project go through `ProjectSink`, which wraps `write_inside` and
 `copy_inside`. So an adapter cannot break ADR 0059 or ADR 0060 by accident.
 
@@ -555,12 +564,14 @@ style: lower case start in `warning:` lines, names the file, says what to do.
 
 ### 3.12 i18n
 
-The program language work (`--lang`, `FREEMAPPER_LANG`, Fluent through `freemapper-text`) is not in v0.9.0's
-dependencies. Hooks that cost nothing now: manifest names and the preview attribution are `{en, de}` tables (the
-shape of `LocalizedText` in `freemapper-rules`), with English as fallback; adapter messages stay English strings
-until the catalogs exist; `AdapterError` carries a stable code (`manifest.unknown-key`, `policy.host-not-declared`)
-that becomes the Fluent message id. The supported-states sentence in `project.rs:134`, `mcp.rs:31` and `app.js` is
-built from `names` of the registry in the active language.
+Program language (ADR 0092: `--lang`, `FREEMAPPER_LANG`, Fluent through `freemapper-text`) is in v0.10.0. The
+library reports `Note`s with a message id and arguments, rendered in the caller's language; lines without a message
+yet stay plain English. For adapters: manifest names and the preview attribution are `{en, de}` tables (the shape of
+`LocalizedText` in `freemapper-rules`), with English as fallback; `AdapterError` carries a stable code
+(`manifest.unknown-key`, `policy.host-not-declared`) that becomes the Fluent message id; adapter messages are notes
+like the rest. The supported-states sentence (the error in `project.rs`, the MCP text in `mcp.rs`, the page texts in
+`app.js`) is built from `names` of the registry in the active language. The goldens render notes in English, so
+they do not depend on `FREEMAPPER_LANG`.
 
 ### 3.13 Persisted ids and old projects
 
@@ -588,25 +599,27 @@ refuses a fixtures folder over 2 MB.
 Byte-stable examples are the goal. The examples in the repo ship their outputs (`.omap`, candidates, PDF, toml) but
 not their `data/` folders or the cache, and the OSM extracts are 54 to 510 MB each. So an offline rebuild of an
 example is not possible from the repo as it is. The net therefore has five layers, all offline, all recorded from
-v0.9.0 code before the first refactor commit:
+v0.10.0 code before the first refactor commit (revision 2026-11-11; the first version said v0.9.0):
 
 | Layer | Records | Proves |
 |---|---|---|
 | G1 registry data | JSON of every per-region fact the old enums gave: CRS, provider, terrain source label, `per_area`, object-id prefix, OSM extract URL, state URL, prefix, MB, label, boundary SHA-256, attribution text for the years 2025 and 2026 and with each project record combination | the data moved without change |
 | G2 geometry | `regions_for`, `raster_region`, `provider_tiles` (1 km and 2 km), `reaches_beyond_coverage`, `tile_touches`, `tile_centre_in`, `extracts_for` for the 11 example boxes plus a grid of 200 boxes on borders (BB/BE, ST/NI, NI/Bremen, HE/RP, NW/NI, MV/SH, MV/BB) | the dispatch picks the same adapter and tiles |
 | G3 request trace | the ordered list of URLs, with method and range, that `fetch_project` (online) and `estimate_download` issue per state against a canned `Fetcher`; also `warning:` lines | the same requests go out |
-| G4 pipeline | per state a mini project (`freemapper.toml`, `data/`, `templates/` inputs, tile cache, a 1 MB cut-down OSM PBF) for the golden area; `derive` plus `build` offline; SHA-256 of `.omap`, `candidates.omap`, `ATTRIBUTION.txt`, `contours.geojson`, the three template PNGs | the output bytes are the same |
+| G4 pipeline | per state a mini project (`freemapper.toml`, `data/`, `templates/` inputs, tile cache, a 1 MB cut-down OSM PBF) for the golden area; offline fetch, `derive`, one document build and all four exports (ADR 0091); SHA-256 of the written `freemapper.toml`, `.omap`, `.ocd`, both PDFs, `candidates.omap`, `ATTRIBUTION.txt`, `contours.geojson`, the three template images | the output bytes are the same |
 | G5 persisted format | load, save and byte-compare each `examples/*/freemapper.toml`; load each with a missing adapter and check the message | old projects keep working |
 
 Recording G3 and G4 needs the network once, run by the maintainer (or an agent) with the brief that forbids the user
 e-mail address in any request (memory: no e-mail in requests). The files are then committed under
-`tests/golden/adapters/`. `FREEMAPPER_BLESS=1` rewrites a golden file; a CI step fails any pull request titled
-`refactor(adapters):` that changes `tests/golden/adapters/**`, so a refactor cannot bless its own change.
+`tests/golden/adapters/`. `FREEMAPPER_BLESS=1` rewrites a golden file; a CI step on every push and pull request
+fails when a commit whose subject starts with `refactor(adapters):` changes `tests/golden/adapters/**`, so a
+refactor cannot bless its own change (D26). G3 and G4 run under a fixed clock (D25): the project stores fetch dates,
+the credit line takes its year from them, and two states decide by date whether to ask again.
 
 The migration is a strangler: first the net (stage A), then the crates (B), then a registry with a `LegacyAdapter`
 shim that wraps the enums (C1), then one concern at a time moved behind the trait (boundary and CRS, OSM, credit,
 estimate, ALKIS, rasters, extras), then the ids, and last the deletion of `Region`, `Provider` and the old
-`match`es (C11). After every task `cargo test --workspace` and the golden layers are green. A concern moves for all
+`match`es (C14). After every task `cargo test --workspace` and the golden layers are green. A concern moves for all
 states in one task, so the `match` and the trait never both own a concern.
 
 ### 3.16 Performance
@@ -616,7 +629,8 @@ states in one task, so the `match` and the trait never both own a concern.
 bounding rectangle so `intersects` checks the rectangle first; that is an exact pre-filter and changes no result.
 Trait calls per tile cost one virtual call; the loops stay inside the adapter. Manifest parsing: 11 embedded
 manifests at start, target under 5 ms in total (boundaries parse lazily on first use, as now). G2 includes a timing
-test with a generous bound (twice the v0.9.0 time) to catch a quadratic regression, not to benchmark.
+test with a generous bound (twice the v0.10.0 time) to catch a quadratic regression, not to benchmark; it is
+ignored on the shared CI runners and run by hand.
 
 ### 3.17 Documentation
 
@@ -664,7 +678,8 @@ documents in `docs/regions/` stay as they are.
 | Recorded fixtures hide a service change | high over time | green tests, live failure | weekly live workflow; fixtures are for regression, not for truth |
 | Manifest language creep | medium | a second programming language | closed lists, a format revision for every new kind, review rule: "if it needs an `if`, it is code" |
 | SSRF or request smuggling through URL templates | low after the policy | internal network access | declared hosts, address checks at connect time, no raw query strings, percent-encoded placeholders, tests with a stub resolver |
-| Core release for `freemapper-georef` is late | low | stage B waits | D4: start with the types in the api crate, re-export later |
+| Goldens change with the date (fetch dates, credit year, 30-day rechecks) | certain without a fix | red tests on 1 January, flaky G3 | injectable clock first (D25) |
+| Other sessions edit the same CLI files (page, MCP) | high | merge conflicts, lost texts | agree each edit with the owning session; stage A merges early so the goldens guard their work too |
 | Contributor adapters rot | high | broken states for users | maintainer field, weekly check, "unmaintained" marking, default-off features for non-reviewed crates |
 | Two extension mechanisms (manifest + backend, code adapter) confuse contributors | medium | support load | the decision flow in the guide; `adapter new --kind` scaffolds the right one |
 | Compile time grows with 4 new crates | low | slower CI | the readers were one crate's modules before; measure in task B4 |
@@ -696,15 +711,16 @@ For a reviewer of this design:
 
 | Stage | Result | Tasks | Size |
 |---|---|---:|---|
-| A | Net: glossary, G1 to G5, CI guard | 5 | about 1 200 lines of tests and fixtures |
-| B | Crates: georef in core, api, sources | 4 | moves, about 6 000 lines moved, 400 new |
+| A | Net: clock, glossary, G1 to G5, CI guard | 6 | about 200 lines production, 1 200 lines of tests and fixtures |
+| B | Crates: api, sources (georef in core is done) | 2 | moves, about 6 000 lines moved, 400 new |
 | C | Trait and registry, all concerns, enums deleted | 14 | about 4 000 lines moved, 1 500 new |
-| D | Manifest: schema, loader, policy, manifests for 11 states | 8 | about 2 500 new, 11 manifests |
-| E | Tooling: `adapter check`, `record`, `new`, `boundary` | 4 | about 1 500 new |
+| D | Manifest: schema, loader, policy, manifests for 11 states | 7 (+1 deferred) | about 2 300 new, 11 manifests |
+| E | Tooling: replay in the library, `adapter check`; then one new state as the gate | 2 (+2 deferred) | about 800 new |
 | F | Docs: guide, reference, manual, README | 2 | docs only |
 | G | New states BW, Bremen, Bayern, Saarland (separate plans) | 4 | one plan each |
 
-The plan file has the detail. 37 tasks in stages A to F; stage G has plans of its own.
+The plan file has the detail. 33 active tasks in stages A to F (revision 2026-11-11; the first version had 37);
+stage G has plans of its own.
 
 ## 8. Alternatives considered
 
@@ -728,7 +744,7 @@ Every call below was made without a human partner, taking the recommended option
 | D1 | One `RegionAdapter` trait with optional capabilities (`rasters`, `alkis`, `extras`), not one trait per concern | the registry and `regions_for` need one handle per region; capabilities as `Option` keep a partial adapter possible (ALKIS only) | adapters with all `None` compile and do nothing; `check` must reject them |
 | D2 | Manifest plus named code backend inside one adapter; a pure code adapter is the exception (Berlin) | 9 of 11 states differ only in the heights source; the rest is standard data | two documented ways to extend; a backend name is a string the loader resolves at start |
 | D3 | No dynamic plugins; code enters through workspace crates and Cargo features | no ABI, no sandbox, reviewed in a pull request; WASM would still need host calls for HTTP and write rules | out-of-tree authors need a fork or a pull request; a plugin story later is a new ADR |
-| D4 | Move `Crs`, `BoundingBox`, `TileId` to `freemapper-georef` in core v0.4.0 first; fall back to the api crate if the release is late | ADR 0067 and core ADR 0005 plan it and freemapper owns it; no copy across repos | a second move later (small) |
+| D4 | Move `Crs`, `BoundingBox`, `TileId` to `freemapper-georef` in core first (done in core v0.5.0) | ADR 0067 and core ADR 0005 plan it and freemapper owns it; no copy across repos | none left |
 | D5 | Adapters live in `crates/adapters/*`, explicit registration list in the CLI crate | no link-time magic; greppable; feature flags choose what ships | a forgotten line means the adapter is silently absent; `adapters list` and a test catch it |
 | D6 | German states in one crate `crates/adapters/de`, manifests embedded with `include_str!` | stays in tree as required; one place for the maintainer | a German-only contributor still builds all eleven |
 | D7 | Three sources: built-in, user folder (default on), project folder (opt-in flag, never MCP); no trust prompt | a shared project must not add sources; prompts get clicked away | someone who sets the flag on a hostile project is exposed to the declared hosts only |
@@ -739,8 +755,8 @@ Every call below was made without a human partner, taking the recommended option
 | D12 | Closed licence list: `dl-de/zero-2-0`, `dl-de/by-2-0`, `cc-by-4.0`, `odbl`, `cc0-1.0`, `other` (needs `licence_text`, flagged by `check`) | the credit is a legal duty and `source_block` merges lines by licence | a licence outside the list waits for a release or uses `other` |
 | D13 | Boundaries come from a file in the folder, EPSG:4326 or 25833, simplified to 25 m by `adapter boundary` | matches ADR 0025 and the current assets; one rule for everyone | a 25 m simplification can put a point near a border in the wrong state (known, as today) |
 | D14 | OSM extracts are declared by Geofabrik path; URLs are derived | host fixed, nothing to mistype | a non-Geofabrik source needs a new `kind` |
-| D15 | Golden net of five layers, recorded from v0.9.0 code, with the guard that refactor PRs may not edit goldens | the examples do not ship their input data, so "rebuild an example offline" needs recorded inputs | recording needs the network once; stale services do not matter afterwards |
-| D16 | Strangler migration with a `LegacyAdapter` shim and one concern per task, all states at once per concern | a concern never has two owners; every task is revertible | the shim exists for about 10 tasks and is removed in C11 |
+| D15 | Golden net of five layers, recorded from v0.10.0 code (first version: v0.9.0), with the guard that refactor commits may not edit goldens | the examples do not ship their input data, so "rebuild an example offline" needs recorded inputs | recording needs the network once; stale services do not matter afterwards |
+| D16 | Strangler migration with a `LegacyAdapter` shim and one concern per task, all states at once per concern | a concern never has two owners; every task is revertible | the shim exists for about 13 tasks and is removed in C14 |
 | D17 | Manifest format integer, N and N-1 accepted, `deny_unknown_fields`, `min_freemapper` | typos fail; old manifests keep working for two releases | users with old manifests see warnings |
 | D18 | `adapter_revision` stored only for non-built-in adapters | examples stay byte-identical | built-in adapter data changes are not flagged in projects |
 | D19 | Errors keep today's wording; new errors carry stable codes | the manual quotes messages; the codes become Fluent ids later | none until program language lands |
@@ -749,6 +765,9 @@ Every call below was made without a human partner, taking the recommended option
 | D22 | Stage G states follow in separate plans | their research is separate work | none |
 | D23 | The registry is process-global (`registry()`, installed once at start); every function also has an `_in(&Registry, ..)` form | the free functions of `region.rs` are called from 40 sites and keep their signatures, so each move stays small | tests with custom registries must use the `_in` forms; hidden global state |
 | D24 | The golden area is 150 m by 150 m per state and fixtures are capped at 2 MB | the repository stays cloneable; a larger area adds little to the dispatch coverage | a bug that shows only on a larger area is not caught by G4 (G2 and G3 cover borders) |
+| D25 | One injectable clock (`freemapper::clock`) replaces the direct `Local::now()` and `SystemTime::now()` calls of the library before the net is recorded; goldens fix it to 2026-11-11 | stored fetch dates, the credit year and the 30-day rechecks would otherwise make G3 and G4 change with the day | one more module every date must go through; a test refuses direct calls |
+| D26 | The golden guard checks the subject of every commit on push and pull request, not the pull-request title | about half of the merges reach `main` as local merges, which a title check never sees | a refactor commit with another subject prefix slips through; reviews still see it |
+| D27 | `tile-pattern` (D8 of the plan), `adapter record`, `adapter new`, `adapter boundary` and the weekly live workflow wait for the first outside contributor; one new state (Saarland or Bremen) tests the design after `adapter check` and before the guide | the saving is for new states; the first one shows which tools matter | the first contributor waits for a tool, or writes a manifest by hand from the guide |
 
 ## 10. The eight rulings that matter most
 

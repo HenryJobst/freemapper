@@ -4,15 +4,21 @@
 
 **Goal:** Replace the `Region` and `Provider` enums and every `match` on them with a `RegionAdapter` trait, a registry, TOML manifests and adapter crates, so that a new country or state is a folder (or one small crate), with all eleven existing states producing identical output.
 
-**Architecture:** First a five-layer offline golden net recorded from v0.9.0 (stage A). Then the shared types and readers move into `freemapper-adapter-api` and `freemapper-sources` (B). A registry with a shim over the old enums takes over one concern at a time until the enums can be deleted (C). The manifest crate, the URL policy and the loader come next (D), then `freemapper adapter check` and friends (E) and the bilingual guide (F). New states are separate plans (G).
+**Architecture:** First an injectable clock and a five-layer offline golden net recorded from v0.10.0 (stage A). Then the shared types and readers move into `freemapper-adapter-api` and `freemapper-sources` (B). A registry with a shim over the old enums takes over one concern at a time until the enums can be deleted (C). The manifest crate, the URL policy and the loader come next (D), then `freemapper adapter check` (E), one new state as the test of the design, and the bilingual guide (F). New states are separate plans (G).
 
-**Tech Stack:** Rust 1.88 (pinned toolchain), `toml`, `serde` with `deny_unknown_fields`, `ureq` 3.4.2, `geo`, `freemapper-fs` and the new `freemapper-georef` from freemapper-core, GitHub Actions on three operating systems.
+**Tech Stack:** Rust 1.99.1 (pinned toolchain), `toml`, `serde` with `deny_unknown_fields`, `ureq` 3.4.2, `geo`, `chrono`, from freemapper-core (tag v0.11.0) `freemapper-fs`, `freemapper-georef` and `freemapper-text`, GitHub Actions on three operating systems.
 
 **Spec:** [`docs/superpowers/specs/2026-11-10-region-adapters-design.md`](../specs/2026-11-10-region-adapters-design.md), ADR [0082](../../adr/0082-region-adapters-trait-and-manifests.md). Section numbers below refer to the spec.
 
+**Revision 2026-11-11.** Reviewed against `main` at v0.10.0 (c393575), 98 commits after the first version. Changes: B1 and B2 are done (georef in core v0.5.0, freemapper pins v0.11.0); the goldens are recorded from v0.10.0, not v0.9.0; new task A0 makes the clock injectable, because about 25 calls of `chrono::Local::now()` and `SystemTime::now()` would make G3 and G4 change from day to day; G4 calls the library functions of ADR 0091 and also hashes the `.ocd`, the PDFs and the written `freemapper.toml`; the goldens pin the program language to English (ADR 0092); the golden guard checks commit subjects on every push, not pull-request titles; the trait keeps the cancel of ADR 0090; tasks that touch `select.rs`, `web/` or `mcp.rs` are agreed with the session that owns them; D8, E3, E4 and the weekly live workflow are deferred; one new state follows stage E before the guide. The worktree of the first attempt (`08a5fcd`, 98 commits behind) is not continued: start from `main`, cherry-pick `08a5fcd`, bless G1 again and read the diff; the half-written G2 test is dropped.
+
 ## Global Constraints
 
-- Every task before stage D changes no output: `cargo test --workspace --locked` and the golden layers G1 to G5 stay green, and no file under `tests/golden/adapters/` changes in a `refactor(adapters):` commit (the CI guard of A5 enforces it).
+- Every task before stage D changes no output: `cargo test --workspace --locked` and the golden layers G1 to G5 stay green, and no file under `tests/golden/adapters/` changes in a `refactor(adapters):` commit (the CI guard of A5 enforces it on every push and pull request).
+- Once stage A is on `main`, a commit that changes output on purpose (a new symbol, a fix) blesses the goldens with `FREEMAPPER_BLESS=1` in the same commit and names the changed golden files in its message. Tell the other sessions when stage A lands.
+- The goldens run with the fixed clock of A0 (`2026-11-11`) and render notes in English (`Lang::english()`); a golden never depends on the day, the time zone or `FREEMAPPER_LANG`.
+- A cancel (`FetchError::Cancelled`, ADR 0090) passes through every new error type unchanged and still ends the run as a cancel.
+- `crates/freemapper-cli/src/mcp.rs`, `select.rs`, `select_run.rs` and `web/` are worked on by the program-language session (FableWorker). Before a task edits them, send that session a message with the files and the planned change, and rebase on its latest merge.
 - Manifest format is the integer `format = 1`; `deny_unknown_fields`; at most 64 KiB per manifest, 2 MiB per boundary file, 64 URLs per manifest, 64 files per adapter folder.
 - Adapter id matches `[a-z][a-z0-9]{1,31}`. Legacy ids stay: regions `brandenburg`, `berlin`, `saxony`, `saxonyanhalt`, `hamburg`, `hessen`, `schleswigholstein`, `mecklenburgvorpommern`, `nordrheinwestfalen`, `niedersachsen`, `rheinlandpfalz`; providers `lgb`, `geosn`, `lvermgeo`, `lgv`, `hvbg`, `lvermgeosh`, `laivmv`, `geobasisnrw`, `lgln`, `lvermgeorp`.
 - URLs in manifests: `https`, port 443, DNS names only, host listed in `[net] hosts`. Redirects at most 3, to declared hosts only. Loopback, link-local, private, unique-local, multicast and unspecified addresses are refused at connect time.
@@ -34,10 +40,25 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 3. A manifest whose declared host resolves to `127.0.0.1`, redirects to an undeclared host or to an IP literal, or whose answer is larger than the call's cap. Test in D2 with a stub resolver.
 4. Two adapters with the same id, or two adapters sharing a provider: a folder adapter cannot replace a built-in one; shared providers share the cache folder and the record. Test in D7.
 5. A partial or hostile adapter folder: all capabilities absent, a boundary in the wrong CRS or self-crossing, a file name with `..`, a BOM or CRLF in the TOML, a symlinked folder. Test in D1 and E2.
+6. A cancel from the browser page while a raster backend downloads: the run stops as a cancel, not as a fetch failure with a misleading message. Test in C7.
 
 ---
 
 ## Stage A: the net
+
+### Task A0: An injectable clock
+
+**Files:**
+- Create: `crates/freemapper/src/clock.rs`
+- Modify: `crates/freemapper/src/lib.rs`, `crates/freemapper/src/project.rs` (the `chrono::Local::now()` sites), `crates/freemapper/src/sources/lvermgeo_rp.rs` (the `SystemTime::now()` sites in production code), and the other production sites `rg -n "Local::now|SystemTime::now" crates/freemapper/src` lists outside `#[cfg(test)]`
+
+**Interfaces:**
+- Produces: `pub fn today() -> NaiveDate` and `pub fn now() -> SystemTime` in `freemapper::clock`; by default they read the system clock. `pub fn with_fixed<R>(at: NaiveDateTime, f: impl FnOnce() -> R) -> R` (a process-wide override, because the fetch code may download on worker threads; `with_fixed` holds a static mutex, so tests that fix the clock run one after another) behind `#[cfg(any(test, feature = "golden"))]`. The CLI crate keeps its own clock calls (run lock, `select_run.rs`); they write no project file.
+
+- [ ] **Step 1:** Write `fixed_clock_dates_the_records` (a fetch with a stub fetcher inside `with_fixed(2026-11-11T12:00)` writes `fetched = 2026-11-11` into the records) and `rp_rechecks_missing_tiles_after_30_days_by_the_clock` (the existing 30-day test, driven by the clock instead of file times set in the past). Run: FAIL (module missing).
+- [ ] **Step 2:** Add the module and replace the production calls one by one. No other change; existing tests must pass unchanged.
+- [ ] **Step 3:** Run `cargo test --workspace --locked`. Expected: PASS. Add a test `no_direct_clock_calls` that reads `crates/freemapper/src/**/*.rs` and fails on `Local::now(` or `SystemTime::now(` outside `clock.rs` and test modules.
+- [ ] **Step 4:** Commit `refactor(clock): one injectable clock for dates the project stores`.
 
 ### Task A1: Glossary rows and golden G1 (registry data)
 
@@ -52,8 +73,10 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 - [ ] **Step 1:** Add the glossary rows (German and English columns, `code` column names `RegionAdapter`, `ManifestAdapter`, `RasterBackend`, `adapter check`).
 - [ ] **Step 2:** Write test `g1_registry_data_is_unchanged` that builds `legacy_facts()` from the enums and compares with `tests/golden/adapters/g1-regions.json`; with `FREEMAPPER_BLESS=1` it writes the file.
 - [ ] **Step 3:** Implement `legacy_facts()` from `Region::ALL`, `Region::provider`, `Provider::terrain_source`, `Provider::per_area`, `Region::crs`, `ExtractSource::{url, state_url, prefix, megabytes, label}` (NRW per district), SHA-256 of each boundary constant, and the credit lines of the ten `*_attribution` functions for 2025 and 2026 (build a `ProjectFile` with records dated in that year).
-- [ ] **Step 4:** Run `FREEMAPPER_BLESS=1 cargo test -p freemapper --test adapters_golden g1` once on the v0.9.0 tree, check the JSON by eye (11 regions, 10 providers, 5 NRW extracts), run again without the variable. Expected: PASS.
+- [ ] **Step 4:** Run `FREEMAPPER_BLESS=1 cargo test -p freemapper --test adapters_golden g1` once on `main` after A0, check the JSON by eye (11 regions, 10 providers, 5 NRW extracts), run again without the variable. Expected: PASS.
 - [ ] **Step 5:** Commit `test(adapters): golden net layer 1, registry data` with the glossary.
+
+Head start: commit `08a5fcd` (branch `worktree-agent-a166cbc944727a3f2`) did steps 1 to 5 on the tree of 2026-11-10. Cherry-pick it onto a new branch from `main`, resolve conflicts in `project.rs`, `osm.rs` and `region.rs`, bless again and read the JSON diff: a difference is a change made between the two trees and must be explained in the commit message before going on.
 
 **Net:** this task creates G1. **Outcome:** a file that says what the enums answered.
 
@@ -66,8 +89,8 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 **Interfaces:** consumes `regions_for`, `raster_region`, `provider_tiles(bbox, provider, km)`, `reaches_beyond_coverage`, `tile_touches`, `tile_centre_in`, `osm::extracts_for` (all public today).
 
 - [ ] **Step 1:** Write `g2_geometry_is_unchanged`: for each box, record `regions_for` ids, `raster_region` id, `provider_tiles` for km 1 and 2 (names), `reaches_beyond_coverage`, `extracts_for` labels. Compare with the JSON.
-- [ ] **Step 2:** Add `g2_dispatch_is_fast_enough`: all 211 boxes complete within 2 seconds in release-like test profile (twice the v0.9.0 measurement, written into the test as a constant after measuring).
-- [ ] **Step 3:** Generate the 200 boxes deterministically in the test (seeded; points along the borders BB/BE, ST/NI, NI/Bremen, HE/RP, NW/NI, MV/SH, MV/BB, SN/BB, HH/SH, HH/NI, sizes 150 m to 1.5 km); bless once on v0.9.0.
+- [ ] **Step 2:** Add `g2_dispatch_is_fast_enough`, marked `#[ignore]` so it never runs on the shared CI runners: all 211 boxes complete within twice the v0.10.0 measurement on the maintainer's machine (written into the test as a constant after measuring). It is run by hand after C2 and C14 (`cargo test --release -p freemapper --test adapters_golden g2_dispatch -- --ignored`).
+- [ ] **Step 3:** Generate the 200 boxes deterministically in the test (seeded; points along the borders BB/BE, ST/NI, NI/Bremen, HE/RP, NW/NI, MV/SH, MV/BB, SN/BB, HH/SH, HH/NI, sizes 150 m to 1.5 km); bless once on `main`.
 - [ ] **Step 4:** Run the test. Expected: PASS twice (second run without bless).
 - [ ] **Step 5:** Commit `test(adapters): golden net layer 2, geometry and dispatch`.
 
@@ -80,12 +103,13 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 
 **Interfaces:**
 - Produces: `ReplayFetcher::new(dir: &Path) -> Self` implementing `Fetcher` (including `get_range`, `last_modified`, `download_to`; OSM `.pbf` URLs answer with `empty.osm.pbf`); `RecordingFetcher::new(inner: HttpFetcher, dir: &Path)` active only when `FREEMAPPER_GOLDEN_RECORD` is set. Both log `METHOD url [range]` lines to a `Vec<String>` readable as `trace()`.
+- Notes are compared as their English rendering (`Lang::english()`), so the goldens do not move when the program-language session gives a plain line a message id with the same English text.
 
 - [ ] **Step 1:** Write `replay_returns_recorded_bytes_and_logs_requests` (a two-URL index, one range request, one unknown URL returns `FetchError::Http` with status 404 and appears in the trace).
-- [ ] **Step 2:** Implement both fetchers. The key is SHA-256 of the URL plus the range; the user agent and headers are not recorded. The recorder refuses to run when the environment holds `FREEMAPPER_CONTACT` or any URL contains `@` (no personal data in requests).
-- [ ] **Step 3:** Record one online `fetch_project` plus `estimate_download` per state on the golden area (a 150 m box in the example's area) with the maintainer's network. Brief for whoever runs it: no e-mail address in any request. Write `trace.txt` from the replay of the recording.
-- [ ] **Step 4:** Write `g3_trace_<id>` for each of the 11 states (one test function generated by a macro): replay the fetch against a fresh project folder, compare the trace and the `warning:` lines with `trace.txt`.
-- [ ] **Step 5:** Run `cargo test -p freemapper --test adapters_golden g3`. Expected: 11 PASS. Check the per-state fixtures stay under 2 MB each.
+- [ ] **Step 2:** Implement both fetchers. The key is SHA-256 of the URL plus the range; the user agent and headers are not recorded. The recorder refuses to run when any URL contains `@` or when the user agent it would send contains `@` (no personal data in requests).
+- [ ] **Step 3:** Record one online `fetch_project` plus `estimate_download` per state on the golden area (a 150 m box in the example's area) with the maintainer's network, inside `clock::with_fixed(2026-11-11T12:00)`. Brief for whoever runs it: no e-mail address in any request, header or file. If a state's service fails during the recording (Saxony-Anhalt's aerial WMS failed on 2026-11-11), retry once on another day; if it still fails, record what answers, mark the state in `tests/golden/adapters/README.md` as "partial, re-record" and go on: G3 then pins the failing request and the warning, which is behaviour too. Write `trace.txt` from the replay of the recording.
+- [ ] **Step 4:** Write `g3_trace_<id>` for each of the 11 states (one test function generated by a macro): replay the fetch against a fresh project folder under the fixed clock, compare the trace and the `warning:` lines with `trace.txt`.
+- [ ] **Step 5:** Run `cargo test -p freemapper --test adapters_golden g3`. Expected: 11 PASS. Check the per-state fixtures stay under 2 MB each, and put an `ATTRIBUTION.txt` with the state's credit line and licence into each `<id>/` folder (the fixtures are state data).
 - [ ] **Step 6:** Commit `test(adapters): golden net layer 3, request traces`.
 
 ### Task A4: Golden G4 (offline pipeline per state)
@@ -94,11 +118,11 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 - Create per state: `tests/golden/adapters/<id>/project/` (`freemapper.toml`, `data/`, `templates/` inputs, `cache/` tiles and models as the recording produced them, `data/osm-candidates.geojson` from the real extract), `<id>/expected.sha256`
 - Modify: `crates/freemapper/tests/adapters_golden.rs`
 
-**Interfaces:** consumes `derive_project`, `export` (the function `freemapper run` calls after fetch), `FetchMode::Offline`.
+**Interfaces:** consumes the library functions the CLI pipeline (`crates/freemapper-cli/src/pipeline.rs`) calls: `fetch_project` with `FetchMode::Offline`, `derive_project`, `starter_documents` and the four `export_*_from` functions of ADR 0091 (`export_starter_project_from`, `export_ocad_from`, `export_pdf_from`, `export_candidates_pdf_from`). The test does not call the CLI crate; if `pipeline::run` does a step the library functions miss, the test says which and repeats it.
 
-- [ ] **Step 1:** Write `g4_pipeline_<id>`: copy the stored project to a temp folder, point the cache at its `cache/`, run `fetch_project` offline, `derive_project`, then the map export with a fixed declination date; compute SHA-256 of `<name>.omap`, `templates/candidates.omap`, `ATTRIBUTION.txt`, `data/contours.geojson`, `templates/hillshade.png`, `slope.png`, `orthophoto.jpg`; compare with `expected.sha256`.
+- [ ] **Step 1:** Write `g4_pipeline_<id>`: copy the stored project to a temp folder, point the cache at its `cache/`, and under `clock::with_fixed(2026-11-11T12:00)` run `fetch_project` offline, `derive_project`, then build the documents once and write all four outputs; compute SHA-256 of `freemapper.toml` (as the fetch wrote it), `<name>.omap`, `<name>.ocd`, the map PDF, the candidates PDF, `templates/candidates.omap`, `ATTRIBUTION.txt`, `data/contours.geojson`, `templates/hillshade.png`, `slope.png`, `orthophoto.jpg`; compare with `expected.sha256`. If a PDF turns out not to be deterministic, find the varying field and fix it from the clock (a production fix in its own `fix(pdf):` commit before the bless), never by leaving the PDF out.
 - [ ] **Step 2:** Produce the projects from the A3 recording session (the same run that wrote the responses leaves `data/` and the cache behind); prune the cache to the golden area; check each folder is under 2 MB.
-- [ ] **Step 3:** Bless once on the v0.9.0 tree. Run twice to prove determinism. Expected: PASS twice on the same machine; also on the CI runners (check in step 4).
+- [ ] **Step 3:** Bless once on `main`. Run twice to prove determinism. Expected: PASS twice on the same machine; also on the CI runners (check in step 4).
 - [ ] **Step 4:** Add the job `golden` to `.github/workflows/ci.yml` (runs `cargo test -p freemapper --test adapters_golden` on Linux, macOS and Windows). Expected: green on all three; if PNG encoding differs across systems, compare decoded pixels instead and say so in the test.
 - [ ] **Step 5:** Commit `test(adapters): golden net layer 4, offline pipeline`.
 
@@ -110,7 +134,7 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 
 - [ ] **Step 1:** Write `g5_examples_roundtrip`: for each `examples/*/freemapper.toml`, `ProjectFile::load` then `save` to a temp folder; bytes equal the original.
 - [ ] **Step 2:** Write `g5_unknown_provider_is_a_clear_error` (ignored until C14): a toml with `provider = "czfoo"` loads with a message that contains `czfoo` and the word `adapter`.
-- [ ] **Step 3:** The script fails when the pull request title starts with `refactor(adapters):` and `git diff --name-only origin/main...HEAD` lists a path under `tests/golden/adapters/`. Add the step to the workflow for `pull_request` events.
+- [ ] **Step 3:** The script walks every commit of the pushed range (`push`: `github.event.before..github.sha`; `pull_request`: `origin/main..HEAD`; a new branch with an all-zero `before`: the commits not on `origin/main`) and fails when a commit whose subject starts with `refactor(adapters):` or `refactor(clock):` lists a path under `tests/golden/adapters/` in `git diff-tree --no-commit-id --name-only -r`. A merge commit is skipped; its parents are checked on their own. Add the step to `ci.yml` for both events (half the recent merges reach `main` as local merges, not pull requests). Test the script with a throwaway repository in `tests/golden-guard.sh`: one good and one bad commit.
 - [ ] **Step 4:** Run G5 locally. Expected: roundtrip PASS, the second test ignored.
 - [ ] **Step 5:** Commit `test(adapters): golden net layer 5 and the guard`.
 
@@ -118,30 +142,13 @@ Failure modes the tasks' main tests do not cover, most likely first. Each has a 
 
 ## Stage B: crates
 
-### Task B1: `freemapper-georef` in freemapper-core (separate repository)
+### Task B1: `freemapper-georef` in freemapper-core: done
 
-**Files (in `../freemapper-core`):**
-- Create: `crates/freemapper-georef/` (`Cargo.toml`, `src/lib.rs`, `src/crs.rs`, `src/tiles.rs`), `docs/adr/0015-the-georef-crate.md`
-- Modify: workspace `Cargo.toml`, README tables (status "enthalten"), `CHANGELOG.md`/`.en.md`
+Done outside this plan on 2026-11-10: core v0.5.0 has `freemapper-georef` (`crs`, `tiles`, `tm`; core ADR 0015). Nothing to do.
 
-**Interfaces:** produces `Crs`, `LatLon`, `ProjectedPoint`, `BoundingBox`, `TileId` with the exact public items of `crates/freemapper/src/crs.rs` and `tiles.rs` (no imports beyond `std`); the `georef.rs` declination part stays in freemapper (it needs `omap::MapCoord`).
+### Task B2: freemapper uses `freemapper-georef`: done
 
-- [ ] **Step 1:** Copy the tests of `crs.rs` and `tiles.rs` into the new crate unchanged; run them red (module missing).
-- [ ] **Step 2:** Move the code. The move keeps names and behaviour. Add a README paragraph.
-- [ ] **Step 3:** Run `cargo test --workspace --locked` in core. Expected: PASS.
-- [ ] **Step 4:** Release core `v0.4.0` after the core CI is green (core ADR 0006). Tag only after review.
-- [ ] **Step 5:** Commit `feat(georef): crs and tile types from freemapper`.
-
-### Task B2: freemapper uses `freemapper-georef`
-
-**Files:** Modify `Cargo.toml` (pin `tag = "v0.4.0"` for `freemapper-fs` and add `freemapper-georef`), `crates/freemapper/Cargo.toml`, `crates/freemapper/src/crs.rs` and `tiles.rs` become `pub use freemapper_georef::*;`-style re-exports, ADR 0067 gets a line (new ADR not needed).
-
-- [ ] **Step 1:** Change the pin; `cargo build --locked` fails on the lock file; run `cargo update -p freemapper-fs -p freemapper-georef` and check that the lock diff touches only core crates and what they bring in (ADR 0067).
-- [ ] **Step 2:** Replace the two modules by re-exports; delete the moved tests.
-- [ ] **Step 3:** Run `cargo test --workspace --locked` and the golden tests. Expected: PASS, G1 to G5 unchanged.
-- [ ] **Step 4:** Commit `refactor(adapters): crs and tiles from freemapper-georef`.
-
-If core v0.4.0 is not out, do B3 first with the types in the api crate and redo this task later (D4).
+Done: `crates/freemapper/src/crs.rs` and `tiles.rs` re-export `freemapper_georef::crs::*` and `::tiles::*`; the workspace pins every core crate to tag v0.11.0. The api crate of B3 depends on `freemapper-georef` directly and copies no type.
 
 ### Task B3: `freemapper-adapter-api`
 
@@ -150,8 +157,8 @@ If core v0.4.0 is not out, do B3 first with the types in the api crate and redo 
 - Modify: `crates/freemapper/src/fetch.rs` (the trait and error types become `pub use freemapper_adapter_api::fetch::*`), `crates/freemapper/src/project.rs` (record types re-exported)
 
 **Interfaces:**
-- Produces in the api crate: `trait Fetcher`, `enum FetchError`, `enum FetchMode`, `struct ByteRange`, `FetchedTile`, `TileCurrency`, `TileRecord`, `WcsRecord`, `OrthophotoRecord`, `RasterRecords { tiles, ndsm_tiles, orthophoto, terrain, surface }`, `EstimateItem`, `Part`, `Store` (moved from `space.rs`), `AdapterId(String)` with `FromStr` validating `[a-z][a-z0-9]{1,31}`, `CacheDir(PathBuf)` with `join_checked`.
-- `HttpFetcher`, `Cache`, `DiskSpace` stay in `freemapper`.
+- Produces in the api crate: `trait Fetcher`, `enum FetchError` (with its `Cancelled` variant), `enum FetchMode`, `struct ByteRange`, `FetchedTile`, `TileCurrency`, `TileRecord`, `WcsRecord`, `OrthophotoRecord`, `RasterRecords { tiles, ndsm_tiles, orthophoto, terrain, surface }`, `EstimateItem`, `Part`, `Store` (moved from `space.rs`), `AdapterId(String)` with `FromStr` validating `[a-z][a-z0-9]{1,31}`, `CacheDir(PathBuf)` with `join_checked`.
+- `HttpFetcher`, `CancelCheck`, `Cache`, `DiskSpace` and the clock of A0 stay in `freemapper`. Adapters that need today's date get it through `AdapterEnv` (C1), not by calling the clock.
 
 - [ ] **Step 1:** Write `adapter_id_accepts_legacy_ids_and_rejects_others` (all 21 legacy ids pass; `""`, `"A"`, `"a"`, `"a b"`, `"../x"`, 33 characters fail).
 - [ ] **Step 2:** Create the crate, move the items, re-export from the old paths so no call site changes.
@@ -167,7 +174,7 @@ If core v0.4.0 is not out, do B3 first with the types in the api crate and redo 
 **Interfaces:** `WmsService`, `WcsService`, `WcsOrthophoto`, `WfsService`, `NasService`, `TreeDataset` change their `&'static str` fields to `Cow<'static, str>` so manifests can build them at run time; the constants stay `const` (`Cow::Borrowed`). `NasService.region` and `TreeDataset.region` become `AdapterId` (a `&'static str`-backed constant for the built-ins).
 
 - [ ] **Step 1:** Move one reader at a time in the order `zip_range`, `xlsx`, `float_tiff`, `height_model`, `raster`, `wms`, `wcs`, `wfs`, `ogc_api`, `nas`, `trees`, `metalink`; after each, `cargo test --workspace --locked`.
-- [ ] **Step 2:** Switch the service structs to `Cow<'static, str>`. Write `service_constants_are_unchanged` (URL strings produced by `piece_url`, `get_coverage_url` for 3 sample boxes equal the v0.9.0 strings, which the test holds as literals).
+- [ ] **Step 2:** Switch the service structs to `Cow<'static, str>`. Write `service_constants_are_unchanged` (URL strings produced by `piece_url`, `get_coverage_url` for 3 sample boxes equal the strings of `main` before the move, which the test holds as literals).
 - [ ] **Step 3:** Check `cargo build -p freemapper-sources` alone compiles without `freemapper`, and measure the clean build time of the workspace before and after (record both numbers in the commit message).
 - [ ] **Step 4:** Full suite and goldens. Expected: PASS, no golden change.
 - [ ] **Step 5:** Commit in two commits: `refactor(adapters): move the readers to freemapper-sources`, `refactor(adapters): owned service fields`.
@@ -185,7 +192,7 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - Modify: `crates/freemapper/src/lib.rs`
 
 **Interfaces:**
-- Produces: `trait RegionAdapter` (section 3.3, with `rasters`, `alkis`, `extras`, `attribution`, `estimate` returning `None`, empty or default in this task), `struct RegionInfo { id: AdapterId, provider: AdapterId, names: Names, crs: Crs, object_id_prefix: Option<String>, osm: Vec<OsmExtractInfo>, credit_short: Option<String> }`, `struct Registry`, `fn registry() -> &'static Registry` (process-global, `OnceLock`, set once by `install_registry(Registry)`; default `Registry::builtin()`), `struct LegacyAdapter(Region)` implementing the trait from the enums.
+- Produces: `trait RegionAdapter` (section 3.3, with `rasters`, `alkis`, `extras`, `attribution`, `estimate` returning `None`, empty or default in this task), `AdapterEnv` with a `today: NaiveDate` field filled from `clock::today()` by the caller, `struct RegionInfo { id: AdapterId, provider: AdapterId, names: Names { en, de }, crs: Crs, object_id_prefix: Option<String>, osm: Vec<OsmExtractInfo>, credit_short: Option<String> }`, `struct Registry`, `fn registry() -> &'static Registry` (process-global, `OnceLock`, set once by `install_registry(Registry)`; default `Registry::builtin()`), `struct LegacyAdapter(Region)` implementing the trait from the enums.
 
 - [ ] **Step 1:** Write `registry_lists_the_eleven_in_legacy_order` (ids equal `Region::ALL` order) and `legacy_info_matches_g1` (every `RegionInfo` field equals the G1 JSON).
 - [ ] **Step 2:** Implement the types and `LegacyAdapter`; boundaries stay the `include_str!` constants parsed once.
@@ -231,7 +238,7 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 
 **Interfaces:** `RegionAdapter::estimate(&self, area: &EstimateArea, env: &EstimateEnv) -> Vec<EstimateItem>` with `EstimateArea { bbox_25833, map_bbox, today }` and `EstimateEnv { cache: &CacheDir }`.
 
-- [ ] **Step 1:** Write `estimate_items_equal_v090_for_the_example_areas` (item text, MB, cached flag, part, store for the 11 example boxes, golden file `g2-estimates.json` created in this task from v0.9.0 and exempt from the guard because it is created, not edited; note it in the commit).
+- [ ] **Step 1:** Write `estimate_items_equal_the_old_ones_for_the_example_areas` (item text, MB, cached flag, part, store for the 11 example boxes under the fixed clock, golden file `g2-estimates.json` blessed before the move). Commit the test and the file on their own as `test(adapters): estimate golden`, so the guard, which rejects any golden path in a `refactor(adapters):` commit, stays strict.
 - [ ] **Step 2:** Move the functions; the shared constants (`ORTHOPHOTO_MB_PER_KM2` and the others) move to the api crate as defaults.
 - [ ] **Step 3:** Run goldens and `estimate_download` tests. Expected: PASS.
 - [ ] **Step 4:** Commit.
@@ -253,8 +260,8 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 
 **Interfaces:** `RasterBackend` as in section 3.3; `ProviderInfo { id, terrain_source, kind: Tiles { grid_km } | PerArea }`; `DeriveInputs` as in section 3.3. `Product` keeps its five variants and serde names, and moves to the DE adapter crate with the cache folder names (`lgb`, `geosn`).
 
-- [ ] **Step 1:** Write `lgb_offline_fetch_reads_cached_tiles_only` and `geosn_offline_with_missing_index_is_the_old_error` (the old offline special case at `fetch.rs:889` keeps its message).
-- [ ] **Step 2:** Move the two fetch functions into `RasterBackend::fetch` and the derive match arms into `derive_inputs`; the project code calls `adapter.rasters()` and no longer knows tile or per-area kinds by enum.
+- [ ] **Step 1:** Write `lgb_offline_fetch_reads_cached_tiles_only`, `geosn_offline_with_missing_index_is_the_old_error` (the offline special case for the GeoSN index in `fetch.rs` keeps its message) and `cancel_during_backend_fetch_ends_as_cancel` (Review Focus 6: a fetcher that returns `FetchError::Cancelled` on the second request; `fetch_project_cancellable` returns the same cancel error as today, and no "download failed" warning appears).
+- [ ] **Step 2:** Move the two fetch functions into `RasterBackend::fetch` and the derive match arms into `derive_inputs`; the project code calls `adapter.rasters()` and no longer knows tile or per-area kinds by enum. `AdapterError::Fetch(FetchError::Cancelled)` maps back to the project's cancel error in one place; every later backend task (C8 to C12) reuses that mapping and adds no own.
 - [ ] **Step 3:** G1 to G4 for BB, BE and SN. Expected: PASS.
 - [ ] **Step 4:** Commit. This is the largest C task (about 1 200 lines moved); split it into two commits, LGB then GeoSN.
 
@@ -307,9 +314,11 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 
 ### Task C13: Extra layers and the user-visible state lists
 
-**Files:** Create `crates/adapters/de/src/berlin.rs` (adapter with code `ExtraLayer`s); modify `project.rs` (Berlin layers, NAS layers, tree layers records and paths), `sources/alkis_nas.rs`, `sources/trees.rs` (service tables read from adapters), `crates/freemapper-cli/src/select.rs` (new `GET /api/adapters`), `crates/freemapper-cli/web/app.js` (replace the two state lists and the per-state aerial layers by the response), `project.rs:134` and `mcp.rs:31` (texts built from `names`).
+**Files:** Create `crates/adapters/de/src/berlin.rs` (adapter with code `ExtraLayer`s); modify `project.rs` (Berlin layers, NAS layers, tree layers records and paths; the "outside the supported states" error and the beyond-coverage warning, which name the states), `sources/alkis_nas.rs`, `sources/trees.rs` (service tables read from adapters), `crates/freemapper-cli/src/select.rs` (new `GET /api/adapters`), `crates/freemapper-cli/web/app.js` (replace the two state lists in the German and English texts and the per-state aerial layers by the response; `run.js` names no state today), `crates/freemapper-cli/src/mcp.rs` (the supported-states sentence built from `names`).
 
-**Interfaces:** `trait ExtraLayer { fn id(&self) -> &str; fn kinds(&self) -> &[MapKind]; fn fetch(...); }`; `NAS_SERVICES` and `TREE_DATASETS` become registry queries `nas_services_for(bbox)` and `tree_datasets_for(bbox)` with the same results; `/api/adapters` returns `[{id, names, preview: {wms, layer, attribution}}]`.
+Coordination: these CLI files belong to the program-language session (Global Constraints). Agree the change first; the state list and the page texts may by then live in Fluent catalogs, in which case the list becomes a message argument.
+
+**Interfaces:** `trait ExtraLayer { fn id(&self) -> &str; fn kinds(&self) -> &[MapKind]; fn fetch(...); }`; `NAS_SERVICES` and `TREE_DATASETS` become registry queries `nas_services_for(bbox)` and `tree_datasets_for(bbox)` with the same results; `/api/adapters` returns `[{id, names: {en, de}, preview: {wms, layer, attribution}}]` and the page picks the name in its own language (ADR 0092). The English sentence in `project.rs` joins `names.en` in registry order, so its bytes stay as today.
 
 - [ ] **Step 1:** Write `berlin_layers_paths_still_come_from_the_static_table` (ADR 0059: a key outside the table is dropped with the old warning) and `adapters_endpoint_lists_eleven_with_previews` (in `crates/freemapper-cli/tests/select.rs`).
 - [ ] **Step 2:** Move the extras; keep `data/berlin`, `data/alkis-nas` and `data/trees` names.
@@ -353,9 +362,9 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - Modify: `crates/freemapper/src/fetch.rs` (`HttpFetcher`: resolver, redirect handling, per-call byte caps), `crates/freemapper-adapter-api/src/fetch.rs`
 
 **Interfaces:**
-- Produces: `struct UrlPolicy { hosts: BTreeSet<String>, max_redirects: u8 }`, `fn check_url(&self, url: &str) -> Result<(), PolicyError>`, `fn check_addr(addr: IpAddr) -> Result<(), PolicyError>`, `trait Resolver` (`std::net::ToSocketAddrs` by default, a stub in tests); `HttpFetcher::with_policy(UrlPolicy)`. The built-in adapters get a policy built from their declared hosts; before D6 the policy for built-ins is "address check only".
+- Produces: `struct UrlPolicy { hosts: BTreeSet<String>, max_redirects: u8 }`, `fn check_url(&self, url: &str) -> Result<(), PolicyError>`, `fn check_addr(addr: IpAddr) -> Result<(), PolicyError>`, `trait Resolver` (`std::net::ToSocketAddrs` by default, a stub in tests); `HttpFetcher::with_policy(UrlPolicy)`. The built-in adapters get a policy built from their declared hosts; before D6 the policy for built-ins is "address check only". Requests that belong to no adapter use `UrlPolicy::core()`, a fixed list in code: `download.geofabrik.de` (OSM extracts and state files), `nominatim.openstreetmap.org` (place search in `places.rs`) and `tile.openstreetmap.org` (the tile proxy of ADR 0088 in `crates/freemapper-cli/src/tiles.rs`, which has its own `ureq::Agent`; that agent gets the same address check through `check_addr`).
 
-- [ ] **Step 1:** Write `declared_host_resolving_to_loopback_is_refused`, `redirect_to_undeclared_host_is_refused`, `redirect_to_ip_literal_is_refused`, `more_than_three_redirects_is_refused`, `answer_over_the_cap_is_too_large`, `private_ranges_are_refused` (10/8, 172.16/12, 192.168/16, 169.254/16, fc00::/7, fe80::/10, ::1, 127/8, 0.0.0.0, 224/4), with a local stub server on 127.0.0.1 and a stub resolver (Review Focus 3).
+- [ ] **Step 1:** Write `core_policy_allows_geofabrik_nominatim_and_osm_tiles_only`, `declared_host_resolving_to_loopback_is_refused`, `redirect_to_undeclared_host_is_refused`, `redirect_to_ip_literal_is_refused`, `more_than_three_redirects_is_refused`, `answer_over_the_cap_is_too_large`, `private_ranges_are_refused` (10/8, 172.16/12, 192.168/16, 169.254/16, fc00::/7, fe80::/10, ::1, 127/8, 0.0.0.0, 224/4), with a local stub server on 127.0.0.1 and a stub resolver (Review Focus 3).
 - [ ] **Step 2:** Implement with `ureq`'s resolver hook and per-redirect re-check; the pinned SH agent keeps `max_redirects(0)`.
 - [ ] **Step 3:** Run the new tests and the whole suite. Expected: PASS; goldens unchanged (built-ins reach public addresses).
 - [ ] **Step 4:** Commit `feat(adapters): url policy and address checks in the fetcher`.
@@ -405,16 +414,18 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 
 ### Task D7: Discovery, precedence and the CLI
 
-**Files:** Create `crates/freemapper-manifest/src/loader.rs`; modify `crates/freemapper-cli/src/main.rs` (`adapters list`, `--adapters-from-project`), `crates/freemapper-cli/src/adapters.rs` (registration list), `crates/freemapper-cli/src/mcp.rs` (never loads project adapters).
+**Files:** Create `crates/freemapper-manifest/src/loader.rs`; modify `crates/freemapper-cli/src/main.rs` (`adapters list`, `--adapters-from-project`), `crates/freemapper-cli/src/adapters.rs` (registration list), `crates/freemapper-cli/src/mcp.rs` (never loads project adapters; agree the edit with the program-language session), `crates/freemapper-cli/src/select_run.rs` (a run started from the page never loads project adapters either, like MCP).
 
 **Interfaces:** `Registry::with_dirs(dirs: &[AdapterDir]) -> (Registry, Vec<AdapterWarning>)`, `AdapterDir { path, origin: Builtin | User | Project }`; `freemapper adapters list [--json]`.
 
-- [ ] **Step 1:** Write `folder_adapter_cannot_replace_a_builtin`, `broken_folder_adapter_is_skipped_with_file_and_line`, `shared_provider_shares_the_cache_folder` (Review Focus 4), `project_adapters_need_the_flag`, `mcp_ignores_project_adapters`, `adapter_dir_env_overrides_the_config_dir`, `config_dir_with_spaces_and_unicode_works`.
+- [ ] **Step 1:** Write `folder_adapter_cannot_replace_a_builtin`, `broken_folder_adapter_is_skipped_with_file_and_line`, `shared_provider_shares_the_cache_folder` (Review Focus 4), `project_adapters_need_the_flag`, `mcp_ignores_project_adapters`, `page_run_ignores_project_adapters`, `adapter_dir_env_overrides_the_config_dir`, `config_dir_with_spaces_and_unicode_works`.
 - [ ] **Step 2:** Implement; the config folder is `dirs::config_dir()/freemapper/adapters`.
 - [ ] **Step 3:** Run, then try `freemapper adapters list` with a sample user folder on all three operating systems in CI.
 - [ ] **Step 4:** Commit.
 
-### Task D8: `tile-pattern` raster kind
+### Task D8: `tile-pattern` raster kind (deferred)
+
+Deferred on 2026-11-11: build it only when a new state or a contributor needs it. The text stays as the design.
 
 **Files:** Modify `crates/freemapper-manifest/src/rasters.rs`, `crates/freemapper-sources/src/tile_pattern.rs`.
 
@@ -423,7 +434,7 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - [ ] **Step 1:** Write `pattern_expands_to_the_tile_urls_of_a_box` and `placeholder_values_are_percent_encoded`.
 - [ ] **Step 2:** Implement over the existing tile cache and mosaic code.
 - [ ] **Step 3:** Run the suite. Expected: PASS; no existing state uses the kind, so goldens are unchanged.
-- [ ] **Step 4:** Commit. Optional: ship only if a first contributor needs it; otherwise leave it for stage G.
+- [ ] **Step 4:** Commit.
 
 ---
 
@@ -451,7 +462,9 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - [ ] **Step 3:** Run. Expected: PASS.
 - [ ] **Step 4:** Commit.
 
-### Task E3: `freemapper adapter record`
+### Task E3: `freemapper adapter record` (deferred)
+
+Deferred on 2026-11-11 until someone outside the project wants to add a state. Until then the recording fetcher of A3 (promoted in E1) records fixtures from a test.
 
 **Files:** Create `crates/freemapper-cli/src/adapter_record.rs`.
 
@@ -462,7 +475,9 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - [ ] **Step 3:** Run. Expected: PASS.
 - [ ] **Step 4:** Commit.
 
-### Task E4: `adapter new` and `adapter boundary`
+### Task E4: `adapter new` and `adapter boundary` (deferred)
+
+Deferred on 2026-11-11 like E3. The new state of stage E5 writes its manifest and boundary by hand and notes what a generator would have saved; that note decides the scope of E4.
 
 **Files:** Create `crates/freemapper-cli/src/adapter_new.rs`, `adapter_boundary.rs`.
 
@@ -473,6 +488,10 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 - [ ] **Step 3:** Run. Expected: PASS.
 - [ ] **Step 4:** Commit.
 
+### Task E5: First new state as the test of the design
+
+Not a task of this plan but a gate: before F1, one state of stage G (Saarland or Bremen, whichever has the simpler services after the research) gets its own plan and is added as a manifest folder, plus a backend only if its heights need one. Measure against the stage-G rule: if it needs a file outside `crates/adapters/` and the registration line, write the finding back into the spec and fix the design before the guide describes it. The state also brings the house-rule parts (example project, manual row, README row, changelog in German and English).
+
 ---
 
 ## Stage F: documentation
@@ -481,18 +500,19 @@ Recipe for every C task: (1) write the test that pins the concern through the tr
 
 **Files:** Create `docs/adapters/{en.md,de.md,manifest-v1.en.md,manifest-v1.de.md}`, `docs/adapters/tutorial.md` pair if length requires.
 
-- [ ] **Step 1:** Write the ten sections of spec 3.17 in English, then German ("Bundesland" for states, glossary terms), with one runnable tutorial that adds a made-up state from the sample manifests and ends with `adapter check` green.
+- [ ] **Step 1:** Write the sections of spec 3.17 in English, then German ("Bundesland" for states, glossary terms), with one runnable tutorial that adds a made-up state from the sample manifests and ends with `adapter check` green. While E3 and E4 are deferred, sections 3, 4 and 8 describe the manual steps the E5 state took instead of `adapter new`, `adapter boundary` and `adapter record`.
 - [ ] **Step 2:** Add the pull-request checklist: manifest valid, `check` green with fixtures, credit text matches the licence page, `maintainers` and `last_verified` set, no personal data in fixtures, example project and manual row for a new state (house rule).
 - [ ] **Step 3:** Run unslop and humanizer over the prose. Check every command in the guide by running it.
 - [ ] **Step 4:** Commit `docs(adapters): contributor guide`.
 
 ### Task F2: Manual, README, weekly live workflow, release notes
 
-**Files:** Modify `docs/manual/{de,en}.md` (regions chapter links to the guide), `README.md`, `README.en.md` (one sentence, link; re-check status per the pre-push rule), `CHANGELOG.md`, `CHANGELOG.en.md` (entry for the release that ships this, written when the work merges), `docs/adr/README.md` (status of ADR 0082 to Accepted); create `.github/workflows/adapters-live.yml` (weekly, runs `adapter check --live` for every built-in adapter, opens an issue on failure; neutral user agent).
+**Files:** Modify `docs/manual/{de,en}.md` (regions chapter links to the guide), `README.md`, `README.en.md` (one sentence, link; re-check status per the pre-push rule), `CHANGELOG.md`, `CHANGELOG.en.md` (entry under "Unveröffentlicht"/"Unreleased" for each merged stage, written when it merges), `docs/adr/README.md` (status of ADR 0082 to Accepted).
+
+Deferred on 2026-11-11: `.github/workflows/adapters-live.yml` (weekly `adapter check --live` for every built-in adapter, an issue on failure). It pays off once outside adapters exist; until then the maintainer's own runs notice broken services.
 
 - [ ] **Step 1:** Update the files; run the README re-check.
-- [ ] **Step 2:** Dry-run the workflow with `workflow_dispatch` once.
-- [ ] **Step 3:** Commit; after CI is green, release at a sensible point (auto-release rule).
+- [ ] **Step 2:** Commit; after CI is green, release at a sensible point (auto-release rule).
 
 ---
 
@@ -505,17 +525,18 @@ Not planned here. Each is a plan of its own because the service research comes f
 - Spec coverage: 3.2 crates (B1 to B4, C1), 3.3 trait (C1 to C13), 3.4 schema (D1, D3 to D5, D8), 3.5 samples (D1, D4, D5, D6), 3.6 limits (D5 backend errors, F1), 3.7 registry (C1, D7), 3.8 security (D2, D1, D7, C13 for the page), 3.9 normalisers (C6), 3.10 versions (D1, D7), 3.11 errors (D1, C14), 3.12 i18n (C13 names, D1), 3.13 ids (B3, C14, A5), 3.14 testing (A1 to A5, E1 to E3), 3.15 net and migration (A, C), 3.16 performance (A2, C2), 3.17 docs (F1, F2), 3.18 core (B1, B2). Gaps: none found; the `rules.toml` per adapter (3.8, D11) has a check in E2 but no loader task. Added to D3: load `rules.toml` through the existing rule validator and rank it below OSM.
 - Type consistency: `AdapterId` (B3) is used in C1 to C14 and D; `RasterRecords` (B3) in C7; `Registry::backend` (D5) matches `RasterBackend` (C7); `UsedSources` (C4) and `EstimateArea` (C5) are defined where first used.
 - Proportion: the plan is longer than the spec's staged table suggests because every task carries its tests; bodies are left to the implementer.
+- Revision 2026-11-11, checked against `main` at v0.10.0: the counts of spec section 2.1 (about 190 match places, about 440 enum references) still hold, 440 references in 16 files today; file and line references were updated or replaced by names; the clock (A0), cancel (C7), program language (A3, C1, C13), the ADR 0091 entry points (A4), the push guard (A5) and the hosts outside adapters (D2) were gaps of the first version.
 
 ## Size and order
 
 | Stage | Tasks | Estimated size | Can run in parallel |
 |---|---:|---|---|
-| A | 5 | 1 200 lines of tests, 8 to 12 MB of fixtures | A1, A2 together; A3 then A4 |
-| B | 4 | 6 000 lines moved | B1 in core first |
+| A | 6 (A0 to A5) | 200 lines production (clock), 1 200 lines of tests, 8 to 12 MB of fixtures | A0 first; A1, A2 together; A3 then A4 |
+| B | 2 (B3, B4); B1, B2 done | 6 000 lines moved | B3 then B4 |
 | C | 14 | 4 000 lines moved, 1 500 new | C3 to C6 independent after C2; C8 to C12 independent after C7 |
-| D | 8 | 2 500 lines new, 11 manifests | D1 and D2 together; D6 after D3 to D5 |
-| E | 4 | 1 500 lines new | E1 then E2; E3, E4 after E2 |
-| F | 2 | docs | after D |
-| Total | 37 | | |
+| D | 7 (D1 to D7); D8 deferred | 2 300 lines new, 11 manifests | D1 and D2 together; D6 after D3 to D5 |
+| E | 2 (E1, E2) and the E5 gate; E3, E4 deferred | 800 lines new | E1 then E2 |
+| F | 2 | docs | after E5 |
+| Total | 33 active, 3 deferred, 2 done | | |
 
-Recommended execution: subagent-driven. The tasks depend on each other's interfaces (B3's types, C1's trait), there are 37 of them, and a mistake in a move task changes example output silently, so an independent review per task earns its cost. Stage A is the one place where a human should look at the recorded fixtures before the rest starts.
+Recommended execution: subagent-driven. The tasks depend on each other's interfaces (B3's types, C1's trait), there are 33 of them, and a mistake in a move task changes example output silently, so an independent review per task earns its cost. Stage A is the one place where a human should look at the recorded fixtures before the rest starts. Stage A runs on its own branch and merges to `main` before stage B starts, so the goldens guard the other sessions' work too.

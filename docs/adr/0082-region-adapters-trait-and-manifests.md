@@ -23,9 +23,12 @@ need code (tile lists, zip ranges, Metalink, a pinned certificate).
 - Manifests are untrusted. Every URL is `https`, port 443, on a host the manifest declares; the fetcher refuses
   internal addresses at connect time. Project-local adapters load only with a flag and never through MCP.
 - `freemapper adapter check` runs static checks, a fixtures replay and an optional live run.
-- `Crs`, `BoundingBox` and `TileId` move to `freemapper-georef` in freemapper-core, as ADR 0067 planned.
-- The migration keeps the example output byte for byte. Five offline golden layers are recorded from v0.9.0 first,
-  and a CI step rejects goldens edited in a `refactor(adapters):` pull request.
+- `Crs`, `BoundingBox` and `TileId` move to `freemapper-georef` in freemapper-core, as ADR 0067 planned (done in core
+  v0.5.0).
+- The migration keeps the example output byte for byte. An injectable clock comes first, then five offline golden
+  layers are recorded from v0.10.0 under a fixed date, and a CI step on every push rejects goldens edited in a commit
+  whose subject starts with `refactor(adapters):`.
+- The trait passes the cancel of ADR 0090 through unchanged, and the goldens render notes in English (ADR 0092).
 
 ## Consequences
 
@@ -33,9 +36,14 @@ need code (tile lists, zip ranges, Metalink, a pinned certificate).
 - Two of eleven current states become pure manifests, nine manifest plus backend, Berlin stays code. The saving is
   for new states, not for the existing ones.
 - Persisted ids (`saxonyanhalt`, `lvermgeosh`) and the record types stay as they are, so old projects load.
-- The migration is 37 small tasks. The registry stays process-global so the free functions keep their signatures.
+- The migration is 33 small tasks. The registry stays process-global so the free functions keep their signatures.
+  The tile-pattern kind, `adapter record`, `adapter new`, `adapter boundary` and the weekly live check wait for the
+  first outside contributor; one new state (Saarland or Bremen) tests the design before the guide is written.
 - Cost if wrong: a manifest format that is too narrow forces a format revision per new `kind`; contributor adapters
   rot unless the weekly live check is kept up; the SSRF rules block a legitimate service on another port.
+
+Revised on 2026-11-11 after a review against v0.10.0 (user's go): the first version recorded the net from v0.9.0, had
+no fixed clock, checked pull-request titles only and predated cancel, program language and ADR 0091.
 
 Source: user request of 2026-11-09 (memory "Adapter architecture"); spec
 `docs/superpowers/specs/2026-11-10-region-adapters-design.md`; plan `docs/superpowers/plans/2026-11-10-region-adapters.md`;
