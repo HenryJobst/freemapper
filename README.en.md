@@ -144,8 +144,8 @@ freemapper is a single program without an installer. You do not need to build it
 
 `freemapper update` asks, then downloads the newest release and puts it in place of the program, at
 the same path. It checks the release's signature first, and the old program stays for
-`freemapper update --rollback`. After `init`, `select`, `fetch` and `run` freemapper looks at most once a day for
-a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
+`freemapper update --rollback`. After `find`, `init`, `select`, `fetch` and `run` freemapper looks at most once a
+day for a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
 older cannot update themselves yet; replace them once by hand as above. Details are in the
 [user manual](docs/manual/en.md#updating).
 

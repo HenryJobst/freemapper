@@ -51,6 +51,14 @@ cli-ocad-load-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden vo
 cli-select-running = Gebietsauswahl für { $path }: Drücken Sie auf der Seite „Fertig“ oder beenden Sie mit Strg+C.
 cli-select-no-browser = Der Browser ließ sich nicht öffnen ({ $error }); öffnen Sie die Adresse oben.
 
+## find
+
+cli-find-place = { $id }  { $name } ({ $category }={ $kind }): { $place }
+cli-find-place-no-area = { $id }  { $name } ({ $category }={ $kind }; keine Fläche, kann kein Kartengebiet sein): { $place }
+cli-find-hint = Projekt anlegen mit: freemapper init <ordner> --osm { $id }
+cli-find-no-area = Keiner dieser Orte hat eine Fläche, die ein Kartengebiet sein kann. Zeichnen Sie das Gebiet mit: freemapper select <ordner>
+cli-find-nothing = Zu „{ $query }“ wurde kein Ort gefunden. Versuchen Sie einen anderen Namen oder zeichnen Sie das Gebiet mit: freemapper select <ordner>
+
 ## Ordnersperre
 
 cli-lock-held = Ein anderer freemapper-Lauf verwendet diesen Ordner (seit { $time }, gestartet { $who }). Warten Sie, bis er fertig ist, oder beenden Sie ihn zuerst.
@@ -434,6 +442,9 @@ help-select-pdf = Auf der Seite ist die druckfertige PDF vorgewählt
 help-select-pdf-candidates = Auf der Seite ist die Trainings-PDF (jeder Kandidat) vorgewählt
 help-select-pdf-scale-bar = Auf der Seite ist die Maßstabsleiste auf den PDFs vorgewählt
 help-select-pdf-sources = Auf der Seite ist diese Wahl der Quellenzeilen auf den PDFs vorgewählt, wie bei `run`
+help-find = Die OpenStreetMap-Orte zu einem Namen auflisten, Flächen zuerst, mit der Kennung für init --osm
+help-find-query = Name des Ortes, z. B. "Clara-Zetkin-Schule Strausberg"
+help-find-json = Die Treffer als JSON ausgeben, mit denselben Feldern wie das MCP-Werkzeug find_place
 help-mcp = Die Werkzeuge einem KI-Agenten über MCP anbieten (stdin/stdout)
 help-update = Eine neuere freemapper-Version aus den GitHub-Releases installieren, nach Rückfrage. Ein aus dem Quellcode gebautes freemapper nennt stattdessen den Weg zum Aktualisieren
 help-update-check = Nur prüfen: Exit-Code 10, wenn es eine neuere Version gibt, 0, wenn diese aktuell ist

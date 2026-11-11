@@ -51,6 +51,14 @@ cli-ocad-load-symbols = In OCAD, choose Symbol > Load Colors and Symbols From…
 cli-select-running = Area selection for { $path }: press "Done" on the page or Ctrl+C to stop.
 cli-select-no-browser = Could not open the browser ({ $error }); open the address above.
 
+## find
+
+cli-find-place = { $id }  { $name } ({ $category }={ $kind }): { $place }
+cli-find-place-no-area = { $id }  { $name } ({ $category }={ $kind }; no area, cannot be a map area): { $place }
+cli-find-hint = Create the project with: freemapper init <dir> --osm { $id }
+cli-find-no-area = None of these places has an area that can be a map area. Draw the area with: freemapper select <dir>
+cli-find-nothing = no place found for "{ $query }"; try another name, or draw the area with: freemapper select <dir>
+
 ## Folder lock
 
 cli-lock-held = another freemapper run is using this folder (since { $time }, started by { $who }). Wait for it or stop it first.
@@ -434,6 +442,9 @@ help-select-pdf = The page starts with the printable PDF ticked
 help-select-pdf-candidates = The page starts with the training PDF (every candidate) ticked
 help-select-pdf-scale-bar = The page starts with the scale bar on the PDFs ticked
 help-select-pdf-sources = The page starts with this choice of source lines on the PDFs, as for `run`
+help-find = List the OpenStreetMap places for a name, areas first, with the id for init --osm
+help-find-query = Name of the place, e.g. "Clara-Zetkin-Schule Strausberg"
+help-find-json = Print the matches as JSON, the same fields as the MCP tool find_place
 help-mcp = Serve the tools to an AI agent over MCP (stdin/stdout)
 help-update = Install a newer freemapper from the GitHub releases, after asking. A build from source says how to update it instead
 help-update-check = Only check: exit code 10 when a newer version exists, 0 when this one is current

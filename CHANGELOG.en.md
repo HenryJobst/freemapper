@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- `freemapper find "<name>"` lists the OpenStreetMap places for a name, up to five, those with an area first, each with its id, and ends with the `init --osm` command for the first area. The line of a match without an area says that it cannot be a map area. `--json` prints the same fields as the MCP tool `find_place`. When nothing is found, the command exits with 1; with `--json` it prints `[]` and exits with 0, as `find_place` answers. Control characters and bidi overrides from OSM names do not reach the terminal. It runs the same search as `find_place` and `init --place`, and `init --place` stays as it is. Like `init`, `find` runs the daily update check. `AGENTS.md` now tells agents on the command line to show the person the matches first and then use `init --osm`.
+
 ### Changed
 
 - Paved areas (501.5) get their black border 501.1, as the norm (ISSprOM §4.5) has it (ADR 0099). No border is drawn where an edge already shows: along building outlines, water, existing 501.1 lines (the kerbs of the street survey) and the edge of the map. Paved OSM ways of the class `service` (driveways, courtyard roads) come in as 501.6 to 501.9, 501.8 without a width.

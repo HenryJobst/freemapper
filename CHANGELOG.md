@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- `freemapper find "<Name>"` listet die OpenStreetMap-Orte zu einem Namen auf, höchstens fünf, die mit Fläche zuerst, jeden mit seiner Kennung, und nennt am Ende den Befehl `init --osm` für die erste Fläche. Bei einem Treffer ohne Fläche steht, dass er kein Kartengebiet sein kann. `--json` gibt dieselben Felder aus wie das MCP-Werkzeug `find_place`. Findet die Suche nichts, endet der Befehl mit Exit-Code 1; mit `--json` gibt er `[]` aus und endet mit 0, wie `find_place` antwortet. Steuerzeichen und Bidi-Steuerzeichen aus OSM-Namen erreichen das Terminal nicht. Es ist dieselbe Suche wie bei `find_place` und `init --place`, und `init --place` bleibt, wie es ist. Wie `init` prüft auch `find` einmal am Tag auf eine neue Version. `AGENTS.md` sagt Agenten an der Kommandozeile jetzt, der Person zuerst die Treffer zu zeigen und dann `init --osm` zu nehmen.
+
 ### Geändert
 
 - Befestigte Flächen (501.5) bekommen ihren schwarzen Rand 501.1, wie es die Norm (ISSprOM §4.5) vorsieht (ADR 0099). Kein Rand entsteht dort, wo schon eine Kante gezeichnet ist: an Gebäudeumrissen, Gewässern, vorhandenen 501.1-Linien (Bordsteine der Straßenbefahrung) und am Kartenrand. Befestigte OSM-Wege der Klasse `service` (Zufahrten, Hofwege) kommen als 501.6 bis 501.9 dazu, ohne Breite als 501.8.

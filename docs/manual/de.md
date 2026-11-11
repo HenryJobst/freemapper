@@ -132,8 +132,8 @@ und die tägliche Prüfung entfällt.
 
 #### Die tägliche Prüfung
 
-Nach `init`, `select`, `fetch` und `run`, die ohnehin ins Netz gehen, prüft freemapper höchstens einmal am Tag, ob
-es eine neuere Version gibt. `derive` und `export` arbeiten ohne Netz und prüfen nicht. Die Prüfung läuft,
+Nach `find`, `init`, `select`, `fetch` und `run`, die ohnehin ins Netz gehen, prüft freemapper höchstens einmal am
+Tag, ob es eine neuere Version gibt. `derive` und `export` arbeiten ohne Netz und prüfen nicht. Die Prüfung läuft,
 während der Befehl arbeitet. Findet sie eine neuere Version, folgt nach der Ausgabe des Befehls eine Zeile auf der
 Fehlerausgabe (stderr):
 
@@ -276,6 +276,23 @@ Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
 ./freemapper init kreuzgymnasium --osm way/23838018 --title "Evangelisches Kreuzgymnasium"
 ./freemapper run kreuzgymnasium
 ```
+
+Die Kennung findet `find` über den Namen. Der Befehl listet bis zu fünf Treffer aus OpenStreetMap auf, die mit
+Fläche zuerst, und nennt den `init`-Befehl für die erste Fläche:
+
+```sh
+./freemapper find "Clara-Zetkin-Schule Strausberg"
+```
+
+```text
+way/992423119  Clara-Zetkin-Schule (amenity=school): 1, Am Sportpark, Strausberg Vorstadt, Strausberg, Märkisch-Oderland, Brandenburg, 15344, Deutschland
+Projekt anlegen mit: freemapper init <ordner> --osm way/992423119
+```
+
+Eine Zeile mit „keine Fläche, kann kein Kartengebiet sein“ ist in OSM ein Punkt, zum Beispiel eine Haltestelle
+oder Ladesäule, die nach der Schule heißt. Sie taugt nicht als Kartengebiet. Steht der gesuchte Ort nicht in der
+Liste, versuchen Sie einen längeren Namen mit dem Ort dazu, oder zeichnen Sie das Gebiet mit `select`. Ist der
+Name eindeutig, überspringt `init --place "<Name>"` die Liste und nimmt den ersten Treffer mit Fläche.
 
 Besteht das Gelände in OSM aus mehreren getrennten Flächen (eine Multipolygon-Relation mit mehreren äußeren
 Ringen), nennt freemapper die Teile mit ihrer Größe. Mit `--part 1` nehmen Sie die größte, mit `--part 2` die

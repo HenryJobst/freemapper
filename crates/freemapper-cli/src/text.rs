@@ -243,6 +243,9 @@ mod tests {
             ("dir", v("/p")),
             ("index", v(1)),
             ("total", v(3)),
+            // `freemapper find`.
+            ("category", v("amenity")),
+            ("place", v("Strausberg")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -261,6 +264,7 @@ mod tests {
             include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
+            include_str!("find.rs"),
             include_str!("pipeline.rs"),
             include_str!("help.rs"),
             include_str!("mcp.rs"),
@@ -282,6 +286,7 @@ mod tests {
             include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
+            include_str!("find.rs"),
             include_str!("pipeline.rs"),
             include_str!("help.rs"),
             include_str!("mcp.rs"),

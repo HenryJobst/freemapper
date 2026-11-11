@@ -149,9 +149,9 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
 
 `freemapper update` lädt nach einer Rückfrage die neueste Version und ersetzt das Programm an
 derselben Stelle. Vorher prüft es die Signatur der Version, und das alte Programm bleibt für
-`freemapper update --rollback` liegen. Nach `init`, `select`, `fetch` und `run` sieht freemapper höchstens einmal
-am Tag nach, ob es eine neuere Version gibt, und meldet sie in einer Zeile; `freemapper update --mode off` schaltet
-das ab. Die Versionen bis 0.11.0 können sich noch nicht selbst aktualisieren und werden einmal von Hand ersetzt,
+`freemapper update --rollback` liegen. Nach `find`, `init`, `select`, `fetch` und `run` sieht freemapper höchstens
+einmal am Tag nach, ob es eine neuere Version gibt, und meldet sie in einer Zeile; `freemapper update --mode off`
+schaltet das ab. Die Versionen bis 0.11.0 können sich noch nicht selbst aktualisieren und werden einmal von Hand ersetzt,
 wie oben beschrieben. Einzelheiten stehen im [Handbuch](docs/manual/de.md#aktualisieren).
 
 Bequemer geht es mit einem KI-Assistenten (siehe [Mit einem KI-Agenten](#mit-einem-ki-agenten-mcp)):
