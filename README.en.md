@@ -322,6 +322,8 @@ files ("Straußberg" → "Straussberg").
 
 `freemapper mcp` is an MCP server on stdin/stdout. An AI agent can use it to make the map for someone
 who would rather not use a command line: tell the agent the school, it does the rest.
+[`AGENTS.md`](AGENTS.md), also in the release archive, tells the agent itself how to install and use freemapper.
+Saying "Read AGENTS.md from github.com/HenryJobst/freemapper and set up freemapper" is enough.
 
 Register it in Claude Code (with the path where you unpacked freemapper):
 

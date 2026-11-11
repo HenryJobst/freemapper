@@ -73,7 +73,8 @@ jobs:
           exe=""
           if [ "${{ runner.os }}" = "Windows" ]; then exe=".exe"; fi
           cp "target/${{ matrix.target }}/release/freemapper$exe" "$dir/"
-          cp README.md README.en.md LICENSE "$dir/"
+          # AGENTS.md tells an AI agent how to install and use the program.
+          cp README.md README.en.md LICENSE AGENTS.md "$dir/"
           # The user manual with its images, at the path the READMEs link to.
           mkdir -p "$dir/docs"
           cp -R docs/manual "$dir/docs/"

@@ -1,0 +1,207 @@
+# freemapper for AI agents
+
+This file tells an AI agent how to install freemapper and how to use it for a person who wants an orienteering
+map. It ships in every release archive next to the program. People read [README.en.md](README.en.md) (English) or
+[README.md](README.md) (German); the [user manual](docs/manual/en.md) has the details.
+
+freemapper makes a starter project for an orienteering map from official geodata of a German state and from
+OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
+reliable objects already drawn, templates (orthophoto, hillshade, slope, nDSM), a candidates map to check, and on
+request an OCAD starting point and printable PDFs. Map kinds: `schoolyard` (1:1000) and `sprint` (ISSprOM 2019,
+1:4000 or 1:5000).
+
+Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
+Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate. Bremen, Thuringia, Bavaria,
+Baden-Württemberg and Saarland have no data sources yet; an area there fails with a message that says so. Tell the
+user before you start if the place lies outside these states.
+
+## Install
+
+freemapper is one executable without an installer and without dependencies. Do not build it from source unless
+the user asks; the release archives are ready to run.
+
+1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
+   `tag_name`, for example `v0.10.0`. The release page is
+   <https://github.com/HenryJobst/freemapper/releases/latest>.
+2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
+
+   | System (`uname -s` / `uname -m`) | Platform | Archive |
+   |---|---|---|
+   | macOS, `arm64` (Apple chip) | `macos-arm64` | `.tar.gz` |
+   | macOS, `x86_64` (Intel) | `macos-x86_64` | `.tar.gz` |
+   | Linux, `x86_64` | `linux-x86_64` | `.tar.gz` |
+   | Linux, `aarch64` | `linux-arm64` | `.tar.gz` |
+   | Windows, x64 | `windows-x86_64` | `.zip` |
+
+   Each archive has a `<archive>.sha256` next to it. The Linux builds are static (musl) and run on any
+   distribution.
+3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
+
+   ```sh
+   tag=v0.10.0; platform=macos-arm64
+   base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
+   curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
+   curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
+   shasum -a 256 -c "freemapper-$tag-$platform.tar.gz.sha256"   # Linux: sha256sum -c
+   tar -xzf "freemapper-$tag-$platform.tar.gz"
+   ```
+
+   Windows (PowerShell):
+
+   ```powershell
+   $tag = "v0.10.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
+   Invoke-WebRequest "$base/$name" -OutFile $name
+   Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"
+   (Get-FileHash $name -Algorithm SHA256).Hash.ToLower()   # compare with the first word of the .sha256 file
+   Expand-Archive $name -DestinationPath .
+   ```
+
+4. The archive unpacks to a folder `freemapper-<tag>-<platform>/` with `freemapper` (Windows: `freemapper.exe`),
+   the READMEs, `LICENSE`, this file and `docs/manual/`. The program is not signed:
+   - macOS refuses to start it until the quarantine flag is gone:
+     `xattr -d com.apple.quarantine freemapper-<tag>-<platform>/freemapper`. Tell the user you did this and why.
+   - Linux: `chmod +x freemapper` if the executable bit got lost.
+   - Windows may show "Windows protected your PC" on the first start. `Unblock-File $name` before
+     `Expand-Archive` avoids it; otherwise the user confirms with *More info* > *Run anyway*.
+5. Check: `<folder>/freemapper --version` prints `freemapper <version>`.
+
+Remember the absolute path of the executable; the MCP registration needs it. Updating means unpacking a newer
+archive and pointing the registration at the new path. Projects and the download cache stay valid.
+
+Do not add the user's e-mail address, name or other personal data to any request, file name, project title or
+setting. freemapper itself sends only a fixed `User-Agent` that names the program and its repository.
+
+## Use it through MCP (preferred)
+
+`freemapper mcp` is an MCP server on stdin/stdout. Register it once with the absolute path:
+
+```sh
+claude mcp add freemapper -- /absolute/path/to/freemapper mcp          # Claude Code
+```
+
+```toml
+# Codex: ~/.codex/config.toml
+[mcp_servers.freemapper]
+command = "/absolute/path/to/freemapper"
+args = ["mcp"]
+```
+
+```json
+{ "mcpServers": { "freemapper": { "command": "/absolute/path/to/freemapper", "args": ["mcp"] } } }
+```
+
+Optional arguments after `mcp`: `--cache-dir <folder>` (another download cache) and `--lang de|en` (language of the
+texts the tools return; default: `FREEMAPPER_LANG`, then the system language, then English).
+
+### Tools
+
+| Tool | Parameters | What it does |
+|---|---|---|
+| `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
+| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default) or `sprint`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000. For 1:3000 use 4000; freemapper-print enlarges when printing. |
+| `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
+| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources` | Fetches, derives and writes the project in the background. Returns a job id. |
+| `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress line or the error. |
+| `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
+| `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `orthophoto`, `hillshade`, `slope` or `ndsm`. |
+| `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline` | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
+
+### Workflow
+
+1. Ask what the map is for (school, park, sprint training) and which place. Then `find_place`.
+2. If one result with an area fits, `create_project` with its `osm_id`. If several fit, ask the user. If none fits
+   or the user wants to draw the area, call `open_area_selector`, give the user the address and wait until they
+   say they saved; saving creates the project.
+3. `estimate_download` and tell the user the size. The first project in a state downloads the state's OSM extract
+   (about 50 to 500 MB, kept for 7 days); later projects in the same state are much smaller. Wait for an okay
+   before a large download.
+4. `start_pipeline`. Set `pdf: true` if the user wants something to print, `ocad: true` if they edit in OCAD,
+   `pdf_candidates: true` for a quick training map that draws every uncertain object too.
+5. Poll `project_status` every few seconds until `finished` or `failed`. A run takes from one to several minutes,
+   longer on the first download. Pass the progress on in short lines, not every line.
+6. On `finished`: `list_layers`, show one or two previews with `preview_layer`, and tell the user which files are in
+   the folder and what to check (see "What to tell the user").
+
+Rules:
+
+- Paths must be absolute or start with `~`. Relative paths and the home folder itself are refused.
+- One pipeline runs at a time per server, and one run per project folder across all processes. A second run on
+  the same folder fails until the first ends; a lock left by a crashed run is taken over after 60 seconds.
+- An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
+  file stays as `<name>.omap.bak`.
+- `offline: true` works only with data fetched before into the cache.
+- Errors come back as one sentence meant for the user. Relay it; do not retry the same call unchanged.
+
+## Use it from the command line
+
+Use the CLI when no MCP client is available or the user wants a script. Pass `--lang en` when you parse the output.
+
+```sh
+freemapper init <dir> --place "Clara-Zetkin-Schule Strausberg" --kind schoolyard --title "Clara-Zetkin-Schule"
+freemapper run <dir> --pdf
+```
+
+| Command | Purpose |
+|---|---|
+| `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
+| `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
+| `run <dir>` | `fetch`, `derive` and `export` in one go. |
+| `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
+| `derive <dir>` | Computes templates and contours. |
+| `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
+
+Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+`--pdf-sources auto|full|credit-only`. All commands that download take `--cache-dir <folder>`.
+
+Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
+passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
+usage error exits with code 2. Exit code 0 means success.
+
+## What lands in the project folder
+
+- `<name>.omap`: the map for OpenOrienteering Mapper, with the finished map objects and the peripheral information.
+- `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` with world files, and `candidates.omap`.
+- `ocad/` (with `ocad`): `<name>.ocd`, `<name>-candidates.ocd` and the templates.
+- `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf` (with `pdf_candidates`).
+- `ATTRIBUTION.txt`: every data source with its licence.
+- `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features.
+
+The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux `~/.cache/freemapper`, Windows
+`%LOCALAPPDATA%\freemapper`. It can grow to several GB; check free disk space before the first run in a new state.
+
+## What to tell the user
+
+- Open the `.omap` with OpenOrienteering Mapper (free, all systems). Templates can be switched on there.
+- The map holds only what the data shows reliably. Everything uncertain (furniture, barriers, many paths,
+  contours, out-of-bounds areas) is in the candidates map and must be checked against the orthophoto and in the
+  terrain before it is copied into the map. The candidates PDF draws all of it and is for quick training only.
+- The OCAD files carry placeholder symbols; in OCAD the user loads the official symbol set, which replaces them by
+  number. The OCAD output has not been checked in OCAD yet.
+- The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
+  `pdf_sources: "credit-only"` the PDF shows only the freemapper line, and the user must name the sources in
+  another way (ATTRIBUTION.txt lists them).
+
+## Troubleshooting
+
+- "outside the supported states": the area is in a state or country without data sources. Nothing to fix on the
+  agent's side.
+- macOS "cannot be opened" or "killed": remove the quarantine flag (install step 4).
+- A run fails with a download error: services of the states are sometimes down. Try again later; `offline` with
+  data fetched before still works.
+- "another freemapper run is using this folder" or "a run is already going on": another run holds the project
+  folder. Wait for it, or use another folder.
+- "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
+
+## Working on the freemapper code
+
+This section is for coding agents in a clone of the repository, not for using the program.
+
+- Build and check: `cargo build --release --locked`, `cargo fmt --all --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`. The toolchain is
+  pinned in `rust-toolchain.toml`.
+- Source code and technical docs are English; terms follow [`docs/glossary.md`](docs/glossary.md). User docs are in
+  German and English. German text says "Bundesland" for a state.
+- Decisions are recorded in [`docs/adr/`](docs/adr/README.md); every change gets a changelog entry in
+  `CHANGELOG.md` and `CHANGELOG.en.md`.
+- Shared code comes from [freemapper-core](https://github.com/HenryJobst/freemapper-core), pinned by tag.
