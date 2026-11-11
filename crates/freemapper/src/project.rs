@@ -3684,6 +3684,14 @@ pub struct RunOutcome {
     pub map: MapOutcome,
 }
 
+/// The step [`run_project_steps`] is about to start.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunStage {
+    Fetch,
+    Derive,
+    Map,
+}
+
 /// Fetch, derive and export. An existing map is kept unless `force` is set, because it may
 /// contain the mapper's work.
 pub fn run_project(
@@ -3694,8 +3702,24 @@ pub fn run_project(
     force: bool,
     progress: &mut dyn FnMut(&str),
 ) -> Result<RunOutcome, ProjectError> {
+    run_project_steps(dir, fetcher, cache, mode, force, progress, &mut |_| {})
+}
+
+/// [`run_project`] that also says which step starts next, for a progress display.
+pub fn run_project_steps(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    force: bool,
+    progress: &mut dyn FnMut(&str),
+    stage: &mut dyn FnMut(RunStage),
+) -> Result<RunOutcome, ProjectError> {
+    stage(RunStage::Fetch);
     fetch_project(dir, fetcher, cache, mode, progress)?;
+    stage(RunStage::Derive);
     let templates = derive_project(dir, cache, progress)?;
+    stage(RunStage::Map);
     let existing = map_path(dir);
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
