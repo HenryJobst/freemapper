@@ -75,6 +75,9 @@ cli-open-folder-failed = The folder could not be opened ({ $error }).
 cli-open-folder-no-opener = This computer has no program to open folders ({ $program }). Open the folder by hand.
 cli-open-folder-missing = The project folder does not exist yet. Save the area first.
 cli-open-folder-refused = The folder name is not safe to pass on to the file manager.
+cli-save-running = a pipeline is running for this project; save again when it has finished
+cli-save-unknown-kind = unknown map kind { $kind }; use schoolyard or sprint
+cli-save-scale-too-large = scale { $scale } is too large
 
 ## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
 ## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has

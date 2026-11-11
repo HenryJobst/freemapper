@@ -661,6 +661,71 @@ fn api_texts_language_comes_from_lang_then_the_browser_then_english() {
     assert!(state.get("lang").is_none(), "{state}");
 }
 
+/// The server's refusals come in the page's language like its texts: with nothing named, a
+/// German browser gets German sentences, any other English ones.
+#[test]
+fn refusals_come_in_the_language_of_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start_with_env(&dir.path().join("p"), cache.path(), &[], &NO_LANGUAGE);
+    let origin = selector
+        .url
+        .split('/')
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("/");
+    let post = |path: &str, body: Value, accept: &str| {
+        let mut response = selector
+            .agent
+            .post(&format!("{}{path}", selector.url))
+            .header("Content-Type", "application/json")
+            .header("Origin", &origin)
+            .header("Accept-Language", accept)
+            .send(body.to_string())
+            .unwrap();
+        let status = response.status().as_u16();
+        let answer: Value =
+            serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+        (
+            status,
+            answer["error"].as_str().unwrap_or_default().to_string(),
+        )
+    };
+    for (accept, cancel, run) in [
+        (
+            "de-DE,de;q=0.9,en;q=0.8",
+            "Es läuft nichts, also gibt es nichts abzubrechen.",
+            "In diesem Ordner gibt es noch kein gespeichertes Projekt. Speichern Sie zuerst das Gebiet.",
+        ),
+        (
+            "fr, en;q=0.5",
+            "No run is going on, so there is nothing to cancel.",
+            "There is no saved project in this folder yet. Save the area first.",
+        ),
+    ] {
+        assert_eq!(post("api/cancel", json!({}), accept), (409, cancel.into()));
+        assert_eq!(post("api/run", json!({}), accept), (404, run.into()));
+    }
+    // An area the engine refuses: its error in German, and the save with an unknown kind too.
+    let line = json!({ "type": "Polygon", "coordinates": [[[13.84, 52.53], [13.85, 52.54], [13.84, 52.53]]] });
+    let (status, english) = post("api/save", json!({ "area": line }), "en");
+    let (_, german) = post("api/save", json!({ "area": line }), "de");
+    assert_eq!(status, 400);
+    assert_ne!(german, english, "{german}");
+    let (status, german) = post(
+        "api/save",
+        json!({ "area": school_area(), "kind": "forest" }),
+        "de",
+    );
+    assert_eq!(
+        (status, german.as_str()),
+        (
+            400,
+            "Unbekannte Kartenart \"forest\"; möglich sind schoolyard und sprint"
+        )
+    );
+}
+
 /// `api/update` of a page whose cache holds `record` (if any). `base` is the update stub the
 /// program is told about (a build with the `test-stub` feature counts as a release build then).
 fn update_answer(record: Option<Value>, base: &str) -> Value {

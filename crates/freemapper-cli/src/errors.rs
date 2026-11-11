@@ -23,6 +23,7 @@ use freemapper::sources::osm::OsmError;
 use freemapper::space::{Part, RESERVE_BYTES, Shortfall, is_storage_full, size, size_down};
 use freemapper::tiles::TileId;
 
+use crate::lock::LockError;
 use crate::pipeline::Cancelled;
 use crate::text::{FluentValue, Lang, TEXTS, n, v};
 
@@ -71,6 +72,7 @@ fn line(error: &(dyn Error + 'static), lang: &Lang) -> String {
         OsmError,
         Shortfall,
         Cancelled,
+        LockError,
     );
     error.to_string()
 }

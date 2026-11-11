@@ -75,6 +75,9 @@ cli-open-folder-failed = Der Ordner ließ sich nicht öffnen ({ $error }).
 cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ordnern ({ $program }). Öffnen Sie den Ordner von Hand.
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
+cli-save-running = Für dieses Projekt läuft gerade ein Lauf; speichern Sie noch einmal, wenn er fertig ist.
+cli-save-unknown-kind = Unbekannte Kartenart { $kind }; möglich sind schoolyard und sprint
+cli-save-scale-too-large = Der Maßstab { $scale } ist zu groß
 
 ## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
 ## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine

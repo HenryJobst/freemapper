@@ -77,7 +77,7 @@ struct FakeOpener {
 }
 
 impl FolderOpener for FakeOpener {
-    fn open(&self, dir: &Path) -> Result<(), String> {
+    fn open(&self, dir: &Path, _lang: &crate::text::Lang) -> Result<(), String> {
         self.opened.lock().unwrap().push(dir.to_path_buf());
         if self.fail {
             Err("no opener here".to_string())
@@ -675,6 +675,14 @@ fn the_windows_verbatim_prefix_is_dropped_for_the_file_manager() {
 
 #[test]
 fn a_folder_that_looks_like_an_option_is_never_passed_on() {
-    assert!(RealOpener.open(Path::new("-rf")).is_err());
-    assert!(RealOpener.open(Path::new("relative")).is_err());
+    assert!(
+        RealOpener
+            .open(Path::new("-rf"), &crate::text::Lang::english())
+            .is_err()
+    );
+    assert!(
+        RealOpener
+            .open(Path::new("relative"), &crate::text::Lang::english())
+            .is_err()
+    );
 }
