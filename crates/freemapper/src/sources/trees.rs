@@ -138,7 +138,10 @@ mod tests {
     #[test]
     fn trees_only_inside_the_dataset_envelope() {
         let names = |bbox: &BoundingBox| -> Vec<&str> {
-            tree_datasets_for(bbox).iter().map(|d| d.id).collect()
+            tree_datasets_for(bbox)
+                .iter()
+                .map(|d| d.id.as_ref())
+                .collect()
         };
         assert_eq!(names(&sanssouci()), ["potsdam"]);
         // Straddling the envelope edge still needs the dataset.

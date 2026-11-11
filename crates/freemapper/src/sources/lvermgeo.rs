@@ -2,6 +2,7 @@
 //! EPSG:25832: the orthophoto WMS, DGM1 and DOM1 from the WCS, and flight dates from the tile
 //! index WFS.
 
+use std::borrow::Cow;
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
@@ -13,10 +14,12 @@ use crate::sources::wms::WmsService;
 
 /// The orthophoto WMS (TrueDOP20, newest flight).
 pub const WMS: WmsService = WmsService {
-    url: "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
-    layer: "lsa_lvermgeo_dop20_2",
+    url: Cow::Borrowed(
+        "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
+    ),
+    layer: Cow::Borrowed("lsa_lvermgeo_dop20_2"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 /// The tile index with flight dates (ArcGIS WFS, GeoJSON output).
@@ -42,9 +45,9 @@ impl Model {
     /// The WCS of `self`: `Coverage1`, a `multipart/related` answer, cut to [`COVERAGE`].
     pub fn wcs(self) -> WcsService {
         WcsService {
-            url: self.wcs_endpoint(),
-            coverage: "Coverage1",
-            extra: "",
+            url: Cow::Borrowed(self.wcs_endpoint()),
+            coverage: Cow::Borrowed("Coverage1"),
+            extra: Cow::Borrowed(""),
             multipart: true,
             envelope: COVERAGE,
             max_m: WCS_MAX_M,
@@ -204,9 +207,9 @@ mod tests {
             assert_eq!(
                 wcs,
                 WcsService {
-                    url: endpoint,
-                    coverage: "Coverage1",
-                    extra: "",
+                    url: Cow::Borrowed(endpoint),
+                    coverage: Cow::Borrowed("Coverage1"),
+                    extra: Cow::Borrowed(""),
                     multipart: true,
                     envelope: COVERAGE,
                     max_m: 4000.0,
@@ -316,7 +319,7 @@ mod tests {
         let grid = crate::raster::GridSpec::covering(&SAMPLE, 0.2);
         let (_, url) = &crate::sources::wms::pieces(&WMS, &grid)[0];
         assert!(
-            url.starts_with(WMS.url) && url.contains("&CRS=EPSG:25832&"),
+            url.starts_with(&*WMS.url) && url.contains("&CRS=EPSG:25832&"),
             "{url}"
         );
         assert!(url.contains("LAYERS=lsa_lvermgeo_dop20_2"), "{url}");

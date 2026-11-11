@@ -3,113 +3,116 @@
 //! attribute names are the same).
 
 use serde_json::Value;
+use std::borrow::Cow;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::ogc_api::{AlkisError, invalid};
 
 /// An ALKIS-vereinfacht WFS of one state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WfsService {
     /// For messages, e.g. "GeoSN ALKIS".
-    pub name: &'static str,
-    pub url: &'static str,
-    pub buildings_type: &'static str,
-    pub land_use_type: &'static str,
+    pub name: Cow<'static, str>,
+    pub url: Cow<'static, str>,
+    pub buildings_type: Cow<'static, str>,
+    pub land_use_type: Cow<'static, str>,
     /// The CRS asked for and answered in.
     pub crs: Crs,
     /// `bez` given to squares without one: the state never records what a square is used for,
     /// so it stays a candidate instead of becoming a paved map object. `None` where the
     /// state's OGC API keeps squares without `bez` as they are (the WFS then does the same).
-    pub square_bez: Option<&'static str>,
+    pub square_bez: Option<Cow<'static, str>>,
 }
 
 /// GeoSN, Saxony (EPSG:25833; land use per parcel part).
 pub const GEOSN: WfsService = WfsService {
-    name: "GeoSN ALKIS",
-    url: "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("GeoSN ALKIS"),
+    url: Cow::Borrowed("https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm33,
-    square_bez: Some("ohne Unterart (Sachsen)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Sachsen)")),
 };
 
 /// LVermGeo, Saxony-Anhalt (EPSG:25832; land use objects, not split by parcel).
 pub const LVERMGEO: WfsService = WfsService {
-    name: "LVermGeo ALKIS",
-    url: "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:Nutzung",
+    name: Cow::Borrowed("LVermGeo ALKIS"),
+    url: Cow::Borrowed(
+        "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest",
+    ),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:Nutzung"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Sachsen-Anhalt)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Sachsen-Anhalt)")),
 };
 
 /// HVBG, Hesse (EPSG:25832; land use per parcel part). `ave:Nutzung` carries no `nutzart` in
 /// Hesse, so the parcel-part type is used.
 pub const HVBG: WfsService = WfsService {
-    name: "HVBG ALKIS",
-    url: "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("HVBG ALKIS"),
+    url: Cow::Borrowed("https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Hessen)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Hessen)")),
 };
 
 /// Geobasis NRW, Nordrhein-Westfalen (EPSG:25832; land use per parcel part). Same schema and
 /// LGB spellings as Hesse, but with detailed `funktion` values. Errors come as a bare HTTP 400.
 pub const GEOBASIS_NRW: WfsService = WfsService {
-    name: "Geobasis NRW ALKIS",
-    url: "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("Geobasis NRW ALKIS"),
+    url: Cow::Borrowed("https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Nordrhein-Westfalen)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Nordrhein-Westfalen)")),
 };
 
 /// LGLN, Niedersachsen (EPSG:25832; land use per parcel part). Same schema and LGB spellings as
 /// Hesse; underground garages are `Gebäude` with `rellage` "Unter der Erdoberfläche". The service
 /// cuts an answer without `COUNT` silently at 10000 and refuses more than 10000.
 pub const LGLN: WfsService = WfsService {
-    name: "LGLN ALKIS",
-    url: "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("LGLN ALKIS"),
+    url: Cow::Borrowed("https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Niedersachsen)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Niedersachsen)")),
 };
 
 /// LVermGeo RP, Rheinland-Pfalz (EPSG:25832; MapServer). Land use is `ave:Nutzung` (per object, with
 /// `nutzart` and `bez`; there is no `NutzungFlurstueck`), and `aktualit` sits inside a
 /// `gml:timePosition`. Names of several objects are joined with `;` and kept as they are.
 pub const LVERMGEO_RP: WfsService = WfsService {
-    name: "LVermGeo RP ALKIS",
-    url: "https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:Nutzung",
+    name: Cow::Borrowed("LVermGeo RP ALKIS"),
+    url: Cow::Borrowed("https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:Nutzung"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Rheinland-Pfalz)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Rheinland-Pfalz)")),
 };
 
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
 /// (named for its administrative-boundary theme) serves every type with normal queries; the
 /// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
 pub const LVERMGEO_SH: WfsService = WfsService {
-    name: "LVermGeo SH ALKIS",
-    url: "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("LVermGeo SH ALKIS"),
+    url: Cow::Borrowed("https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
-    square_bez: Some("ohne Unterart (Schleswig-Holstein)"),
+    square_bez: Some(Cow::Borrowed("ohne Unterart (Schleswig-Holstein)")),
 };
 
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
 /// the OGC API fails; its land use keeps squares without `bez` as they are (the OGC API path
 /// has no `square_bez` either), so `square_bez` is `None`.
 pub const LGV: WfsService = WfsService {
-    name: "LGV ALKIS (WFS)",
-    url: "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("LGV ALKIS (WFS)"),
+    url: Cow::Borrowed("https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: None,
 };
@@ -118,10 +121,10 @@ pub const LGV: WfsService = WfsService {
 /// the OGC API, with the same data and the LGB spellings. Used when the OGC API fails. Only
 /// 25833 is accepted (25832 gives HTTP 400).
 pub const LAIV_MV: WfsService = WfsService {
-    name: "LAiV M-V ALKIS (WFS)",
-    url: "https://www.geodaten-mv.de/dienste/alkis_wfs_einfach",
-    buildings_type: "ave:GebaeudeBauwerk",
-    land_use_type: "ave:NutzungFlurstueck",
+    name: Cow::Borrowed("LAiV M-V ALKIS (WFS)"),
+    url: Cow::Borrowed("https://www.geodaten-mv.de/dienste/alkis_wfs_einfach"),
+    buildings_type: Cow::Borrowed("ave:GebaeudeBauwerk"),
+    land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm33,
     square_bez: None,
 };
@@ -345,7 +348,7 @@ pub fn fetch_wfs(
     type_name: &str,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
-    let name = service.name;
+    let name = &service.name;
     let get = |url: &str| -> Result<String, FetchError> {
         get_with_retries(fetcher, url, |bytes| {
             let text = String::from_utf8_lossy(bytes).into_owned();
@@ -405,7 +408,7 @@ pub fn fetch_buildings(
     service: &WfsService,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
-    fetch_wfs(fetcher, service, service.buildings_type, bbox)
+    fetch_wfs(fetcher, service, &service.buildings_type, bbox)
 }
 
 /// The land use of `service` in `bbox`; squares without `bez` get the service's `square_bez`, if it has one.
@@ -414,9 +417,9 @@ pub fn fetch_land_use(
     service: &WfsService,
     bbox: &BoundingBox,
 ) -> Result<Vec<Value>, FetchError> {
-    Ok(fetch_wfs(fetcher, service, service.land_use_type, bbox)?
+    Ok(fetch_wfs(fetcher, service, &service.land_use_type, bbox)?
         .into_iter()
-        .map(|f| normalise_land_use(f, service.square_bez))
+        .map(|f| normalise_land_use(f, service.square_bez.as_deref()))
         .collect())
 }
 
@@ -481,7 +484,7 @@ mod tests {
     #[test]
     fn url_matches_the_wfs() {
         assert_eq!(
-            GEOSN.wfs_url(GEOSN.buildings_type, &SCHOOL, 20),
+            GEOSN.wfs_url(&GEOSN.buildings_type, &SCHOOL, 20),
             "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0\
              &REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833\
              &BBOX=415800,5655600,416150,5655900,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=2\
@@ -517,7 +520,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, GEOSN.square_bez))
+            .map(|f| normalise_land_use(f, GEOSN.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         let classes: Vec<(&str, Option<&str>)> = land
@@ -528,7 +531,7 @@ mod tests {
             classes,
             [
                 ("Fläche besonderer funktionaler Prägung", None),
-                ("Platz", GEOSN.square_bez),
+                ("Platz", GEOSN.square_bez.as_deref()),
                 ("Straßenverkehr", None),
                 (
                     "Industrie- und Gewerbefläche",
@@ -547,8 +550,8 @@ mod tests {
             .find(|f| f["properties"]["nutzart"] == "Platz")
             .unwrap();
         assert_eq!(
-            normalise_land_use(square, GEOSN.square_bez)["properties"]["bez"],
-            GEOSN.square_bez.unwrap()
+            normalise_land_use(square, GEOSN.square_bez.as_deref())["properties"]["bez"],
+            GEOSN.square_bez.as_deref().unwrap()
         );
     }
 
@@ -556,10 +559,10 @@ mod tests {
     fn html_error_page_is_an_error() {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            GEOSN.url,
+            &GEOSN.url,
             b"<!DOCTYPE html><html><head><title>Seite kann nicht angezeigt werden</title>".to_vec(),
         );
-        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
+        let err = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(
             err.to_string().contains("not a WFS FeatureCollection"),
             "{err}"
@@ -604,7 +607,7 @@ mod tests {
     fn refused_request_names_the_service() {
         let fetcher = MapFetcher::default();
         fetcher.refusing.borrow_mut().push(GEOSN.url.to_string());
-        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
+        let err = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(
             err.to_string()
                 .contains("GeoSN ALKIS service refused the request (HTTP 400)"),
@@ -622,7 +625,7 @@ mod tests {
             GEOSN.url.to_string(),
             br#"<ows:ExceptionReport><ows:Exception exceptionCode="InvalidParameterValue"><ows:ExceptionText>COUNT exceeds 30000</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#.to_vec(),
         );
-        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL)
+        let err = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL)
             .unwrap_err()
             .to_string();
         assert!(
@@ -667,12 +670,12 @@ mod tests {
     #[test]
     fn fewer_features_than_matched_is_an_error() {
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(GEOSN.url, BUILDINGS.as_bytes().to_vec());
+        fetcher.insert_prefix(&GEOSN.url, BUILDINGS.as_bytes().to_vec());
         fetcher.insert_prefix(
-            &format!("{}&RESULTTYPE=hits", GEOSN.wfs_url(GEOSN.buildings_type, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
+            &format!("{}&RESULTTYPE=hits", GEOSN.wfs_url(&GEOSN.buildings_type, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
             br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberReturned="0" numberMatched="5"/>"#.to_vec(),
         );
-        let err = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap_err();
+        let err = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(err.to_string().contains("3 of 5"), "{err}");
     }
 
@@ -715,7 +718,7 @@ mod tests {
         let fetcher = Paged {
             calls: std::cell::RefCell::new(Vec::new()),
         };
-        let features = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap();
+        let features = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap();
         assert_eq!(features.len(), 3);
         assert_eq!(*fetcher.calls.borrow(), [0, 2]);
     }
@@ -724,8 +727,8 @@ mod tests {
     fn repeated_pages_end_the_paging() {
         // A server that ignores STARTINDEX answers every page with the same features.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(GEOSN.url, BUILDINGS.as_bytes().to_vec());
-        let features = fetch_wfs(&fetcher, &GEOSN, GEOSN.buildings_type, &SCHOOL).unwrap();
+        fetcher.insert_prefix(&GEOSN.url, BUILDINGS.as_bytes().to_vec());
+        let features = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap();
         assert_eq!(features.len(), 3);
         assert_eq!(fetcher.calls.get(), 3, "hits and two pages");
     }
@@ -755,7 +758,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(ST_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, LVERMGEO.square_bez))
+            .map(|f| normalise_land_use(f, LVERMGEO.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         let classes: Vec<(&str, Option<&str>)> = land
@@ -784,8 +787,8 @@ mod tests {
             max_e: 706_550.0,
             max_n: 5_707_000.0,
         };
-        let url = LVERMGEO.wfs_url(LVERMGEO.land_use_type, &bbox, 0);
-        assert!(url.starts_with(LVERMGEO.url), "{url}");
+        let url = LVERMGEO.wfs_url(&LVERMGEO.land_use_type, &bbox, 0);
+        assert!(url.starts_with(&*LVERMGEO.url), "{url}");
         assert!(url.contains("TYPENAMES=ave:Nutzung&"), "{url}");
         assert!(url.contains("SRSNAME=urn:ogc:def:crs:EPSG::25832"), "{url}");
         assert!(
@@ -836,7 +839,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(HE_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, HVBG.square_bez))
+            .map(|f| normalise_land_use(f, HVBG.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         let squares: Vec<Option<&str>> = land
@@ -878,7 +881,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(NRW_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, GEOBASIS_NRW.square_bez))
+            .map(|f| normalise_land_use(f, GEOBASIS_NRW.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         assert_eq!(land.len(), features.len());
@@ -941,7 +944,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(NI_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, LGLN.square_bez))
+            .map(|f| normalise_land_use(f, LGLN.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         assert_eq!(land.len(), features.len());
@@ -1030,7 +1033,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(RP_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, LVERMGEO_RP.square_bez))
+            .map(|f| normalise_land_use(f, LVERMGEO_RP.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         assert_eq!(land.len(), features.len());
@@ -1154,7 +1157,7 @@ mod tests {
         let features: Vec<Value> = parse_gml(SH_LAND_USE)
             .unwrap()
             .into_iter()
-            .map(|f| normalise_land_use(f, LVERMGEO_SH.square_bez))
+            .map(|f| normalise_land_use(f, LVERMGEO_SH.square_bez.as_deref()))
             .collect();
         let land = parse_land_use(&collection(&features)).unwrap();
         assert_eq!(land.len(), features.len());
@@ -1175,7 +1178,7 @@ mod tests {
             "{squares:?}"
         );
         let url = LVERMGEO_SH.wfs_url(
-            LVERMGEO_SH.land_use_type,
+            &LVERMGEO_SH.land_use_type,
             &BoundingBox {
                 min_e: 565_115.0,
                 min_n: 5_949_136.0,
@@ -1198,7 +1201,7 @@ mod tests {
             max_e: 476_817.2,
             max_n: 5_552_753.0,
         };
-        let url = HVBG.wfs_url(HVBG.land_use_type, &bbox, 0);
+        let url = HVBG.wfs_url(&HVBG.land_use_type, &bbox, 0);
         assert!(
             url.starts_with("https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?"),
             "{url}"
@@ -1216,14 +1219,14 @@ mod tests {
         let report = r#"<?xml version="1.0" encoding="UTF-8"?><ServiceExceptionReport version="1.2.0" xmlns="http://www.opengis.net/ogc"><ServiceException>Could not process client request</ServiceException></ServiceExceptionReport>"#;
         assert!(parse_gml(report).is_err());
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(LVERMGEO.url, report.as_bytes().to_vec());
+        fetcher.insert_prefix(&LVERMGEO.url, report.as_bytes().to_vec());
         let bbox = BoundingBox {
             min_e: 706_350.0,
             min_n: 5_706_800.0,
             max_e: 706_550.0,
             max_n: 5_707_000.0,
         };
-        let err = fetch_wfs(&fetcher, &LVERMGEO, LVERMGEO.buildings_type, &bbox).unwrap_err();
+        let err = fetch_wfs(&fetcher, &LVERMGEO, &LVERMGEO.buildings_type, &bbox).unwrap_err();
         assert!(
             err.to_string().contains("not a WFS FeatureCollection"),
             "{err}"

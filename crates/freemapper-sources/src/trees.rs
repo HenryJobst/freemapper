@@ -9,6 +9,7 @@
 //! come with the row that first needs them. Every format normalises to the same stored feature:
 //! a point in the map's CRS with the `tree_*` properties of [`parse_trees`].
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use chrono::NaiveDate;
@@ -29,26 +30,26 @@ pub enum TreeFormat {
 }
 
 /// The field names of a dataset (properties of the served features).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreeFields {
     /// The kind of the point (`Laubbaum`, `Baumstumpf`).
-    pub kind: &'static str,
+    pub kind: Cow<'static, str>,
     /// The tree's number, the `freemapper:source_id`.
-    pub id: &'static str,
+    pub id: Cow<'static, str>,
     /// The survey date (`2009-06-10T00:00:00+00:00`).
-    pub date: &'static str,
-    pub species: Option<&'static str>,
+    pub date: Cow<'static, str>,
+    pub species: Option<Cow<'static, str>>,
     /// The crown diameter in metres.
-    pub crown: Option<&'static str>,
+    pub crown: Option<Cow<'static, str>>,
 }
 
 /// One city's tree cadastre.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TreeDataset {
     /// The file name under `data/trees/` and the `freemapper:source` suffix (`trees/<id>`).
-    pub id: &'static str,
+    pub id: Cow<'static, str>,
     /// For messages.
-    pub name: &'static str,
+    pub name: Cow<'static, str>,
     /// The adapter of the state the city lies in; the dataset is asked only for areas that
     /// touch it.
     pub region: AdapterId,
@@ -63,7 +64,7 @@ pub struct TreeDataset {
     /// Kinds that are no tree and are not stored.
     pub skipped_kinds: &'static [&'static str],
     /// The line for the attribution once a tree of the dataset is drawn.
-    pub attribution: &'static str,
+    pub attribution: Cow<'static, str>,
     /// The largest answer of one endpoint (bytes); a larger one fails the dataset.
     pub max_bytes: u64,
 }
@@ -75,8 +76,8 @@ const MAX_ANSWER_BYTES: u64 = 256 << 20;
 /// three datasets, no crown diameter. The envelope is the data extent (E 359 000–375 000,
 /// N 5 801 000–5 820 000, EPSG:25833) rounded outward.
 pub const POTSDAM: TreeDataset = TreeDataset {
-    id: "potsdam",
-    name: "Potsdam tree cadastre",
+    id: Cow::Borrowed("potsdam"),
+    name: Cow::Borrowed("Potsdam tree cadastre"),
     region: AdapterId::built_in("brandenburg"),
     crs: Crs::Utm33,
     envelope: BoundingBox {
@@ -94,14 +95,14 @@ pub const POTSDAM: TreeDataset = TreeDataset {
         "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson",
     ],
     fields: TreeFields {
-        kind: "ggartbez",
-        id: "pktnr",
-        date: "datum",
+        kind: Cow::Borrowed("ggartbez"),
+        id: Cow::Borrowed("pktnr"),
+        date: Cow::Borrowed("datum"),
         species: None,
         crown: None,
     },
     skipped_kinds: &["Baumstumpf"],
-    attribution: "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0",
+    attribution: Cow::Borrowed("Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"),
     max_bytes: MAX_ANSWER_BYTES,
 };
 
@@ -195,14 +196,14 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
     let empty = Map::new();
     let properties = feature["properties"].as_object().unwrap_or(&empty);
     let fields = &dataset.fields;
-    let kind = text(properties, fields.kind);
+    let kind = text(properties, &fields.kind);
     if kind
         .as_deref()
         .is_some_and(|k| dataset.skipped_kinds.contains(&k))
     {
         return;
     }
-    let Some(id) = text(properties, fields.id) else {
+    let Some(id) = text(properties, &fields.id) else {
         answer.skipped.push(format!(
             "{}: no tree number",
             text(properties, "objectid").unwrap_or_default()
@@ -221,22 +222,23 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
     // Centimetres are plenty for a tree.
     let round = |v: f64| (v * 100.0).round() / 100.0;
     let mut stored = Map::new();
-    stored.insert("tree_dataset".into(), dataset.id.into());
+    stored.insert("tree_dataset".into(), dataset.id.clone().into());
     stored.insert("tree_id".into(), id.as_ref().into());
     if let Some(kind) = kind {
         stored.insert("tree_kind".into(), kind.as_ref().into());
     }
     // A date that does not parse leaves the fetch date as the currency.
-    let date = text(properties, fields.date)
+    let date = text(properties, &fields.date)
         .and_then(|d| NaiveDate::parse_from_str(d.get(..10)?, "%Y-%m-%d").ok());
     if let Some(date) = date {
         stored.insert("tree_date".into(), date.to_string().into());
     }
-    if let Some(species) = fields.species.and_then(|f| text(properties, f)) {
+    if let Some(species) = fields.species.as_deref().and_then(|f| text(properties, f)) {
         stored.insert("tree_species".into(), species.as_ref().into());
     }
     let crown = fields
         .crown
+        .as_deref()
         .and_then(|f| text(properties, f))
         .and_then(|c| c.replace(',', ".").parse::<f64>().ok())
         .filter(|c| c.is_finite() && *c > 0.0);

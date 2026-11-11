@@ -7,6 +7,7 @@
 //! (`link_data`).
 
 use crate::note::{Arg, Note, note};
+use std::borrow::Cow;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
@@ -247,10 +248,10 @@ fn excerpt(text: &str) -> String {
 /// The orthophoto WMS (WMS 1.3.0, MaxWidth/MaxHeight 5000; an oversize request is an XML
 /// exception). The layer shows the current mosaic; its tones are processed, not the tiles'.
 pub const WMS: WmsService = WmsService {
-    url: "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
-    layer: "sh_dop20_rgb",
+    url: Cow::Borrowed("https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"),
+    layer: Cow::Borrowed("sh_dop20_rgb"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 

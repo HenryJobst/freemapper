@@ -7,6 +7,7 @@
 //! So the tile set decides: cells outside it become NaN, zeros inside it stay.
 
 use crate::note::{Arg, Note, note};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -45,8 +46,8 @@ const WCS_MAX_M: f64 = 4000.0;
 /// The orthophoto (DOP20 RGB, a 256-colour dithered palette) from the WCS: the WMS stamps a
 /// watermark into every image, the WCS gives JPEG pieces on the exact 0.2 m grid.
 pub const DOP: WcsOrthophoto = WcsOrthophoto {
-    url: "https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs",
-    coverage: "mv_dop20",
+    url: Cow::Borrowed("https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs"),
+    coverage: Cow::Borrowed("mv_dop20"),
     crs: Crs::Utm33,
     max_px: 4000,
 };
@@ -68,9 +69,9 @@ impl Model {
             Self::Dom1 => ("https://www.geodaten-mv.de/dienste/dom_wcs", "mv_dom1"),
         };
         WcsService {
-            url,
-            coverage,
-            extra: "&GEOTIFF:COMPRESSION=LZW",
+            url: Cow::Borrowed(url),
+            coverage: Cow::Borrowed(coverage),
+            extra: Cow::Borrowed("&GEOTIFF:COMPRESSION=LZW"),
             multipart: false,
             envelope: ENVELOPE,
             max_m: WCS_MAX_M,
@@ -418,7 +419,7 @@ pub fn fetch_model(
             count = empty
         ));
     }
-    write_float_raster(&raster, root, out, model.wcs().url)?;
+    write_float_raster(&raster, root, out, &model.wcs().url)?;
     Ok(summary(&set, &area, bbox, model, warnings))
 }
 
@@ -584,7 +585,7 @@ mod tests {
                 )
             })
             .collect();
-        fetcher.insert_prefix(model.wcs().url, plain_answer(&grid, &values));
+        fetcher.insert_prefix(&model.wcs().url, plain_answer(&grid, &values));
     }
 
     #[test]
@@ -698,7 +699,7 @@ mod tests {
             .log
             .borrow()
             .iter()
-            .filter(|u| u.starts_with(Model::Dgm1.wcs().url))
+            .filter(|u| u.starts_with(&*Model::Dgm1.wcs().url))
             .cloned()
             .collect();
         assert_eq!(
@@ -768,14 +769,14 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .filter(|u| u.starts_with(wcs.url))
+                .filter(|u| u.starts_with(&*wcs.url))
                 .count()
         };
         // With status 200: an error with the exception's text (a report is final, not retried).
         let (dir, cache) = cache();
         let fetcher = MapFetcher::default();
         serve(&fetcher, Model::Dgm1, &ACROSS, &[SCHOOL_TILE], |_, _| 1.0);
-        fetcher.insert_prefix(wcs.url, EXTENT_ERROR.to_vec());
+        fetcher.insert_prefix(&wcs.url, EXTENT_ERROR.to_vec());
         let out = dir.path().join("dgm1.tif");
         let err = fetch_model(
             &fetcher,

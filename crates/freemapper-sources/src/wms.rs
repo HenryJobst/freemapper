@@ -1,6 +1,7 @@
 //! Orthophotos from a state's WMS (GeoSN, LVermGeo) or WCS (LAiV M-V): JPEG pieces of at most
 //! 4000 px at 0.2 m, stitched on the template grid of the map area.
 
+use std::borrow::Cow;
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
@@ -23,13 +24,13 @@ pub struct DateLabel {
 }
 
 /// A WMS layer with the orthophoto, asked for in `crs`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WmsService {
-    pub url: &'static str,
-    pub layer: &'static str,
+    pub url: Cow<'static, str>,
+    pub layer: Cow<'static, str>,
     pub crs: Crs,
     /// More GetMap parameters, e.g. `&TIME=2026`.
-    pub extra: &'static str,
+    pub extra: Cow<'static, str>,
     /// Largest side of one GetMap request in pixels (the server's MaxWidth/MaxHeight).
     pub max_px: u32,
 }
@@ -63,10 +64,10 @@ impl WmsService {
 
 /// The Berlin 1:5000 map in colour (K5), template only: PNG pieces, not an orthophoto.
 pub const K5_WMS: WmsService = WmsService {
-    url: "https://gdi.berlin.de/services/wms/k5_farbe",
-    layer: "k5_farbe",
+    url: Cow::Borrowed("https://gdi.berlin.de/services/wms/k5_farbe"),
+    layer: Cow::Borrowed("k5_farbe"),
     crs: Crs::Utm33,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 /// Pixel size of the K5 template on both map kinds: a 1:5000 map is fully resolved at this.
@@ -81,7 +82,7 @@ pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
 }
 
 /// Where the orthophoto comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OrthophotoSource {
     /// GetMap of a WMS layer.
     Wms(WmsService),
@@ -98,10 +99,10 @@ impl OrthophotoSource {
         }
     }
 
-    fn url(&self) -> &'static str {
+    fn url(&self) -> &str {
         match self {
-            Self::Wms(s) => s.url,
-            Self::Wcs(s) => s.url,
+            Self::Wms(s) => &s.url,
+            Self::Wcs(s) => &s.url,
         }
     }
 
@@ -123,7 +124,7 @@ impl OrthophotoSource {
 /// The GetMap requests covering `grid` (in the service's CRS): pieces of at most `service.max_px`
 /// per side, each with its own grid inside `grid`.
 pub fn pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    source_pieces(&OrthophotoSource::Wms(*service), grid)
+    source_pieces(&OrthophotoSource::Wms(service.clone()), grid)
 }
 
 /// The requests covering `grid` (in the source's CRS): pieces of at most the source's `max_px`
@@ -208,7 +209,13 @@ pub fn fetch_orthophoto(
     root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
-    fetch_orthophoto_from(fetcher, &OrthophotoSource::Wms(*service), bbox, root, out)
+    fetch_orthophoto_from(
+        fetcher,
+        &OrthophotoSource::Wms(service.clone()),
+        bbox,
+        root,
+        out,
+    )
 }
 
 /// [`fetch_orthophoto`] from a WMS or a WCS.

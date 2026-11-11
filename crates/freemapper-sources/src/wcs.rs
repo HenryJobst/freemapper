@@ -6,14 +6,15 @@ use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, Fetcher, get_with_retries, is_ogc_report, ogc_exception, one_line};
 use crate::float_tiff::decode_float_tiff;
 use crate::raster::{GridSpec, Raster};
+use std::borrow::Cow;
 
 /// A WCS coverage with the orthophoto: JPEG pieces on the exact 0.2 m grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WcsOrthophoto {
     /// The endpoint, without a query.
-    pub url: &'static str,
+    pub url: Cow<'static, str>,
     /// `COVERAGEID`.
-    pub coverage: &'static str,
+    pub coverage: Cow<'static, str>,
     pub crs: Crs,
     /// Largest side of one GetCoverage in pixels.
     pub max_px: u32,
@@ -39,14 +40,14 @@ impl WcsOrthophoto {
 }
 
 /// A WCS serving one Float32 coverage at 1 m.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WcsService {
     /// The endpoint, without a query.
-    pub url: &'static str,
+    pub url: Cow<'static, str>,
     /// `COVERAGEID`.
-    pub coverage: &'static str,
+    pub coverage: Cow<'static, str>,
     /// Further parameters after `FORMAT=image/tiff`, e.g. `&GEOTIFF:COMPRESSION=LZW`.
-    pub extra: &'static str,
+    pub extra: Cow<'static, str>,
     /// The TIFF comes in a `multipart/related` answer (LVermGeo), else as the whole answer
     /// (MapServer).
     pub multipart: bool,
@@ -202,9 +203,9 @@ mod tests {
     use crate::raster::GridSpec;
 
     const SERVICE: WcsService = WcsService {
-        url: "https://wcs.example/dgm",
-        coverage: "dgm",
-        extra: "",
+        url: Cow::Borrowed("https://wcs.example/dgm"),
+        coverage: Cow::Borrowed("dgm"),
+        extra: Cow::Borrowed(""),
         multipart: false,
         envelope: BoundingBox {
             min_e: 0.0,
@@ -245,7 +246,7 @@ mod tests {
         };
         let report = br#"<ows:ExceptionReport><ows:Exception exceptionCode="InvalidSubsetting"><ows:ExceptionText>out</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#;
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(SERVICE.url, report.to_vec());
+        fetcher.insert_prefix(&SERVICE.url, report.to_vec());
         let mut raster = Raster::filled(grid, f32::NAN);
         let err = SERVICE
             .fill(&fetcher, &mut raster, &grid.bounds())
@@ -255,14 +256,14 @@ mod tests {
         assert_eq!(fetcher.calls.get(), 1);
         // An error page that is not a report may be a passing fault: asked again.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(SERVICE.url, b"<html>Proxy Error</html>".to_vec());
+        fetcher.insert_prefix(&SERVICE.url, b"<html>Proxy Error</html>".to_vec());
         assert!(SERVICE.fill(&fetcher, &mut raster, &grid.bounds()).is_err());
         assert_eq!(fetcher.calls.get(), 3);
         // Only the root element decides: a page that mentions a report is still retried.
         let page = b"<!DOCTYPE html><html><body><h1>502</h1><pre>&lt;ows:ExceptionReport&gt; \
             <ExceptionReport exceptionCode=\"X\"></pre></body></html>";
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(SERVICE.url, page.to_vec());
+        fetcher.insert_prefix(&SERVICE.url, page.to_vec());
         assert!(SERVICE.fill(&fetcher, &mut raster, &grid.bounds()).is_err());
         assert_eq!(fetcher.calls.get(), 3);
         // A real report after a declaration and a comment is final.
@@ -270,7 +271,7 @@ mod tests {
 <!-- MapServer version 8.0 -->
 <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="NoSuchCoverage"><ows:ExceptionText>mv_dgx</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#;
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(SERVICE.url, report.to_vec());
+        fetcher.insert_prefix(&SERVICE.url, report.to_vec());
         let err = SERVICE
             .fill(&fetcher, &mut raster, &grid.bounds())
             .unwrap_err()

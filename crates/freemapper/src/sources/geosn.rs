@@ -2,6 +2,7 @@
 //! surface models, their currency and download links from the ArcGIS tile index.
 
 use crate::sources::lgb::ProductTiles as _;
+use std::borrow::Cow;
 use std::path::Path;
 
 use chrono::NaiveDate;
@@ -20,10 +21,10 @@ pub const WMS_URL: &str = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest
 const WMS_LAYER: &str = "sn_dop_020";
 /// The orthophoto WMS of GeoSN (EPSG:25833).
 pub const WMS: WmsService = WmsService {
-    url: WMS_URL,
-    layer: WMS_LAYER,
+    url: Cow::Borrowed(WMS_URL),
+    layer: Cow::Borrowed(WMS_LAYER),
     crs: Crs::Utm33,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 const WMS_INFO_LAYER: &str = "sn_dop_020_info";

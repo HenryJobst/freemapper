@@ -6,6 +6,7 @@
 //! listing, which still holds stale duplicates of older years.
 
 use crate::note::{Arg, Note, note};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -25,10 +26,10 @@ use crate::tiles::{TileId, tiles_covering};
 /// The orthophoto WMS (the tiles are JPEG 2000 only). MaxWidth/MaxHeight is 5000; a larger request
 /// is an HTTP 200 XML exception.
 pub const WMS: WmsService = WmsService {
-    url: "https://www.wms.nrw.de/geobasis/wms_nw_dop",
-    layer: "nw_dop_rgb",
+    url: Cow::Borrowed("https://www.wms.nrw.de/geobasis/wms_nw_dop"),
+    layer: Cow::Borrowed("nw_dop_rgb"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 /// The queryable layer with the flight date per tile.
@@ -532,7 +533,7 @@ mod tests {
             "<ServiceExceptionReport/>",
         ] {
             let fetcher = MapFetcher::default();
-            fetcher.insert_prefix(WMS.url, answer.as_bytes().to_vec());
+            fetcher.insert_prefix(&WMS.url, answer.as_bytes().to_vec());
             assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
         }
         // No answer at all.

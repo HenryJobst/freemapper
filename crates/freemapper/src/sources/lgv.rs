@@ -2,6 +2,7 @@
 //! Geoinformation und Vermessung (LGV)"), all in EPSG:25832: ALKIS from the OGC API with its
 //! ASCII spellings normalised to the LGB ones.
 
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -20,10 +21,10 @@ use crate::tiles::{TileId, tiles_covering};
 /// The orthophoto WMS: the leaf-off True-DOP time series, pinned to the open 2026 vintage (a
 /// missing `TIME` would follow the newest, and 2023 is a closed-licence satellite image).
 pub const WMS: WmsService = WmsService {
-    url: "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt",
-    layer: "dop_zeitreihe_unbelaubt",
+    url: Cow::Borrowed("https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"),
+    layer: Cow::Borrowed("dop_zeitreihe_unbelaubt"),
     crs: Crs::Utm32,
-    extra: "&TIME=2026",
+    extra: Cow::Borrowed("&TIME=2026"),
     max_px: 4000,
 };
 /// The flight dates of the DOP tiles, per vintage.

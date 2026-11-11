@@ -56,7 +56,7 @@ mod tests {
     fn nas_layers_only_in_nas_states() {
         let files = |kind: MapKind, bbox: BoundingBox| {
             let fetcher = MapFetcher::default();
-            fetcher.insert_prefix(LGB_NAS.url, EMPTY.as_bytes().to_vec());
+            fetcher.insert_prefix(&LGB_NAS.url, EMPTY.as_bytes().to_vec());
             let scratch = tempfile::tempdir().unwrap();
             let part_path = scratch.path().join("answer.gml.part");
             let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };

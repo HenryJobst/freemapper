@@ -572,7 +572,7 @@ mod tests {
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
-            alkis_wfs::GEOSN.url,
+            &alkis_wfs::GEOSN.url,
             alkis_wfs::test_support::BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings(&fetcher, &lausitz).unwrap()).unwrap();
@@ -610,12 +610,12 @@ mod tests {
         );
         // The vertex also touches Niedersachsen, which has no building here.
         fetcher.insert_prefix(
-            alkis_wfs::LGLN.url,
+            &alkis_wfs::LGLN.url,
             br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
-            alkis_wfs::LVERMGEO.url,
+            &alkis_wfs::LVERMGEO.url,
             alkis_wfs::test_support::ST_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -644,7 +644,7 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .any(|u| u.starts_with(alkis_wfs::LVERMGEO.url) && u.contains("EPSG::25832"))
+                .any(|u| u.starts_with(&*alkis_wfs::LVERMGEO.url) && u.contains("EPSG::25832"))
         );
     }
 
@@ -660,7 +660,7 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            alkis_wfs::HVBG.url,
+            &alkis_wfs::HVBG.url,
             alkis_wfs::test_support::HE_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -671,7 +671,7 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .all(|u| u.starts_with(alkis_wfs::HVBG.url) && u.contains("EPSG::25832"))
+                .all(|u| u.starts_with(&*alkis_wfs::HVBG.url) && u.contains("EPSG::25832"))
         );
     }
 
@@ -706,7 +706,7 @@ mod tests {
                 .to_vec(),
         );
         fetcher.insert_prefix(
-            alkis_wfs::LVERMGEO_SH.url,
+            &alkis_wfs::LVERMGEO_SH.url,
             alkis_wfs::test_support::SH_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -727,7 +727,7 @@ mod tests {
                 .to_vec(),
         );
         fetcher.insert_prefix(
-            alkis_wfs::LVERMGEO_SH.url,
+            &alkis_wfs::LVERMGEO_SH.url,
             alkis_wfs::test_support::SH_LAND_USE.as_bytes().to_vec(),
         );
         let raw: Value =
@@ -749,7 +749,7 @@ mod tests {
         let log = fetcher.log.borrow();
         assert!(
             log.iter()
-                .any(|u| u.starts_with(alkis_wfs::LVERMGEO_SH.url) && u.contains("EPSG::25832"))
+                .any(|u| u.starts_with(&*alkis_wfs::LVERMGEO_SH.url) && u.contains("EPSG::25832"))
         );
     }
 
@@ -791,7 +791,7 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            alkis_wfs::GEOBASIS_NRW.url,
+            &alkis_wfs::GEOBASIS_NRW.url,
             alkis_wfs::test_support::NRW_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -811,7 +811,7 @@ mod tests {
         }
         fetcher.log.borrow_mut().clear();
         fetcher.insert_prefix(
-            alkis_wfs::GEOBASIS_NRW.url,
+            &alkis_wfs::GEOBASIS_NRW.url,
             alkis_wfs::test_support::NRW_LAND_USE.as_bytes().to_vec(),
         );
         let raw = fetch_land_use_in(&fetcher, &area).unwrap();
@@ -853,13 +853,13 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            alkis_wfs::HVBG.url,
+            &alkis_wfs::HVBG.url,
             alkis_wfs::test_support::HE_BUILDINGS.as_bytes().to_vec(),
         );
         // A border object that both services deliver under the same oid.
         let shared = first_oid(alkis_wfs::test_support::HE_BUILDINGS);
         fetcher.insert_prefix(
-            alkis_wfs::GEOBASIS_NRW.url,
+            &alkis_wfs::GEOBASIS_NRW.url,
             with_first_oid(alkis_wfs::test_support::NRW_BUILDINGS, &shared).into_bytes(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -879,12 +879,12 @@ mod tests {
             assert!((350_000.0..500_000.0).contains(&c.x), "{} {c:?}", b.oid);
         }
         fetcher.insert_prefix(
-            alkis_wfs::HVBG.url,
+            &alkis_wfs::HVBG.url,
             alkis_wfs::test_support::HE_LAND_USE.as_bytes().to_vec(),
         );
         let shared_land = first_oid(alkis_wfs::test_support::HE_LAND_USE);
         fetcher.insert_prefix(
-            alkis_wfs::GEOBASIS_NRW.url,
+            &alkis_wfs::GEOBASIS_NRW.url,
             with_first_oid(alkis_wfs::test_support::NRW_LAND_USE, &shared_land).into_bytes(),
         );
         let raw: Value =
@@ -908,7 +908,7 @@ mod tests {
         for service in [alkis_wfs::HVBG.url, alkis_wfs::GEOBASIS_NRW.url] {
             assert!(
                 log.iter()
-                    .any(|u| u.starts_with(service) && u.contains("EPSG::25832")),
+                    .any(|u| u.starts_with(&*service) && u.contains("EPSG::25832")),
                 "{service}"
             );
         }
@@ -936,7 +936,7 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            alkis_wfs::LGLN.url,
+            &alkis_wfs::LGLN.url,
             alkis_wfs::test_support::NI_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -968,7 +968,7 @@ mod tests {
         }
         fetcher.log.borrow_mut().clear();
         fetcher.insert_prefix(
-            alkis_wfs::LGLN.url,
+            &alkis_wfs::LGLN.url,
             alkis_wfs::test_support::NI_LAND_USE.as_bytes().to_vec(),
         );
         let raw = fetch_land_use_in(&fetcher, &area).unwrap();
@@ -1004,14 +1004,14 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            alkis_wfs::LVERMGEO_RP.url,
+            &alkis_wfs::LVERMGEO_RP.url,
             alkis_wfs::test_support::RP_BUILDINGS.as_bytes().to_vec(),
         );
         // A border object that both services deliver under the same oid.
         let shared = "DERPLP050000AR8IBL";
         assert!(alkis_wfs::test_support::RP_BUILDINGS.contains(&format!("<ave:oid>{shared}<")));
         fetcher.insert_prefix(
-            alkis_wfs::HVBG.url,
+            &alkis_wfs::HVBG.url,
             with_first_oid(alkis_wfs::test_support::HE_BUILDINGS, shared).into_bytes(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -1023,12 +1023,12 @@ mod tests {
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
 
         fetcher.insert_prefix(
-            alkis_wfs::LVERMGEO_RP.url,
+            &alkis_wfs::LVERMGEO_RP.url,
             alkis_wfs::test_support::RP_LAND_USE.as_bytes().to_vec(),
         );
         let shared_land = first_ave_oid(alkis_wfs::test_support::RP_LAND_USE);
         fetcher.insert_prefix(
-            alkis_wfs::HVBG.url,
+            &alkis_wfs::HVBG.url,
             with_first_oid(alkis_wfs::test_support::HE_LAND_USE, &shared_land).into_bytes(),
         );
         let raw: Value =
@@ -1048,13 +1048,14 @@ mod tests {
         for service in [alkis_wfs::HVBG.url, alkis_wfs::LVERMGEO_RP.url] {
             assert!(
                 log.iter()
-                    .any(|u| u.starts_with(service) && u.contains("EPSG::25832")),
+                    .any(|u| u.starts_with(&*service) && u.contains("EPSG::25832")),
                 "{service}"
             );
         }
         assert!(
-            log.iter().any(|u| u.starts_with(alkis_wfs::LVERMGEO_RP.url)
-                && u.contains("TYPENAMES=ave:Nutzung&")),
+            log.iter()
+                .any(|u| u.starts_with(&*alkis_wfs::LVERMGEO_RP.url)
+                    && u.contains("TYPENAMES=ave:Nutzung&")),
             "{log:?}"
         );
     }
@@ -1102,7 +1103,7 @@ mod tests {
             hamburg.to_string().into_bytes(),
         );
         fetcher.insert_prefix(
-            alkis_wfs::LGLN.url,
+            &alkis_wfs::LGLN.url,
             alkis_wfs::test_support::NI_BUILDINGS.as_bytes().to_vec(),
         );
         let parsed = parse_buildings(&fetch_buildings_in(&fetcher, &area).unwrap()).unwrap();
@@ -1113,7 +1114,10 @@ mod tests {
         let unique: std::collections::HashSet<&&str> = oids.iter().collect();
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
         let log = fetcher.log.borrow();
-        for service in [crate::sources::lgv::BUILDINGS_ENDPOINT, alkis_wfs::LGLN.url] {
+        for service in [
+            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            &alkis_wfs::LGLN.url,
+        ] {
             assert!(
                 log.iter()
                     .any(|u| u.starts_with(service) && u.contains("25832")),
@@ -1216,7 +1220,7 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .any(|u| u.starts_with(alkis_wfs::LGV.url) && u.contains("EPSG::25832"))
+                .any(|u| u.starts_with(&*alkis_wfs::LGV.url) && u.contains("EPSG::25832"))
         );
     }
 
@@ -1425,7 +1429,7 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .any(|u| u.starts_with(alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
+                .any(|u| u.starts_with(&*alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
         );
     }
 
@@ -1494,7 +1498,7 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .any(|u| u.starts_with(alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
+                .any(|u| u.starts_with(&*alkis_wfs::LAIV_MV.url) && u.contains("EPSG::25833"))
         );
     }
 

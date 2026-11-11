@@ -8,6 +8,7 @@
 //! status 200.
 
 use crate::note::{Arg, Note, note};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -31,10 +32,10 @@ use crate::tiles::{TileId, tiles_covering};
 /// side, and a larger request is an HTTP 200 XML exception. It is white outside the state, also
 /// where the DGM1 and DOM1 tiles reach across the border.
 pub const WMS: WmsService = WmsService {
-    url: "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi",
-    layer: "rp_dop20",
+    url: Cow::Borrowed("https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"),
+    layer: Cow::Borrowed("rp_dop20"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 /// The queryable layer with the date of each 2 km block.
@@ -1681,7 +1682,7 @@ mod tests {
             "<ServiceExceptionReport/>",
         ] {
             let fetcher = MapFetcher::default();
-            fetcher.insert_prefix(WMS.url, answer.as_bytes().to_vec());
+            fetcher.insert_prefix(&WMS.url, answer.as_bytes().to_vec());
             assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
         }
         // No answer at all.

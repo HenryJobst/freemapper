@@ -5,6 +5,7 @@
 //! The STAC answers are not cached: a date reaches the project record only.
 
 use crate::note::{Arg, Note, note};
+use std::borrow::Cow;
 use std::path::Path;
 
 use chrono::{Datelike as _, NaiveDate};
@@ -22,10 +23,10 @@ use crate::sources::wms::WmsService;
 /// 15000, but MapServer answers only once the whole image is ready, so the pieces stay at 4000 px
 /// (≈9 s each). An oversize request is an HTTP 200 XML exception. Bremen is left white.
 pub const WMS: WmsService = WmsService {
-    url: "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
-    layer: "ni_dop20",
+    url: Cow::Borrowed("https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"),
+    layer: Cow::Borrowed("ni_dop20"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 4000,
 };
 
@@ -46,9 +47,9 @@ pub const ENVELOPE: BoundingBox = BoundingBox {
 
 /// DGM1 from the WCS: a plain Float32 TIFF (LZW with the floating point predictor), NoData −9999.
 pub const DGM1_WCS: WcsService = WcsService {
-    url: "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs",
-    coverage: "ni_dgm1",
-    extra: "",
+    url: Cow::Borrowed("https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs"),
+    coverage: Cow::Borrowed("ni_dgm1"),
+    extra: Cow::Borrowed(""),
     multipart: false,
     envelope: ENVELOPE,
     max_m: WCS_MAX_M,
@@ -56,8 +57,8 @@ pub const DGM1_WCS: WcsService = WcsService {
 
 /// DOM1 from the WCS, like [`DGM1_WCS`].
 pub const DOM1_WCS: WcsService = WcsService {
-    url: "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs",
-    coverage: "ni_dom1",
+    url: Cow::Borrowed("https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs"),
+    coverage: Cow::Borrowed("ni_dom1"),
     ..DGM1_WCS
 };
 
@@ -290,7 +291,7 @@ pub fn fetch_model(
             message: format!("the {} has no height in the map area", model.label()),
         });
     }
-    write_float_raster(&raster, root, out, wcs.url)?;
+    write_float_raster(&raster, root, out, &wcs.url)?;
     let mut warnings = Vec::new();
     let date = match newest_item(fetcher, model.stac(), bbox) {
         Ok(Some(item)) => Some(item.date.format("%Y-%m-%d").to_string()),
@@ -621,7 +622,7 @@ mod tests {
             8.0.1 -->\n<BODY BGCOLOR=\"#FFFFFF\">\nmsCGILoadMap(): Web application error. CGI \
             variable &quot;map&quot; not found.\n</BODY></HTML>";
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(DGM1_WCS.url, page.to_vec());
+        fetcher.insert_prefix(&DGM1_WCS.url, page.to_vec());
         fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("dgm1.tif");
@@ -640,7 +641,7 @@ mod tests {
         assert!(!out.exists());
         // DOM1 the same.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(DOM1_WCS.url, page.to_vec());
+        fetcher.insert_prefix(&DOM1_WCS.url, page.to_vec());
         assert!(
             fetch_model(
                 &fetcher,
@@ -670,7 +671,7 @@ mod tests {
              &SUBSET=x(551800,552000)&SUBSET=y(5803350,5803400)"
         );
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        fetcher.insert_prefix(&DGM1_WCS.url, WCS_DGM1.to_vec());
         fetcher.insert_prefix(DGM_STAC, STAC_DGM1.as_bytes().to_vec());
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("dgm1.tif");
@@ -720,7 +721,7 @@ mod tests {
         assert_eq!(heights, decode_float_tiff(WCS_DGM1).unwrap().data);
         // An empty STAC answer: the model without a date, and a warning.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        fetcher.insert_prefix(&DGM1_WCS.url, WCS_DGM1.to_vec());
         fetcher.insert_prefix(DGM_STAC, stac_page(&[], None));
         let found = fetch_model(
             &fetcher,
@@ -740,7 +741,7 @@ mod tests {
         );
         // A failed STAC search: a warning as well.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(DGM1_WCS.url, WCS_DGM1.to_vec());
+        fetcher.insert_prefix(&DGM1_WCS.url, WCS_DGM1.to_vec());
         let found = fetch_model(
             &fetcher,
             FetchMode::Online,
@@ -761,7 +762,7 @@ mod tests {
         let nodata = vec![-9999.0; (grid.width * grid.height) as usize];
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            DGM1_WCS.url,
+            &DGM1_WCS.url,
             crate::fetch::test_support::geotiff(&grid, &nodata),
         );
         let empty = dir.path().join("empty.tif");

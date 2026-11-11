@@ -72,7 +72,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            hvbg::WMS.url,
+            &hvbg::WMS.url,
             br#"<?xml version="1.0" encoding="UTF-8"?>
 <ServiceExceptionReport version="1.3.0"><ServiceException code="InvalidDimensionValue">
 msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HEIGHT must be between 1 and 3000 pixels.
@@ -123,7 +123,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let mut png = vec![0x89];
         png.extend(b"PNG\r\n\x1a\n");
         png.extend([0x89u8; 60]);
-        fetcher.insert_prefix(hvbg::WMS.url, png);
+        fetcher.insert_prefix(&hvbg::WMS.url, png);
         let error = fetch_orthophoto(
             &fetcher,
             &hvbg::WMS,
@@ -208,7 +208,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            crate::sources::laiv_mv::DOP.url,
+            &crate::sources::laiv_mv::DOP.url,
             br#"<?xml version="1.0" encoding="UTF-8"?>
 <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="InvalidSubsetting"><ows:ExceptionText>subset out of range</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#
                 .to_vec(),
@@ -265,7 +265,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            crate::sources::laiv_mv::DOP.url,
+            &crate::sources::laiv_mv::DOP.url,
             "<html>\x1b]0;owned\x07\u{202E}evil\nline two</html>"
                 .as_bytes()
                 .to_vec(),
@@ -291,7 +291,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            hvbg::WMS.url,
+            &hvbg::WMS.url,
             "<ServiceExceptionReport>bad\x1b]0;owned\x07\u{202E}x\nthing</ServiceExceptionReport>"
                 .as_bytes()
                 .to_vec(),
@@ -372,7 +372,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             conn.write_all(&jpeg).unwrap();
             std::thread::sleep(std::time::Duration::from_secs(2));
         });
-        let service = WmsService { url, ..hvbg::WMS };
+        let service = WmsService {
+            url: std::borrow::Cow::Borrowed(url),
+            ..hvbg::WMS
+        };
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("o.jpg");
         let fetcher =

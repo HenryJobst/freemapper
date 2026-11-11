@@ -3013,7 +3013,7 @@ fn fetch_tree_layers_into(
     ];
     let mut records = BTreeMap::new();
     for fetched in trees::fetch_tree_layers(fetcher, area, &part) {
-        let id = fetched.dataset.id;
+        let id: &str = &fetched.dataset.id;
         let path = tree_layer_path(dir, fetched.dataset);
         let stored = fetched
             .features
@@ -3109,7 +3109,7 @@ pub fn stored_tree_layers(
         let path = tree_layer_path(dir, dataset);
         let Some(record) = project
             .tree_layers
-            .get(dataset.id)
+            .get(dataset.id.as_ref())
             .filter(|r| path.exists() && r.covers(&bbox))
         else {
             continue;
@@ -3139,7 +3139,7 @@ fn stored_tree_objects(
     let inputs: Vec<TreeInput<'_>> = layers
         .iter()
         .map(|l| TreeInput {
-            dataset: l.dataset.id,
+            dataset: &l.dataset.id,
             features: &l.features,
             fetched: l.fetched,
         })
@@ -3970,7 +3970,7 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
         .filter(|file| drawn(format!("geoportal-berlin/{file}")));
     let cities = trees::TREE_DATASETS
         .iter()
-        .map(|d| d.id)
+        .map(|d| d.id.as_ref())
         .filter(|id| drawn(format!("trees/{id}")));
     berlin.chain(cities).collect()
 }
@@ -3980,7 +3980,7 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
 fn tree_attribution(registers: &[&str]) -> Vec<String> {
     trees::TREE_DATASETS
         .iter()
-        .filter(|d| registers.contains(&d.id))
+        .filter(|d| registers.contains(&d.id.as_ref()))
         .map(|d| d.attribution.to_string())
         .collect()
 }
@@ -8127,7 +8127,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, tile, "2026-01-26");
         // Saxon ALKIS and the Saxony extract (empty answers are fine here).
         fetcher.insert_prefix(
-            crate::sources::alkis_wfs::GEOSN.url,
+            &crate::sources::alkis_wfs::GEOSN.url,
             include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
         );
         let saxony = crate::sources::osm::ExtractSource::Saxony;
@@ -8398,7 +8398,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 crate::sources::alkis_wfs::HVBG.url,
                 crate::sources::alkis_wfs::GEOBASIS_NRW.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from NRW alone.
             // Neither the orthophoto WMS nor the Downloadcenter of Hesse is asked (its ALKIS
@@ -8631,7 +8631,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             let log = fetcher.log.borrow();
             let getmap: Vec<&String> = log
                 .iter()
-                .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+                .filter(|u| u.starts_with(&*lgln::WMS.url) && u.contains("REQUEST=GetMap"))
                 .collect();
             assert_eq!(getmap.len(), 1, "{log:?}");
             assert!(
@@ -8645,7 +8645,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ] {
                 assert!(
                     log.iter()
-                        .any(|u| u.starts_with(model.wcs().url) && u.contains(coverage)),
+                        .any(|u| u.starts_with(&*model.wcs().url) && u.contains(coverage)),
                     "{coverage}: {log:?}"
                 );
             }
@@ -8820,7 +8820,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .log
             .borrow()
             .iter()
-            .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+            .filter(|u| u.starts_with(&*lgln::WMS.url) && u.contains("REQUEST=GetMap"))
             .count();
         assert_eq!(getmap, 1);
         // An empty answer later keeps the stored orthophoto the same way.
@@ -9026,9 +9026,9 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             let log = fetcher.log.borrow();
             for service in [
                 crate::sources::lgv::BUILDINGS_ENDPOINT,
-                crate::sources::alkis_wfs::LGLN.url,
+                &crate::sources::alkis_wfs::LGLN.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from Niedersachsen alone.
             for lgv_raster in ["geodienste.hamburg.de", "daten-hamburg.de"] {
@@ -9372,7 +9372,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 crate::sources::alkis_wfs::HVBG.url,
                 crate::sources::alkis_wfs::LVERMGEO_RP.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from Rhineland-Palatinate alone. Neither the orthophoto WMS nor
             // the Downloadcenter of Hesse is asked (its ALKIS WFS, on www.gds.hessen.de, is).
@@ -9498,7 +9498,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         crate::fetch::test_support::serve_synthetic_nrw(&fetcher, &project.bbox().unwrap());
         // No ALKIS objects in this box.
         fetcher.insert_prefix(
-            crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            &crate::sources::alkis_wfs::GEOBASIS_NRW.url,
             br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -10672,7 +10672,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // which is not asked again, and the layer is left out with a warning.
         let asked: Vec<String> = fetcher.log.borrow()[calls..]
             .iter()
-            .filter(|u| u.starts_with(LGB_NAS.url))
+            .filter(|u| u.starts_with(&*LGB_NAS.url))
             .cloned()
             .collect();
         assert_eq!(asked.len(), 4, "{asked:?}");
@@ -10734,7 +10734,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             !fetcher.log.borrow()[calls..]
                 .iter()
-                .any(|u| u.starts_with(LGB_NAS.url))
+                .any(|u| u.starts_with(&*LGB_NAS.url))
         );
         assert!(
             dir.path()

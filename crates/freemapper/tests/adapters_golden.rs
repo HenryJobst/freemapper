@@ -150,8 +150,8 @@ fn g1_service_constants_are_unchanged() {
     ] {
         let mut urls = Vec::new();
         for b in &boxes {
-            urls.push(service.wfs_url(service.buildings_type, b, 0));
-            urls.push(service.wfs_url(service.land_use_type, b, 10_000));
+            urls.push(service.wfs_url(&service.buildings_type, b, 0));
+            urls.push(service.wfs_url(&service.land_use_type, b, 10_000));
         }
         add(name, format!("{service:?}"), urls);
     }

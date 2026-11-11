@@ -3,6 +3,7 @@
 //! the Downloadcenter's municipal zips, found through the DGM/DOM metadata list.
 
 use crate::note::{Note, note};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -28,10 +29,10 @@ pub const REST_URL: &str =
 /// The orthophoto WMS. `he_dop20_rgb` is only served below scale 1:9000, which is where the
 /// 0.2 m requests are; MaxWidth/MaxHeight is 3000 (an oversize request is an XML exception).
 pub const WMS: WmsService = WmsService {
-    url: "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows",
-    layer: "he_dop20_rgb",
+    url: Cow::Borrowed("https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"),
+    layer: Cow::Borrowed("he_dop20_rgb"),
     crs: Crs::Utm32,
-    extra: "",
+    extra: Cow::Borrowed(""),
     max_px: 3000,
 };
 /// The queryable info layer with the flight date per tile.
@@ -1762,10 +1763,10 @@ mod tests {
         assert!(url.contains(&centre_box), "{centre_box} in {url}");
 
         let none = MapFetcher::default();
-        none.insert_prefix(WMS.url, b"Search returned no results.\n".to_vec());
+        none.insert_prefix(&WMS.url, b"Search returned no results.\n".to_vec());
         assert_eq!(flight_date(&none, &SCHOOL), None);
         let xml = MapFetcher::default();
-        xml.insert_prefix(WMS.url, b"<ServiceExceptionReport/>".to_vec());
+        xml.insert_prefix(&WMS.url, b"<ServiceExceptionReport/>".to_vec());
         assert_eq!(flight_date(&xml, &SCHOOL), None);
         assert_eq!(flight_date(&MapFetcher::default(), &SCHOOL), None);
     }

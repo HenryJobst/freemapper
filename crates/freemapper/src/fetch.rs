@@ -1105,7 +1105,7 @@ pub(crate) mod test_support {
         fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&land_use, None));
         // The full ALKIS (NAS) has nothing there.
         fetcher.insert_prefix(
-            crate::sources::alkis_nas::LGB_NAS.url,
+            &crate::sources::alkis_nas::LGB_NAS.url,
             crate::sources::alkis_nas::test_support::EMPTY
                 .as_bytes()
                 .to_vec(),
@@ -1330,7 +1330,7 @@ pub(crate) mod test_support {
                     }
                 })
                 .collect();
-            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+            fetcher.insert_prefix(&model.wcs().url, geotiff(&grid, &values));
         }
         // The dop20 overview (tiles dated 2024-08-14) and the DOP WCS: a flat JPEG per piece.
         fetcher.insert_prefix(
@@ -1868,7 +1868,7 @@ pub(crate) mod test_support {
             let values: Vec<f32> = (0..grid.height)
                 .flat_map(|_| (0..grid.width).map(move |x| lift + x as f32 * 0.01))
                 .collect();
-            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+            fetcher.insert_prefix(&model.wcs().url, geotiff(&grid, &values));
         }
         fetcher.insert_prefix(
             lgln::DOP_STAC,

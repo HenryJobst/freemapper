@@ -6,6 +6,7 @@
 //! adds a service row only. The services do not page: one GetFeature per type with
 //! `COUNT=max_count`, and an answer cut at the cap is asked again in four quadrants.
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -24,8 +25,8 @@ use freemapper_contract::MapKind;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NasService {
     /// For messages, e.g. "LGB ALKIS (NAS)".
-    pub name: &'static str,
-    pub url: &'static str,
+    pub name: Cow<'static, str>,
+    pub url: Cow<'static, str>,
     /// The adapter of the state the service covers; it is asked only for areas that touch it.
     pub region: AdapterId,
     /// The CRS asked for and answered in.
@@ -38,7 +39,7 @@ pub struct NasService {
     /// does not serve answers an exception report, which would warn on every fetch.
     pub layers: Option<&'static [&'static str]>,
     /// The `NAMESPACES` parameter, for a server that wants the `adv` prefix declared.
-    pub namespaces: Option<&'static str>,
+    pub namespaces: Option<Cow<'static, str>>,
 }
 
 /// 256 MB: 100 000 features of about 1.1 KB (Sanssouci) and room to spare.
@@ -47,8 +48,8 @@ const MAX_ANSWER_BYTES: u64 = 256 << 20;
 /// LGB, Brandenburg: "WFS BB ALKIS NAS-konform" (GID 7.1, EPSG:25833; `CountDefault` 100 000,
 /// `ImplementsResultPaging` FALSE).
 pub const LGB_NAS: NasService = NasService {
-    name: "LGB ALKIS (NAS)",
-    url: "https://isk.geobasis-bb.de/ows/alkis_nas_wfs",
+    name: Cow::Borrowed("LGB ALKIS (NAS)"),
+    url: Cow::Borrowed("https://isk.geobasis-bb.de/ows/alkis_nas_wfs"),
     region: AdapterId::built_in("brandenburg"),
     crs: Crs::Utm33,
     max_count: 100_000,
@@ -141,6 +142,7 @@ impl NasService {
             bbox.max_n.ceil(),
             self.max_count,
             self.namespaces
+                .as_deref()
                 .map(|n| format!("&NAMESPACES={n}"))
                 .unwrap_or_default()
         )
@@ -798,7 +800,7 @@ fn get_answer(request: &Request, bbox: &BoundingBox) -> Result<NasAnswer, FetchE
         part,
     } = *request;
     let url = service.get_feature_url(type_name, bbox);
-    let name = service.name;
+    let name = &service.name;
     let part = part()?;
     get_limited_with_retries(fetcher, &url, &part, service.max_bytes, |bytes| {
         if is_ogc_report(bytes) {
@@ -1220,7 +1222,7 @@ mod tests {
         // Cut on every level: an error after 4 splits.
         let fetcher = MapFetcher::default();
         let cut = answer("5", &["DEBBAL01", "DEBBAL02", "DEBBAL03"]);
-        fetcher.insert_prefix(service.url, cut.into_bytes());
+        fetcher.insert_prefix(&service.url, cut.into_bytes());
         let err = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap_err();
         assert_eq!(
             err.to_string(),
@@ -1263,7 +1265,7 @@ mod tests {
         assert!(!part_path.exists(), "the part file is removed");
         // Too large on every level: an error after 4 splits, not asked again.
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(service.url, whole.into_bytes());
+        fetcher.insert_prefix(&service.url, whole.into_bytes());
         let err = fetch_nas_type(&fetcher, &service, TYPE, &SANSSOUCI, &part).unwrap_err();
         assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
         assert_eq!(fetcher.calls.get(), 1 + NAS_SPLIT_MAX_DEPTH as usize);
@@ -1275,7 +1277,9 @@ mod tests {
         static ONLY_WALLS: [&str; 1] = ["sonstiges-bauwerk"];
         let service = NasService {
             layers: Some(&ONLY_WALLS),
-            namespaces: Some("xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"),
+            namespaces: Some(Cow::Borrowed(
+                "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)",
+            )),
             ..LGB_NAS
         };
         assert!(
@@ -1286,7 +1290,7 @@ mod tests {
         assert!(service.serves(&NAS_LAYERS[0]) && !service.serves(&NAS_LAYERS[1]));
         assert!(LGB_NAS.serves(&NAS_LAYERS[5]), "LGB serves every layer");
         let fetcher = MapFetcher::default();
-        fetcher.insert_prefix(service.url, EMPTY.as_bytes().to_vec());
+        fetcher.insert_prefix(&service.url, EMPTY.as_bytes().to_vec());
         let scratch = tempfile::tempdir().unwrap();
         let part_path = scratch.path().join("answer.gml.part");
         let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
