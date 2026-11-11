@@ -246,6 +246,7 @@ update-not-writable = cannot write to the program folder { $path }, and freemapp
 update-too-old = freemapper { $new } cannot be installed by the self-update of { $old }; install { $needed } or newer by hand, see { $notes }
 update-busy = another update or rollback is running in the program folder (lock file { $path }); wait for it to finish and try again
 update-bad-signature = the release could not be verified ({ $error }); nothing was installed
+update-check-bad-signature = warning: the newest freemapper release could not be verified ({ $error }); nothing was installed
 update-no-manifest = the newest release cannot install itself (it has no update manifest); download it from { $page }
 update-no-manifest-version = release { $version } does not exist or cannot install itself (it has no update manifest); see { $page }
 update-no-asset = the release has no program for this system ({ $platform }); nothing was installed
@@ -261,6 +262,7 @@ update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CO
 update-mcp-note = Note for the person: freemapper { $new } is available (this is { $old }). Ask them before calling install_update.
 update-mcp-needs-confirm = nothing was installed; ask the person first and call install_update with confirm: true once they agree
 update-mcp-note-manual = Note for the person: freemapper { $new } is available (this is { $old }), but install_update cannot install it; install { $needed } or newer by hand, see { $notes }
+update-mcp-note-bad-signature = Note for the person: the newest freemapper release could not be verified ({ $error }); nothing was installed. Tell them, and do not install it some other way.
 update-mcp-restart-now = Restart the freemapper MCP server now; it still runs the old version.
 
 ## Errors. In English each text equals the message of the library's error type, which stays
