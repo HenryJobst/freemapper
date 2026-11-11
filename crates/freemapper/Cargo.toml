@@ -17,6 +17,7 @@ golden = ["dep:sha2"]
 chrono.workspace = true
 contour.workspace = true
 dirs.workspace = true
+freemapper-adapter-api.workspace = true
 freemapper-fs.workspace = true
 freemapper-georef.workspace = true
 freemapper-contract.workspace = true
@@ -51,6 +52,7 @@ workspace = true
 
 [dev-dependencies]
 freemapper = { workspace = true, features = ["golden"] }
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
 freemapper-contract = { workspace = true, features = ["fixtures"] }
 quick-xml.workspace = true
 sha2.workspace = true

@@ -688,6 +688,7 @@ dependencies = [
  "crc32fast",
  "dirs",
  "freemapper",
+ "freemapper-adapter-api",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
@@ -714,6 +715,13 @@ dependencies = [
  "winapi-util",
  "world_magnetic_model",
  "zip",
+]
+
+[[package]]
+name = "freemapper-adapter-api"
+version = "0.12.0"
+dependencies = [
+ "freemapper-text",
 ]
 
 [[package]]

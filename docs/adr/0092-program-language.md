@@ -54,7 +54,8 @@ freemapper-core.
 - The engine no longer hands its callback a finished English line. It hands over a `Note`
   (`crates/freemapper/src/note.rs`): a message id and the values the message names. A value is a text, a count, an
   error, or another note.
-- The texts of the notes live beside the engine, in `crates/freemapper/i18n/<language>/notes.ftl`. This differs
+- The texts of the notes live beside the engine, in `crates/freemapper/i18n/<language>/notes.ftl` (since ADR 0082,
+  stage B, in `crates/freemapper-adapter-api/i18n/`, with the note type, so that readers and adapters share them). This differs
   from stage 2, where the CLI holds the texts of the library's errors. The reasons: a progress line is one
   statement at its call site, and a closed type with about 200 variants would cost five edits per line; and the
   region adapters are to become crates of their own, which then bring their texts with them.

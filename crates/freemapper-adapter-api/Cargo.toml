@@ -1,0 +1,19 @@
+[package]
+name = "freemapper-adapter-api"
+description = "What a region adapter of freemapper works with: notes, the fetcher and the record types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+# The test helpers of `Note` (a warning compared with its English sentence), for the tests of
+# the crates that emit notes. Dev-dependencies turn it on.
+testing = []
+
+[dependencies]
+freemapper-text.workspace = true
+
+[lints]
+workspace = true
