@@ -88,3 +88,92 @@ warning-k-five-unavailable = Die Kartenvorlage K5 ist nicht verfügbar ({ $detai
 
 progress-beyond-border = Das Kartengebiet reicht über die Grenze des Bundeslands hinaus; jenseits davon sind die Vorlagen dort leer, wo das Orthophoto und die Höhenmodelle von { $provider } enden. ALKIS und OSM kommen aus beiden Bundesländern
 progress-beyond-border-no-data = Das Kartengebiet reicht über die Grenze des Bundeslands hinaus; für { $tiles } gibt es keine Daten von { $provider }, die Vorlagen bleiben dort leer
+
+## OSM
+
+warning-osm-extract-missing-kept = Kein OSM-Auszug im Zwischenspeicher; die gespeicherten OSM-Kandidaten vom { $date } bleiben
+progress-osm-extract-read = OSM-Auszug { $region } vom { $date } wird gelesen
+progress-osm-candidates = { $count ->
+        [one] 1 OSM-Objekt als Kandidat
+       *[other] { $count } OSM-Objekte als Kandidaten
+    }
+
+## ALKIS
+
+warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die ALKIS-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird
+progress-alkis-buildings-download = ALKIS-Gebäude werden geladen
+progress-alkis-buildings = { $count ->
+        [one] 1 ALKIS-Gebäude
+       *[other] { $count } ALKIS-Gebäude
+    }
+warning-alkis-no-buildings = Im Kartengebiet wurden keine ALKIS-Gebäude gefunden
+progress-alkis-skipped = { $count ->
+        [one] 1 ALKIS-Objekt
+       *[other] { $count } ALKIS-Objekte
+    } übersprungen: { $list }
+warning-alkis-buildings-changed = Die ALKIS-Gebäude haben sich beim Anbieter geändert ({ $changes })
+progress-alkis-no-land-use-stored = Keine ALKIS-Nutzung gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Kandidaten für verbotene Gebiete zu erhalten
+progress-alkis-land-use-download = ALKIS-Nutzung wird geladen
+progress-alkis-land-use-parts = { $count ->
+        [one] 1 ALKIS-Nutzungsfläche
+       *[other] { $count } ALKIS-Nutzungsflächen
+    }
+warning-alkis-land-use-kept = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
+warning-alkis-land-use-removed = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
+warning-alkis-land-use-none = ALKIS-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
+
+## Die Berliner Ebenen
+
+progress-berlin-none-stored = Keine Berliner ALKIS-Bauwerke gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Treppen, Mauern, Bäume und Überdachungen zu erhalten
+progress-berlin-removing = Die gespeicherten Berliner Ebenen werden entfernt: Das Kartengebiet liegt nicht mehr bei Berlin
+progress-berlin-download = Berliner ALKIS-Bauwerke, Baumkataster, Straßenbefahrung und Punktebenen werden geladen
+progress-berlin-features = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } in der Berliner Ebene { $file }
+warning-berlin-layer-kept = Berliner Ebene { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
+warning-berlin-layer-skipped = Berliner Ebene { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
+warning-berlin-buildings-missing = Für dieses Gebiet in Berlin sind keine ALKIS-Gebäude gespeichert; rufen Sie `freemapper fetch` auf, um sie vom Geoportal Berlin zu laden
+
+## Die vollständigen ALKIS-Ebenen (NAS)
+
+progress-nas-none-stored = Keine vollständigen ALKIS-Bauwerke gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Mauern, Zäune, Hecken und Brücken zu erhalten
+progress-nas-removing = Die gespeicherten vollständigen ALKIS-Ebenen werden entfernt: Das Kartengebiet liegt nicht mehr in einem Bundesland mit NAS-Dienst
+warning-nas-folder-outside = Vollständige ALKIS-Ebenen übersprungen ({ $folder } führt aus dem Projektordner hinaus)
+progress-nas-download = Die vollständigen ALKIS-Bauwerke (NAS) werden geladen
+progress-nas-features = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } in der ALKIS-NAS-Ebene { $file }
+progress-nas-skipped = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } der ALKIS-NAS-Ebene { $file } übersprungen: { $list }
+warning-nas-layer-kept = ALKIS-NAS-Ebene { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
+warning-nas-layer-skipped = ALKIS-NAS-Ebene { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
+
+## Baumkataster
+
+progress-trees-none-stored = Kein städtisches Baumkataster gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um die Einzelbäume zu erhalten
+progress-trees-removing = Die gespeicherten Baumkataster werden entfernt: Das Kartengebiet liegt nicht mehr in einer Stadt mit Baumkataster
+warning-trees-folder-outside = Städtische Baumkataster übersprungen ({ $folder } führt aus dem Projektordner hinaus)
+progress-trees-download = Die städtischen Baumkataster werden geladen
+progress-trees-count = { $count ->
+        [one] 1 Baum
+       *[other] { $count } Bäume
+    } aus { $id }
+progress-trees-skipped = { $count ->
+        [one] 1 Baum
+       *[other] { $count } Bäume
+    } aus { $id } übersprungen: { $list }
+warning-trees-kept = Baumkataster { $id } nicht verfügbar ({ $detail }); das gespeicherte bleibt
+warning-trees-skipped = Baumkataster { $id } nicht verfügbar ({ $detail }); Bäume übersprungen
+
+## Vorlagen ableiten
+
+progress-writing = { $path } wird geschrieben
+progress-no-ndsm-recorded = Kein nDSM vermerkt; rufen Sie `freemapper fetch` auf, um die nDSM-Vorlage zu erhalten
+warning-ndsm-tile-invalid = Ungültige nDSM-Kachel { $tile } in freemapper.toml; übersprungen
+warning-ndsm-not-cached = nDSM { $tile } liegt nicht im Zwischenspeicher; rufen Sie `freemapper fetch` auf
+warning-ndsm-unreadable = nDSM { $tile } nicht lesbar ({ $error }); löschen Sie { $path } und rufen Sie `freemapper fetch` auf
+warning-surface-unusable = Oberflächenmodell nicht verwendbar ({ $error }); rufen Sie `freemapper fetch` auf

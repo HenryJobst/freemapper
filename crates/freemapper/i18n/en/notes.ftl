@@ -83,3 +83,65 @@ warning-k-five-unavailable = the K5 map template is unavailable ({ $detail }); s
 
 progress-beyond-border = the map area reaches beyond the state border; beyond it the templates are empty wherever the { $provider } orthophoto and height models end. ALKIS and OSM come from both states
 progress-beyond-border-no-data = the map area reaches beyond the state border; no { $provider } data for { $tiles }, so the templates stay empty there
+
+## OSM
+
+warning-osm-extract-missing-kept = no OSM extract cached; keeping the stored OSM candidates from { $date }
+progress-osm-extract-read = reading OSM extract { $region } from { $date }
+progress-osm-candidates = { $count } OSM candidate features
+
+## ALKIS
+
+warning-alkis-coverage-unknown = ALKIS buildings coverage unknown; run `freemapper fetch` online to record it
+progress-alkis-buildings-download = downloading ALKIS buildings
+progress-alkis-buildings = { $count } ALKIS buildings
+warning-alkis-no-buildings = no ALKIS buildings found in the map area
+progress-alkis-skipped = skipped { $count } ALKIS features: { $list }
+warning-alkis-buildings-changed = ALKIS buildings changed upstream ({ $changes })
+progress-alkis-no-land-use-stored = no ALKIS land use stored; run `freemapper fetch` online for out-of-bounds candidates
+progress-alkis-land-use-download = downloading ALKIS land use
+progress-alkis-land-use-parts = { $count } ALKIS land use parts
+warning-alkis-land-use-kept = ALKIS land use unavailable ({ $error }); keeping the stored land use
+warning-alkis-land-use-removed = ALKIS land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
+warning-alkis-land-use-none = ALKIS land use unavailable ({ $error }); no out-of-bounds candidates
+
+## The Berlin layers
+
+progress-berlin-none-stored = no Berlin ALKIS structures stored; run `freemapper fetch` online for stairs, walls, trees and canopies
+progress-berlin-removing = removing the stored Berlin layers: the map area is no longer near Berlin
+progress-berlin-download = downloading Berlin ALKIS structures, tree cadastre, street survey and point layers
+progress-berlin-features = { $count } Berlin { $file } features
+warning-berlin-layer-kept = Berlin { $file } unavailable ({ $detail }); keeping the stored layer
+warning-berlin-layer-skipped = Berlin { $file } unavailable ({ $detail }); layer skipped
+warning-berlin-buildings-missing = no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin
+
+## The full ALKIS layers (NAS)
+
+progress-nas-none-stored = no full ALKIS structures stored; run `freemapper fetch` online for walls, fences, hedges and bridges
+progress-nas-removing = removing the stored full ALKIS layers: the map area is no longer in a state with a NAS service
+warning-nas-folder-outside = full ALKIS layers skipped ({ $folder } leads out of the project folder)
+progress-nas-download = downloading the full ALKIS structures (NAS)
+progress-nas-features = { $count } ALKIS NAS { $file } features
+progress-nas-skipped = skipped { $count } ALKIS NAS { $file } features: { $list }
+warning-nas-layer-kept = ALKIS NAS { $file } unavailable ({ $detail }); keeping the stored layer
+warning-nas-layer-skipped = ALKIS NAS { $file } unavailable ({ $detail }); layer skipped
+
+## Tree cadastres
+
+progress-trees-none-stored = no city tree cadastre stored; run `freemapper fetch` online for the single trees
+progress-trees-removing = removing the stored tree cadastres: the map area is no longer in a city with one
+warning-trees-folder-outside = city tree cadastres skipped ({ $folder } leads out of the project folder)
+progress-trees-download = downloading the city tree cadastres
+progress-trees-count = { $count } { $id } trees
+progress-trees-skipped = skipped { $count } { $id } trees: { $list }
+warning-trees-kept = { $id } tree cadastre unavailable ({ $detail }); keeping the stored one
+warning-trees-skipped = { $id } tree cadastre unavailable ({ $detail }); trees skipped
+
+## Deriving the templates
+
+progress-writing = writing { $path }
+progress-no-ndsm-recorded = no nDSM recorded; run `freemapper fetch` for the nDSM template
+warning-ndsm-tile-invalid = invalid nDSM tile { $tile } in freemapper.toml; skipped
+warning-ndsm-not-cached = nDSM { $tile } not cached; run `freemapper fetch`
+warning-ndsm-unreadable = nDSM { $tile } unreadable ({ $error }); delete { $path } and run `freemapper fetch`
+warning-surface-unusable = surface model unusable ({ $error }); run `freemapper fetch`
