@@ -246,42 +246,44 @@ draw = "line"
 corridor_m = 3.0
 sprint = "522"
 
-# Firm gravel (sprint only, ADR 0073, amended by ADR 0079). ISSprOM 4.5, 501: a paved area is "an
-# area with a firm surface such as asphalt, hard gravel, tiles, concrete"; 505 is a way "without a
-# smooth, hard surface". `compacted` and `fine_gravel` are firm: a paved line (501.6 to 501.9 by
-# footprint 1.4, 2, 3 and 4 m), a map object like the unpaved ways below; `build/firm_paths.rs`
-# cuts it where ALKIS paving lies. Loose gravel, sand and earth stay 505.
+# Firm and paved ways (sprint only, ADR 0073, amended by ADR 0079 and 0098). ISSprOM 4.5, 501: a
+# paved area is "an area with a firm surface such as asphalt, hard gravel, tiles, concrete"; 505 is
+# a way "without a smooth, hard surface". `compacted`, `fine_gravel` and the paved surfaces
+# (asphalt, paving stones, concrete, sett and the like) are firm: a paved line (501.6 to 501.9 by
+# footprint 1.4, 2, 3 and 4 m, with the black border of the symbol), a map object like the unpaved
+# ways below; `build/firm_paths.rs` cuts it where ALKIS paving lies, so a paved area outranks the
+# way. Loose gravel, sand and earth stay 505. Sidewalks and crossings have no rule.
 [[rule]]
-when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=4"]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=4"]
 draw = "line"
 target = "map"
 sprint = "501.9"
 
 [[rule]]
-when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=3"]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=3"]
 draw = "line"
 target = "map"
 sprint = "501.8"
 
 [[rule]]
-when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel", "width>=2"]
+when = ["highway=footway|path|bridleway|track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=2"]
 draw = "line"
 target = "map"
 sprint = "501.7"
 
 [[rule]]
-when = ["highway=track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel"]
+when = ["highway=track", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
 draw = "line"
 target = "map"
 sprint = "501.7"
 
 [[rule]]
-when = ["highway=footway|path|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel"]
+when = ["highway=footway|path|bridleway", "footway!=sidewalk|crossing", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=compacted|fine_gravel|asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
 draw = "line"
 target = "map"
 sprint = "501.6"
 
-# Unpaved ways (sprint only). Paved ways and sidewalks have no rule: the ALKIS traffic areas and the
+# Unpaved ways (sprint only). Sidewalks have no rule: the ALKIS traffic areas and the
 # orthophoto cover them. Map objects only in the open: tunnels, covered and indoor ways and
 # pedestrian areas (closed rings) fall through to the candidate rule below.
 [[rule]]

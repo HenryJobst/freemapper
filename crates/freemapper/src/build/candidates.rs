@@ -1262,9 +1262,7 @@ mod tests {
     }
 
     #[test]
-    fn paved_and_sidewalk_ways_are_dropped() {
-        let asphalt = sprint_way(&[("highway", "path"), ("surface", "asphalt"), ("width", "1")]);
-        assert_eq!(asphalt, None);
+    fn sidewalks_and_crossings_are_dropped() {
         let sidewalk = sprint_way(&[
             ("highway", "footway"),
             ("footway", "sidewalk"),
@@ -1273,6 +1271,43 @@ mod tests {
         assert_eq!(sidewalk, None);
         let crossing = sprint_way(&[("highway", "footway"), ("footway", "crossing")]);
         assert_eq!(crossing, None);
+    }
+
+    #[test]
+    fn paved_ways_are_paved_lines_by_width() {
+        // ISSprOM 4.5, 501: asphalt, tiles and concrete are firm surfaces (ADR 0098), like hard
+        // gravel (ADR 0079): 501.6 to 501.9 by footprint, as map objects.
+        for (extra, code) in [
+            (&[("highway", "path"), ("surface", "asphalt")][..], "501.6"),
+            (
+                &[("highway", "footway"), ("surface", "paving_stones")],
+                "501.6",
+            ),
+            (
+                &[("highway", "footway"), ("surface", "sett"), ("width", "2")],
+                "501.7",
+            ),
+            (
+                &[("highway", "path"), ("surface", "concrete"), ("width", "3")],
+                "501.8",
+            ),
+            (
+                &[("highway", "track"), ("surface", "asphalt"), ("width", "4")],
+                "501.9",
+            ),
+            (&[("highway", "track"), ("surface", "asphalt")], "501.7"),
+        ] {
+            assert_eq!(
+                sprint_way(extra),
+                Some((code.to_string(), Target::Map)),
+                "{extra:?}"
+            );
+        }
+        // A street keeps no rule: the traffic areas show it.
+        assert_eq!(
+            sprint_way(&[("highway", "service"), ("surface", "asphalt")]),
+            None
+        );
     }
 
     #[test]
@@ -1602,7 +1637,12 @@ mod tests {
         let found = sprint_way(&[("highway", "path"), ("surface", "pebblestone")]);
         assert_eq!(found, Some(("505.1".to_string(), Target::Candidates)));
         let paved = sprint_way(&[("highway", "path"), ("surface", "paving_stones")]);
-        assert_eq!(paved, None);
+        assert_eq!(paved, Some(("501.6".to_string(), Target::Map)));
+        // A paved surface that has no line symbol (a wooden boardwalk) stays out.
+        assert_eq!(
+            sprint_way(&[("highway", "path"), ("surface", "wood")]),
+            None
+        );
     }
 
     #[test]
