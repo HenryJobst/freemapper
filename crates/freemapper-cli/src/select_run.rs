@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::{Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::preview_area;
@@ -25,8 +25,8 @@ use crate::lock::{Who, acquire};
 use crate::pipeline::{
     Event, RunControl, RunOptions, RunReport, RunRequest, describe, parse as parse_options,
 };
-use crate::select::{AppState, saved_project};
-use crate::text::{text, v};
+use crate::select::{AppState, page_lang, saved_project};
+use crate::text::{FluentValue, Lang, TEXTS, v};
 use crate::tiles::TileProxy;
 
 /// Largest body of the run, cancel and open-folder requests: seven options fit in far less.
@@ -47,8 +47,9 @@ pub(crate) trait PipelineRunner: Send + Sync {
 /// Opens the project folder in the file manager. Tests pass a stand-in, so no test starts a
 /// program.
 pub(crate) trait FolderOpener: Send + Sync {
-    /// `dir` is the absolute, canonical project folder. The error is a text for the user.
-    fn open(&self, dir: &Path) -> Result<(), String>;
+    /// `dir` is the absolute, canonical project folder. The error is a text for the user, in
+    /// `lang`.
+    fn open(&self, dir: &Path, lang: &Lang) -> Result<(), String>;
 }
 
 struct RealRunner;
@@ -94,7 +95,8 @@ fn strip_verbatim(path: &str) -> String {
 struct RealOpener;
 
 impl FolderOpener for RealOpener {
-    fn open(&self, dir: &Path) -> Result<(), String> {
+    fn open(&self, dir: &Path, lang: &Lang) -> Result<(), String> {
+        let text = |id: &str, args: &[(&str, FluentValue)]| TEXTS.text(lang, id, args);
         let shown = strip_verbatim(&dir.to_string_lossy());
         // Only an absolute folder goes on: a name that starts with `-` could be read as an
         // option by the program.
@@ -204,10 +206,18 @@ fn body_value(body: &[u8]) -> Result<Value, String> {
     serde_json::from_slice(body).map_err(|e| e.to_string())
 }
 
-fn bad_request(message: String) -> Response {
+fn bad_request(lang: &Lang, message: String) -> Response {
     error_response(
         StatusCode::BAD_REQUEST,
-        text("cli-run-bad-request", &[("error", v(message))]),
+        TEXTS.text(lang, "cli-run-bad-request", &[("error", v(message))]),
+    )
+}
+
+/// The answer to a request whose task stopped unexpectedly.
+fn internal_error(lang: &Lang, error: impl ToString) -> Response {
+    error_response(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        TEXTS.text(lang, "cli-internal-error", &[("message", v(error))]),
     )
 }
 
@@ -228,9 +238,10 @@ impl Refused {
     }
 }
 
-/// The checks before a run starts.
-fn prepare(state: &AppState, mut options: RunOptions) -> Result<Prepared, Refused> {
-    let project = match saved_project(state) {
+/// The checks before a run starts. The refusals are in `lang`.
+fn prepare(state: &AppState, mut options: RunOptions, lang: &Lang) -> Result<Prepared, Refused> {
+    let text = |id: &str, args: &[(&str, FluentValue)]| TEXTS.text(lang, id, args);
+    let project = match saved_project(state, lang) {
         Ok(Some(project)) => project,
         Ok(None) => {
             return Err(Refused::message(
@@ -281,7 +292,7 @@ fn prepare(state: &AppState, mut options: RunOptions) -> Result<Prepared, Refuse
         }
     }
     let lock = acquire(&state.dir, Who::Page)
-        .map_err(|e| Refused::message(StatusCode::CONFLICT, e.to_string()))?;
+        .map_err(|e| Refused::message(StatusCode::CONFLICT, crate::errors::message(&e, lang)))?;
     Ok(Prepared {
         options,
         lock,
@@ -290,19 +301,26 @@ fn prepare(state: &AppState, mut options: RunOptions) -> Result<Prepared, Refuse
 }
 
 /// `POST api/run`: starts the pipeline for the project folder with the seven options.
-pub(crate) async fn run(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
+pub(crate) async fn run(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let lang = page_lang(&headers);
     let request = match body_value(&body)
         .and_then(|value| serde_json::from_value::<RunRequest>(value).map_err(|e| e.to_string()))
     {
         Ok(request) => request,
-        Err(e) => return bad_request(e),
+        Err(e) => return bad_request(&lang, e),
     };
     let options = match parse_options(request) {
         Ok(options) => options,
-        Err(e) => return bad_request(e),
+        Err(e) => return bad_request(&lang, e),
     };
     let task_state = Arc::clone(&state);
-    let prepared = tokio::task::spawn_blocking(move || prepare(&task_state, options)).await;
+    let task_lang = lang.clone();
+    let prepared =
+        tokio::task::spawn_blocking(move || prepare(&task_state, options, &task_lang)).await;
     let Prepared {
         options,
         lock,
@@ -310,12 +328,7 @@ pub(crate) async fn run(State(state): State<Arc<AppState>>, body: Bytes) -> Resp
     } = match prepared {
         Ok(Ok(prepared)) => prepared,
         Ok(Err(Refused(status, body))) => return (status, Json(body)).into_response(),
-        Err(e) => {
-            return error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("internal error: {e}"),
-            );
-        }
+        Err(e) => return internal_error(&lang, e),
     };
     let runner = Arc::clone(&state.runner);
     let cache = state.cache.clone();
@@ -337,7 +350,10 @@ pub(crate) async fn run(State(state): State<Arc<AppState>>, body: Bytes) -> Resp
         )
             .into_response(),
         // Only a run of another project can be the reason: this folder was checked before.
-        Err(_) => error_response(StatusCode::CONFLICT, text("cli-run-busy-elsewhere", &[])),
+        Err(_) => error_response(
+            StatusCode::CONFLICT,
+            TEXTS.text(&lang, "cli-run-busy-elsewhere", &[]),
+        ),
     }
 }
 
@@ -351,8 +367,10 @@ pub(crate) struct StatusQuery {
 /// latest) with the lines from number `since` on.
 pub(crate) async fn status(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Query(query): Query<StatusQuery>,
 ) -> Response {
+    let lang = page_lang(&headers);
     {
         let mut last = state
             .last_status
@@ -362,7 +380,7 @@ pub(crate) async fn status(
         if last.is_some_and(|at| now.duration_since(at) < state.status_gap) {
             return error_response(
                 StatusCode::TOO_MANY_REQUESTS,
-                text("cli-status-too-fast", &[]),
+                TEXTS.text(&lang, "cli-status-too-fast", &[]),
             );
         }
         *last = Some(now);
@@ -380,7 +398,7 @@ pub(crate) async fn status(
                 None => {
                     return error_response(
                         StatusCode::NOT_FOUND,
-                        text("cli-run-unknown-job", &[("job", v(id))]),
+                        TEXTS.text(&lang, "cli-run-unknown-job", &[("job", v(id))]),
                     );
                 }
             }
@@ -415,12 +433,17 @@ struct CancelRequest {
 }
 
 /// `POST api/cancel`: asks the run of this folder to stop at the next boundary.
-pub(crate) async fn cancel(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
+pub(crate) async fn cancel(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let lang = page_lang(&headers);
     let request = match body_value(&body)
         .and_then(|value| serde_json::from_value::<CancelRequest>(value).map_err(|e| e.to_string()))
     {
         Ok(request) => request,
-        Err(e) => return bad_request(e),
+        Err(e) => return bad_request(&lang, e),
     };
     let key = folder_key(&state.dir);
     let target = match &request.job_id {
@@ -432,23 +455,32 @@ pub(crate) async fn cancel(State(state): State<Arc<AppState>>, body: Bytes) -> R
         Some(job) if state.hub.cancel(&job.job_id) => {
             Json(json!({ "cancelling": true, "job_id": job.job_id })).into_response()
         }
-        _ => error_response(StatusCode::CONFLICT, text("cli-run-nothing-to-cancel", &[])),
+        _ => error_response(
+            StatusCode::CONFLICT,
+            TEXTS.text(&lang, "cli-run-nothing-to-cancel", &[]),
+        ),
     }
 }
 
 /// `POST api/open-folder`: opens the project folder, the one the page started with, in the file
 /// manager. The body is not read.
-pub(crate) async fn open_folder(State(state): State<Arc<AppState>>, _body: Bytes) -> Response {
+pub(crate) async fn open_folder(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    _body: Bytes,
+) -> Response {
+    let lang = page_lang(&headers);
     let task_state = Arc::clone(&state);
+    let task_lang = lang.clone();
     let opened =
         tokio::task::spawn_blocking(move || match std::fs::canonicalize(&task_state.dir) {
             Ok(dir) => {
-                let result = task_state.opener.open(&dir);
+                let result = task_state.opener.open(&dir, &task_lang);
                 (dir, result)
             }
             Err(_) => (
                 task_state.dir.clone(),
-                Err(text("cli-open-folder-missing", &[])),
+                Err(TEXTS.text(&task_lang, "cli-open-folder-missing", &[])),
             ),
         })
         .await;
@@ -459,10 +491,7 @@ pub(crate) async fn open_folder(State(state): State<Arc<AppState>>, _body: Bytes
             "message": result.err(),
         }))
         .into_response(),
-        Err(e) => error_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("internal error: {e}"),
-        ),
+        Err(e) => internal_error(&lang, e),
     }
 }
 

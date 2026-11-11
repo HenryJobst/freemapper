@@ -253,6 +253,15 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   register the new path.
 - "the release could not be verified": the signature does not match; nothing was installed. Do not work around
   it. Tell the person and try again later.
+- `warning: the newest freemapper release could not be verified (…); nothing was installed` as the last line of
+  `init`, `select`, `fetch` or `run`: the daily check found a release whose signature does not match. It comes at
+  most once a day and does not change the exit code. The MCP server gives the same news once, as the note
+  `Note for the person: the newest freemapper release could not be verified …`. Tell the person; do not install
+  that release another way.
+- "the newest release cannot install itself (it has no update manifest)": the release has no
+  `freemapper-update.json`, so `update`, `check_update` and `install_update` cannot install it. Install it by hand
+  from <https://github.com/HenryJobst/freemapper/releases/latest> as in "Install". The daily check stays silent
+  in this case.
 
 ## The freemapper suite
 

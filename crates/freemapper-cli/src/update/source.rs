@@ -3,6 +3,7 @@
 
 use std::fs::File;
 use std::io::{Read as _, Write as _};
+use std::sync::Mutex;
 use std::time::Duration;
 
 use freemapper::fetch::USER_AGENT;
@@ -21,6 +22,8 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 /// redirects to any host.
 pub struct HttpUpdateSource {
     agent: ureq::Agent,
+    /// The URLs asked for whose answer, after any redirects, was HTTP 404.
+    not_found: Mutex<Vec<String>>,
     /// Tests: the stub server that answers in place of the GitHub hosts.
     #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
     stub: Option<String>,
@@ -39,6 +42,7 @@ impl HttpUpdateSource {
                 .accept_encoding("identity")
                 .build()
                 .into(),
+            not_found: Mutex::new(Vec::new()),
             #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
             stub: None,
         }
@@ -55,6 +59,17 @@ impl HttpUpdateSource {
             stub: Some(base.trim_end_matches('/').to_string()),
             ..Self::new()
         }
+    }
+
+    /// Whether a GET of `url` through this source ended in HTTP 404: the file is not there. GitHub
+    /// answers a missing file of the latest release with a redirect to the release's own URL and a
+    /// 404 there, so any hop counts.
+    pub fn was_not_found(&self, url: &str) -> bool {
+        self.not_found
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .any(|asked| asked == url)
     }
 
     /// The address a request for `url` goes to: `url` itself, in tests the stub's.
@@ -97,6 +112,12 @@ impl HttpUpdateSource {
             let status = response.status().as_u16();
             if status == 200 {
                 return Ok((current, response));
+            }
+            if status == 404 {
+                self.not_found
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .push(url.to_string());
             }
             if !matches!(status, 301 | 302 | 303 | 307 | 308) {
                 return Err(download_error(&current, &format!("HTTP {status}")));
@@ -510,6 +531,36 @@ mod tests {
         };
         assert!(message.contains("https://github.com/missing"), "{message}");
         assert!(message.contains("404"), "{message}");
+    }
+
+    #[test]
+    fn a_404_after_a_redirect_is_not_found_too() {
+        let stub = Stub::start(vec![
+            ("/gone", redirect(302, "/missing")),
+            (
+                "/broken",
+                Answer {
+                    status: 500,
+                    location: None,
+                    body: Vec::new(),
+                },
+            ),
+            ("/here", ok(b"x")),
+        ]);
+        let source = stub.source();
+        for url in ["https://github.com/missing", "https://github.com/gone"] {
+            source.get(url, 1024).unwrap_err();
+            assert!(source.was_not_found(url), "{url}");
+        }
+        source.get("https://github.com/broken", 1024).unwrap_err();
+        source.get("https://github.com/here", 1024).unwrap();
+        for url in [
+            "https://github.com/broken",
+            "https://github.com/here",
+            "https://github.com/never-asked",
+        ] {
+            assert!(!source.was_not_found(url), "{url}");
+        }
     }
 
     #[test]

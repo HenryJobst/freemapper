@@ -75,6 +75,9 @@ cli-open-folder-failed = Der Ordner ließ sich nicht öffnen ({ $error }).
 cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ordnern ({ $program }). Öffnen Sie den Ordner von Hand.
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
+cli-save-running = Für dieses Projekt läuft gerade ein Lauf. Speichern Sie noch einmal, wenn er fertig ist.
+cli-save-unknown-kind = Unbekannte Kartenart „{ $kind }“. Möglich sind schoolyard und sprint.
+cli-save-scale-too-large = Der Maßstab { $scale } ist zu groß.
 
 ## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
 ## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine
@@ -246,6 +249,9 @@ update-not-writable = In den Programmordner { $path } kann nicht geschrieben wer
 update-too-old = freemapper { $new } lässt sich nicht durch die Selbstaktualisierung von { $old } installieren. Installieren Sie { $needed } oder neuer von Hand, siehe { $notes }
 update-busy = Im Programmordner läuft schon eine Aktualisierung oder ein Zurücksetzen (Sperrdatei { $path }). Warten Sie, bis der Vorgang beendet ist, und versuchen Sie es dann erneut.
 update-bad-signature = Die neue Version ließ sich nicht verifizieren ({ $error }). Es wurde nichts installiert.
+update-check-bad-signature = Die neueste freemapper-Version ließ sich nicht verifizieren ({ $error }). Es wurde nichts installiert.
+update-no-manifest = Die neueste Version kann sich nicht selbst installieren (ihr fehlt das Aktualisierungsmanifest). Laden Sie sie von { $page } herunter.
+update-no-manifest-version = Die Version { $version } gibt es nicht, oder sie kann sich nicht selbst installieren (ihr fehlt das Aktualisierungsmanifest); siehe { $page }
 update-no-asset = Die neue Version enthält kein Programm für dieses System ({ $platform }). Es wurde nichts installiert.
 update-no-previous = Es gibt keine vorherige Version, zu der zurückgekehrt werden kann ({ $path } fehlt).
 update-failed = Die Aktualisierung ist fehlgeschlagen: { $error }
@@ -254,11 +260,12 @@ update-mode-env = FREEMAPPER_UPDATE={ $value } hat Vorrang vor dieser Einstellun
 update-mode-failed = { $path } ließ sich nicht schreiben: { $error }
 update-notice = freemapper { $new } ist verfügbar (Sie haben { $old }). Aktualisieren mit: freemapper update
 update-applies-next-start = Die neue Version gilt ab dem nächsten Start von freemapper.
-update-install-failed = Warnung: freemapper { $new } wurde nicht installiert: { $error }
+update-install-failed = freemapper { $new } wurde nicht installiert: { $error }
 update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
 update-mcp-note = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }). Fragen Sie nach, bevor Sie install_update aufrufen.
 update-mcp-needs-confirm = Es wurde nichts installiert; fragen Sie zuerst die Nutzerin oder den Nutzer und rufen Sie install_update nach der Zustimmung mit confirm: true auf
 update-mcp-note-manual = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }), lässt sich aber nicht mit install_update installieren. { $needed } oder neuer muss von Hand installiert werden, siehe { $notes }
+update-mcp-note-bad-signature = Hinweis für die Nutzerin oder den Nutzer: Die neueste freemapper-Version ließ sich nicht verifizieren ({ $error }). Es wurde nichts installiert. Sagen Sie es ihr oder ihm und installieren Sie sie nicht auf anderem Weg.
 update-mcp-restart-now = Starten Sie den freemapper-MCP-Server jetzt neu, denn er läuft noch mit der alten Version.
 
 ## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen
