@@ -147,6 +147,9 @@ mod tests {
             ("northing", v(1)),
             ("symbol", v(1)),
             ("arg", v("--x")),
+            ("job", v("job-1")),
+            ("area", v("way/1")),
+            ("layer", v("ndsm")),
             ("args", v("<DIR>")),
             ("values", v("a, b")),
             ("other", v("--y")),
@@ -165,8 +168,10 @@ mod tests {
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
             include_str!("help.rs"),
+            include_str!("mcp.rs"),
+            include_str!("jobs.rs"),
         ] {
-            for id in freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]) {
+            for id in freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-"]) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
@@ -179,12 +184,21 @@ mod tests {
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
             include_str!("help.rs"),
+            include_str!("mcp.rs"),
+            include_str!("jobs.rs"),
         ]
         .iter()
-        .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]))
+        .flat_map(|source| {
+            freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-"])
+        })
         .collect();
-        // The help texts are looked up by command and argument name; `help.rs` tests those.
-        for id in english.iter().filter(|id| !id.starts_with("help-")) {
+        // The help and the MCP descriptions are looked up by name; `help.rs` and `mcp.rs` test
+        // those.
+        for id in english.iter().filter(|id| {
+            !["help-", "mcp-tool-", "mcp-param-"]
+                .iter()
+                .any(|p| id.starts_with(p))
+        }) {
             assert!(used.contains(id), "{id} is in the catalog but not used");
         }
     }

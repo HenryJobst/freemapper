@@ -70,7 +70,7 @@ paper, the stronger line stays.
 freemapper is still under development. Next, the region adapters are rebuilt so that other developers
 can contribute adapters for their own country. Then come more detailed sprint maps for further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
-Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, complete German program texts (errors, progress lines and warnings are German already: `--lang de`),
+Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
 and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).

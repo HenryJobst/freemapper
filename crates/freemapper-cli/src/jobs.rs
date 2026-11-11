@@ -137,11 +137,12 @@ impl JobHub {
             .iter()
             .find(|(_, job)| job.state == JobState::Running)
         {
-            return Err(format!(
-                "{id} is still running for {}; one pipeline runs at a time because projects \
-                 share the download cache. Start this one when project_status reports finished \
-                 or failed",
-                job.dir.display()
+            return Err(crate::text::text(
+                "mcp-error-job-running",
+                &[
+                    ("job", crate::text::v(id)),
+                    ("path", crate::text::v(job.dir.display())),
+                ],
             ));
         }
         table.next += 1;
@@ -226,7 +227,10 @@ impl JobHub {
                 .map(|s| s.to_string())
                 .or_else(|| panic.downcast_ref::<String>().cloned())
                 .unwrap_or_default();
-            Err(format!("internal error: {message}"))
+            Err(crate::text::text(
+                "cli-internal-error",
+                &[("message", crate::text::v(message))],
+            ))
         });
         self.finish(id, outcome);
     }

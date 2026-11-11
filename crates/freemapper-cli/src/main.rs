@@ -488,7 +488,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 text("cli-created-project", &[("path", v(dir.display()))])
             );
             if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
-                println!("{note}");
+                println!("{}", pipeline::line(&note));
             }
         }
         Commands::Export {

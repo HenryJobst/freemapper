@@ -19,22 +19,11 @@ use serde::Deserialize;
 use crate::jobs::{JobHub, folder_key};
 use crate::pipeline::{self, describe};
 use crate::select::{Defaults, Selector, estimate_json, open_browser};
+use crate::text::{text as t, v};
 use serde_json::{Value, json};
 
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
-
-const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
-orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate, and from OSM. \
-Workflow: find_place (search the school or area by name; pick a result with has_area) → \
-create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user \
-how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
-project_status (poll every few seconds until the state is finished or failed) → list_layers and \
-preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering \
-Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page \
-in the browser where the user draws or picks the area and saves it (this creates the project); \
-continue with estimate_download once the user says it is saved. Paths must be absolute or start \
-with ~. One pipeline runs at a time.";
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct FindPlace {
@@ -145,6 +134,57 @@ pub struct FreemapperServer {
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
 }
 
+/// The id of a tool's description in the catalog.
+fn tool_id(tool: &str) -> String {
+    format!("mcp-tool-{}", tool.replace('_', "-"))
+}
+
+/// The ids a parameter's description is looked up under, the tool's own first; the second is
+/// for a parameter that reads the same in every tool.
+fn param_ids(tool: &str, param: &str) -> [String; 2] {
+    let param = param.replace('_', "-");
+    [
+        format!("mcp-param-{}-{param}", tool.replace('_', "-")),
+        format!("mcp-param-{param}"),
+    ]
+}
+
+/// The descriptions of the parameters in a tool's input schema, by parameter name.
+fn param_descriptions(schema: &mut serde_json::Map<String, Value>) -> Vec<(String, &mut Value)> {
+    let Some(Value::Object(properties)) = schema.get_mut("properties") else {
+        return Vec::new();
+    };
+    properties
+        .iter_mut()
+        .filter_map(|(name, property)| {
+            let description = property.as_object_mut()?.get_mut("description")?;
+            Some((name.clone(), description))
+        })
+        .collect()
+}
+
+/// Replaces the descriptions of the tools and their parameters by the catalog's texts in
+/// `lang`. The macros hold the English texts; a test compares them with the English catalog.
+fn localize_router(router: &mut ToolRouter<FreemapperServer>, lang: &crate::text::Lang) {
+    let english = crate::text::TEXTS.message_ids("en");
+    let text = |id: &str| crate::text::TEXTS.text(lang, id, &[]);
+    for (name, route) in &mut router.map {
+        if english.contains(&tool_id(name)) {
+            route.attr.description = Some(text(&tool_id(name)).into());
+        }
+        let mut schema = (*route.attr.input_schema).clone();
+        for (param, description) in param_descriptions(&mut schema) {
+            if let Some(id) = param_ids(name, &param)
+                .iter()
+                .find(|id| english.contains(*id))
+            {
+                *description = Value::String(text(id));
+            }
+        }
+        route.attr.input_schema = Arc::new(schema);
+    }
+}
+
 /// A tool result with one text block.
 fn text(text: impl Into<String>) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
@@ -162,21 +202,21 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
     let path = path.trim();
     let home = dirs::home_dir();
     let resolved = if path == "~" || path.starts_with("~/") || path.starts_with("~\\") {
-        let home = home
-            .clone()
-            .ok_or("no home folder on this system; use an absolute path")?;
+        let home = home.clone().ok_or_else(|| t("mcp-error-no-home", &[]))?;
         home.join(path[1..].trim_start_matches(['/', '\\']))
     } else {
         PathBuf::from(path)
     };
     if !resolved.is_absolute() {
-        return Err(format!(
-            "{path:?} is a relative path; use an absolute path or one starting with ~"
+        return Err(t(
+            "mcp-error-relative-path",
+            &[("path", v(format!("{path:?}")))],
         ));
     }
     if home.is_some_and(|home| home == resolved) {
-        return Err(format!(
-            "{path:?} is the home folder itself; use a folder inside it, e.g. ~/maps/school"
+        return Err(t(
+            "mcp-error-home-folder",
+            &[("path", v(format!("{path:?}")))],
         ));
     }
     Ok(resolved)
@@ -186,10 +226,7 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
 fn project_dir(path: &str) -> Result<PathBuf, String> {
     let dir = resolve(path)?;
     if !dir.join("freemapper.toml").is_file() {
-        return Err(format!(
-            "no freemapper project in {}; use create_project first",
-            dir.display()
-        ));
+        return Err(t("mcp-error-no-project", &[("path", v(dir.display()))]));
     }
     Ok(dir)
 }
@@ -198,8 +235,9 @@ fn map_kind(kind: Option<&str>) -> Result<MapKind, String> {
     match kind.unwrap_or("schoolyard") {
         "schoolyard" => Ok(MapKind::Schoolyard),
         "sprint" => Ok(MapKind::Sprint),
-        other => Err(format!(
-            "unknown kind {other:?}; use \"schoolyard\" or \"sprint\""
+        other => Err(t(
+            "mcp-error-unknown-kind",
+            &[("kind", v(format!("{other:?}")))],
         )),
     }
 }
@@ -218,14 +256,16 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tokio::task::spawn_blocking(f)
         .await
-        .map_err(|e| format!("internal error: {e}"))?
+        .map_err(|e| t("cli-internal-error", &[("message", v(e))]))?
 }
 
 #[tool_router]
 impl FreemapperServer {
     pub fn new(cache: Cache) -> Self {
+        let mut tool_router = Self::tool_router();
+        localize_router(&mut tool_router, &crate::text::lang());
         Self {
-            tool_router: Self::tool_router(),
+            tool_router,
             cache,
             jobs: Arc::default(),
             selectors: Arc::default(),
@@ -293,13 +333,17 @@ impl FreemapperServer {
                 .await
             }
             (None, Some(geojson)) => resolve(&geojson).and_then(|path| {
-                let text = std::fs::read_to_string(&path)
-                    .map_err(|e| format!("reading {}: {e}", path.display()))?;
+                let text = std::fs::read_to_string(&path).map_err(|e| {
+                    t(
+                        "mcp-error-reading",
+                        &[("path", v(path.display())), ("error", v(e))],
+                    )
+                })?;
                 let area = MapArea::from_geojson(&text).map_err(|e| describe(&e))?;
                 area.validate().map_err(|e| describe(&e))?;
                 Ok(area)
             }),
-            _ => Err("give exactly one of osm_id (from find_place) or geojson".to_string()),
+            _ => Err(t("mcp-error-one-area-source", &[])),
         };
         let area = match area {
             Ok(area) => area,
@@ -307,20 +351,28 @@ impl FreemapperServer {
         };
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
-            Ok(project) => text(format!(
-                "Created project {} for {} ({}, 1:{}). Next: estimate_download, then start_pipeline.{}",
-                dir.display(),
-                area.source_id.as_deref().unwrap_or("the given area"),
-                match kind {
+            Ok(project) => {
+                let kind = match kind {
                     MapKind::Schoolyard => "schoolyard",
                     MapKind::Sprint => "sprint",
-                },
-                project.scale_denominator,
-                project
+                };
+                let args = [
+                    ("path", v(dir.display())),
+                    ("area", v(area.source_id.as_deref().unwrap_or_default())),
+                    ("kind", v(kind)),
+                    ("scale", v(project.scale_denominator)),
+                ];
+                let created = if area.source_id.is_some() {
+                    t("mcp-created-project", &args)
+                } else {
+                    t("mcp-created-project-given-area", &args)
+                };
+                let note = project
                     .map_kind
                     .scale_note(project.scale_denominator)
-                    .map_or_else(String::new, |note| format!(" {note}"))
-            )),
+                    .map_or_else(String::new, |note| format!(" {}", pipeline::line(&note)));
+                text(format!("{created}{note}"))
+            }
             Err(e) => failure(describe(&e)),
         }
     }
@@ -373,10 +425,7 @@ impl FreemapperServer {
             .get(&folder_key(&dir))
             .is_some_and(Selector::is_running);
         if page_open {
-            return failure(
-                "the area selection page for this project is still open; ask the user to save \
-                 the area and press Done on the page, then start the pipeline",
-            );
+            return failure(t("mcp-error-page-open", &[]));
         }
         let options = match pipeline::parse(pipeline::RunRequest {
             force: req.force,
@@ -429,9 +478,9 @@ impl FreemapperServer {
     ) -> Result<CallToolResult, McpError> {
         match self.jobs.status(&req.job_id, 0) {
             Some(status) => text(status.to_json().to_string()),
-            None => failure(format!(
-                "no job {:?}; start_pipeline returns the job ids of this session",
-                req.job_id
+            None => failure(t(
+                "mcp-error-no-job",
+                &[("job", v(format!("{:?}", req.job_id)))],
             )),
         }
     }
@@ -499,13 +548,7 @@ impl FreemapperServer {
         let mut selectors = self.selectors.lock().await;
         selectors.retain(|_, selector| selector.is_running());
         let (url, note) = match selectors.get(&key) {
-            Some(selector) => (
-                selector.url.clone(),
-                Some(
-                    "The page for this folder is already open; it keeps the settings it was \
-                     opened with.",
-                ),
-            ),
+            Some(selector) => (selector.url.clone(), Some(t("mcp-page-already-open", &[]))),
             None => {
                 let defaults = Defaults {
                     kind,
@@ -519,7 +562,7 @@ impl FreemapperServer {
                     Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(hub)).await;
                 let selector = match started {
                     Ok(selector) => selector,
-                    Err(e) => return failure(format!("cannot start the page: {e}")),
+                    Err(e) => return failure(t("mcp-error-page-start", &[("error", v(e))])),
                 };
                 let url = selector.url.clone();
                 selectors.insert(key, selector);
@@ -534,7 +577,7 @@ impl FreemapperServer {
                 "dir": dir,
                 "opened_browser": opened,
                 "note": note,
-                "next": "Ask the user to choose the area on the page, press Save and then Done.",
+                "next": t("mcp-page-next", &[]),
             })
             .to_string(),
         )
@@ -556,7 +599,7 @@ impl FreemapperServer {
         .await;
         match png {
             Ok(png) => Ok(CallToolResult::success(vec![
-                ContentBlock::text(format!("Preview of {layer}")),
+                ContentBlock::text(t("mcp-preview-of", &[("layer", v(layer))])),
                 ContentBlock::image(
                     base64::engine::general_purpose::STANDARD.encode(png),
                     "image/png",
@@ -572,7 +615,7 @@ impl ServerHandler for FreemapperServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("freemapper", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+            .with_instructions(crate::text::text("mcp-instructions", &[]))
     }
 }
 
@@ -588,6 +631,95 @@ pub async fn serve(cache: Cache) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every tool and parameter description of the macros: the ids and the English text.
+    fn described() -> Vec<([String; 2], String)> {
+        let mut out = Vec::new();
+        let mut router = FreemapperServer::tool_router();
+        let mut names: Vec<String> = router.map.keys().map(ToString::to_string).collect();
+        names.sort();
+        for name in names {
+            let route = router.map.get_mut(name.as_str()).unwrap();
+            let description = route.attr.description.clone().unwrap_or_default();
+            out.push(([tool_id(&name), tool_id(&name)], description.to_string()));
+            let mut schema = (*route.attr.input_schema).clone();
+            for (param, description) in param_descriptions(&mut schema) {
+                let text = description.as_str().unwrap_or_default().to_owned();
+                out.push((param_ids(&name, &param), text));
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_english_descriptions_equal_the_catalog() {
+        let english = crate::text::TEXTS.message_ids("en");
+        for (ids, text) in described() {
+            let id = ids
+                .iter()
+                .find(|id| english.contains(*id))
+                .unwrap_or_else(|| panic!("no text for {} in the catalog", ids[0]));
+            let catalog = crate::text::TEXTS.text(&crate::text::Lang::english(), id, &[]);
+            // A doc comment keeps its line breaks; the catalog has one line.
+            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            assert_eq!(catalog, text, "{id}");
+        }
+    }
+
+    #[test]
+    fn every_description_in_the_catalog_belongs_to_a_tool_or_a_parameter() {
+        let reachable: std::collections::BTreeSet<String> =
+            described().into_iter().flat_map(|(ids, _)| ids).collect();
+        for id in crate::text::TEXTS.message_ids("en") {
+            if id.starts_with("mcp-tool-") || id.starts_with("mcp-param-") {
+                assert!(reachable.contains(&id), "{id} names no tool or parameter");
+            }
+        }
+    }
+
+    #[test]
+    fn the_tools_are_described_in_german() {
+        let german = crate::text::TEXTS.parse_lang_arg("de").unwrap();
+        let mut router = FreemapperServer::tool_router();
+        localize_router(&mut router, &german);
+        let route = router.map.get("find_place").unwrap();
+        let description = route.attr.description.clone().unwrap();
+        assert!(
+            description.contains("OpenStreetMap Nominatim"),
+            "{description}"
+        );
+        assert!(description.starts_with("Sucht"), "{description}");
+        let schema = Value::Object((*route.attr.input_schema).clone());
+        let query = schema["properties"]["query"]["description"]
+            .as_str()
+            .unwrap();
+        assert!(query.starts_with("Name der Schule"), "{query}");
+    }
+
+    /// Prints the English catalog entries from the macros: `cargo test -p freemapper-cli
+    /// print_the_english_descriptions -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "a tool for the catalog, not a test"]
+    fn print_the_english_descriptions() {
+        let all = described();
+        let mut texts: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
+        let mut uses: HashMap<String, usize> = HashMap::new();
+        for (ids, text) in &all {
+            texts
+                .entry(ids[1].clone())
+                .or_default()
+                .insert(text.clone());
+            *uses.entry(ids[1].clone()).or_default() += 1;
+        }
+        let mut printed = std::collections::BTreeSet::new();
+        for (ids, text) in &all {
+            let shared = ids[0] != ids[1] && texts[&ids[1]].len() == 1 && uses[&ids[1]] > 1;
+            let id = if shared { &ids[1] } else { &ids[0] };
+            if printed.insert(id.clone()) {
+                println!("{id} = {text}");
+            }
+        }
+    }
 
     #[test]
     fn project_dir_needs_a_project() {

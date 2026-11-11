@@ -29,7 +29,7 @@ freemapper-core.
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
   | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
   | 3 | progress lines and warnings of the engine | done, see below |
-  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page and `--help` done, see below; the MCP texts and the closing summaries of a run open |
+  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | done, see below |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
 
@@ -91,10 +91,24 @@ freemapper-core.
   catalog and start with `error:` or `Fehler:`; the rare kinds keep clap's English text. The exit code stays 2.
 - Still clap's: the placeholders in the usage line (`[OPTIONS]`, `<COMMAND>`, `<DIR>`).
 
+### Stage 4, third part: the MCP server and the summary of a run (2026-11-11)
+
+- The server instructions, the descriptions of the tools and their parameters, the results in words and the
+  errors come in the language chosen at start. Tool names, parameter names and JSON field names stay English, and
+  so do the values an agent compares (`running`, `finished`, `schoolyard`).
+- The descriptions stay in `src/mcp.rs`, where the rmcp macros and the doc comments of the parameter types need
+  them, and the catalog holds the same texts under `mcp-tool-<tool>` and `mcp-param-<tool>-<parameter>`. At start
+  the server replaces the descriptions in the router by the catalog's. A test compares the English catalog with
+  the macros, as for the help.
+- The summary of a run (what was written or kept, a failed export step, the OCAD hints) comes from the catalog
+  (`cli-summary-…`); the area page shows the same text.
+- The note after `init` about 1:5000 on a sprint map is a `Note` of the engine (`note-scale-outside-norm`).
+- Still English: the lines `OcadOutcome::warnings` carries, and the free-text details named under stage 2.
+
 ## Consequences
 
-- A German run still shows English in the texts of the MCP server: the tool descriptions and the closing
-  summaries of a run (stage 4).
+- An AI agent on a German system now reads German tool descriptions and results. `AGENTS.md` quotes the English
+  messages and says how to get them (`--lang en` after `mcp`).
 - Windows and macOS set `LANG` only in some shells. Where it is missing, the program is English unless
   `FREEMAPPER_LANG` or `--lang` is given. That is the suite's rule; reading the system language through the
   operating system would be a change for all three programs.
