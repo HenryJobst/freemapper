@@ -8,11 +8,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::errors::message;
 use crate::estimate::estimate_json;
 use crate::jobs::JobHub;
 use crate::pipeline::RunOptions;
 use crate::select_run;
 use crate::select_run::{FolderOpener, PipelineRunner, Services};
+use crate::text::{Lang, TEXTS, v};
 use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
@@ -216,6 +218,11 @@ fn bad_request(message: impl Into<String>) -> Response {
         .into_response()
 }
 
+/// The answer to a request whose task stopped unexpectedly, in the page's language.
+fn internal_error(lang: &Lang, error: impl ToString) -> Response {
+    bad_request(TEXTS.text(lang, "cli-internal-error", &[("message", v(error))]))
+}
+
 /// One tile of the OpenStreetMap base layer. The address is checked before anything is fetched.
 async fn osm_tile(
     State(state): State<Arc<AppState>>,
@@ -248,7 +255,7 @@ async fn asset(UrlPath(path): UrlPath<String>) -> Response {
 
 /// The page's language from the request's `Accept-Language`, unless `--lang` or the environment
 /// named one (ADR 0092, core ADR 0030).
-fn page_lang(headers: &HeaderMap) -> crate::text::Lang {
+pub(crate) fn page_lang(headers: &HeaderMap) -> Lang {
     let accept = headers
         .get(header::ACCEPT_LANGUAGE)
         .and_then(|value| value.to_str().ok());
@@ -265,19 +272,19 @@ fn kind_name(kind: MapKind) -> &'static str {
     kind.name()
 }
 
-fn parse_kind(kind: &str) -> Result<MapKind, String> {
+fn parse_kind(kind: &str, lang: &Lang) -> Result<MapKind, String> {
     MapKind::from_name(kind)
-        .ok_or_else(|| format!("unknown map kind {kind:?}; use schoolyard or sprint"))
+        .ok_or_else(|| TEXTS.text(lang, "cli-save-unknown-kind", &[("kind", v(kind))]))
 }
 
-/// The saved project, if there is one; an error when its file cannot be read.
-pub(crate) fn saved_project(state: &AppState) -> Result<Option<ProjectFile>, String> {
+/// The saved project, if there is one; an error in `lang` when its file cannot be read.
+pub(crate) fn saved_project(state: &AppState, lang: &Lang) -> Result<Option<ProjectFile>, String> {
     if !state.dir.join("freemapper.toml").exists() {
         return Ok(None);
     }
     ProjectFile::load(&state.dir)
         .map(Some)
-        .map_err(|e| crate::pipeline::describe(&e))
+        .map_err(|e| message(&e, lang))
 }
 
 /// The options of the run panel as the page starts them.
@@ -300,11 +307,11 @@ fn project_revision(dir: &Path) -> Option<String> {
         .map(|bytes| freemapper_web::revision(&bytes))
 }
 
-async fn project(State(state): State<Arc<AppState>>) -> Response {
+async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     // Read before the project: should the file change in between, the page holds the older
     // revision, and its next save is refused instead of overwriting.
     let revision = project_revision(&state.dir);
-    let saved = match saved_project(&state) {
+    let saved = match saved_project(&state, &page_lang(&headers)) {
         Ok(saved) => saved,
         Err(e) => return bad_request(e),
     };
@@ -360,13 +367,14 @@ async fn update_notice(State(state): State<Arc<AppState>>) -> Response {
     Json(json!({ "available": available })).into_response()
 }
 
-/// The map area in a request body: `area` (GeoJSON) and optionally `source_id` (`way/…`).
-fn area_of(body: &Value) -> Result<MapArea, String> {
-    let mut area = MapArea::from_geojson(&body["area"].to_string())
-        .map_err(|e| crate::pipeline::describe(&e))?;
-    area.validate().map_err(|e| crate::pipeline::describe(&e))?;
+/// The map area in a request body: `area` (GeoJSON) and optionally `source_id` (`way/…`). The
+/// error is in `lang`.
+fn area_of(body: &Value, lang: &Lang) -> Result<MapArea, String> {
+    let mut area =
+        MapArea::from_geojson(&body["area"].to_string()).map_err(|e| message(&e, lang))?;
+    area.validate().map_err(|e| message(&e, lang))?;
     if let Some(source_id) = body["source_id"].as_str() {
-        lookup_url(source_id).map_err(|e| crate::pipeline::describe(&e))?;
+        lookup_url(source_id).map_err(|e| message(&e, lang))?;
         area.source_id = Some(source_id.to_string());
     }
     Ok(area)
@@ -394,17 +402,24 @@ fn preview_json(preview: &AreaPreview, cache: &Cache, dir: &Path) -> Value {
     })
 }
 
-async fn preview(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
+async fn preview(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
     let today = chrono::Local::now().date_naive();
+    let lang = page_lang(&headers);
+    let task_lang = lang.clone();
     // Validating a large outline takes a while: off the async workers.
     let answer = tokio::task::spawn_blocking(move || -> Result<Value, String> {
-        let area = area_of(&body)?;
+        let lang = task_lang;
+        let area = area_of(&body, &lang)?;
         // An existing project keeps its buffer; a new one gets the buffer of the kind chosen
         // on the page.
-        let buffer_m = match saved_project(&state)? {
+        let buffer_m = match saved_project(&state, &lang)? {
             Some(project) => project.buffer_m,
             None => match body["kind"].as_str() {
-                Some(kind) => parse_kind(kind)?.default_buffer_m(),
+                Some(kind) => parse_kind(kind, &lang)?.default_buffer_m(),
                 None => state.defaults.kind.default_buffer_m(),
             },
         };
@@ -415,7 +430,7 @@ async fn preview(State(state): State<Arc<AppState>>, Json(body): Json<Value>) ->
     match answer {
         Ok(Ok(answer)) => Json(answer).into_response(),
         Ok(Err(e)) => bad_request(e),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -424,7 +439,8 @@ struct PlacesQuery {
     q: String,
 }
 
-async fn places(Query(query): Query<PlacesQuery>) -> Response {
+async fn places(headers: HeaderMap, Query(query): Query<PlacesQuery>) -> Response {
+    let lang = page_lang(&headers);
     crate::nominatim::wait_turn().await;
     let found =
         tokio::task::spawn_blocking(move || find_places(&HttpFetcher::new(), &query.q)).await;
@@ -445,8 +461,8 @@ async fn places(Query(query): Query<PlacesQuery>) -> Response {
                 .collect::<Vec<_>>(),
         )
         .into_response(),
-        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Ok(Err(e)) => bad_request(message(&e, &lang)),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -455,7 +471,8 @@ struct PlaceQuery {
     osm_id: String,
 }
 
-async fn place(Query(query): Query<PlaceQuery>) -> Response {
+async fn place(headers: HeaderMap, Query(query): Query<PlaceQuery>) -> Response {
+    let lang = page_lang(&headers);
     crate::nominatim::wait_turn().await;
     let osm_id = query.osm_id.clone();
     let found =
@@ -465,8 +482,8 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
         Ok(Ok(area)) => {
             Json(json!({ "area": area.to_geojson_value(), "source_id": osm_id })).into_response()
         }
-        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Ok(Err(e)) => bad_request(message(&e, &lang)),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -485,19 +502,20 @@ async fn save(
     if state.hub.running_for(&state.dir) {
         return (
             StatusCode::CONFLICT,
-            Json(json!({ "error": "a pipeline is running for this project; save again when it has finished" })),
+            Json(json!({ "error": TEXTS.text(&lang, "cli-save-running", &[]) })),
         )
             .into_response();
     }
     let _saving = state.saving.lock().await;
     let task_state = Arc::clone(&state);
+    let task_lang = lang.clone();
     let saved = tokio::task::spawn_blocking(move || -> Result<Value, SaveError> {
-        let state = task_state;
+        let (state, lang) = (task_state, task_lang);
         // A folder that exists may be in use by a terminal or the MCP server; a new one cannot be.
         let _lock = if state.dir.is_dir() {
             Some(
                 crate::lock::acquire(&state.dir, crate::lock::Who::Page)
-                    .map_err(|e| SaveError::Locked(e.to_string()))?,
+                    .map_err(|e| SaveError::Locked(message(&e, &lang)))?,
             )
         } else {
             None
@@ -510,18 +528,22 @@ async fn save(
         {
             return Err(SaveError::Stale(current));
         }
-        let area = area_of(&body)?;
+        let area = area_of(&body, &lang)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
         let mut provider_changed = false;
         if created {
             let kind = match body["kind"].as_str() {
-                Some(kind) => parse_kind(kind)?,
+                Some(kind) => parse_kind(kind, &lang)?,
                 None => state.defaults.kind,
             };
             let scale = body["scale"]
                 .as_u64()
-                .map(|s| u32::try_from(s).map_err(|_| format!("scale {s} is too large")))
+                .map(|s| {
+                    u32::try_from(s).map_err(|_| {
+                        TEXTS.text(&lang, "cli-save-scale-too-large", &[("scale", v(s))])
+                    })
+                })
                 .transpose()?
                 .or(state.defaults.scale);
             let title = body["title"]
@@ -529,10 +551,9 @@ async fn save(
                 .map(str::to_string)
                 .or(state.defaults.title.clone());
             let today = chrono::Local::now().date_naive();
-            init_project(dir, &area, kind, scale, today, title)
-                .map_err(|e| crate::pipeline::describe(&e))?;
+            init_project(dir, &area, kind, scale, today, title).map_err(|e| message(&e, &lang))?;
         } else {
-            let saved = set_map_area(dir, &area).map_err(|e| crate::pipeline::describe(&e))?;
+            let saved = set_map_area(dir, &area).map_err(|e| message(&e, &lang))?;
             zone_changed = saved.zone_changed;
             provider_changed = saved.provider_changed;
         }
@@ -556,12 +577,11 @@ async fn save(
         Ok(Err(SaveError::Locked(e))) => {
             (StatusCode::CONFLICT, Json(json!({ "error": e }))).into_response()
         }
-        Ok(Err(SaveError::Stale(current))) => freemapper_web::stale(
-            &current,
-            &crate::text::TEXTS.text(&lang, "page-save-stale", &[]),
-        ),
+        Ok(Err(SaveError::Stale(current))) => {
+            freemapper_web::stale(&current, &TEXTS.text(&lang, "page-save-stale", &[]))
+        }
         Ok(Err(SaveError::Other(e))) => bad_request(e),
-        Err(e) => bad_request(format!("internal error: {e}")),
+        Err(e) => internal_error(&lang, e),
     }
 }
 
@@ -602,25 +622,35 @@ pub(crate) mod tests {
             .unwrap();
         let url = format!("{}api/save", selector.url);
         let origin = origin_of(&selector.url);
-        let (status, text) = tokio::task::spawn_blocking(move || {
+        let (english, german) = tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
                 .build()
                 .into();
             let area = r#"{"area":{"type":"Polygon","coordinates":[[[13.843,52.539],[13.846,52.539],[13.846,52.541],[13.843,52.539]]]}}"#;
-            let mut response = agent
-                .post(&url)
-                .header("Content-Type", "application/json")
-                .header("Origin", &origin)
-                .send(area)
-                .unwrap();
-            let status = response.status().as_u16();
-            (status, response.body_mut().read_to_string().unwrap())
+            // The refusal comes in the page's language; nothing names one in a unit test.
+            let save = |accept: &str| {
+                let mut response = agent
+                    .post(&url)
+                    .header("Content-Type", "application/json")
+                    .header("Origin", &origin)
+                    .header("Accept-Language", accept)
+                    .send(area)
+                    .unwrap();
+                let status = response.status().as_u16();
+                (status, response.body_mut().read_to_string().unwrap())
+            };
+            (save("en-US,en"), save("de-DE,de;q=0.9"))
         })
         .await
         .unwrap();
-        assert_eq!(status, 409, "{text}");
-        assert!(text.contains("pipeline"), "{text}");
+        for ((status, text), expected) in [
+            (english, "A run is going on for this project."),
+            (german, "Für dieses Projekt läuft gerade ein Lauf"),
+        ] {
+            assert_eq!(status, 409, "{text}");
+            assert!(text.contains(expected), "{text}");
+        }
         assert!(!dir.path().join("p").exists());
     }
 
@@ -655,7 +685,7 @@ pub(crate) mod tests {
         let origin = origin_of(&selector.url);
         // The page names the revision of the file it read (core ADR 0030).
         let seen = freemapper_web::revision(before.as_bytes());
-        let post = |url: String, origin: String, seen: String| {
+        let post = |url: String, origin: String, seen: String, accept: &str| {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
                 .build()
@@ -666,6 +696,7 @@ pub(crate) mod tests {
                 .header("Content-Type", "application/json")
                 .header("Origin", &origin)
                 .header(freemapper_web::REVISION_HEADER, &seen)
+                .header("Accept-Language", accept)
                 .send(body)
                 .unwrap();
             (
@@ -675,13 +706,24 @@ pub(crate) mod tests {
         };
         let (u, o) = (url.clone(), origin.clone());
         let s = seen.clone();
-        let (status, text) = tokio::task::spawn_blocking(move || post(u, o, s))
+        let (status, text) = tokio::task::spawn_blocking(move || post(u, o, s, "en"))
             .await
             .unwrap();
         assert_eq!(status, 409, "{text}");
         assert!(
             text.contains("another freemapper run is using this folder"),
             "{text}"
+        );
+        // In the page's language, also when the program's is another.
+        let (u, o) = (url.clone(), origin.clone());
+        let s = seen.clone();
+        let (status, german) = tokio::task::spawn_blocking(move || post(u, o, s, "de-DE,de"))
+            .await
+            .unwrap();
+        assert_eq!(status, 409, "{german}");
+        assert!(
+            german.contains("Ein anderer freemapper-Lauf verwendet diesen Ordner"),
+            "{german}"
         );
         assert!(
             !text.contains(&dir.path().display().to_string()),
@@ -693,7 +735,7 @@ pub(crate) mod tests {
         );
         // Let go, and the same save goes through; the page leaves no lock behind.
         drop(held);
-        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin, seen))
+        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin, seen, "en"))
             .await
             .unwrap();
         assert_eq!(status, 200, "{text}");

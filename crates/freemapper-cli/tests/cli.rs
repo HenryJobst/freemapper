@@ -1040,6 +1040,67 @@ fn update_check_with_a_bad_signature_is_an_error() {
     );
 }
 
+/// A release without `freemapper-update.json` (the manifest URL answers 404) cannot install
+/// itself; the message says so and links the release page, in the language of the run.
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_of_a_release_without_a_manifest_says_so() {
+    let stub = UpdateStub::start(Vec::new());
+    let program = std::path::Path::new(env!("CARGO_BIN_EXE_freemapper"));
+    let no_manifest = "error: the newest release cannot install itself (it has no update manifest); \
+                       download it from https://github.com/HenryJobst/freemapper/releases/latest\n";
+    for extra in [&["--check"][..], &["--yes"]] {
+        let output = update_with(program, &stub).args(extra).output().unwrap();
+        assert_eq!(output.status.code(), Some(1), "{extra:?}: {output:?}");
+        assert_eq!(String::from_utf8(output.stderr).unwrap(), no_manifest);
+    }
+    let output = update_with(program, &stub)
+        .env("FREEMAPPER_LANG", "de")
+        .arg("--check")
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "Fehler: Die neueste Version kann sich nicht selbst installieren (ihr fehlt das \
+         Aktualisierungsmanifest). Laden Sie sie von \
+         https://github.com/HenryJobst/freemapper/releases/latest herunter.\n"
+    );
+    // A release asked for by its version: it may not exist at all.
+    let output = update_with(program, &stub)
+        .args(["--version", "0.9.9"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "error: release 0.9.9 does not exist or cannot install itself (it has no update manifest); \
+         see https://github.com/HenryJobst/freemapper/releases\n"
+    );
+    assert!(!stub.paths().iter().any(|path| path.ends_with(".minisig")));
+}
+
+/// Only the manifest's 404 means "no manifest": a missing signature next to it is another error.
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_with_a_missing_signature_is_no_missing_manifest() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+    let stub = UpdateStub::start(vec![(
+        MANIFEST_PATH.to_string(),
+        std::fs::read(dir.join("manifest-99.json")).unwrap(),
+    )]);
+    let output = update_with(
+        std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")),
+        &stub,
+    )
+    .arg("--check")
+    .output()
+    .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.starts_with("error: the update failed: "), "{stderr}");
+    assert!(stderr.contains(".minisig: HTTP 404"), "{stderr}");
+}
+
 /// Spec 3.3: `--check` exits 10 whenever a newer release exists, also one that needs a manual
 /// install; the message links its release page.
 #[test]
@@ -1354,6 +1415,68 @@ mod update_check {
             .unwrap();
         assert_eq!(String::from_utf8(again.stderr).unwrap(), before);
         assert_eq!(stub.paths().len(), 2);
+    }
+
+    /// Spec 3.2: a release whose signature does not verify is an error that says so. The daily
+    /// check gives one warning line after the command's output, keeps the exit code, records the
+    /// attempt as failed, and so says it at most once a day.
+    #[test]
+    fn bad_signature_gives_one_warning_line() {
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+        let manifest = std::fs::read(fixtures.join("manifest-99.json")).unwrap();
+        let mut changed = manifest.clone();
+        changed.extend_from_slice(b"\n");
+        for (manifest, signature, detail) in [
+            // Signed by a key the program does not know.
+            (
+                manifest,
+                "manifest-99.json.wrong-key.minisig",
+                "the update is signed with an unknown key",
+            ),
+            // Signed by the right key, but the manifest changed after.
+            (
+                changed,
+                "manifest-99.json.minisig",
+                "the update signature is not valid",
+            ),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let stub = UpdateStub::serving(
+                manifest,
+                std::fs::read(fixtures.join(signature)).unwrap(),
+                Vec::new(),
+            );
+            let without = failing_fetch(
+                checking(program(), &stub, dir.path()).env("CI", "1"),
+                dir.path(),
+            )
+            .output()
+            .unwrap();
+            let with = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+                .output()
+                .unwrap();
+            assert_eq!(with.status.code(), Some(1), "{with:?}");
+            assert_eq!(with.status.code(), without.status.code());
+            assert_eq!(with.stdout, without.stdout);
+            let before = String::from_utf8(without.stderr).unwrap();
+            assert_eq!(
+                String::from_utf8(with.stderr).unwrap(),
+                format!(
+                    "{before}warning: the newest freemapper release could not be verified \
+                     ({detail}); nothing was installed\n"
+                )
+            );
+            let Some(RecordResult::Failed { reason }) = record(dir.path()) else {
+                panic!("{:?}", record(dir.path()));
+            };
+            assert_eq!(reason, detail);
+            // The next command the same day neither asks nor tells.
+            let again = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+                .output()
+                .unwrap();
+            assert_eq!(String::from_utf8(again.stderr).unwrap(), before);
+            assert_eq!(stub.paths().len(), 2);
+        }
     }
 
     #[test]

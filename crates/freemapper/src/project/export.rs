@@ -5,6 +5,10 @@
 //! file the build reads.
 
 use super::*;
+use crate::build::barrier_gaps::move_points_off_barriers;
+use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
+use crate::build::points::way_footprints;
+use crate::build::ticks::{orient_ticks, read_terrain};
 
 /// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
 /// building parts are picked from these).
@@ -918,7 +922,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let candidates = MapDocument {
+    let mut candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
         symbol_set: symbol_set.clone(),
@@ -988,6 +992,47 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(generalized.map);
+    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
+    let ways = way_footprints(
+        &map_objects,
+        &candidates.parts[0].objects,
+        &map_objects,
+        project.map_kind,
+        &georef,
+        &symbol_set,
+    );
+    let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
+    cut_lines_at_ways(
+        &mut candidates.parts[0].objects,
+        &CONTOUR_CODES,
+        &ways,
+        min_piece_m,
+        &georef,
+        &symbol_set,
+    );
+    cut_lines_at_ways(
+        &mut map_objects,
+        &NORTH_LINE_CODES,
+        &ways,
+        min_piece_m,
+        &georef,
+        &symbol_set,
+    );
+    // The last step on the lines: the ticks of fences point to the olive green area beside them,
+    // those of earth banks down the slope (`build/ticks.rs`).
+    orient_ticks(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        read_terrain(dir).as_ref(),
+        &georef,
+        &symbol_set,
+    );
+    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
+    // the ticks (`build/barrier_gaps.rs`).
+    move_points_off_barriers(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        project.map_kind,
+        &symbol_set,
+    );
     let buildings_part = MapPart {
         name: "default part".to_string(),
         objects: map_objects,

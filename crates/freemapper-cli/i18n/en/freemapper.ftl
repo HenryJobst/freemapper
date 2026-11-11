@@ -75,6 +75,9 @@ cli-open-folder-failed = The folder could not be opened ({ $error }).
 cli-open-folder-no-opener = This computer has no program to open folders ({ $program }). Open the folder by hand.
 cli-open-folder-missing = The project folder does not exist yet. Save the area first.
 cli-open-folder-refused = The folder name is not safe to pass on to the file manager.
+cli-save-running = A run is going on for this project. Save again when it has finished.
+cli-save-unknown-kind = Unknown map kind "{ $kind }". Use schoolyard or sprint.
+cli-save-scale-too-large = The scale { $scale } is too large.
 
 ## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
 ## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has
@@ -246,6 +249,9 @@ update-not-writable = cannot write to the program folder { $path }, and freemapp
 update-too-old = freemapper { $new } cannot be installed by the self-update of { $old }; install { $needed } or newer by hand, see { $notes }
 update-busy = another update or rollback is running in the program folder (lock file { $path }); wait for it to finish and try again
 update-bad-signature = the release could not be verified ({ $error }); nothing was installed
+update-check-bad-signature = the newest freemapper release could not be verified ({ $error }); nothing was installed
+update-no-manifest = the newest release cannot install itself (it has no update manifest); download it from { $page }
+update-no-manifest-version = release { $version } does not exist or cannot install itself (it has no update manifest); see { $page }
 update-no-asset = the release has no program for this system ({ $platform }); nothing was installed
 update-no-previous = there is no previous version to go back to ({ $path } is missing)
 update-failed = the update failed: { $error }
@@ -254,11 +260,12 @@ update-mode-env = FREEMAPPER_UPDATE={ $value } overrides this setting while it i
 update-mode-failed = could not write { $path }: { $error }
 update-notice = freemapper { $new } is available (you have { $old }). Update with: freemapper update
 update-applies-next-start = The new version applies from the next start of freemapper.
-update-install-failed = warning: freemapper { $new } was not installed: { $error }
+update-install-failed = freemapper { $new } was not installed: { $error }
 update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CONFIG_DIR
 update-mcp-note = Note for the person: freemapper { $new } is available (this is { $old }). Ask them before calling install_update.
 update-mcp-needs-confirm = nothing was installed; ask the person first and call install_update with confirm: true once they agree
 update-mcp-note-manual = Note for the person: freemapper { $new } is available (this is { $old }), but install_update cannot install it; install { $needed } or newer by hand, see { $notes }
+update-mcp-note-bad-signature = Note for the person: the newest freemapper release could not be verified ({ $error }); nothing was installed. Tell them, and do not install it some other way.
 update-mcp-restart-now = Restart the freemapper MCP server now; it still runs the old version.
 
 ## Errors. In English each text equals the message of the library's error type, which stays

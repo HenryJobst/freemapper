@@ -21,7 +21,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::text::{text, v};
+use crate::errors::Localize;
+use crate::text::{FluentValue, Lang, TEXTS, v};
 
 /// The lock file in the project folder.
 pub const LOCK_NAME: &str = ".freemapper-run.lock";
@@ -62,15 +63,16 @@ impl Who {
 #[derive(Debug)]
 pub enum LockError {
     /// Another run holds the folder. `who` is `cli`, `mcp`, `page` or `unknown`.
-    Held {
-        who: String,
-        since_seconds: u64,
-    },
+    Held { who: String, since_seconds: u64 },
+    /// Something other than a lock file is in the way and could not be removed.
+    Stuck,
+    /// The system's message.
     Io(String),
 }
 
-impl std::fmt::Display for LockError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Localize for LockError {
+    fn localize(&self, lang: &Lang) -> String {
+        let text = |id: &str, args: &[(&str, FluentValue)]| TEXTS.text(lang, id, args);
         match self {
             LockError::Held { who, since_seconds } => {
                 let started = chrono::Local::now()
@@ -81,13 +83,23 @@ impl std::fmt::Display for LockError {
                     "page" => text("cli-lock-who-page", &[]),
                     _ => text("cli-lock-who-unknown", &[]),
                 };
-                f.write_str(&text(
+                text(
                     "cli-lock-held",
                     &[("time", v(started.format("%H:%M"))), ("who", v(who))],
-                ))
+                )
             }
-            LockError::Io(error) => f.write_str(&text("cli-lock-failed", &[("error", v(error))])),
+            LockError::Stuck => text(
+                "cli-lock-failed",
+                &[("error", v(text("cli-lock-stuck", &[])))],
+            ),
+            LockError::Io(error) => text("cli-lock-failed", &[("error", v(error))]),
         }
+    }
+}
+
+impl std::fmt::Display for LockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.localize(&crate::text::lang()))
     }
 }
 
@@ -292,13 +304,13 @@ fn acquire_with(
                 if !matches!(inspect(&path, now)?, Seen::Live { .. }) {
                     freemapper_fs::remove_inside(dir, &path);
                     if std::fs::symlink_metadata(&path).is_ok() {
-                        last = Some(io_error(text("cli-lock-stuck", &[])));
+                        last = Some(LockError::Stuck);
                     }
                 }
             }
         }
     }
-    Err(last.unwrap_or_else(|| io_error(text("cli-lock-stuck", &[]))))
+    Err(last.unwrap_or(LockError::Stuck))
 }
 
 /// Starts the heartbeat for the lock that `file` holds.

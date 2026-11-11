@@ -77,7 +77,7 @@ struct FakeOpener {
 }
 
 impl FolderOpener for FakeOpener {
-    fn open(&self, dir: &Path) -> Result<(), String> {
+    fn open(&self, dir: &Path, _lang: &crate::text::Lang) -> Result<(), String> {
         self.opened.lock().unwrap().push(dir.to_path_buf());
         if self.fail {
             Err("no opener here".to_string())
@@ -412,6 +412,22 @@ async fn lock_held_by_another_process_is_409_with_the_message() {
         !message.contains(page.project.to_str().unwrap()),
         "{message}"
     );
+    // In the page's language, also when the program's is another.
+    let mut german = json_post(&origin_of(&page.selector.url));
+    german.push("Accept-Language: de-DE,de".to_string());
+    let (status, _, text) = request(
+        &page.selector.url,
+        "POST",
+        "api/run",
+        german,
+        "{}".to_string(),
+    )
+    .await;
+    assert_eq!(status, 409, "{text}");
+    assert!(
+        text.contains("Ein anderer freemapper-Lauf verwendet diesen Ordner"),
+        "{text}"
+    );
     assert_eq!(page.calls(), 0);
     drop(held);
     let (status, _) = page.post("api/run", "{}").await;
@@ -675,6 +691,14 @@ fn the_windows_verbatim_prefix_is_dropped_for_the_file_manager() {
 
 #[test]
 fn a_folder_that_looks_like_an_option_is_never_passed_on() {
-    assert!(RealOpener.open(Path::new("-rf")).is_err());
-    assert!(RealOpener.open(Path::new("relative")).is_err());
+    assert!(
+        RealOpener
+            .open(Path::new("-rf"), &crate::text::Lang::english())
+            .is_err()
+    );
+    assert!(
+        RealOpener
+            .open(Path::new("relative"), &crate::text::Lang::english())
+            .is_err()
+    );
 }

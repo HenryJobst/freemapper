@@ -7,7 +7,9 @@ key) ever holds it.
 
 `../fixtures/update/manifest-99.json.minisig` was made with
 `minisign -S -s test.key -m manifest-99.json -x manifest-99.json.minisig -t "freemapper test fixture"`, and `manifest-99-manual.json.minisig` (the same release, but
-`min_self_update_from` 98.0.0) the same way. The test
+`min_self_update_from` 98.0.0) the same way. `manifest-99.json.wrong-key.minisig` signs the same manifest with a
+throwaway key (key id 096FB33D0565F6A2) that no build accepts; its secret half was deleted after signing. The tests
+of a bad signature use it. The test
 `update_yes_installs_over_a_copied_binary` signs its own manifest the same way at run time and is skipped when
 `minisign` is not on the PATH, unless `FREEMAPPER_TEST_REQUIRE_MINISIGN` is set (CI sets it), which makes it fail
 instead.

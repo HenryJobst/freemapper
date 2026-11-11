@@ -801,6 +801,73 @@ mod update {
         assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
     }
 
+    /// A release without `freemapper-update.json`: both update tools say it cannot install
+    /// itself and link the release page.
+    #[test]
+    fn update_tools_on_a_release_without_a_manifest_say_so() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("bin");
+        std::fs::create_dir(&folder).unwrap();
+        let program = copied_program(&folder);
+        let stub = UpdateStub::start(Vec::new());
+        let mut command = checking(&program, &stub, dir.path());
+        command.env("FREEMAPPER_UPDATE", "off");
+        let mut session = Session::start_with(command, &dir.path().join("cache"));
+        for (tool, arguments) in [
+            ("check_update", json!({})),
+            ("install_update", json!({ "confirm": true })),
+        ] {
+            let (error, texts) = session.call_all(tool, arguments);
+            assert!(error, "{tool}: {texts:?}");
+            assert_eq!(
+                texts,
+                [
+                    "the newest release cannot install itself (it has no update manifest); \
+                     download it from https://github.com/HenryJobst/freemapper/releases/latest"
+                ],
+                "{tool}"
+            );
+        }
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+    }
+
+    /// Spec 3.2: a release signed by a key the program does not know gets a note that says it
+    /// could not be verified, once.
+    #[test]
+    fn a_bad_signature_gets_its_own_note_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path().join("cache");
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+        let stub = UpdateStub::serving(
+            std::fs::read(fixtures.join("manifest-99.json")).unwrap(),
+            std::fs::read(fixtures.join("manifest-99.json.wrong-key.minisig")).unwrap(),
+            Vec::new(),
+        );
+        let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
+        wait_for_record(&cache);
+        call_until_note(
+            &mut session,
+            "Note for the person: the newest freemapper release could not be verified (the update \
+             is signed with an unknown key); nothing was installed. Tell them, and do not install \
+             it some other way.",
+        );
+        for _ in 0..3 {
+            let (_, texts) = cheap_call(&mut session);
+            assert_eq!(texts.len(), 1, "{texts:?}");
+        }
+        let (stderr, rest) = session.close();
+        assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
+        // The record says failed, so a server started later the same day says nothing.
+        assert!(matches!(
+            load_record(&cache.join("update-check.json")).map(|record| record.result),
+            Some(RecordResult::Failed { .. })
+        ));
+        let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
+        let (_, texts) = cheap_call(&mut session);
+        assert_eq!(texts.len(), 1, "{texts:?}");
+        assert_eq!(stub.paths().len(), 2);
+    }
+
     /// A check that is not done when the first result goes out does not hold it up; its note
     /// goes on a later result.
     #[test]

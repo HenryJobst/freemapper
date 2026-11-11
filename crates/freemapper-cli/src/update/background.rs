@@ -17,7 +17,7 @@ use freemapper_update::{
 
 use super::command::describe;
 use super::{freemapper_app, mode_from_env, release_build, settings_dir, update_source};
-use crate::text::{text, v};
+use crate::text::{text, v, warning};
 
 /// The record of the last attempt, in the cache folder.
 const RECORD: &str = "update-check.json";
@@ -79,7 +79,7 @@ pub enum Report {
     Notice(String),
     /// Mode `install` installed it (stdout, like other progress).
     Installed(String),
-    /// Mode `install` could not install it (stderr).
+    /// Mode `install` could not install it, or the newest release does not verify (stderr).
     Warning(String),
 }
 
@@ -144,6 +144,15 @@ impl BackgroundCheck {
             Err(too_old @ UpdateError::TooOldToSelfUpdate { .. }) => {
                 Some(Report::Notice(describe(too_old)))
             }
+            // A release that does not verify is an error that says so (spec 3.2), but only a
+            // warning here: the command ran. The record keeps it to once a day.
+            Err(unverified @ (UpdateError::Signature | UpdateError::UnknownKey)) => {
+                Some(Report::Warning(warning(&text(
+                    "update-check-bad-signature",
+                    &[("error", v(unverified))],
+                ))))
+            }
+            // Anything else, a missing manifest too, stays silent; the record says it failed.
             _ => None,
         }
     }
@@ -212,10 +221,10 @@ impl BackgroundCheck {
                 ),
                 text("update-applies-next-start", &[])
             )),
-            Err(e) => Report::Warning(text(
+            Err(e) => Report::Warning(warning(&text(
                 "update-install-failed",
                 &[("new", v(version)), ("error", v(describe(&e)))],
-            )),
+            ))),
         }
     }
 
@@ -236,7 +245,8 @@ impl BackgroundCheck {
 /// The MCP server's daily check (spec 3.7): due and recorded as in 3.3, on a thread of its own.
 /// It prints nothing and never installs, whatever the mode (D14). `tell` gets the note for the
 /// person once the check finds a newer version, or at once when the record of an earlier check
-/// knows one. A release that needs a manual install gets a note that says so, with its link.
+/// knows one. A release that needs a manual install gets a note that says so, with its link, and
+/// one that does not verify a note that nothing was installed (spec 3.2).
 pub fn check_for_server(ctx: &CheckContext, tell: impl FnOnce(String) + Send + 'static) {
     if let Some(check) = start_background_check(ctx) {
         let _ = std::thread::Builder::new()
@@ -257,6 +267,12 @@ pub fn check_for_server(ctx: &CheckContext, tell: impl FnOnce(String) + Send + '
                             ("notes", v(notes)),
                         ],
                     )),
+                    Some(Err(unverified @ (UpdateError::Signature | UpdateError::UnknownKey))) => {
+                        Some(text(
+                            "update-mcp-note-bad-signature",
+                            &[("error", v(unverified))],
+                        ))
+                    }
                     _ => None,
                 };
                 if let Some(note) = note {
@@ -426,6 +442,60 @@ mod tests {
             panic!("{:?}", record.result);
         };
         assert!(reason.contains("503"), "{reason}");
+    }
+
+    /// Serves the manifest of release 99.0.0 with a signature by a key the program does not know.
+    struct WrongKeySource;
+
+    impl UpdateSource for WrongKeySource {
+        fn get(&self, url: &str, _max_bytes: u64) -> Result<Vec<u8>, UpdateError> {
+            Ok(if url.ends_with(".minisig") {
+                include_bytes!("../../tests/fixtures/update/manifest-99.json.wrong-key.minisig")
+                    .to_vec()
+            } else {
+                MANIFEST.to_vec()
+            })
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            _size: u64,
+            _file: &mut std::fs::File,
+        ) -> Result<(), UpdateError> {
+            panic!("the check downloads nothing: {url}")
+        }
+    }
+
+    #[test]
+    fn a_bad_signature_is_a_warning_and_recorded_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        // Mode `install` installs nothing that does not verify; it warns like `notify`.
+        for mode in [Mode::Notify, Mode::Install] {
+            let ctx = CheckContext {
+                mode,
+                source: Arc::new(WrongKeySource),
+                ..context(dir.path(), true)
+            };
+            let check = start_background_check(&ctx).unwrap();
+            assert_eq!(
+                check.finish(true),
+                Some(Report::Warning(
+                    "warning: the newest freemapper release could not be verified (the update is \
+                     signed with an unknown key); nothing was installed"
+                        .into()
+                ))
+            );
+            assert_eq!(
+                record_of(dir.path()),
+                Some(RecordResult::Failed {
+                    reason: "the update is signed with an unknown key".into()
+                })
+            );
+            // Recorded: the next check is a day away.
+            assert!(start_background_check(&ctx).is_none());
+            std::fs::remove_file(dir.path().join("update-check.json")).unwrap();
+        }
     }
 
     #[test]
