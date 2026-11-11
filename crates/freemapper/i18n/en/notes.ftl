@@ -247,5 +247,8 @@ error-layer-file = { $path }: { $detail }
 error-layer-detail = { $detail }
 error-layer-no-preview = no preview for { $layer }; layers with previews: { $names }
 error-layer-no-ndsm-published = no nDSM is published for the tiles of this map area, so there is no ndsm template
-error-layer-not-made = { $layer } is not made yet; run { $step }
+error-layer-not-made = { $layer } is not made yet; run { $step ->
+        [fetch] freemapper fetch or run (MCP: start_pipeline); Berlin only
+       *[derive] freemapper derive or run (MCP: start_pipeline)
+    }
 warning-ocad-no-background = { $error }; the OCAD map gets no background from it

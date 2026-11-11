@@ -776,11 +776,8 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
         if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() && no_dsm {
             return Err(ProjectError::Layer(note!("error-layer-no-ndsm-published")));
         }
-        let step = if layer == "k5" {
-            FETCH_STEP
-        } else {
-            DERIVE_STEP
-        };
+        // The catalogs word the step; in English as `FETCH_STEP` and `DERIVE_STEP` do.
+        let step = if layer == "k5" { "fetch" } else { "derive" };
         return Err(ProjectError::Layer(note!(
             "error-layer-not-made",
             layer = layer,
