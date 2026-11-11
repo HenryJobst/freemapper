@@ -6,6 +6,7 @@ mod mcp;
 mod nominatim;
 mod pipeline;
 mod select;
+mod select_run;
 mod text;
 mod tiles;
 
@@ -161,6 +162,24 @@ enum Commands {
         /// Port on 127.0.0.1 (default: a free one).
         #[arg(long, default_value_t = 0)]
         port: u16,
+        /// The page starts with "cache only, no network" ticked.
+        #[arg(long)]
+        offline: bool,
+        /// The page starts with the OCAD starter project ticked.
+        #[arg(long)]
+        ocad: bool,
+        /// The page starts with the printable PDF ticked.
+        #[arg(long)]
+        pdf: bool,
+        /// The page starts with the training PDF (every candidate) ticked.
+        #[arg(long)]
+        pdf_candidates: bool,
+        /// The page starts with the scale bar on the PDFs ticked.
+        #[arg(long)]
+        pdf_scale_bar: bool,
+        /// The page starts with this choice of source lines on the PDFs, as for `run`.
+        #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
+        pdf_sources: SourcesArg,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -515,6 +534,12 @@ fn main() -> anyhow::Result<()> {
             title,
             no_browser,
             port,
+            offline,
+            ocad,
+            pdf,
+            pdf_candidates,
+            pdf_scale_bar,
+            pdf_sources,
             cache,
         } => {
             let cache = cache.cache()?;
@@ -523,6 +548,15 @@ fn main() -> anyhow::Result<()> {
                 scale,
                 title,
                 from_agent: false,
+                run: pipeline::RunOptions {
+                    offline,
+                    ocad,
+                    pdf,
+                    pdf_candidates,
+                    pdf_scale_bar,
+                    pdf_sources: pdf_sources.into(),
+                    ..Default::default()
+                },
             };
             tokio::runtime::Runtime::new()?.block_on(async {
                 let selector = select::Selector::start(
@@ -555,4 +589,50 @@ fn main() -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn select_takes_the_run_flags_as_page_defaults() {
+        let cli = Cli::try_parse_from([
+            "freemapper",
+            "select",
+            "/tmp/p",
+            "--ocad",
+            "--pdf",
+            "--pdf-candidates",
+            "--pdf-scale-bar",
+            "--pdf-sources",
+            "full",
+            "--offline",
+        ])
+        .unwrap();
+        let Commands::Select {
+            offline,
+            ocad,
+            pdf,
+            pdf_candidates,
+            pdf_scale_bar,
+            pdf_sources,
+            ..
+        } = cli.command
+        else {
+            panic!("not select");
+        };
+        assert!(offline && ocad && pdf && pdf_candidates && pdf_scale_bar);
+        assert_eq!(PdfSources::from(pdf_sources), PdfSources::Full);
+        // Without flags the page starts like `run`: everything off, sources automatic.
+        let cli = Cli::try_parse_from(["freemapper", "select", "/tmp/p"]).unwrap();
+        let Commands::Select {
+            ocad, pdf_sources, ..
+        } = cli.command
+        else {
+            panic!("not select");
+        };
+        assert!(!ocad);
+        assert_eq!(PdfSources::from(pdf_sources), PdfSources::Auto);
+    }
 }

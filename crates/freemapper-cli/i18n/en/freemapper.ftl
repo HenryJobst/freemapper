@@ -60,3 +60,18 @@ cli-lock-who-page = the selection page
 cli-lock-who-unknown = another program
 cli-lock-failed = could not lock the project folder for this run: { $error }
 cli-lock-stuck = something other than a lock file is in the way and could not be removed
+
+## Run routes of the selection page
+
+cli-run-bad-request = The run options are not valid: { $error }
+cli-run-no-project = There is no saved project in this folder yet. Save the area first.
+cli-run-already-running = A run ({ $job }) is already going on for this project. Wait for it to end or cancel it first.
+cli-run-disk-stops = Not enough free disk space for the download: { $messages }
+cli-run-busy-elsewhere = Another project of this program is running a pipeline right now. Projects share the download cache, so only one run goes at a time. Try again when it has finished.
+cli-run-nothing-to-cancel = No run is going on, so there is nothing to cancel.
+cli-run-unknown-job = There is no run { $job } for this project.
+cli-status-too-fast = Status requests come too often. Ask at most five times a second.
+cli-open-folder-failed = The folder could not be opened ({ $error }).
+cli-open-folder-no-opener = This computer has no program to open folders ({ $program }). Open the folder by hand.
+cli-open-folder-missing = The project folder does not exist yet. Save the area first.
+cli-open-folder-refused = The folder name is not safe to pass on to the file manager.
