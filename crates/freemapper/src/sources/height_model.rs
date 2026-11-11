@@ -8,7 +8,6 @@ use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
-use crate::sources::lvermgeo_sh::{paste_tile, read_cached, whole_tile};
 use crate::tiles::TileId;
 
 /// What a tiled height model fetch found besides the raster.
@@ -68,6 +67,64 @@ const NOT_ON_SERVER: &str = "not on the server (404)";
 /// `32_400_5579`.
 pub(crate) fn short_name(tile: TileId) -> String {
     format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
+}
+
+/// The cached tile at `path`, if it is there and reads as `tile`.
+pub(crate) fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
+    let bytes = std::fs::read(path).ok()?;
+    decode_float_tiff(&bytes)
+        .and_then(|raster| whole_tile(raster, tile, &[1.0]))
+        .ok()
+}
+
+/// `raster` if it covers exactly the 1 km `tile` with pixels of one of the `pixels` sizes.
+pub(crate) fn whole_tile(
+    raster: Raster<f32>,
+    tile: TileId,
+    pixels: &[f64],
+) -> Result<Raster<f32>, String> {
+    let g = raster.grid;
+    let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
+    if !pixels.iter().any(|&p| (g.pixel_size - p).abs() < 1e-9) {
+        let wanted: Vec<String> = pixels.iter().map(|p| format!("{p} m")).collect();
+        return Err(format!(
+            "pixels of {} m, not {}",
+            g.pixel_size,
+            wanted.join(" or ")
+        ));
+    }
+    let fits = near(g.west, f64::from(tile.east_km) * 1000.0)
+        && near(g.north, f64::from(tile.north_km + 1) * 1000.0)
+        && near(f64::from(g.width) * g.pixel_size, 1000.0)
+        && near(f64::from(g.height) * g.pixel_size, 1000.0);
+    if fits {
+        Ok(raster)
+    } else {
+        Err(format!(
+            "the raster (W {} N {}, {} x {} px of {} m) is not the whole tile {}",
+            g.west,
+            g.north,
+            g.width,
+            g.height,
+            g.pixel_size,
+            short_name(tile)
+        ))
+    }
+}
+
+/// Pastes the 1 m `part` into the 1 m `raster`; returns how many pasted cells have no height.
+pub(crate) fn paste_tile(raster: &mut Raster<f32>, part: &Raster<f32>) -> Result<u64, String> {
+    let empty = std::cell::Cell::new(0);
+    raster
+        .paste_with(&part.grid, |x, y| {
+            let z = part.get(x, y);
+            if z.is_nan() {
+                empty.set(empty.get() + 1);
+            }
+            z
+        })
+        .map_err(|e| e.to_string())?;
+    Ok(empty.get())
 }
 
 /// The tiles of `area` mosaicked into a Float32 GeoTIFF `out` (with its world file) on the

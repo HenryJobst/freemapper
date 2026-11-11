@@ -22,7 +22,7 @@ use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{
     decode_float_tiff, decode_float_tiff_from, encode_float_geotiff, write_float_raster,
 };
-use crate::sources::height_model::HeightModel;
+use crate::sources::height_model::{HeightModel, paste_tile, read_cached, whole_tile};
 use crate::sources::region::{Region, tile_centre_in};
 use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
@@ -584,55 +584,12 @@ fn cache_path(dir: &Path, model: Model, entry: &PortalTile) -> PathBuf {
     }
 }
 
-/// The cached tile at `path`, if it is there and reads as `tile`.
-pub(crate) fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
-    let bytes = std::fs::read(path).ok()?;
-    decode_float_tiff(&bytes)
-        .and_then(|raster| whole_tile(raster, tile, &[1.0]))
-        .ok()
-}
-
 /// The pixel size of the bDOM tiles; test builds also take coarser synthetic ones, so a test
 /// tile need not be 5000 x 5000.
 #[cfg(not(test))]
 const BDOM_PIXELS: &[f64] = &[0.2];
 #[cfg(test)]
 const BDOM_PIXELS: &[f64] = &[0.2, 0.5, 1.0];
-
-/// `raster` if it covers exactly the 1 km `tile` with pixels of one of the `pixels` sizes.
-pub(crate) fn whole_tile(
-    raster: Raster<f32>,
-    tile: TileId,
-    pixels: &[f64],
-) -> Result<Raster<f32>, String> {
-    let g = raster.grid;
-    let near = |a: f64, b: f64| (a - b).abs() < 1e-3;
-    if !pixels.iter().any(|&p| (g.pixel_size - p).abs() < 1e-9) {
-        let wanted: Vec<String> = pixels.iter().map(|p| format!("{p} m")).collect();
-        return Err(format!(
-            "pixels of {} m, not {}",
-            g.pixel_size,
-            wanted.join(" or ")
-        ));
-    }
-    let fits = near(g.west, f64::from(tile.east_km) * 1000.0)
-        && near(g.north, f64::from(tile.north_km + 1) * 1000.0)
-        && near(f64::from(g.width) * g.pixel_size, 1000.0)
-        && near(f64::from(g.height) * g.pixel_size, 1000.0);
-    if fits {
-        Ok(raster)
-    } else {
-        Err(format!(
-            "the raster (W {} N {}, {} x {} px of {} m) is not the whole tile {}",
-            g.west,
-            g.north,
-            g.width,
-            g.height,
-            g.pixel_size,
-            short_name(tile)
-        ))
-    }
-}
 
 /// The DGM1 of `entry` from the ATOM directory, or from the portal's XYZ when the ATOM answer
 /// is not a valid whole 1 m tile (404, an error page, a file that does not decode, another
@@ -967,21 +924,6 @@ fn median(values: &mut [f32]) -> f32 {
     }
     let below = lower.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     (below + upper) / 2.0
-}
-
-/// Pastes the 1 m `part` into the 1 m `raster`; returns how many pasted cells have no height.
-pub(crate) fn paste_tile(raster: &mut Raster<f32>, part: &Raster<f32>) -> Result<u64, String> {
-    let empty = std::cell::Cell::new(0);
-    raster
-        .paste_with(&part.grid, |x, y| {
-            let z = part.get(x, y);
-            if z.is_nan() {
-                empty.set(empty.get() + 1);
-            }
-            z
-        })
-        .map_err(|e| e.to_string())?;
-    Ok(empty.get())
 }
 
 #[cfg(test)]
