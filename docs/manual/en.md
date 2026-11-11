@@ -123,8 +123,8 @@ then only says to update it with `git pull` and `cargo build --release --locked`
 
 #### The daily check
 
-After `init`, `select`, `fetch` and `run`, which go online anyway, freemapper checks at most once a day whether
-a newer release exists. `derive` and `export` work offline and do not check. The check runs while the command
+After `find`, `init`, `select`, `fetch` and `run`, which go online anyway, freemapper checks at most once a day
+whether a newer release exists. `derive` and `export` work offline and do not check. The check runs while the command
 works. If it finds a newer version, one line follows the command's own output on the error output (stderr):
 
 ```text
@@ -265,6 +265,23 @@ If you know the OSM object of the grounds, you can skip the browser:
 ./freemapper init kreuzgymnasium --osm way/23838018 --title "Evangelisches Kreuzgymnasium"
 ./freemapper run kreuzgymnasium
 ```
+
+`find` looks up the id by name. It lists up to five OpenStreetMap matches, those with an area first, and
+names the `init` command for the first area:
+
+```sh
+./freemapper find "Clara-Zetkin-Schule Strausberg"
+```
+
+```text
+way/992423119  Clara-Zetkin-Schule (amenity=school): 1, Am Sportpark, Strausberg Vorstadt, Strausberg, Märkisch-Oderland, Brandenburg, 15344, Deutschland
+Create the project with: freemapper init <dir> --osm way/992423119
+```
+
+A line with "no area, cannot be a map area" is a point in OSM, a bus stop or a charging station named after
+the school, for example. It cannot be a map area. If the place you want is not in the list, try a longer name
+with the town, or draw the area with `select`. When the name is unambiguous, `init --place "<name>"` skips the list and
+takes the first match with an area.
 
 If the grounds are several separate areas in OSM (a multipolygon relation with several outer rings),
 freemapper lists the parts with their sizes. `--part 1` takes the largest, `--part 2` the next one. The outer

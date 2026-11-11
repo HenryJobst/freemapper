@@ -96,6 +96,7 @@ freemapper run <dir> --pdf
 
 | Command | Purpose |
 |---|---|
+| `find <query>` | Lists up to 5 OpenStreetMap places for a name, areas first, one per line with its id (`way/<id>`, `relation/<id>`), and ends with the `init --osm` command for the first area. A place marked `no area` cannot be a map area. `--json` prints the array of MCP `find_place` instead. Nothing found exits with 1. |
 | `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
 | `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
 | `run <dir>` | `fetch`, `derive` and `export` in one go. |
@@ -112,7 +113,7 @@ passing on. On failure the program prints one line `error: <message>` to stderr 
 usage error exits with code 2. Exit code 0 means success. `update --check` exits with 10 when a newer version
 exists, also one that must be installed by hand, and with 0 when this one is current.
 
-At most once a day, `init`, `select`, `fetch` and `run` also check for a newer release. When they find one, a
+At most once a day, `find`, `init`, `select`, `fetch` and `run` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
 `freemapper 0.12.0 is available (you have 0.11.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
@@ -122,9 +123,10 @@ the update itself after a successful command and says so on stdout.
 Workflow:
 
 1. Ask what the map is for (school, park, sprint training) and which place.
-2. Create the project. `init --place "<name>"` takes the best match with an area and does not list the others;
-   if the name is ambiguous, ask the person, or use `init --osm way/<id>` when you know the object, or let them
-   draw the area with `select <dir>` (it prints or opens the page address; wait until they say they saved).
+2. Create the project. Run `freemapper find "<name>"`, show the person the matches and let them pick one, then
+   `init <dir> --osm <id>` with its id. When the name is unambiguous, `init --place "<name>"` is the shortcut: it
+   takes the best match with an area without listing the others. If no match fits, let the person draw the area
+   with `select <dir>` (it prints or opens the page address; wait until they say they saved).
 3. Tell the person the download size before a large first download: the first project in a state
    downloads its OSM extract (about 50 to 500 MB, kept for 7 days); later projects are much smaller.
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
@@ -254,8 +256,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - "the release could not be verified": the signature does not match; nothing was installed. Do not work around
   it. Tell the person and try again later.
 - `warning: the newest freemapper release could not be verified (…); nothing was installed` as the last line of
-  `init`, `select`, `fetch` or `run`: the daily check found a release whose signature does not match. It comes at
-  most once a day and does not change the exit code. The MCP server gives the same news once, as the note
+  `find`, `init`, `select`, `fetch` or `run`: the daily check found a release whose signature does not match. It
+  comes at most once a day and does not change the exit code. The MCP server gives the same news once, as the note
   `Note for the person: the newest freemapper release could not be verified …`. Tell the person; do not install
   that release another way.
 - "the newest release cannot install itself (it has no update manifest)": the release has no

@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- `freemapper find "<Name>"` listet die OpenStreetMap-Orte zu einem Namen auf, höchstens fünf, die mit Fläche zuerst, jeden mit seiner Kennung, und nennt am Ende den Befehl `init --osm` für die erste Fläche. Bei einem Treffer ohne Fläche steht, dass er kein Kartengebiet sein kann. `--json` gibt dieselben Felder aus wie das MCP-Werkzeug `find_place`. Findet die Suche nichts, endet der Befehl mit Exit-Code 1. Es ist dieselbe Suche wie bei `find_place` und `init --place`, und `init --place` bleibt, wie es ist. Wie `init` prüft auch `find` einmal am Tag auf eine neue Version. `AGENTS.md` sagt Agenten an der Kommandozeile jetzt, der Person zuerst die Treffer zu zeigen und dann `init --osm` zu nehmen.
+
 ### Geändert
 
 - Alle Kernbibliotheken sind auf freemapper-core v0.21.1 festgelegt. Die Schaltflächen der Gebietsseite nehmen ihre Textfarbe aus dem Suite-Token `--on-accent`, die Hauptschaltflächen ihre Farben aus der Suite-Klasse `button.primary`. Sie sehen aus wie bisher.
