@@ -11,3 +11,5 @@ pub mod fetch;
 pub mod fs;
 pub mod note;
 pub mod records;
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;

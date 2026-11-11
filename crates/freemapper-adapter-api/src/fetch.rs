@@ -102,6 +102,26 @@ pub struct FetchedTile {
     pub zip: PathBuf,
 }
 
+/// An answer of HTTP `status` (400 or more) with `body` as [`FetchError`]: 404 is
+/// [`FetchError::NotFound`], another 4xx [`FetchError::Refused`] with the text of an OGC
+/// exception report in `body` (MapServer answers a WCS request outside its coverage with a 400
+/// `ows:ExceptionReport`), a 5xx a (retried) [`FetchError::Http`] with the
+/// words the HTTP client uses for a status (`http status: 503`).
+pub fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchError {
+    match status {
+        404 => FetchError::NotFound(url.to_string()),
+        400..500 => FetchError::Refused {
+            url: url.to_string(),
+            status,
+            detail: ogc_exception(body),
+        },
+        _ => FetchError::Http {
+            url: url.to_string(),
+            message: format!("http status: {status}"),
+        },
+    }
+}
+
 /// The code and text of an OGC (OWS or WMS service) exception report, as [`one_line`]s; `None`
 /// for any other body, and for a report that names neither.
 pub fn ogc_exception(body: &[u8]) -> Option<String> {

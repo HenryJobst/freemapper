@@ -21,6 +21,7 @@ pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::ATTEMPTS;
+pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 pub(crate) use freemapper_adapter_api::fetch::{
     download_with_retries, get_limited_with_retries, get_range_with_retries, get_with_attempts,
@@ -186,25 +187,6 @@ fn status_error(url: &str, e: ureq::Error) -> FetchError {
         e => FetchError::Http {
             url: url.to_string(),
             message: e.to_string(),
-        },
-    }
-}
-
-/// An answer of HTTP `status` (400 or more) with `body` as [`FetchError`]: 404 is
-/// [`FetchError::NotFound`], another 4xx [`FetchError::Refused`] with the text of an OGC
-/// exception report in `body` (MapServer answers a WCS request outside its coverage with a 400
-/// `ows:ExceptionReport`), a 5xx a (retried) [`FetchError::Http`].
-pub(crate) fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchError {
-    match status {
-        404 => FetchError::NotFound(url.to_string()),
-        400..500 => FetchError::Refused {
-            url: url.to_string(),
-            status,
-            detail: ogc_exception(body),
-        },
-        _ => FetchError::Http {
-            url: url.to_string(),
-            message: ureq::Error::StatusCode(status).to_string(),
         },
     }
 }
@@ -1054,119 +1036,13 @@ fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError>
 #[cfg(test)]
 pub(crate) mod test_support {
     use crate::sources::lgb::ProductTiles as _;
-    use std::cell::{Cell, RefCell};
-    use std::collections::HashMap;
     use std::io::Write as _;
 
-    use super::{FetchError, Fetcher};
     use crate::sources::alkis::test_support::{building_feature, land_use_feature, page};
     use crate::sources::alkis::{BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT};
     use crate::sources::lgb::Product;
     use crate::tiles::TileId;
-
-    /// Serves fixed responses by URL and counts the requests.
-    #[derive(Default)]
-    pub(crate) struct MapFetcher {
-        pub responses: RefCell<HashMap<String, Vec<u8>>>,
-        /// Answers for URLs starting with the key, when no exact response matches.
-        pub prefixes: RefCell<HashMap<String, Vec<u8>>>,
-        /// `Last-Modified` dates by URL.
-        pub modified: RefCell<HashMap<String, chrono::NaiveDate>>,
-        pub calls: Cell<usize>,
-        /// URLs that fail with a server error.
-        pub failing: RefCell<Vec<String>>,
-        /// URL prefixes the server refuses with HTTP 400.
-        pub refusing: RefCell<Vec<String>>,
-        /// The bodies of the refusals, by URL prefix (none: an empty body).
-        pub refusal_bodies: RefCell<HashMap<String, Vec<u8>>>,
-        /// URL prefixes that fail with a reset this many more times before they answer.
-        pub flaky: RefCell<HashMap<String, u32>>,
-        /// Every URL requested with `get`, in order.
-        pub log: RefCell<Vec<String>>,
-    }
-
-    impl MapFetcher {
-        pub fn insert(&self, url: &str, bytes: Vec<u8>) {
-            self.responses.borrow_mut().insert(url.to_string(), bytes);
-        }
-
-        pub fn insert_prefix(&self, prefix: &str, bytes: Vec<u8>) {
-            self.prefixes.borrow_mut().insert(prefix.to_string(), bytes);
-        }
-
-        fn fail_if_failing(&self, url: &str) -> Result<(), FetchError> {
-            if self
-                .refusing
-                .borrow()
-                .iter()
-                .any(|p| url.starts_with(p.as_str()))
-            {
-                let body = self
-                    .refusal_bodies
-                    .borrow()
-                    .iter()
-                    .find(|(p, _)| url.starts_with(p.as_str()))
-                    .map(|(_, body)| body.clone())
-                    .unwrap_or_default();
-                return Err(super::status_answer_error(url, 400, &body));
-            }
-            if let Some(left) = self
-                .flaky
-                .borrow_mut()
-                .iter_mut()
-                .find(|(p, left)| url.starts_with(p.as_str()) && **left > 0)
-                .map(|(_, left)| left)
-            {
-                *left -= 1;
-                return Err(FetchError::Http {
-                    url: url.to_string(),
-                    message: "Connection reset by peer".to_string(),
-                });
-            }
-            if self.failing.borrow().iter().any(|u| u == url) {
-                return Err(FetchError::Http {
-                    url: url.to_string(),
-                    message: "503 Service Unavailable".to_string(),
-                });
-            }
-            Ok(())
-        }
-
-        pub fn set_modified(&self, url: &str, date: chrono::NaiveDate) {
-            self.modified.borrow_mut().insert(url.to_string(), date);
-        }
-    }
-
-    impl Fetcher for MapFetcher {
-        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-            self.calls.set(self.calls.get() + 1);
-            self.log.borrow_mut().push(url.to_string());
-            self.fail_if_failing(url)?;
-            let by_prefix = || {
-                let prefixes = self.prefixes.borrow();
-                prefixes
-                    .iter()
-                    .filter(|(prefix, _)| url.starts_with(prefix.as_str()))
-                    .max_by_key(|(prefix, _)| prefix.len())
-                    .map(|(_, bytes)| bytes.clone())
-            };
-            self.responses
-                .borrow()
-                .get(url)
-                .cloned()
-                .or_else(by_prefix)
-                .ok_or_else(|| FetchError::NotFound(url.to_string()))
-        }
-
-        fn last_modified(&self, url: &str) -> Result<Option<chrono::NaiveDate>, FetchError> {
-            self.calls.set(self.calls.get() + 1);
-            self.fail_if_failing(url)?;
-            if !self.responses.borrow().contains_key(url) {
-                return Err(FetchError::NotFound(url.to_string()));
-            }
-            Ok(self.modified.borrow().get(url).copied())
-        }
-    }
+    pub(crate) use freemapper_adapter_api::testing::MapFetcher;
 
     /// A tile archive with the raster and world file members LGB uses.
     pub fn tile_zip(product: Product, tile: TileId, raster: &[u8], world_file: &str) -> Vec<u8> {
@@ -2267,6 +2143,17 @@ mod tests {
     use super::test_support::*;
     use super::*;
     use std::cell::Cell;
+
+    /// `status_answer_error` lives in the api crate, which has no HTTP client, and words a
+    /// server error as the client does.
+    #[test]
+    fn a_server_error_is_worded_as_the_http_client_words_it() {
+        let ours = status_answer_error("https://example.invalid/x", 503, b"");
+        let FetchError::Http { message, .. } = ours else {
+            panic!("{ours:?}");
+        };
+        assert_eq!(message, ureq::Error::StatusCode(503).to_string());
+    }
 
     const TILE: TileId = TileId {
         east_km: 421,
