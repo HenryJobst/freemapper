@@ -626,7 +626,7 @@ fn group_areas(
 /// The paved area candidates ([`PAVED_AREA_CODES`] among `areas` and `candidates`) and the
 /// footprints of the paths ([`PATH_WIDTHS_MM`] among `candidates` and `map`, buffered by half
 /// their width on paper) in the map's CRS.
-fn way_footprints(
+pub(crate) fn way_footprints(
     areas: &[MapObject],
     candidates: &[MapObject],
     map: &[MapObject],

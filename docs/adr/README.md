@@ -142,3 +142,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0094](0094-self-update-from-signed-releases.md) | Self-update from signed releases | Accepted | 2026-11-11 |
 | [0095](0095-kinds-and-reserved-words-from-the-contract-crate.md) | Map kinds and reserved words come from the contract crate | Accepted | 2026-11-11 |
 | [0096](0096-the-area-page-on-the-suite-frame.md) | The area page on the suite frame | Accepted | 2026-11-11 |
+| [0097](0097-ticks-turn-and-lines-stop-at-ways.md) | Ticks turn the right way, lines stop at ways, points keep their gap to fences | Accepted | 2026-11-11 |
