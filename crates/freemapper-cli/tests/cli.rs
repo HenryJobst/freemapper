@@ -92,6 +92,40 @@ fn no_subcommand_prints_help() {
     assert!(stderr.contains("Usage:"), "stderr: {stderr}");
 }
 
+/// The help and the parse errors follow the language (ADR 0092, stage 4).
+#[test]
+fn help_and_parse_errors_follow_the_language() {
+    let german = &[("FREEMAPPER_LANG", "de")];
+    let help = freemapper_in(german).arg("--help").output().unwrap();
+    assert!(help.status.success());
+    let stdout = String::from_utf8(help.stdout).unwrap();
+    assert!(stdout.contains("Aufruf: freemapper"), "{stdout}");
+    assert!(
+        stdout.contains("Einen Projektordner für ein Kartengebiet anlegen"),
+        "{stdout}"
+    );
+    // `--lang` wins over the environment, wherever it stands.
+    let english = freemapper_in(german)
+        .args(["run", "--help", "--lang", "en"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(english.stdout).unwrap();
+    assert!(stdout.contains("Usage: freemapper run"), "{stdout}");
+    let of_run = freemapper_in(german)
+        .args(["help", "run"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(of_run.stdout).unwrap();
+    assert!(stdout.contains("Aufruf: freemapper run"), "{stdout}");
+    let wrong = freemapper_in(german).arg("frobnicate").output().unwrap();
+    assert_eq!(wrong.status.code(), Some(2));
+    let stderr = String::from_utf8(wrong.stderr).unwrap();
+    assert!(
+        stderr.starts_with("Fehler: Unbekannter Befehl frobnicate"),
+        "{stderr}"
+    );
+}
+
 #[test]
 fn init_rejects_scale_zero() {
     let dir = tempfile::tempdir().unwrap();
