@@ -7,6 +7,11 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# Test helpers for the golden net of the adapter work (tests/adapters_golden.rs): the fixed clock
+# and, later, the facts the enums answer. Never part of a release build.
+golden = []
+
 [dependencies]
 chrono.workspace = true
 contour.workspace = true

@@ -1078,7 +1078,7 @@ fn check_space(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Option<SpacePlan>, ProjectError> {
-    let today = chrono::Local::now().date_naive();
+    let today = crate::clock::today();
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     let mut estimate = crate::layers::estimate_area(region_bbox, bbox, cache, today, alkis_cached);
     mark_stored(&mut estimate, dir, project, bbox);
@@ -1392,7 +1392,7 @@ fn fetch_wms_orthophoto(
             // Reused while the stored image covers the area and the flight date is the same.
             // Without a date from the service (none known, or the query failed), the image is
             // reused only while it is recent, and keeps the date it has.
-            let today = chrono::Local::now().date_naive();
+            let today = crate::clock::today();
             let recent =
                 |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
             let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
@@ -1431,7 +1431,7 @@ fn fetch_wms_orthophoto(
                 project.orthophoto = Some(WmsRecord {
                     flight,
                     flight_label,
-                    fetched: chrono::Local::now().date_naive(),
+                    fetched: crate::clock::today(),
                     bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
                 });
             }
@@ -1495,7 +1495,7 @@ fn fetch_k5_into(
             project.k5 = Some(WmsRecord {
                 flight: Some(K5_DATASET_DATE.to_string()),
                 flight_label: Some("K5 dataset".to_string()),
-                fetched: chrono::Local::now().date_naive(),
+                fetched: crate::clock::today(),
                 bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
             });
         }
@@ -1549,7 +1549,7 @@ fn fetch_lvermgeo_rasters(
         progress,
     )?;
     let record = |date: Option<String>| WcsRecord {
-        fetched: chrono::Local::now().date_naive(),
+        fetched: crate::clock::today(),
         bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
         date,
     };
@@ -1628,7 +1628,7 @@ fn fetch_lgv_rasters(
     let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => chrono::Local::now().date_naive(),
+            _ => crate::clock::today(),
         },
         bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
         date: Some(model.date().to_string()),
@@ -1722,7 +1722,7 @@ fn height_record(
     WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => chrono::Local::now().date_naive(),
+            _ => crate::clock::today(),
         },
         bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
         // Offline without the portal's tile list there is no date: the stored file is unchanged.
@@ -2522,7 +2522,7 @@ fn fetch_buildings_into(
             bbox.max_e.ceil(),
             bbox.max_n.ceil(),
         ],
-        fetched: chrono::Local::now().date_naive(),
+        fetched: crate::clock::today(),
         latest_update: parsed.buildings.iter().filter_map(|b| b.updated).max(),
         count,
         regions: regions_of(parsed.buildings.iter().map(|b| b.oid.as_str())),
@@ -2587,7 +2587,7 @@ fn fetch_land_use_into(
                     bbox.max_e.ceil(),
                     bbox.max_n.ceil(),
                 ],
-                fetched: chrono::Local::now().date_naive(),
+                fetched: crate::clock::today(),
                 latest_update: land_use.iter().filter_map(|l| l.updated).max(),
                 count: land_use.len(),
                 regions: regions_of(land_use.iter().map(|l| l.oid.as_str())),
@@ -2731,7 +2731,7 @@ fn fetch_berlin_layers_into(
                     file.to_string(),
                     AlkisRecord {
                         bbox,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update: None,
                         count,
                         regions: vec![Region::Berlin],
@@ -2869,7 +2869,7 @@ fn fetch_nas_layers_into(
                     file.to_string(),
                     AlkisRecord {
                         bbox: rounded,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update,
                         count,
                         regions: fetched.regions,
@@ -3070,7 +3070,7 @@ fn fetch_tree_layers_into(
                     id.to_string(),
                     AlkisRecord {
                         bbox: rounded,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update,
                         count,
                         regions: fetched.regions,
@@ -6947,6 +6947,31 @@ mod tests {
             &project.bbox().unwrap(),
         );
         (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn fixed_clock_dates_the_records() {
+        // A day that is never today, so the test cannot pass by reading the system clock.
+        let at = NaiveDate::from_ymd_opt(2020, 1, 2)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        crate::clock::with_fixed(at, || fetch(dir.path(), &fetcher, &cache));
+        let stored = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let fetched: Vec<&str> = stored
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("fetched = "))
+            .collect();
+        assert!(fetched.len() >= 3, "{stored}");
+        assert!(
+            fetched
+                .iter()
+                .all(|line| *line == "fetched = \"2020-01-02\""),
+            "{fetched:?}"
+        );
     }
 
     #[test]
