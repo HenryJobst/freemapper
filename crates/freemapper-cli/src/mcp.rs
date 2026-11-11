@@ -383,19 +383,7 @@ impl FreemapperServer {
         .await;
         match places {
             Ok(places) => {
-                let places: Vec<Value> = places
-                    .iter()
-                    .map(|p| {
-                        json!({
-                            "osm_id": p.osm_id,
-                            "name": p.name,
-                            "display_name": p.display_name,
-                            "category": p.category,
-                            "kind": p.kind,
-                            "has_area": p.has_area,
-                        })
-                    })
-                    .collect();
+                let places: Vec<Value> = places.iter().map(crate::find::place_json).collect();
                 text(Value::from(places).to_string())
             }
             Err(e) => failure(e),

@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,369](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C369-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,451](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C451-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -144,8 +144,8 @@ freemapper is a single program without an installer. You do not need to build it
 
 `freemapper update` asks, then downloads the newest release and puts it in place of the program, at
 the same path. It checks the release's signature first, and the old program stays for
-`freemapper update --rollback`. After `init`, `select`, `fetch` and `run` freemapper looks at most once a day for
-a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
+`freemapper update --rollback`. After `find`, `init`, `select`, `fetch` and `run` freemapper looks at most once a
+day for a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
 older cannot update themselves yet; replace them once by hand as above. Details are in the
 [user manual](docs/manual/en.md#updating).
 

@@ -1,5 +1,5 @@
 //! Pacing of Nominatim requests: at most one per second for the whole process (usage policy),
-//! shared by the MCP server and the area selection page.
+//! shared by the MCP server, the area selection page and `freemapper find`.
 
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
@@ -22,6 +22,11 @@ fn slot() -> Duration {
 /// Waits until a Nominatim request is allowed.
 pub async fn wait_turn() {
     tokio::time::sleep(slot()).await;
+}
+
+/// [`wait_turn`] for a command without a runtime (`freemapper find`).
+pub fn wait_turn_blocking() {
+    std::thread::sleep(slot());
 }
 
 #[cfg(test)]
