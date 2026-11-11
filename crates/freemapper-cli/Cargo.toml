@@ -38,6 +38,8 @@ tokio.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]
+minisign-verify.workspace = true
+sha2.workspace = true
 tempfile.workspace = true
 
 [lints]

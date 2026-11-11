@@ -42,6 +42,9 @@ las = { version = "=0.11.1", features = ["laz"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
 crc32fast = "1.5.4"
 miniz_oxide = "0.9.1"
+# Tests only: the key parser of freemapper-update, to check the committed public keys; same pin as
+# in freemapper-core, already in Cargo.lock through it.
+minisign-verify = "=0.3.0"
 pdf-writer = "0.15.0"
 quick-xml = "0.42.0"
 rust-embed = { version = "8.13.0", features = ["debug-embed", "mime-guess"] }

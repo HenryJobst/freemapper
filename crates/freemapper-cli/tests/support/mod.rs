@@ -161,7 +161,8 @@ pub fn copied_program(dir: &std::path::Path) -> std::path::PathBuf {
 
 /// A stub serving release 99.0.0 that installs: a manifest signed at run time and a "new
 /// program" that is a shell script printing `freemapper 99.0.0`. `None` (and a line saying so)
-/// without the `minisign` CLI to sign with.
+/// without the `minisign` CLI to sign with, unless `FREEMAPPER_TEST_REQUIRE_MINISIGN` is set (CI
+/// sets it so these tests run there): then it panics.
 #[cfg(unix)]
 pub fn installable_release(work: &std::path::Path) -> Option<UpdateStub> {
     use std::os::unix::fs::PermissionsExt as _;
@@ -170,6 +171,10 @@ pub fn installable_release(work: &std::path::Path) -> Option<UpdateStub> {
         .output()
         .is_ok_and(|output| output.status.success());
     if !has_minisign {
+        assert!(
+            std::env::var_os("FREEMAPPER_TEST_REQUIRE_MINISIGN").is_none(),
+            "FREEMAPPER_TEST_REQUIRE_MINISIGN is set, but there is no minisign on the PATH"
+        );
         eprintln!("skipped: no minisign on the PATH to sign the test manifest");
         return None;
     }

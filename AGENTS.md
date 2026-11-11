@@ -34,7 +34,8 @@ the user asks; the release archives are ready to run.
    | Windows, x64 | `windows-x86_64` | `.zip` |
 
    Each archive has a `<archive>.sha256` next to it. The Linux builds are static (musl) and run on any
-   distribution.
+   distribution. The release also holds `freemapper-<tag>-<platform>.gz` and `freemapper-update.json` with its
+   `.minisig`; they are for `freemapper update`, not for the first install.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh

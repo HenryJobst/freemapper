@@ -20,10 +20,10 @@ const KEY_FILE: &str = include_str!("../../../../assets/update/minisign.pub");
 const RELEASE: bool = is_release(option_env!("FREEMAPPER_DIST"));
 
 // A release build with the test key would accept updates signed by a key whose secret half is
-// public. The key file says "TEST KEY" until task B6 puts the release key there.
+// public. The key file holds the release key; this keeps the test key from coming back into it.
 const _: () = assert!(
     key_file_allowed(RELEASE, KEY_FILE),
-    "FREEMAPPER_DIST=github-release, but assets/update/minisign.pub still holds the TEST KEY"
+    "FREEMAPPER_DIST=github-release, but assets/update/minisign.pub holds the TEST KEY"
 );
 
 // The test hooks redirect the update source; a release build never carries them.
@@ -82,7 +82,25 @@ const fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     false
 }
 
-static KEYS: LazyLock<Vec<&'static str>> = LazyLock::new(|| key_lines(KEY_FILE));
+/// The test key (`tests/keys/test.pub`), accepted next to the key file by the unit tests and by a
+/// debug build with the `test-stub` feature, so the CLI tests can sign manifests. A release build
+/// never has it.
+#[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
+const TEST_KEY_FILE: Option<&str> = Some(include_str!("../../tests/keys/test.pub"));
+#[cfg(not(any(test, all(debug_assertions, feature = "test-stub"))))]
+const TEST_KEY_FILE: Option<&str> = None;
+
+static KEYS: LazyLock<Vec<&'static str>> = LazyLock::new(|| accepted_keys(RELEASE));
+
+/// The keys this build accepts: the key lines of the key file, and in a test build that is no
+/// release build also the test key.
+fn accepted_keys(release: bool) -> Vec<&'static str> {
+    let mut keys = key_lines(KEY_FILE);
+    if !release {
+        keys.extend(TEST_KEY_FILE.into_iter().flat_map(key_lines));
+    }
+    keys
+}
 
 /// The key lines of a key file: every non-empty line that is not a comment.
 fn key_lines(text: &'static str) -> Vec<&'static str> {
@@ -170,22 +188,55 @@ mod tests {
         let app = freemapper_app();
         assert_eq!(app.name, "freemapper");
         assert_eq!(app.current.to_string(), env!("CARGO_PKG_VERSION"));
-        assert_eq!(
-            app.keys,
-            ["RWQr6TpLSQ74CbpwfXt6elefnjKJxHRj6tEawt4fudtGpb7yLegwOqX+"]
-        );
+        assert_eq!(app.keys, accepted_keys(RELEASE).as_slice());
+        assert!(app.keys.starts_with(&key_lines(KEY_FILE)));
         assert_eq!(
             key_lines("untrusted comment: a\n\nKEY1\n# note\n KEY2 \n"),
             ["KEY1", "KEY2"]
         );
     }
 
+    /// The key line of `assets/update/minisign.pub`, the public half of the release key (key id
+    /// 9353842ABFFAC9FB). A new key is added next to it, never in its place (spec 3.1).
+    const RELEASE_KEY_LINE: &str = "RWT7yfq/KoRTk8uMufGlMksUd2aWa9IYvxnXeFKFT27pGSu9CG2WAynA";
+
+    #[test]
+    fn release_build_accepts_only_the_release_key() {
+        let test_key = std::str::from_utf8(TEST_KEY_LINE).unwrap();
+        assert_ne!(RELEASE_KEY_LINE, test_key);
+        assert!(key_lines(KEY_FILE).contains(&RELEASE_KEY_LINE));
+        assert!(!key_lines(KEY_FILE).contains(&test_key));
+        assert!(key_file_allowed(true, KEY_FILE));
+        assert_eq!(accepted_keys(true), key_lines(KEY_FILE));
+        // Test builds accept the test key too, release builds never.
+        assert_eq!(accepted_keys(false).last(), Some(&test_key));
+        if RELEASE {
+            assert!(!freemapper_app().keys.contains(&test_key));
+        }
+    }
+
+    #[test]
+    fn every_key_line_is_a_minisign_public_key() {
+        // The parser freemapper-update reads the keys with.
+        let lines = key_lines(KEY_FILE);
+        assert!(!lines.is_empty());
+        for line in lines
+            .into_iter()
+            .chain(TEST_KEY_FILE.into_iter().flat_map(key_lines))
+        {
+            assert!(
+                minisign_verify::PublicKey::from_base64(line).is_ok(),
+                "{line}"
+            );
+        }
+        assert!(minisign_verify::PublicKey::from_base64("RWQnot+a+key").is_err());
+    }
+
     #[test]
     fn a_release_build_refuses_the_test_key() {
         assert!(is_release(Some("github-release")));
         assert!(!is_release(Some("github")) && !is_release(Some("")) && !is_release(None));
-        let test_key =
-            "untrusted comment: TEST KEY, replaced by the release key in task B6\nRWQ...\n";
+        let test_key = "untrusted comment: TEST KEY\nRWQ...\n";
         assert!(!key_file_allowed(true, test_key));
         assert!(key_file_allowed(false, test_key));
         assert!(key_file_allowed(
