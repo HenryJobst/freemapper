@@ -1,162 +1,17 @@
 // freemapper run panel: options, start, progress, cancel, result. Runs after app.js, which
 // offers `window.freemapperPage`. Only textContent is used to show server text.
-"use strict";
-
-const RUN_TEXTS = {
-  de: {
-    runHeading: "Karte erzeugen",
-    optOcad: "OCAD-Startprojekt schreiben",
-    helpOcad: "Für alle, die in OCAD weiterarbeiten.",
-    optPdf: "Druckfertige PDF",
-    helpPdf: "Nur die Kartenobjekte, ohne Kandidaten.",
-    optPdfCandidates: "Trainings-PDF mit allen Kandidaten",
-    optScaleBar: "Maßstabsleiste in die PDFs",
-    helpScaleBar: "Deutsche Karten haben meist keine.",
-    optSources: "Quellenangabe in den PDFs",
-    sourcesAuto: "automatisch",
-    sourcesFull: "vollständig",
-    sourcesCreditOnly: "nur freemapper",
-    warnCreditOnly:
-      "Die PDFs nennen dann nur freemapper. Die Lizenzen der Daten (ODbL, dl-de/by-2-0) verlangen die Quellenangabe, wenn du die Karte weitergibst; dann nennst du die Quellen selbst. ATTRIBUTION.txt listet sie alle.",
-    needPdf: "Maßstabsleiste und Quellenangabe gelten nur, wenn eine PDF entsteht.",
-    optOffline: "Nur Zwischenspeicher, kein Netz",
-    optForce: "Vorhandene Karte ersetzen",
-    helpForce: "Die alte Datei bleibt als .omap.bak.",
-    runStart: "Karte erzeugen",
-    runAgain: "Nochmal erzeugen",
-    runCancel: "Abbrechen",
-    runCancelling: "Wird abgebrochen …",
-    warningsHeading: "Warnungen",
-    whereFiles: "Die Dateien liegen im Projektordner:",
-    openFolder: "Ordner öffnen",
-    logLabel: "Protokoll des Laufs",
-    forceTitle: "Vorhandene Karte ersetzen?",
-    forceText:
-      "Die vorhandene Karte wird ersetzt. Deine Änderungen darin gehen nicht verloren: Die alte Datei bleibt als .omap.bak im Projektordner. Fortfahren?",
-    forceCancel: "Abbrechen",
-    forceConfirm: "Ersetzen",
-    "step-fetch": "Daten laden",
-    "step-derive": "Vorlagen berechnen",
-    "step-map": "Karte schreiben",
-    "step-ocad": "OCAD-Projekt schreiben",
-    "step-pdf": "PDF schreiben",
-    "step-pdf-candidates": "Trainings-PDF schreiben",
-    stepLine: (index, total, label) => `Schritt ${index} von ${total}: ${label}`,
-    starting: "Der Lauf startet …",
-    "kind-map": "Karte",
-    "kind-template": "Vorlage",
-    "kind-ocad": "OCAD-Karte",
-    "kind-ocad-candidates": "OCAD-Kandidaten",
-    "kind-pdf": "PDF",
-    "kind-pdf-candidates": "Trainings-PDF",
-    fileLine: (path, kind, size) => `${path} (${kind}, ${size})`,
-    resultDone: "Fertig. Die Dateien sind geschrieben.",
-    resultFailed: (error) => `Der Lauf ist fehlgeschlagen: ${error}`,
-    resultFailedKept:
-      "Was schon geschrieben ist, bleibt im Projektordner; ein neuer Lauf macht dort weiter.",
-    resultCancelled:
-      "Abgebrochen. Was schon geladen ist, bleibt im Zwischenspeicher; ein neuer Lauf macht dort weiter.",
-    resultTitleDone: "Karte erzeugt",
-    resultTitleFailed: "Lauf fehlgeschlagen",
-    resultTitleCancelled: "Lauf abgebrochen",
-    keptMap:
-      "Die vorhandene Karte blieb unverändert. Mit „Vorhandene Karte ersetzen“ entsteht sie neu, die alte bleibt als .omap.bak.",
-    noFiles: "Es sind keine Dateien entstanden.",
-    openedFolder: "Der Ordner ist geöffnet.",
-    openFailed: (message, dir) => `${message} Ordner: ${dir}`,
-    whyNoArea: "Wähle zuerst ein Gebiet.",
-    whyChecking: "Die Vorschau wird berechnet …",
-    whyTooLarge: "Das Gebiet ist zu groß.",
-    whyOutside: "Das Gebiet liegt außerhalb der unterstützten Bundesländer.",
-    whyDisk: "Es ist zu wenig Speicherplatz frei (siehe oben).",
-    whyRunning: "Ein Lauf ist im Gang.",
-    errScaleBarNoPdf: "Die Maßstabsleiste braucht eine PDF.",
-    errSourcesNoPdf: "Die Quellenangabe braucht eine PDF.",
-    saveFailed: "Das Gebiet ist nicht gespeichert; es gibt noch keinen Lauf.",
-    pollLost: "Keine Antwort vom Server. freemapper versucht es weiter.",
-    runUnknown: "Der Lauf ist dem Server nicht mehr bekannt.",
-    failedPrefix: "Fehler: ",
-  },
-  en: {
-    runHeading: "Create the map",
-    optOcad: "Write an OCAD starter project",
-    helpOcad: "For everyone who carries on in OCAD.",
-    optPdf: "Printable PDF",
-    helpPdf: "Map objects only, no candidates.",
-    optPdfCandidates: "Training PDF with every candidate",
-    optScaleBar: "Scale bar on the PDFs",
-    helpScaleBar: "German maps usually have none.",
-    optSources: "Source lines on the PDFs",
-    sourcesAuto: "automatic",
-    sourcesFull: "full",
-    sourcesCreditOnly: "freemapper only",
-    warnCreditOnly:
-      "The PDFs then name freemapper only. The data licences (ODbL, dl-de/by-2-0) require attribution when you pass the map on; then you name the sources yourself. ATTRIBUTION.txt lists them all.",
-    needPdf: "The scale bar and the source lines only apply when a PDF is made.",
-    optOffline: "Cache only, no network",
-    optForce: "Replace the existing map",
-    helpForce: "The old file stays as .omap.bak.",
-    runStart: "Create map",
-    runAgain: "Create again",
-    runCancel: "Cancel",
-    runCancelling: "Cancelling …",
-    warningsHeading: "Warnings",
-    whereFiles: "The files are in the project folder:",
-    openFolder: "Open folder",
-    logLabel: "Log of the run",
-    forceTitle: "Replace the existing map?",
-    forceText:
-      "The existing map is replaced. Your edits in it are not lost: the old file stays in the project folder as .omap.bak. Continue?",
-    forceCancel: "Cancel",
-    forceConfirm: "Replace",
-    "step-fetch": "Fetching data",
-    "step-derive": "Computing templates",
-    "step-map": "Writing the map",
-    "step-ocad": "Writing the OCAD project",
-    "step-pdf": "Writing the PDF",
-    "step-pdf-candidates": "Writing the training PDF",
-    stepLine: (index, total, label) => `Step ${index} of ${total}: ${label}`,
-    starting: "The run is starting …",
-    "kind-map": "map",
-    "kind-template": "template",
-    "kind-ocad": "OCAD map",
-    "kind-ocad-candidates": "OCAD candidates",
-    "kind-pdf": "PDF",
-    "kind-pdf-candidates": "training PDF",
-    fileLine: (path, kind, size) => `${path} (${kind}, ${size})`,
-    resultDone: "Done. The files are written.",
-    resultFailed: (error) => `The run failed: ${error}`,
-    resultFailedKept:
-      "What is written stays in the project folder; a new run carries on from there.",
-    resultCancelled:
-      "Cancelled. What is downloaded already stays in the cache; a new run carries on from there.",
-    resultTitleDone: "Map created",
-    resultTitleFailed: "Run failed",
-    resultTitleCancelled: "Run cancelled",
-    keptMap:
-      "The existing map was left as it is. \"Replace the existing map\" makes it anew and keeps the old one as .omap.bak.",
-    noFiles: "No files were made.",
-    openedFolder: "The folder is open.",
-    openFailed: (message, dir) => `${message} Folder: ${dir}`,
-    whyNoArea: "Choose an area first.",
-    whyChecking: "The preview is being computed …",
-    whyTooLarge: "The area is too large.",
-    whyOutside: "The area lies outside the supported states.",
-    whyDisk: "Not enough free disk space (see above).",
-    whyRunning: "A run is going on.",
-    errScaleBarNoPdf: "The scale bar needs a PDF.",
-    errSourcesNoPdf: "The source lines need a PDF.",
-    saveFailed: "The area is not saved; no run was started.",
-    pollLost: "No answer from the server. freemapper keeps trying.",
-    runUnknown: "The server no longer knows this run.",
-    failedPrefix: "Error: ",
-  },
-};
+// Its words come from api/texts through the suite's texts.js (core ADR 0030, ADR 0096).
+import { language, t } from "../suite/texts.js";
 
 const RUN_ID_PREFIX = "run-";
 const $r = (id) => document.getElementById(id);
 const page = () => window.freemapperPage;
-const RT = () => RUN_TEXTS[page() && page().lang() === "en" ? "en" : "de"];
+
+/** The text `id`, or `fallback` when the catalog has none (a step or file kind added later). */
+function tOr(id, fallback, args = {}) {
+  const text = t(id, args);
+  return text === id ? fallback : text;
+}
 
 /** The seven options of a run from the form inside `root`; the PDF-only ones are off without a PDF. */
 function optionsFromForm(root) {
@@ -174,12 +29,12 @@ function optionsFromForm(root) {
   };
 }
 
-/** Text keys of the rules the options break; the server decides in the end. */
+/** Text ids of the rules the options break; the server decides in the end. */
 function validateOptions(options) {
   const anyPdf = options.pdf || options.pdf_candidates;
   const errors = [];
-  if (options.pdf_scale_bar && !anyPdf) errors.push("errScaleBarNoPdf");
-  if (options.pdf_sources !== "auto" && !anyPdf) errors.push("errSourcesNoPdf");
+  if (options.pdf_scale_bar && !anyPdf) errors.push("page-err-scale-bar-no-pdf");
+  if (options.pdf_sources !== "auto" && !anyPdf) errors.push("page-err-sources-no-pdf");
   return errors;
 }
 
@@ -198,7 +53,7 @@ let starting = false;
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   const places = { maximumFractionDigits: 1, minimumFractionDigits: 1 };
-  const locale = page().lang();
+  const locale = language();
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toLocaleString(locale, places)} KB`;
   if (bytes < 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toLocaleString(locale, places)} MB`;
@@ -206,15 +61,10 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toLocaleString(locale, places)} GB`;
 }
 
+/** The texts of the buttons that change with the state of the run. */
 function applyRunTexts() {
-  const texts = RT();
-  document.querySelectorAll("#run [data-text], #force-dialog [data-text]").forEach((el) => {
-    const text = texts[el.dataset.text];
-    if (typeof text === "string") el.textContent = text;
-  });
-  $r("run-log").setAttribute("aria-label", texts.logLabel);
-  $r("run-start").textContent = finished ? texts.runAgain : texts.runStart;
-  if (cancelling) $r("run-cancel").textContent = texts.runCancelling;
+  $r("run-start").textContent = t(finished ? "page-run-again" : "page-run-start");
+  if (cancelling) $r("run-cancel").textContent = t("page-run-cancelling");
 }
 
 function alertText(text) {
@@ -227,14 +77,13 @@ function alertText(text) {
 function blockedReason() {
   const p = page();
   const preview = p.getPreview();
-  const t = RT();
-  if (running || starting) return t.whyRunning;
-  if (!p.hasArea()) return t.whyNoArea;
-  if (!preview) return t.whyChecking;
-  if (preview.outside_coverage) return t.whyOutside;
-  if (preview.too_large) return t.whyTooLarge;
+  if (running || starting) return t("page-why-running");
+  if (!p.hasArea()) return t("page-why-no-area");
+  if (!preview) return t("page-why-checking");
+  if (preview.outside_coverage) return t("page-why-outside");
+  if (preview.too_large) return t("page-why-too-large");
   const disk = preview.estimate && preview.estimate.disk;
-  if (disk && disk.stops && !$r("run-offline").checked) return t.whyDisk;
+  if (disk && disk.stops && !$r("run-offline").checked) return t("page-why-disk");
   return null;
 }
 
@@ -263,7 +112,7 @@ function refresh() {
 function confirmForce() {
   const dialog = $r("force-dialog");
   if (typeof dialog.showModal !== "function") {
-    return Promise.resolve(window.confirm(RT().forceText));
+    return Promise.resolve(window.confirm(t("page-force-text")));
   }
   return new Promise((resolve) => {
     dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), {
@@ -276,11 +125,10 @@ function confirmForce() {
 
 async function startRun() {
   const p = page();
-  const t = RT();
   alertText("");
   const options = optionsFromForm($r("run"));
   if (validateOptions(options).length) {
-    alertText(t[validateOptions(options)[0]]);
+    alertText(t(validateOptions(options)[0]));
     return;
   }
   // The page never sends force without the dialog.
@@ -292,7 +140,7 @@ async function startRun() {
   refresh();
   try {
     if (!(await p.ensureSaved())) {
-      alertText(t.saveFailed);
+      alertText(t("page-save-failed"));
       return;
     }
     const answer = await p.api("api/run", options);
@@ -327,8 +175,8 @@ function attach(id, focusCancel) {
   $r("run-warnings").hidden = true;
   $r("run-progress").hidden = false;
   $r("run-cancel").disabled = false;
-  $r("run-cancel").textContent = RT().runCancel;
-  $r("run-step").textContent = RT().starting;
+  $r("run-cancel").textContent = t("page-run-cancel");
+  $r("run-step").textContent = t("page-starting");
   $r("run-log").textContent = "";
   refresh();
   if (focusCancel) $r("run-cancel").focus();
@@ -336,11 +184,14 @@ function attach(id, focusCancel) {
 }
 
 function renderProgress(status) {
-  const t = RT();
   const phase = status.phase;
   $r("run-step").textContent = phase
-    ? t.stepLine(phase.index, phase.total, t[phase.step] || phase.step)
-    : t.starting;
+    ? t("page-step-line", {
+      index: phase.index,
+      total: phase.total,
+      label: tOr(`page-${phase.step}`, phase.step),
+    })
+    : t("page-starting");
   logLines = logLines.concat(status.lines || []).slice(-200);
   const shown = logLines.slice(-8).join("\n");
   const log = $r("run-log");
@@ -371,7 +222,6 @@ function schedule() {
 async function poll() {
   clearTimeout(timer);
   if (!jobId) return;
-  const t = RT();
   let status;
   try {
     status = await page().api(
@@ -379,11 +229,11 @@ async function poll() {
     );
   } catch (e) {
     if (e.status === 404) {
-      endRun({ state: "failed", error: t.runUnknown, files: [], warnings: [] });
+      endRun({ state: "failed", error: t("page-run-unknown"), files: [], warnings: [] });
       return;
     }
     // 429 (too fast) and a short outage: try again, say so for the outage.
-    if (e.status !== 429) $r("run-step").textContent = t.pollLost;
+    if (e.status !== 429) $r("run-step").textContent = t("page-poll-lost");
     schedule();
     return;
   }
@@ -398,7 +248,7 @@ async function poll() {
 
 async function cancelRun() {
   $r("run-cancel").disabled = true;
-  $r("run-cancel").textContent = RT().runCancelling;
+  $r("run-cancel").textContent = t("page-run-cancelling");
   cancelling = true;
   try {
     await page().api("api/cancel", { job_id: jobId });
@@ -430,24 +280,24 @@ async function endRun(status) {
 }
 
 function renderResult(status) {
-  const t = RT();
   const heading = $r("run-result-heading");
   const text = $r("run-result-text");
   const done = status.state === "done";
-  heading.textContent =
+  heading.textContent = t(
     status.state === "done"
-      ? t.resultTitleDone
+      ? "page-result-title-done"
       : status.state === "cancelled"
-        ? t.resultTitleCancelled
-        : t.resultTitleFailed;
+        ? "page-result-title-cancelled"
+        : "page-result-title-failed",
+  );
   text.textContent = done
-    ? t.resultDone
+    ? t("page-result-done")
     : status.state === "cancelled"
-      ? t.resultCancelled
-      : t.resultFailed(status.error || "");
+      ? t("page-result-cancelled")
+      : t("page-result-failed", { error: status.error || "" });
   text.classList.toggle("error-text", status.state === "failed");
   const kept = $r("run-kept");
-  kept.textContent = done && status.kept_map ? t.keptMap : "";
+  kept.textContent = done && status.kept_map ? t("page-kept-map") : "";
   kept.hidden = !kept.textContent;
   const files = status.files || [];
   const list = $r("run-files");
@@ -455,17 +305,21 @@ function renderResult(status) {
     list.replaceChildren(
       ...files.map((f) => {
         const li = document.createElement("li");
-        li.textContent = t.fileLine(f.path, t[`kind-${f.kind}`] || f.kind, formatSize(f.bytes));
+        li.textContent = t("page-file-line", {
+          path: f.path,
+          kind: tOr(`page-file-kind-${f.kind}`, f.kind),
+          size: formatSize(f.bytes),
+        });
         return li;
       }),
     );
   } else if (status.state === "failed") {
     list.replaceChildren(
-      Object.assign(document.createElement("li"), { textContent: t.resultFailedKept }),
+      Object.assign(document.createElement("li"), { textContent: t("page-result-failed-kept") }),
     );
   } else {
     list.replaceChildren(
-      Object.assign(document.createElement("li"), { textContent: t.noFiles }),
+      Object.assign(document.createElement("li"), { textContent: t("page-no-files") }),
     );
   }
   const project = page().getProject();
@@ -476,15 +330,14 @@ function renderResult(status) {
 }
 
 async function openFolder() {
-  const t = RT();
   const message = $r("run-open-message");
   try {
     const answer = await page().api("api/open-folder", {});
     message.textContent = answer.opened
-      ? t.openedFolder
-      : t.openFailed(answer.message || "", answer.dir || "");
+      ? t("page-opened-folder")
+      : t("page-open-failed", { message: answer.message || "", dir: answer.dir || "" });
   } catch (e) {
-    message.textContent = t.openFailed(e.message, page().getProject().dir);
+    message.textContent = t("page-open-failed", { message: e.message, dir: page().getProject().dir });
   }
   message.hidden = false;
 }
@@ -494,9 +347,7 @@ function closingText() {
   if (!finished || finished.state !== "done") return null;
   const files = (finished.files || []).map((f) => f.path).join(", ");
   const project = page().getProject();
-  return page().lang() === "en"
-    ? `Created: ${files}. Folder: ${project.dir}`
-    : `Erzeugt: ${files}. Ordner: ${project.dir}`;
+  return t("page-made-files", { files, dir: project.dir });
 }
 
 // --- Init ------------------------------------------------------------------------------------
@@ -538,5 +389,4 @@ window.freemapperRun = {
   closingText,
   optionsFromForm,
   validateOptions,
-  RUN_TEXTS,
 };

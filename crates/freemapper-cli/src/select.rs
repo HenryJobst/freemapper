@@ -17,7 +17,7 @@ use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
 use axum::extract::{DefaultBodyLimit, Path as UrlPath, Query, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use freemapper::area::MapArea;
@@ -176,6 +176,7 @@ fn router(
             &format!("{prefix}/tiles/osm/{{z}}/{{x}}/{{y}}"),
             get(osm_tile),
         )
+        .route(&format!("{prefix}/api/texts"), get(texts))
         .route(&format!("{prefix}/api/project"), get(project))
         .route(&format!("{prefix}/api/update"), get(update_notice))
         .route(&format!("{prefix}/api/preview"), post(preview))
@@ -245,6 +246,21 @@ async fn asset(UrlPath(path): UrlPath<String>) -> Response {
     embedded::<Assets>(&path)
 }
 
+/// The page's language from the request's `Accept-Language`, unless `--lang` or the environment
+/// named one (ADR 0092, core ADR 0030).
+fn page_lang(headers: &HeaderMap) -> crate::text::Lang {
+    let accept = headers
+        .get(header::ACCEPT_LANGUAGE)
+        .and_then(|value| value.to_str().ok());
+    crate::text::page_lang(accept)
+}
+
+/// Every word of the page: `{ "lang": "de" | "en", "texts": { id: text } }` (core ADR 0030).
+async fn texts(headers: HeaderMap) -> Response {
+    let lang = page_lang(&headers);
+    Json(json!({ "lang": lang.code(), "texts": crate::text::page_texts(&lang) })).into_response()
+}
+
 fn kind_name(kind: MapKind) -> &'static str {
     kind.name()
 }
@@ -277,7 +293,17 @@ fn run_defaults_json(options: &RunOptions) -> Value {
     })
 }
 
+/// The revision of `freemapper.toml` in `dir` (core ADR 0030), or `None` while there is none.
+fn project_revision(dir: &Path) -> Option<String> {
+    std::fs::read(dir.join("freemapper.toml"))
+        .ok()
+        .map(|bytes| freemapper_web::revision(&bytes))
+}
+
 async fn project(State(state): State<Arc<AppState>>) -> Response {
+    // Read before the project: should the file change in between, the page holds the older
+    // revision, and its next save is refused instead of overwriting.
+    let revision = project_revision(&state.dir);
     let saved = match saved_project(&state) {
         Ok(saved) => saved,
         Err(e) => return bad_request(e),
@@ -316,10 +342,8 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
         .map(|kind| (kind.name().to_string(), json!(kind.allowed_scales())))
         .collect::<serde_json::Map<_, _>>()
         .into();
-    // The program language when `--lang` or the environment named one; else null, and the page
-    // follows the browser (ADR 0092).
-    answer["lang"] = crate::text::named_lang().map_or(Value::Null, |lang| Value::from(lang.code()));
     answer["running"] = crate::select_run::running_json(&state);
+    answer["revision"] = revision.map_or(Value::Null, Value::from);
     Json(answer).into_response()
 }
 
@@ -446,7 +470,18 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
     }
 }
 
-async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
+async fn save(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    // The revision of freemapper.toml as the page read it (core ADR 0030); none before the file
+    // exists.
+    let seen = headers
+        .get(freemapper_web::REVISION_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    let lang = page_lang(&headers);
     if state.hub.running_for(&state.dir) {
         return (
             StatusCode::CONFLICT,
@@ -467,8 +502,15 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
         } else {
             None
         };
-        let area = area_of(&body)?;
         let dir = &state.dir;
+        // Another window or program wrote the file since the page read it: write nothing. The
+        // check comes under the folder lock, so no run of this program writes in between.
+        if let Some(current) = project_revision(dir)
+            && seen.as_deref() != Some(current.as_str())
+        {
+            return Err(SaveError::Stale(current));
+        }
+        let area = area_of(&body)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
         let mut provider_changed = false;
@@ -503,6 +545,9 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
             "provider_changed": provider_changed,
             "dir": dir,
             "has_map": map_path(dir).exists(),
+            // The page compares it with the revision it reads next: another one means that
+            // another window or program wrote the file in between.
+            "revision": project_revision(dir),
         }))
     })
     .await;
@@ -511,6 +556,10 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
         Ok(Err(SaveError::Locked(e))) => {
             (StatusCode::CONFLICT, Json(json!({ "error": e }))).into_response()
         }
+        Ok(Err(SaveError::Stale(current))) => freemapper_web::stale(
+            &current,
+            &crate::text::TEXTS.text(&lang, "page-save-stale", &[]),
+        ),
         Ok(Err(SaveError::Other(e))) => bad_request(e),
         Err(e) => bad_request(format!("internal error: {e}")),
     }
@@ -520,6 +569,8 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
 enum SaveError {
     /// Another freemapper run holds the folder.
     Locked(String),
+    /// The file changed since the page read it; its revision now.
+    Stale(String),
     Other(String),
 }
 
@@ -602,7 +653,9 @@ pub(crate) mod tests {
             .unwrap();
         let url = format!("{}api/save", selector.url);
         let origin = origin_of(&selector.url);
-        let post = move |url: String, origin: String| {
+        // The page names the revision of the file it read (core ADR 0030).
+        let seen = freemapper_web::revision(before.as_bytes());
+        let post = |url: String, origin: String, seen: String| {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
                 .build()
@@ -612,6 +665,7 @@ pub(crate) mod tests {
                 .post(&url)
                 .header("Content-Type", "application/json")
                 .header("Origin", &origin)
+                .header(freemapper_web::REVISION_HEADER, &seen)
                 .send(body)
                 .unwrap();
             (
@@ -620,7 +674,8 @@ pub(crate) mod tests {
             )
         };
         let (u, o) = (url.clone(), origin.clone());
-        let (status, text) = tokio::task::spawn_blocking(move || post(u, o))
+        let s = seen.clone();
+        let (status, text) = tokio::task::spawn_blocking(move || post(u, o, s))
             .await
             .unwrap();
         assert_eq!(status, 409, "{text}");
@@ -638,7 +693,7 @@ pub(crate) mod tests {
         );
         // Let go, and the same save goes through; the page leaves no lock behind.
         drop(held);
-        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin))
+        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin, seen))
             .await
             .unwrap();
         assert_eq!(status, 200, "{text}");
@@ -1183,9 +1238,6 @@ pub(crate) mod tests {
                 "pdf_sources": "credit-only",
             })
         );
-        // No language was named in this test process, so the page follows the browser.
-        assert!(answer["lang"].is_null(), "{answer}");
-        assert!(answer.as_object().unwrap().contains_key("lang"));
         // Without flags every option is off and the sources are automatic.
         let (selector, _dir) = page_with(plain_defaults(), None).await;
         let answer = project_json(&selector).await;
