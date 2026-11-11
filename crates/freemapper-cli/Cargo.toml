@@ -11,9 +11,16 @@ rust-version.workspace = true
 name = "freemapper"
 path = "src/main.rs"
 
+[features]
+# Tests only: a debug build with this feature takes FREEMAPPER_UPDATE_TEST_BASE, counts as a release
+# build and sends its update requests to that stub server (`cargo test -p freemapper-cli --features
+# test-stub`). Release builds never have it.
+test-stub = []
+
 [dependencies]
 freemapper.workspace = true
 freemapper-fs.workspace = true
+freemapper-update.workspace = true
 freemapper-web.workspace = true
 freemapper-text.workspace = true
 anyhow.workspace = true

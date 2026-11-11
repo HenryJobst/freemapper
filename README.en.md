@@ -140,6 +140,13 @@ freemapper is a single program without an installer. You do not need to build it
 4. Check in a terminal (Windows: PowerShell) in the unpacked folder: `./freemapper --version`
    (Windows: `.\freemapper.exe --version`).
 
+`freemapper update` asks, then downloads the newest release and puts it in place of the program, at
+the same path. It checks the release's signature first, and the old program stays for
+`freemapper update --rollback`. After `init`, `select`, `fetch` and `run` freemapper looks at most once a day for
+a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
+older cannot update themselves yet; replace them once by hand as above. Details are in the
+[user manual](docs/manual/en.md#updating).
+
 It is more convenient with an AI assistant (see [With an AI agent](#with-an-ai-agent-mcp)): register
 freemapper once with its full path, and the assistant does the rest. An assistant that can run commands
 (Claude Code, Codex) also does the download and the registration with [`AGENTS.md`](AGENTS.md).
@@ -355,6 +362,9 @@ The workflow the agent follows:
 
 When no search result fits or the user wants to draw the area, `open_area_selector` opens the area
 selection in the browser and returns its address; after saving, continue with step 3.
+
+`check_update` tells whether a newer freemapper exists. `install_update` installs it, only with `confirm: true`
+after the user agreed; the assistant then restarts the server.
 
 Then open the `.omap` file in the project folder with OpenOrienteering Mapper.
 

@@ -76,6 +76,41 @@ cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ord
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
 
+## update (Spezifikation 3.4 bis 3.6)
+
+update-source-build = Dieses freemapper wurde aus dem Quellcode gebaut. Aktualisieren Sie es mit git pull und cargo build --release --locked.
+update-current = freemapper { $version } ist aktuell.
+update-available = freemapper { $new } ist verfügbar (Sie haben { $old }), erschienen am { $released }.
+update-details =
+    Versionshinweise: { $notes }
+    Download: { $size } MB
+update-decimal-separator = ,
+update-ask = Jetzt installieren? [j/N]
+update-not-installed = Es wurde nichts installiert.
+update-needs-yes = Die Eingabe ist kein Terminal, deshalb kann freemapper vor der Installation nicht fragen. Mit freemapper update --yes wird ohne Rückfrage installiert.
+update-installing = freemapper { $version } wird geladen und geprüft
+update-done = freemapper wurde von { $old } auf { $new } aktualisiert. Versionshinweise: { $notes }
+update-mcp-restart = Ein laufender MCP-Server behält die alte Version, bis der KI-Assistent ihn neu startet.
+update-rolled-back = Zurück zu freemapper { $version }. Die verlassene Version liegt als { $path } bereit.
+update-not-writable = In den Programmordner { $path } kann nicht geschrieben werden, und freemapper fragt nicht nach Administratorrechten. Entpacken Sie die neue Version dort von Hand oder verschieben Sie freemapper in einen Ordner, in den Sie schreiben dürfen.
+update-too-old = freemapper { $new } lässt sich nicht durch die Selbstaktualisierung von { $old } installieren. Installieren Sie { $needed } oder neuer von Hand, siehe { $notes }
+update-busy = Im Programmordner läuft schon eine Aktualisierung oder ein Zurücksetzen (Sperrdatei { $path }). Warten Sie, bis der Vorgang beendet ist, und versuchen Sie es dann erneut.
+update-bad-signature = Die neue Version ließ sich nicht verifizieren ({ $error }). Es wurde nichts installiert.
+update-no-asset = Die neue Version enthält kein Programm für dieses System ({ $platform }). Es wurde nichts installiert.
+update-no-previous = Es gibt keine vorherige Version, zu der zurückgekehrt werden kann ({ $path } fehlt).
+update-failed = Die Aktualisierung ist fehlgeschlagen: { $error }
+update-mode-set = Aktualisierungsmodus { $mode } in { $path } gespeichert.
+update-mode-env = FREEMAPPER_UPDATE={ $value } hat Vorrang vor dieser Einstellung, solange die Variable gesetzt ist.
+update-mode-failed = { $path } ließ sich nicht schreiben: { $error }
+update-notice = freemapper { $new } ist verfügbar (Sie haben { $old }). Aktualisieren mit: freemapper update
+update-applies-next-start = Die neue Version gilt ab dem nächsten Start von freemapper.
+update-install-failed = Warnung: freemapper { $new } wurde nicht installiert: { $error }
+update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
+update-mcp-note = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }). Fragen Sie nach, bevor Sie install_update aufrufen.
+update-mcp-needs-confirm = Es wurde nichts installiert; fragen Sie zuerst die Nutzerin oder den Nutzer und rufen Sie install_update nach der Zustimmung mit confirm: true auf
+update-mcp-note-manual = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }), lässt sich aber nicht mit install_update installieren. { $needed } oder neuer muss von Hand installiert werden, siehe { $notes }
+update-mcp-restart-now = Starten Sie den freemapper-MCP-Server jetzt neu, denn er läuft noch mit der alten Version.
+
 ## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen
 ## an und bleibt, wie es ist; das gilt auch für Einzelheiten, die freemapper bisher nur auf
 ## Englisch kennt.
@@ -243,6 +278,12 @@ help-select-pdf-candidates = Auf der Seite ist die Trainings-PDF (jeder Kandidat
 help-select-pdf-scale-bar = Auf der Seite ist die Maßstabsleiste auf den PDFs vorgewählt
 help-select-pdf-sources = Auf der Seite ist diese Wahl der Quellenzeilen auf den PDFs vorgewählt, wie bei `run`
 help-mcp = Die Werkzeuge einem KI-Agenten über MCP anbieten (stdin/stdout)
+help-update = Eine neuere freemapper-Version aus den GitHub-Releases installieren, nach Rückfrage. Ein aus dem Quellcode gebautes freemapper nennt stattdessen den Weg zum Aktualisieren
+help-update-check = Nur prüfen: Exit-Code 10, wenn es eine neuere Version gibt, 0, wenn diese aktuell ist
+help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Terminal ist
+help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
+help-update-rollback = Zur Version zurückkehren, die die letzte Aktualisierung ersetzt hat
+help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 
@@ -297,7 +338,8 @@ mcp-created-project-given-area = Projekt { $path } für das angegebene Gebiet an
 mcp-page-already-open = Die Seite für diesen Ordner ist schon offen; sie behält die Einstellungen, mit denen sie geöffnet wurde.
 mcp-page-next = Bitten Sie die Nutzerin oder den Nutzer, das Gebiet auf der Seite zu wählen und dann „Speichern“ und „Fertig“ zu drücken.
 mcp-preview-of = Vorschau von { $layer }
-mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000) aus amtlichen Geodaten von Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline.
+mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000) aus amtlichen Geodaten von Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline. check_update sagt, ob es eine neuere Version von freemapper gibt; install_update installiert sie, nur mit confirm: true nach Zustimmung der Nutzerin oder des Nutzers, und danach startet der Assistent den freemapper-Server neu.
+mcp-tool-check-update = Ob es eine neuere Version von freemapper gibt: ihre Versionsnummer, ihr Erscheinungsdatum, die Versionshinweise und die Downloadgröße, oder dass diese Version aktuell ist. Installiert nichts.
 mcp-tool-create-project = Legt einen Projektordner für ein Kartengebiet an. Geben Sie osm_id (aus find_place) oder eine GeoJSON-Datei an. kind ist schoolyard (1:1000, Standard) oder sprint (1:4000).
 mcp-param-create-project-dir = Neuer Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-param-create-project-geojson = Statt osm_id: eine GeoJSON-Datei mit dem Polygon des Kartengebiets (EPSG:4326).
@@ -310,6 +352,8 @@ mcp-tool-estimate-download = Was start_pipeline für ein Projekt laden wird: die
 mcp-param-estimate-download-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-tool-find-place = Sucht eine Schule, einen Park oder einen anderen Ort nach Namen (OpenStreetMap Nominatim). Liefert bis zu 5 Treffer, Flächen zuerst; nur Treffer mit has_area können ein Kartengebiet sein. Eine leere Liste heißt, dass nichts gefunden wurde.
 mcp-param-find-place-query = Name der Schule oder des Ortes, z. B. "Clara-Zetkin-Schule Strausberg".
+mcp-tool-install-update = Installiert die neueste Version von freemapper über dieses Programm. Rufen Sie es erst auf, wenn die Nutzerin oder der Nutzer zugestimmt hat, und mit confirm true. Die neue Version gilt, sobald der Assistent den freemapper-Server neu startet.
+mcp-param-install-update-confirm = true, sobald die Nutzerin oder der Nutzer der Installation der neueren Version zugestimmt hat; ohne das wird nichts installiert.
 mcp-tool-list-layers = Die Ebenen eines Projekts: die Karte, die Kandidaten und die Rastervorlagen, jede mit ihrer Datei, ob es sie schon gibt und welcher Schritt sie erzeugt.
 mcp-param-list-layers-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-tool-open-area-selector = Öffnet eine Seite im Browser, auf der die Nutzerin oder der Nutzer das Kartengebiet zeichnet (Rechteck oder Polygon) oder einen Ort wählt, die Kacheln und die Downloadgröße sieht und speichert; das Speichern legt den Projektordner an oder ändert sein Gebiet. Liefert die URL für die Nutzerin oder den Nutzer. Die Seite läuft, bis „Fertig“ gedrückt wird; ein weiterer Aufruf für denselben Ordner liefert dieselbe URL.

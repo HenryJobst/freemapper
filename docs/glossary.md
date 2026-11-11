@@ -262,3 +262,8 @@ Orienteering Maps 2019 (IOF).
 | Vorschau | preview | PNG-Bild einer Ebene für Mensch oder Agent. | `Preview` |
 | Ebene | layer | Ein Ergebnis (Objekte, Kandidaten oder Vorlage) mit einheitlichem Inhalt. | `Layer` |
 | Werkzeug (MCP) | tool (MCP) | Vom MCP-Server angebotene Funktion für Agenten. | `#[tool]` |
+| Selbstaktualisierung | self-update | freemapper ersetzt sich selbst durch eine neuere Version aus den GitHub-Releases, am selben Pfad, nach Prüfung von Signatur und Prüfsummen; die ersetzte Version bleibt als `freemapper.previous` (ADR 0094). | `freemapper_update`, `update` |
+| Aktualisierung (des Programms) | update | Ein Lauf der Selbstaktualisierung: prüfen, laden, prüfen, austauschen. Nicht zu verwechseln mit der Aktualisierung des OSM-Auszugs im Zwischenspeicher. | `update::command`, `install` |
+| Aktualisierungsmanifest | update manifest | `freemapper-update.json` in jedem Release: Version, Datum, Versionshinweise, kleinste Version, die sich selbst aktualisieren kann, und je System Adresse, Größe und SHA-256 der Programmdatei; mit minisign signiert (`.minisig`). | `Manifest`, `parse_manifest` |
+| Aktualisierungsmodus | update mode | Was die tägliche Prüfung bei einer neueren Version tut: `notify` (Hinweis, Standard), `install` (installiert nach einem gelungenen Befehl) oder `off`; in `settings.toml`, überschreibbar mit `FREEMAPPER_UPDATE`. | `Mode`, `update --mode` |
+| Tägliche Prüfung | daily check | Prüfung auf eine neuere Version, höchstens einmal in 24 Stunden, nach `init`, `select`, `fetch` und `run` und im MCP-Server; der letzte Versuch steht in `update-check.json` im Zwischenspeicher. | `start_background_check`, `CheckRecord` |

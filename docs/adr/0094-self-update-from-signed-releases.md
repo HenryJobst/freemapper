@@ -1,7 +1,7 @@
 # 0094. Self-update from signed releases
 
 Date: 2026-11-11
-Status: Proposed
+Status: Accepted (app side merged; the signed release workflow follows once the release key exists)
 
 ## Context
 

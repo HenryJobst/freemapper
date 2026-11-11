@@ -12,6 +12,7 @@ mod select_page;
 mod select_run;
 mod text;
 mod tiles;
+mod update;
 
 use std::path::PathBuf;
 
@@ -191,6 +192,26 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Install a newer freemapper from the GitHub releases, after asking. A build from source says
+    /// how to update it instead.
+    Update {
+        /// Only check: exit code 10 when a newer version exists, 0 when this one is current.
+        #[arg(long, conflicts_with_all = ["yes", "rollback"])]
+        check: bool,
+        /// Install without asking; needed when the input is not a terminal.
+        #[arg(long)]
+        yes: bool,
+        /// Install this version (x.y.z) instead of the newest one, also an older one.
+        #[arg(long, value_name = "X.Y.Z")]
+        version: Option<freemapper_update::Version>,
+        /// Go back to the version the last update replaced.
+        #[arg(long, conflicts_with = "version")]
+        rollback: bool,
+        /// Store what the daily check does when it finds a newer version (default: notify). Works
+        /// in every build, because it only writes the setting.
+        #[arg(long, value_enum, conflicts_with_all = ["check", "yes", "version", "rollback"])]
+        mode: Option<UpdateMode>,
+    },
 }
 
 /// Where the map area comes from: exactly one of these.
@@ -257,6 +278,34 @@ impl CacheArgs {
         match self.cache_dir {
             Some(dir) => Ok(Cache::new(dir)),
             None => Cache::default_location().with_context(|| text("cli-no-cache-dir", &[])),
+        }
+    }
+
+    /// The folder [`Self::cache`] uses, if there is one.
+    fn folder(&self) -> Option<PathBuf> {
+        self.cache_dir
+            .clone()
+            .or_else(|| Cache::default_location().map(|cache| cache.root().to_path_buf()))
+    }
+}
+
+impl Commands {
+    /// The cache folder and `--offline` of a command after which the daily update check runs:
+    /// the ones that use the network anyway (spec 3.3). `init` has no `--cache-dir` and records
+    /// in the default cache folder.
+    fn update_check(&self) -> Option<(Option<PathBuf>, bool)> {
+        match self {
+            Commands::Init { .. } => Some((
+                Cache::default_location().map(|cache| cache.root().to_path_buf()),
+                false,
+            )),
+            Commands::Fetch { offline, cache, .. }
+            | Commands::Run { offline, cache, .. }
+            | Commands::Select { offline, cache, .. } => Some((cache.folder(), *offline)),
+            Commands::Export { .. }
+            | Commands::Derive { .. }
+            | Commands::Mcp { .. }
+            | Commands::Update { .. } => None,
         }
     }
 }
@@ -392,6 +441,23 @@ impl From<SourcesArg> for PdfSources {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
+enum UpdateMode {
+    Notify,
+    Install,
+    Off,
+}
+
+impl From<UpdateMode> for freemapper_update::Mode {
+    fn from(mode: UpdateMode) -> Self {
+        match mode {
+            UpdateMode::Notify => Self::Notify,
+            UpdateMode::Install => Self::Install,
+            UpdateMode::Off => Self::Off,
+        }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
 enum Kind {
     Schoolyard,
     Sprint,
@@ -456,8 +522,20 @@ fn main() -> std::process::ExitCode {
         Ok(cli) => cli,
         Err(error) => return parse_error(error),
     };
-    match run(cli) {
-        Ok(()) => std::process::ExitCode::SUCCESS,
+    // The MCP server's stdout is the protocol, and a stale file may be an older server still
+    // running; it is left alone.
+    if !matches!(cli.command, Commands::Mcp { .. }) {
+        update::background::remove_stale_files();
+    }
+    let check = cli.command.update_check().and_then(|(cache, offline)| {
+        update::background::start_background_check(&update::background::CheckContext::of_command(
+            cache, offline,
+        ))
+    });
+    let result = run(cli);
+    let command_ok = result.is_ok();
+    let code = match result {
+        Ok(code) => code,
         Err(error) => {
             eprintln!(
                 "{}: {}",
@@ -466,11 +544,16 @@ fn main() -> std::process::ExitCode {
             );
             std::process::ExitCode::FAILURE
         }
+    };
+    // After the command's own output, its error included.
+    if let Some(report) = check.and_then(|check| check.finish(command_ok)) {
+        report.print();
     }
+    code
 }
 
 /// Runs the command; an error comes back for `main` to word in the language of the run.
-fn run(cli: Cli) -> anyhow::Result<()> {
+fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     match cli.command {
         Commands::Init {
             dir,
@@ -653,8 +736,23 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;
         }
+        Commands::Update {
+            check,
+            yes,
+            version,
+            rollback,
+            mode,
+        } => {
+            return update::command::run(update::command::Request {
+                check,
+                yes,
+                version,
+                rollback,
+                mode: mode.map(Into::into),
+            });
+        }
     }
-    Ok(())
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 #[cfg(test)]

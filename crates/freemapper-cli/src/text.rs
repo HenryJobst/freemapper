@@ -153,6 +153,17 @@ mod tests {
             ("args", v("<DIR>")),
             ("values", v("a, b")),
             ("other", v("--y")),
+            ("new", v("0.12.0")),
+            ("old", v("0.11.0")),
+            ("released", v("2026-11-20")),
+            (
+                "notes",
+                v("https://github.com/HenryJobst/freemapper/releases/tag/v0.12.0"),
+            ),
+            ("size", v("11.8")),
+            ("version", v("0.12.0")),
+            ("mode", v("notify")),
+            ("platform", v("linux-riscv")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -170,8 +181,15 @@ mod tests {
             include_str!("help.rs"),
             include_str!("mcp.rs"),
             include_str!("jobs.rs"),
+            include_str!("update/mod.rs"),
+            include_str!("update/background.rs"),
+            include_str!("update/command.rs"),
+            include_str!("update/source.rs"),
         ] {
-            for id in freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-"]) {
+            for id in freemapper_text::ids_in_source(
+                source,
+                &["cli-", "error-", "word-", "mcp-", "update-"],
+            ) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
@@ -186,10 +204,14 @@ mod tests {
             include_str!("help.rs"),
             include_str!("mcp.rs"),
             include_str!("jobs.rs"),
+            include_str!("update/mod.rs"),
+            include_str!("update/background.rs"),
+            include_str!("update/command.rs"),
+            include_str!("update/source.rs"),
         ]
         .iter()
         .flat_map(|source| {
-            freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-"])
+            freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-", "update-"])
         })
         .collect();
         // The help and the MCP descriptions are looked up by name; `help.rs` and `mcp.rs` test

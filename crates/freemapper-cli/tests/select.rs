@@ -21,8 +21,14 @@ struct Selector {
 
 impl Selector {
     fn start(dir: &Path, cache: &Path, extra: &[&str]) -> Self {
+        Self::start_with_env(dir, cache, extra, &[])
+    }
+
+    fn start_with_env(dir: &Path, cache: &Path, extra: &[&str], env: &[(&str, &str)]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
             .env("FREEMAPPER_LANG", "en")
+            .env_remove("CI")
+            .envs(env.iter().copied())
             .arg("select")
             .arg(dir)
             .args(["--no-browser", "--cache-dir", cache.to_str().unwrap()])
@@ -483,4 +489,101 @@ fn the_page_takes_over_a_named_program_language() {
     // The test environment names English; the switch wins over it.
     assert_eq!(lang_of(&[]), "en");
     assert_eq!(lang_of(&["--lang", "de"]), "de");
+}
+
+/// `api/update` of a page whose cache holds `record` (if any). `base` is the update stub the
+/// program is told about (a build with the `test-stub` feature counts as a release build then).
+fn update_answer(record: Option<Value>, base: &str) -> Value {
+    let cache = tempfile::tempdir().unwrap();
+    let config = tempfile::tempdir().unwrap();
+    if let Some(record) = record {
+        std::fs::write(cache.path().join("update-check.json"), record.to_string()).unwrap();
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let selector = Selector::start_with_env(
+        &dir.path().join("p"),
+        cache.path(),
+        &[],
+        &[
+            ("FREEMAPPER_UPDATE_TEST_BASE", base),
+            ("FREEMAPPER_CONFIG_DIR", config.path().to_str().unwrap()),
+            ("FREEMAPPER_UPDATE", "notify"),
+        ],
+    );
+    let (status, body) = selector.get("api/update");
+    assert_eq!(status, 200, "{body}");
+    serde_json::from_str(&body).unwrap()
+}
+
+fn available_record(version: &str) -> Value {
+    json!({
+        "at": chrono::Utc::now().timestamp(),
+        "by": env!("CARGO_PKG_VERSION"),
+        "result": {
+            "outcome": "available",
+            "version": version,
+            "notes": "https://github.com/HenryJobst/freemapper/releases/tag/v9.9.9",
+        },
+    })
+}
+
+#[cfg(feature = "test-stub")]
+#[test]
+fn api_update_reads_the_record_only() {
+    // A listener that counts connections: the page must not reach it.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let answer = update_answer(Some(available_record("9.9.9")), &base);
+    assert_eq!(
+        answer,
+        json!({"available": {
+            "version": "9.9.9",
+            "notes": "https://github.com/HenryJobst/freemapper/releases/tag/v9.9.9",
+        }})
+    );
+    // A record that says nothing newer shows nothing.
+    let current = json!({
+        "at": chrono::Utc::now().timestamp(),
+        "by": env!("CARGO_PKG_VERSION"),
+        "result": {"outcome": "current"},
+    });
+    assert_eq!(
+        update_answer(Some(current), &base),
+        json!({"available": null})
+    );
+    assert!(listener.accept().is_err(), "the update stub got a request");
+}
+
+#[cfg(feature = "test-stub")]
+#[test]
+fn api_update_drops_notes_outside_github() {
+    // A changed record file must not put a foreign link on the page.
+    let mut record = available_record("9.9.9");
+    record["result"]["notes"] = json!("https://example.org/notes");
+    let answer = update_answer(Some(record), "http://127.0.0.1:9");
+    assert_eq!(
+        answer,
+        json!({"available": {"version": "9.9.9", "notes": null}})
+    );
+}
+
+#[cfg(feature = "test-stub")]
+#[test]
+fn api_update_null_without_record() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    // Without a record the daily check is due and may run against the stub, which says nothing;
+    // the answer of the page is null either way.
+    assert_eq!(update_answer(None, &base), json!({"available": null}));
+}
+
+#[test]
+fn api_update_is_null_in_a_source_build() {
+    // Without the test-stub feature nothing makes this a release build.
+    if cfg!(feature = "test-stub") {
+        return;
+    }
+    let answer = update_answer(Some(available_record("9.9.9")), "http://127.0.0.1:9");
+    assert_eq!(answer, json!({"available": null}));
 }
