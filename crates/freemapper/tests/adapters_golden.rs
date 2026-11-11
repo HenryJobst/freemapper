@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 #[path = "support/replay.rs"]
 mod replay;
 
-use replay::{RecordingFetcher, ReplayFetcher};
+use replay::{CutOff, RecordingFetcher, ReplayFetcher};
 
 /// `tests/golden/adapters/` at the repository root.
 fn golden_dir() -> PathBuf {
@@ -811,6 +811,11 @@ struct Replayed {
 /// Fetches the golden project of `id` into an empty folder with an empty cache, under the fixed
 /// clock, every request answered from the store.
 fn replayed_fetch(id: &str) -> Replayed {
+    replayed_fetch_until(id, None)
+}
+
+/// [`replayed_fetch`] that loses the network at the first request whose URL contains `cut`.
+fn replayed_fetch_until(id: &str, cut: Option<&str>) -> Replayed {
     let store = fetched_store();
     let root = tempfile::tempdir().unwrap();
     let (dir, cache_dir) = (root.path().join(id), root.path().join("cache"));
@@ -827,7 +832,12 @@ fn replayed_fetch(id: &str) -> Replayed {
                 item.what, item.part, item.megabytes, item.cached
             ));
         }
-        let fetched = fetch_project(&dir, &fetcher, &cache, FetchMode::Online, &mut |note| {
+        let cut_off = cut.map(|marker| CutOff::new(&fetcher, marker));
+        let through: &dyn Fetcher = match &cut_off {
+            Some(cut_off) => cut_off,
+            None => &fetcher,
+        };
+        let fetched = fetch_project(&dir, through, &cache, FetchMode::Online, &mut |note| {
             if note.is_warning() {
                 // The text of a warning starts with "warning:".
                 add(note.to_string());
@@ -924,6 +934,68 @@ per_state!(
     niedersachsen,
     rheinlandpfalz
 );
+
+/// One interrupted fetch: what was asked, what was said, and the project file left behind.
+#[derive(Debug, Serialize)]
+struct Interrupted {
+    case: String,
+    /// The requests and warnings in their order, then how the fetch ended.
+    lines: Vec<String>,
+    /// `freemapper.toml` after the fetch, line by line.
+    project_file: Vec<String>,
+}
+
+/// A fetch that loses the network halfway must leave the project file with exactly the parts
+/// that finished, so that the next fetch goes on from there. Three states (per area, tiles, zip
+/// ranges), each cut at three places: after the orthophoto, at the first request for the surface
+/// model, and at the last request. The raster fetch gets other parameters in plan task B5; what
+/// it saves and when must stay.
+#[test]
+#[ignore = "needs the fixture store: scripts/golden.sh test"]
+fn g3_interrupted_fetches_keep_what_finished() {
+    // Per state: the part of a URL that names the first request after the orthophoto, and the
+    // first request for the surface model.
+    let states = [
+        ("saxonyanhalt", "ows_WCS_ST_DGM1", "ows_WCS_ST_DOM1"),
+        ("brandenburg", "bb_dgm_aktualitaet.csv", "/ndom/NDOM_"),
+        (
+            "hessen",
+            "Digitales+Gel%C3%A4ndemodell",
+            "Digitales+Oberfl%C3%A4chenmodell",
+        ),
+    ];
+    let mut cases = Vec::new();
+    for (id, after_orthophoto, first_surface) in states {
+        for (place, marker) in [
+            ("after-orthophoto", after_orthophoto),
+            ("first-surface", first_surface),
+            ("last", ".osm.pbf"),
+        ] {
+            let replayed = replayed_fetch_until(id, Some(marker));
+            let lines: Vec<String> = replayed
+                .lines
+                .iter()
+                .filter(|line| !line.starts_with("estimate:"))
+                .cloned()
+                .collect();
+            assert!(
+                lines.iter().any(|line| line.ends_with("(no network)")),
+                "{id}/{place}: no request names {marker:?}"
+            );
+            let project_file = std::fs::read_to_string(replayed.dir.join("freemapper.toml"))
+                .unwrap()
+                .lines()
+                .map(str::to_string)
+                .collect();
+            cases.push(Interrupted {
+                case: format!("{id}/{place}"),
+                lines,
+                project_file,
+            });
+        }
+    }
+    check_golden("g3-interrupted.json", &pretty(&cases));
+}
 
 // Layer G4: the whole pipeline per state. It goes on from the replayed fetch of G3, so every
 // file the run reads was written by the run, and hashes every file the project folder holds

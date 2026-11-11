@@ -291,6 +291,81 @@ impl Fetcher for ReplayFetcher {
     }
 }
 
+/// A fetcher that loses the network: from the first request whose URL contains `marker` on,
+/// every request fails like a refused connection. Before that it answers through `inner`, and
+/// it logs the failed requests in the same log.
+pub struct CutOff<'a> {
+    inner: &'a ReplayFetcher,
+    marker: &'a str,
+    gone: std::cell::Cell<bool>,
+}
+
+impl<'a> CutOff<'a> {
+    pub fn new(inner: &'a ReplayFetcher, marker: &'a str) -> Self {
+        Self {
+            inner,
+            marker,
+            gone: std::cell::Cell::new(false),
+        }
+    }
+
+    /// Whether the network is gone for the request `logged` asks; if so, the error it gets.
+    fn cut(&self, logged: String, url: &str) -> Option<FetchError> {
+        if !self.gone.get() && !url.contains(self.marker) {
+            return None;
+        }
+        self.gone.set(true);
+        self.inner
+            .log
+            .lock()
+            .unwrap()
+            .push(format!("{logged} (no network)"));
+        Some(FetchError::Http {
+            url: url.to_string(),
+            message: "connection refused".to_string(),
+        })
+    }
+}
+
+impl Fetcher for CutOff<'_> {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        match self.cut(format!("GET {url}"), url) {
+            Some(error) => Err(error),
+            None => self.inner.get(url),
+        }
+    }
+
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        match self.cut(format!("HEAD {url}"), url) {
+            Some(error) => Err(error),
+            None => self.inner.last_modified(url),
+        }
+    }
+
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        let Some(header) = range_header(range) else {
+            return Ok(Vec::new());
+        };
+        match self.cut(format!("GET {url} [{header}]"), url) {
+            Some(error) => Err(error),
+            None => self.inner.get_range(url, range),
+        }
+    }
+
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(Note),
+    ) -> Result<(), FetchError> {
+        match self.cut(format!("GET {url} [to file]"), url) {
+            Some(error) => Err(error),
+            None => self.inner.download_to(url, path, max_bytes, progress),
+        }
+    }
+}
+
 /// Passes every request on to the network and keeps the answer: the body in the store, the
 /// request with the body's hash in the index. An extract is passed on and not kept.
 pub struct RecordingFetcher {
