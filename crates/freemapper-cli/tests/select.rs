@@ -557,6 +557,19 @@ fn api_update_reads_the_record_only() {
 
 #[cfg(feature = "test-stub")]
 #[test]
+fn api_update_drops_notes_outside_github() {
+    // A changed record file must not put a foreign link on the page.
+    let mut record = available_record("9.9.9");
+    record["result"]["notes"] = json!("https://example.org/notes");
+    let answer = update_answer(Some(record), "http://127.0.0.1:9");
+    assert_eq!(
+        answer,
+        json!({"available": {"version": "9.9.9", "notes": null}})
+    );
+}
+
+#[cfg(feature = "test-stub")]
+#[test]
 fn api_update_null_without_record() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());

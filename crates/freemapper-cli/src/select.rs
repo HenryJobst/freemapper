@@ -328,8 +328,11 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
 async fn update_notice(State(state): State<Arc<AppState>>) -> Response {
     use crate::update::background::{CheckContext, recorded_update};
     let ctx = CheckContext::of_command(Some(state.cache.root().to_path_buf()), false);
-    let available = recorded_update(&ctx)
-        .map(|(version, notes)| json!({ "version": version.to_string(), "notes": notes }));
+    // The record is a file in the cache; only a link to the release page reaches the page.
+    let available = recorded_update(&ctx).map(|(version, notes)| {
+        let notes = notes.starts_with("https://github.com/").then_some(notes);
+        json!({ "version": version.to_string(), "notes": notes })
+    });
     Json(json!({ "available": available })).into_response()
 }
 

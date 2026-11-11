@@ -5,7 +5,7 @@ const TEXTS = {
   de: {
     heading: "Kartengebiet wählen",
     updateAvailable: (version) => `freemapper ${version} ist verfügbar. Aktualisieren mit `,
-    updateNotes: "Neuigkeiten",
+    updateNotes: "Versionshinweise",
     folder: "Projektordner",
     pick: "Ort suchen",
     queryPlaceholder: "z. B. Clara-Zetkin-Schule Strausberg",
@@ -774,7 +774,7 @@ async function showUpdateNotice() {
     const command = document.createElement("code");
     command.textContent = "freemapper update";
     notice.append(command, ".");
-    if (/^https:\/\//.test(available.notes)) {
+    if (typeof available.notes === "string" && available.notes.startsWith("https://github.com/")) {
       const link = document.createElement("a");
       link.href = available.notes;
       link.target = "_blank";
