@@ -27,9 +27,9 @@ const ROUGH_OPEN_LAND_CODE: &str = "403";
 /// ISSprOM 405 forest.
 const FOREST_CODE: &str = "405";
 /// The tag of the walkable area, the base fill (ADR 0069).
-pub const BASE_SOURCE: &str = "base";
+pub const BASE_SOURCE: &str = freemapper_contract::tags::SOURCE_BASE;
 /// The map part of the walkable area, written first.
-pub const BASE_PART: &str = "base";
+pub const BASE_PART: &str = freemapper_contract::tags::BASE_PART;
 
 /// The class of a land use on the map: its symbol and whether it is reliable enough to be a map
 /// object.
@@ -213,7 +213,10 @@ pub fn walkable_base(
             (max_x, max_y),
             (min_x, max_y),
         ]),
-        tags: vec![("freemapper:source".to_string(), BASE_SOURCE.to_string())],
+        tags: vec![(
+            freemapper_contract::tags::SOURCE_KEY.to_string(),
+            BASE_SOURCE.to_string(),
+        )],
     })
 }
 

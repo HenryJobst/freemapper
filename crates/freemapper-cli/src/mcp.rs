@@ -225,21 +225,22 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
 /// The folder of an existing project.
 fn project_dir(path: &str) -> Result<PathBuf, String> {
     let dir = resolve(path)?;
-    if !dir.join("freemapper.toml").is_file() {
+    if !dir.join(freemapper::project::PROJECT_FILE_NAME).is_file() {
         return Err(t("mcp-error-no-project", &[("path", v(dir.display()))]));
     }
     Ok(dir)
 }
 
 fn map_kind(kind: Option<&str>) -> Result<MapKind, String> {
-    match kind.unwrap_or("schoolyard") {
-        "schoolyard" => Ok(MapKind::Schoolyard),
-        "sprint" => Ok(MapKind::Sprint),
-        other => Err(t(
+    let Some(name) = kind else {
+        return Ok(MapKind::Schoolyard);
+    };
+    MapKind::from_name(name).ok_or_else(|| {
+        t(
             "mcp-error-unknown-kind",
-            &[("kind", v(format!("{other:?}")))],
-        )),
-    }
+            &[("kind", v(format!("{name:?}")))],
+        )
+    })
 }
 
 fn role_name(role: LayerRole) -> &'static str {
@@ -352,10 +353,7 @@ impl FreemapperServer {
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
-                let kind = match kind {
-                    MapKind::Schoolyard => "schoolyard",
-                    MapKind::Sprint => "sprint",
-                };
+                let kind = kind.name();
                 let args = [
                     ("path", v(dir.display())),
                     ("area", v(area.source_id.as_deref().unwrap_or_default())),

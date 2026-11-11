@@ -79,7 +79,7 @@ use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::{TileId, tiles_covering_grid};
 
-pub const PROJECT_FILE_NAME: &str = "freemapper.toml";
+pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProjectError {
@@ -158,6 +158,10 @@ pub enum ProjectError {
 }
 
 /// Kind of orienteering map; selects norm, symbol set and default scale.
+///
+/// These are the kinds freemapper writes. The suite's definition is
+/// [`freemapper_contract::MapKind`] (ADR 0095): names and scales come from there, and the code
+/// here branches on the kinds it can build.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MapKind {
@@ -166,28 +170,36 @@ pub enum MapKind {
 }
 
 impl MapKind {
+    /// Every kind freemapper writes.
+    pub const ALL: [MapKind; 2] = [MapKind::Schoolyard, MapKind::Sprint];
+
+    /// The same kind in the words of the suite contract.
+    pub fn contract(self) -> freemapper_contract::MapKind {
+        match self {
+            Self::Schoolyard => freemapper_contract::MapKind::Schoolyard,
+            Self::Sprint => freemapper_contract::MapKind::Sprint,
+        }
+    }
+
+    /// The kind with this name, as `freemapper.toml` and the command line write it.
+    pub fn from_name(name: &str) -> Option<MapKind> {
+        MapKind::ALL.into_iter().find(|kind| kind.name() == name)
+    }
+
     pub fn default_scale(self) -> u32 {
-        match self {
-            Self::Schoolyard => 1000,
-            Self::Sprint => 4000,
-        }
+        self.contract().base_scale()
     }
 
-    /// The map scales freemapper-print accepts for this kind (its `iof-print.toml` tables).
-    /// Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000; 1:3000 needs 133 % symbols,
-    /// which only freemapper-print applies (ADR 0085).
+    /// The map scales freemapper writes for this kind, which freemapper-print accepts (its
+    /// `iof-print.toml` tables). Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000;
+    /// 1:3000 needs 133 % symbols, which only freemapper-print applies (ADR 0085).
     pub fn allowed_scales(self) -> &'static [u32] {
-        match self {
-            Self::Schoolyard => &[1000],
-            Self::Sprint => &[4000, 5000],
-        }
+        self.contract().drawing_scales()
     }
 
-    fn name(self) -> &'static str {
-        match self {
-            Self::Schoolyard => "schoolyard",
-            Self::Sprint => "sprint",
-        }
+    /// The lower-case name, as `freemapper.toml` and the command line write it.
+    pub fn name(self) -> &'static str {
+        self.contract().name()
     }
 
     fn allowed_text(self) -> String {
@@ -4414,7 +4426,7 @@ fn copy_backgrounds(
 
 /// The map part with the peripheral information (title, scale bar, credits); the north lines
 /// are map content in the default part.
-const SHEET_PART: &str = "peripheral information";
+const SHEET_PART: &str = freemapper_contract::tags::SHEET_PART;
 
 /// The objects of a PDF: the map's own objects, with `candidates` also every candidate except
 /// the map area outline (the first candidate) and the points hidden under a 520 candidate
@@ -14556,6 +14568,38 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
     }
 
+    /// freemapper writes exactly the kinds the contract says it writes, under the contract's names
+    /// and at the contract's scales (ADR 0095). A kind added on one side only fails here.
+    #[test]
+    fn contract_kinds_are_the_kinds_of_the_suite() {
+        let written: Vec<_> = freemapper_contract::MapKind::ALL
+            .into_iter()
+            .filter(|kind| kind.is_written_by_freemapper())
+            .collect();
+        let mut ours: Vec<_> = MapKind::ALL.into_iter().map(MapKind::contract).collect();
+        ours.sort();
+        let mut theirs = written.clone();
+        theirs.sort();
+        assert_eq!(ours, theirs);
+        for kind in MapKind::ALL {
+            assert_eq!(MapKind::from_name(kind.name()), Some(kind));
+            // What serde writes into freemapper.toml is the contract's name.
+            let written = serde_json::to_value(kind).unwrap();
+            assert_eq!(written, kind.contract().name());
+            assert_eq!(kind.allowed_scales(), kind.contract().drawing_scales());
+            assert!(kind.allowed_scales().contains(&kind.default_scale()));
+            for scale in kind.allowed_scales() {
+                assert!(
+                    kind.check_scale(*scale).is_ok(),
+                    "{} 1:{scale}",
+                    kind.name()
+                );
+            }
+        }
+        assert_eq!(MapKind::from_name("forest"), None);
+        assert_eq!(PROJECT_FILE_NAME, "freemapper.toml");
+    }
+
     /// The fixtures of the suite contract in freemapper-core (crate `freemapper-contract`): the
     /// map kind a fixture is built from, and its name there.
     const CONTRACT_FIXTURES: [(MapKind, &str); 2] = [
@@ -14578,6 +14622,19 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
         (map, sidecar)
+    }
+
+    /// The contract's reader takes kind, title, scale and CRS from a project file as written.
+    #[test]
+    fn contract_sidecar_reader_reads_a_written_project_file() {
+        for (kind, name) in CONTRACT_FIXTURES {
+            let (_map, sidecar) = contract_project(kind);
+            let read = freemapper_contract::Sidecar::parse(&sidecar).unwrap();
+            assert_eq!(read.map_kind.known(), Some(kind.contract()), "{name}");
+            assert_eq!(read.scale_denominator, Some(kind.default_scale()), "{name}");
+            assert_eq!(read.title(), Some("Clara-Zetkin-Schule"), "{name}");
+            assert!(matches!(read.crs, Some(25832 | 25833)), "{name}");
+        }
     }
 
     #[test]

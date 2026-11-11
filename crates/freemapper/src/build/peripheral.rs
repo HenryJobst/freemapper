@@ -12,8 +12,8 @@ const SMALL_TEXT_CODE: &str = "993";
 /// Tag key of the role of a sheet object. Every sheet object has `freemapper:source=sheet`
 /// (the contract with freemapper-print and freemapper-courseplan); the scale bar objects add
 /// `freemapper:sheet=scale-bar`, which the PDF export uses to leave them out unless asked.
-const SHEET_ROLE_KEY: &str = "freemapper:sheet";
-const SCALE_BAR_ROLE: &str = "scale-bar";
+const SHEET_ROLE_KEY: &str = freemapper_contract::tags::ROLE_KEY;
+const SCALE_BAR_ROLE: &str = freemapper_contract::tags::ROLE_SCALE_BAR;
 const BAR_LINE_CODE: &str = "994";
 /// Longest bar scale on paper; the bar is the longest round ground distance that fits.
 const BAR_MAX_MM: f64 = 60.0;
@@ -71,7 +71,7 @@ pub struct PeripheralInfo {
 }
 
 fn sheet_tags() -> Vec<(String, String)> {
-    source_tags("sheet")
+    source_tags(freemapper_contract::tags::SOURCE_SHEET)
 }
 
 /// Whether a sheet object belongs to the scale bar (the graphic bar with ticks and labels, not
@@ -84,7 +84,10 @@ pub fn is_scale_bar(object: &MapObject) -> bool {
 }
 
 fn source_tags(source: &str) -> Vec<(String, String)> {
-    vec![("freemapper:source".to_string(), source.to_string())]
+    vec![(
+        freemapper_contract::tags::SOURCE_KEY.to_string(),
+        source.to_string(),
+    )]
 }
 
 fn symbol(symbol_set: &SymbolSet, code: &str) -> u32 {
@@ -131,7 +134,7 @@ pub fn north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet)
         .map(|k| {
             let x = (k as f64 * spacing).round() as i32;
             MapObject {
-                tags: source_tags("north-lines"),
+                tags: source_tags(freemapper_contract::tags::SOURCE_NORTH_LINES),
                 ..line(id, (x, content.min_y), (x, content.max_y))
             }
         })

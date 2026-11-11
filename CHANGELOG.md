@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Kartenart und reservierte Wörter kommen aus der gemeinsamen Bibliothek `freemapper-contract` (ADR 0095, Stufe 4 des Vertragstests). Die Namen `schoolyard` und `sprint`, die Maßstäbe einer Kartenart, der Tag `freemapper:source` mit seinen reservierten Werten, die Namen der Kartenteile und der Dateiname `freemapper.toml` stehen jetzt einmal in freemapper-core v0.18.0, und freemapper-print und freemapper-courseplan können dieselben Definitionen benutzen. Karten und Projektdateien bleiben Byte für Byte gleich. Alle Kernbibliotheken sind auf v0.18.0 festgelegt. Bibliothek: `MapKind` hat neu `ALL`, `name`, `from_name` und `contract`.
+
 ## [0.11.0] - 2026-11-11
 
 ### Hinzugefügt

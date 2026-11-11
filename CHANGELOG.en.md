@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Map kind and reserved words come from the shared crate `freemapper-contract` (ADR 0095, stage 4 of the contract test). The names `schoolyard` and `sprint`, the scales of a kind, the tag `freemapper:source` with its reserved values, the part names and the file name `freemapper.toml` now exist once, in freemapper-core v0.18.0, and freemapper-print and freemapper-courseplan can use the same definitions. Maps and project files stay the same byte for byte. All core crates are pinned to v0.18.0. Library: `MapKind` gains `ALL`, `name`, `from_name` and `contract`.
+
 ## [0.11.0] - 2026-11-11
 
 ### Added
