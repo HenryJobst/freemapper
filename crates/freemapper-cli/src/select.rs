@@ -10,10 +10,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::jobs::JobHub;
 use crate::pipeline::RunOptions;
+use crate::select_run;
+use crate::select_run::{FolderOpener, PipelineRunner, Services};
 use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
-use axum::extract::{Path as UrlPath, Query, State};
+use axum::extract::{DefaultBodyLimit, Path as UrlPath, Query, State};
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -58,7 +60,7 @@ pub struct Defaults {
 pub(crate) struct AppState {
     pub(crate) dir: PathBuf,
     defaults: Defaults,
-    cache: Cache,
+    pub(crate) cache: Cache,
     /// Saving is refused while a pipeline runs for the folder, because the pipeline would write
     /// its own copy of the project file back.
     pub(crate) hub: Arc<JobHub>,
@@ -66,6 +68,12 @@ pub(crate) struct AppState {
     saving: tokio::sync::Mutex<()>,
     /// The OpenStreetMap base layer, fetched here with an identifying `User-Agent`.
     tiles: TileProxy,
+    /// What a run does and how the folder is opened; replaced in tests.
+    pub(crate) runner: Arc<dyn PipelineRunner>,
+    pub(crate) opener: Arc<dyn FolderOpener>,
+    /// When the last status request was served, and the shortest gap between two.
+    pub(crate) last_status: std::sync::Mutex<Option<std::time::Instant>>,
+    pub(crate) status_gap: std::time::Duration,
 }
 
 /// Largest request body of the page: a polygon of 5000 vertices is about 150 KB, and the shared
@@ -89,16 +97,18 @@ impl Selector {
         port: u16,
         hub: Option<Arc<JobHub>>,
     ) -> anyhow::Result<Self> {
-        Self::start_with_tiles(dir, defaults, cache, port, hub, TileProxy::new()).await
+        Self::start_with(dir, defaults, cache, port, hub, Services::real()).await
     }
 
-    async fn start_with_tiles(
+    /// Like [`Selector::start`] with the parts that touch the network, the pipeline and the
+    /// operating system given (tests pass stand-ins).
+    pub(crate) async fn start_with(
         dir: PathBuf,
         defaults: Defaults,
         cache: Cache,
         port: u16,
         hub: Option<Arc<JobHub>>,
-        tiles: TileProxy,
+        services: Services,
     ) -> anyhow::Result<Self> {
         let state = Arc::new(AppState {
             dir,
@@ -106,7 +116,11 @@ impl Selector {
             cache,
             hub: hub.unwrap_or_default(),
             saving: tokio::sync::Mutex::new(()),
-            tiles,
+            tiles: services.tiles,
+            runner: services.runner,
+            opener: services.opener,
+            last_status: std::sync::Mutex::new(None),
+            status_gap: services.status_gap,
         });
         let options = ServeOptions {
             port,
@@ -167,6 +181,19 @@ fn router(
         .route(&format!("{prefix}/api/places"), get(places))
         .route(&format!("{prefix}/api/place"), get(place))
         .route(&format!("{prefix}/api/save"), post(save))
+        .route(
+            &format!("{prefix}/api/run"),
+            post(select_run::run).layer(DefaultBodyLimit::max(select_run::MAX_BODY_SMALL)),
+        )
+        .route(&format!("{prefix}/api/status"), get(select_run::status))
+        .route(
+            &format!("{prefix}/api/cancel"),
+            post(select_run::cancel).layer(DefaultBodyLimit::max(select_run::MAX_BODY_SMALL)),
+        )
+        .route(
+            &format!("{prefix}/api/open-folder"),
+            post(select_run::open_folder).layer(DefaultBodyLimit::max(select_run::MAX_BODY_SMALL)),
+        )
         .route(
             &format!("{prefix}/api/done"),
             post(move || async move {
@@ -235,7 +262,7 @@ fn parse_kind(kind: &str) -> Result<MapKind, String> {
 }
 
 /// The saved project, if there is one; an error when its file cannot be read.
-fn saved_project(state: &AppState) -> Result<Option<ProjectFile>, String> {
+pub(crate) fn saved_project(state: &AppState) -> Result<Option<ProjectFile>, String> {
     if !state.dir.join("freemapper.toml").exists() {
         return Ok(None);
     }
@@ -537,7 +564,7 @@ impl From<String> for SaveError {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use freemapper::layers::EstimateItem;
     use freemapper::space::{DiskSpace, Part, Store, Volume};
@@ -810,10 +837,19 @@ mod tests {
             run: RunOptions::default(),
         };
         let cache = Cache::new(dir.path().join("cache"));
-        let selector =
-            Selector::start_with_tiles(dir.path().join("p"), defaults, cache, 0, None, tiles)
-                .await
-                .unwrap();
+        let selector = Selector::start_with(
+            dir.path().join("p"),
+            defaults,
+            cache,
+            0,
+            None,
+            Services {
+                tiles,
+                ..Services::real()
+            },
+        )
+        .await
+        .unwrap();
         (selector, dir)
     }
 
@@ -919,7 +955,7 @@ mod tests {
     }
 
     /// `http://127.0.0.1:<port>` of a page address.
-    fn origin_of(url: &str) -> String {
+    pub(crate) fn origin_of(url: &str) -> String {
         let rest = url.strip_prefix("http://").unwrap();
         format!("http://{}", rest.split('/').next().unwrap())
     }
@@ -932,7 +968,7 @@ mod tests {
 
     /// Status, lower-cased header block and body of a raw request. `extra` are header lines;
     /// `Host` is added unless one of them sets it.
-    fn raw(
+    pub(crate) fn raw(
         url: &str,
         method: &str,
         path: &str,
@@ -981,7 +1017,7 @@ mod tests {
         (status, head.to_ascii_lowercase(), body.to_string())
     }
 
-    async fn request(
+    pub(crate) async fn request(
         url: &str,
         method: &'static str,
         path: &str,
@@ -994,7 +1030,7 @@ mod tests {
             .unwrap()
     }
 
-    fn json_post(origin: &str) -> Vec<String> {
+    pub(crate) fn json_post(origin: &str) -> Vec<String> {
         vec![
             format!("Origin: {origin}"),
             "Content-Type: application/json".to_string(),

@@ -93,6 +93,9 @@ mod tests {
             ("available", v("en, de")),
             ("time", v("14:02")),
             ("who", v("the terminal")),
+            ("job", v("job-1")),
+            ("messages", v("m")),
+            ("program", v("open")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -104,6 +107,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select_run.rs"),
         ] {
             for id in freemapper_text::ids_in_source(source, &["cli-"]) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
@@ -114,6 +118,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select_run.rs"),
         ]
         .iter()
         .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-"]))
