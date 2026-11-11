@@ -1,6 +1,7 @@
 //! `freemapper` command line interface.
 
 mod errors;
+mod estimate;
 mod help;
 mod jobs;
 mod lock;

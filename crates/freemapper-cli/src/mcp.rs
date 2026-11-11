@@ -23,9 +23,10 @@ use rmcp::{
 };
 use serde::Deserialize;
 
+use crate::estimate::estimate_json;
 use crate::jobs::{JobHub, folder_key};
 use crate::pipeline::{self, describe};
-use crate::select::{Defaults, Selector, estimate_json, open_browser};
+use crate::select::{Defaults, Selector, open_browser};
 use crate::text::{text as t, v};
 use crate::update::background::{CheckContext, check_for_server};
 use crate::update::command::{check_for_mcp, install_for_mcp};

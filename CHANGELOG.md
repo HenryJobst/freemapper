@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Die Download-Schätzung als JSON (`estimate_json`) liegt jetzt in einem eigenen Modul der Kommandozeilen-Crate statt im Modul der Auswahlseite. Der MCP-Server und der Lauf aus dem Browser hängen dafür nicht mehr vom Web-Modul ab. Die Ausgabe bleibt gleich.
+
 ## [0.12.0] - 2026-11-11
 
 ### Hinzugefügt
