@@ -336,6 +336,17 @@ mod tests {
         std::fs::metadata(path).unwrap().modified().unwrap()
     }
 
+    /// The lock file of another process (a crashed one leaves exactly this), written by hand so
+    /// that no handle of ours keeps it open; Windows would keep a deleted file around then.
+    fn foreign_lock(dir: &Path, who: &str) {
+        let started = unix_seconds(SystemTime::now());
+        std::fs::write(
+            lock_path(dir),
+            format!(r#"{{"pid":1,"started":{started},"who":"{who}"}}"#),
+        )
+        .unwrap();
+    }
+
     fn age_it(path: &Path, seconds: u64) {
         let file = std::fs::OpenOptions::new().write(true).open(path).unwrap();
         file.set_modified(SystemTime::now() - Duration::from_secs(seconds))
@@ -384,8 +395,7 @@ mod tests {
     #[test]
     fn stale_lock_is_taken_over() {
         let dir = tempfile::tempdir().unwrap();
-        let first = acquire(dir.path(), Who::Cli).unwrap();
-        std::mem::forget(first); // a crashed holder: the file stays
+        foreign_lock(dir.path(), "cli"); // a crashed holder: the file stays
         age_it(&lock_path(dir.path()), 61);
         let second = acquire(dir.path(), Who::Mcp).unwrap();
         assert!(
@@ -400,27 +410,26 @@ mod tests {
     #[test]
     fn staleness_follows_the_injected_clock() {
         let dir = tempfile::tempdir().unwrap();
-        let held = acquire(dir.path(), Who::Cli).unwrap();
+        foreign_lock(dir.path(), "cli");
         let written = modified(&lock_path(dir.path()));
         let at = |seconds: u64| move || written + Duration::from_secs(seconds);
         let refused = acquire_with(dir.path(), Who::Mcp, &at(59), HEARTBEAT);
         assert!(matches!(refused, Err(LockError::Held { .. })));
         let taken = acquire_with(dir.path(), Who::Mcp, &at(61), HEARTBEAT);
         assert!(taken.is_ok());
-        drop(held); // the old holder must not remove the new holder's file
-        assert!(lock_path(dir.path()).exists());
     }
 
     #[test]
     fn a_lock_from_the_far_future_is_stale_too() {
         let dir = tempfile::tempdir().unwrap();
-        std::mem::forget(acquire(dir.path(), Who::Cli).unwrap());
+        foreign_lock(dir.path(), "cli");
         let file = std::fs::OpenOptions::new()
             .write(true)
             .open(lock_path(dir.path()))
             .unwrap();
         file.set_modified(SystemTime::now() + Duration::from_secs(3600))
             .unwrap();
+        drop(file);
         assert!(acquire(dir.path(), Who::Mcp).is_ok());
     }
 
@@ -530,13 +539,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let lock = acquire(dir.path(), Who::Cli).unwrap();
         let releaser = lock.releaser();
-        releaser.release();
+        drop(lock);
         assert!(!lock_path(dir.path()).exists());
         // Someone else holds it now; the old releaser leaves it alone.
-        let other = acquire(dir.path(), Who::Mcp).unwrap();
+        foreign_lock(dir.path(), "mcp");
         releaser.release();
         assert!(lock_path(dir.path()).exists());
-        drop(other);
-        drop(lock);
     }
 }
