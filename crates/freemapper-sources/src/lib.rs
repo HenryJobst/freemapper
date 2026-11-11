@@ -6,6 +6,7 @@
 
 pub mod float_tiff;
 pub mod height_model;
+pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
 pub mod raster;

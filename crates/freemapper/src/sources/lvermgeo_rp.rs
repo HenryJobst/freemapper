@@ -426,22 +426,9 @@ const MAX_METALINK_BYTES: u64 = 32 * 1024 * 1024;
 /// by tile; a name the strict pattern refuses is skipped, and of two years the later wins. An
 /// answer that is not a Metalink (an HTML page) is an error.
 fn parse_metalink(model: Model, text: &str) -> Result<HashMap<TileId, String>, String> {
-    let start = text.trim_start().trim_start_matches('\u{feff}');
-    let root = start
-        .strip_prefix("<?xml")
-        .and_then(|rest| rest.split_once("?>"))
-        .map_or(start, |(_, rest)| rest)
-        .trim_start();
-    if !root.starts_with("<metalink") {
-        return Err(format!("not a Metalink: {}", one_line(text, 200)));
-    }
     let mut names: HashMap<TileId, String> = HashMap::new();
-    for element in text.split("<file name=\"").skip(1) {
-        let Some(stem) = element
-            .split('"')
-            .next()
-            .and_then(|name| name.strip_suffix(".tif"))
-        else {
+    for name in freemapper_sources::metalink::file_names(text)? {
+        let Some(stem) = name.strip_suffix(".tif") else {
             continue;
         };
         if !valid_name(model, stem) {
