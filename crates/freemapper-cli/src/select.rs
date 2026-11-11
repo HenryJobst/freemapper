@@ -322,8 +322,9 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
         "schoolyard": MapKind::Schoolyard.allowed_scales(),
         "sprint": MapKind::Sprint.allowed_scales(),
     });
-    // Reserved: the program language of the suite, once the page follows it.
-    answer["lang"] = Value::Null;
+    // The program language when `--lang` or the environment named one; else null, and the page
+    // follows the browser (ADR 0092).
+    answer["lang"] = crate::text::named_lang().map_or(Value::Null, |lang| Value::from(lang.code()));
     answer["running"] = crate::select_run::running_json(&state);
     Json(answer).into_response()
 }
@@ -1338,7 +1339,7 @@ pub(crate) mod tests {
                 "pdf_sources": "credit-only",
             })
         );
-        // The language is reserved for the program language of the suite.
+        // No language was named in this test process, so the page follows the browser.
         assert!(answer["lang"].is_null(), "{answer}");
         assert!(answer.as_object().unwrap().contains_key("lang"));
         // Without flags every option is off and the sources are automatic.

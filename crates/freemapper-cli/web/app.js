@@ -156,8 +156,8 @@ const TEXTS = {
   },
 };
 
-// The language of the browser; `project.lang` (the program language of the suite) wins once the
-// server sends one.
+// The language of the browser; `project.lang` (the program language, when `--lang` or the
+// environment named one) wins.
 let T = (navigator.language || "de").toLowerCase().startsWith("de") ? TEXTS.de : TEXTS.en;
 
 /** The page language: "de" or "en". */

@@ -27,6 +27,22 @@ pub static TEXTS: Catalog = Catalog::new(&[
 /// The language of this run, set once at start.
 static LANG: OnceLock<Lang> = OnceLock::new();
 
+/// Whether `--lang` or the environment named the language of this run; else it is English
+/// because nothing said otherwise.
+static NAMED: OnceLock<bool> = OnceLock::new();
+
+/// The variables that can name the language, in the suite's order.
+const LANG_VARIABLES: [&str; 4] = ["FREEMAPPER_LANG", "LC_ALL", "LC_MESSAGES", "LANG"];
+
+/// Whether `arg` or one of the variables read by `env` names a language with texts.
+fn names_a_lang(arg: Option<&str>, env: &dyn Fn(&str) -> Option<String>) -> bool {
+    arg.is_some()
+        || LANG_VARIABLES
+            .iter()
+            .filter_map(|name| env(name))
+            .any(|value| TEXTS.parse_lang_arg(&value).is_ok())
+}
+
 /// Sets the language of this run from `--lang` (`arg`) and the environment. A `--lang` value
 /// that names no available language is an error, worded in the language the environment gives.
 pub fn set_lang(arg: Option<&str>) -> Result<(), String> {
@@ -47,12 +63,19 @@ pub fn set_lang(arg: Option<&str>) -> Result<(), String> {
     };
     // A second call keeps the first language; the program calls this once.
     let _ = LANG.set(lang);
+    let _ = NAMED.set(names_a_lang(arg, &env));
     Ok(())
 }
 
 /// The language of this run; English before [`set_lang`].
 pub fn lang() -> Lang {
     LANG.get().cloned().unwrap_or_else(Lang::english)
+}
+
+/// The language of this run when `--lang` or the environment named it. The selection page takes
+/// it over; without one it follows the browser.
+pub fn named_lang() -> Option<Lang> {
+    NAMED.get().copied().unwrap_or(false).then(lang)
 }
 
 /// The text `id` in the language of this run.
@@ -216,5 +239,13 @@ mod tests {
         assert_eq!(code(&[("LANG", "C")]), "en");
         assert!(TEXTS.parse_lang_arg("fr").is_err());
         assert_eq!(TEXTS.parse_lang_arg("DE").unwrap().code(), "de");
+        // English by default is not a named language; English by `LANG` is.
+        let named = |pairs| names_a_lang(None, &env(pairs));
+        assert!(!named(&[]));
+        assert!(!named(&[("LANG", "C")]));
+        assert!(!named(&[("LANG", "fr_FR.UTF-8")]));
+        assert!(named(&[("LANG", "en_US.UTF-8")]));
+        assert!(named(&[("FREEMAPPER_LANG", "de")]));
+        assert!(names_a_lang(Some("en"), &env(&[])));
     }
 }
