@@ -580,7 +580,7 @@ mod find_cli {
     }
 
     #[test]
-    fn nothing_found_exits_with_one() {
+    fn nothing_found_exits_with_one_in_text_and_prints_an_empty_array_in_json() {
         let dir = tempfile::tempdir().unwrap();
         let empty = dir.path().join("empty.json");
         std::fs::write(&empty, "[]").unwrap();
@@ -592,16 +592,45 @@ mod find_cli {
             stderr.starts_with("error: no place found for \"Clara-Zetkin-Schule Strausberg\""),
             "{stderr}"
         );
-        // A failed request is an error too.
-        let output = find(dir.path().join("missing.json").to_str().unwrap())
+        // With --json an empty array, as the MCP tool find_place.
+        let output = find(empty.to_str().unwrap())
+            .arg("--json")
             .output()
             .unwrap();
-        assert_eq!(output.status.code(), Some(1), "{output:?}");
-        assert!(
-            String::from_utf8(output.stderr)
-                .unwrap()
-                .starts_with("error: ")
-        );
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        assert_eq!(String::from_utf8(output.stdout).unwrap(), "[]\n");
+        // A failed request is an error in both modes.
+        for extra in [&[][..], &["--json"][..]] {
+            let output = find(dir.path().join("missing.json").to_str().unwrap())
+                .args(extra)
+                .output()
+                .unwrap();
+            assert_eq!(output.status.code(), Some(1), "{output:?}");
+            assert!(output.stdout.is_empty(), "{output:?}");
+            assert!(
+                String::from_utf8(output.stderr)
+                    .unwrap()
+                    .starts_with("error: ")
+            );
+        }
+    }
+
+    /// `freemapper find x | head -1`: a reader that is gone ends the output quietly.
+    #[test]
+    #[cfg(unix)]
+    fn a_closed_pipe_ends_quietly() {
+        let (reader, writer) = std::io::pipe().unwrap();
+        drop(reader);
+        let output = find(&fixture("nominatim-search-mixed.json"))
+            .stdout(writer)
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap()
+            .wait_with_output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.is_empty(), "{stderr}");
+        assert_eq!(output.status.code(), Some(0));
     }
 
     #[test]
