@@ -1,6 +1,7 @@
 //! OpenStreetMap data (ODbL) from the Geofabrik extracts: one per state, and one per government
 //! district (Regierungsbezirk) in North Rhine-Westphalia.
 
+use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -661,7 +662,7 @@ pub enum ExtractSource {
 /// area touches; in North Rhine-Westphalia every government district extract whose boundary lies
 /// within the region margin of the area (two or more on a district border). Warnings go to
 /// `progress`.
-pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(&str)) -> Vec<ExtractSource> {
+pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(Note)) -> Vec<ExtractSource> {
     let mut sources: Vec<ExtractSource> = Vec::new();
     for region in regions_for(bbox) {
         let found: Vec<ExtractSource> = match region {
@@ -693,7 +694,7 @@ pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(&str)) -> Vec<E
 /// nearest district's extract is read.
 fn nrw_districts_for(
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Vec<GovernmentDistrict> {
     let near: Vec<GovernmentDistrict> = GovernmentDistrict::ALL
         .into_iter()
@@ -704,10 +705,9 @@ fn nrw_districts_for(
     }
     let nearest = nearest_district(bbox);
     if let Some(district) = nearest {
-        progress(&format!(
-            "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
-             reading the nearest, {}",
-            ExtractSource::NordrheinWestfalen(district).label()
+        progress(note!(
+            "warning-osm-nrw-nearest",
+            district = ExtractSource::NordrheinWestfalen(district).label()
         ));
     }
     nearest.into_iter().collect()
@@ -871,7 +871,7 @@ pub fn fetch_extract(
     cache: &Cache,
     source: ExtractSource,
     mode: FetchMode,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
     freemapper_fs::remove_stale_cache_parts(&cache.osm_dir(), STALE_PART_AGE);
     let newest = cached_extracts(cache, source).into_iter().next();
@@ -884,16 +884,17 @@ pub fn fetch_extract(
         // than no candidates.
         Err(e) => match newest {
             Some(cached) if e.is_disk_full() => {
-                progress(&format!(
-                    "warning: the disk is full, so freemapper uses the cached OSM extract from {}. Free some space and run `freemapper fetch` again for a newer one",
-                    cached.data_date
+                progress(note!(
+                    "warning-osm-disk-full-cached",
+                    date = cached.data_date.to_string()
                 ));
                 Ok(cached)
             }
             Some(cached) => {
-                progress(&format!(
-                    "warning: Geofabrik unavailable ({e}); using the cached OSM extract from {}",
-                    cached.data_date
+                progress(note!(
+                    "warning-osm-geofabrik-unavailable",
+                    error = Arg::error(e),
+                    date = cached.data_date.to_string()
                 ));
                 Ok(cached)
             }
@@ -908,7 +909,7 @@ fn refresh_extract(
     cache: &Cache,
     source: ExtractSource,
     newest: Option<Extract>,
-    progress: &mut dyn FnMut(&str),
+    progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
     let state = fetcher.get(source.state_url())?;
     let date =
@@ -917,17 +918,17 @@ fn refresh_extract(
             message: "no timestamp in the state file".to_string(),
         })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
-        progress(&format!(
-            "cached OSM extract {} from {}",
-            source.label(),
-            cached.date
+        progress(note!(
+            "progress-osm-extract-cached",
+            region = source.label(),
+            date = cached.date.to_string()
         ));
         return Ok(cached);
     }
-    progress(&format!(
-        "downloading {} (about {} MB)",
-        source.url(),
-        source.megabytes()
+    progress(note!(
+        "progress-osm-extract-download",
+        url = source.url(),
+        megabytes = source.megabytes().to_string()
     ));
     let path = cache
         .osm_dir()
@@ -1827,7 +1828,7 @@ mod tests {
             _url: &str,
             path: &Path,
             _max_bytes: u64,
-            _progress: &mut dyn FnMut(&str),
+            _progress: &mut dyn FnMut(Note),
         ) -> Result<(), FetchError> {
             Err(FetchError::Io(
                 path.to_path_buf(),

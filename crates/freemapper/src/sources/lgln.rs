@@ -4,6 +4,7 @@
 //!
 //! The STAC answers are not cached: a date reaches the project record only.
 
+use crate::note::{Note, note};
 use std::path::Path;
 
 use chrono::{Datelike as _, NaiveDate};
@@ -247,14 +248,12 @@ pub fn surface_age_warning(surface: NaiveDate, flight: NaiveDate) -> Option<Stri
 
 /// What the flight month says about the trees: flights from May to October show them in leaf
 /// (a quarter of the state), the spring flights bare.
-pub fn leaf_state(flight: NaiveDate) -> String {
-    let date = flight.format("%d.%m.%Y");
+pub fn leaf_state(flight: NaiveDate) -> Note {
+    let date = flight.format("%d.%m.%Y").to_string();
     if (5..=10).contains(&flight.month()) {
-        format!(
-            "the orthophoto was flown on {date}, with the trees in leaf; their crowns hide what lies below them"
-        )
+        note!("progress-orthophoto-in-leaf", date = date)
     } else {
-        format!("the orthophoto was flown on {date}, with the trees bare")
+        note!("progress-orthophoto-bare", date = date)
     }
 }
 
@@ -368,6 +367,7 @@ mod tests {
 
     #[test]
     fn leaf_state_by_month() {
+        let leaf_state = |d: NaiveDate| super::leaf_state(d).to_string();
         let bare = |d: &str| leaf_state(date(d)).ends_with("with the trees bare");
         // The spring flights (February to April) and the winter months are bare.
         for d in [

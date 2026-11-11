@@ -204,6 +204,9 @@ pub struct Shortfall {
     pub left: u64,
 }
 
+/// A skipped part travels as the error of a warning.
+impl std::error::Error for Shortfall {}
+
 impl std::fmt::Display for Shortfall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.part.required() {

@@ -14,4 +14,8 @@ and run `cargo test -p freemapper-cli`. The tests name every missing message, ev
 between languages, every id the code uses but the catalog lacks, and every id the catalog holds but the code
 does not use.
 
+Progress lines and warnings of the engine are not in this folder. Their texts live beside the engine, in
+`crates/freemapper/i18n/<language>/notes.ftl`, with ids that start with `progress-`, `warning-` and `word-`
+(`crates/freemapper/src/note.rs`); `cargo test -p freemapper` checks them the same way.
+
 Texts are written for the person at the terminal: in German with "Sie", terms as in `docs/glossary.md`.

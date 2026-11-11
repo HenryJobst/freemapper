@@ -690,6 +690,7 @@ dependencies = [
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-text",
  "fs4",
  "geo",
  "geo-types",

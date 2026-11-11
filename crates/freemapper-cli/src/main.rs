@@ -348,6 +348,11 @@ fn report(message: &str) {
     eprintln!("{message}");
 }
 
+/// Prints a progress line or a warning of the engine in the language of the run.
+fn report_note(note: freemapper::note::Note) {
+    report(&pipeline::line(&note));
+}
+
 /// Says that `path` was written.
 fn wrote(path: &std::path::Path) {
     println!("{}", text("cli-wrote", &[("path", v(path.display()))]));
@@ -494,7 +499,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 &HttpFetcher::new(),
                 &cache.cache()?,
                 mode(offline),
-                &mut report,
+                &mut report_note,
             )?;
             println!(
                 "{}",
@@ -503,7 +508,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
         }
         Commands::Derive { dir, cache } => {
             let _lock = lock_folder(&dir)?;
-            for path in derive_project(&dir, &cache.cache()?, &mut report)? {
+            for path in derive_project(&dir, &cache.cache()?, &mut report_note)? {
                 wrote(&path);
             }
         }
@@ -536,7 +541,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
                 &HttpFetcher::new(),
                 &pipeline::RunControl::default(),
                 &mut |event| match event {
-                    pipeline::Event::Line(line) => report(line),
+                    pipeline::Event::Line(line) | pipeline::Event::Warning(line) => report(line),
                     pipeline::Event::Phase { .. } => {}
                     pipeline::Event::Written(written) => {
                         print_written(written, options.pdf_sources)

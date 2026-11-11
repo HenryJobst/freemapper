@@ -69,6 +69,7 @@ fn line(error: &(dyn Error + 'static), lang: &Lang) -> String {
         CurrencyCsvError,
         AlkisError,
         OsmError,
+        Shortfall,
         Cancelled,
     );
     error.to_string()
