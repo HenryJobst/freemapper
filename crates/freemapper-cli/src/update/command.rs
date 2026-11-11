@@ -59,35 +59,11 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
         }
         result => result.map_err(failed)?,
     };
-    let Outcome::Available {
-        version,
-        released,
-        notes,
-        asset,
-    } = &outcome
-    else {
+    println!("{}", checked(&app, &outcome));
+    let Outcome::Available { version, notes, .. } = &outcome else {
         // `Current`, and any case a later core adds: nothing to install.
-        println!("{}", text("update-current", &[("version", v(app.current))]));
         return Ok(ExitCode::SUCCESS);
     };
-    println!(
-        "{}",
-        text(
-            "update-available",
-            &[
-                ("new", v(version)),
-                ("old", v(app.current)),
-                ("released", v(released)),
-            ]
-        )
-    );
-    println!(
-        "{}",
-        text(
-            "update-details",
-            &[("notes", v(notes)), ("size", v(megabytes(asset.size)))]
-        )
-    );
     if request.check {
         return Ok(ExitCode::from(UPDATE_AVAILABLE));
     }
@@ -104,8 +80,43 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
     println!("{}", text("update-installing", &[("version", v(version))]));
     let installed =
         install(&app, &source, &ProcessRunner::new(app.name), &exe, &outcome).map_err(failed)?;
-    println!(
-        "{}",
+    println!("{}", installed_text(&app, installed, notes));
+    Ok(ExitCode::SUCCESS)
+}
+
+/// What a check found: the newer version with its date, notes and size, or that this one is
+/// current.
+fn checked(app: &App, outcome: &Outcome) -> String {
+    match outcome {
+        Outcome::Available {
+            version,
+            released,
+            notes,
+            asset,
+        } => format!(
+            "{}\n{}",
+            text(
+                "update-available",
+                &[
+                    ("new", v(version)),
+                    ("old", v(app.current)),
+                    ("released", v(released)),
+                ]
+            ),
+            text(
+                "update-details",
+                &[("notes", v(notes)), ("size", v(megabytes(asset.size)))]
+            )
+        ),
+        _ => text("update-current", &[("version", v(app.current))]),
+    }
+}
+
+/// The lines after an install: from which version to which, and that a running MCP server
+/// needs a restart.
+fn installed_text(app: &App, installed: Version, notes: &str) -> String {
+    format!(
+        "{}\n{}",
         text(
             "update-done",
             &[
@@ -113,10 +124,37 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
                 ("new", v(installed)),
                 ("notes", v(notes)),
             ]
-        )
-    );
-    println!("{}", text("update-mcp-restart", &[]));
-    Ok(ExitCode::SUCCESS)
+        ),
+        text("update-mcp-restart", &[])
+    )
+}
+
+/// The MCP tool `check_update` (spec 3.7) in a release build: what `update --check` prints, or
+/// the error for the person. A release that needs a manual install is a result, as for
+/// `--check`.
+pub fn check_for_mcp() -> Result<String, String> {
+    let app = freemapper_app();
+    match check_for_update(&app, &update_source(), None) {
+        Ok(outcome) => Ok(checked(&app, &outcome)),
+        Err(too_old @ UpdateError::TooOldToSelfUpdate { .. }) => Ok(describe(&too_old)),
+        Err(e) => Err(describe(&e)),
+    }
+}
+
+/// The MCP tool `install_update` (spec 3.7) in a release build, once the person agreed: installs
+/// the newest release over the running program, printing nothing. The text for the person, or
+/// the error.
+pub fn install_for_mcp() -> Result<String, String> {
+    let app = freemapper_app();
+    let source = update_source();
+    let outcome = check_for_update(&app, &source, None).map_err(|e| describe(&e))?;
+    let Outcome::Available { notes, .. } = &outcome else {
+        return Ok(text("update-current", &[("version", v(app.current))]));
+    };
+    let exe = exe_path().map_err(|e| describe(&UpdateError::Io(e)))?;
+    let installed = install(&app, &source, &ProcessRunner::new(app.name), &exe, &outcome)
+        .map_err(|e| describe(&e))?;
+    Ok(installed_text(&app, installed, notes))
 }
 
 /// Stores `mode` in `settings.toml` and says where. Mentions `FREEMAPPER_UPDATE` when it overrides

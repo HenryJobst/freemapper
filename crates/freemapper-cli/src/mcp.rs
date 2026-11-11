@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use freemapper::area::MapArea;
@@ -11,15 +11,25 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{MapKind, ProjectFile, init_project};
+use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
-use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
-use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use rmcp::model::{
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
+    ServerCapabilities, ServerConfig,
+};
+use rmcp::service::RequestContext;
+use rmcp::{
+    ErrorData as McpError, RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router,
+};
 use serde::Deserialize;
 
 use crate::jobs::{JobHub, folder_key};
 use crate::pipeline::{self, describe};
 use crate::select::{Defaults, Selector, estimate_json, open_browser};
 use crate::text::{text as t, v};
+use crate::update::background::{CheckContext, check_for_server};
+use crate::update::command::{check_for_mcp, install_for_mcp};
+use crate::update::release_build;
 use serde_json::{Value, json};
 
 /// Longest side of a preview image in pixels.
@@ -125,6 +135,46 @@ struct PreviewLayer {
     layer: String,
 }
 
+#[derive(Deserialize, rmcp::schemars::JsonSchema)]
+struct InstallUpdate {
+    /// true once the person agreed to install the newer version; without it nothing is
+    /// installed.
+    #[serde(default)]
+    confirm: bool,
+}
+
+/// The note about a newer version for the person (spec 3.7): the daily check sets it, and one
+/// tool result of the server process carries it.
+#[derive(Default)]
+enum UpdateNote {
+    /// The check has not found a newer version (yet).
+    #[default]
+    Unknown,
+    Known(String),
+    /// A tool result carried it, or the agent asked an update tool itself.
+    Given,
+}
+
+impl UpdateNote {
+    fn know(&mut self, note: String) {
+        if matches!(self, UpdateNote::Unknown) {
+            *self = UpdateNote::Known(note);
+        }
+    }
+
+    /// The note, the first time it is asked for after it became known.
+    fn take(&mut self) -> Option<String> {
+        match std::mem::replace(self, UpdateNote::Given) {
+            UpdateNote::Known(note) => Some(note),
+            UpdateNote::Unknown => {
+                *self = UpdateNote::Unknown;
+                None
+            }
+            UpdateNote::Given => None,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
@@ -132,6 +182,7 @@ pub struct FreemapperServer {
     jobs: Arc<JobHub>,
     /// Area selection pages by [`folder_key`], one per folder.
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
+    update_note: Arc<Mutex<UpdateNote>>,
 }
 
 /// The id of a tool's description in the catalog.
@@ -270,7 +321,22 @@ impl FreemapperServer {
             cache,
             jobs: Arc::default(),
             selectors: Arc::default(),
+            update_note: Arc::default(),
         }
+    }
+
+    /// Starts the daily check (spec 3.7) of the cache folder; what it finds waits for the next
+    /// tool result.
+    fn start_update_check(&self) {
+        let note = Arc::clone(&self.update_note);
+        let ctx = CheckContext::of_command(Some(self.cache.root().to_path_buf()), false);
+        check_for_server(&ctx, move |text| {
+            note.lock().unwrap_or_else(|e| e.into_inner()).know(text);
+        });
+    }
+
+    fn update_note(&self) -> std::sync::MutexGuard<'_, UpdateNote> {
+        self.update_note.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     #[tool(
@@ -606,10 +672,70 @@ impl FreemapperServer {
             Err(e) => failure(e),
         }
     }
+
+    #[tool(
+        description = "Whether a newer freemapper release exists: its version, release date, \
+                       release notes and download size, or that this one is up to date. Installs \
+                       nothing."
+    )]
+    async fn check_update(&self) -> Result<CallToolResult, McpError> {
+        if !release_build() {
+            return text(t("update-source-build", &[]));
+        }
+        match blocking(check_for_mcp).await {
+            Ok(report) => text(report),
+            Err(e) => failure(e),
+        }
+    }
+
+    #[tool(
+        description = "Install the newest freemapper release over this program. Call it only \
+                       after the person agreed, with confirm true. The new version applies once \
+                       the assistant restarts the freemapper server."
+    )]
+    async fn install_update(
+        &self,
+        Parameters(req): Parameters<InstallUpdate>,
+    ) -> Result<CallToolResult, McpError> {
+        if !release_build() {
+            return text(t("update-source-build", &[]));
+        }
+        if !req.confirm {
+            return failure(t("update-mcp-needs-confirm", &[]));
+        }
+        match blocking(install_for_mcp).await {
+            Ok(report) => text(report),
+            Err(e) => failure(e),
+        }
+    }
 }
 
 #[tool_handler(router = self.tool_router)]
 impl ServerHandler for FreemapperServer {
+    /// The router's call, plus the note about a newer version on the one result that carries it.
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, McpError> {
+        let update_tool = matches!(request.name.as_ref(), "check_update" | "install_update");
+        if update_tool {
+            // It gives the news itself, so no note follows, also not during a long install.
+            *self.update_note() = UpdateNote::Given;
+        }
+        let mut response = self
+            .tool_router
+            .call(ToolCallContext::new(self, request, context))
+            .await?;
+        if !update_tool
+            && let CallToolResponse::Complete(result) = &mut response
+            && let Some(note) = self.update_note().take()
+        {
+            result.content.push(ContentBlock::text(note));
+        }
+        Ok(response)
+    }
+
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("freemapper", env!("CARGO_PKG_VERSION")))
@@ -619,9 +745,9 @@ impl ServerHandler for FreemapperServer {
 
 /// Serves MCP on stdin/stdout until the client disconnects.
 pub async fn serve(cache: Cache) -> anyhow::Result<()> {
-    let service = FreemapperServer::new(cache)
-        .serve(rmcp::transport::stdio())
-        .await?;
+    let server = FreemapperServer::new(cache);
+    server.start_update_check();
+    let service = server.serve(rmcp::transport::stdio()).await?;
     service.waiting().await?;
     Ok(())
 }
@@ -717,6 +843,18 @@ mod tests {
                 println!("{id} = {text}");
             }
         }
+    }
+
+    #[test]
+    fn the_update_note_is_given_once() {
+        let mut note = UpdateNote::default();
+        assert_eq!(note.take(), None);
+        note.know("newer".into());
+        assert_eq!(note.take(), Some("newer".into()));
+        assert_eq!(note.take(), None);
+        // Once given (or taken off by an update tool), a later check adds nothing.
+        note.know("again".into());
+        assert_eq!(note.take(), None);
     }
 
     #[test]

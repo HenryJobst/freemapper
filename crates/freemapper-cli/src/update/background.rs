@@ -130,6 +130,27 @@ impl BackgroundCheck {
     /// is installed instead (`update-installing` is printed here, before the download); a failed
     /// install is one warning and never changes the exit code of the command.
     pub fn finish(self, command_ok: bool) -> Option<Report> {
+        match &self.settle()? {
+            Ok(outcome @ Outcome::Available { version, notes, .. }) => {
+                if self.mode == Mode::Install && command_ok {
+                    return Some(self.install(outcome, version, notes));
+                }
+                Some(Report::Notice(text(
+                    "update-notice",
+                    &[("new", v(version)), ("old", v(freemapper_app().current))],
+                )))
+            }
+            // An update exists, but it needs a manual install: say so, with the link.
+            Err(too_old @ UpdateError::TooOldToSelfUpdate { .. }) => {
+                Some(Report::Notice(describe(too_old)))
+            }
+            _ => None,
+        }
+    }
+
+    /// Waits for the check as [`Self::finish`] does and records the attempt. `None` when it was
+    /// dropped or stopped.
+    fn settle(&self) -> Option<Result<Outcome, UpdateError>> {
         let result = match self
             .result
             .recv_timeout(LIMIT.saturating_sub(self.started.elapsed()))
@@ -148,40 +169,21 @@ impl BackgroundCheck {
                 return None;
             }
         };
-        match &result {
-            Ok(outcome @ Outcome::Available { version, notes, .. }) => {
-                self.save(RecordResult::Available {
+        self.save(match &result {
+            Ok(Outcome::Available { version, notes, .. })
+            | Err(UpdateError::TooOldToSelfUpdate { version, notes, .. }) => {
+                RecordResult::Available {
                     version: *version,
                     notes: notes.clone(),
-                });
-                if self.mode == Mode::Install && command_ok {
-                    return Some(self.install(outcome, version, notes));
                 }
-                Some(Report::Notice(text(
-                    "update-notice",
-                    &[("new", v(version)), ("old", v(freemapper_app().current))],
-                )))
             }
-            // An update exists, but it needs a manual install: say so, with the link.
-            Err(too_old @ UpdateError::TooOldToSelfUpdate { version, notes, .. }) => {
-                self.save(RecordResult::Available {
-                    version: *version,
-                    notes: notes.clone(),
-                });
-                Some(Report::Notice(describe(too_old)))
-            }
-            Err(e) => {
-                self.save(RecordResult::Failed {
-                    reason: e.to_string(),
-                });
-                None
-            }
+            Err(e) => RecordResult::Failed {
+                reason: e.to_string(),
+            },
             // `Current`, and any case a later core adds.
-            Ok(_) => {
-                self.save(RecordResult::Current);
-                None
-            }
-        }
+            Ok(_) => RecordResult::Current,
+        });
+        Some(result)
     }
 
     /// Mode `install`: installs `available` over the running program.
@@ -229,6 +231,53 @@ impl BackgroundCheck {
         }
         let _ = save_record(&self.record, &record);
     }
+}
+
+/// The MCP server's daily check (spec 3.7): due and recorded as in 3.3, on a thread of its own.
+/// It prints nothing and never installs, whatever the mode (D14). `tell` gets the note for the
+/// person once the check finds a newer version, or at once when the record of an earlier check
+/// knows one.
+pub fn check_for_server(ctx: &CheckContext, tell: impl FnOnce(String) + Send + 'static) {
+    if let Some(check) = start_background_check(ctx) {
+        let _ = std::thread::Builder::new()
+            .name("update note".into())
+            .spawn(move || {
+                let newer = match check.settle() {
+                    Some(
+                        Ok(Outcome::Available { version, .. })
+                        | Err(UpdateError::TooOldToSelfUpdate { version, .. }),
+                    ) => Some(version),
+                    _ => None,
+                };
+                if let Some(version) = newer {
+                    tell(server_note(version));
+                }
+            });
+    } else if let Some(version) = recorded_update(ctx) {
+        tell(server_note(version));
+    }
+}
+
+/// A newer version than this one that the record of an earlier check holds, under the same
+/// conditions as the check itself (apart from the 24 hours).
+fn recorded_update(ctx: &CheckContext) -> Option<Version> {
+    if !ctx.release || ctx.ci || ctx.offline || ctx.mode == Mode::Off {
+        return None;
+    }
+    let record = load_record(&ctx.cache_dir.as_ref()?.join(RECORD))?;
+    match record.result {
+        RecordResult::Available { version, .. } if version > freemapper_app().current => {
+            Some(version)
+        }
+        _ => None,
+    }
+}
+
+fn server_note(version: Version) -> String {
+    text(
+        "update-mcp-note",
+        &[("new", v(version)), ("old", v(freemapper_app().current))],
+    )
 }
 
 /// Deletes the stale files an update left next to the program (spec 3.5 step 7), silently. Only
