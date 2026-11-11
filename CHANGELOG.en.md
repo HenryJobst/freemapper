@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-11
+
 ### Added
 
 - Area selection: the page now creates the whole map (ADR 0090, stage 5; ADR 0009, amendment). Below the settings sits the block "Create the map" with the options OCAD starter project, printable PDF, training PDF, scale bar, source lines (automatic, full, freemapper only, with a hint about the ODbL and dl-de/by-2-0 licences), "Cache only" and, only when a map exists, "Replace the existing map" (never ticked in advance, with a confirmation dialog). The page saves first when needed, shows "Step i of n", the log excerpt and the warnings, can be cancelled, lists the files with their size at the end and opens the project folder in the file manager. Reloading during a run picks the display up again. While a run goes on, the area, the settings and "Save" are locked. The defaults come from `freemapper select --ocad --pdf --pdf-candidates --pdf-scale-bar --pdf-sources --offline`. All texts exist in German and English by the browser language; a `lang` field from the server would win, but it is still empty. The scales of a map kind now come from the server (`allowed_scales`) and no longer from a copy in the page. New manual section: "Create the map in the browser".
@@ -20,16 +22,13 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - An error in the terminal is now one line, `error: …` or `Fehler: …`, with the cause after a colon. Before, it read `Error: …` with the cause below under "Caused by:". The exit code stays 1.
 - `export` and `run` build the map and the candidates template once per command instead of once per output (ADR 0091). With `--ocad --pdf --pdf-candidates` that used to be four passes over all stored layers; now it is one for `export` and two for `run`. The written files are the same byte for byte.
+- Area selection: the local server now runs on the shared library `freemapper-web` from freemapper-core v0.11.0 (ADR 0090, stage 1; ADR 0009 and 0067, updates). The page looks the same. The checks are stricter: a POST needs the page's `Origin` and `Content-Type: application/json`, or the server answers 403. A script that calls the routes must send both. Requests with `Sec-Fetch-Site: cross-site` are refused, every response carries `X-Content-Type-Options: nosniff`, and a request body may be at most 1 MiB (an outline with 5000 points takes about 150 KB). All core crates are now pinned to the same tag v0.11.0.
+- The example preview images are now WebP instead of JPEG (`preview.webp`, `preview-map.webp`). They are rendered straight from the PDFs and are smaller than the JPEGs. The README title image (Viktoriapark) is sharper at 1600 pixels wide.
+- Tests: every test run now checks that the map and `freemapper.toml` keep the suite contract (ADR 0089, `freemapper-contract` from freemapper-core v0.8.0). A schoolyard map at 1:1000 and a sprint map at 1:4000 are tested against twelve rules and against the vocabulary freemapper-print and freemapper-courseplan rely on: part names, the tags of the peripheral information and of the walkable area, the contract keys of the project file. The program itself does not change.
 
 ### Fixed
 
 - Firm gravel paths (501.6 to 501.9) stay whole where only an ALKIS `Weg` parcel lies (ADR 0079, addendum). That parcel is only a 501.5 candidate, not a map object, yet it cut the OSM line away. Now only 501.5 map objects (roads, squares, the survey) cut. The 0.25 mm tolerance and the 1 mm minimum piece stay. Existing maps get this with `run --force`.
-
-### Changed
-
-- Area selection: the local server now runs on the shared library `freemapper-web` from freemapper-core v0.11.0 (ADR 0090, stage 1; ADR 0009 and 0067, updates). The page looks the same. The checks are stricter: a POST needs the page's `Origin` and `Content-Type: application/json`, or the server answers 403. A script that calls the routes must send both. Requests with `Sec-Fetch-Site: cross-site` are refused, every response carries `X-Content-Type-Options: nosniff`, and a request body may be at most 1 MiB (an outline with 5000 points takes about 150 KB). All core crates are now pinned to the same tag v0.11.0.
-- The example preview images are now WebP instead of JPEG (`preview.webp`, `preview-map.webp`). They are rendered straight from the PDFs and are smaller than the JPEGs. The README title image (Viktoriapark) is sharper at 1600 pixels wide.
-- Tests: every test run now checks that the map and `freemapper.toml` keep the suite contract (ADR 0089, `freemapper-contract` from freemapper-core v0.8.0). A schoolyard map at 1:1000 and a sprint map at 1:4000 are tested against twelve rules and against the vocabulary freemapper-print and freemapper-courseplan rely on: part names, the tags of the peripheral information and of the walkable area, the contract keys of the project file. The program itself does not change.
 
 ## [0.9.2] - 2026-11-10
 
