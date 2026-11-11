@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.10.0] - 2026-11-11
+
 ### Hinzugefügt
 
 - Gebietsauswahl: Die Seite erzeugt jetzt die ganze Karte (ADR 0090, Stufe 5; ADR 0009, Nachtrag). Unter den Einstellungen steht der Block „Karte erzeugen“ mit den Optionen OCAD-Startprojekt, Druckfertige PDF, Trainings-PDF, Maßstabsleiste, Quellenangabe (automatisch, vollständig, nur freemapper, mit Hinweis auf die Lizenzen ODbL und dl-de/by-2-0), „Nur Zwischenspeicher“ und, nur bei vorhandener Karte, „Vorhandene Karte ersetzen“ (nie vorgewählt, mit Bestätigungsdialog). Die Seite speichert bei Bedarf zuerst, zeigt „Schritt i von n“, den Protokollauszug und die Warnungen, lässt sich abbrechen, listet am Ende die Dateien mit Größe und öffnet den Projektordner im Dateimanager. Ein Neuladen während des Laufs setzt die Anzeige fort. Während des Laufs sind Gebiet, Einstellungen und „Speichern“ gesperrt. Die Voreinstellungen kommen von `freemapper select --ocad --pdf --pdf-candidates --pdf-scale-bar --pdf-sources --offline`. Alle Texte gibt es auf Deutsch und Englisch nach der Sprache des Browsers; ein Feld `lang` der Seite hätte Vorrang, ist aber noch leer. Der Maßstab einer Kartenart kommt jetzt vom Server (`allowed_scales`), nicht mehr aus einer Kopie in der Seite. Neues Kapitel im Handbuch: „Karte im Browser erzeugen“.
@@ -20,16 +22,13 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Ein Fehler im Terminal steht jetzt in einer Zeile, `error: …` oder `Fehler: …`, die Ursache folgt nach einem Doppelpunkt. Vorher stand dort `Error: …` und die Ursache darunter unter „Caused by:“. Der Exit-Code bleibt 1.
 - `export` und `run` bauen Karte und Kandidatenvorlage nur noch einmal je Befehl statt einmal je Ausgabe (ADR 0091). Mit `--ocad --pdf --pdf-candidates` waren es bisher vier Durchläufe über alle gespeicherten Ebenen, jetzt ist es bei `export` einer und bei `run` zwei. Die geschriebenen Dateien sind Byte für Byte dieselben.
+- Gebietsauswahl: Der lokale Server läuft jetzt auf der gemeinsamen Bibliothek `freemapper-web` aus freemapper-core v0.11.0 (ADR 0090, Stufe 1; ADR 0009 und 0067, Nachtrag). Die Seite sieht gleich aus. Die Prüfungen sind strenger: Ein POST braucht den `Origin` der Seite und `Content-Type: application/json`, sonst antwortet der Server mit 403. Wer die Routen mit einem eigenen Skript aufruft, muss beides senden. Anfragen mit `Sec-Fetch-Site: cross-site` werden abgelehnt, jede Antwort trägt `X-Content-Type-Options: nosniff`, und ein Anfragekörper darf höchstens 1 MiB groß sein (ein Umriss mit 5000 Punkten braucht etwa 150 KB). Alle Kernbibliotheken sind jetzt auf dasselbe Tag v0.11.0 festgelegt.
+- Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.
+- Tests: Jeder Testlauf prüft jetzt, ob Karte und `freemapper.toml` den Vertrag der Suite einhalten (ADR 0089, `freemapper-contract` aus freemapper-core v0.8.0). Geprüft werden eine Schulhofkarte 1:1000 und eine Sprintkarte 1:4000 gegen zwölf Regeln und gegen das Vokabular, auf das sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, Tags der Randangaben und der belaufbaren Fläche, Vertragsschlüssel der Projektdatei. Das Programm selbst ändert sich nicht.
 
 ### Behoben
 
 - Feste Kieswege (501.6 bis 501.9) bleiben ganz, wo nur ein ALKIS-Flurstück `Weg` liegt (ADR 0079, Nachtrag). Dieses Flurstück ist nur ein Kandidat 501.5, kein Kartenobjekt, und schnitt trotzdem die OSM-Linie weg. Jetzt schneiden nur 501.5-Kartenobjekte (Straßenverkehr, Platz, Befahrung). Toleranz 0,25 mm und Mindeststück 1 mm bleiben. Bestehende Karten bekommen das mit `run --force`.
-
-### Geändert
-
-- Gebietsauswahl: Der lokale Server läuft jetzt auf der gemeinsamen Bibliothek `freemapper-web` aus freemapper-core v0.11.0 (ADR 0090, Stufe 1; ADR 0009 und 0067, Nachtrag). Die Seite sieht gleich aus. Die Prüfungen sind strenger: Ein POST braucht den `Origin` der Seite und `Content-Type: application/json`, sonst antwortet der Server mit 403. Wer die Routen mit einem eigenen Skript aufruft, muss beides senden. Anfragen mit `Sec-Fetch-Site: cross-site` werden abgelehnt, jede Antwort trägt `X-Content-Type-Options: nosniff`, und ein Anfragekörper darf höchstens 1 MiB groß sein (ein Umriss mit 5000 Punkten braucht etwa 150 KB). Alle Kernbibliotheken sind jetzt auf dasselbe Tag v0.11.0 festgelegt.
-- Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.
-- Tests: Jeder Testlauf prüft jetzt, ob Karte und `freemapper.toml` den Vertrag der Suite einhalten (ADR 0089, `freemapper-contract` aus freemapper-core v0.8.0). Geprüft werden eine Schulhofkarte 1:1000 und eine Sprintkarte 1:4000 gegen zwölf Regeln und gegen das Vokabular, auf das sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, Tags der Randangaben und der belaufbaren Fläche, Vertragsschlüssel der Projektdatei. Das Programm selbst ändert sich nicht.
 
 ## [0.9.2] - 2026-11-10
 
