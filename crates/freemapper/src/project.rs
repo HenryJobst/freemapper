@@ -363,9 +363,12 @@ const STORED_METRE: f64 = 0.001;
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
 const STORED_DEGREE: f64 = 1e-8;
 
-/// `value` on the grid of `step`.
+/// `value` on the grid of `step`. Dividing by the whole number of steps in one unit gives the
+/// number that is written with as few digits as the grid has; multiplying by the step would
+/// leave `5816416.924000001` in the file.
 fn on_grid(value: f64, step: f64) -> f64 {
-    (value / step).round() * step
+    let per_unit = (1.0 / step).round();
+    (value * per_unit).round() / per_unit
 }
 
 /// `bbox` as a raster record stores it: rounded to the millimetre.
@@ -7151,6 +7154,15 @@ mod tests {
             osm.area
         );
         assert!(osm.covers(&project.area().unwrap().geo_box(project.buffer_m)));
+        // The file shows no more digits than the grid has.
+        assert_eq!(
+            on_grid(5_816_416.924_000_4, STORED_METRE).to_string(),
+            "5816416.924"
+        );
+        assert_eq!(
+            on_grid(13.384_737_621, STORED_DEGREE).to_string(),
+            "13.38473762"
+        );
         // A record written before the grid, with every digit of the projection, still covers.
         let exact = [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n];
         assert!(stored_bbox_covers(exact, &bbox));

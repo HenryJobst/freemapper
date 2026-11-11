@@ -37,6 +37,15 @@ mv "$tmp/store.tar.gz" "$tmp/moved.tar.gz"
 fetch_into "$tmp/good" > /dev/null || { echo "FAIL: a store in place was fetched again" >&2; exit 1; }
 mv "$tmp/moved.tar.gz" "$tmp/store.tar.gz"
 
+# A folder that holds something else is never replaced.
+mkdir -p "$tmp/other"
+echo "mine" > "$tmp/other/notes.txt"
+if fetch_into "$tmp/other" > /dev/null 2> "$tmp/err"; then
+  echo "FAIL: a folder that is no fixture store was replaced" >&2
+  exit 1
+fi
+[ "$(cat "$tmp/other/notes.txt")" = "mine" ] || { echo "FAIL: a foreign file is gone" >&2; exit 1; }
+
 lock_with "0000000000000000000000000000000000000000000000000000000000000000"
 if fetch_into "$tmp/bad" > /dev/null 2> "$tmp/err"; then
   echo "FAIL: an archive with another hash was accepted" >&2

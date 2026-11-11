@@ -40,6 +40,12 @@ fetch() {
     echo "$lock names no archive: version $version is not published yet" >&2
     exit 1
   fi
+  # The store folder is replaced as a whole. A folder that holds something else is left alone
+  # (FREEMAPPER_GOLDEN_STORE may name any folder).
+  if [ -n "$(ls -A "$store" 2>/dev/null)" ] && [ ! -d "$store/responses" ]; then
+    echo "$store is not empty and no fixture store; not touched" >&2
+    exit 1
+  fi
   tmp=$(mktemp -d)
   # No token and no header of our own: the archive is public.
   curl -fsSL --retry 3 -o "$tmp/store.tar.gz" "$url"
