@@ -78,6 +78,14 @@ mod tests {
         ) -> Vec<crate::credit::CreditLine> {
             Vec::new()
         }
+
+        fn estimate(
+            &self,
+            _area: &crate::estimate::EstimateArea,
+            _env: &crate::estimate::EstimateEnv<'_>,
+        ) -> Vec<crate::records::EstimateItem> {
+            Vec::new()
+        }
     }
 
     fn plain(id: &'static str) -> Arc<dyn RegionAdapter> {

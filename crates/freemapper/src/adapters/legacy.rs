@@ -5,11 +5,12 @@
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
+use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
-use freemapper_adapter_api::records::AdapterId;
+use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use geo_types::MultiPolygon;
 
-use crate::adapters::credit;
+use crate::adapters::{credit, estimate};
 use crate::crs::BoundingBox;
 use std::sync::OnceLock;
 
@@ -166,6 +167,14 @@ impl RegionAdapter for LegacyAdapter {
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
         credit::lines(self.region, used)
+    }
+
+    fn tile_grid_km(&self) -> Option<u32> {
+        estimate::tile_grid_km(self.region)
+    }
+
+    fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+        estimate::items(self.region, area, env)
     }
 
     fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {

@@ -12,6 +12,7 @@ pub use freemapper_adapter_api::registry::Registry;
 use crate::sources::region::Region;
 
 pub(crate) mod credit;
+pub(crate) mod estimate;
 pub mod legacy;
 
 /// The states built into the program, in the order the region functions always went through

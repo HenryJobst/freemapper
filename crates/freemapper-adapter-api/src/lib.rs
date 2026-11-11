@@ -11,6 +11,7 @@ pub mod cache;
 pub mod credit;
 pub mod env;
 pub mod error;
+pub mod estimate;
 pub mod fetch;
 pub mod fs;
 pub mod info;

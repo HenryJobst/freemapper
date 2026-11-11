@@ -1266,6 +1266,14 @@ mod tests {
         ) -> Vec<freemapper_adapter_api::credit::CreditLine> {
             Vec::new()
         }
+
+        fn estimate(
+            &self,
+            _area: &freemapper_adapter_api::estimate::EstimateArea,
+            _env: &freemapper_adapter_api::estimate::EstimateEnv<'_>,
+        ) -> Vec<freemapper_adapter_api::records::EstimateItem> {
+            Vec::new()
+        }
     }
 
     fn square(extracts: usize) -> Registry {

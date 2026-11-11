@@ -4,10 +4,12 @@ use freemapper_georef::crs::BoundingBox;
 use geo_types::MultiPolygon;
 
 use crate::credit::{CreditLine, UsedSources};
+use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::info::RegionInfo;
+use crate::records::EstimateItem;
 
 /// Everything one state or country supplies. This is the first cut (plan task C1): identity
-/// and boundary, by now with the OSM extracts (C3) and the credit lines (C4). The tasks that move a concern off the region enums add its method.
+/// and boundary, by now with the OSM extracts (C3), the credit lines (C4) and the estimate (C5). The tasks that move a concern off the region enums add its method.
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;
@@ -25,6 +27,16 @@ pub trait RegionAdapter: Send + Sync {
     /// The credit lines for what a project holds of this region, in the order they are printed;
     /// empty before anything of it was fetched.
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine>;
+
+    /// The side in km of the tiles of the EPSG:25833 grid the rasters of this region come in.
+    /// `None`: the rasters are fetched for the area itself.
+    fn tile_grid_km(&self) -> Option<u32> {
+        None
+    }
+
+    /// The raster downloads of a map of `area` whose rasters come from this region (what, MB,
+    /// cached, part, store), in the order they are listed.
+    fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem>;
 
     /// The box around the boundary (EPSG:25833). The region functions ask it before the
     /// boundary itself: what lies outside the box cannot touch the region. An adapter that
