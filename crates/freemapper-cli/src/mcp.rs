@@ -377,11 +377,17 @@ impl FreemapperServer {
             Ok(options) => options,
             Err(e) => return failure(e),
         };
+        // Held for as long as the job runs (the closure owns it), also against a terminal.
+        let lock = match crate::lock::acquire(&dir, crate::lock::Who::Mcp) {
+            Ok(lock) => lock,
+            Err(e) => return failure(e.to_string()),
+        };
         let cache = self.cache.clone();
         let job_dir = dir.clone();
         let started = self.jobs.start(
             &dir,
             Box::new(move |control, progress| {
+                let _lock = lock;
                 pipeline::run(
                     &job_dir,
                     &options,

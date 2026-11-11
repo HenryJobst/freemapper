@@ -389,3 +389,50 @@ fn mcp_create_project_checks_the_scale_per_kind() {
     assert!(!error, "{text}");
     assert!(text.contains("not in the sprint norm"), "{text}");
 }
+#[test]
+fn mcp_pipeline_refuses_a_folder_another_run_holds() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE }),
+    );
+    assert!(!error, "{text}");
+    // A terminal run holds the folder.
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let lock = project.join(".freemapper-run.lock");
+    std::fs::write(
+        &lock,
+        format!(r#"{{"pid":1,"started":{started},"who":"cli"}}"#),
+    )
+    .unwrap();
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(error, "{text}");
+    assert!(
+        text.contains("another freemapper run is using this folder")
+            || text.contains("Ein anderer freemapper-Lauf"),
+        "{text}"
+    );
+    // Once the other run is over, the same call starts, and the job lets go of the folder.
+    std::fs::remove_file(&lock).unwrap();
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
+    let job: Value = serde_json::from_str(&text).unwrap();
+    let job_id = job["job_id"].as_str().unwrap().to_string();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        assert!(std::time::Instant::now() < deadline, "job still running");
+        let (_, text) = session.call("project_status", json!({ "job_id": job_id }));
+        let status: Value = serde_json::from_str(&text).unwrap();
+        if status["state"] != "running" {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    assert!(!lock.exists(), "released when the job ended");
+}

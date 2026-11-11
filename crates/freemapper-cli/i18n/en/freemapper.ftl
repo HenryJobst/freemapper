@@ -50,3 +50,13 @@ cli-ocad-load-symbols = In OCAD, choose Symbol > Load Colors and Symbols From…
 
 cli-select-running = Area selection for { $path }: press "Done" on the page or Ctrl+C to stop.
 cli-select-no-browser = Could not open the browser ({ $error }); open the address above.
+
+## Folder lock
+
+cli-lock-held = another freemapper run is using this folder (since { $time }, started by { $who }). Wait for it or stop it first.
+cli-lock-who-cli = the terminal
+cli-lock-who-mcp = an AI agent (MCP)
+cli-lock-who-page = the selection page
+cli-lock-who-unknown = another program
+cli-lock-failed = could not lock the project folder for this run: { $error }
+cli-lock-stuck = something other than a lock file is in the way and could not be removed

@@ -736,6 +736,7 @@ Meldungen:
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
 | `the map area lies outside the supported states` | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen oder Rheinland-Pfalz. Bremen gehört noch nicht dazu. | Ein anderes Gebiet wählen; weitere Länder folgen. |
+| `Ein anderer freemapper-Lauf verwendet diesen Ordner (seit …` (englisch: `another freemapper run is using this folder`) | Ein zweites freemapper (ein Terminal, ein KI-Assistent oder die Gebietsseite) arbeitet in diesem Projektordner. Die Datei `.freemapper-run.lock` im Ordner zeigt es an. | Warten Sie, bis der andere Lauf fertig ist, oder beenden Sie ihn. Ein abgebrochener Lauf lässt die Datei zurück; nach einer Minute ohne Lebenszeichen wird sie von selbst ersetzt. |
 | `map area plus buffer is … more than 4000 m per side` | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
 | `no area found for …` | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, das Gebiet im Browser zeichnen, oder mit `--osm <id> --part <n>` einen Teil wählen. |
 | `… is an area of … separate parts (…)` | Das OSM-Objekt besteht aus mehreren getrennten Flächen. In Klammern stehen ihre Größen, die größte zuerst. | Mit `--part <n>` einen Teil wählen (1 ist der größte), im MCP mit `part`. Oder den Umriss als GeoJSON speichern und `--geojson` nutzen. |

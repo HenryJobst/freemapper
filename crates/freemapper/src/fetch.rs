@@ -76,6 +76,9 @@ pub enum FetchError {
         range: String,
         status: u16,
     },
+    /// The caller asked to stop; no request was made.
+    #[error("cancelled")]
+    Cancelled,
 }
 
 impl FetchError {
@@ -107,6 +110,52 @@ fn tiles_are(tiles: &[TileId]) -> String {
 
 /// Partial files older than this are left over from interrupted runs.
 pub(crate) const STALE_PART_AGE: Duration = Duration::from_secs(3600);
+
+/// A [`Fetcher`] that refuses every request once `cancelled` says so, with
+/// [`FetchError::Cancelled`]. The fetch code asks it before each request, so a cancel takes
+/// effect at the next request and no download is cut in the middle of the file it writes.
+pub(crate) struct CancelCheck<'a> {
+    pub(crate) inner: &'a dyn Fetcher,
+    pub(crate) cancelled: &'a dyn Fn() -> bool,
+}
+
+impl CancelCheck<'_> {
+    fn check(&self) -> Result<(), FetchError> {
+        if (self.cancelled)() {
+            Err(FetchError::Cancelled)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl Fetcher for CancelCheck<'_> {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        self.check()?;
+        self.inner.get(url)
+    }
+
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        self.check()?;
+        self.inner.last_modified(url)
+    }
+
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        self.check()?;
+        self.inner.get_range(url, range)
+    }
+
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(&str),
+    ) -> Result<(), FetchError> {
+        self.check()?;
+        self.inner.download_to(url, path, max_bytes, progress)
+    }
+}
 
 /// Source of downloads; HTTP in production, in-memory in tests.
 pub trait Fetcher {
@@ -1296,7 +1345,10 @@ fn retrying<T>(
         let result = once();
         match result {
             Err(
-                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+                FetchError::NotFound(_)
+                | FetchError::Refused { .. }
+                | FetchError::TooLarge { .. }
+                | FetchError::Cancelled,
             ) => return result,
             // Asking again does not free disk space.
             Err(ref e) if e.is_disk_full() => return result,
@@ -1324,7 +1376,10 @@ pub(crate) fn download_with_retries(
         let result = fetcher.download_to(url, path, max_bytes, progress);
         match result {
             Err(
-                FetchError::NotFound(_) | FetchError::Refused { .. } | FetchError::TooLarge { .. },
+                FetchError::NotFound(_)
+                | FetchError::Refused { .. }
+                | FetchError::TooLarge { .. }
+                | FetchError::Cancelled,
             ) => return result,
             Err(ref e) if e.is_disk_full() => return result,
             Err(_) if attempt < ATTEMPTS => {
@@ -1366,7 +1421,8 @@ pub(crate) fn get_range_with_retries(
             Err(
                 FetchError::NotFound(_)
                 | FetchError::Refused { .. }
-                | FetchError::RangeIgnored { .. },
+                | FetchError::RangeIgnored { .. }
+                | FetchError::Cancelled,
             ) => return result,
             Err(_) if attempt < ATTEMPTS => {
                 std::thread::sleep(RETRY_DELAY * attempt);

@@ -113,6 +113,10 @@ pub enum ProjectError {
     Derive(#[from] DeriveError),
     #[error("no tiles fetched yet; run `freemapper fetch` first")]
     NotFetched,
+    /// The caller asked to stop (see [`run_project_cancellable`]); what was written before is
+    /// whole, and the next run continues.
+    #[error("cancelled")]
+    Cancelled,
     #[error("{0}")]
     Layer(String),
     #[error("OCAD export: {0}")]
@@ -781,6 +785,53 @@ pub fn fetch_project(
     mode: FetchMode,
     progress: &mut dyn FnMut(&str),
 ) -> Result<ProjectFile, ProjectError> {
+    fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
+}
+
+/// Stops with [`ProjectError::Cancelled`] when `cancelled` says so.
+fn stop_if(cancelled: &dyn Fn() -> bool) -> Result<(), ProjectError> {
+    if cancelled() {
+        Err(ProjectError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+
+/// [`fetch_project`] that asks `cancelled` before every request and after every part, and then
+/// stops with [`ProjectError::Cancelled`]. Files are written whole (partial file, then rename)
+/// and the project file only records parts that finished, so the next fetch continues.
+pub fn fetch_project_cancellable(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<ProjectFile, ProjectError> {
+    let guarded = crate::fetch::CancelCheck {
+        inner: fetcher,
+        cancelled,
+    };
+    // A failure after the stop was asked for is the stop (a refused request surfaces as many
+    // kinds of error).
+    fetch_project_parts(dir, &guarded, cache, mode, progress, cancelled).map_err(|e| {
+        if cancelled() {
+            ProjectError::Cancelled
+        } else {
+            e
+        }
+    })
+}
+
+fn fetch_project_parts(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(&str),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<ProjectFile, ProjectError> {
+    stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     let region_bbox = project.region_bbox()?;
@@ -852,6 +903,7 @@ pub fn fetch_project(
             fetch_lgb_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
         }
     }
+    stop_if(cancelled)?;
     project.save(dir)?;
     let area = FetchArea {
         region_bbox: project.region_bbox()?,
@@ -859,22 +911,26 @@ pub fn fetch_project(
         bbox: project.bbox()?,
     };
     let previous = project.buildings.as_ref();
-    if let Some(record) = fetch_buildings_into(dir, fetcher, &area, mode, previous, progress)? {
+    let buildings = fetch_buildings_into(dir, fetcher, &area, mode, previous, progress)?;
+    stop_if(cancelled)?;
+    if let Some(record) = buildings {
         project.buildings = Some(record);
         project.save(dir)?;
     }
-    if let Some(record) = fetch_land_use_into(
+    let land_use = fetch_land_use_into(
         dir,
         fetcher,
         &area,
         mode,
         project.land_use.as_ref(),
         progress,
-    ) {
+    );
+    stop_if(cancelled)?;
+    if let Some(record) = land_use {
         project.land_use = record;
         project.save(dir)?;
     }
-    project.berlin_layers = fetch_berlin_layers_into(
+    let berlin_layers = fetch_berlin_layers_into(
         dir,
         fetcher,
         &area.region_bbox,
@@ -884,8 +940,10 @@ pub fn fetch_project(
         &project.berlin_layers,
         progress,
     );
+    stop_if(cancelled)?;
+    project.berlin_layers = berlin_layers;
     project.save(dir)?;
-    project.nas_layers = fetch_nas_layers_into(
+    let nas_layers = fetch_nas_layers_into(
         dir,
         fetcher,
         &area,
@@ -895,8 +953,10 @@ pub fn fetch_project(
         &project.nas_layers,
         progress,
     );
+    stop_if(cancelled)?;
+    project.nas_layers = nas_layers;
     project.save(dir)?;
-    project.tree_layers = fetch_tree_layers_into(
+    let tree_layers = fetch_tree_layers_into(
         dir,
         fetcher,
         &area,
@@ -905,6 +965,8 @@ pub fn fetch_project(
         &project.tree_layers,
         progress,
     );
+    stop_if(cancelled)?;
+    project.tree_layers = tree_layers;
     project.save(dir)?;
     fetch_k5_into(
         dir,
@@ -916,17 +978,12 @@ pub fn fetch_project(
         &area.bbox,
         progress,
     );
+    stop_if(cancelled)?;
     project.save(dir)?;
     let skip_update = skips(Part::OsmUpdate);
-    project.osm = Some(fetch_osm_into(
-        dir,
-        fetcher,
-        cache,
-        mode,
-        skip_update,
-        &project,
-        progress,
-    )?);
+    let osm = fetch_osm_into(dir, fetcher, cache, mode, skip_update, &project, progress)?;
+    stop_if(cancelled)?;
+    project.osm = Some(osm);
     project.save(dir)?;
     Ok(project)
 }
@@ -3394,6 +3451,19 @@ pub fn derive_project(
     cache: &Cache,
     progress: &mut dyn FnMut(&str),
 ) -> Result<Vec<PathBuf>, ProjectError> {
+    derive_project_cancellable(dir, cache, progress, &|| false)
+}
+
+/// [`derive_project`] that asks `cancelled` before each template it writes. Every template is
+/// written whole (partial file, then rename), so a stop leaves the finished ones and no
+/// partial file; the next derive writes them all again.
+pub fn derive_project_cancellable(
+    dir: &Path,
+    cache: &Cache,
+    progress: &mut dyn FnMut(&str),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<Vec<PathBuf>, ProjectError> {
+    stop_if(cancelled)?;
     let project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.tiles.is_empty() && project.terrain.is_none() {
@@ -3474,6 +3544,7 @@ pub fn derive_project(
     crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(&format!("writing {ORTHOPHOTO_RELPATH}"));
+    stop_if(cancelled)?;
     match provider {
         Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, dir, &orthophoto)?,
         Provider::GeoSn
@@ -3496,6 +3567,7 @@ pub fn derive_project(
     let stored_model = |record: &Option<WcsRecord>, relpath: &str| {
         record.as_ref().is_some_and(|r| r.covers(&bbox)) && dir.join(relpath).exists()
     };
+    stop_if(cancelled)?;
     let dtm = if let Some((_, dtm_product, _)) = tile_products {
         mosaic_dtm(&tiles(dtm_product)?, &bbox)?
     } else {
@@ -3535,13 +3607,16 @@ pub fn derive_project(
     }
     let hillshade_path = dir.join(HILLSHADE_RELPATH);
     progress(&format!("writing {HILLSHADE_RELPATH}"));
+    stop_if(cancelled)?;
     write_gray_png(&hillshade(&dtm), dir, &hillshade_path)?;
     let slope_path = dir.join(SLOPE_RELPATH);
     progress(&format!("writing {SLOPE_RELPATH}"));
+    stop_if(cancelled)?;
     let black_deg = project.map_kind.slope_black_deg();
     write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), dir, &slope_path)?;
 
     progress(&format!("writing {CONTOURS_RELPATH}"));
+    stop_if(cancelled)?;
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
     let interval = f64::from(project.map_kind.contour_interval_m());
     let lines = generalize(
@@ -3597,6 +3672,7 @@ pub fn derive_project(
         })
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
+    stop_if(cancelled)?;
     let dsm = if dsm_recorded {
         let model = match tile_products {
             Some((_, _, dsm_product)) => {
@@ -3623,6 +3699,7 @@ pub fn derive_project(
         }
     } else {
         progress(&format!("writing {NDSM_RELPATH}"));
+        stop_if(cancelled)?;
         let mut ndsm = rasterize(&ndsm_files, &bbox)?;
         // Consumed here: the 0.2 m surface model is as large as the nDSM itself.
         if let Some(dsm) = dsm {
@@ -3715,10 +3792,52 @@ pub fn run_project_steps(
     progress: &mut dyn FnMut(&str),
     stage: &mut dyn FnMut(RunStage),
 ) -> Result<RunOutcome, ProjectError> {
+    run_project_steps_cancellable(dir, fetcher, cache, mode, force, progress, stage, &|| false)
+}
+
+/// [`run_project`] that stops with [`ProjectError::Cancelled`] when `cancelled` says so: before
+/// each step, at each part of the fetch and derive, and before each request. Whatever was
+/// written before is whole, so the next run continues from there.
+pub fn run_project_cancellable(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    force: bool,
+    progress: &mut dyn FnMut(&str),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<RunOutcome, ProjectError> {
+    run_project_steps_cancellable(
+        dir,
+        fetcher,
+        cache,
+        mode,
+        force,
+        progress,
+        &mut |_| {},
+        cancelled,
+    )
+}
+
+/// [`run_project_steps`] with the stop of [`run_project_cancellable`].
+#[allow(clippy::too_many_arguments)]
+pub fn run_project_steps_cancellable(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    force: bool,
+    progress: &mut dyn FnMut(&str),
+    stage: &mut dyn FnMut(RunStage),
+    cancelled: &dyn Fn() -> bool,
+) -> Result<RunOutcome, ProjectError> {
+    stop_if(cancelled)?;
     stage(RunStage::Fetch);
-    fetch_project(dir, fetcher, cache, mode, progress)?;
+    fetch_project_cancellable(dir, fetcher, cache, mode, progress, cancelled)?;
+    stop_if(cancelled)?;
     stage(RunStage::Derive);
-    let templates = derive_project(dir, cache, progress)?;
+    let templates = derive_project_cancellable(dir, cache, progress, cancelled)?;
+    stop_if(cancelled)?;
     stage(RunStage::Map);
     let existing = map_path(dir);
     let map = if existing.exists() && !force {
@@ -7568,6 +7687,175 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(outcome.templates.len(), 4, "three images and the contours");
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
+    }
+
+    /// Every file below `dir` whose name says it is a partial file.
+    fn part_files(dir: &Path) -> Vec<PathBuf> {
+        let mut found = Vec::new();
+        let mut open = vec![dir.to_path_buf()];
+        while let Some(folder) = open.pop() {
+            for entry in std::fs::read_dir(folder).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    open.push(path);
+                } else if path.to_string_lossy().contains(".part") {
+                    found.push(path);
+                }
+            }
+        }
+        found
+    }
+
+    fn names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn cancel_before_fetch_returns_cancelled_and_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let before = names_in(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let error = run_project_cancellable(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            false,
+            &mut |_| {},
+            &|| true,
+        )
+        .unwrap_err();
+        assert!(matches!(error, ProjectError::Cancelled), "{error}");
+        assert_eq!(error.to_string(), "cancelled");
+        assert_eq!(fetcher.calls.get(), 0, "no request after the flag is set");
+        assert_eq!(names_in(dir.path()), before);
+        assert!(names_in(cache_dir.path()).is_empty());
+    }
+
+    #[test]
+    fn cancel_between_fetch_and_derive_leaves_no_part_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let flag = std::cell::Cell::new(false);
+        let error = run_project_steps_cancellable(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            false,
+            &mut |_| {},
+            &mut |stage| flag.set(flag.get() || stage == RunStage::Derive),
+            &|| flag.get(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, ProjectError::Cancelled), "{error}");
+        assert!(
+            part_files(dir.path()).is_empty(),
+            "{:?}",
+            part_files(dir.path())
+        );
+        assert!(part_files(cache_dir.path()).is_empty());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert!(!project.tiles.is_empty(), "the fetch is kept");
+        assert!(
+            !dir.path().join(ORTHOPHOTO_RELPATH).exists(),
+            "derive did not start"
+        );
+        assert!(!map_path(dir.path()).exists());
+    }
+
+    #[test]
+    fn cancelled_project_runs_to_the_end_the_next_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        // Cancelled after the first request of the fetch, and again while deriving.
+        let asked = &fetcher;
+        run_project_cancellable(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            false,
+            &mut |_| {},
+            &|| asked.calls.get() >= 1,
+        )
+        .unwrap_err();
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
+        assert_eq!(outcome.templates.len(), 4);
+        assert!(part_files(dir.path()).is_empty());
+    }
+
+    #[test]
+    fn cancel_in_the_middle_of_the_fetch_stops_before_the_next_request() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let error = fetch_project_cancellable(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            &mut |_| {},
+            &|| fetcher.calls.get() >= 2,
+        )
+        .unwrap_err();
+        assert!(matches!(error, ProjectError::Cancelled), "{error}");
+        assert_eq!(
+            fetcher.calls.get(),
+            2,
+            "the request after the flag is refused"
+        );
+        assert!(part_files(dir.path()).is_empty());
+        assert!(part_files(cache_dir.path()).is_empty());
+    }
+
+    #[test]
+    fn cancel_between_derive_steps_keeps_finished_templates_whole() {
+        let fetcher = MapFetcher::default();
+        let (dir, cache_dir, cache) = fetched_school(&fetcher);
+        let flag = std::cell::Cell::new(false);
+        let error = derive_project_cancellable(
+            dir.path(),
+            &cache,
+            &mut |line| flag.set(flag.get() || line.contains("hillshade")),
+            &|| flag.get(),
+        )
+        .unwrap_err();
+        assert!(matches!(error, ProjectError::Cancelled), "{error}");
+        assert!(part_files(dir.path()).is_empty());
+        assert!(part_files(cache_dir.path()).is_empty());
+        let orthophoto = dir.path().join(ORTHOPHOTO_RELPATH);
+        assert!(std::fs::metadata(&orthophoto).unwrap().len() > 0);
+        assert!(!dir.path().join(SLOPE_RELPATH).exists());
+        // The next derive completes it.
+        assert_eq!(
+            derive_project(dir.path(), &cache, &mut |_| {})
+                .unwrap()
+                .len(),
+            4
+        );
     }
 
     /// The fetched and derived school project.
