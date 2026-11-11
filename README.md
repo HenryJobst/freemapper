@@ -331,6 +331,9 @@ OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
 
 `freemapper mcp` ist ein MCP-Server auf stdin/stdout. Ein KI-Agent kann damit die Karte für jemanden
 erstellen, der keine Kommandozeile benutzen möchte: Man nennt dem Agenten die Schule, er erledigt den Rest.
+Für den Agenten selbst gibt es [`AGENTS.md`](AGENTS.md) (Englisch), auch im Release-Archiv: Sie beschreibt,
+wie er freemapper installiert und benutzt. Es reicht, dem Agenten zu sagen: „Lies AGENTS.md von
+github.com/HenryJobst/freemapper und richte freemapper ein.“
 
 In Claude Code anmelden (mit dem Pfad, unter dem freemapper entpackt wurde):
 

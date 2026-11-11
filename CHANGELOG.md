@@ -9,6 +9,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Hinzugefügt
 
 - Programmsprache, dritte Stufe (ADR 0092): Fortschrittszeilen und Warnungen kommen in der Sprache des Programms, auf der Kommandozeile, im MCP-Server und im Protokoll der Gebietsseite. Eine Warnung beginnt deutsch mit `Warnung:`. Steckt in einer Warnung ein Fehler, etwa ein fehlgeschlagener Download, ist auch er übersetzt. Das gilt auch für die Warnungen zu den Höhenmodellen der einzelnen Bundesländer (Kachellisten, Datumsangaben). Noch Englisch ist `--help`.
+- `AGENTS.md`: eine Anleitung für KI-Agenten, wie sie freemapper installieren (Archiv wählen, Prüfsumme, macOS-Quarantäne) und benutzen, über MCP oder die Kommandozeile, mit den Tools, dem Ablauf, den Ergebnisdateien und dem, was der Agent dem Menschen sagen soll. Sie liegt jetzt auch in jedem Release-Archiv.
 
 ### Geändert
 
