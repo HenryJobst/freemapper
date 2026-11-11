@@ -6,7 +6,8 @@
 //! [`Note::text`] in the language of its run, and `Display` gives English for logs and tests.
 //!
 //! An id starts with `progress-` or `warning-`; that prefix decides the kind. `word-` ids name
-//! things inside other messages (a height model, a product).
+//! things inside other messages (a height model, a product), and `error-` ids word the detail of
+//! an error that has many forms (a place, a layer).
 
 use std::error::Error;
 use std::fmt;
@@ -247,7 +248,7 @@ mod tests {
                         .replace("#[cfg(test)]", "");
                     ids.extend(freemapper_text::ids_in_source(
                         &source,
-                        &["progress-", "warning-", "word-", "note-"],
+                        &["progress-", "warning-", "word-", "note-", "error-"],
                     ));
                 }
             }
@@ -297,7 +298,7 @@ mod tests {
     fn every_message_is_a_progress_line_a_warning_or_a_word() {
         for id in NOTES.message_ids("en") {
             assert!(
-                ["progress-", "warning-", "word-", "note-"]
+                ["progress-", "warning-", "word-", "note-", "error-"]
                     .iter()
                     .any(|prefix| id.starts_with(prefix)),
                 "{id}"

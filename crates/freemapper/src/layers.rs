@@ -1,6 +1,7 @@
 //! What a project has and will download: download estimate, layer list and PNG previews (for the
 //! MCP server and the CLI).
 
+use crate::note::note;
 use std::path::Path;
 
 use chrono::NaiveDate;
@@ -762,9 +763,10 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
 pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, ProjectError> {
     let Some((_, relpath, _)) = RASTER_LAYERS.iter().find(|(name, _, _)| *name == layer) else {
         let names: Vec<&str> = RASTER_LAYERS.iter().map(|(name, _, _)| *name).collect();
-        return Err(ProjectError::Layer(format!(
-            "no preview for {layer:?}; layers with previews: {}",
-            names.join(", ")
+        return Err(ProjectError::Layer(note!(
+            "error-layer-no-preview",
+            layer = format!("{layer:?}"),
+            names = names.join(", ")
         )));
     };
     let project = ProjectFile::load(dir)?;
@@ -772,27 +774,31 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
     if !path.exists() {
         let no_dsm = !project.tiles.iter().any(|r| r.product == Product::ImageDsm);
         if layer == "ndsm" && !project.tiles.is_empty() && project.ndsm_tiles.is_empty() && no_dsm {
-            return Err(ProjectError::Layer(
-                "no nDSM is published for the tiles of this map area, so there is no ndsm template"
-                    .to_string(),
-            ));
+            return Err(ProjectError::Layer(note!("error-layer-no-ndsm-published")));
         }
         let step = if layer == "k5" {
             FETCH_STEP
         } else {
             DERIVE_STEP
         };
-        return Err(ProjectError::Layer(format!(
-            "{layer} is not made yet; run {step}"
+        return Err(ProjectError::Layer(note!(
+            "error-layer-not-made",
+            layer = layer,
+            step = step
         )));
     }
-    let image =
-        image::open(&path).map_err(|e| ProjectError::Layer(format!("{}: {e}", path.display())))?;
+    let image = image::open(&path).map_err(|e| {
+        ProjectError::Layer(note!(
+            "error-layer-file",
+            path = path.display().to_string(),
+            detail = e.to_string()
+        ))
+    })?;
     let small = image.thumbnail(max_px, max_px);
     let mut png = std::io::Cursor::new(Vec::new());
     small
         .write_to(&mut png, image::ImageFormat::Png)
-        .map_err(|e| ProjectError::Layer(e.to_string()))?;
+        .map_err(|e| ProjectError::Layer(note!("error-layer-detail", detail = e.to_string())))?;
     Ok(png.into_inner())
 }
 

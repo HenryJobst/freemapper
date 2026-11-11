@@ -148,7 +148,7 @@ impl Localize for ProjectError {
             ProjectError::Derive(e) => e.localize(lang),
             ProjectError::NotFetched => text(lang, "error-project-not-fetched", &[]),
             ProjectError::Cancelled => text(lang, "error-cancelled", &[]),
-            ProjectError::Layer(message) => message.clone(),
+            ProjectError::Layer(detail) => detail.text(lang, &message),
             ProjectError::Ocd(e) => text(
                 lang,
                 "error-project-ocd",
@@ -377,7 +377,7 @@ impl Localize for AreaError {
                 "error-area-out-of-range",
                 &[("lat", v(lat)), ("lon", v(lon))],
             ),
-            AreaError::Place(message) => message.clone(),
+            AreaError::Place(detail) => detail.text(lang, &message),
             AreaError::NotAnArea(message) => {
                 text(lang, "error-area-not-an-area", &[("message", v(message))])
             }
@@ -590,7 +590,9 @@ mod tests {
                 lat: 91.5,
                 lon: 13.0,
             },
-            AreaError::Place("\"x\" is not an OSM id like way/992423119".into()),
+            AreaError::Place(
+                freemapper::note::Note::new("error-place-not-an-osm-id").with("id", "\"x\""),
+            ),
             AreaError::NotAnArea("the outline crosses itself".into()),
         ]
     }
@@ -657,7 +659,10 @@ mod tests {
             ProjectError::Toml("missing field `crs`".into()),
             ProjectError::NotFetched,
             ProjectError::Cancelled,
-            ProjectError::Layer("templates/a.jgw: not a world file".into()),
+            ProjectError::Layer(
+                freemapper::note::Note::new("error-layer-not-a-world-file")
+                    .with("path", "templates/a.jgw"),
+            ),
             ProjectError::TemplateOutdated(PathBuf::from("templates/a.jpg")),
             ProjectError::TilesOutdated(vec![tile(421), tile(422)]),
             ProjectError::BuildingsNotFetched,
@@ -716,9 +721,7 @@ mod tests {
     fn german_has_a_text_of_its_own_for_every_error() {
         // Free text of the library and the system's words pass through unchanged.
         let passes_through = |error: &ProjectError| match error {
-            ProjectError::Layer(_)
-            | ProjectError::Area(AreaError::Place(_))
-            | ProjectError::Omap(OmapError::Io(_)) => true,
+            ProjectError::Omap(OmapError::Io(_)) => true,
             ProjectError::Io(_, e)
             | ProjectError::Fetch(FetchError::Io(_, e))
             | ProjectError::Derive(DeriveError::Io(_, e)) => !is_storage_full(e),

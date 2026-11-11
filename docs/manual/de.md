@@ -812,7 +812,7 @@ Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
 nach `run` und `export`, und die Fehlermeldungen. Eine Fehlermeldung beginnt mit `Fehler:` (englisch `error:`),
 das Programm endet dann mit dem Exit-Code 1. Auch der MCP-Server und die Gebietsseite melden Fehler in der
 Sprache des Programms. Englisch bleibt in einer deutschen Fehlermeldung, was ein Server, das Betriebssystem oder
-ein Parser dazu sagt, und einige Einzelheiten, etwa bei der Ortssuche.
+ein Parser dazu sagt.
 
 Auch die Fortschrittszeilen und die Warnungen kommen in der Sprache des Programms; eine Warnung beginnt mit
 `Warnung:` (englisch `warning:`). Auch die Hilfe (`--help`, `freemapper help <Befehl>`) und die Meldungen zu falschen Aufrufen sind übersetzt; nur die Platzhalter der Aufrufzeile wie `[OPTIONS]` und `<DIR>` bleiben. Der MCP-Server beschreibt dem Assistenten seine Werkzeuge in der Sprache des Programms und antwortet in ihr; mit `--lang en` hinter `mcp` bleibt er englisch. Die Gebietsseite nimmt die Sprache

@@ -12,8 +12,9 @@ pub enum AreaError {
     MultiPolygon(usize),
     #[error("coordinate out of range: lat {lat}, lon {lon}")]
     OutOfRange { lat: f64, lon: f64 },
+    /// What is wrong with a place or an OSM object, as a message of the catalog.
     #[error("{0}")]
-    Place(String),
+    Place(crate::note::Note),
     #[error("not a usable map area: {0}")]
     NotAnArea(String),
 }

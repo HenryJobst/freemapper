@@ -45,8 +45,9 @@ freemapper-core.
 - `pipeline::describe` uses the same texts, so the MCP server and the area page report errors in the program's
   language.
 - What stays as it is inside a translated error: words of the operating system, of parsers and of servers, and the
-  details the library carries as free text (`AreaError::Place`, `ProjectError::Layer`, the `message` fields). Turning
-  those into variants is work for the library and can follow where a message matters.
+  details the library carries as free text (the `message` fields). `AreaError::Place` and `ProjectError::Layer`
+  were free text too; since stage 3 they carry a `Note` with an `error-…` id from the engine's catalog, so the
+  place search and the previews are worded in both languages.
 
 ### Stage 3: progress lines and warnings (2026-11-11)
 
@@ -103,7 +104,7 @@ freemapper-core.
 - The summary of a run (what was written or kept, a failed export step, the OCAD hints) comes from the catalog
   (`cli-summary-…`); the area page shows the same text.
 - The note after `init` about 1:5000 on a sprint map is a `Note` of the engine (`note-scale-outside-norm`).
-- Still English: the lines `OcadOutcome::warnings` carries, and the free-text details named under stage 2.
+- `OcadOutcome::warnings` holds notes as well. Still English: the `message` fields named under stage 2.
 
 ## Consequences
 

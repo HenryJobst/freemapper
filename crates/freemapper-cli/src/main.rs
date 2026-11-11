@@ -284,7 +284,7 @@ fn report_pdf(path: &std::path::Path, candidates: bool, sources: PdfSources) {
 /// What the OCAD export wrote and what the user does next in OCAD.
 fn report_ocad(outcome: &OcadOutcome) {
     for warning in &outcome.warnings {
-        eprintln!("{warning}");
+        eprintln!("{}", pipeline::line(warning));
     }
     let map = ("path", v(outcome.map.display()));
     if outcome.kept {
