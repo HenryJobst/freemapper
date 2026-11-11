@@ -100,6 +100,7 @@ fn help_and_parse_errors_follow_the_language() {
     assert!(help.status.success());
     let stdout = String::from_utf8(help.stdout).unwrap();
     assert!(stdout.contains("Aufruf: freemapper"), "{stdout}");
+    // On Windows the usage line says `freemapper.exe`.
     assert!(
         stdout.contains("Einen Projektordner für ein Kartengebiet anlegen"),
         "{stdout}"
@@ -110,13 +111,15 @@ fn help_and_parse_errors_follow_the_language() {
         .output()
         .unwrap();
     let stdout = String::from_utf8(english.stdout).unwrap();
-    assert!(stdout.contains("Usage: freemapper run"), "{stdout}");
+    assert!(stdout.contains("Usage: freemapper"), "{stdout}");
+    assert!(stdout.contains(" run [OPTIONS] <DIR>"), "{stdout}");
     let of_run = freemapper_in(german)
         .args(["help", "run"])
         .output()
         .unwrap();
     let stdout = String::from_utf8(of_run.stdout).unwrap();
-    assert!(stdout.contains("Aufruf: freemapper run"), "{stdout}");
+    assert!(stdout.contains("Aufruf: freemapper"), "{stdout}");
+    assert!(stdout.contains(" run [OPTIONS] <DIR>"), "{stdout}");
     let wrong = freemapper_in(german).arg("frobnicate").output().unwrap();
     assert_eq!(wrong.status.code(), Some(2));
     let stderr = String::from_utf8(wrong.stderr).unwrap();
