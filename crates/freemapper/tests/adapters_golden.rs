@@ -77,6 +77,76 @@ fn g1_registry_data_is_unchanged() {
     check_golden("g1-regions.json", &text);
 }
 
+/// Neighbouring states whose ALKIS objects one map can hold: the first is the state of the map
+/// area, the others delivered objects too.
+const CREDIT_NEIGHBOURS: [&[&str]; 21] = [
+    &["brandenburg", "berlin"],
+    &["berlin", "brandenburg"],
+    &["brandenburg", "saxony"],
+    &["brandenburg", "saxonyanhalt"],
+    &["brandenburg", "mecklenburgvorpommern"],
+    &["brandenburg", "niedersachsen"],
+    &["saxony", "saxonyanhalt"],
+    &["saxonyanhalt", "niedersachsen"],
+    &["hamburg", "schleswigholstein"],
+    &["hamburg", "niedersachsen"],
+    &["hamburg", "schleswigholstein", "niedersachsen"],
+    &["schleswigholstein", "mecklenburgvorpommern"],
+    &["schleswigholstein", "niedersachsen"],
+    &["mecklenburgvorpommern", "niedersachsen"],
+    &[
+        "niedersachsen",
+        "schleswigholstein",
+        "mecklenburgvorpommern",
+    ],
+    &["hessen", "nordrheinwestfalen"],
+    &["hessen", "niedersachsen"],
+    &["hessen", "rheinlandpfalz"],
+    &["nordrheinwestfalen", "niedersachsen"],
+    &["nordrheinwestfalen", "rheinlandpfalz"],
+    &["rheinlandpfalz", "hessen", "nordrheinwestfalen"],
+];
+
+/// The credit lines of the project notes and of the map sheet: per state for two years and the
+/// three record combinations (rasters only, ALKIS only, both), and for neighbouring states in
+/// one map. The lines move from the ten attribution functions into the adapters (plan C4); the
+/// texts, the year, the order and the licence notes must stay.
+#[test]
+fn g1_credit_lines_match_for_all_year_and_record_combinations() {
+    use freemapper::project::golden::{Held, credits};
+    let mut rows = Vec::new();
+    let mut row = |regions: &[Region], year: i32, held: Held| {
+        let (lon, lat) = golden_centre(regions[0]);
+        let lines = credits(regions[0], lon, lat, year, held, &regions[1..]);
+        rows.push(serde_json::json!({
+            "regions": regions.iter().map(|region| id_of(*region)).collect::<Vec<_>>(),
+            "year": year,
+            "records": match held {
+                Held::Rasters => "rasters",
+                Held::Alkis => "alkis",
+                Held::Both => "both",
+            },
+            "notes": lines.notes,
+            "sheet": lines.sheet,
+        }));
+    };
+    for region in Region::ALL {
+        for year in [2025, 2026] {
+            for held in [Held::Rasters, Held::Alkis, Held::Both] {
+                row(&[region], year, held);
+            }
+        }
+    }
+    for ids in CREDIT_NEIGHBOURS {
+        let regions: Vec<Region> = ids.iter().map(|id| region_of(id)).collect();
+        for held in [Held::Alkis, Held::Both] {
+            row(&regions, 2026, held);
+        }
+    }
+    assert_eq!(rows.len(), 11 * 6 + 21 * 2);
+    check_golden("g1-credits.json", &pretty(&rows));
+}
+
 /// The service constants of the states, as they print and as the URLs they ask for three
 /// sample areas. The service structs change how they hold their texts (plan B4: owned fields,
 /// so a manifest can build a service at run time); what they ask must stay the same.

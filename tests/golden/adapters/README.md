@@ -7,7 +7,7 @@ current code with them.
 
 | Layer | Records | Files | Needs |
 |---|---|---|---|
-| G1 | every fact the enums answer per region | `g1-regions.json` | the repository |
+| G1 | every fact the enums answer per region; the service constants; the credit lines of the project notes and the map sheet per state, year and record combination, and for neighbouring states in one map | `g1-regions.json`, `g1-services.txt`, `g1-credits.json` | the repository |
 | G2 | what the region functions answer for 211 boxes on borders and in the example areas | `g2-boxes.json`, `g2-geometry.json` | the repository |
 | G3 | the estimate, the requests and the warnings of an online fetch per state | `<id>/index.toml`, `<id>/trace.txt` | the fixture store |
 | G3 | nine fetches that lose the network halfway (three states, three places): the requests, the warnings and the project file left behind | `g3-interrupted.json` | the fixture store |

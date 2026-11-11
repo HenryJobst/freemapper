@@ -3732,6 +3732,25 @@ fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
     lines
 }
 
+/// The credit lines of the data sources for the map sheet: those of [`attribution_lines`]
+/// without OpenStreetMap and without the licence notes.
+fn sheet_credit_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
+    let mut lines = Vec::new();
+    lines.extend(lgb_attribution(project));
+    lines.extend(berlin_attribution(project, registers));
+    lines.extend(tree_attribution(registers));
+    lines.extend(geosn_attribution(project));
+    lines.extend(lvermgeo_attribution(project));
+    lines.extend(lgv_attribution(project));
+    lines.extend(hvbg_attribution(project));
+    lines.extend(sh_attribution(project));
+    lines.extend(mv_attribution(project));
+    lines.extend(nrw_attribution(project));
+    lines.extend(lgln_attribution(project));
+    lines.extend(rp_attribution(project));
+    lines
+}
+
 /// The Geoportal Berlin lines: ALKIS once Berlin ALKIS objects were fetched, the K5 map and the
 /// tree cadastre once their data was written, the street survey and the building heights once
 /// their layers have features, and one line for the `registers` that drew objects, each named.
@@ -3968,6 +3987,24 @@ fn check_folders(dir: &Path, folders: &[&str]) -> Result<(), ProjectError> {
 pub mod golden {
     use super::*;
 
+    /// What the project of [`credits`] holds.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Held {
+        /// The orthophoto, terrain and surface records, and one recorded tile for the tile
+        /// providers.
+        Rasters,
+        /// The ALKIS buildings.
+        Alkis,
+        Both,
+    }
+
+    /// The credit lines of a project: those of `ATTRIBUTION.txt` and those of the map sheet.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Credits {
+        pub notes: Vec<String>,
+        pub sheet: Vec<String>,
+    }
+
     /// The lines of `ATTRIBUTION.txt` that a project of `region` gets when everything it holds
     /// was fetched in `year`. `rasters` adds the orthophoto, terrain and surface records (and
     /// one recorded tile for the tile providers) to the ALKIS records. `lon` and `lat` place the
@@ -3979,6 +4016,21 @@ pub mod golden {
         year: i32,
         rasters: bool,
     ) -> Vec<String> {
+        let held = if rasters { Held::Both } else { Held::Alkis };
+        credits(region, lon, lat, year, held, &[]).notes
+    }
+
+    /// The credit lines that a project of `region` gets when everything it holds (`held`) was
+    /// fetched in `year`. `lon` and `lat` place the map area (a 150 m square) inside the region.
+    /// The ALKIS services of the states in `neighbours` delivered objects too (land use record).
+    pub fn credits(
+        region: Region,
+        lon: f64,
+        lat: f64,
+        year: i32,
+        held: Held,
+        neighbours: &[Region],
+    ) -> Credits {
         let (dlon, dlat) = (0.001_1, 0.000_7);
         let ring = [
             [lon - dlon, lat - dlat],
@@ -4012,14 +4064,20 @@ pub mod golden {
             ndsm_tiles: Vec::new(),
         };
         let bbox = [0.0, 0.0, 1.0, 1.0];
-        project.buildings = Some(AlkisRecord {
+        let alkis = |regions: Vec<Region>| AlkisRecord {
             bbox,
             fetched: date,
             latest_update: None,
             count: 1,
-            regions: vec![region],
-        });
-        if rasters {
+            regions,
+        };
+        if held != Held::Rasters {
+            project.buildings = Some(alkis(vec![region]));
+        }
+        if !neighbours.is_empty() {
+            project.land_use = Some(alkis(neighbours.to_vec()));
+        }
+        if held != Held::Alkis {
             project.orthophoto = Some(WmsRecord {
                 flight: None,
                 flight_label: None,
@@ -4048,7 +4106,10 @@ pub mod golden {
                 });
             }
         }
-        attribution_lines(&project, &[])
+        Credits {
+            notes: attribution_lines(&project, &[]),
+            sheet: sheet_credit_lines(&project, &[]),
+        }
     }
 }
 

@@ -1048,18 +1048,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         objects: map_objects,
     };
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
-    attribution.extend(lgb_attribution(&project));
-    attribution.extend(berlin_attribution(&project, &registers));
-    attribution.extend(tree_attribution(&registers));
-    attribution.extend(geosn_attribution(&project));
-    attribution.extend(lvermgeo_attribution(&project));
-    attribution.extend(lgv_attribution(&project));
-    attribution.extend(hvbg_attribution(&project));
-    attribution.extend(sh_attribution(&project));
-    attribution.extend(mv_attribution(&project));
-    attribution.extend(nrw_attribution(&project));
-    attribution.extend(lgln_attribution(&project));
-    attribution.extend(rp_attribution(&project));
+    attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),
