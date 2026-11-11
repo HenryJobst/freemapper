@@ -65,3 +65,17 @@ jobs:
           name: golden-diff-${{ matrix.os }}
           path: target/golden-diff
           if-no-files-found: ignore
+
+  # A commit that changes a golden file says so with a `Golden-Bless:` trailer, and a refactor
+  # never changes one. Checked for every commit of the push or the pull request.
+  golden-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: tests/golden-guard.sh
+      - run: .github/scripts/check-golden-untouched.sh "$BASE" "$HEAD"
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && 'HEAD' || github.sha }}

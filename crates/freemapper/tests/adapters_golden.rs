@@ -1042,3 +1042,50 @@ fn record_state() {
         recorder.log().lock().unwrap().len()
     );
 }
+
+// Layer G5: the persisted format. A project file written by v0.12.0 is read and written back
+// byte for byte, and a provider freemapper does not know is named in the error.
+
+#[test]
+fn g5_examples_roundtrip() {
+    let mut checked = 0;
+    for entry in std::fs::read_dir(examples_dir()).unwrap() {
+        let example = entry.unwrap().path();
+        let Ok(original) = std::fs::read_to_string(example.join("freemapper.toml")) else {
+            continue;
+        };
+        let project = ProjectFile::load(&example).unwrap();
+        let copy = tempfile::tempdir().unwrap();
+        project.save(copy.path()).unwrap();
+        let saved = std::fs::read_to_string(copy.path().join("freemapper.toml")).unwrap();
+        assert!(
+            saved == original.replace("\r\n", "\n"),
+            "{}: freemapper.toml is not written back as it was read",
+            example.display()
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 11, "one example per state");
+}
+
+/// A project of a colleague with an adapter that is not installed here: the error names the
+/// adapter instead of a parse error of the enum. True once the registry reads the project file
+/// (plan C14); until then `scripts/golden.sh test` skips it by name.
+#[test]
+#[ignore = "until the registry reads the project file (plan C14)"]
+fn g5_unknown_provider_is_a_clear_error() {
+    let example = examples_dir().join("brandenburg-sanssouci/freemapper.toml");
+    let text = std::fs::read_to_string(example).unwrap();
+    assert!(text.contains("provider = \"lgb\""));
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("freemapper.toml"),
+        text.replace("provider = \"lgb\"", "provider = \"czfoo\""),
+    )
+    .unwrap();
+    let error = ProjectFile::load(dir.path()).unwrap_err().to_string();
+    assert!(
+        error.contains("czfoo") && error.contains("adapter"),
+        "{error}"
+    );
+}
