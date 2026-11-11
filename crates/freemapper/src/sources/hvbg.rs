@@ -693,6 +693,7 @@ fn again(e: &FetchError) -> FetchError {
             FetchError::MissingOffline(*product, tiles.clone())
         }
         FetchError::OsmExtractMissing => FetchError::OsmExtractMissing,
+        FetchError::Cancelled => FetchError::Cancelled,
         FetchError::CurrencyCsv(_) | FetchError::Alkis(_) => refused(REST_URL, e.to_string()),
     }
 }

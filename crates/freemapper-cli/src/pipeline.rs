@@ -9,8 +9,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use freemapper::fetch::{Cache, FetchMode, Fetcher};
 use freemapper::project::{
-    MapOutcome, OcadOutcome, PdfSources, RunOutcome, RunStage, export_candidates_pdf_from,
-    export_ocad_from, export_pdf_from, map_path, pdf_path, run_project_steps, starter_documents,
+    MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage,
+    export_candidates_pdf_from, export_ocad_from, export_pdf_from, map_path, pdf_path,
+    run_project_steps_cancellable, starter_documents,
 };
 use serde::Deserialize;
 
@@ -136,7 +137,8 @@ pub struct RunReport {
     pub kept_map: bool,
 }
 
-/// Lets a caller stop a run from another thread. Cancelling takes effect from stage 3 on.
+/// Lets a caller stop a run from another thread. The run looks at the flag before each step,
+/// at each part of the fetch and the derive, before each request and before each output.
 #[derive(Debug, Clone, Default)]
 pub struct RunControl {
     cancelled: Arc<AtomicBool>,
@@ -150,6 +152,60 @@ impl RunControl {
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::SeqCst)
     }
+}
+
+/// A run that stopped because it was cancelled. Everything written before is whole (ADR 0059,
+/// 0060), so the next run continues from there; `kept` lists what is in the folder now.
+#[derive(Debug)]
+pub struct Cancelled {
+    pub kept: Vec<ResultFile>,
+}
+
+impl std::fmt::Display for Cancelled {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("cancelled")?;
+        let names: Vec<&str> = self.kept.iter().map(|f| f.relative_path.as_str()).collect();
+        if !names.is_empty() {
+            write!(f, "; kept: {}", names.join(", "))?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for Cancelled {}
+
+/// The map, the templates, the OCAD files and the PDFs that exist in `dir` under their fixed
+/// names.
+fn kept_files(dir: &Path) -> Vec<ResultFile> {
+    let mut paths: Vec<(&'static str, PathBuf)> = vec![("map", map_path(dir))];
+    for (kind, folder) in [("template", "templates"), ("ocad", "ocad")] {
+        let mut found: Vec<PathBuf> = std::fs::read_dir(dir.join(folder))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| !p.to_string_lossy().contains(".part"))
+            .collect();
+        found.sort();
+        paths.extend(found.into_iter().map(|p| (kind, p)));
+    }
+    paths.push(("pdf", pdf_path(dir, false)));
+    paths.push(("pdf-candidates", pdf_path(dir, true)));
+    paths
+        .into_iter()
+        .filter_map(|(kind, path)| file_entry(dir, kind, &path))
+        .collect()
+}
+
+/// `path` as a result file, when it is a file.
+fn file_entry(dir: &Path, kind: &'static str, path: &Path) -> Option<ResultFile> {
+    let bytes = std::fs::metadata(path).ok().filter(|m| m.is_file())?.len();
+    let relative = path.strip_prefix(dir).unwrap_or(path);
+    Some(ResultFile {
+        kind,
+        relative_path: relative.to_string_lossy().replace('\\', "/"),
+        bytes,
+    })
 }
 
 /// An error with its causes, e.g. "fetch failed: tile 33421-5821 is not in the cache".
@@ -200,7 +256,7 @@ pub fn run(
     options: &RunOptions,
     cache: &Cache,
     fetcher: &dyn Fetcher,
-    _control: &RunControl,
+    control: &RunControl,
     progress: &mut dyn FnMut(Event),
 ) -> Result<RunReport, anyhow::Error> {
     let steps = selected_steps(options);
@@ -220,7 +276,7 @@ pub fn run(
     };
     let progress = RefCell::new(progress);
     let warnings = RefCell::new(Vec::new());
-    let outcome = run_project_steps(
+    let outcome = run_project_steps_cancellable(
         dir,
         fetcher,
         cache,
@@ -240,17 +296,40 @@ pub fn run(
             };
             (progress.borrow_mut())(phase(step));
         },
-    )?;
+        &|| control.is_cancelled(),
+    )
+    .map_err(|e| match e {
+        ProjectError::Cancelled => anyhow::Error::new(Cancelled {
+            kept: kept_files(dir),
+        }),
+        e => e.into(),
+    })?;
     (progress.borrow_mut())(Event::Written(Written::Map(&outcome)));
     let mut summary = map_summary(&outcome);
     let (mut ocad, mut pdf, mut pdf_candidates) = (None, None, None);
+    // The map is written; a stop from here on keeps it and what the outputs finished.
+    let stop = |ocad: &Option<Result<OcadOutcome, String>>,
+                pdf: &Option<Result<PathBuf, String>>,
+                pdf_candidates: &Option<Result<PathBuf, String>>| {
+        control.is_cancelled().then(|| {
+            anyhow::Error::new(Cancelled {
+                kept: result_files(dir, &outcome, ocad, pdf, pdf_candidates),
+            })
+        })
+    };
     if options.ocad || options.pdf || options.pdf_candidates {
+        if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+            return Err(cancelled);
+        }
         // Built once for the outputs after the run (ADR 0091); a failure is reported by each
         // output that needed them.
         let documents = settle(options.fail_fast, starter_documents(dir))?;
         let fail_fast = options.fail_fast;
         // The OOM project is written already: an output failure is reported, not fatal.
         if options.ocad {
+            if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+                return Err(cancelled);
+            }
             (progress.borrow_mut())(phase(Step::Ocad));
             let result = match &documents {
                 Ok(d) => settle(fail_fast, export_ocad_from(dir, d, options.force))?,
@@ -274,6 +353,9 @@ pub fn run(
             );
         }
         if options.pdf {
+            if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+                return Err(cancelled);
+            }
             (progress.borrow_mut())(phase(Step::Pdf));
             let result = match &documents {
                 Ok(d) => settle(
@@ -295,6 +377,9 @@ pub fn run(
             pdf = Some(result);
         }
         if options.pdf_candidates {
+            if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+                return Err(cancelled);
+            }
             (progress.borrow_mut())(phase(Step::PdfCandidates));
             let result = match &documents {
                 Ok(d) => settle(
@@ -350,15 +435,7 @@ fn result_files(
     }
     candidates
         .into_iter()
-        .filter_map(|(kind, path)| {
-            let bytes = std::fs::metadata(&path).ok().filter(|m| m.is_file())?.len();
-            let relative = path.strip_prefix(dir).unwrap_or(&path);
-            Some(ResultFile {
-                kind,
-                relative_path: relative.to_string_lossy().replace('\\', "/"),
-                bytes,
-            })
-        })
+        .filter_map(|(kind, path)| file_entry(dir, kind, &path))
         .collect()
 }
 
@@ -591,6 +668,130 @@ mod tests {
         assert!(!clone.is_cancelled());
         control.cancel();
         assert!(clone.is_cancelled());
+    }
+
+    /// Counts the requests and fails them; `on_first` runs at the first one.
+    struct Counting<'a> {
+        calls: std::cell::Cell<usize>,
+        on_first: &'a dyn Fn(),
+    }
+
+    impl Fetcher for Counting<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, freemapper::fetch::FetchError> {
+            if self.calls.replace(self.calls.get() + 1) == 0 {
+                (self.on_first)();
+            }
+            Err(freemapper::fetch::FetchError::Http {
+                url: url.to_string(),
+                message: "503 Service Unavailable".into(),
+            })
+        }
+    }
+
+    fn project(dir: &Path) {
+        let text = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/clara-zetkin-schule.geojson"
+        ))
+        .unwrap();
+        let area = freemapper::area::MapArea::from_geojson(&text).unwrap();
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 11, 11).unwrap();
+        freemapper::project::init_project(
+            dir,
+            &area,
+            freemapper::project::MapKind::Schoolyard,
+            None,
+            date,
+            None,
+        )
+        .unwrap();
+    }
+
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn run_cancelled_before_the_start_asks_for_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        project(dir.path());
+        let before = names(dir.path());
+        let cache = Cache::new(dir.path().join("cache"));
+        let control = RunControl::default();
+        control.cancel();
+        let fetcher = Counting {
+            calls: Default::default(),
+            on_first: &|| {},
+        };
+        let error = run(
+            dir.path(),
+            &all_off(),
+            &cache,
+            &fetcher,
+            &control,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert_eq!(error.to_string(), "cancelled");
+        assert_eq!(fetcher.calls.get(), 0);
+        assert_eq!(names(dir.path()), before);
+    }
+
+    #[test]
+    fn run_cancelled_during_the_fetch_says_cancelled_not_the_download_error() {
+        let dir = tempfile::tempdir().unwrap();
+        project(dir.path());
+        let cache = Cache::new(dir.path().join("cache"));
+        let control = RunControl::default();
+        let fetcher = Counting {
+            calls: Default::default(),
+            on_first: &|| control.cancel(),
+        };
+        let error = run(
+            dir.path(),
+            &all_off(),
+            &cache,
+            &fetcher,
+            &control,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(error.to_string().starts_with("cancelled"), "{error}");
+        assert_eq!(fetcher.calls.get(), 1, "no request after the cancel");
+    }
+
+    #[test]
+    fn a_cancelled_run_names_what_it_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        project(dir.path());
+        let map = map_path(dir.path());
+        std::fs::write(&map, "edited in OOM").unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let control = RunControl::default();
+        control.cancel();
+        let fetcher = Counting {
+            calls: Default::default(),
+            on_first: &|| {},
+        };
+        let error = run(
+            dir.path(),
+            &all_off(),
+            &cache,
+            &fetcher,
+            &control,
+            &mut |_| {},
+        )
+        .unwrap_err()
+        .to_string();
+        let name = map.file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(error, format!("cancelled; kept: {name}"));
+        assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
     }
 
     #[test]
