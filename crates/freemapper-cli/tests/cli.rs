@@ -1221,7 +1221,7 @@ mod update_check {
 
     use freemapper_update::{RecordResult, load_record};
 
-    use super::{Command, FIXTURE, MANIFEST_PATH, UpdateStub, copied_program};
+    use super::{Command, MANIFEST_PATH, UpdateStub, copied_program};
 
     /// `program` in English, talking to `stub`, without `CI` and the update switches of the
     /// environment, with its settings and its home folder (and so the default cache) in `dir`.
@@ -1400,7 +1400,7 @@ mod update_check {
             .env("FREEMAPPER_UPDATE", "install")
             .arg("init")
             .arg(&project)
-            .args(["--geojson", FIXTURE])
+            .args(["--geojson", super::FIXTURE])
             .output()
             .unwrap();
         assert_eq!(output.status.code(), Some(0), "{output:?}");
