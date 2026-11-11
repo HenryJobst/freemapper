@@ -72,9 +72,57 @@ archive and pointing the registration at the new path. Projects and the download
 Do not add the user's e-mail address, name or other personal data to any request, file name, project title or
 setting. freemapper itself sends only a fixed `User-Agent` that names the program and its repository.
 
-## Use it through MCP (preferred)
+## Use it from the command line (preferred)
 
-`freemapper mcp` is an MCP server on stdin/stdout. Register it once with the absolute path:
+If you can run commands on the person's computer (Claude Code, Codex and similar), use the command line. One
+`freemapper run` call blocks until the map is written; through MCP you start a job and poll it, and every poll is a
+turn that costs tokens. Use MCP only when you cannot run commands (see the next section).
+
+`freemapper --help` lists the commands, `freemapper <command> --help` their switches. Pass `--lang en` when you
+parse the output; this file quotes the English texts.
+
+```sh
+freemapper init <dir> --place "Clara-Zetkin-Schule Strausberg" --kind schoolyard --title "Clara-Zetkin-Schule"
+freemapper run <dir> --pdf
+```
+
+| Command | Purpose |
+|---|---|
+| `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
+| `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
+| `run <dir>` | `fetch`, `derive` and `export` in one go. |
+| `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
+| `derive <dir>` | Computes templates and contours. |
+| `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
+
+Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+`--pdf-sources auto|full|credit-only`. All commands that download take `--cache-dir <folder>`.
+
+Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
+passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
+usage error exits with code 2. Exit code 0 means success.
+
+Workflow:
+
+1. Ask what the map is for (school, park, sprint training) and which place.
+2. Create the project. `init --place "<name>"` takes the best match with an area and does not list the others;
+   if the name is ambiguous, ask the person, or use `init --osm way/<id>` when you know the object, or let them
+   draw the area with `select <dir>` (it prints or opens the page address; wait until they say they saved).
+3. Tell the person the download size before a large first download: the first project in a state
+   downloads its OSM extract (about 50 to 500 MB, kept for 7 days); later projects are much smaller.
+4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
+   for a quick training map). It takes from one to several minutes, longer on the first download, which can
+   be longer than your default command timeout: give the call a longer timeout or run it in the background and
+   wait for it to end. Pass on warnings, not every progress line.
+5. Tell the person which files are in the folder and what to check (see "What to tell the user").
+
+The rules of the MCP section apply here too: an existing map is replaced only with `--force` after asking, and one
+run per project folder at a time.
+
+## Use it through MCP
+
+For assistants that cannot run commands (Claude Desktop, for example). `freemapper mcp` is an MCP server on
+stdin/stdout. Register it once with the absolute path:
 
 ```sh
 claude mcp add freemapper -- /absolute/path/to/freemapper mcp          # Claude Code
@@ -135,31 +183,6 @@ Rules:
   file stays as `<name>.omap.bak`.
 - `offline: true` works only with data fetched before into the cache.
 - Errors come back as one sentence meant for the user. Relay it; do not retry the same call unchanged.
-
-## Use it from the command line
-
-Use the CLI when no MCP client is available or the user wants a script. Pass `--lang en` when you parse the output.
-
-```sh
-freemapper init <dir> --place "Clara-Zetkin-Schule Strausberg" --kind schoolyard --title "Clara-Zetkin-Schule"
-freemapper run <dir> --pdf
-```
-
-| Command | Purpose |
-|---|---|
-| `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
-| `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
-| `run <dir>` | `fetch`, `derive` and `export` in one go. |
-| `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
-| `derive <dir>` | Computes templates and contours. |
-| `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
-
-Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
-`--pdf-sources auto|full|credit-only`. All commands that download take `--cache-dir <folder>`.
-
-Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
-passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
-usage error exits with code 2. Exit code 0 means success.
 
 ## What lands in the project folder
 
