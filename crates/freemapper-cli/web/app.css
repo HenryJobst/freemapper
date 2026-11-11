@@ -272,3 +272,11 @@ dialog::backdrop {
 dialog h2 {
   margin-top: 0;
 }
+
+.notice {
+  margin: 4px 0 8px;
+  padding: 4px 8px;
+  border-left: 3px solid #0b6bcb;
+  background: #eef4fb;
+  font-size: 13px;
+}

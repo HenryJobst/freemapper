@@ -263,21 +263,22 @@ pub fn check_for_server(ctx: &CheckContext, tell: impl FnOnce(String) + Send + '
                     tell(note);
                 }
             });
-    } else if let Some(version) = recorded_update(ctx) {
+    } else if let Some((version, _)) = recorded_update(ctx) {
         tell(server_note(version));
     }
 }
 
-/// A newer version than this one that the record of an earlier check holds, under the same
-/// conditions as the check itself (apart from the 24 hours).
-fn recorded_update(ctx: &CheckContext) -> Option<Version> {
+/// A newer version than this one, with its release notes link, that the record of an earlier
+/// check holds, under the same conditions as the check itself (apart from the 24 hours). Reads
+/// the record only; the area page uses it too.
+pub fn recorded_update(ctx: &CheckContext) -> Option<(Version, String)> {
     if !ctx.release || ctx.ci || ctx.offline || ctx.mode == Mode::Off {
         return None;
     }
     let record = load_record(&ctx.cache_dir.as_ref()?.join(RECORD))?;
     match record.result {
-        RecordResult::Available { version, .. } if version > freemapper_app().current => {
-            Some(version)
+        RecordResult::Available { version, notes } if version > freemapper_app().current => {
+            Some((version, notes))
         }
         _ => None,
     }

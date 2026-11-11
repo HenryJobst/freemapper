@@ -4,6 +4,8 @@
 const TEXTS = {
   de: {
     heading: "Kartengebiet wählen",
+    updateAvailable: (version) => `freemapper ${version} ist verfügbar. Aktualisieren mit `,
+    updateNotes: "Neuigkeiten",
     folder: "Projektordner",
     pick: "Ort suchen",
     queryPlaceholder: "z. B. Clara-Zetkin-Schule Strausberg",
@@ -80,6 +82,8 @@ const TEXTS = {
   },
   en: {
     heading: "Choose the map area",
+    updateAvailable: (version) => `freemapper ${version} is available. Update with `,
+    updateNotes: "Release notes",
     folder: "Project folder",
     pick: "Search a place",
     queryPlaceholder: "e.g. Clara-Zetkin-Schule Strausberg",
@@ -758,6 +762,32 @@ window.freemapperPage = {
   },
 };
 
+// --- Update notice ---------------------------------------------------------------------------
+
+/** One quiet line when the daily check found a newer version; no button, the command does it. */
+async function showUpdateNotice() {
+  try {
+    const { available } = await api("api/update");
+    if (!available) return;
+    const notice = $("update-notice");
+    notice.replaceChildren(T.updateAvailable(available.version));
+    const command = document.createElement("code");
+    command.textContent = "freemapper update";
+    notice.append(command, ".");
+    if (/^https:\/\//.test(available.notes)) {
+      const link = document.createElement("a");
+      link.href = available.notes;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = T.updateNotes;
+      notice.append(" ", link);
+    }
+    notice.hidden = false;
+  } catch (e) {
+    // The notice is a courtesy; the page works without it.
+  }
+}
+
 // --- Start -----------------------------------------------------------------------------------
 
 async function start() {
@@ -769,6 +799,7 @@ async function start() {
       applyTexts();
     }
     $("folder").textContent = project.dir;
+    showUpdateNotice();
     showSettings();
     $("has-map").hidden = !project.has_map;
     if (project.area) {

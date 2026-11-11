@@ -177,6 +177,7 @@ fn router(
             get(osm_tile),
         )
         .route(&format!("{prefix}/api/project"), get(project))
+        .route(&format!("{prefix}/api/update"), get(update_notice))
         .route(&format!("{prefix}/api/preview"), post(preview))
         .route(&format!("{prefix}/api/places"), get(places))
         .route(&format!("{prefix}/api/place"), get(place))
@@ -320,6 +321,16 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
     answer["lang"] = crate::text::named_lang().map_or(Value::Null, |lang| Value::from(lang.code()));
     answer["running"] = crate::select_run::running_json(&state);
     Json(answer).into_response()
+}
+
+/// The update notice of the page (spec 3.7): the newer version that the record of the daily check
+/// holds, or null. Reads the record only and sends no request.
+async fn update_notice(State(state): State<Arc<AppState>>) -> Response {
+    use crate::update::background::{CheckContext, recorded_update};
+    let ctx = CheckContext::of_command(Some(state.cache.root().to_path_buf()), false);
+    let available = recorded_update(&ctx)
+        .map(|(version, notes)| json!({ "version": version.to_string(), "notes": notes }));
+    Json(json!({ "available": available })).into_response()
 }
 
 /// The map area in a request body: `area` (GeoJSON) and optionally `source_id` (`way/…`).
