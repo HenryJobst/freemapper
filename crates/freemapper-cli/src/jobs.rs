@@ -356,7 +356,7 @@ mod tests {
         hub.run_registered(
             &id,
             Box::new(|_, progress| {
-                progress(Event::Line("warning: no nDSM for tile 33421-5821"));
+                progress(Event::Warning("warning: no nDSM for tile 33421-5821"));
                 Ok(report("Wrote the map"))
             }),
         );
@@ -370,7 +370,7 @@ mod tests {
     fn job_keeps_the_last_lines_and_the_warnings() {
         let hub = JobHub::default();
         let id = hub.register(Path::new("/p")).unwrap();
-        hub.progress(&id, Event::Line("warning: no nDSM for tile 33421-5821"));
+        hub.progress(&id, Event::Warning("warning: no nDSM for tile 33421-5821"));
         for i in 0..260 {
             hub.progress(&id, Event::Line(&format!("line {i}")));
         }

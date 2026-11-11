@@ -6,7 +6,7 @@
 //! `massen.php` links are built from the same attributes as the portal's own index
 //! (`link_data`).
 
-use crate::note::Note;
+use crate::note::{Arg, Note, note};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
@@ -440,12 +440,13 @@ fn fetch_model_with(
                 part
             }
             Model::Bdom => {
-                progress(Note::plain(format!(
-                    "downloading bDOM tile {} ({BDOM_MB} MB, {} of {})",
-                    short_name(entry.tile),
-                    n + 1,
-                    pending.len()
-                )));
+                progress(note!(
+                    "progress-sh-bdom-download",
+                    tile = short_name(entry.tile),
+                    megabytes = BDOM_MB.to_string(),
+                    index = (n + 1).to_string(),
+                    total = pending.len().to_string()
+                ));
                 bdom_tile(fetcher, &dir, entry, progress)?
             }
         };
@@ -655,18 +656,32 @@ fn dgm1_tile(
                 message: format!("{what}: {message}"),
             })
     });
-    let atom_failed = match atom {
+    let (atom_failed, atom_error) = match atom {
         Ok((bytes, raster)) => {
             write_cache_file(&path, &bytes)?;
             return Ok((raster, None));
         }
-        Err(FetchError::NotFound(_)) => "is not in the INSPIRE ATOM directory".to_string(),
-        Err(e) => format!("from the INSPIRE ATOM directory does not read ({e})"),
+        Err(FetchError::NotFound(_)) => ("is not in the INSPIRE ATOM directory".to_string(), None),
+        Err(e) => (
+            format!("from the INSPIRE ATOM directory does not read ({e})"),
+            Some(Arg::error(e)),
+        ),
     };
+    // The line names the same two cases as `atom_failed`, which the error below quotes.
+    progress(match atom_error.clone() {
+        None => note!(
+            "progress-sh-dgm-not-in-atom",
+            tile = short_name(entry.tile),
+            megabytes = XYZ_MB.to_string()
+        ),
+        Some(error) => note!(
+            "progress-sh-dgm-atom-unreadable",
+            tile = short_name(entry.tile),
+            error = error,
+            megabytes = XYZ_MB.to_string()
+        ),
+    });
     let tile = format!("DGM1 tile {}", short_name(entry.tile));
-    progress(Note::plain(format!(
-        "{tile} {atom_failed}; downloading its XYZ ({XYZ_MB} MB)"
-    )));
     let raster = download_checked(
         fetcher,
         dir,
@@ -772,7 +787,7 @@ fn download_checked<T>(
     let mut attempt = 1;
     loop {
         download_with_retries(fetcher, &entry.link, &temp.0, max_bytes, &mut |m| {
-            progress(Note::plain(format!("tile {tile}: {m}")))
+            progress(note!("progress-sh-tile", tile = &tile, text = m))
         })?;
         let file = std::fs::File::open(&temp.0).map_err(|e| FetchError::Io(temp.0.clone(), e))?;
         let message = match read(&mut BufReader::with_capacity(1 << 16, file)) {
@@ -785,9 +800,11 @@ fn download_checked<T>(
                 message: format!("{what}: {message} (downloaded twice)"),
             });
         }
-        progress(Note::plain(format!(
-            "tile {tile}: the download does not read ({message}); downloading it once more"
-        )));
+        progress(note!(
+            "progress-sh-download-again",
+            tile = &tile,
+            message = message
+        ));
         attempt += 1;
     }
 }

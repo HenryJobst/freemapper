@@ -54,7 +54,9 @@ impl PipelineRunner for StubRunner {
             total,
         });
         progress(Event::Line("deriving templates"));
-        progress(Event::Line("warning: the area touches a second Bundesland"));
+        progress(Event::Warning(
+            "warning: the area touches a second Bundesland",
+        ));
         Ok(RunReport {
             summary: "stub done".to_string(),
             warnings: vec!["warning: the area touches a second Bundesland".to_string()],

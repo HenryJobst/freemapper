@@ -145,3 +145,30 @@ warning-ndsm-tile-invalid = invalid nDSM tile { $tile } in freemapper.toml; skip
 warning-ndsm-not-cached = nDSM { $tile } not cached; run `freemapper fetch`
 warning-ndsm-unreadable = nDSM { $tile } unreadable ({ $error }); delete { $path } and run `freemapper fetch`
 warning-surface-unusable = surface model unusable ({ $error }); run `freemapper fetch`
+
+## Downloads and the cache
+
+progress-downloading = downloading { $url }
+progress-downloaded = downloaded { $megabytes } MB
+progress-downloaded-of = downloaded { $megabytes } MB of { $total } MB
+progress-tile-index-download = downloading the { $product } tile index
+progress-tile-cached = cached { $tile }
+warning-tile-cached-older = using cached { $product } tile { $tile } from { $published } (newer { $newer } not downloaded)
+warning-ndsm-no-cached = no cached nDSM for tile { $tile }
+warning-ndsm-tile-unavailable-cached = nDSM tile { $tile } unavailable ({ $reason }); using the cached file
+warning-ndsm-tile-unavailable-skipped = nDSM tile { $tile } unavailable ({ $reason }); skipped
+progress-ndsm-not-published = no nDSM point cloud published for tile { $tile }
+progress-ndsm-cached = cached nDSM { $tile }
+warning-osm-nrw-nearest = no North Rhine-Westphalia district extract within 100 m of the area; reading the nearest, { $district }
+warning-osm-disk-full-cached = the disk is full, so freemapper uses the cached OSM extract from { $date }. Free some space and run `freemapper fetch` again for a newer one
+warning-osm-geofabrik-unavailable = Geofabrik unavailable ({ $error }); using the cached OSM extract from { $date }
+progress-osm-extract-cached = cached OSM extract { $region } from { $date }
+progress-osm-extract-download = downloading { $url } (about { $megabytes } MB)
+
+## Schleswig-Holstein
+
+progress-sh-bdom-download = downloading bDOM tile { $tile } ({ $megabytes } MB, { $index } of { $total })
+progress-sh-dgm-not-in-atom = DGM1 tile { $tile } is not in the INSPIRE ATOM directory; downloading its XYZ ({ $megabytes } MB)
+progress-sh-dgm-atom-unreadable = DGM1 tile { $tile } from the INSPIRE ATOM directory does not read ({ $error }); downloading its XYZ ({ $megabytes } MB)
+progress-sh-tile = tile { $tile }: { $text }
+progress-sh-download-again = tile { $tile }: the download does not read ({ $message }); downloading it once more

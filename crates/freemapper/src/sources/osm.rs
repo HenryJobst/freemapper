@@ -1,7 +1,7 @@
 //! OpenStreetMap data (ODbL) from the Geofabrik extracts: one per state, and one per government
 //! district (Regierungsbezirk) in North Rhine-Westphalia.
 
-use crate::note::Note;
+use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -705,11 +705,10 @@ fn nrw_districts_for(
     }
     let nearest = nearest_district(bbox);
     if let Some(district) = nearest {
-        progress(Note::plain(format!(
-            "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
-             reading the nearest, {}",
-            ExtractSource::NordrheinWestfalen(district).label()
-        )));
+        progress(note!(
+            "warning-osm-nrw-nearest",
+            district = ExtractSource::NordrheinWestfalen(district).label()
+        ));
     }
     nearest.into_iter().collect()
 }
@@ -885,17 +884,18 @@ pub fn fetch_extract(
         // than no candidates.
         Err(e) => match newest {
             Some(cached) if e.is_disk_full() => {
-                progress(Note::plain(format!(
-                    "warning: the disk is full, so freemapper uses the cached OSM extract from {}. Free some space and run `freemapper fetch` again for a newer one",
-                    cached.data_date
-                )));
+                progress(note!(
+                    "warning-osm-disk-full-cached",
+                    date = cached.data_date.to_string()
+                ));
                 Ok(cached)
             }
             Some(cached) => {
-                progress(Note::plain(format!(
-                    "warning: Geofabrik unavailable ({e}); using the cached OSM extract from {}",
-                    cached.data_date
-                )));
+                progress(note!(
+                    "warning-osm-geofabrik-unavailable",
+                    error = Arg::error(e),
+                    date = cached.data_date.to_string()
+                ));
                 Ok(cached)
             }
             None => Err(e),
@@ -918,18 +918,18 @@ fn refresh_extract(
             message: "no timestamp in the state file".to_string(),
         })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
-        progress(Note::plain(format!(
-            "cached OSM extract {} from {}",
-            source.label(),
-            cached.date
-        )));
+        progress(note!(
+            "progress-osm-extract-cached",
+            region = source.label(),
+            date = cached.date.to_string()
+        ));
         return Ok(cached);
     }
-    progress(Note::plain(format!(
-        "downloading {} (about {} MB)",
-        source.url(),
-        source.megabytes()
-    )));
+    progress(note!(
+        "progress-osm-extract-download",
+        url = source.url(),
+        megabytes = source.megabytes().to_string()
+    ));
     let path = cache
         .osm_dir()
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));

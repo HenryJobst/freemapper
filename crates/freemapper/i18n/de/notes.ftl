@@ -177,3 +177,30 @@ warning-ndsm-tile-invalid = Ungültige nDSM-Kachel { $tile } in freemapper.toml;
 warning-ndsm-not-cached = nDSM { $tile } liegt nicht im Zwischenspeicher; rufen Sie `freemapper fetch` auf
 warning-ndsm-unreadable = nDSM { $tile } nicht lesbar ({ $error }); löschen Sie { $path } und rufen Sie `freemapper fetch` auf
 warning-surface-unusable = Oberflächenmodell nicht verwendbar ({ $error }); rufen Sie `freemapper fetch` auf
+
+## Downloads und der Zwischenspeicher
+
+progress-downloading = { $url } wird geladen
+progress-downloaded = { $megabytes } MB geladen
+progress-downloaded-of = { $megabytes } MB von { $total } MB geladen
+progress-tile-index-download = Kachelübersicht für { $product } wird geladen
+progress-tile-cached = { $tile } aus dem Zwischenspeicher
+warning-tile-cached-older = Die Kachel { $tile } ({ $product }) kommt aus dem Zwischenspeicher, Stand { $published }; die neuere vom { $newer } wurde nicht geladen
+warning-ndsm-no-cached = Kein nDSM für die Kachel { $tile } im Zwischenspeicher
+warning-ndsm-tile-unavailable-cached = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); die Datei aus dem Zwischenspeicher wird verwendet
+warning-ndsm-tile-unavailable-skipped = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); übersprungen
+progress-ndsm-not-published = Für die Kachel { $tile } ist keine nDSM-Punktwolke veröffentlicht
+progress-ndsm-cached = nDSM { $tile } aus dem Zwischenspeicher
+warning-osm-nrw-nearest = Kein Kreis-Auszug für Nordrhein-Westfalen liegt näher als 100 m am Gebiet; der nächste wird gelesen, { $district }
+warning-osm-disk-full-cached = Der Datenträger ist voll, deshalb verwendet freemapper den OSM-Auszug vom { $date } aus dem Zwischenspeicher. Schaffen Sie Platz und rufen Sie `freemapper fetch` erneut auf, um einen neueren zu erhalten
+warning-osm-geofabrik-unavailable = Geofabrik nicht verfügbar ({ $error }); der OSM-Auszug vom { $date } aus dem Zwischenspeicher wird verwendet
+progress-osm-extract-cached = OSM-Auszug { $region } vom { $date } aus dem Zwischenspeicher
+progress-osm-extract-download = { $url } wird geladen (etwa { $megabytes } MB)
+
+## Schleswig-Holstein
+
+progress-sh-bdom-download = bDOM-Kachel { $tile } wird geladen ({ $megabytes } MB, { $index } von { $total })
+progress-sh-dgm-not-in-atom = Die DGM1-Kachel { $tile } liegt nicht im INSPIRE-ATOM-Verzeichnis; ihre XYZ-Datei wird geladen ({ $megabytes } MB)
+progress-sh-dgm-atom-unreadable = Die DGM1-Kachel { $tile } aus dem INSPIRE-ATOM-Verzeichnis lässt sich nicht lesen ({ $error }); ihre XYZ-Datei wird geladen ({ $megabytes } MB)
+progress-sh-tile = Kachel { $tile }: { $text }
+progress-sh-download-again = Kachel { $tile }: Der Download lässt sich nicht lesen ({ $message }); er wird noch einmal geladen

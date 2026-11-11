@@ -824,3 +824,41 @@ fn errors_follow_the_language_and_exit_with_one() {
         "{stderr}"
     );
 }
+
+/// The engine's warnings come in the program's language too (ADR 0092, stage 3).
+#[test]
+fn warnings_of_the_engine_follow_the_language() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    std::fs::write(
+        &file,
+        text.replace("scale_denominator = 1000", "scale_denominator = 1234"),
+    )
+    .unwrap();
+    let cache = dir.path().join("cache");
+    let first_line = |lang: &[(&str, &str)]| {
+        let output = freemapper_in(lang)
+            .args([
+                "fetch",
+                project.to_str().unwrap(),
+                "--offline",
+                "--cache-dir",
+                cache.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        stderr.lines().next().unwrap_or_default().to_string()
+    };
+    assert_eq!(
+        first_line(&[]),
+        "warning: freemapper.toml: scale 1:1234 is none of the scales for schoolyard maps (1:1000); freemapper-print will refuse the map"
+    );
+    assert_eq!(
+        first_line(&[("FREEMAPPER_LANG", "de")]),
+        "Warnung: freemapper.toml: Der Maßstab 1:1234 gehört nicht zu den Maßstäben für Schulhofkarten (1:1000); freemapper-print wird die Karte ablehnen"
+    );
+}
