@@ -245,20 +245,12 @@ async fn asset(UrlPath(path): UrlPath<String>) -> Response {
 }
 
 fn kind_name(kind: MapKind) -> &'static str {
-    match kind {
-        MapKind::Schoolyard => "schoolyard",
-        MapKind::Sprint => "sprint",
-    }
+    kind.name()
 }
 
 fn parse_kind(kind: &str) -> Result<MapKind, String> {
-    match kind {
-        "schoolyard" => Ok(MapKind::Schoolyard),
-        "sprint" => Ok(MapKind::Sprint),
-        other => Err(format!(
-            "unknown map kind {other:?}; use schoolyard or sprint"
-        )),
-    }
+    MapKind::from_name(kind)
+        .ok_or_else(|| format!("unknown map kind {kind:?}; use schoolyard or sprint"))
 }
 
 /// The saved project, if there is one; an error when its file cannot be read.
@@ -318,10 +310,11 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
         }),
     };
     answer["run_defaults"] = run_defaults_json(&state.defaults.run);
-    answer["allowed_scales"] = json!({
-        "schoolyard": MapKind::Schoolyard.allowed_scales(),
-        "sprint": MapKind::Sprint.allowed_scales(),
-    });
+    answer["allowed_scales"] = MapKind::ALL
+        .into_iter()
+        .map(|kind| (kind.name().to_string(), json!(kind.allowed_scales())))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
     // The program language when `--lang` or the environment named one; else null, and the page
     // follows the browser (ADR 0092).
     answer["lang"] = crate::text::named_lang().map_or(Value::Null, |lang| Value::from(lang.code()));

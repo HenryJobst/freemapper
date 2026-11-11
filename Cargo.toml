@@ -13,13 +13,14 @@ rust-version = "1.88"
 freemapper = { path = "crates/freemapper" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.
-freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
-freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
-freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
+freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.18.0" }
+freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.18.0" }
+freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.18.0" }
 # Program texts with Fluent and the language detection of the suite (ADR 0092).
-freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0" }
-# The suite contract (fixtures, vocabulary, rules); tests only.
-freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.11.0", features = ["fixtures"] }
+freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.18.0" }
+# The suite contract (ADR 0095): the program links the shared types only (map kinds, reserved words); the
+# tests add the fixtures, the vocabulary and the rules.
+freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.18.0", default-features = false }
 anyhow = "1.0.104"
 axum = "0.8.9"
 base64 = "0.23.1"

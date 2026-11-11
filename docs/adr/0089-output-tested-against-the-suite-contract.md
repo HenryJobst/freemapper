@@ -35,3 +35,5 @@ rules for the output, and two fixtures with the vocabulary freemapper must keep.
 - Cost if wrong: a rule in core that is too strict blocks a freemapper change until core is released again.
 
 Source: core ADR 0018; the review of freemapper `0f25841`; ADR 0085 and 0086.
+
+Update 2026-11-11: since ADR 0095 the crate is also a normal dependency, and freemapper writes the contract's words from its constants.
