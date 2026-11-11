@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- `AGENTS.md`: Agenten, die Befehle ausführen können, nutzen zuerst die Kommandozeile. Ein `freemapper run` wartet, bis die Karte fertig ist, während über MCP jeder Statusabruf eine eigene Runde kostet. MCP bleibt der Weg für Assistenten ohne Shell. Neu sind ein eigener Ablauf für die Kommandozeile, der Verweis auf `--help`, der Hinweis auf zu kurze Zeitlimits und dass `init --place` den besten Treffer nimmt, ohne die anderen zu nennen.
+
 ## [0.11.0] - 2026-11-11
 
 ### Hinzugefügt

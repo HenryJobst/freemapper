@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- `AGENTS.md`: agents that can run commands use the command line first. One `freemapper run` waits until the map is written, while through MCP every status poll costs a turn. MCP stays the way for assistants without a shell. New: a command-line workflow, the pointer to `--help`, the note on too short timeouts, and that `init --place` takes the best match without naming the others.
+
 ## [0.11.0] - 2026-11-11
 
 ### Added
