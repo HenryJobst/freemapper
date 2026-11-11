@@ -168,6 +168,22 @@ The answers of the services are too large for the repository: a tile comes whole
 
 ---
 
+### Stage A as built (2026-11-11)
+
+Stage A is done on the branch `region-adapters` (pull request 38). Where it differs from the tasks above, the code and `tests/golden/adapters/README.md` are right, and later stages read this list:
+
+- **Recorded from v0.12.0**, the tree `main` had when the work started, not v0.11.0.
+- **The clock override is per thread** (`clock::with_fixed`), not process-wide with a mutex. The library starts no thread, and a process-wide clock would reach the other unit tests that run at the same time. Code that moves fetch work to another thread must take the clock with it; G3 and G4 show it if it does not.
+- **Test names**: `g3_trace::<id>` and `g4_pipeline::<id>` (a module per layer), not `g3_trace_<id>`.
+- **G1** keeps the credit lines as (year, records, lines) for the record sets `alkis` and `rasters`. **G2** reads its 211 boxes from `g2-boxes.json` (whole metres) and asks `tile_touches` and `tile_centre_in` only for the zone-32 regions of a box; its timing is the best of five runs (1100 ms on v0.12.0).
+- **The index** keeps what the `Fetcher` trait shows (body hash, size, `Last-Modified` date, or the error kind), not HTTP status and content type. `trace.txt` also holds the estimate before the fetch and the result line.
+- **Golden areas**: the example centre, moved by 90 to 190 m in Berlin, Schleswig-Holstein, North Rhine-Westphalia and Rhineland-Palatinate so that the area needs one tile (`golden_centre`). Brandenburg and Berlin do not share a square.
+- **The store has 206 MB** (version 1), not 120 to 180 MB: the surface model of Schleswig-Holstein is a whole tile of 105 MB. Version 0 was the pilot.
+- **G4 hashes every file** of the project folder (34 per state), and all of them are the same bytes on Linux, macOS and Windows. No output needs the decoded-content fallback of A4. Two fixes in production code made it so (`71607e7`): the areas in `freemapper.toml` and the map's reference point are on a millimetre grid.
+- **CI**: the net is the job `golden` on three systems; a failing G4 uploads the differing files. The guard is the job `golden-guard`; it does not count the Markdown files of the golden folder.
+- `scripts/golden.sh test` skips `g5_unknown_provider_is_a_clear_error` by name until C14 takes the skip out; `g2_dispatch_is_fast_enough` and `record_state` return early in a debug build and without `FREEMAPPER_GOLDEN_RECORD`.
+- The session "freemapper" converts the area page to the suite interface (freemapper-core ADR 0030). Tell it before C13 and D7 start.
+
 ## Stage B: crates
 
 ### Task B1: `freemapper-georef` in freemapper-core: done
