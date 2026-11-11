@@ -50,6 +50,8 @@ Not for an agent. The user runs `minisign -G -p freemapper-update.pub -s freemap
 
 Work in `../freemapper-core` on a branch; freemapper uses it through a local `[patch]` until A7 tags it (core ADR 0006). New core ADR `0024-the-update-crate.md`; the owner table in core `CLAUDE.md` names the freemapper session (core ADR 0005).
 
+**Done on 2026-11-11:** core v0.17.0 (main 4425241) holds `freemapper-update`; its decision is core ADR 0026 (0024 and 0025 went to the print session's crates the same day). The final review changed the API against the task texts below: `Outcome::Available` also carries `released`; `UpdateError::TooOldToSelfUpdate { needed, version, notes }`; `Outcome` and `UpdateError` are `#[non_exhaustive]` (match with a wildcard arm); the runner is `ProcessRunner::new(app.name)`; there is an install lock (`UpdateError::Busy`) and per-install temp names; `Mode` implements `FromStr` and `Display`; the check record's tag is `outcome`. Stage B uses these names.
+
 ### Task A1: Crate, versions, platform
 
 **Files:** Create `crates/freemapper-update/{Cargo.toml,src/lib.rs,src/version.rs,src/platform.rs}`; modify the core workspace `Cargo.toml`.
