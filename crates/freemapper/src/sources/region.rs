@@ -9,6 +9,7 @@ use std::sync::OnceLock;
 use geo::{Contains, Intersects};
 use geo_types::{MultiPolygon, Point, Polygon, Rect, coord};
 
+use crate::adapters::{RegionAdapter, Registry, registry};
 use crate::crs::BoundingBox;
 use crate::tiles::TileId;
 
@@ -281,11 +282,55 @@ impl Region {
     }
 }
 
+/// The built-in adapter of `region`: the bridge for the code that still names the enum.
+fn adapter_of(region: Region) -> &'static dyn RegionAdapter {
+    registry()
+        .get(region.id())
+        .expect("the built-in states are in the registry")
+}
+
+/// The enum value of a built-in adapter; `None` for any other.
+fn region_of(adapter: &dyn RegionAdapter) -> Option<Region> {
+    Region::from_id(adapter.info().id.as_str())
+}
+
+/// Whether `bbox` can meet the boundary of `adapter` at all: the two boxes overlap. Asked
+/// before the boundary itself, which has tens of thousands of points; it never changes an
+/// answer, since what lies outside the box of a boundary cannot touch it.
+fn near_bounds(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+    let bounds = adapter.bounds();
+    bounds.min_e <= bbox.max_e
+        && bbox.min_e <= bounds.max_e
+        && bounds.min_n <= bbox.max_n
+        && bbox.min_n <= bounds.max_n
+}
+
+/// A box that is one point.
+fn point_box(easting: f64, northing: f64) -> BoundingBox {
+    BoundingBox {
+        min_e: easting,
+        min_n: northing,
+        max_e: easting,
+        max_n: northing,
+    }
+}
+
+/// The adapters of `registry` whose ALKIS data covers `bbox` (EPSG:25833), in registry order.
+pub fn regions_for_in<'a>(
+    registry: &'a Registry,
+    bbox: &BoundingBox,
+) -> Vec<&'a dyn RegionAdapter> {
+    registry
+        .adapters()
+        .filter(|adapter| touches_region_in(*adapter, bbox))
+        .collect()
+}
+
 /// The regions whose ALKIS data covers `bbox` (EPSG:25833), in [`Region::ALL`] order.
 pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
-    Region::ALL
+    regions_for_in(registry(), bbox)
         .into_iter()
-        .filter(|region| within_margin(region.boundary(), bbox))
+        .filter_map(region_of)
         .collect()
 }
 
@@ -295,40 +340,51 @@ pub(crate) fn within_margin(boundary: &MultiPolygon<f64>, bbox: &BoundingBox) ->
     boundary.intersects(&rectangle(&bbox.buffered(MARGIN_M)))
 }
 
+/// Whether the boundary of `adapter` lies within [`MARGIN_M`] of `bbox` (EPSG:25833):
+/// [`regions_for_in`] for one adapter.
+pub fn touches_region_in(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+    near_bounds(adapter, &bbox.buffered(MARGIN_M)) && within_margin(adapter.boundary(), bbox)
+}
+
 /// Whether `region`'s boundary lies within [`MARGIN_M`] of `bbox` (EPSG:25833): [`regions_for`]
 /// for one region.
 pub(crate) fn touches_region(region: Region, bbox: &BoundingBox) -> bool {
-    within_margin(region.boundary(), bbox)
+    touches_region_in(adapter_of(region), bbox)
+}
+
+/// Whether the point (EPSG:25833) lies inside the boundary of `adapter` itself (no margin).
+pub fn contains_point_in(adapter: &dyn RegionAdapter, easting: f64, northing: f64) -> bool {
+    near_bounds(adapter, &point_box(easting, northing))
+        && adapter.boundary().contains(&Point::new(easting, northing))
 }
 
 /// Whether the point (EPSG:25833) lies inside `region`'s boundary itself (no margin).
 pub fn contains_point(region: Region, easting: f64, northing: f64) -> bool {
-    region.boundary().contains(&Point::new(easting, northing))
+    contains_point_in(adapter_of(region), easting, northing)
 }
 
-/// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near `region`, so its
-/// provider must have the tile.
-pub fn tile_centre_in(tile: TileId, region: Region) -> bool {
+/// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near the region of
+/// `adapter`, so its provider must have the tile.
+pub fn tile_centre_near(adapter: &dyn RegionAdapter, tile: TileId) -> bool {
     let centre = crate::crs::ProjectedPoint {
         easting: f64::from(tile.east_km) * 1000.0 + 500.0,
         northing: f64::from(tile.north_km) * 1000.0 + 500.0,
     };
     crate::crs::Crs::Utm33
         .reproject(crate::crs::Crs::Utm32, centre)
-        .is_some_and(|p| {
-            regions_for(&BoundingBox {
-                min_e: p.easting,
-                min_n: p.northing,
-                max_e: p.easting,
-                max_n: p.northing,
-            })
-            .contains(&region)
-        })
+        .is_some_and(|p| touches_region_in(adapter, &point_box(p.easting, p.northing)))
 }
 
-/// Whether the 1 km zone-32 tile (EPSG:25832) touches `region` at all: every tile that can
-/// exist for it (a provider delivers whole or clipped tiles for each square that intersects).
-pub fn tile_touches(tile: TileId, region: Region) -> bool {
+/// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near `region`, so its
+/// provider must have the tile.
+pub fn tile_centre_in(tile: TileId, region: Region) -> bool {
+    tile_centre_near(adapter_of(region), tile)
+}
+
+/// Whether the 1 km zone-32 tile (EPSG:25832) touches the region of `adapter` at all: every
+/// tile that can exist for it (a provider delivers whole or clipped tiles for each square that
+/// intersects).
+pub fn tile_touches_in(adapter: &dyn RegionAdapter, tile: TileId) -> bool {
     let corner = |de: u32, dn: u32| {
         crate::crs::Crs::Utm33.reproject(
             crate::crs::Crs::Utm32,
@@ -342,37 +398,89 @@ pub fn tile_touches(tile: TileId, region: Region) -> bool {
     let Some(corners) = corners.into_iter().collect::<Option<Vec<_>>>() else {
         return false;
     };
+    let around = corners.iter().fold(
+        BoundingBox {
+            min_e: f64::INFINITY,
+            min_n: f64::INFINITY,
+            max_e: f64::NEG_INFINITY,
+            max_n: f64::NEG_INFINITY,
+        },
+        |b, p| BoundingBox {
+            min_e: b.min_e.min(p.easting),
+            min_n: b.min_n.min(p.northing),
+            max_e: b.max_e.max(p.easting),
+            max_n: b.max_n.max(p.northing),
+        },
+    );
+    if !near_bounds(adapter, &around) {
+        return false;
+    }
     let ring: Vec<_> = corners
         .iter()
         .map(|p| coord! { x: p.easting, y: p.northing })
         .collect();
     let square = Polygon::new(geo::LineString::new(ring), Vec::new());
-    region.boundary().intersects(&square)
+    adapter.boundary().intersects(&square)
+}
+
+/// Whether the 1 km zone-32 tile (EPSG:25832) touches `region` at all: every tile that can
+/// exist for it (a provider delivers whole or clipped tiles for each square that intersects).
+pub fn tile_touches(tile: TileId, region: Region) -> bool {
+    tile_touches_in(adapter_of(region), tile)
+}
+
+/// The adapter of `registry` whose rasters a map of `bbox` uses: the first that contains its
+/// centre.
+pub fn raster_region_in<'a>(
+    registry: &'a Registry,
+    bbox: &BoundingBox,
+) -> Option<&'a dyn RegionAdapter> {
+    let (e, n) = (
+        (bbox.min_e + bbox.max_e) / 2.0,
+        (bbox.min_n + bbox.max_n) / 2.0,
+    );
+    if !e.is_finite() || !n.is_finite() {
+        return None;
+    }
+    registry
+        .adapters()
+        .find(|adapter| contains_point_in(*adapter, e, n))
+        // The boundaries are simplified separately, so a few metres along a border belong to no
+        // region: take a region within the margin.
+        .or_else(|| {
+            regions_for_in(registry, &point_box(e, n))
+                .into_iter()
+                .next()
+        })
 }
 
 /// The region whose rasters a map of `bbox` uses: the one containing its centre.
 pub fn raster_region(bbox: &BoundingBox) -> Option<Region> {
-    let centre = Point::new(
-        (bbox.min_e + bbox.max_e) / 2.0,
-        (bbox.min_n + bbox.max_n) / 2.0,
-    );
-    if !centre.x().is_finite() || !centre.y().is_finite() {
-        return None;
-    }
-    Region::ALL
+    raster_region_in(registry(), bbox).and_then(region_of)
+}
+
+/// The tiles of a `km` grid over `bbox` that touch a region of `registry` whose provider is
+/// `provider`; providers publish only those.
+pub fn provider_tiles_in(
+    registry: &Registry,
+    bbox: &BoundingBox,
+    provider: &str,
+    km: u32,
+) -> Vec<TileId> {
+    let regions: Vec<&dyn RegionAdapter> = registry
+        .adapters()
+        .filter(|adapter| adapter.info().provider.as_str() == provider)
+        .collect();
+    crate::tiles::tiles_covering_grid(bbox, km)
         .into_iter()
-        .find(|region| region.boundary().contains(&centre))
-        // The boundaries are simplified separately, so a few metres along a border belong to no
-        // region: take a region within the margin.
-        .or_else(|| {
-            let point = BoundingBox {
-                min_e: centre.x(),
-                min_n: centre.y(),
-                max_e: centre.x(),
-                max_n: centre.y(),
-            };
-            regions_for(&point).into_iter().next()
+        .filter(|tile| {
+            let bounds = tile.bounds_km(km);
+            let rect = rectangle(&bounds);
+            regions.iter().any(|adapter| {
+                near_bounds(*adapter, &bounds) && adapter.boundary().intersects(&rect)
+            })
         })
+        .collect()
 }
 
 /// The tiles of a `km` grid over `bbox` that touch a region of `provider`; providers publish only
@@ -383,16 +491,7 @@ pub fn provider_tiles(bbox: &BoundingBox, provider: Provider, km: u32) -> Vec<Ti
     if provider.per_area() {
         return Vec::new();
     }
-    crate::tiles::tiles_covering_grid(bbox, km)
-        .into_iter()
-        .filter(|tile| {
-            let rect = rectangle(&tile.bounds_km(km));
-            Region::ALL
-                .into_iter()
-                .filter(|region| region.provider() == provider)
-                .any(|region| region.boundary().intersects(&rect))
-        })
-        .collect()
+    provider_tiles_in(registry(), bbox, provider.id(), km)
 }
 
 /// How far a point must lie from every supported region to count as outside them all. The
@@ -402,17 +501,18 @@ const UNCOVERED_M: f64 = 50.0;
 /// The spacing of the points [`reaches_beyond_coverage`] tests, half of [`UNCOVERED_M`].
 const COVERAGE_STEP_M: f64 = 25.0;
 
-/// Whether part of `bbox` (EPSG:25833) lies outside every supported region: a point of it more
-/// than [`UNCOVERED_M`] from all their boundaries, e.g. in Bremen (a hole in Niedersachsen), in
-/// Thuringia or another state that is no region yet, abroad or at sea.
-pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
+/// Whether part of `bbox` (EPSG:25833) lies outside every region of `registry`: a point of it
+/// more than [`UNCOVERED_M`] from all their boundaries, e.g. in Bremen (a hole in
+/// Niedersachsen), in Thuringia or another state that is no region yet, abroad or at sea.
+pub fn reaches_beyond_coverage_in(registry: &Registry, bbox: &BoundingBox) -> bool {
     use geo::{BooleanOps as _, Distance as _, Euclidean};
     // Every boundary part within UNCOVERED_M of a point of `bbox` lies in this rectangle.
-    let near = rectangle(&bbox.buffered(UNCOVERED_M));
-    let parts: Vec<MultiPolygon<f64>> = Region::ALL
-        .into_iter()
-        .filter(|region| region.boundary().intersects(&near))
-        .map(|region| region.boundary().intersection(&near))
+    let grown = bbox.buffered(UNCOVERED_M);
+    let near = rectangle(&grown);
+    let parts: Vec<MultiPolygon<f64>> = registry
+        .adapters()
+        .filter(|adapter| near_bounds(*adapter, &grown) && adapter.boundary().intersects(&near))
+        .map(|adapter| adapter.boundary().intersection(&near))
         .collect();
     let steps = |min: f64, max: f64| {
         let n = ((max - min) / COVERAGE_STEP_M).ceil().max(1.0) as u32;
@@ -427,6 +527,12 @@ pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
                     .all(|part| Euclidean.distance(&point, part) > UNCOVERED_M)
         })
     })
+}
+
+/// Whether part of `bbox` (EPSG:25833) lies outside every supported region: a point of it more
+/// than [`UNCOVERED_M`] from all their boundaries.
+pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
+    reaches_beyond_coverage_in(registry(), bbox)
 }
 
 /// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
@@ -636,6 +742,59 @@ mod tests {
     }
 
     use super::*;
+
+    /// A map area whose centre is in one state and whose edge is in another with another UTM
+    /// zone: the CRS and the rasters follow the centre, ALKIS comes from both, in the order of
+    /// the registry.
+    #[test]
+    fn border_centre_decides_crs() {
+        let registry = registry();
+        let (st, bb) = (
+            registry.get("saxonyanhalt").unwrap(),
+            registry.get("brandenburg").unwrap(),
+        );
+        // Zerbst lies in Saxony-Anhalt; going east, Brandenburg begins before Wiesenburg.
+        let start = crate::crs::utm33_forward(crate::crs::LatLon {
+            lat: 52.05,
+            lon: 12.10,
+        });
+        let northing = start.northing.round();
+        assert!(contains_point_in(st, start.easting, northing));
+        let border = (0..800)
+            .map(|step| start.easting.round() + f64::from(step) * 100.0)
+            .find(|e| contains_point_in(bb, *e, northing))
+            .expect("Brandenburg lies east of Zerbst");
+        let area_round = |centre: f64| BoundingBox {
+            min_e: centre - 400.0,
+            min_n: northing - 200.0,
+            max_e: centre + 400.0,
+            max_n: northing + 200.0,
+        };
+        let ids = |area: &BoundingBox| -> Vec<&str> {
+            regions_for_in(registry, area)
+                .into_iter()
+                .map(|a| a.info().id.as_str())
+                .collect()
+        };
+        // Centre 300 m inside Saxony-Anhalt, the east edge in Brandenburg.
+        let west = area_round(border - 300.0);
+        let raster = raster_region_in(registry, &west).unwrap();
+        assert_eq!(raster.info().id.as_str(), "saxonyanhalt");
+        assert_eq!(raster.info().crs, crate::crs::Crs::Utm32);
+        assert_eq!(ids(&west), ["brandenburg", "saxonyanhalt"]);
+        // And the other way round.
+        let east = area_round(border + 300.0);
+        let raster = raster_region_in(registry, &east).unwrap();
+        assert_eq!(raster.info().id.as_str(), "brandenburg");
+        assert_eq!(raster.info().crs, crate::crs::Crs::Utm33);
+        assert_eq!(ids(&east), ["brandenburg", "saxonyanhalt"]);
+        // The functions that still name the enums say the same.
+        assert_eq!(raster_region(&west), Some(Region::SaxonyAnhalt));
+        assert_eq!(
+            regions_for(&west),
+            [Region::Brandenburg, Region::SaxonyAnhalt]
+        );
+    }
 
     /// The id is what the project file writes for the region; the readers name a state by it.
     #[test]

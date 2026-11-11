@@ -8,6 +8,7 @@ use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
 use freemapper_adapter_api::records::AdapterId;
 use geo_types::MultiPolygon;
 
+use crate::crs::BoundingBox;
 use crate::sources::osm::ExtractSource;
 use crate::sources::region::Region;
 
@@ -15,6 +16,8 @@ use crate::sources::region::Region;
 pub struct LegacyAdapter {
     region: Region,
     info: RegionInfo,
+    /// The box around the boundary, found when first asked for.
+    bounds: std::sync::OnceLock<BoundingBox>,
 }
 
 /// The names of a state in English and German.
@@ -68,7 +71,11 @@ impl LegacyAdapter {
                 .collect(),
             credit_short: None,
         };
-        Self { region, info }
+        Self {
+            region,
+            info,
+            bounds: std::sync::OnceLock::new(),
+        }
     }
 
     /// The enum value the adapter stands for, for the code that still hangs on the enums.
@@ -84,5 +91,21 @@ impl RegionAdapter for LegacyAdapter {
 
     fn boundary(&self) -> &MultiPolygon<f64> {
         self.region.boundary()
+    }
+
+    fn bounds(&self) -> BoundingBox {
+        *self.bounds.get_or_init(|| {
+            use geo::BoundingRect as _;
+            let rect = self
+                .boundary()
+                .bounding_rect()
+                .expect("a boundary has an extent");
+            BoundingBox {
+                min_e: rect.min().x,
+                min_n: rect.min().y,
+                max_e: rect.max().x,
+                max_n: rect.max().y,
+            }
+        })
     }
 }

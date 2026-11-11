@@ -1,5 +1,6 @@
 //! What a region supplies: the trait an adapter implements.
 
+use freemapper_georef::crs::BoundingBox;
 use geo_types::MultiPolygon;
 
 use crate::info::RegionInfo;
@@ -12,4 +13,25 @@ pub trait RegionAdapter: Send + Sync {
 
     /// The boundary in EPSG:25833, parsed once and valid.
     fn boundary(&self) -> &MultiPolygon<f64>;
+
+    /// The box around the boundary (EPSG:25833). The region functions ask it before the
+    /// boundary itself: what lies outside the box cannot touch the region. An adapter that
+    /// keeps the box answers faster than this default, which goes through the boundary.
+    fn bounds(&self) -> BoundingBox {
+        let mut bounds = BoundingBox {
+            min_e: f64::INFINITY,
+            min_n: f64::INFINITY,
+            max_e: f64::NEG_INFINITY,
+            max_n: f64::NEG_INFINITY,
+        };
+        for polygon in &self.boundary().0 {
+            for point in polygon.exterior() {
+                bounds.min_e = bounds.min_e.min(point.x);
+                bounds.min_n = bounds.min_n.min(point.y);
+                bounds.max_e = bounds.max_e.max(point.x);
+                bounds.max_n = bounds.max_n.max(point.y);
+            }
+        }
+        bounds
+    }
 }
