@@ -1259,6 +1259,13 @@ mod tests {
         fn extract_boundary(&self, _index: usize) -> Option<&geo_types::MultiPolygon<f64>> {
             Some(&self.far)
         }
+
+        fn attribution(
+            &self,
+            _used: &freemapper_adapter_api::credit::UsedSources<'_>,
+        ) -> Vec<freemapper_adapter_api::credit::CreditLine> {
+            Vec::new()
+        }
     }
 
     fn square(extracts: usize) -> Registry {

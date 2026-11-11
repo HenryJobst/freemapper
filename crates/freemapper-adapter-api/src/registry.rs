@@ -71,6 +71,13 @@ mod tests {
         fn boundary(&self) -> &MultiPolygon<f64> {
             &self.1
         }
+
+        fn attribution(
+            &self,
+            _used: &crate::credit::UsedSources<'_>,
+        ) -> Vec<crate::credit::CreditLine> {
+            Vec::new()
+        }
     }
 
     fn plain(id: &'static str) -> Arc<dyn RegionAdapter> {

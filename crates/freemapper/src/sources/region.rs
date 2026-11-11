@@ -535,9 +535,14 @@ pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
     reaches_beyond_coverage_in(registry(), bbox)
 }
 
+/// Whether `bbox` itself (without the fetch margin) overlaps the boundary of `adapter`.
+pub fn overlaps_in(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+    near_bounds(adapter, bbox) && adapter.boundary().intersects(&rectangle(bbox))
+}
+
 /// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
 pub fn touches_berlin(bbox: &BoundingBox) -> bool {
-    Region::Berlin.boundary().intersects(&rectangle(bbox))
+    overlaps_in(adapter_of(Region::Berlin), bbox)
 }
 
 fn rectangle(bbox: &BoundingBox) -> Polygon<f64> {

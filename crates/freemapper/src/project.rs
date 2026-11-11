@@ -6,9 +6,12 @@ use crate::sources::lgb::ProductTiles as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use chrono::{Datelike as _, NaiveDate};
+use chrono::NaiveDate;
+use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources, lines_with_licences};
+use freemapper_adapter_api::records::AdapterId;
 use serde::{Deserialize, Serialize};
 
+use crate::adapters::registry;
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::barriers::resolve_barrier_overlaps;
@@ -67,13 +70,14 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
+use crate::sources::lgb::{Product, TileCurrency};
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
+    Provider, Region, overlaps_in, provider_tiles, raster_region, raster_region_in, regions_for,
+    touches_berlin,
 };
 use crate::sources::trees;
 use crate::sources::wms::OrthophotoSource;
@@ -3627,29 +3631,13 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
 }
 
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
-/// GeoSN's source note for dl-de/by-2-0 data, which asks for changes to be marked.
-const GEOSN_ATTRIBUTION: &str = "Quelle: GeoSN, dl-de/by-2-0, Daten geändert";
-/// Geoportal Berlin data needs no attribution (dl-de/zero-2-0); it is named anyway.
-const BERLIN_ATTRIBUTION: &str =
-    "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert";
-/// The Berlin K5 map, once the template was written.
-const BERLIN_K5_ATTRIBUTION: &str =
-    "Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0";
-/// The Berlin tree cadastre, once tree candidates were written.
-const BERLIN_TREES_ATTRIBUTION: &str = "Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0";
-/// The Straßenbefahrung layers, once one of them has features.
-const BERLIN_SURVEY_ATTRIBUTION: &str =
-    "Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert";
 /// The lighting cadastre and the fountain registers: the stored file and the name in the
 /// attribution, in the order of the line.
-const BERLIN_REGISTERS: [(&str, &str); 3] = [
+pub(crate) const BERLIN_REGISTERS: [(&str, &str); 3] = [
     ("beleuchtung", "Öffentliche Beleuchtung"),
     ("zierbrunnen", "Zierbrunnen"),
     ("trinkwasserbrunnen", "Trinkwasserbrunnen"),
 ];
-/// The building heights (footprint dates), once their layer has features.
-const BERLIN_HEIGHTS_ATTRIBUTION: &str =
-    "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -3691,241 +3679,70 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
     berlin.chain(cities).collect()
 }
 
-/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
-/// for each dataset that drew trees.
-fn tree_attribution(registers: &[&str]) -> Vec<String> {
-    trees::TREE_DATASETS
-        .iter()
-        .filter(|d| registers.contains(&d.id.as_ref()))
-        .map(|d| d.attribution.to_string())
-        .collect()
-}
-
-/// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
-/// Geoportal Berlin. `registers` are the Berlin registers and city tree cadastres that drew
-/// objects ([`drawn_registers`]).
+/// Attribution of every source the project uses, for the project notes: OpenStreetMap, then the
+/// credit lines of the adapters with the licence texts they refer to. `registers` are the Berlin
+/// registers and city tree cadastres that drew objects ([`drawn_registers`]).
 fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
     let mut lines = vec![OSM_ATTRIBUTION.to_string()];
-    lines.extend(lgb_attribution(project));
-    lines.extend(berlin_attribution(project, registers));
-    lines.extend(tree_attribution(registers));
-    lines.extend(geosn_attribution(project));
-    lines.extend(lvermgeo_attribution(project));
-    lines.extend(lgv_attribution(project));
-    lines.extend(hvbg_attribution(project));
-    lines.extend(nrw_attribution(project));
-    if let Some(line) = rp_attribution(project) {
-        lines.push(line);
-        lines.push(RP_LICENCE_NOTE.to_string());
-    }
-    // The CC BY credits refer to the same licence text, which is given once.
-    let cc_by = [
-        sh_attribution(project),
-        mv_attribution(project),
-        lgln_attribution(project),
-    ];
-    let any_cc_by = cc_by.iter().any(Option::is_some);
-    lines.extend(cc_by.into_iter().flatten());
-    if any_cc_by {
-        lines.push(CC_BY_LICENCE_NOTE.to_string());
-    }
+    lines.extend(lines_with_licences(&credit_lines(project, registers)));
     lines
 }
 
 /// The credit lines of the data sources for the map sheet: those of [`attribution_lines`]
-/// without OpenStreetMap and without the licence notes.
+/// without OpenStreetMap and without the licence texts.
 fn sheet_credit_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
-    let mut lines = Vec::new();
-    lines.extend(lgb_attribution(project));
-    lines.extend(berlin_attribution(project, registers));
-    lines.extend(tree_attribution(registers));
-    lines.extend(geosn_attribution(project));
-    lines.extend(lvermgeo_attribution(project));
-    lines.extend(lgv_attribution(project));
-    lines.extend(hvbg_attribution(project));
-    lines.extend(sh_attribution(project));
-    lines.extend(mv_attribution(project));
-    lines.extend(nrw_attribution(project));
-    lines.extend(lgln_attribution(project));
-    lines.extend(rp_attribution(project));
-    lines
+    credit_lines(project, registers)
+        .into_iter()
+        .map(|credit| credit.text)
+        .collect()
 }
 
-/// The Geoportal Berlin lines: ALKIS once Berlin ALKIS objects were fetched, the K5 map and the
-/// tree cadastre once their data was written, the street survey and the building heights once
-/// their layers have features, and one line for the `registers` that drew objects, each named.
-fn berlin_attribution(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
-    let mut lines = Vec::new();
-    if alkis_records(project).any(|record| record.regions.contains(&Region::Berlin)) {
-        lines.push(BERLIN_ATTRIBUTION.to_string());
-    }
-    if project.k5.is_some() {
-        lines.push(BERLIN_K5_ATTRIBUTION.to_string());
-    }
-    // A stored tree layer without trees draws no candidate.
-    let trees = ["strassenbaeume", "anlagenbaeume"].iter().any(|file| {
-        project
-            .berlin_layers
-            .get(*file)
-            .is_some_and(|r| r.count > 0)
-    });
-    if trees {
-        lines.push(BERLIN_TREES_ATTRIBUTION.to_string());
-    }
-    // A stored layer without features contributed nothing.
-    let has = |keep: &dyn Fn(&str) -> bool| {
-        project
+/// The credit lines of every adapter for what the project holds of it, in the order of the
+/// registry.
+fn credit_lines(project: &ProjectFile, registers: &[&str]) -> Vec<CreditLine> {
+    let used = used_sources(project, registers);
+    registry()
+        .adapters()
+        .flat_map(|adapter| adapter.attribution(&used))
+        .collect()
+}
+
+/// What the project holds, as far as the credit lines depend on it.
+fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedSources<'a> {
+    let region_bbox = project.region_bbox().ok();
+    UsedSources {
+        raster_provider: region_bbox
+            .as_ref()
+            .and_then(|bbox| raster_region_in(registry(), bbox))
+            .map(|adapter| adapter.info().provider.clone()),
+        overlapped: region_bbox.as_ref().map_or_else(Vec::new, |bbox| {
+            registry()
+                .adapters()
+                .filter(|adapter| overlaps_in(*adapter, bbox))
+                .map(|adapter| adapter.info().id.clone())
+                .collect()
+        }),
+        tiles: &project.tiles,
+        orthophoto: project.orthophoto.as_ref(),
+        terrain: project.terrain.as_ref(),
+        alkis: alkis_records(project)
+            .map(|record| AlkisUse {
+                regions: record
+                    .regions
+                    .iter()
+                    .map(|region| AdapterId::built_in(region.id()))
+                    .collect(),
+                fetched: record.fetched,
+            })
+            .collect(),
+        extra_layers: project
             .berlin_layers
             .iter()
-            .any(|(file, record)| record.count > 0 && keep(file))
-    };
-    if has(&|file| file.starts_with("sb-")) {
-        lines.push(BERLIN_SURVEY_ATTRIBUTION.to_string());
+            .map(|(file, record)| (file.as_str(), record.count))
+            .collect(),
+        extra_templates: project.k5.iter().map(|_| "k5").collect(),
+        drawn_registers: registers,
     }
-    // A register that is fetched but drew nothing (another map kind, outside the area) is not
-    // named.
-    let names: Vec<&str> = BERLIN_REGISTERS
-        .iter()
-        .filter(|(file, _)| registers.contains(file))
-        .map(|&(_, name)| name)
-        .collect();
-    if !names.is_empty() {
-        lines.push(format!(
-            "Geoportal Berlin / {}, dl-de/zero-2-0",
-            names.join(", ")
-        ));
-    }
-    if has(&|file| file == "gebaeudehoehen") {
-        lines.push(BERLIN_HEIGHTS_ATTRIBUTION.to_string());
-    }
-    lines
-}
-
-/// The GeoSN line, once GeoSN tiles, its orthophoto or Saxon ALKIS objects were fetched.
-fn geosn_attribution(project: &ProjectFile) -> Option<String> {
-    let used = project
-        .tiles
-        .iter()
-        .any(|t| t.product.provider() == Provider::GeoSn)
-        || (project.orthophoto.is_some() && raster_provider(project) == Some(Provider::GeoSn))
-        || alkis_records(project).any(|record| record.regions.contains(&Region::Saxony));
-    used.then(|| GEOSN_ATTRIBUTION.to_string())
-}
-
-/// The LVermGeo line, once its rasters or Saxony-Anhalt ALKIS objects were fetched; the year is
-/// that of the newest fetch.
-fn lvermgeo_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::LvermGeo, Region::SaxonyAnhalt)?;
-    Some(format!(
-        "© GeoBasis-DE / LVermGeo ST {year}, dl-de/by-2-0, Daten geändert"
-    ))
-}
-
-/// The LGV line, once its rasters or Hamburg ALKIS objects were fetched; the year is that of the
-/// newest fetch.
-fn lgv_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Lgv, Region::Hamburg)?;
-    Some(format!(
-        "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) {year}, dl-de/by-2-0, Daten geändert"
-    ))
-}
-
-/// The HVBG line, once its rasters or Hesse ALKIS objects were fetched; the year is that of the
-/// newest fetch.
-fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Hvbg, Region::Hessen)?;
-    Some(format!(
-        "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
-    ))
-}
-
-/// The Geobasis NRW line, once its rasters or North Rhine-Westphalia ALKIS objects were fetched;
-/// the year is that of the newest fetch. The licence (dl-de/zero-2-0) asks for no note of changes.
-fn nrw_attribution(project: &ProjectFile) -> Option<String> {
-    let year =
-        per_area_attribution_year(project, Provider::GeobasisNrw, Region::NordrheinWestfalen)?;
-    Some(format!(
-        "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0"
-    ))
-}
-
-/// The LVermGeo RP line, once its rasters or Rhineland-Palatinate ALKIS objects were fetched: the
-/// form the open-data page prescribes (no blank before the year of the newest fetch), with the
-/// note of changes, since freemapper derives map objects.
-fn rp_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::LvermGeoRp, Region::RheinlandPfalz)?;
-    Some(format!(
-        "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
-    ))
-}
-
-/// The licence the LVermGeo RP line refers to (added to the project notes only).
-const RP_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
-
-/// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
-/// Niedersachsen) refer to (added to the project notes only).
-const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
-/// The LVermGeo SH credit the licence prescribes for changed data.
-const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
-
-/// The LVermGeo SH line, once its rasters or Schleswig-Holstein ALKIS objects were fetched.
-fn sh_attribution(project: &ProjectFile) -> Option<String> {
-    per_area_attribution_year(project, Provider::LvermGeoSh, Region::SchleswigHolstein)?;
-    Some(SH_ATTRIBUTION.to_string())
-}
-
-/// The LAiV M-V credit the licence prescribes for changed data.
-const MV_ATTRIBUTION: &str = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)";
-
-/// The LAiV M-V line, once its rasters or Mecklenburg-Vorpommern ALKIS objects were fetched.
-fn mv_attribution(project: &ProjectFile) -> Option<String> {
-    per_area_attribution_year(project, Provider::LaivMv, Region::MecklenburgVorpommern)?;
-    Some(MV_ATTRIBUTION.to_string())
-}
-
-/// The LGLN line, once its rasters or Niedersachsen ALKIS objects were fetched: the credit the
-/// AGNB prescribes (with the year of the newest fetch and the note of changes) and the licence.
-fn lgln_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Lgln, Region::Niedersachsen)?;
-    Some(format!(
-        "© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0"
-    ))
-}
-
-/// The year of the newest fetch of `provider`'s data in the project: its terrain model and
-/// orthophoto (when the project's rasters come from it) and its ALKIS objects of `region`.
-fn per_area_attribution_year(
-    project: &ProjectFile,
-    provider: Provider,
-    region: Region,
-) -> Option<i32> {
-    let raster = raster_provider(project) == Some(provider);
-    [
-        project
-            .terrain
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-        project
-            .orthophoto
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(
-        alkis_records(project)
-            .filter(|r| r.regions.contains(&region))
-            .map(|r| r.fetched),
-    )
-    .map(|d| d.year())
-    .max()
-}
-
-/// The provider of the project's rasters.
-fn raster_provider(project: &ProjectFile) -> Option<Provider> {
-    raster_region(&project.region_bbox().ok()?).map(Region::provider)
 }
 
 /// The stored ALKIS records (buildings, land use).
@@ -3944,29 +3761,6 @@ fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<Region> {
         .collect()
 }
 
-/// The LGB attribution line, once tiles were fetched. LGB tiles in Berlin hold Berlin data, and
-/// LGB's licence note then asks for the Geoportal Berlin as well.
-fn lgb_attribution(project: &ProjectFile) -> Option<String> {
-    let tile_year = project
-        .tiles
-        .iter()
-        .filter(|t| t.product.provider() == Provider::Lgb)
-        .map(|t| t.published.year())
-        .max();
-    let alkis_year = alkis_records(project)
-        .filter(|r| r.regions.contains(&Region::Brandenburg))
-        .map(|r| r.fetched.year())
-        .max();
-    let year = tile_year.or(alkis_year)?;
-    let in_berlin = project
-        .region_bbox()
-        .is_ok_and(|bbox| touches_berlin(&bbox));
-    Some(if in_berlin {
-        attribution_with_berlin(year)
-    } else {
-        attribution(year)
-    })
-}
 /// Folders that receive files under fixed names from code that is not given the project
 /// folder (the downloads and the derived templates). `data/berlin` is checked per layer.
 const WRITTEN_FOLDERS: [&str; 2] = ["data", "templates"];
@@ -4118,6 +3912,10 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
+    use crate::adapters::credit::{
+        BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
+    };
+    use chrono::Datelike as _;
 
     #[test]
     fn set_map_area_keeps_the_rest() {

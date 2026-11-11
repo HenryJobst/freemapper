@@ -8,6 +8,7 @@
 
 pub mod adapter;
 pub mod cache;
+pub mod credit;
 pub mod env;
 pub mod error;
 pub mod fetch;

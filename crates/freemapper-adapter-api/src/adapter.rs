@@ -3,10 +3,11 @@
 use freemapper_georef::crs::BoundingBox;
 use geo_types::MultiPolygon;
 
+use crate::credit::{CreditLine, UsedSources};
 use crate::info::RegionInfo;
 
 /// Everything one state or country supplies. This is the first cut (plan task C1): identity
-/// and boundary. The tasks that move a concern off the region enums add its method.
+/// and boundary, by now with the OSM extracts (C3) and the credit lines (C4). The tasks that move a concern off the region enums add its method.
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;
@@ -20,6 +21,10 @@ pub trait RegionAdapter: Send + Sync {
     fn extract_boundary(&self, _index: usize) -> Option<&MultiPolygon<f64>> {
         None
     }
+
+    /// The credit lines for what a project holds of this region, in the order they are printed;
+    /// empty before anything of it was fetched.
+    fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine>;
 
     /// The box around the boundary (EPSG:25833). The region functions ask it before the
     /// boundary itself: what lies outside the box cannot touch the region. An adapter that
