@@ -258,3 +258,35 @@ fn project_language_wins_over_the_browser_language() {
     assert!(app.contains("project.lang"));
     assert!(app.contains("navigator.language"));
 }
+
+/// The body of the top-level function `name` in `script`, up to its closing brace in column 0.
+fn function_body<'a>(script: &'a str, name: &str) -> &'a str {
+    let start = script
+        .find(&format!("function {name}("))
+        .unwrap_or_else(|| panic!("no function {name}"));
+    let rest = &script[start..];
+    &rest[..rest.find("\n}\n").expect("the function ends")]
+}
+
+/// The hint under the drawing buttons and the layer names of the map are set by the script, not
+/// by a `data-text`. They were written once in the browser's language and stayed German on an
+/// English page. Every text the script sets goes through `setLanguage`.
+#[test]
+fn texts_the_script_sets_follow_the_project_language() {
+    let app = asset("app.js");
+    let switch = function_body(&app, "setLanguage");
+    for call in ["applyTexts()", "showLayerNames()", "showHint()"] {
+        assert!(switch.contains(call), "setLanguage does not call {call}");
+    }
+    assert!(function_body(&app, "start").contains("setLanguage(project.lang)"));
+    // The table changes in one place only, so nothing can switch it and forget the rest.
+    assert_eq!(app.matches("T = TEXTS[").count(), 1);
+    // The names of the layer control are read where it is built, never once at load.
+    let names = function_body(&app, "showLayerNames");
+    assert!(names.contains("[T.osm]") && names.contains("layerControl.remove()"));
+    assert_eq!(app.matches("[T.osm]").count(), 1);
+    assert!(function_body(&app, "showHint").contains("T.hintIdle"));
+    assert_eq!(app.matches("T.hintIdle").count(), 1);
+    // The title of the browser tab is a page text like the others.
+    assert!(asset("index.html").contains(r#"<title data-text="pageTitle">"#));
+}

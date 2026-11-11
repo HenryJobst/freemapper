@@ -3,6 +3,7 @@
 
 const TEXTS = {
   de: {
+    pageTitle: "freemapper – Gebietsauswahl",
     heading: "Kartengebiet wählen",
     folder: "Projektordner",
     pick: "Ort suchen",
@@ -79,6 +80,7 @@ const TEXTS = {
     aerialRheinlandPfalz: "Luftbild Rheinland-Pfalz (LVermGeo RP)",
   },
   en: {
+    pageTitle: "freemapper – area selection",
     heading: "Choose the map area",
     folder: "Project folder",
     pick: "Search a place",
@@ -286,21 +288,28 @@ const aerialRheinlandPfalz = L.tileLayer.wms("https://geo4.service24.rlp.de/wms/
   maxZoom: 20,
   attribution: `©GeoBasis-DE / LVermGeoRP${new Date().getFullYear()}, dl-de/by-2-0, www.lvermgeo.rlp.de`,
 });
-L.control
-  .layers({
-    [T.osm]: osm,
-    [T.aerial]: aerial,
-    [T.aerialSaxony]: aerialSaxony,
-    [T.aerialSaxonyAnhalt]: aerialSaxonyAnhalt,
-    [T.aerialHamburg]: aerialHamburg,
-    [T.aerialHessen]: aerialHessen,
-    [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
-    [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
-    [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
-    [T.aerialNiedersachsen]: aerialNiedersachsen,
-    [T.aerialRheinlandPfalz]: aerialRheinlandPfalz,
-  })
-  .addTo(map);
+let layerControl = null;
+
+/** The layer control with its names in the page language; built again when the language changes. */
+function showLayerNames() {
+  if (layerControl) layerControl.remove();
+  layerControl = L.control
+    .layers({
+      [T.osm]: osm,
+      [T.aerial]: aerial,
+      [T.aerialSaxony]: aerialSaxony,
+      [T.aerialSaxonyAnhalt]: aerialSaxonyAnhalt,
+      [T.aerialHamburg]: aerialHamburg,
+      [T.aerialHessen]: aerialHessen,
+      [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
+      [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
+      [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
+      [T.aerialNiedersachsen]: aerialNiedersachsen,
+      [T.aerialRheinlandPfalz]: aerialRheinlandPfalz,
+    })
+    .addTo(map);
+}
+showLayerNames();
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
 );
@@ -552,6 +561,11 @@ function setMode(next) {
   $("map").classList.toggle("drawing", mode !== null);
   if (mode) map.doubleClickZoom.disable();
   else map.doubleClickZoom.enable();
+  showHint();
+}
+
+/** The hint under the drawing buttons, for the current mode in the page language. */
+function showHint() {
   $("hint").textContent =
     mode === "rectangle" ? T.hintRectangle : mode === "polygon" ? T.hintPolygon : T.hintIdle;
 }
@@ -760,14 +774,23 @@ window.freemapperPage = {
 
 // --- Start -----------------------------------------------------------------------------------
 
+/**
+ * Switches the page to the program language `code` ("de" or "en"; anything else keeps the
+ * browser's). Texts with a `data-text` and the texts a script has set are all written again.
+ */
+function setLanguage(code) {
+  if (code !== "de" && code !== "en") return;
+  T = TEXTS[code];
+  applyTexts();
+  showLayerNames();
+  showHint();
+}
+
 async function start() {
   setMode(null);
   try {
     project = await api("api/project");
-    if (project.lang === "de" || project.lang === "en") {
-      T = TEXTS[project.lang];
-      applyTexts();
-    }
+    setLanguage(project.lang);
     $("folder").textContent = project.dir;
     showSettings();
     $("has-map").hidden = !project.has_map;
