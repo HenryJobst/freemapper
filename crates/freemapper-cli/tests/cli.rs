@@ -974,7 +974,7 @@ const MANIFEST_PATH: &str =
     "/HenryJobst/freemapper/releases/latest/download/freemapper-update.json";
 
 /// A server on 127.0.0.1 in place of the GitHub hosts: each path gets its body, any other a 404.
-/// It records the paths asked for.
+/// It records the paths asked for, and can wait before each answer.
 #[cfg(all(feature = "test-stub", debug_assertions))]
 struct UpdateStub {
     base: String,
@@ -984,6 +984,10 @@ struct UpdateStub {
 #[cfg(all(feature = "test-stub", debug_assertions))]
 impl UpdateStub {
     fn start(bodies: Vec<(String, Vec<u8>)>) -> Self {
+        Self::answering_after(std::time::Duration::ZERO, bodies)
+    }
+
+    fn answering_after(delay: std::time::Duration, bodies: Vec<(String, Vec<u8>)>) -> Self {
         use std::io::{BufRead as _, Write as _};
         let bodies: std::collections::HashMap<String, Vec<u8>> = bodies.into_iter().collect();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -1010,6 +1014,7 @@ impl UpdateStub {
                     .unwrap_or("")
                     .to_string();
                 seen.lock().unwrap().push(path.clone());
+                std::thread::sleep(delay);
                 let (status, body) = match bodies.get(&path) {
                     Some(body) => (200, body.as_slice()),
                     None => (404, &[][..]),
@@ -1037,11 +1042,24 @@ impl UpdateStub {
 
     /// The committed manifest of release 99.0.0, whose asset hashes match nothing.
     fn with_fixture() -> Self {
+        Self::with_fixture_after(std::time::Duration::ZERO)
+    }
+
+    /// [`Self::with_fixture`], answering each request after `delay`.
+    fn with_fixture_after(delay: std::time::Duration) -> Self {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
-        Self::serving(
-            std::fs::read(dir.join("manifest-99.json")).unwrap(),
-            std::fs::read(dir.join("manifest-99.json.minisig")).unwrap(),
-            Vec::new(),
+        Self::answering_after(
+            delay,
+            vec![
+                (
+                    MANIFEST_PATH.to_string(),
+                    std::fs::read(dir.join("manifest-99.json")).unwrap(),
+                ),
+                (
+                    format!("{MANIFEST_PATH}.minisig"),
+                    std::fs::read(dir.join("manifest-99.json.minisig")).unwrap(),
+                ),
+            ],
         )
     }
 
@@ -1208,12 +1226,11 @@ fn update_in_a_read_only_folder_names_it() {
     assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
 }
 
-/// The whole install against the stub: a signed manifest made at run time, a "new program" that
-/// is a shell script printing `freemapper 99.0.0`. Needs the `minisign` CLI to sign; without it the
-/// test says so and passes.
-#[test]
+/// A stub serving release 99.0.0 that installs: a manifest signed at run time and a "new
+/// program" that is a shell script printing `freemapper 99.0.0`. `None` (and a line saying so)
+/// without the `minisign` CLI to sign with.
 #[cfg(all(unix, feature = "test-stub", debug_assertions))]
-fn update_yes_installs_over_a_copied_binary() {
+fn installable_release(work: &std::path::Path) -> Option<UpdateStub> {
     use std::os::unix::fs::PermissionsExt as _;
     let has_minisign = Command::new("minisign")
         .arg("-v")
@@ -1221,15 +1238,8 @@ fn update_yes_installs_over_a_copied_binary() {
         .is_ok_and(|output| output.status.success());
     if !has_minisign {
         eprintln!("skipped: no minisign on the PATH to sign the test manifest");
-        return;
+        return None;
     }
-    let dir = tempfile::tempdir().unwrap();
-    let folder = dir.path().join("bin");
-    let work = dir.path().join("work");
-    std::fs::create_dir(&folder).unwrap();
-    std::fs::create_dir(&work).unwrap();
-    let program = copied_program(&folder);
-
     let new = work.join("freemapper-new");
     std::fs::write(&new, "#!/bin/sh\necho \"freemapper 99.0.0\"\n").unwrap();
     std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -1291,7 +1301,27 @@ fn update_yes_installs_over_a_copied_binary() {
         .unwrap();
     assert!(signed.status.success(), "{signed:?}");
     let signature = std::fs::read(work.join("freemapper-update.json.minisig")).unwrap();
-    let stub = UpdateStub::serving(manifest.into_bytes(), signature, vec![(asset_path, gz)]);
+    Some(UpdateStub::serving(
+        manifest.into_bytes(),
+        signature,
+        vec![(asset_path, gz)],
+    ))
+}
+
+/// The whole install against the stub (see [`installable_release`]). Without the `minisign` CLI
+/// the test says so and passes.
+#[test]
+#[cfg(all(unix, feature = "test-stub", debug_assertions))]
+fn update_yes_installs_over_a_copied_binary() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("bin");
+    let work = dir.path().join("work");
+    std::fs::create_dir(&folder).unwrap();
+    std::fs::create_dir(&work).unwrap();
+    let program = copied_program(&folder);
+    let Some(stub) = installable_release(&work) else {
+        return;
+    };
 
     let output = update_with(&program, &stub).arg("--yes").output().unwrap();
     assert_eq!(output.status.code(), Some(0), "{output:?}");
@@ -1369,4 +1399,289 @@ fn update_rollback_restores_previous() {
         stderr.contains("there is no previous version to go back to"),
         "{stderr}"
     );
+}
+
+/// The daily check after `init`, `select`, `fetch` and `run` (spec 3.3), against the stub. Only a
+/// build with the `test-stub` feature and `FREEMAPPER_UPDATE_TEST_BASE` counts as a release build,
+/// so no other test here ever checks. The module name puts these tests under CI's `update` filter.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+mod update_check {
+    use std::path::Path;
+    use std::time::{Duration, Instant};
+
+    use freemapper_update::{RecordResult, load_record};
+
+    use super::{Command, FIXTURE, MANIFEST_PATH, UpdateStub, copied_program};
+
+    /// `program` in English, talking to `stub`, without `CI` and the update switches of the
+    /// environment, with its settings and its home folder (and so the default cache) in `dir`.
+    fn checking(program: &Path, stub: &UpdateStub, dir: &Path) -> Command {
+        let mut command = Command::new(program);
+        command
+            .env("FREEMAPPER_LANG", "en")
+            .env_remove("CI")
+            .env_remove("FREEMAPPER_UPDATE")
+            .env("FREEMAPPER_CONFIG_DIR", dir.join("config"))
+            .env("FREEMAPPER_UPDATE_TEST_BASE", &stub.base)
+            .env("HOME", dir.join("home"))
+            .env("XDG_CACHE_HOME", dir.join("home/.cache"));
+        command
+    }
+
+    /// `fetch` of a folder that does not exist: it fails at once, without the network, and its
+    /// cache folder is `<dir>/cache`.
+    fn failing_fetch<'a>(command: &'a mut Command, dir: &Path) -> &'a mut Command {
+        command
+            .arg("fetch")
+            .arg(dir.join("missing"))
+            .arg("--cache-dir")
+            .arg(dir.join("cache"))
+    }
+
+    fn record(dir: &Path) -> Option<RecordResult> {
+        load_record(&dir.join("cache/update-check.json")).map(|record| record.result)
+    }
+
+    fn program() -> &'static Path {
+        Path::new(env!("CARGO_BIN_EXE_freemapper"))
+    }
+
+    fn notice() -> String {
+        format!(
+            "freemapper 99.0.0 is available (you have {}). Update with: freemapper update\n",
+            env!("CARGO_PKG_VERSION")
+        )
+    }
+
+    /// Review focus 5: a check that is not done after 3 s is dropped, recorded as failed, and
+    /// leaves the command's output and exit code as they are.
+    #[test]
+    fn slow_source_is_dropped_after_3_s_and_recorded_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let stub = UpdateStub::with_fixture_after(Duration::from_secs(5));
+        let without = failing_fetch(
+            checking(program(), &stub, dir.path()).env("CI", "1"),
+            dir.path(),
+        )
+        .output()
+        .unwrap();
+        assert!(stub.paths().is_empty(), "no check when CI is set");
+        let started = Instant::now();
+        let with = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+            .output()
+            .unwrap();
+        let took = started.elapsed();
+        assert!(
+            took >= Duration::from_millis(2900) && took < Duration::from_millis(4500),
+            "{took:?}"
+        );
+        assert_eq!(with.status.code(), Some(1), "{with:?}");
+        assert_eq!(with.status.code(), without.status.code());
+        assert_eq!(with.stdout, without.stdout);
+        assert_eq!(with.stderr, without.stderr);
+        assert_eq!(
+            record(dir.path()),
+            Some(RecordResult::Failed {
+                reason: "timeout".into()
+            })
+        );
+        assert_eq!(stub.paths(), [MANIFEST_PATH]);
+    }
+
+    #[test]
+    fn server_error_is_recorded_failed_and_not_shown() {
+        let dir = tempfile::tempdir().unwrap();
+        let stub = UpdateStub::start(Vec::new());
+        let without = failing_fetch(
+            checking(program(), &stub, dir.path()).env("CI", "1"),
+            dir.path(),
+        )
+        .output()
+        .unwrap();
+        let with = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(with.status.code(), without.status.code());
+        assert_eq!(with.stdout, without.stdout);
+        assert_eq!(with.stderr, without.stderr);
+        let Some(RecordResult::Failed { reason }) = record(dir.path()) else {
+            panic!("{:?}", record(dir.path()));
+        };
+        assert!(reason.contains("404"), "{reason}");
+        assert_eq!(stub.paths(), [MANIFEST_PATH]);
+    }
+
+    #[test]
+    fn notice_line_on_stderr_after_command_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let stub = UpdateStub::with_fixture();
+        let without = failing_fetch(
+            checking(program(), &stub, dir.path()).env("CI", "1"),
+            dir.path(),
+        )
+        .output()
+        .unwrap();
+        let with = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(with.status.code(), Some(1), "{with:?}");
+        assert_eq!(with.stdout, without.stdout);
+        let stderr = String::from_utf8(with.stderr).unwrap();
+        let before = String::from_utf8(without.stderr).unwrap();
+        assert!(before.starts_with("error: "), "{before}");
+        assert_eq!(stderr, format!("{before}{}", notice()));
+        assert_eq!(
+            record(dir.path()),
+            Some(RecordResult::Available {
+                version: "99.0.0".parse().unwrap(),
+                notes: "https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0".into(),
+            })
+        );
+        // The next command the same day neither asks nor tells.
+        let again = failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8(again.stderr).unwrap(), before);
+        assert_eq!(stub.paths().len(), 2);
+    }
+
+    #[test]
+    fn no_check_with_offline_or_mode_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let stub = UpdateStub::with_fixture();
+        failing_fetch(&mut checking(program(), &stub, dir.path()), dir.path())
+            .arg("--offline")
+            .output()
+            .unwrap();
+        failing_fetch(
+            checking(program(), &stub, dir.path()).env("FREEMAPPER_UPDATE", "off"),
+            dir.path(),
+        )
+        .output()
+        .unwrap();
+        // `derive` and `export` work offline and do not check either.
+        checking(program(), &stub, dir.path())
+            .arg("derive")
+            .arg(dir.path().join("missing"))
+            .arg("--cache-dir")
+            .arg(dir.path().join("cache"))
+            .output()
+            .unwrap();
+        assert!(stub.paths().is_empty(), "{:?}", stub.paths());
+        assert_eq!(record(dir.path()), None);
+    }
+
+    /// Spec 3.4: mode `install` installs after the command, and only after one that succeeded.
+    #[test]
+    #[cfg(unix)]
+    fn install_mode_installs_only_after_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("bin");
+        let work = dir.path().join("work");
+        std::fs::create_dir(&folder).unwrap();
+        std::fs::create_dir(&work).unwrap();
+        let program = copied_program(&folder);
+        let Some(stub) = super::installable_release(&work) else {
+            return;
+        };
+        let project = dir.path().join("p");
+        let output = checking(&program, &stub, dir.path())
+            .env("FREEMAPPER_UPDATE", "install")
+            .arg("init")
+            .arg(&project)
+            .args(["--geojson", FIXTURE])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let current = env!("CARGO_PKG_VERSION");
+        let lines: Vec<&str> = stdout.lines().collect();
+        let position = |start: &str| {
+            lines
+                .iter()
+                .position(|line| line.starts_with(start))
+                .unwrap_or_else(|| panic!("{start}\n{stdout}"))
+        };
+        // The command's own output comes first, then the install.
+        assert!(
+            position("Created project") < position("downloading and checking freemapper 99.0.0")
+        );
+        assert!(
+            position("downloading and checking")
+                < position(&format!("freemapper updated from {current} to 99.0.0"))
+        );
+        assert_eq!(
+            lines.last(),
+            Some(&"The new version applies from the next start of freemapper.")
+        );
+        assert!(String::from_utf8(output.stderr).unwrap().is_empty());
+        let version = Command::new(&program).arg("--version").output().unwrap();
+        assert_eq!(
+            String::from_utf8(version.stdout).unwrap().trim(),
+            "freemapper 99.0.0"
+        );
+        // The record lies in the default cache folder, since `init` has no `--cache-dir`.
+        let recorded = ["home/Library/Caches", "home/.cache"]
+            .iter()
+            .find_map(|cache| {
+                load_record(&dir.path().join(cache).join("freemapper/update-check.json"))
+            });
+        assert!(matches!(
+            recorded.map(|r| r.result),
+            Some(RecordResult::Available { .. })
+        ),);
+    }
+
+    #[test]
+    fn install_mode_skips_after_failed_command() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("bin");
+        std::fs::create_dir(&folder).unwrap();
+        let program = copied_program(&folder);
+        let stub = UpdateStub::with_fixture();
+        let output = failing_fetch(
+            checking(&program, &stub, dir.path()).env("FREEMAPPER_UPDATE", "install"),
+            dir.path(),
+        )
+        .output()
+        .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        assert!(String::from_utf8(output.stdout).unwrap().is_empty());
+        // Not installed, only told.
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.ends_with(&notice()), "{stderr}");
+        assert!(!stub.asked_for_an_asset());
+        assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+    }
+
+    /// Spec 3.5 step 7: every start deletes the stale files an update left behind.
+    #[test]
+    fn stale_files_are_removed_at_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path().join("bin");
+        std::fs::create_dir(&folder).unwrap();
+        let program = copied_program(&folder);
+        let stale = folder.join(if cfg!(windows) {
+            "freemapper.stale-1700000000.exe"
+        } else {
+            "freemapper.stale-1700000000"
+        });
+        std::fs::write(&stale, "old").unwrap();
+        let stub = UpdateStub::start(Vec::new());
+        // A build from source leaves them.
+        let mut source_build = checking(&program, &stub, dir.path());
+        source_build.env_remove("FREEMAPPER_UPDATE_TEST_BASE");
+        source_build
+            .args(["update", "--mode", "notify"])
+            .output()
+            .unwrap();
+        assert!(stale.exists());
+        let output = checking(&program, &stub, dir.path())
+            .args(["update", "--mode", "notify"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        assert!(!stale.exists());
+        assert!(stub.paths().is_empty());
+    }
 }

@@ -102,6 +102,9 @@ update-failed = the update failed: { $error }
 update-mode-set = Update mode set to { $mode } in { $path }.
 update-mode-env = FREEMAPPER_UPDATE={ $value } overrides this setting while it is set.
 update-mode-failed = could not write { $path }: { $error }
+update-notice = freemapper { $new } is available (you have { $old }). Update with: freemapper update
+update-applies-next-start = The new version applies from the next start of freemapper.
+update-install-failed = warning: freemapper { $new } was not installed: { $error }
 update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CONFIG_DIR
 
 ## Errors. In English each text equals the message of the library's error type, which stays

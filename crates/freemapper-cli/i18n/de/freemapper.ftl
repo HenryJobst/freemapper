@@ -102,6 +102,9 @@ update-failed = Die Aktualisierung ist fehlgeschlagen: { $error }
 update-mode-set = Aktualisierungsmodus { $mode } in { $path } gespeichert.
 update-mode-env = FREEMAPPER_UPDATE={ $value } hat Vorrang vor dieser Einstellung, solange die Variable gesetzt ist.
 update-mode-failed = { $path } ließ sich nicht schreiben: { $error }
+update-notice = freemapper { $new } ist verfügbar (Sie haben { $old }). Aktualisieren mit: freemapper update
+update-applies-next-start = Die neue Version gilt ab dem nächsten Start von freemapper.
+update-install-failed = Warnung: freemapper { $new } wurde nicht installiert: { $error }
 update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
 
 ## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen

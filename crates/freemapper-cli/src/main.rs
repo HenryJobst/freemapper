@@ -280,6 +280,34 @@ impl CacheArgs {
             None => Cache::default_location().with_context(|| text("cli-no-cache-dir", &[])),
         }
     }
+
+    /// The folder [`Self::cache`] uses, if there is one.
+    fn folder(&self) -> Option<PathBuf> {
+        self.cache_dir
+            .clone()
+            .or_else(|| Cache::default_location().map(|cache| cache.root().to_path_buf()))
+    }
+}
+
+impl Commands {
+    /// The cache folder and `--offline` of a command after which the daily update check runs:
+    /// the ones that use the network anyway (spec 3.3). `init` has no `--cache-dir` and records
+    /// in the default cache folder.
+    fn update_check(&self) -> Option<(Option<PathBuf>, bool)> {
+        match self {
+            Commands::Init { .. } => Some((
+                Cache::default_location().map(|cache| cache.root().to_path_buf()),
+                false,
+            )),
+            Commands::Fetch { offline, cache, .. }
+            | Commands::Run { offline, cache, .. }
+            | Commands::Select { offline, cache, .. } => Some((cache.folder(), *offline)),
+            Commands::Export { .. }
+            | Commands::Derive { .. }
+            | Commands::Mcp { .. }
+            | Commands::Update { .. } => None,
+        }
+    }
 }
 
 fn mode(offline: bool) -> FetchMode {
@@ -494,7 +522,19 @@ fn main() -> std::process::ExitCode {
         Ok(cli) => cli,
         Err(error) => return parse_error(error),
     };
-    match run(cli) {
+    // The MCP server's stdout is the protocol, and a stale file may be an older server still
+    // running; it is left alone.
+    if !matches!(cli.command, Commands::Mcp { .. }) {
+        update::background::remove_stale_files();
+    }
+    let check = cli.command.update_check().and_then(|(cache, offline)| {
+        update::background::start_background_check(&update::background::CheckContext::of_command(
+            cache, offline,
+        ))
+    });
+    let result = run(cli);
+    let command_ok = result.is_ok();
+    let code = match result {
         Ok(code) => code,
         Err(error) => {
             eprintln!(
@@ -504,7 +544,12 @@ fn main() -> std::process::ExitCode {
             );
             std::process::ExitCode::FAILURE
         }
+    };
+    // After the command's own output, its error included.
+    if let Some(report) = check.and_then(|check| check.finish(command_ok)) {
+        report.print();
     }
+    code
 }
 
 /// Runs the command; an error comes back for `main` to word in the language of the run.

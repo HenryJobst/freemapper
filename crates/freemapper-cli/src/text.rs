@@ -182,6 +182,7 @@ mod tests {
             include_str!("mcp.rs"),
             include_str!("jobs.rs"),
             include_str!("update/mod.rs"),
+            include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
         ] {
@@ -204,6 +205,7 @@ mod tests {
             include_str!("mcp.rs"),
             include_str!("jobs.rs"),
             include_str!("update/mod.rs"),
+            include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
         ]
