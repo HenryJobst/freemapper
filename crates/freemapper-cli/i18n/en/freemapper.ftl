@@ -76,6 +76,32 @@ cli-open-folder-no-opener = This computer has no program to open folders ({ $pro
 cli-open-folder-missing = The project folder does not exist yet. Save the area first.
 cli-open-folder-refused = The folder name is not safe to pass on to the file manager.
 
+## update (spec 3.4 to 3.6)
+
+update-source-build = This freemapper was built from source. Update it with git pull and cargo build --release --locked.
+update-current = freemapper { $version } is up to date.
+update-available = freemapper { $new } is available (you have { $old }), released { $released }.
+update-details =
+    Release notes: { $notes }
+    Download: { $size } MB
+update-decimal-separator = .
+update-ask = Install it now? [y/N]
+update-not-installed = Nothing was installed.
+update-needs-yes = the input is not a terminal, so freemapper cannot ask before installing; run freemapper update --yes to install without asking
+update-installing = downloading and checking freemapper { $version }
+update-done = freemapper updated from { $old } to { $new }. Release notes: { $notes }
+update-mcp-restart = A running MCP server keeps the old version until the AI assistant restarts it.
+update-rolled-back = Went back to freemapper { $version }. The version you left is kept as { $path }.
+update-not-writable = cannot write to the program folder { $path }, and freemapper does not ask for administrator rights. Unpack the new release there by hand, or move freemapper to a folder you can write to.
+update-too-old = freemapper { $new } cannot be installed by the update of { $old }; install { $needed } or newer by hand, see { $notes }
+update-busy = another update or rollback is running in the program folder (lock file { $path }); wait for it to finish and try again
+update-no-previous = there is no previous version to go back to ({ $path } is missing)
+update-failed = the update failed: { $error }
+update-mode-set = Update mode set to { $mode } in { $path }.
+update-mode-env = FREEMAPPER_UPDATE={ $value } overrides this setting while it is set.
+update-mode-failed = could not write { $path }: { $error }
+update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CONFIG_DIR
+
 ## Errors. In English each text equals the message of the library's error type, which stays
 ## English for logs and tests. Parts that other programs word (the operating system, parsers,
 ## servers) arrive in variables and stay as they are.
@@ -243,6 +269,12 @@ help-select-pdf-candidates = The page starts with the training PDF (every candid
 help-select-pdf-scale-bar = The page starts with the scale bar on the PDFs ticked
 help-select-pdf-sources = The page starts with this choice of source lines on the PDFs, as for `run`
 help-mcp = Serve the tools to an AI agent over MCP (stdin/stdout)
+help-update = Install a newer freemapper from the GitHub releases, after asking. A build from source says how to update it instead
+help-update-check = Only check: exit code 10 when a newer version exists, 0 when this one is current
+help-update-yes = Install without asking; needed when the input is not a terminal
+help-update-version = Install this version (x.y.z) instead of the newest one, also an older one
+help-update-rollback = Go back to the version the last update replaced
+help-update-mode = Store what the daily check does when it finds a newer version (default: notify). Works in every build, because it only writes the setting
 
 ## The summary of a run, for the MCP server and the area page
 

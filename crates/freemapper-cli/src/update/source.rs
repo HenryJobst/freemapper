@@ -22,7 +22,7 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 pub struct HttpUpdateSource {
     agent: ureq::Agent,
     /// Tests: the stub server that answers in place of the GitHub hosts.
-    #[cfg(test)]
+    #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
     stub: Option<String>,
 }
 
@@ -35,17 +35,21 @@ impl HttpUpdateSource {
                 .http_status_as_error(false)
                 .timeout_connect(Some(CONNECT_TIMEOUT))
                 .timeout_global(Some(GET_TIMEOUT))
+                // The bytes as they are: the hashes in the manifest are those of the files.
+                .accept_encoding("identity")
                 .build()
                 .into(),
-            #[cfg(test)]
+            #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
             stub: None,
         }
     }
 
     /// A source whose requests to `https://github.com/...` and
     /// `https://release-assets.githubusercontent.com/...` go to `base` (`http://127.0.0.1:<port>`)
-    /// with the same path. The host rule still applies to every URL before it is mapped.
-    #[cfg(test)]
+    /// with the same path. The host rule still applies to every URL before it is mapped. Exists in
+    /// unit tests and in debug builds with the `test-stub` feature (the CLI tests), never in a
+    /// release build.
+    #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
     pub fn stub(base: &str) -> Self {
         Self {
             stub: Some(base.trim_end_matches('/').to_string()),
@@ -55,7 +59,7 @@ impl HttpUpdateSource {
 
     /// The address a request for `url` goes to: `url` itself, in tests the stub's.
     fn target(&self, url: &str) -> String {
-        #[cfg(test)]
+        #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
         if let Some(base) = &self.stub {
             for host in [
                 "https://github.com",
@@ -115,7 +119,8 @@ impl HttpUpdateSource {
             let next = resolve(&current, location);
             check_url(&next).map_err(|_| {
                 UpdateError::Url(format!(
-                    "{current}: redirect (HTTP {status}) to a URL outside https://{}",
+                    "{}: redirect (HTTP {status}) to a URL outside https://{}",
+                    bare_url(&current),
                     ALLOWED_HOSTS.join(", https://")
                 ))
             })?;
@@ -188,9 +193,15 @@ impl UpdateSource for HttpUpdateSource {
     }
 }
 
+/// `url` without its query and fragment: the asset host's signed links carry tokens there, which
+/// mean nothing to a reader.
+fn bare_url(url: &str) -> &str {
+    url.split(['?', '#']).next().unwrap_or(url)
+}
+
 /// [`UpdateError::Download`] for `url` with `what` went wrong.
 fn download_error(url: &str, what: &str) -> UpdateError {
-    UpdateError::Download(format!("{url}: {what}"))
+    UpdateError::Download(format!("{}: {what}", bare_url(url)))
 }
 
 /// The absolute URL of a redirect's `location`, which may be relative to `base` (RFC 9110 allows
@@ -258,10 +269,11 @@ mod tests {
     }
 
     /// A server on 127.0.0.1 that answers each path with its canned answer (404 otherwise) and
-    /// records each request as `<path> <user agent>`.
+    /// records each request as `<path> <user agent>`, and its `Accept-Encoding` apart.
     struct Stub {
         base: String,
         requests: Arc<Mutex<Vec<String>>>,
+        encodings: Arc<Mutex<Vec<String>>>,
     }
 
     impl Stub {
@@ -274,6 +286,8 @@ mod tests {
             let base = format!("http://{}", listener.local_addr().expect("stub address"));
             let requests = Arc::new(Mutex::new(Vec::new()));
             let seen = Arc::clone(&requests);
+            let encodings = Arc::new(Mutex::new(Vec::new()));
+            let seen_encodings = Arc::clone(&encodings);
             std::thread::spawn(move || {
                 for stream in listener.incoming() {
                     let Ok(mut stream) = stream else { continue };
@@ -288,6 +302,7 @@ mod tests {
                         .unwrap_or("")
                         .to_string();
                     let mut agent = String::new();
+                    let mut encoding = String::new();
                     loop {
                         let mut line = String::new();
                         if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
@@ -298,8 +313,14 @@ mod tests {
                         {
                             agent = value.trim().to_string();
                         }
+                        if let Some((name, value)) = line.split_once(':')
+                            && name.eq_ignore_ascii_case("accept-encoding")
+                        {
+                            encoding = value.trim().to_string();
+                        }
                     }
                     seen.lock().unwrap().push(format!("{path} {agent}"));
+                    seen_encodings.lock().unwrap().push(encoding);
                     let fallback = Answer {
                         status: 404,
                         location: None,
@@ -319,7 +340,11 @@ mod tests {
                     let _ = stream.write_all(&answer.body);
                 }
             });
-            Self { base, requests }
+            Self {
+                base,
+                requests,
+                encodings,
+            }
         }
 
         fn source(&self) -> HttpUpdateSource {
@@ -358,6 +383,47 @@ mod tests {
                 format!("/m/1?sig=x {}", freemapper::fetch::USER_AGENT),
             ]
         );
+    }
+
+    #[test]
+    fn requests_ask_for_the_bytes_as_they_are() {
+        let stub = Stub::start(vec![("/m.json", ok(b"{}")), ("/asset.gz", ok(&[1; 10]))]);
+        let source = stub.source();
+        source.get("https://github.com/m.json", 1024).unwrap();
+        let mut file = tempfile::tempfile().unwrap();
+        source
+            .download_to("https://github.com/asset.gz", 10, &mut file)
+            .unwrap();
+        assert_eq!(*stub.encodings.lock().unwrap(), ["identity", "identity"]);
+    }
+
+    #[test]
+    fn messages_leave_out_query_and_fragment() {
+        let stub = Stub::start(vec![(
+            "/asset.gz",
+            redirect(
+                302,
+                "https://release-assets.githubusercontent.com/blob?sig=secret&se=1#part",
+            ),
+        )]);
+        let error = stub
+            .source()
+            .get("https://github.com/asset.gz", 1024)
+            .unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("https://release-assets.githubusercontent.com/blob: HTTP 404"),
+            "{message}"
+        );
+        assert!(
+            !message.contains("sig=") && !message.contains('#'),
+            "{message}"
+        );
+        assert_eq!(
+            bare_url("https://github.com/a?b=c#d"),
+            "https://github.com/a"
+        );
+        assert_eq!(bare_url("https://github.com/a#d?x"), "https://github.com/a");
     }
 
     #[test]

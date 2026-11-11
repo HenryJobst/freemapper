@@ -899,3 +899,438 @@ fn warnings_of_the_engine_follow_the_language() {
         "Warnung: freemapper.toml: Der Maßstab 1:1234 gehört nicht zu den Maßstäben für Schulhofkarten (1:1000); freemapper-print wird die Karte ablehnen"
     );
 }
+
+// `freemapper update` (spec 3.5). The tests that reach the update code need a build with the
+// `test-stub` feature (`cargo test -p freemapper-cli --features test-stub`): only there does the
+// program take `FREEMAPPER_UPDATE_TEST_BASE`, count as a release build and send its requests for
+// the GitHub hosts to a stub server on 127.0.0.1.
+
+/// `freemapper update` of `program` in English, without the update switches of the environment.
+fn update_of(program: &std::path::Path) -> Command {
+    let mut command = Command::new(program);
+    command
+        .env("FREEMAPPER_LANG", "en")
+        .env_remove("FREEMAPPER_UPDATE")
+        .env_remove("FREEMAPPER_UPDATE_TEST_BASE")
+        .env_remove("FREEMAPPER_CONFIG_DIR")
+        .arg("update");
+    command
+}
+
+#[test]
+fn update_in_source_build_says_how_to_update() {
+    for extra in [&[][..], &["--check"], &["--yes"], &["--rollback"]] {
+        let output = update_of(std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")))
+            .args(extra)
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{extra:?}: {output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(
+            stdout.trim_end(),
+            "This freemapper was built from source. Update it with git pull and cargo build --release --locked.",
+            "{extra:?}"
+        );
+    }
+}
+
+#[test]
+fn update_mode_writes_settings() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = dir.path().join("config");
+    let set = |mode: &str| {
+        let output = update_of(std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")))
+            .env("FREEMAPPER_CONFIG_DIR", &config)
+            .args(["--mode", mode])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(
+            stdout.contains(&format!("Update mode set to {mode}")),
+            "{stdout}"
+        );
+        std::fs::read_to_string(config.join("settings.toml")).unwrap()
+    };
+    assert!(set("install").contains("mode = \"install\""));
+    assert!(set("off").contains("mode = \"off\""));
+    // An unknown mode is a usage error and leaves the file alone.
+    let output = update_of(std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")))
+        .env("FREEMAPPER_CONFIG_DIR", &config)
+        .args(["--mode", "sometimes"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    assert!(
+        std::fs::read_to_string(config.join("settings.toml"))
+            .unwrap()
+            .contains("mode = \"off\"")
+    );
+}
+
+/// The release page of the stub's manifests.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+const MANIFEST_PATH: &str =
+    "/HenryJobst/freemapper/releases/latest/download/freemapper-update.json";
+
+/// A server on 127.0.0.1 in place of the GitHub hosts: each path gets its body, any other a 404.
+/// It records the paths asked for.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+struct UpdateStub {
+    base: String,
+    paths: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+#[cfg(all(feature = "test-stub", debug_assertions))]
+impl UpdateStub {
+    fn start(bodies: Vec<(String, Vec<u8>)>) -> Self {
+        use std::io::{BufRead as _, Write as _};
+        let bodies: std::collections::HashMap<String, Vec<u8>> = bodies.into_iter().collect();
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let paths = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = std::sync::Arc::clone(&paths);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { continue };
+                let mut reader = std::io::BufReader::new(stream.try_clone().unwrap());
+                let mut request_line = String::new();
+                if reader.read_line(&mut request_line).is_err() {
+                    continue;
+                }
+                loop {
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).unwrap_or(0) == 0 || line == "\r\n" {
+                        break;
+                    }
+                }
+                let path = request_line
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or("")
+                    .to_string();
+                seen.lock().unwrap().push(path.clone());
+                let (status, body) = match bodies.get(&path) {
+                    Some(body) => (200, body.as_slice()),
+                    None => (404, &[][..]),
+                };
+                let head = format!(
+                    "HTTP/1.1 {status} Stub\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(head.as_bytes());
+                let _ = stream.write_all(body);
+            }
+        });
+        Self { base, paths }
+    }
+
+    /// Serves `manifest` and its signature as the latest release.
+    fn serving(manifest: Vec<u8>, signature: Vec<u8>, more: Vec<(String, Vec<u8>)>) -> Self {
+        let mut bodies = vec![
+            (MANIFEST_PATH.to_string(), manifest),
+            (format!("{MANIFEST_PATH}.minisig"), signature),
+        ];
+        bodies.extend(more);
+        Self::start(bodies)
+    }
+
+    /// The committed manifest of release 99.0.0, whose asset hashes match nothing.
+    fn with_fixture() -> Self {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+        Self::serving(
+            std::fs::read(dir.join("manifest-99.json")).unwrap(),
+            std::fs::read(dir.join("manifest-99.json.minisig")).unwrap(),
+            Vec::new(),
+        )
+    }
+
+    fn paths(&self) -> Vec<String> {
+        self.paths.lock().unwrap().clone()
+    }
+
+    fn asked_for_an_asset(&self) -> bool {
+        self.paths().iter().any(|path| path.ends_with(".gz"))
+    }
+}
+
+/// `freemapper update` of `program`, talking to `stub`.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_with(program: &std::path::Path, stub: &UpdateStub) -> Command {
+    let mut command = update_of(program);
+    command.env("FREEMAPPER_UPDATE_TEST_BASE", &stub.base);
+    command
+}
+
+/// A copy of the program in `dir`, for the tests that replace or move it.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn copied_program(dir: &std::path::Path) -> std::path::PathBuf {
+    let original = std::path::Path::new(env!("CARGO_BIN_EXE_freemapper"));
+    let copy = dir.join(original.file_name().unwrap());
+    std::fs::copy(original, &copy).unwrap();
+    copy
+}
+
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_check_with_stub_reports_available_exit_10() {
+    let stub = UpdateStub::with_fixture();
+    let output = update_with(
+        std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")),
+        &stub,
+    )
+    .arg("--check")
+    .output()
+    .unwrap();
+    assert_eq!(output.status.code(), Some(10), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let current = env!("CARGO_PKG_VERSION");
+    for expected in [
+        format!("freemapper 99.0.0 is available (you have {current}), released 2026-11-20."),
+        "Release notes: https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0".to_string(),
+        // 12345678 bytes.
+        "Download: 11.8 MB".to_string(),
+    ] {
+        assert!(stdout.contains(&expected), "{expected}\n{stdout}");
+    }
+    assert_eq!(
+        stub.paths(),
+        [
+            MANIFEST_PATH.to_string(),
+            format!("{MANIFEST_PATH}.minisig")
+        ]
+    );
+}
+
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_check_with_a_bad_signature_is_an_error() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+    let mut manifest = std::fs::read(dir.join("manifest-99.json")).unwrap();
+    manifest.extend_from_slice(b"\n");
+    let stub = UpdateStub::serving(
+        manifest,
+        std::fs::read(dir.join("manifest-99.json.minisig")).unwrap(),
+        Vec::new(),
+    );
+    let output = update_with(
+        std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")),
+        &stub,
+    )
+    .arg("--check")
+    .output()
+    .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("error: the update failed: the update signature is not valid"),
+        "{stderr}"
+    );
+}
+
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_without_yes_and_no_terminal_refuses() {
+    let dir = tempfile::tempdir().unwrap();
+    let program = copied_program(dir.path());
+    let stub = UpdateStub::with_fixture();
+    let output = update_with(&program, &stub)
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("freemapper 99.0.0 is available"),
+        "{stdout}"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("freemapper update --yes"), "{stderr}");
+    assert!(!stub.asked_for_an_asset());
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+}
+
+/// Review focus 1: a program folder the user cannot write is named, and nothing is downloaded.
+#[test]
+#[cfg(all(unix, feature = "test-stub", debug_assertions))]
+fn update_in_a_read_only_folder_names_it() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("bin");
+    std::fs::create_dir(&folder).unwrap();
+    let program = copied_program(&folder);
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o555)).unwrap();
+    let stub = UpdateStub::with_fixture();
+    let output = update_with(&program, &stub).arg("--yes").output().unwrap();
+    std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let canonical = std::fs::canonicalize(&folder).unwrap();
+    assert!(
+        stderr.contains(&format!(
+            "cannot write to the program folder {}",
+            canonical.display()
+        )),
+        "{stderr}"
+    );
+    assert!(!stub.asked_for_an_asset());
+    assert_eq!(std::fs::read_dir(&folder).unwrap().count(), 1);
+}
+
+/// The whole install against the stub: a signed manifest made at run time, a "new program" that
+/// is a shell script printing `freemapper 99.0.0`. Needs the `minisign` CLI to sign; without it the
+/// test says so and passes.
+#[test]
+#[cfg(all(unix, feature = "test-stub", debug_assertions))]
+fn update_yes_installs_over_a_copied_binary() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let has_minisign = Command::new("minisign")
+        .arg("-v")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !has_minisign {
+        eprintln!("skipped: no minisign on the PATH to sign the test manifest");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("bin");
+    let work = dir.path().join("work");
+    std::fs::create_dir(&folder).unwrap();
+    std::fs::create_dir(&work).unwrap();
+    let program = copied_program(&folder);
+
+    let new = work.join("freemapper-new");
+    std::fs::write(&new, "#!/bin/sh\necho \"freemapper 99.0.0\"\n").unwrap();
+    std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let gz = Command::new("gzip")
+        .args(["-c", "-n"])
+        .arg(&new)
+        .output()
+        .unwrap();
+    assert!(gz.status.success());
+    let gz = gz.stdout;
+    let sha256 = |path: &std::path::Path| -> String {
+        let output = Command::new("shasum")
+            .args(["-a", "256"])
+            .arg(path)
+            .output()
+            .or_else(|_| Command::new("sha256sum").arg(path).output())
+            .unwrap();
+        String::from_utf8(output.stdout).unwrap()[..64].to_string()
+    };
+    std::fs::write(work.join("new.gz"), &gz).unwrap();
+    let platform = freemapper_update::current_platform().unwrap();
+    let asset_path = format!(
+        "/HenryJobst/freemapper/releases/download/v99.0.0/freemapper-v99.0.0-{platform}.gz"
+    );
+    let manifest = format!(
+        r#"{{
+  "format": 1,
+  "app": "freemapper",
+  "version": "99.0.0",
+  "released": "2026-11-20",
+  "notes": "https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0",
+  "min_self_update_from": "0.1.0",
+  "assets": {{
+    "{platform}": {{
+      "url": "https://github.com{asset_path}",
+      "size": {size},
+      "sha256": "{gz_sha}",
+      "exe_sha256": "{exe_sha}"
+    }}
+  }}
+}}
+"#,
+        size = gz.len(),
+        gz_sha = sha256(&work.join("new.gz")),
+        exe_sha = sha256(&new),
+    );
+    let manifest_file = work.join("freemapper-update.json");
+    std::fs::write(&manifest_file, &manifest).unwrap();
+    let key = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/keys/test.key");
+    let signed = Command::new("minisign")
+        .arg("-S")
+        .arg("-s")
+        .arg(&key)
+        .arg("-m")
+        .arg(&manifest_file)
+        .args(["-t", "freemapper test"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    assert!(signed.status.success(), "{signed:?}");
+    let signature = std::fs::read(work.join("freemapper-update.json.minisig")).unwrap();
+    let stub = UpdateStub::serving(manifest.into_bytes(), signature, vec![(asset_path, gz)]);
+
+    let output = update_with(&program, &stub).arg("--yes").output().unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let current = env!("CARGO_PKG_VERSION");
+    assert!(
+        stdout.contains(&format!(
+            "freemapper updated from {current} to 99.0.0. Release notes: https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0"
+        )),
+        "{stdout}"
+    );
+    assert!(stdout.contains("MCP server"), "{stdout}");
+    let version = |path: &std::path::Path| {
+        let output = Command::new(path).arg("--version").output().unwrap();
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    };
+    assert_eq!(version(&program), "freemapper 99.0.0");
+    assert_eq!(
+        version(&folder.join("freemapper.previous")),
+        format!("freemapper {current}")
+    );
+}
+
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_rollback_restores_previous() {
+    let dir = tempfile::tempdir().unwrap();
+    let program = copied_program(dir.path());
+    let previous = dir.path().join(if cfg!(windows) {
+        "freemapper.previous.exe"
+    } else {
+        "freemapper.previous"
+    });
+    std::fs::copy(&program, &previous).unwrap();
+    // Both are the same program; the time stamp tells them apart.
+    let marked = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+    std::fs::File::options()
+        .write(true)
+        .open(&previous)
+        .unwrap()
+        .set_modified(marked)
+        .unwrap();
+    let modified = |path: &std::path::Path| std::fs::metadata(path).unwrap().modified().unwrap();
+    let stub = UpdateStub::start(Vec::new());
+    let output = update_with(&program, &stub)
+        .arg("--rollback")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains(&format!(
+            "Went back to freemapper {}",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "{stdout}"
+    );
+    assert_eq!(modified(&program), marked);
+    assert_ne!(modified(&previous), marked);
+    assert!(stub.paths().is_empty(), "a rollback sends no request");
+    // Without a previous version there is nothing to go back to.
+    std::fs::remove_file(&previous).unwrap();
+    let output = update_with(&program, &stub)
+        .arg("--rollback")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("there is no previous version to go back to"),
+        "{stderr}"
+    );
+}

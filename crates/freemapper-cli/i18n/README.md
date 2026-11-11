@@ -19,6 +19,8 @@ argument, `help-arg-<argument>` for one that reads the same in every command. Th
 comment in `src/main.rs`; `cargo test -p freemapper-cli print_the_english_help -- --ignored --nocapture` prints
 the entries for new options.
 
+The self-update's texts (`freemapper update` and its notices, `src/update/`) have ids that start with `update-`.
+
 The MCP server's texts have ids that start with `mcp-`: `mcp-tool-<tool>` and `mcp-param-<tool>-<parameter>`
 for the descriptions, whose English text equals the one in `src/mcp.rs`
 (`cargo test -p freemapper-cli print_the_english_descriptions -- --ignored --nocapture` prints them).

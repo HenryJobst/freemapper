@@ -76,6 +76,32 @@ cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ord
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
 
+## update (Spezifikation 3.4 bis 3.6)
+
+update-source-build = Dieses freemapper wurde aus dem Quellcode gebaut. Aktualisieren Sie es mit git pull und cargo build --release --locked.
+update-current = freemapper { $version } ist aktuell.
+update-available = freemapper { $new } ist verfügbar (Sie haben { $old }), erschienen am { $released }.
+update-details =
+    Versionshinweise: { $notes }
+    Download: { $size } MB
+update-decimal-separator = ,
+update-ask = Jetzt installieren? [j/N]
+update-not-installed = Es wurde nichts installiert.
+update-needs-yes = Die Eingabe ist kein Terminal, deshalb kann freemapper vor der Installation nicht fragen. Mit freemapper update --yes wird ohne Rückfrage installiert.
+update-installing = freemapper { $version } wird geladen und geprüft
+update-done = freemapper wurde von { $old } auf { $new } aktualisiert. Versionshinweise: { $notes }
+update-mcp-restart = Ein laufender MCP-Server behält die alte Version, bis der KI-Assistent ihn neu startet.
+update-rolled-back = Zurück zu freemapper { $version }. Die verlassene Version liegt als { $path } bereit.
+update-not-writable = In den Programmordner { $path } kann nicht geschrieben werden, und freemapper fragt nicht nach Administratorrechten. Entpacken Sie die neue Version dort von Hand oder verschieben Sie freemapper in einen Ordner, in den Sie schreiben dürfen.
+update-too-old = freemapper { $new } lässt sich nicht per Update von { $old } aus installieren. Installieren Sie { $needed } oder neuer von Hand, siehe { $notes }
+update-busy = Im Programmordner läuft schon ein Update oder ein Zurücksetzen (Sperrdatei { $path }). Warten Sie, bis es fertig ist, und versuchen Sie es dann erneut.
+update-no-previous = Es gibt keine vorherige Version, zu der zurückgekehrt werden kann ({ $path } fehlt).
+update-failed = Das Update ist fehlgeschlagen: { $error }
+update-mode-set = Update-Modus { $mode } in { $path } gespeichert.
+update-mode-env = FREEMAPPER_UPDATE={ $value } hat Vorrang vor dieser Einstellung, solange die Variable gesetzt ist.
+update-mode-failed = { $path } ließ sich nicht schreiben: { $error }
+update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
+
 ## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen
 ## an und bleibt, wie es ist; das gilt auch für Einzelheiten, die freemapper bisher nur auf
 ## Englisch kennt.
@@ -243,6 +269,12 @@ help-select-pdf-candidates = Auf der Seite ist die Trainings-PDF (jeder Kandidat
 help-select-pdf-scale-bar = Auf der Seite ist die Maßstabsleiste auf den PDFs vorgewählt
 help-select-pdf-sources = Auf der Seite ist diese Wahl der Quellenzeilen auf den PDFs vorgewählt, wie bei `run`
 help-mcp = Die Werkzeuge einem KI-Agenten über MCP anbieten (stdin/stdout)
+help-update = Eine neuere freemapper-Version aus den GitHub-Releases installieren, nach Rückfrage. Ein aus dem Quellcode gebautes freemapper nennt stattdessen den Weg zum Aktualisieren
+help-update-check = Nur prüfen: Exit-Code 10, wenn es eine neuere Version gibt, 0, wenn diese aktuell ist
+help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Terminal ist
+help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
+help-update-rollback = Zur Version zurückkehren, die das letzte Update ersetzt hat
+help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 

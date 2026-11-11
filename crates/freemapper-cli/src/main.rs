@@ -12,8 +12,6 @@ mod select_page;
 mod select_run;
 mod text;
 mod tiles;
-// The update command (task B2) and the daily check (task B3) are its first users.
-#[allow(dead_code, unused_imports)]
 mod update;
 
 use std::path::PathBuf;
@@ -193,6 +191,26 @@ enum Commands {
     Mcp {
         #[command(flatten)]
         cache: CacheArgs,
+    },
+    /// Install a newer freemapper from the GitHub releases, after asking. A build from source says
+    /// how to update it instead.
+    Update {
+        /// Only check: exit code 10 when a newer version exists, 0 when this one is current.
+        #[arg(long, conflicts_with_all = ["yes", "rollback"])]
+        check: bool,
+        /// Install without asking; needed when the input is not a terminal.
+        #[arg(long)]
+        yes: bool,
+        /// Install this version (x.y.z) instead of the newest one, also an older one.
+        #[arg(long, value_name = "X.Y.Z")]
+        version: Option<freemapper_update::Version>,
+        /// Go back to the version the last update replaced.
+        #[arg(long, conflicts_with = "version")]
+        rollback: bool,
+        /// Store what the daily check does when it finds a newer version (default: notify). Works
+        /// in every build, because it only writes the setting.
+        #[arg(long, value_enum, conflicts_with_all = ["check", "yes", "version", "rollback"])]
+        mode: Option<UpdateMode>,
     },
 }
 
@@ -395,6 +413,23 @@ impl From<SourcesArg> for PdfSources {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
+enum UpdateMode {
+    Notify,
+    Install,
+    Off,
+}
+
+impl From<UpdateMode> for freemapper_update::Mode {
+    fn from(mode: UpdateMode) -> Self {
+        match mode {
+            UpdateMode::Notify => Self::Notify,
+            UpdateMode::Install => Self::Install,
+            UpdateMode::Off => Self::Off,
+        }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
 enum Kind {
     Schoolyard,
     Sprint,
@@ -460,7 +495,7 @@ fn main() -> std::process::ExitCode {
         Err(error) => return parse_error(error),
     };
     match run(cli) {
-        Ok(()) => std::process::ExitCode::SUCCESS,
+        Ok(code) => code,
         Err(error) => {
             eprintln!(
                 "{}: {}",
@@ -473,7 +508,7 @@ fn main() -> std::process::ExitCode {
 }
 
 /// Runs the command; an error comes back for `main` to word in the language of the run.
-fn run(cli: Cli) -> anyhow::Result<()> {
+fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     match cli.command {
         Commands::Init {
             dir,
@@ -656,8 +691,23 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;
         }
+        Commands::Update {
+            check,
+            yes,
+            version,
+            rollback,
+            mode,
+        } => {
+            return update::command::run(update::command::Request {
+                check,
+                yes,
+                version,
+                rollback,
+                mode: mode.map(Into::into),
+            });
+        }
     }
-    Ok(())
+    Ok(std::process::ExitCode::SUCCESS)
 }
 
 #[cfg(test)]
