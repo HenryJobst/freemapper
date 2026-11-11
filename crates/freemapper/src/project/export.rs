@@ -7,6 +7,7 @@
 use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
+use crate::build::paved_borders::border_paved_areas;
 use crate::build::points::way_footprints;
 use crate::build::ticks::{orient_ticks, read_terrain};
 
@@ -1015,6 +1016,15 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &NORTH_LINE_CODES,
         &ways,
         min_piece_m,
+        &georef,
+        &symbol_set,
+    );
+    // The border of the paved areas, 501.1 (`build/paved_borders.rs`).
+    border_paved_areas(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        &footprints,
+        &water.union,
+        &clip,
         &georef,
         &symbol_set,
     );

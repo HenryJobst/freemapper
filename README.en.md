@@ -249,8 +249,9 @@ The sprint map also contains, as finished map objects:
 - unpaved ways from OSM that state their surface (`surface=dirt`, `gravel`, `compacted` …): tracks
   505.2, footpaths and paths 505.1, narrow (`width` below 1.5 m) or faint paths 506. Candidates (505.1)
   are ways without `surface` or with an unusual one, passages through buildings, covered ways and
-  pedestrian areas; unpaved streets are candidates 505.2. freemapper leaves out paved ways and
-  sidewalks, which the ALKIS areas and the orthophoto show. All lines end at the buffer around the map
+  pedestrian areas; unpaved streets are candidates 505.2. Paved ways (asphalt, paving stones,
+  concrete …) become 501.6 to 501.9 with a black border, like gravel paths; where a paved area lies,
+  the way is left out. freemapper leaves out sidewalks, which the ALKIS areas and the orthophoto show. All lines end at the buffer around the map
   area.
 
 Example Strausberg Vorstadt:

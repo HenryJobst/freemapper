@@ -14,6 +14,7 @@ pub mod open_land;
 pub mod out_of_bounds;
 pub mod passages;
 pub mod paved;
+pub mod paved_borders;
 pub mod peripheral;
 pub mod points;
 pub mod source_block;
