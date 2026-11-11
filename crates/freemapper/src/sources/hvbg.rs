@@ -732,7 +732,7 @@ impl<'a> Session<'a> {
         }
         if memo.loaded.is_none() {
             let link = memo.tree.as_ref().and_then(|t| t.1.clone());
-            let dir = cache.hvbg_dir().join("metadata");
+            let dir = cache.provider_dir("hvbg").join("metadata");
             let (index, mut warnings) = metadata_list(fetcher, mode, &dir, link)?;
             if !index.undated.is_empty() {
                 let shown: Vec<&str> = index.undated.iter().take(5).map(String::as_str).collect();
@@ -754,7 +754,7 @@ impl<'a> Session<'a> {
             fetcher,
             mode,
             model,
-            dir: cache.hvbg_dir().join(model.code()),
+            dir: cache.provider_dir("hvbg").join(model.code()),
             index,
             warnings,
             districts,
@@ -2031,7 +2031,7 @@ mod tests {
             &fetcher,
             &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
         );
-        let metadata = cache.hvbg_dir().join("metadata");
+        let metadata = cache.provider_dir("hvbg").join("metadata");
         std::fs::create_dir_all(&metadata).unwrap();
         let older = metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx");
         std::fs::write(&older, frankfurt_rows(&[(tile(476, 5552), 44985)])).unwrap();
@@ -2081,7 +2081,7 @@ mod tests {
             &fetcher,
             &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
         );
-        let metadata = cache.hvbg_dir().join("metadata");
+        let metadata = cache.provider_dir("hvbg").join("metadata");
         std::fs::create_dir_all(&metadata).unwrap();
         let older = metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx");
         std::fs::write(&older, frankfurt_rows(&[(tile(476, 5552), 44985)])).unwrap();
@@ -2123,7 +2123,7 @@ mod tests {
             &[("DGM1_32_476_5552_1_he.tif", tile(476, 5552), 110.0)],
         );
         fetcher.insert(METADATA_URL, frankfurt_rows(&[(tile(476, 5552), 44985)]));
-        let metadata = cache.hvbg_dir().join("metadata");
+        let metadata = cache.provider_dir("hvbg").join("metadata");
         std::fs::create_dir_all(metadata.join("subdir")).unwrap();
         std::fs::write(metadata.join("Metadaten_DGM-DOM_Juli-2026.xlsx"), b"old").unwrap();
         std::fs::write(metadata.join("other.part"), b"partial").unwrap();
@@ -2433,7 +2433,7 @@ mod tests {
             district: TS.1.to_string(),
         };
         let directory = cache
-            .hvbg_dir()
+            .provider_dir("hvbg")
             .join("dgm1/zips")
             .join(format!("{}.bin", taunusstein.cache_key()));
         assert!(directory.exists());

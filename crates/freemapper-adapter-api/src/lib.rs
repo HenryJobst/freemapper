@@ -6,6 +6,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod cache;
 pub mod error;
 pub mod fetch;
 pub mod fs;

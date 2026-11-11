@@ -869,15 +869,17 @@ fn g3_trace_of(id: &str) {
     // Hesse and Schleswig-Holstein pick the newest kept list by modification time. A replay
     // writes its files within one second, so the pick must never be between two lists.
     let lists: Vec<String> = match id {
-        "hessen" => file_names_under(&replayed.cache.hvbg_dir())
+        "hessen" => file_names_under(&replayed.cache.provider_dir("hvbg"))
             .into_iter()
             .filter(|name| name.ends_with(".xlsx"))
             .map(|_| "metadata list".to_string())
             .collect(),
-        "schleswigholstein" => file_names_under(&replayed.cache.lvermgeo_sh_dir().join("overview"))
-            .into_iter()
-            .filter_map(|name| name.split_once('_').map(|(kind, _)| kind.to_string()))
-            .collect(),
+        "schleswigholstein" => {
+            file_names_under(&replayed.cache.provider_dir("lvermgeo_sh").join("overview"))
+                .into_iter()
+                .filter_map(|name| name.split_once('_').map(|(kind, _)| kind.to_string()))
+                .collect()
+        }
         _ => return,
     };
     assert!(!lists.is_empty(), "{id} kept no list");

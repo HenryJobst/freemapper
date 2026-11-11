@@ -70,7 +70,7 @@ fn parse_flight_date(text: &str) -> Option<String> {
 /// The tiles among `tiles` that need no download: the newest kept tile list names them and their
 /// file exists (files are written whole, atomically), or the server answered 404 for them.
 pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
-    let dir = cache.geobasis_nrw_dir();
+    let dir = cache.provider_dir("geobasis_nrw");
     let Some(meta) = kept_meta(&dir, model) else {
         return HashSet::new();
     };
@@ -415,7 +415,7 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
-    let dir = cache.geobasis_nrw_dir();
+    let dir = cache.provider_dir("geobasis_nrw");
     let mut warnings = Vec::new();
     let meta = meta_list(fetcher, &dir, mode, model, &mut warnings)?;
     warnings.extend(meta.warnings.iter().cloned());

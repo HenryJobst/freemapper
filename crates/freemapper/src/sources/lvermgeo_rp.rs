@@ -537,7 +537,7 @@ pub fn metalink_to_fetch(
     bbox: &BoundingBox,
     tiles: &[TileId],
 ) -> bool {
-    let dir = cache.lvermgeo_rp_dir();
+    let dir = cache.provider_dir("lvermgeo_rp");
     let Some(list) = kept_list(&dir, bbox) else {
         return false;
     };
@@ -575,7 +575,7 @@ pub fn cached_tiles(
     bbox: &BoundingBox,
     tiles: &[TileId],
 ) -> HashSet<TileId> {
-    let dir = cache.lvermgeo_rp_dir();
+    let dir = cache.provider_dir("lvermgeo_rp");
     let files: HashSet<String> = std::fs::read_dir(dir.join(model.slug()))
         .into_iter()
         .flatten()
@@ -633,7 +633,7 @@ pub(crate) fn list_path(dir: &Path, bbox: &BoundingBox) -> PathBuf {
 /// the ones it names, as in the run, also those wholly beyond the state border. Without one they
 /// are the tiles that touch the state.
 pub fn tiles_to_fetch(cache: &Cache, bbox: &BoundingBox) -> Vec<TileId> {
-    let kept = std::fs::read(list_path(&cache.lvermgeo_rp_dir(), bbox))
+    let kept = std::fs::read(list_path(&cache.provider_dir("lvermgeo_rp"), bbox))
         .ok()
         .and_then(|bytes| parse_tile_list(&String::from_utf8_lossy(&bytes)).ok());
     tiles_covering(bbox)
@@ -668,7 +668,7 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
-    let dir = cache.lvermgeo_rp_dir();
+    let dir = cache.provider_dir("lvermgeo_rp");
     let mut warnings = Vec::new();
     let list = tile_list(fetcher, &dir, mode, bbox, &mut warnings)?;
     warnings.extend(list.warnings.iter().cloned());
@@ -1442,7 +1442,7 @@ mod tests {
     #[test]
     fn the_estimate_reads_the_list_of_its_own_area() {
         let (cache_dir, cache) = temp_cache();
-        let dir = cache.lvermgeo_rp_dir();
+        let dir = cache.provider_dir("lvermgeo_rp");
         let lists = cache_dir.path().join("lvermgeo_rp/tile_list");
         std::fs::create_dir_all(&lists).unwrap();
         // The list of this area gives the east tile no year; a newer one of another area does.
@@ -1465,7 +1465,7 @@ mod tests {
     #[test]
     fn a_cached_file_of_another_scan_year_is_not_cached() {
         let (cache_dir, cache) = temp_cache();
-        let dir = cache.lvermgeo_rp_dir();
+        let dir = cache.provider_dir("lvermgeo_rp");
         std::fs::create_dir_all(dir.join("tile_list")).unwrap();
         std::fs::write(
             list_path(&dir, &BBOX),
@@ -1501,7 +1501,7 @@ mod tests {
         let lists = cache_dir.path().join("lvermgeo_rp/tile_list");
         std::fs::create_dir_all(&lists).unwrap();
         std::fs::write(
-            list_path(&cache.lvermgeo_rp_dir(), &border),
+            list_path(&cache.provider_dir("lvermgeo_rp"), &border),
             rp_tile_list(&[(tile(448, 5540), "2024", "30.03.24, 06.04.24")]),
         )
         .unwrap();

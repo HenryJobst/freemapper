@@ -430,7 +430,6 @@ pub mod golden {
 
     use super::*;
     use crate::fetch::Cache;
-    use crate::sources::lgb::Product;
     use crate::sources::osm::golden::{OsmFacts, extracts_of};
 
     /// The credit lines of one project record combination in one year.
@@ -501,23 +500,24 @@ pub mod golden {
         }
     }
 
-    /// The first folder below the cache root that `provider` writes to.
+    /// The folder `provider` keeps its downloads under in the shared cache: the name its
+    /// module passes to `CacheDir::provider_dir`.
     fn cache_dir(provider: Provider) -> Option<String> {
-        let root = Path::new("cache");
-        let cache = Cache::new(root.to_path_buf());
-        let inside = match provider {
-            Provider::Lgb => cache.currency_csv_path(Product::Dtm),
-            Provider::GeoSn => cache.currency_csv_path(Product::SaxonyDtm),
-            Provider::Lgv => cache.lgv_dir(),
-            Provider::Hvbg => cache.hvbg_dir(),
-            Provider::LvermGeoSh => cache.lvermgeo_sh_dir(),
-            Provider::GeobasisNrw => cache.geobasis_nrw_dir(),
-            Provider::LvermGeoRp => cache.lvermgeo_rp_dir(),
-            Provider::LaivMv => cache.laiv_mv_dir(),
+        let name = match provider {
+            Provider::Lgb => "lgb",
+            Provider::GeoSn => "geosn",
+            Provider::Lgv => "lgv",
+            Provider::Hvbg => "hvbg",
+            Provider::LvermGeoSh => "lvermgeo_sh",
+            Provider::GeobasisNrw => "geobasis_nrw",
+            Provider::LvermGeoRp => "lvermgeo_rp",
+            Provider::LaivMv => "laiv_mv",
             Provider::LvermGeo | Provider::Lgln => return None,
         };
-        let first = inside.strip_prefix(root).ok()?.components().next()?;
-        Some(first.as_os_str().to_string_lossy().into_owned())
+        // The name is one `provider_dir` takes.
+        let cache = Cache::new(Path::new("cache").to_path_buf());
+        assert_eq!(cache.provider_dir(name), Path::new("cache").join(name));
+        Some(name.to_string())
     }
 
     fn id_of<T: serde::Serialize>(value: T) -> String {

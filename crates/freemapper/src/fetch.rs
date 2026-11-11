@@ -470,18 +470,21 @@ impl Fetcher for HttpFetcher {
     }
 }
 
-/// Tile cache shared by all projects. It also answers how much space the volumes freemapper
-/// writes to have left (the system's free space, unless replaced).
+pub use freemapper_adapter_api::cache::CacheDir;
+
+/// The cache shared by all projects: its folder ([`CacheDir`], which the cache derefs to) and how
+/// much space the volumes freemapper writes to have left (the system's free space, unless
+/// replaced).
 #[derive(Debug, Clone)]
 pub struct Cache {
-    root: PathBuf,
+    dir: CacheDir,
     space: Arc<dyn DiskSpace>,
 }
 
 impl Cache {
     pub fn new(root: PathBuf) -> Self {
         Self {
-            root,
+            dir: CacheDir::new(root),
             space: Arc::new(SystemDiskSpace),
         }
     }
@@ -489,11 +492,6 @@ impl Cache {
     /// The cache with `space` as the source of free space (tests simulate a full disk).
     pub fn with_disk_space(self, space: Arc<dyn DiskSpace>) -> Self {
         Self { space, ..self }
-    }
-
-    /// The folder of the cache.
-    pub fn root(&self) -> &Path {
-        &self.root
     }
 
     pub fn disk_space(&self) -> &dyn DiskSpace {
@@ -504,84 +502,77 @@ impl Cache {
     pub fn default_location() -> Option<Self> {
         dirs::cache_dir().map(|dir| Self::new(dir.join("freemapper")))
     }
+}
 
-    fn product_dir(&self, product: Product) -> PathBuf {
-        self.root
-            .join(product.provider_dir_name())
-            .join(product.cache_dir_name())
-    }
+impl std::ops::Deref for Cache {
+    type Target = CacheDir;
 
-    pub fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
-        self.product_dir(product)
-            .join(format!("{}_{published}.zip", tile.name()))
+    fn deref(&self) -> &CacheDir {
+        &self.dir
     }
+}
+
+/// Where the tiles of LGB and GeoSN and their currency lists lie in the cache. It stays here,
+/// beside the tile download, until the tile backends move (ADR 0082).
+pub trait TilePaths {
+    fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf;
 
     /// Folder of the cached nDSM point clouds.
-    pub fn ndsm_dir(&self) -> PathBuf {
-        self.root.join("lgb").join("ndom")
-    }
+    fn ndsm_dir(&self) -> PathBuf;
 
     /// Cached nDSM file of `tile`, named after the server date (`<tile>.laz` when undated).
-    pub fn ndsm_path(&self, tile: TileId, published: Option<NaiveDate>) -> PathBuf {
+    fn ndsm_path(&self, tile: TileId, published: Option<NaiveDate>) -> PathBuf;
+
+    /// Whether some publication of `tile` of `product` is cached.
+    fn has_tile(&self, product: Product, tile: TileId) -> bool;
+
+    /// Whether an nDSM point cloud of `tile` is cached.
+    fn has_ndsm(&self, tile: TileId) -> bool;
+
+    fn currency_csv_path(&self, product: Product) -> PathBuf;
+
+    /// The collected GeoSN tile index rows of `product`.
+    fn currency_index_path(&self, product: Product) -> PathBuf;
+}
+
+/// The folder of `product` in the cache.
+fn product_dir(cache: &CacheDir, product: Product) -> PathBuf {
+    cache
+        .provider_dir(product.provider_dir_name())
+        .join(product.cache_dir_name())
+}
+
+impl TilePaths for CacheDir {
+    fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
+        product_dir(self, product).join(format!("{}_{published}.zip", tile.name()))
+    }
+
+    fn ndsm_dir(&self) -> PathBuf {
+        self.provider_dir("lgb").join("ndom")
+    }
+
+    fn ndsm_path(&self, tile: TileId, published: Option<NaiveDate>) -> PathBuf {
         self.ndsm_dir().join(match published {
             Some(date) => format!("{}_{date}.laz", tile.name()),
             None => format!("{}.laz", tile.name()),
         })
     }
 
-    /// Whether some publication of `tile` of `product` is cached.
-    pub fn has_tile(&self, product: Product, tile: TileId) -> bool {
+    fn has_tile(&self, product: Product, tile: TileId) -> bool {
         let probe = self.tile_path(product, tile, NaiveDate::MIN);
         !cached_versions(&probe, tile).is_empty()
     }
 
-    /// Whether an nDSM point cloud of `tile` is cached.
-    pub fn has_ndsm(&self, tile: TileId) -> bool {
+    fn has_ndsm(&self, tile: TileId) -> bool {
         !cached_ndsm(&self.ndsm_dir(), tile).is_empty()
     }
 
-    /// Folder of the cached OSM extracts.
-    pub fn osm_dir(&self) -> PathBuf {
-        self.root.join("osm")
+    fn currency_csv_path(&self, product: Product) -> PathBuf {
+        product_dir(self, product).join("currency.csv")
     }
 
-    pub fn currency_csv_path(&self, product: Product) -> PathBuf {
-        self.product_dir(product).join("currency.csv")
-    }
-
-    /// Folder of the LGV Hamburg archive members.
-    pub fn lgv_dir(&self) -> PathBuf {
-        self.root.join("lgv")
-    }
-
-    /// Folder of the HVBG Hesse tiles, zip directories and metadata list.
-    pub fn hvbg_dir(&self) -> PathBuf {
-        self.root.join("hvbg")
-    }
-
-    /// Folder of the LVermGeo SH tiles (DGM1, the bDOM reduced to 1 m) and tile lists.
-    pub fn lvermgeo_sh_dir(&self) -> PathBuf {
-        self.root.join("lvermgeo_sh")
-    }
-
-    /// Folder of the Geobasis NRW DGM1/DOM1 tiles and the kept tile lists.
-    pub fn geobasis_nrw_dir(&self) -> PathBuf {
-        self.root.join("geobasis_nrw")
-    }
-
-    /// Folder of the LVermGeo RP DGM1/DOM1 tiles and the kept tile lists (per area).
-    pub fn lvermgeo_rp_dir(&self) -> PathBuf {
-        self.root.join("lvermgeo_rp")
-    }
-
-    /// Folder of the LAiV M-V tile lists (`overview.php` answers), per area.
-    pub fn laiv_mv_dir(&self) -> PathBuf {
-        self.root.join("laiv_mv")
-    }
-
-    /// The collected GeoSN tile index rows of `product`.
-    pub fn currency_index_path(&self, product: Product) -> PathBuf {
-        self.product_dir(product).join("currency.json")
+    fn currency_index_path(&self, product: Product) -> PathBuf {
+        product_dir(self, product).join("currency.json")
     }
 }
 

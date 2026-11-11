@@ -116,7 +116,7 @@ impl Model {
     /// Where a tile of this model is cached: named after the tile, never the archive member.
     pub fn tile_cache_file(self, cache: &Cache, tile: TileId) -> PathBuf {
         cache
-            .lgv_dir()
+            .provider_dir("lgv")
             .join(self.cache_name())
             .join(self.release())
             .join(format!(
@@ -166,7 +166,7 @@ pub fn fetch_model(
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
     let dir = cache
-        .lgv_dir()
+        .provider_dir("lgv")
         .join(model.cache_name())
         .join(model.release());
     // The member count (u16, little-endian), then the central directory.
@@ -573,7 +573,7 @@ mod tests {
 
     fn release_dir(cache: &Cache, model: Model) -> std::path::PathBuf {
         cache
-            .lgv_dir()
+            .provider_dir("lgv")
             .join(model.cache_name())
             .join(model.release())
     }

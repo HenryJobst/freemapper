@@ -1,6 +1,7 @@
 //! What a project has and will download: download estimate, layer list and PNG previews (for the
 //! MCP server and the CLI).
 
+use crate::fetch::TilePaths as _;
 use crate::note::note;
 use crate::sources::lgb::ProductTiles as _;
 use std::path::Path;
@@ -335,7 +336,7 @@ fn lgv_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
 /// read, so it counts as cached once any list is.
 fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
     use crate::sources::hvbg::Model;
-    let list_cached = std::fs::read_dir(cache.hvbg_dir().join("metadata"))
+    let list_cached = std::fs::read_dir(cache.provider_dir("hvbg").join("metadata"))
         .into_iter()
         .flatten()
         .flatten()
@@ -346,7 +347,7 @@ fn hvbg_items(bbox: &BoundingBox, cache: &Cache) -> Vec<EstimateItem> {
             .iter()
             .filter(|t| {
                 !cache
-                    .hvbg_dir()
+                    .provider_dir("hvbg")
                     .join(model.code())
                     .join(format!("32_{:03}_{:04}.tif", t.east_km, t.north_km))
                     .exists()
@@ -1038,7 +1039,7 @@ mod tests {
         let dgm1 = item("terrain model (HVBG DGM1)", &cache);
         assert!((dgm1.megabytes - 2.1 * n).abs() < 1e-9 && !dgm1.cached);
         // One tile of the DGM1 already in the cache.
-        let dir = cache.hvbg_dir().join("dgm1");
+        let dir = cache.provider_dir("hvbg").join("dgm1");
         std::fs::create_dir_all(&dir).unwrap();
         let t = tiles[0];
         std::fs::write(
@@ -1181,7 +1182,7 @@ mod tests {
             .iter()
             .map(|(e, n)| (format!("dgm1_32_{e}_{n}_1_nw_2022"), "2022-02-12"))
             .collect();
-        let dir = cache.geobasis_nrw_dir();
+        let dir = cache.provider_dir("geobasis_nrw");
         std::fs::create_dir_all(dir.join("meta")).unwrap();
         std::fs::create_dir_all(dir.join("dgm1")).unwrap();
         std::fs::write(
@@ -1237,7 +1238,7 @@ mod tests {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let area = utm32_area(354_900.0, 5_642_400.0);
-        let dir = cache.geobasis_nrw_dir();
+        let dir = cache.provider_dir("geobasis_nrw");
         std::fs::create_dir_all(dir.join("meta")).unwrap();
         std::fs::create_dir_all(dir.join("dgm1")).unwrap();
         let names: Vec<(String, &str)> = [354, 355]
@@ -1319,7 +1320,7 @@ mod tests {
         assert!(!items.iter().any(|i| i.what.contains("LGB")));
 
         // The DGM1 tile in the cache, under the name its year gives.
-        let dir = cache.lvermgeo_rp_dir();
+        let dir = cache.provider_dir("lvermgeo_rp");
         std::fs::create_dir_all(dir.join("dgm1")).unwrap();
         std::fs::write(dir.join("dgm1/dgm1_32_400_5579_1_rp_2024.tif"), b"II*\0").unwrap();
         let items = item(&cache);
@@ -1428,7 +1429,7 @@ mod tests {
             .map(|t| (*t, "2024", "30.03.24, 06.04.24"))
             .collect();
         assert!(listed.iter().any(|(t, _, _)| *t == at(448, 5540)));
-        let path = list_path(&cache.lvermgeo_rp_dir(), &map_bbox);
+        let path = list_path(&cache.provider_dir("lvermgeo_rp"), &map_bbox);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, rp_tile_list(&listed)).unwrap();
         let after = dgm1(&cache);
@@ -1528,7 +1529,7 @@ mod tests {
         })
         .unwrap();
         let area = square(p.lon, p.lat, 0.002);
-        let root = cache.lvermgeo_sh_dir();
+        let root = cache.provider_dir("lvermgeo_sh");
         std::fs::create_dir_all(root.join("overview")).unwrap();
         std::fs::create_dir_all(root.join("dgm1")).unwrap();
         let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
@@ -1564,7 +1565,7 @@ mod tests {
         // the cached old file does not count.
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let root = cache.lvermgeo_sh_dir();
+        let root = cache.provider_dir("lvermgeo_sh");
         std::fs::create_dir_all(root.join("overview")).unwrap();
         std::fs::create_dir_all(root.join("dgm1")).unwrap();
         let keep = |file: &str, text: &str| {
@@ -1611,7 +1612,7 @@ mod tests {
         let tiles = zone_32_tiles(&area.projected_bbox().buffered(20.0));
         assert_eq!(tiles.len(), 1, "{tiles:?}");
         let t = tiles[0];
-        let root = cache.lvermgeo_sh_dir();
+        let root = cache.provider_dir("lvermgeo_sh");
         // The tile list kept from the last online run names the current files (2022).
         let name = format!("dgm1_32_{:03}_{:04}_1_sh_2022", t.east_km, t.north_km);
         let list = include_str!("../../../tests/fixtures/schleswig-holstein-overview-dgm1.json");
@@ -1789,7 +1790,7 @@ mod tests {
         );
         // The school lies in one tile (565/5949); its current files are in the cache.
         assert_eq!(zone_32_tiles(&bbox).len(), 1);
-        let root = cache.lvermgeo_sh_dir();
+        let root = cache.provider_dir("lvermgeo_sh");
         std::fs::create_dir_all(root.join("overview")).unwrap();
         for (folder, list, file) in [
             (
@@ -1846,7 +1847,10 @@ mod tests {
         let label = Model::Dgm1.label();
         assert!(!item(label, &cache).cached);
         // Every tile of the DGM1 in the cache, none of the bDOM.
-        let dir = cache.lgv_dir().join("dgm1").join(Model::Dgm1.release());
+        let dir = cache
+            .provider_dir("lgv")
+            .join("dgm1")
+            .join(Model::Dgm1.release());
         std::fs::create_dir_all(&dir).unwrap();
         for (i, t) in tiles.iter().enumerate() {
             std::fs::write(
@@ -1913,7 +1917,7 @@ mod tests {
         };
         let (cached, total) = list(&cache);
         assert!(!cached);
-        let dir = cache.hvbg_dir().join("metadata");
+        let dir = cache.provider_dir("hvbg").join("metadata");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("Metadaten_20260101.xlsx"), b"x").unwrap();
         let (cached, after) = list(&cache);

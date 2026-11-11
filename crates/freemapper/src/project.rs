@@ -1,5 +1,6 @@
 //! Project folder and project file (`freemapper.toml`).
 
+use crate::fetch::TilePaths as _;
 use crate::note::{Arg, Note, note};
 use crate::sources::lgb::ProductTiles as _;
 use std::collections::BTreeMap;
@@ -5370,11 +5371,13 @@ mod tests {
         let again = MapFetcher::default();
         let fetcher = match mode {
             FetchMode::Offline => {
-                std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("bdom")).unwrap();
+                std::fs::remove_dir_all(cache.provider_dir("lvermgeo_sh").join("bdom")).unwrap();
                 &again
             }
             FetchMode::Online => {
-                for entry in std::fs::read_dir(cache.lvermgeo_sh_dir().join("overview")).unwrap() {
+                for entry in
+                    std::fs::read_dir(cache.provider_dir("lvermgeo_sh").join("overview")).unwrap()
+                {
                     let path = entry.unwrap().path();
                     if path
                         .file_name()

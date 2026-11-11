@@ -353,7 +353,7 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
-    let dir = cache.laiv_mv_dir();
+    let dir = cache.provider_dir("laiv_mv");
     let mut warnings = Vec::new();
     let grid = GridSpec::covering(bbox, 1.0);
     let area = grid.bounds();
@@ -982,7 +982,7 @@ mod tests {
         .unwrap();
         let first = std::fs::read(&out).unwrap();
         // No mosaic is kept in the shared cache.
-        assert!(!cache.laiv_mv_dir().join("wcs").exists());
+        assert!(!cache.provider_dir("laiv_mv").join("wcs").exists());
         // Offline: the stored model stays, the kept tile list gives the same result.
         let none = MapFetcher::default();
         let offline = fetch_model(

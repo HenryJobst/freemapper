@@ -385,7 +385,7 @@ fn fetch_model_with(
     progress: &mut dyn FnMut(Note),
     xyz_cells: u32,
 ) -> Result<HeightModel, FetchError> {
-    let dir = cache.lvermgeo_sh_dir();
+    let dir = cache.provider_dir("lvermgeo_sh");
     let mut warnings = Vec::new();
     let listed = tile_list(fetcher, &dir, mode, bbox, model, &mut warnings)?;
     let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
@@ -558,7 +558,7 @@ pub fn cached_tile_files(
     cache: &Cache,
     model: Model,
 ) -> std::collections::HashMap<TileId, PathBuf> {
-    let dir = cache.lvermgeo_sh_dir();
+    let dir = cache.provider_dir("lvermgeo_sh");
     let prefix = format!("{}_", model.overview_type());
     let mut lists: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir.join("overview"))
         .into_iter()
@@ -1266,7 +1266,7 @@ mod tests {
 
         /// Files left in the cache folder, relative to it.
         fn cached(cache: &Cache) -> Vec<String> {
-            let root = cache.lvermgeo_sh_dir();
+            let root = cache.provider_dir("lvermgeo_sh");
             let mut files = Vec::new();
             let mut dirs = vec![root.clone()];
             while let Some(dir) = dirs.pop() {
@@ -1623,7 +1623,7 @@ mod tests {
             let tile = decode_float_tiff(
                 &std::fs::read(
                     cache
-                        .lvermgeo_sh_dir()
+                        .provider_dir("lvermgeo_sh")
                         .join(format!("bdom/{BDOM_NAME}_1m.tif")),
                 )
                 .unwrap(),
@@ -1732,7 +1732,7 @@ mod tests {
                 &mut Vec::new(),
             )
             .unwrap();
-            std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("dgm1")).unwrap();
+            std::fs::remove_dir_all(cache.provider_dir("lvermgeo_sh").join("dgm1")).unwrap();
             let err = run(
                 &fetcher,
                 &cache,
@@ -1913,7 +1913,7 @@ mod tests {
         }
 
         fn cache_file(cache: &Cache, file: &str) -> PathBuf {
-            cache.lvermgeo_sh_dir().join(file)
+            cache.provider_dir("lvermgeo_sh").join(file)
         }
 
         #[test]
@@ -2018,7 +2018,7 @@ mod tests {
             fetcher.insert(&link(BDOM, Model::Bdom), bdom_tile(TILE));
             let dir = tempfile::tempdir().unwrap();
             let cache = Cache::new(dir.path().join("cache"));
-            let downloads = cache.lvermgeo_sh_dir().join("downloads");
+            let downloads = cache.provider_dir("lvermgeo_sh").join("downloads");
             std::fs::create_dir_all(&downloads).unwrap();
             let two_hours_ago =
                 std::time::SystemTime::now() - std::time::Duration::from_secs(2 * 3600);
@@ -2260,7 +2260,7 @@ mod tests {
             eprintln!("bDOM - DGM1 on the main wing: median {median:.2} m");
             assert!(median > 2.0, "{median}");
             for (name, size) in cached(&cache).iter().map(|f| {
-                let len = std::fs::metadata(cache.lvermgeo_sh_dir().join(f))
+                let len = std::fs::metadata(cache.provider_dir("lvermgeo_sh").join(f))
                     .unwrap()
                     .len();
                 (f.clone(), len)
