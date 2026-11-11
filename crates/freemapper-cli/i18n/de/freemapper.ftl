@@ -60,3 +60,18 @@ cli-lock-who-page = von der Gebietsauswahl-Seite
 cli-lock-who-unknown = von einem anderen Programm
 cli-lock-failed = Der Projektordner ließ sich für diesen Lauf nicht sperren: { $error }
 cli-lock-stuck = Im Weg liegt etwas, das keine Sperrdatei ist und sich nicht entfernen ließ
+
+## Lauf-Routen der Gebietsauswahl-Seite
+
+cli-run-bad-request = Die Optionen für den Lauf sind nicht gültig: { $error }
+cli-run-no-project = In diesem Ordner gibt es noch kein gespeichertes Projekt. Speichern Sie zuerst das Gebiet.
+cli-run-already-running = Für dieses Projekt läuft schon ein Lauf ({ $job }). Warten Sie, bis er fertig ist, oder brechen Sie ihn ab.
+cli-run-disk-stops = Nicht genug freier Speicherplatz für den Download: { $messages }
+cli-run-busy-elsewhere = Ein anderes Projekt dieses Programms führt gerade einen Lauf aus. Projekte teilen sich den Zwischenspeicher, deshalb läuft immer nur einer. Versuchen Sie es erneut, wenn er fertig ist.
+cli-run-nothing-to-cancel = Es läuft nichts, also gibt es nichts abzubrechen.
+cli-run-unknown-job = Für dieses Projekt gibt es keinen Lauf { $job }.
+cli-status-too-fast = Statusabfragen kommen zu oft. Fragen Sie höchstens fünfmal pro Sekunde.
+cli-open-folder-failed = Der Ordner ließ sich nicht öffnen ({ $error }).
+cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ordnern ({ $program }). Öffnen Sie den Ordner von Hand.
+cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
+cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
