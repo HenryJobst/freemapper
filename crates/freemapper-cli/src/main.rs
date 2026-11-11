@@ -2,6 +2,7 @@
 
 mod errors;
 mod estimate;
+mod find;
 mod help;
 mod jobs;
 mod lock;
@@ -188,6 +189,14 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// List the OpenStreetMap places for a name, areas first, with the id for init --osm.
+    Find {
+        /// Name of the place, e.g. "Clara-Zetkin-Schule Strausberg".
+        query: String,
+        /// Print the matches as JSON, the same fields as the MCP tool find_place.
+        #[arg(long)]
+        json: bool,
+    },
     /// Serve the tools to an AI agent over MCP (stdin/stdout).
     Mcp {
         #[command(flatten)]
@@ -292,11 +301,11 @@ impl CacheArgs {
 
 impl Commands {
     /// The cache folder and `--offline` of a command after which the daily update check runs:
-    /// the ones that use the network anyway (spec 3.3). `init` has no `--cache-dir` and records
-    /// in the default cache folder.
+    /// the ones that use the network anyway (spec 3.3). `init` and `find` have no `--cache-dir`
+    /// and record in the default cache folder.
     fn update_check(&self) -> Option<(Option<PathBuf>, bool)> {
         match self {
-            Commands::Init { .. } => Some((
+            Commands::Init { .. } | Commands::Find { .. } => Some((
                 Cache::default_location().map(|cache| cache.root().to_path_buf()),
                 false,
             )),
@@ -733,6 +742,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 anyhow::Ok(())
             })?;
         }
+        Commands::Find { query, json } => find::run(&query, json)?,
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;

@@ -509,6 +509,116 @@ fn live_init_by_place() {
 }
 
 #[test]
+fn find_without_a_name_is_a_usage_error() {
+    let output = freemapper().arg("find").output().unwrap();
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+}
+
+#[test]
+#[ignore = "network"]
+fn live_find_lists_the_school() {
+    let output = freemapper()
+        .args(["find", "Clara-Zetkin-Schule Strausberg"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.starts_with("way/992423119  Clara-Zetkin-Schule (amenity=school): "));
+    assert!(stdout.ends_with("freemapper init <dir> --osm way/992423119\n"));
+}
+
+/// `find` against a search answer from a file (`FREEMAPPER_FIND_TEST_ANSWER`), which only a
+/// build with the `test-stub` feature reads.
+#[cfg(all(feature = "test-stub", debug_assertions))]
+mod find_cli {
+    use super::{Command, freemapper};
+
+    fn fixture(name: &str) -> String {
+        format!("{}/../../tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))
+    }
+
+    fn find(answer: &str) -> Command {
+        let mut command = freemapper();
+        command
+            .env("FREEMAPPER_FIND_TEST_ANSWER", answer)
+            .args(["find", "Clara-Zetkin-Schule Strausberg"]);
+        command
+    }
+
+    #[test]
+    fn lists_areas_first_then_the_hint() {
+        let output = find(&fixture("nominatim-search-mixed.json"))
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let lines: Vec<&str> = stdout.lines().collect();
+        assert_eq!(lines.len(), 3, "{stdout}");
+        assert!(lines[0].starts_with("way/992423119  Clara-Zetkin-Schule (amenity=school): "));
+        assert!(lines[1].contains("(highway=bus_stop; no area, cannot be a map area)"));
+        assert_eq!(
+            lines[2],
+            "Create the project with: freemapper init <dir> --osm way/992423119"
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn json_is_the_array_alone() {
+        let output = find(&fixture("nominatim-search-mixed.json"))
+            .arg("--json")
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        let places: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(places[0]["osm_id"], "way/992423119");
+        assert_eq!(places[1]["has_area"], false);
+    }
+
+    #[test]
+    fn nothing_found_exits_with_one() {
+        let dir = tempfile::tempdir().unwrap();
+        let empty = dir.path().join("empty.json");
+        std::fs::write(&empty, "[]").unwrap();
+        let output = find(empty.to_str().unwrap()).output().unwrap();
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        assert!(output.stdout.is_empty());
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(
+            stderr.starts_with("error: no place found for \"Clara-Zetkin-Schule Strausberg\""),
+            "{stderr}"
+        );
+        // A failed request is an error too.
+        let output = find(dir.path().join("missing.json").to_str().unwrap())
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        assert!(
+            String::from_utf8(output.stderr)
+                .unwrap()
+                .starts_with("error: ")
+        );
+    }
+
+    #[test]
+    fn german_texts() {
+        let output = find(&fixture("nominatim-search-mixed.json"))
+            .args(["--lang", "de"])
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(stdout.contains("(highway=bus_stop; keine Fläche, kann kein Kartengebiet sein)"));
+        assert!(
+            stdout.ends_with("Projekt anlegen mit: freemapper init <ordner> --osm way/992423119\n")
+        );
+    }
+}
+
+#[test]
 fn export_ocad_keeps_an_existing_oom_map() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("schule");
@@ -1503,6 +1613,27 @@ mod update_check {
             .unwrap();
         assert!(stub.paths().is_empty(), "{:?}", stub.paths());
         assert_eq!(record(dir.path()), None);
+    }
+
+    /// `find` uses the network, so the check runs after it like after `init`, in the default
+    /// cache folder.
+    #[test]
+    fn find_runs_the_check_after_its_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let stub = UpdateStub::with_fixture();
+        let answer = format!(
+            "{}/../../tests/fixtures/nominatim-search.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let output = checking(program(), &stub, dir.path())
+            .env("FREEMAPPER_FIND_TEST_ANSWER", answer)
+            .args(["find", "Clara-Zetkin-Schule Strausberg"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(0), "{output:?}");
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert!(stdout.ends_with("--osm way/992423119\n"), "{stdout}");
+        assert_eq!(String::from_utf8(output.stderr).unwrap(), notice());
     }
 
     /// Spec 3.4: mode `install` installs after the command, and only after one that succeeded.
