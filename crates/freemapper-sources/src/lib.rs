@@ -10,6 +10,7 @@ pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
 pub mod raster;
+pub mod raster_fetch;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;

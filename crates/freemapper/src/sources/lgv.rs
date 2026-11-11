@@ -141,14 +141,7 @@ pub fn tile_names(tiles: &[TileId]) -> String {
     format!("{noun} {}", names(tiles))
 }
 
-/// The names of `tiles` as the providers write them (`32_565_5937`), joined by commas.
-pub(crate) fn names(tiles: &[TileId]) -> String {
-    tiles
-        .iter()
-        .map(|t| format!("32_{:03}_{:04}", t.east_km, t.north_km))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
+pub(crate) use freemapper_sources::height_model::names;
 
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), read out of the statewide archive and
 /// cached, mosaicked into a Float32 GeoTIFF `out` with its world file. Tiles outside Hamburg

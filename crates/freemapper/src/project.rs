@@ -76,7 +76,7 @@ use crate::sources::region::{
     Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
 };
 use crate::sources::trees;
-use crate::sources::wms::{DateLabel, OrthophotoSource};
+use crate::sources::wms::OrthophotoSource;
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::{TileId, tiles_covering_grid};
@@ -364,8 +364,18 @@ pub struct ProjectFile {
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::{RasterProject, RasterRecords};
+// The steps of a raster fetch that name no state, and the files they write.
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
+#[cfg(test)]
+use freemapper_sources::raster_fetch::UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
+pub(crate) use freemapper_sources::raster_fetch::{
+    SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH,
+};
+use freemapper_sources::raster_fetch::{
+    drop_wms_orthophoto, fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface,
+    say_kept_surface_tiles, tile_record,
+};
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
 const STORED_DEGREE: f64 = 1e-8;
@@ -662,16 +672,10 @@ pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`); the
 /// WMS gives no date of its own.
 const K5_DATASET_DATE: &str = "2026-01-02";
-/// The WMS orthophoto (GeoSN, LVermGeo) as fetched, before it becomes the template.
-pub(crate) const WMS_ORTHOPHOTO_RELPATH: &str = "data/orthophoto-wms.jpg";
-/// The WCS terrain model (LVermGeo DGM1, 1 m) with its world file.
-pub(crate) const TERRAIN_RELPATH: &str = "data/dgm1.tif";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
-/// The WCS surface model (LVermGeo DOM1, 1 m) with its world file.
-pub(crate) const SURFACE_RELPATH: &str = "data/dom1.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
@@ -1310,17 +1314,6 @@ fn fetch_lgb_rasters(
     Ok(())
 }
 
-/// An orthophoto of an earlier map area in another state (GeoSN and the per-area providers) is
-/// no longer used by an LGB project.
-fn drop_wms_orthophoto(project: &mut dyn RasterProject) {
-    *project.records().orthophoto = None;
-    let dir = project.dir();
-    let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
-    for stale in [wms.clone(), wms.with_extension("jgw")] {
-        freemapper_fs::remove_inside(dir, &stale);
-    }
-}
-
 /// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
 /// only a template; with `skip_surface` only the cached ones recorded before), and the
 /// orthophoto from the WMS.
@@ -1420,84 +1413,6 @@ fn fetch_geosn_rasters(
     Ok(())
 }
 
-/// The orthophoto of `bbox` from a WMS or WCS into [`WMS_ORTHOPHOTO_RELPATH`]: downloaded again only
-/// when the flight date changed (the date tells whether the state flew the area again);
-/// offline, the stored image must cover `bbox`. `label` names a date that is no flight date as
-/// such, in the record and in the log.
-fn fetch_wms_orthophoto(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-    (source, provider, flight_date, label): (
-        &OrthophotoSource,
-        &str,
-        &dyn Fn() -> Option<String>,
-        Option<&DateLabel>,
-    ),
-) -> Result<(), AdapterError> {
-    let dir = project.dir().to_path_buf();
-    let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
-    let records = project.records();
-    match env.mode {
-        FetchMode::Online => {
-            let flight = flight_date();
-            // Reused while the stored image covers the area and the flight date is the same.
-            // Without a date from the service (none known, or the query failed), the image is
-            // reused only while it is recent, and keeps the date it has.
-            let today = env.today;
-            let recent =
-                |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
-            let unchanged = records.orthophoto.as_ref().is_some_and(|r| {
-                r.covers(bbox)
-                    && if flight.is_some() {
-                        r.flight == flight
-                    } else {
-                        recent(r)
-                    }
-            }) && path.exists();
-            if unchanged {
-                let kept = flight
-                    .as_deref()
-                    .or_else(|| records.orthophoto.as_ref()?.flight.as_deref());
-                let shown = label.map_or("flight", |l| l.shown);
-                (env.progress)(match kept {
-                    Some(date) => {
-                        note!(
-                            "progress-orthophoto-unchanged-dated",
-                            label = shown,
-                            date = date
-                        )
-                    }
-                    None => note!("progress-orthophoto-unchanged"),
-                });
-            } else {
-                (env.progress)(note!(
-                    "progress-orthophoto-download",
-                    provider = provider,
-                    service = source.kind()
-                ));
-                crate::sources::wms::fetch_orthophoto_from(env.fetcher, source, bbox, &dir, &path)?;
-                let flight_label = label
-                    .filter(|_| flight.is_some())
-                    .map(|l| l.record.to_string());
-                *records.orthophoto = Some(WmsRecord {
-                    flight,
-                    flight_label,
-                    fetched: env.today,
-                    bbox: stored_bbox(bbox),
-                });
-            }
-        }
-        FetchMode::Offline => {
-            let covered = records.orthophoto.as_ref().is_some_and(|r| r.covers(bbox));
-            if !path.exists() || !covered {
-                return Err(AdapterError::OrthophotoNotFetched);
-            }
-        }
-    }
-    Ok(())
-}
-
 /// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
 /// plus buffer in the map's CRS. Optional like the Berlin layers: a failed request or a full disk
 /// (`skip`) leaves the template out with a warning, never fails the fetch. A stored template
@@ -1560,14 +1475,6 @@ fn fetch_k5_into(
         }
     }
 }
-
-/// The warning for a map area that reaches beyond the union of the supported states: abroad, into
-/// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
-/// Bavaria, Baden-Württemberg, Saarland). The states' services stop at
-/// their borders.
-/// How many days a stored orthophoto is reused while the service gives no flight date (none known,
-/// or the query failed) before the next online fetch downloads it again.
-const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
 
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
 /// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
@@ -1753,50 +1660,6 @@ fn warn_beyond_state(
         .any(|r| r.provider().id() != provider)
     {
         (env.progress)(note!("progress-beyond-border", provider = name));
-    }
-}
-
-/// The record of a height model just read; offline the tiles come from the cache, so the record
-/// keeps the date they were fetched.
-fn height_record(
-    mode: FetchMode,
-    today: NaiveDate,
-    bbox: &BoundingBox,
-    found: &crate::sources::height_model::HeightModel,
-    old: &Option<WcsRecord>,
-) -> WcsRecord {
-    WcsRecord {
-        fetched: match (mode, old) {
-            (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => today,
-        },
-        bbox: stored_bbox(bbox),
-        // Offline without the portal's tile list there is no date: the stored file is unchanged.
-        date: found.date.clone().or_else(|| {
-            old.as_ref()
-                .filter(|_| mode == FetchMode::Offline)?
-                .date
-                .clone()
-        }),
-    }
-}
-
-/// The warning for the tiles of `label` that the provider lacks inside `state`.
-fn warn_missing_tiles(
-    progress: &mut dyn FnMut(Note),
-    state: &str,
-    label: &str,
-    found: &crate::sources::height_model::HeightModel,
-) {
-    if !found.missing.is_empty() {
-        progress(note!(
-            "warning-model-tiles-missing",
-            model = crate::note::model(label),
-            count = found.missing.len(),
-            names = crate::sources::lgv::names(&found.missing),
-            // The catalogs name the state by this key.
-            state = state.to_lowercase().replace(' ', "-")
-        ));
     }
 }
 
@@ -2183,149 +2046,6 @@ fn fetch_lgln_rasters(
     Ok(())
 }
 
-/// The terrain model (required) and the surface model (a template: a failure costs a warning;
-/// with `skip_surface` it is not read, and the stored one stays while it covers `bbox`) of a
-/// per-area provider whose fetch reports a [`HeightModel`](crate::sources::height_model::HeightModel).
-/// `fetch(surface, out, progress)` reads one model into `out`; `after(surface, found, project, progress)`
-/// says what is specific to the provider once a model was read.
-#[allow(clippy::type_complexity)]
-fn fetch_area_heights(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-    state: &str,
-    (terrain_label, surface_label): (&str, &str),
-    fetch: &mut dyn FnMut(
-        bool,
-        &Path,
-        &mut dyn FnMut(Note),
-    ) -> Result<crate::sources::height_model::HeightModel, FetchError>,
-    after: &mut dyn FnMut(
-        bool,
-        &crate::sources::height_model::HeightModel,
-        &RasterRecords<'_>,
-        &mut dyn FnMut(Note),
-    ),
-) -> Result<(), AdapterError> {
-    let dir = project.dir().to_path_buf();
-    (env.progress)(note!(
-        "progress-model-read",
-        model = crate::note::model(terrain_label)
-    ));
-    let found = fetch(false, &dir.join(TERRAIN_RELPATH), env.progress)?;
-    warn_missing_tiles(env.progress, state, terrain_label, &found);
-    let records = project.records();
-    after(false, &found, &records, env.progress);
-    *records.terrain = Some(height_record(
-        env.mode,
-        env.today,
-        bbox,
-        &found,
-        records.terrain,
-    ));
-    if env.skip_surface {
-        keep_stored_surface(env, project, bbox);
-        project.save()?;
-        return Ok(());
-    }
-    (env.progress)(note!(
-        "progress-model-read",
-        model = crate::note::model(surface_label)
-    ));
-    match fetch(true, &dir.join(SURFACE_RELPATH), env.progress) {
-        Ok(found) => {
-            warn_missing_tiles(env.progress, state, surface_label, &found);
-            let records = project.records();
-            after(true, &found, &records, env.progress);
-            *records.surface = Some(height_record(
-                env.mode,
-                env.today,
-                bbox,
-                &found,
-                records.surface,
-            ));
-        }
-        Err(e) => keep_surface(env, project, bbox, surface_label, Arg::error(e)),
-    }
-    project.save()?;
-    Ok(())
-}
-
-/// After the surface model `label` of a per-area provider failed with `e`: the stored one is
-/// kept when its record still covers `bbox` (derive uses it), and dropped with its file when it
-/// does not; offline nothing is deleted (derive ignores a record that does not cover the area).
-fn keep_surface(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-    label: &str,
-    e: Arg,
-) {
-    let model = crate::note::model(label);
-    match stored_surface_or_drop(env.mode, project, bbox) {
-        Some(fetched) => (env.progress)(note!(
-            "warning-model-unavailable-kept",
-            model = model,
-            error = e,
-            fetched = fetched.to_string()
-        )),
-        None => (env.progress)(note!("warning-model-unavailable", model = model, error = e)),
-    }
-}
-
-/// The surface model of a per-area provider left out for lack of disk space: the stored one stays
-/// while it covers `bbox`, and the user hears so.
-fn keep_stored_surface(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) {
-    if let Some(fetched) = stored_surface_or_drop(env.mode, project, bbox) {
-        (env.progress)(note!(
-            "progress-surface-kept",
-            fetched = fetched.to_string()
-        ));
-    }
-}
-
-/// After the surface model of a tile provider was left out: the cached tiles that still serve.
-fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(Note)) {
-    if !tiles.is_empty() {
-        progress(note!(
-            "progress-surface-tiles-kept",
-            count = tiles.len(),
-            names = tiles.join(", ")
-        ));
-    }
-}
-
-/// The surface model of a per-area provider that is not read this time: the stored one stays
-/// while its record covers `bbox` (the day it was fetched is returned); else it is dropped with
-/// its file, online only (offline derive ignores a record that does not cover the area).
-fn stored_surface_or_drop(
-    mode: FetchMode,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Option<NaiveDate> {
-    let dir = project.dir().to_path_buf();
-    let records = project.records();
-    let stored = records
-        .surface
-        .as_ref()
-        .filter(|r| r.covers(bbox) && dir.join(SURFACE_RELPATH).exists());
-    if let Some(record) = stored {
-        return Some(record.fetched);
-    }
-    if mode == FetchMode::Online {
-        *records.surface = None;
-        let surface = dir.join(SURFACE_RELPATH);
-        for file in [surface.clone(), surface.with_extension("tfw")] {
-            freemapper_fs::remove_inside(&dir, &file);
-        }
-    }
-    None
-}
-
 /// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
 /// published, and the templates stay empty there (reported once).
 fn raster_tiles(
@@ -2362,33 +2082,6 @@ fn raster_tiles(
         ));
     }
     tiles
-}
-
-/// The record of a fetched tile; warns when the tile was republished since `previous`.
-fn tile_record(
-    fetched: FetchedTile,
-    previous: &[TileRecord],
-    progress: &mut dyn FnMut(Note),
-) -> TileRecord {
-    let record = TileRecord {
-        product: fetched.product,
-        tile: fetched.tile.name(),
-        url: fetched.url,
-        currency: fetched.currency.currency(),
-        published: fetched.currency.published,
-    };
-    if let Some(old) = previous.iter().find(|p| {
-        p.product == record.product && p.tile == record.tile && p.published != record.published
-    }) {
-        progress(note!(
-            "warning-tile-changed",
-            product = format!("{:?}", record.product),
-            tile = &record.tile,
-            old = old.published.to_string(),
-            new = record.published.to_string()
-        ));
-    }
-    record
 }
 
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs

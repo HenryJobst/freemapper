@@ -69,6 +69,15 @@ pub fn short_name(tile: TileId) -> String {
     format!("32_{:03}_{:04}", tile.east_km, tile.north_km)
 }
 
+/// The names of `tiles` as the providers write them (`32_565_5937`), joined by commas.
+pub fn names(tiles: &[TileId]) -> String {
+    tiles
+        .iter()
+        .map(|t| format!("32_{:03}_{:04}", t.east_km, t.north_km))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// The cached tile at `path`, if it is there and reads as `tile`.
 pub fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
     let bytes = std::fs::read(path).ok()?;

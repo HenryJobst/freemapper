@@ -799,6 +799,7 @@ dependencies = [
  "crc32fast",
  "freemapper-adapter-api",
  "freemapper-contract",
+ "freemapper-fs",
  "freemapper-georef",
  "geo-types",
  "geojson",
