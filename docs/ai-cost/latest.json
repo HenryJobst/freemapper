@@ -1,18 +1,18 @@
 {
-  "total_usd": 1161.69,
+  "total_usd": 1173.39,
   "by_model_usd": {
-    "claude-fable-5-2": 57.11,
-    "claude-opus-5-5": 948.27,
-    "claude-sonnet-5-5": 156.3
+    "claude-fable-5-2": 66.3,
+    "claude-opus-5-5": 950.07,
+    "claude-sonnet-5-5": 157.02
   },
-  "requests": 16077,
+  "requests": 16183,
   "sessions": 2,
   "first_activity": "2026-11-06T22:24:24.827Z",
-  "last_activity": "2026-11-11T03:12:14.539Z",
+  "last_activity": "2026-11-11T06:32:12.706Z",
   "unpriced_requests": {},
   "prices": {
     "source": "https://platform.claude.com/docs/en/about-claude/pricing.md",
-    "fetched_at": "2026-11-11T04:17:06Z",
+    "fetched_at": "2026-11-11T06:32:13Z",
     "stale": false
   }
 }
