@@ -269,6 +269,13 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   survey already draw paving (501.5) as a map object, freemapper does not draw the way twice: the part within the
   paving and pieces under 1 mm on paper go. A way inside an ALKIS `Weg` parcel (only a 501.5 candidate) stays whole. Loose gravel, sand, earth and grass stay unpaved on the map: 506 under 1.5 m wide, 505.1, and 505.2 from
   3 m. A track without `surface` follows `tracktype`: grade1 is paved, grade2 firm (501.7, map), grade3 to grade5 unpaved (505.2, candidate).
+- Railway tracks (sprint, map objects). Tracks from OSM (`railway=rail`, `light_rail`, `narrow_gauge`, bridges and
+  sidings included) are map objects with 509.1, a line at least 4 mm long on paper; each track is a line of its
+  own. freemapper does not draw tunnels, disused, razed and planned tracks, or crossovers. Subway tracks that are
+  not in a tunnel are candidates, on an elevated viaduct (`bridge=yes`) map objects. Tram tracks (`railway=tram`)
+  are candidates, 509.2, because the norm draws them only when they help navigation. A forest is cut at a track.
+  The railway land of ALKIS stays a 520 candidate (area that shall not be entered) and the tracks in it stay.
+  Schoolyard maps have no tracks.
 - Control sites for course setters: bollards, street lamps, waste baskets, bicycle racks and benches as
   points (531, prominent man-made feature) among the candidates, never on the map itself. In Berlin the street
   survey and the lighting cadastre add bollards, masts, flag poles, benches, lamps and advertising columns.

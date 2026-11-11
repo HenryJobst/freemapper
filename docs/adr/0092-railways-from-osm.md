@@ -58,7 +58,7 @@ All rules are in `osm-candidates.toml`, sprint only.
   1:4000), also for the piece inside the map area.
 - Double track. Each OSM way is one track and one line. Two tracks 4.5 m apart (1.1 mm at 1:4000) leave 0.55 mm
   between two 0.55 mm lines, more than the 0.15 mm gap the norm asks between lines of one colour, so nothing is merged.
-  Tracks closer than that would touch; none was found in the examples.
+  Tracks closer than that would touch; the crop of the Biesdorfer Park at 400 dpi shows the parallel tracks apart.
 - Layers. `layer` is ignored. The railway lies in the same part as the paving and after it, so a railway bridge is
   drawn over the road below and the white of 509.1 opens a gap in the road edge, as in a norm drawing.
 - Tree groups. ADR 0069 cuts 402 and 405 at paving and paths. 509.1 joins that list with its width on paper (0.55
@@ -82,5 +82,5 @@ is not in the repository; the starting point holds placeholders that OCAD replac
 
 ## Consequences
 
-The counts per example are in the changelog. Existing maps get the railways with `run --force`. A map with many yard
+Viktoriapark gets 3 map objects 509.1, Herrenhausen 2 and Cochem 4; Biesdorfer Park 9 (S-Bahn, two viaduct pieces). Brandenburg Sanssouci, Blankenese, Marburg, Wismar, Monschau, Bautzen and Lübeck have none in their box; Quedlinburg could not be checked because the orthophoto service of Saxony-Anhalt failed. No tram candidate turned up in any example. Existing maps get the railways with `run --force`. A map with many yard
 tracks looks busy; the mapper deletes the sidings that do not matter.

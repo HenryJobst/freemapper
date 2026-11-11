@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Bahngleise aus OSM (ADR 0092). Auf Sprintkarten stehen `railway=rail`, `light_rail` und `narrow_gauge` jetzt als Kartenobjekte 509.1 (Bahn, mindestens 4 mm lang), Brücken und Nebengleise eingeschlossen. Vorher las freemapper kein Gleis: Auf der Karte vom Biesdorfer Park fehlte die S-Bahn. Tunnel, Durchgänge unter Gebäuden, stillgelegte, abgebaute und geplante Gleise und Überleitungen entfallen. U-Bahn-Gleise ohne Tunnel sind Kandidaten 509.1, auf einer Hochbahnbrücke Kartenobjekte. Straßenbahngleise sind Kandidaten 509.2, denn die Norm zeichnet sie nur, wenn sie der Orientierung dienen. Ein Wald wird an einem Gleis geschnitten. Das Bahngelände aus ALKIS bleibt ein Kandidat 520. Schulhofkarten haben kein Gleis. Bei den Beispielen ändern sich drei: Viktoriapark (3 Gleise), Herrenhausen (2) und Cochem (4); Herrenhausen und Cochem bekommen dabei auch die festen Kieswege der vorigen Korrektur. Die übrigen acht haben kein Gleis im Gebiet; Quedlinburg ließ sich nicht neu bauen (der Luftbild-Dienst von Sachsen-Anhalt antwortete mit einem Fehler). Bestehende Karten bekommen die Gleise mit `run --force`.
+
 ### Geändert
 
 - `export` und `run` bauen Karte und Kandidatenvorlage nur noch einmal je Befehl statt einmal je Ausgabe (ADR 0091). Mit `--ocad --pdf --pdf-candidates` waren es bisher vier Durchläufe über alle gespeicherten Ebenen, jetzt ist es bei `export` einer und bei `run` zwei. Die geschriebenen Dateien sind Byte für Byte dieselben.

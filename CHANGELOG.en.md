@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Railway tracks from OSM (ADR 0092). On sprint maps, `railway=rail`, `light_rail` and `narrow_gauge` are now map objects 509.1 (railway, at least 4 mm long), bridges and sidings included. Before, freemapper read no track at all: the map of the Biesdorfer Park had no S-Bahn. Tunnels, passages under buildings, disused, razed and planned tracks and crossovers are left out. Subway tracks that are not in a tunnel are 509.1 candidates, on an elevated viaduct map objects. Tram tracks are 509.2 candidates, because the norm draws them only when they help navigation. A forest is cut at a track. The railway land of ALKIS stays a 520 candidate. Schoolyard maps have no tracks. Three examples change: Viktoriapark (3 tracks), Herrenhausen (2) and Cochem (4); Herrenhausen and Cochem also get the firm gravel paths of the previous fix. The other eight have no track in their area; Quedlinburg could not be rebuilt (the Saxony-Anhalt orthophoto service answered with an error). Existing maps get the tracks with `run --force`.
+
 ### Changed
 
 - `export` and `run` build the map and the candidates template once per command instead of once per output (ADR 0091). With `--ocad --pdf --pdf-candidates` that used to be four passes over all stored layers; now it is one for `export` and two for `run`. The written files are the same byte for byte.

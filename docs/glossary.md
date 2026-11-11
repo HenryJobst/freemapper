@@ -83,6 +83,8 @@ Orienteering Maps 2019 (IOF).
 | Quelle (Wasser) | spring | Stelle, an der ein Wasserlauf entspringt (ISSprOM 312); Kandidat aus OSM `natural=spring`. | `"312"` |
 | Markantes Wasserobjekt | prominent water feature | Auffälliges Wasserobjekt als Punkt (ISSprOM 313); auf Schulhofkarten Kandidat aus OSM `amenity=drinking_water` (Trinkbrunnen). | `"313"` |
 | Brücke | bridge | Bauwerk, das Wege über Wasser, Bahn oder Straße führt. ALKIS enthält keine Brücken; OSM-Flächen `man_made=bridge` werden auf Sprintkarten Kandidaten 501.5. Die Uferlinie läuft unter der Brücke durch und muss dort von Hand getrennt werden. | `man_made=bridge` |
+| Bahnstrecke | railway | Gleis mit Schienen (ISSprOM 509.1). Aus OSM `railway=rail\|light_rail\|narrow_gauge` (auch Nebengleise, außer Überleitungen) als Kartenobjekt auf Sprintkarten, Brücken eingeschlossen, Tunnel nicht (ADR 0092). | `"509.1"` |
+| Straßenbahn | tramway | Gleis der Straßenbahn (ISSprOM 509.2); die Norm zeichnet sie nur, wenn sie der Orientierung dient. Kandidat aus OSM `railway=tram` (ADR 0092). | `"509.2"` |
 | Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520); Kandidaten aus der ALKIS-Nutzung. | `out_of_bounds_objects` |
 | Unpassierbares Objekt / Durchgangsbarriere | impassable feature | Darf nicht überquert werden: Mauer, Zaun, Hecke usw. | `ImpassableFeature` |
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |
