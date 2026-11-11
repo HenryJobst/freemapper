@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Programmsprache, erste Stufe (ADR 0092): `--lang de` oder `--lang en` wählt die Sprache der Programmtexte, sonst gilt `FREEMAPPER_LANG`, dann die Sprache des Systems (`LC_ALL`, `LC_MESSAGES`, `LANG`), sonst Englisch. Deutsch sind bisher die Zeilen, die das Programm selbst am Ende eines Schritts ausgibt („… geschrieben“, „… behalten“, die Hinweise nach `run`, `export` und `select`). Fortschrittszeilen, Warnungen, Fehlermeldungen und `--help` bleiben vorerst Englisch.
+
 ### Geändert
 
 - `export` und `run` bauen Karte und Kandidatenvorlage nur noch einmal je Befehl statt einmal je Ausgabe (ADR 0091). Mit `--ocad --pdf --pdf-candidates` waren es bisher vier Durchläufe über alle gespeicherten Ebenen, jetzt ist es bei `export` einer und bei `run` zwei. Die geschriebenen Dateien sind Byte für Byte dieselben.
