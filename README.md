@@ -147,7 +147,8 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
 
 Bequemer geht es mit einem KI-Assistenten (siehe [Mit einem KI-Agenten](#mit-einem-ki-agenten-mcp)):
 dort wird freemapper einmal mit seinem vollständigen Pfad angemeldet, danach erledigt der Assistent
-den Rest.
+den Rest. Ein Assistent, der Befehle ausführen kann (Claude Code, Codex), übernimmt mit
+[`AGENTS.md`](AGENTS.md) auch Download und Anmeldung.
 
 ## Selbst bauen (für Entwickler)
 

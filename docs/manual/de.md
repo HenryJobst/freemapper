@@ -83,6 +83,9 @@ freemapper ist ein einzelnes Programm ohne Installer.
 Merken Sie sich den **vollständigen Pfad** zum Programm, z. B. `C:\Users\Anna\Documents\freemapper\freemapper.exe`
 oder `/Users/anna/Documents/freemapper/freemapper`. Der Assistent braucht ihn.
 
+Im Ordner liegen außer dem Programm die READMEs, die Lizenz, dieses Handbuch und `AGENTS.md`, eine Anleitung
+für KI-Assistenten (Kapitel 4).
+
 ## 4. Weg A: mit einem KI-Assistenten
 
 Der Assistent bedient freemapper für Sie. freemapper ist dafür ein „MCP-Server“, ein Werkzeug, das
@@ -107,6 +110,16 @@ KI-Assistenten nutzen können.
 - **Claude Code:** im Terminal `claude mcp add freemapper -- /Pfad/zu/freemapper mcp` eingeben.
 - **Andere Assistenten:** Bei jedem MCP-fähigen Assistenten tragen Sie dasselbe ein: das Programm mit
   dem Argument `mcp`.
+
+**Einrichten lassen:** Ein Assistent, der Befehle auf Ihrem Rechner ausführen kann (etwa Claude Code oder
+Codex), übernimmt auch die Installation aus Kapitel 3 und die Anmeldung. Sagen Sie ihm:
+
+> Lies AGENTS.md von github.com/HenryJobst/freemapper und richte freemapper ein.
+
+In der Datei steht für den Assistenten, welches Archiv er für Ihr System lädt, wie er es prüft und entpackt und
+wie er freemapper anmeldet. Auf dem Mac entfernt er dabei die Sperre für nicht signierte Programme und sagt
+Ihnen das. Je nach seinen Einstellungen fragt er vor jedem Befehl um Erlaubnis. Claude Desktop führt keine
+Befehle aus; dort richten Sie freemapper wie oben beschrieben ein.
 
 ### Eine Karte bestellen
 

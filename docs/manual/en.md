@@ -76,6 +76,9 @@ freemapper is a single program without an installer.
 Note the **full path** to the program, e.g. `C:\Users\Anna\Documents\freemapper\freemapper.exe` or
 `/Users/anna/Documents/freemapper/freemapper`. The assistant needs it.
 
+Besides the program, the folder holds the READMEs, the licence, this manual and `AGENTS.md`, instructions for AI
+assistants (chapter 4).
+
 ## 4. Route A: with an AI assistant
 
 The assistant operates freemapper for you. For this freemapper is an "MCP server", a tool that AI
@@ -100,6 +103,16 @@ assistants can use.
 - **Claude Code:** in a terminal, enter `claude mcp add freemapper -- /path/to/freemapper mcp`.
 - **Other assistants:** any MCP-capable assistant takes the same entry: the program with the argument
   `mcp`.
+
+**Let the assistant set it up:** an assistant that can run commands on your computer (such as Claude Code or
+Codex) can also do the installation of chapter 3 and the registration. Tell it:
+
+> Read AGENTS.md from github.com/HenryJobst/freemapper and set up freemapper.
+
+The file tells the assistant which archive to download for your system, how to check and unpack it and how to
+register freemapper. On a Mac it removes the block on unsigned programs and tells you so. Depending on its
+settings it asks before each command. Claude Desktop runs no commands; there you set freemapper up as described
+above.
 
 ### Order a map
 

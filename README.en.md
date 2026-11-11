@@ -141,7 +141,8 @@ freemapper is a single program without an installer. You do not need to build it
    (Windows: `.\freemapper.exe --version`).
 
 It is more convenient with an AI assistant (see [With an AI agent](#with-an-ai-agent-mcp)): register
-freemapper once with its full path, and the assistant does the rest.
+freemapper once with its full path, and the assistant does the rest. An assistant that can run commands
+(Claude Code, Codex) also does the download and the registration with [`AGENTS.md`](AGENTS.md).
 
 ## Build it yourself (for developers)
 
