@@ -230,3 +230,25 @@ warning-nrw-list-no-date = the tile list gives no date for the { $model } tile {
 ## After `init`
 
 note-scale-outside-norm = note: 1:5000 is not in the sprint norm; freemapper-print warns about it and the symbols stay at 100 %
+
+## The detail of an error with many forms: a place, a layer
+
+error-place-not-an-osm-id = { $id } is not an OSM id like way/992423119
+error-place-invalid-answer = invalid answer from the place search: { $detail }
+error-place-not-found = { $id } not found. Nominatim lists only tagged OSM objects, so an untagged outer way of a multipolygon is not there. Use the multipolygon relation instead (--osm relation/<id>), or save the outline as GeoJSON and use --geojson
+error-place-is-a-point = { $id } is a point, not an area; pick its grounds (a way or relation)
+error-place-no-such-part = { $id } has { $count ->
+        [one] 1 part
+       *[other] { $count } parts
+    }; there is no part { $part }
+error-place-several-parts = { $id } is an area of { $count } separate parts ({ $sizes }). A map area is one polygon: pick a part with --part <n> (1 is the largest), or save the outline you want as GeoJSON and use --geojson
+error-layer-not-a-world-file = { $path }: not a world file
+error-layer-file = { $path }: { $detail }
+error-layer-detail = { $detail }
+error-layer-no-preview = no preview for { $layer }; layers with previews: { $names }
+error-layer-no-ndsm-published = no nDSM is published for the tiles of this map area, so there is no ndsm template
+error-layer-not-made = { $layer } is not made yet; run { $step ->
+        [fetch] freemapper fetch or run (MCP: start_pipeline); Berlin only
+       *[derive] freemapper derive or run (MCP: start_pipeline)
+    }
+warning-ocad-no-background = { $error }; the OCAD map gets no background from it

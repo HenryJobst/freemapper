@@ -118,8 +118,9 @@ pub enum ProjectError {
     /// whole, and the next run continues.
     #[error("cancelled")]
     Cancelled,
+    /// What is wrong with a layer or a template, as a message of the catalog.
     #[error("{0}")]
-    Layer(String),
+    Layer(Note),
     #[error("OCAD export: {0}")]
     Ocd(#[from] crate::ocd::file::OcdBuildError),
     #[error(
@@ -4284,8 +4285,8 @@ pub struct OcadOutcome {
     pub skipped: usize,
     /// Degenerate line parts and hole rings left out of written objects.
     pub dropped_parts: usize,
-    /// Templates left out of the OCAD map, as `warning: …` lines.
-    pub warnings: Vec<String>,
+    /// Templates left out of the OCAD map.
+    pub warnings: Vec<Note>,
 }
 
 /// The world file next to an image: `.jpg` → `.jgw`, `.png` → `.pgw`.
@@ -4360,7 +4361,7 @@ fn copy_backgrounds(
     dir: &Path,
     ocad_dir: &Path,
     templates: &[TemplateRef],
-) -> Result<(Vec<Background>, Vec<String>), ProjectError> {
+) -> Result<(Vec<Background>, Vec<Note>), ProjectError> {
     let (mut backgrounds, mut warnings) = (Vec::new(), Vec::new());
     for template in templates {
         if template.kind != TemplateKind::Image {
@@ -4376,9 +4377,9 @@ fn copy_backgrounds(
         let checked = crate::fsutil::check_source(dir, &image)
             .and_then(|()| crate::fsutil::check_source(dir, &world));
         if let Err((path, e)) = checked {
-            warnings.push(format!(
-                "warning: {}; the OCAD map gets no background from it",
-                crate::space::io_error_text(&path, &e)
+            warnings.push(note!(
+                "warning-ocad-no-background",
+                error = Arg::error(ProjectError::Io(path, e))
             ));
             continue;
         }
@@ -4386,10 +4387,19 @@ fn copy_backgrounds(
         copy_inside(dir, &world, &ocad_dir.join(world_name))?;
         let text =
             std::fs::read_to_string(&world).map_err(|e| ProjectError::Io(world.clone(), e))?;
-        let world_file = WorldFile::parse(&text)
-            .ok_or_else(|| ProjectError::Layer(format!("{}: not a world file", world.display())))?;
-        let (width_px, height_px) = image::image_dimensions(&image)
-            .map_err(|e| ProjectError::Layer(format!("{}: {e}", image.display())))?;
+        let world_file = WorldFile::parse(&text).ok_or_else(|| {
+            ProjectError::Layer(note!(
+                "error-layer-not-a-world-file",
+                path = world.display().to_string()
+            ))
+        })?;
+        let (width_px, height_px) = image::image_dimensions(&image).map_err(|e| {
+            ProjectError::Layer(note!(
+                "error-layer-file",
+                path = image.display().to_string(),
+                detail = e.to_string()
+            ))
+        })?;
         backgrounds.push(Background::Image {
             file_name: image_name.to_string_lossy().into_owned(),
             width_px,
@@ -14396,7 +14406,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let outcome = export_ocad(dir.path(), false).unwrap();
         assert_eq!(outcome.warnings.len(), 1, "{:?}", outcome.warnings);
         assert!(
-            outcome.warnings[0].starts_with("warning: ")
+            outcome.warnings[0].is_warning()
                 && outcome.warnings[0].contains(crate::fsutil::NOT_COPIED),
             "{:?}",
             outcome.warnings

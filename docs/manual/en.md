@@ -781,8 +781,7 @@ environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), 
 German covers the lines the program prints at the end of a step, such as "Wrote …" and the hints after `run`
 and `export`, and the error messages. An error message starts with `error:` (German `Fehler:`), and the program
 then ends with exit code 1. The MCP server and the area page report errors in the program's language too. What
-a server, the operating system or a parser says inside an error stays as it is, and so do a few details, for
-example of the place search.
+a server, the operating system or a parser says inside an error stays as it is.
 
 Progress lines and warnings come in the program's language too; a warning starts with `warning:` (German
 `Warnung:`). The help (`--help`, `freemapper help <command>`) and the messages about wrong calls are translated too; only the placeholders of the usage line such as `[OPTIONS]` and `<DIR>` stay. The MCP server describes its tools to the assistant in the program's language and answers in it; `--lang en` after `mcp` keeps it English. The area page takes the

@@ -277,3 +277,25 @@ warning-nrw-list-no-date = Die Kachelliste nennt kein Datum für die Kachel { $t
 ## Nach `init`
 
 note-scale-outside-norm = Hinweis: 1:5000 steht nicht in der Sprintnorm; freemapper-print warnt davor, und die Symbole bleiben bei 100 %
+
+## Die Einzelheit eines Fehlers mit vielen Formen: ein Ort, eine Ebene
+
+error-place-not-an-osm-id = { $id } ist keine OSM-Kennung wie way/992423119
+error-place-invalid-answer = Ungültige Antwort der Ortssuche: { $detail }
+error-place-not-found = { $id } nicht gefunden. Nominatim führt nur OSM-Objekte mit Tags; ein äußerer Weg eines Multipolygons ohne Tags fehlt dort. Nehmen Sie stattdessen die Multipolygon-Relation (--osm relation/<id>), oder speichern Sie den Umriss als GeoJSON und verwenden Sie --geojson
+error-place-is-a-point = { $id } ist ein Punkt, keine Fläche; wählen Sie das Gelände dazu (einen Weg oder eine Relation)
+error-place-no-such-part = { $id } hat { $count ->
+        [one] 1 Teil
+       *[other] { $count } Teile
+    }; einen Teil { $part } gibt es nicht
+error-place-several-parts = { $id } ist eine Fläche aus { $count } getrennten Teilen ({ $sizes }). Ein Kartengebiet ist ein einzelnes Polygon: Wählen Sie einen Teil mit --part <n> (1 ist der größte), oder speichern Sie den gewünschten Umriss als GeoJSON und verwenden Sie --geojson
+error-layer-not-a-world-file = { $path }: keine Weltdatei
+error-layer-file = { $path }: { $detail }
+error-layer-detail = { $detail }
+error-layer-no-preview = Keine Vorschau für { $layer }; Ebenen mit Vorschau: { $names }
+error-layer-no-ndsm-published = Für die Kacheln dieses Kartengebiets ist kein nDSM veröffentlicht, deshalb gibt es keine ndsm-Vorlage
+error-layer-not-made = { $layer } gibt es noch nicht; rufen Sie { $step ->
+        [fetch] freemapper fetch oder run auf (MCP: start_pipeline); nur in Berlin
+       *[derive] freemapper derive oder run auf (MCP: start_pipeline)
+    }
+warning-ocad-no-background = { $error }; die OCAD-Karte bekommt daraus keinen Hintergrund

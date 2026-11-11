@@ -1,6 +1,7 @@
 //! Place search: find the map area by name or OSM id (Nominatim; spec §4.1 allows it for a single
 //! element). Data © OpenStreetMap contributors, ODbL.
 
+use crate::note::note;
 use serde_json::Value;
 
 use crate::area::{AreaError, MapArea};
@@ -54,7 +55,12 @@ pub fn search_url(query: &str) -> String {
 
 /// Lookup URL for an id like `way/992423119`.
 pub fn lookup_url(osm_id: &str) -> Result<String, AreaError> {
-    let invalid = || AreaError::Place(format!("{osm_id:?} is not an OSM id like way/992423119"));
+    let invalid = || {
+        AreaError::Place(note!(
+            "error-place-not-an-osm-id",
+            id = format!("{osm_id:?}")
+        ))
+    };
     let (kind, id) = osm_id.split_once('/').ok_or_else(invalid)?;
     let prefix = match kind {
         "way" => 'W',
@@ -72,7 +78,7 @@ pub fn lookup_url(osm_id: &str) -> Result<String, AreaError> {
 
 fn results(json: &str) -> Result<Vec<Value>, AreaError> {
     serde_json::from_str::<Vec<Value>>(json)
-        .map_err(|e| AreaError::Place(format!("invalid answer from the place search: {e}")))
+        .map_err(|e| AreaError::Place(note!("error-place-invalid-answer", detail = e.to_string())))
 }
 
 /// Whether the result has a polygon a map area can be made from (one part only).
@@ -114,17 +120,14 @@ pub fn area_from_lookup(
     part: Option<usize>,
 ) -> Result<MapArea, AreaError> {
     let found = results(json)?;
-    let place = found.first().ok_or_else(|| {
-        AreaError::Place(format!(
-            "{osm_id} not found. Nominatim lists only tagged OSM objects, so an untagged outer way \
-             of a multipolygon is not there. Use the multipolygon relation instead (--osm \
-             relation/<id>), or save the outline as GeoJSON and use --geojson"
-        ))
-    })?;
+    let place = found
+        .first()
+        .ok_or_else(|| AreaError::Place(note!("error-place-not-found", id = osm_id)))?;
     let geojson = &place["geojson"];
     if !matches!(geojson["type"].as_str(), Some("Polygon" | "MultiPolygon")) {
-        return Err(AreaError::Place(format!(
-            "{osm_id} is a point, not an area; pick its grounds (a way or relation)"
+        return Err(AreaError::Place(note!(
+            "error-place-is-a-point",
+            id = osm_id
         )));
     }
     let mut parts = match geojson["type"].as_str() {
@@ -148,19 +151,21 @@ pub fn area_from_lookup(
     let index = match part {
         Some(n) if (1..=count).contains(&n) => n - 1,
         Some(n) => {
-            return Err(AreaError::Place(format!(
-                "{osm_id} has {count} part{}; there is no part {n}",
-                if count == 1 { "" } else { "s" }
+            return Err(AreaError::Place(note!(
+                "error-place-no-such-part",
+                id = osm_id,
+                count = count,
+                part = n.to_string()
             )));
         }
         None if count == 1 => 0,
         None => {
             let sizes: Vec<String> = parts.iter().map(|p| square_metres(size(p))).collect();
-            return Err(AreaError::Place(format!(
-                "{osm_id} is an area of {count} separate parts ({}). A map area is one polygon: \
-                 pick a part with --part <n> (1 is the largest), or save the outline you want as \
-                 GeoJSON and use --geojson",
-                sizes.join(", ")
+            return Err(AreaError::Place(note!(
+                "error-place-several-parts",
+                id = osm_id,
+                count = count.to_string(),
+                sizes = sizes.join(", ")
             )));
         }
     };

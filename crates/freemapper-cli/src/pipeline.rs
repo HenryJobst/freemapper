@@ -494,7 +494,7 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             &[map, ("count", n(outcome.objects))],
         )
     }];
-    lines.extend(outcome.warnings.iter().cloned());
+    lines.extend(outcome.warnings.iter().map(line));
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         lines.push(text(
             "cli-summary-ocad-left-out",
@@ -588,11 +588,14 @@ mod tests {
             objects: 7,
             skipped: 1,
             dropped_parts: 2,
-            warnings: vec!["warning: no hillshade".into()],
+            warnings: vec![
+                freemapper::note::Note::new("warning-ocad-no-background")
+                    .with("error", "no hillshade"),
+            ],
         };
         assert_eq!(
             ocad_summary(&ocad),
-            "\nWrote the OCAD map /p/ocad/p.ocd (7 objects)\nwarning: no hillshade\n\
+            "\nWrote the OCAD map /p/ocad/p.ocd (7 objects)\nwarning: no hillshade; the OCAD map gets no background from it\n\
              Left out of the OCAD map: 1 objects and 2 degenerate parts\n\
              Wrote /p/ocad/candidates.omap\nIn OCAD, choose Symbol > Load Colors and Symbols \
              From… and pick the official ISSprOM 2019 or school symbol set; it replaces the \
