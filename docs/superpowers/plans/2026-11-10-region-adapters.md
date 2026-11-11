@@ -182,7 +182,7 @@ Stage A is done on the branch `region-adapters` (pull request 38). Where it diff
 - **G4 hashes every file** of the project folder (34 per state), and all of them are the same bytes on Linux, macOS and Windows. No output needs the decoded-content fallback of A4. Two fixes in production code made it so (`71607e7`): the areas in `freemapper.toml` and the map's reference point are on a millimetre grid.
 - **CI**: the net is the job `golden` on three systems; a failing G4 uploads the differing files. The guard is the job `golden-guard`; it does not count the Markdown files of the golden folder.
 - `scripts/golden.sh test` skips `g5_unknown_provider_is_a_clear_error` by name until C14 takes the skip out; `g2_dispatch_is_fast_enough` and `record_state` return early in a debug build and without `FREEMAPPER_GOLDEN_RECORD`.
-- The session "freemapper" converts the area page to the suite interface (freemapper-core ADR 0030). Tell it before C13 and D7 start.
+- The area page is on the suite frame since `7c0cb68` (ADR 0096, freemapper-core ADR 0030), done by the session "freemapper", and all core pins are on v0.21.0; the net stayed green over that merge. For C13 and D7/E2 this replaces what the tasks say about `TEXTS` in `app.js`: page texts are Fluent messages of the `page-*` family in `crates/freemapper-cli/i18n/{de,en}/freemapper.ftl`, set through `data-text` or `t()`/`tn()`; `tests/select_page.rs` checks the catalogs; the CSP is unchanged. Read the page on `main` and tell that session before C13 and D7 start.
 
 ## Stage B: crates
 
