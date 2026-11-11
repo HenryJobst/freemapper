@@ -193,6 +193,15 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   folder. Wait for it, or use another folder.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
 
+## The freemapper suite
+
+The `.omap` and the `freemapper.toml` that freemapper writes are read by the other programs of the suite. Each has
+its own AGENTS.md:
+
+- [freemapper-print](https://github.com/HenryJobst/freemapper-print/blob/main/AGENTS.md): print-ready PDFs of the
+  map (sheet, margins, scales such as 1:3000 by enlargement).
+- freemapper-courseplan: course planning on the map (its AGENTS.md follows with its next release).
+
 ## Working on the freemapper code
 
 This section is for coding agents in a clone of the repository, not for using the program.
