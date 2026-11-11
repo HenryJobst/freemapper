@@ -361,6 +361,9 @@ pub struct ProjectFile {
 }
 
 // The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
+use freemapper_adapter_api::env::AdapterEnv;
+use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::project::{RasterProject, RasterRecords};
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
 
@@ -787,6 +790,63 @@ pub fn fetch_project(
     fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
 }
 
+/// A project file with its folder, as the raster fetch of an adapter sees it.
+struct ProjectDir<'a> {
+    dir: &'a Path,
+    project: &'a mut ProjectFile,
+    /// The map area plus buffer in EPSG:25833.
+    region_bbox: BoundingBox,
+}
+
+impl RasterProject for ProjectDir<'_> {
+    fn records(&mut self) -> RasterRecords<'_> {
+        RasterRecords {
+            tiles: &mut self.project.tiles,
+            ndsm_tiles: &mut self.project.ndsm_tiles,
+            orthophoto: &mut self.project.orthophoto,
+            terrain: &mut self.project.terrain,
+            surface: &mut self.project.surface,
+        }
+    }
+
+    fn save(&mut self) -> Result<(), AdapterError> {
+        match self.project.save(self.dir) {
+            Ok(()) => Ok(()),
+            Err(ProjectError::Io(path, e)) => Err(AdapterError::Io(path, e)),
+            Err(ProjectError::Toml(message)) => Err(AdapterError::ProjectFile(message)),
+            Err(other) => {
+                unreachable!("saving the project file fails as a write or as a format: {other}")
+            }
+        }
+    }
+
+    fn dir(&self) -> &Path {
+        self.dir
+    }
+
+    fn region_bbox(&self) -> BoundingBox {
+        self.region_bbox
+    }
+
+    fn crs(&self) -> Crs {
+        self.project.crs()
+    }
+}
+
+/// Each error of a raster fetch is the engine's error it stands for, so the caller words it as
+/// before.
+impl From<AdapterError> for ProjectError {
+    fn from(error: AdapterError) -> Self {
+        match error {
+            AdapterError::Fetch(e) => ProjectError::Fetch(e),
+            AdapterError::Io(path, e) => ProjectError::Io(path, e),
+            AdapterError::ProjectFile(message) => ProjectError::Toml(message),
+            AdapterError::OrthophotoNotFetched => ProjectError::OrthophotoNotFetched,
+            AdapterError::TerrainNotFetched => ProjectError::TerrainNotFetched,
+        }
+    }
+}
+
 /// Stops with [`ProjectError::Cancelled`] when `cancelled` says so.
 fn stop_if(cancelled: &dyn Fn() -> bool) -> Result<(), ProjectError> {
     if cancelled() {
@@ -867,37 +927,34 @@ fn fetch_project_parts(
     };
     let skips = |part: Part| plan.as_ref().is_some_and(|plan| !plan.fits(part));
     let skip_surface = skips(Part::Surface);
-    let p = &mut project;
-    match raster_region(&region_bbox).map(Region::provider) {
-        Some(Provider::LvermGeo) => {
-            fetch_lvermgeo_rasters(dir, fetcher, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgv) => {
-            fetch_lgv_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::GeoSn) => {
-            fetch_geosn_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Hvbg) => {
-            fetch_hvbg_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LvermGeoSh) => {
-            fetch_sh_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LaivMv) => {
-            fetch_mv_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::GeobasisNrw) => {
-            fetch_nrw_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgln) => {
-            fetch_lgln_rasters(dir, fetcher, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LvermGeoRp) => {
-            fetch_rp_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgb) | None => {
-            fetch_lgb_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
+    {
+        let mut env = AdapterEnv {
+            fetcher,
+            cache,
+            mode,
+            today: crate::clock::today(),
+            skip_surface,
+            progress: &mut *progress,
+        };
+        let (env, p) = (
+            &mut env,
+            &mut ProjectDir {
+                dir,
+                project: &mut project,
+                region_bbox,
+            },
+        );
+        match raster_region(&region_bbox).map(Region::provider) {
+            Some(Provider::LvermGeo) => fetch_lvermgeo_rasters(env, p, &bbox)?,
+            Some(Provider::Lgv) => fetch_lgv_rasters(env, p, &bbox)?,
+            Some(Provider::GeoSn) => fetch_geosn_rasters(env, p, &bbox)?,
+            Some(Provider::Hvbg) => fetch_hvbg_rasters(env, p, &bbox)?,
+            Some(Provider::LvermGeoSh) => fetch_sh_rasters(env, p, &bbox)?,
+            Some(Provider::LaivMv) => fetch_mv_rasters(env, p, &bbox)?,
+            Some(Provider::GeobasisNrw) => fetch_nrw_rasters(env, p, &bbox)?,
+            Some(Provider::Lgln) => fetch_lgln_rasters(env, p, &bbox)?,
+            Some(Provider::LvermGeoRp) => fetch_rp_rasters(env, p, &bbox)?,
+            Some(Provider::Lgb) | None => fetch_lgb_rasters(env, p, &bbox)?,
         }
     }
     stop_if(cancelled)?;
@@ -1088,21 +1145,20 @@ fn check_space(
 /// The LGB rasters of `bbox`: orthophoto and DTM tiles, the nDOM point clouds, and the bDOM where
 /// no nDOM is published. With `skip_surface` (no disk space for it) neither surface model is
 /// downloaded; the cached tiles recorded before stay.
-#[allow(clippy::too_many_arguments)]
 fn fetch_lgb_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    let tiles = raster_tiles(bbox, Provider::Lgb, 1, progress);
+) -> Result<(), AdapterError> {
+    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
+    let cache = env.cache;
+    let tiles = raster_tiles(bbox, Provider::Lgb, 1, env.progress);
+    // What the project recorded before this fetch.
+    let old_tiles: Vec<TileRecord> = project.records().tiles.clone();
+    let old_ndsm: Vec<NdsmRecord> = project.records().ndsm_tiles.clone();
     let mut records = Vec::new();
     for product in PRODUCTS {
-        for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, progress)? {
+        for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, env.progress)? {
             let record = TileRecord {
                 product,
                 tile: fetched.tile.name(),
@@ -1110,12 +1166,11 @@ fn fetch_lgb_rasters(
                 currency: fetched.currency.currency(),
                 published: fetched.currency.published,
             };
-            let previous = project
-                .tiles
+            let previous = old_tiles
                 .iter()
                 .find(|r| r.product == product && r.tile == record.tile);
             if let Some(previous) = previous.filter(|p| p.published != record.published) {
-                progress(note!(
+                (env.progress)(note!(
                     "warning-tile-changed",
                     product = format!("{product:?}"),
                     tile = &record.tile,
@@ -1128,44 +1183,42 @@ fn fetch_lgb_rasters(
     }
     // Record the tiles first: they may have replaced older cached versions, and a failing
     // buildings download must not leave the project pointing at those.
-    let previous_dsm: Vec<TileRecord> = project
-        .tiles
+    let previous_dsm: Vec<TileRecord> = old_tiles
         .iter()
         .filter(|r| r.product == Product::ImageDsm)
         .cloned()
         .collect();
-    project.tiles = records;
-    project.save(dir)?;
+    *project.records().tiles = records;
+    project.save()?;
     if skip_surface {
         let cached = |tile: &str, path: &dyn Fn(TileId) -> PathBuf| {
             TileId::parse(tile).is_some_and(|t| tiles.contains(&t) && path(t).exists())
         };
-        project
-            .ndsm_tiles
+        let r = project.records();
+        r.ndsm_tiles
             .retain(|r| cached(&r.tile, &|t| cache.ndsm_path(t, r.published)));
-        project.tiles.extend(
+        r.tiles.extend(
             previous_dsm
                 .into_iter()
                 .filter(|r| cached(&r.tile, &|t| cache.tile_path(r.product, t, r.published))),
         );
-        let kept: Vec<&str> = project
+        let kept: Vec<&str> = r
             .ndsm_tiles
             .iter()
             .map(|r| r.tile.as_str())
             .chain(
-                project
-                    .tiles
+                r.tiles
                     .iter()
                     .filter(|r| r.product == Product::ImageDsm)
                     .map(|r| r.tile.as_str()),
             )
             .collect();
-        say_kept_surface_tiles(&kept, progress);
-        drop_wms_orthophoto(dir, project);
-        project.save(dir)?;
+        say_kept_surface_tiles(&kept, env.progress);
+        drop_wms_orthophoto(project);
+        project.save()?;
         return Ok(());
     }
-    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, progress)?
+    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, env.progress)?
         .into_iter()
         .map(|t| NdsmRecord {
             tile: t.tile.name(),
@@ -1174,11 +1227,11 @@ fn fetch_lgb_rasters(
         })
         .collect();
     for record in &ndsm_tiles {
-        let previous = project.ndsm_tiles.iter().find(|p| p.tile == record.tile);
+        let previous = old_ndsm.iter().find(|p| p.tile == record.tile);
         if let Some(previous) = previous.filter(|p| p.published != record.published)
             && let (Some(old), Some(new)) = (previous.published, record.published)
         {
-            progress(note!(
+            (env.progress)(note!(
                 "warning-tile-changed",
                 product = "nDSM",
                 tile = &record.tile,
@@ -1194,7 +1247,7 @@ fn fetch_lgb_rasters(
         .copied()
         .filter(|tile| !ndsm_tiles.iter().any(|r| r.tile == tile.name()))
         .collect();
-    project.ndsm_tiles = ndsm_tiles;
+    *project.records().ndsm_tiles = ndsm_tiles;
     if !without_ndsm.is_empty() {
         match fetch_tiles_each(
             fetcher,
@@ -1202,14 +1255,14 @@ fn fetch_lgb_rasters(
             Product::ImageDsm,
             &without_ndsm,
             mode,
-            progress,
+            env.progress,
         ) {
             Ok(results) => {
                 for (tile, result) in results {
                     let fetched = match result {
                         Ok(fetched) => fetched,
                         Err(e) => {
-                            progress(note!(
+                            (env.progress)(note!(
                                 "warning-bdom-tile-unavailable",
                                 tile = tile.name(),
                                 error = Arg::error(e)
@@ -1217,7 +1270,7 @@ fn fetch_lgb_rasters(
                             continue;
                         }
                     };
-                    progress(note!("progress-ndsm-from-bdom", tile = tile.name()));
+                    (env.progress)(note!("progress-ndsm-from-bdom", tile = tile.name()));
                     let record = TileRecord {
                         product: Product::ImageDsm,
                         tile: tile.name(),
@@ -1229,7 +1282,7 @@ fn fetch_lgb_rasters(
                         .iter()
                         .find(|p| p.tile == record.tile && p.published != record.published)
                     {
-                        progress(note!(
+                        (env.progress)(note!(
                             "warning-tile-changed",
                             product = format!("{:?}", Product::ImageDsm),
                             tile = &record.tile,
@@ -1237,25 +1290,26 @@ fn fetch_lgb_rasters(
                             new = record.published.to_string()
                         ));
                     }
-                    project.tiles.push(record);
+                    project.records().tiles.push(record);
                 }
             }
-            Err(e) => progress(note!(
+            Err(e) => (env.progress)(note!(
                 "warning-bdom-unavailable",
                 error = Arg::error(e),
                 tiles = crate::fetch::tile_names(&without_ndsm)
             )),
         }
     }
-    drop_wms_orthophoto(dir, project);
-    project.save(dir)?;
+    drop_wms_orthophoto(project);
+    project.save()?;
     Ok(())
 }
 
 /// An orthophoto of an earlier map area in another state (GeoSN and the per-area providers) is
 /// no longer used by an LGB project.
-fn drop_wms_orthophoto(dir: &Path, project: &mut ProjectFile) {
-    project.orthophoto = None;
+fn drop_wms_orthophoto(project: &mut dyn RasterProject) {
+    *project.records().orthophoto = None;
+    let dir = project.dir();
     let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
     for stale in [wms.clone(), wms.with_extension("jgw")] {
         freemapper_fs::remove_inside(dir, &stale);
@@ -1265,31 +1319,34 @@ fn drop_wms_orthophoto(dir: &Path, project: &mut ProjectFile) {
 /// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
 /// only a template; with `skip_surface` only the cached ones recorded before), and the
 /// orthophoto from the WMS.
-#[allow(clippy::too_many_arguments)]
 fn fetch_geosn_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
+    let cache = env.cache;
     let tiles = raster_tiles(
         bbox,
         Provider::GeoSn,
         Product::SaxonyDtm.grid_km(),
-        progress,
+        env.progress,
     );
-    let previous = std::mem::take(&mut project.tiles);
+    let previous = std::mem::take(project.records().tiles);
     let mut records = Vec::new();
-    for fetched in fetch_tiles(fetcher, cache, Product::SaxonyDtm, &tiles, mode, progress)? {
-        records.push(tile_record(fetched, &previous, progress));
+    for fetched in fetch_tiles(
+        fetcher,
+        cache,
+        Product::SaxonyDtm,
+        &tiles,
+        mode,
+        env.progress,
+    )? {
+        records.push(tile_record(fetched, &previous, env.progress));
     }
-    project.tiles = records;
-    project.ndsm_tiles.clear();
-    project.save(dir)?;
+    *project.records().tiles = records;
+    project.records().ndsm_tiles.clear();
+    project.save()?;
     let dsm = if skip_surface {
         let cached = previous.iter().filter(|r| {
             r.product == Product::SaxonyDsm
@@ -1297,26 +1354,37 @@ fn fetch_geosn_rasters(
                     tiles.contains(&t) && cache.tile_path(r.product, t, r.published).exists()
                 })
         });
-        project.tiles.extend(cached.cloned());
-        let kept: Vec<&str> = project
+        let r = project.records();
+        r.tiles.extend(cached.cloned());
+        let kept: Vec<&str> = r
             .tiles
             .iter()
             .filter(|r| r.product == Product::SaxonyDsm)
             .map(|r| r.tile.as_str())
             .collect();
-        say_kept_surface_tiles(&kept, progress);
+        say_kept_surface_tiles(&kept, env.progress);
         Ok(Vec::new())
     } else {
-        fetch_tiles_each(fetcher, cache, Product::SaxonyDsm, &tiles, mode, progress)
+        fetch_tiles_each(
+            fetcher,
+            cache,
+            Product::SaxonyDsm,
+            &tiles,
+            mode,
+            env.progress,
+        )
     };
     match dsm {
         Ok(results) => {
             for (tile, result) in results {
                 match result {
-                    Ok(fetched) => project
-                        .tiles
-                        .push(tile_record(fetched, &previous, progress)),
-                    Err(e) => progress(note!(
+                    Ok(fetched) => {
+                        project
+                            .records()
+                            .tiles
+                            .push(tile_record(fetched, &previous, env.progress))
+                    }
+                    Err(e) => (env.progress)(note!(
                         "warning-model-tile-unavailable",
                         model = crate::note::model(Product::SaxonyDsm.label()),
                         tile = tile.name(),
@@ -1325,7 +1393,7 @@ fn fetch_geosn_rasters(
                 }
             }
         }
-        Err(e) => progress(note!(
+        Err(e) => (env.progress)(note!(
             "warning-model-unavailable",
             model = crate::note::model(Product::SaxonyDsm.label()),
             error = Arg::error(e)
@@ -1333,9 +1401,7 @@ fn fetch_geosn_rasters(
     }
     let flight = || crate::sources::geosn::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -1344,9 +1410,8 @@ fn fetch_geosn_rasters(
             &flight,
             None,
         ),
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
@@ -1355,10 +1420,8 @@ fn fetch_geosn_rasters(
 /// offline, the stored image must cover `bbox`. `label` names a date that is no flight date as
 /// such, in the record and in the log.
 fn fetch_wms_orthophoto(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
     (source, provider, flight_date, label): (
         &OrthophotoSource,
@@ -1366,19 +1429,20 @@ fn fetch_wms_orthophoto(
         &dyn Fn() -> Option<String>,
         Option<&DateLabel>,
     ),
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let dir = project.dir().to_path_buf();
     let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
-    match mode {
+    let records = project.records();
+    match env.mode {
         FetchMode::Online => {
             let flight = flight_date();
             // Reused while the stored image covers the area and the flight date is the same.
             // Without a date from the service (none known, or the query failed), the image is
             // reused only while it is recent, and keeps the date it has.
-            let today = crate::clock::today();
+            let today = env.today;
             let recent =
                 |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
-            let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
+            let unchanged = records.orthophoto.as_ref().is_some_and(|r| {
                 r.covers(bbox)
                     && if flight.is_some() {
                         r.flight == flight
@@ -1389,9 +1453,9 @@ fn fetch_wms_orthophoto(
             if unchanged {
                 let kept = flight
                     .as_deref()
-                    .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
+                    .or_else(|| records.orthophoto.as_ref()?.flight.as_deref());
                 let shown = label.map_or("flight", |l| l.shown);
-                progress(match kept {
+                (env.progress)(match kept {
                     Some(date) => {
                         note!(
                             "progress-orthophoto-unchanged-dated",
@@ -1402,27 +1466,27 @@ fn fetch_wms_orthophoto(
                     None => note!("progress-orthophoto-unchanged"),
                 });
             } else {
-                progress(note!(
+                (env.progress)(note!(
                     "progress-orthophoto-download",
                     provider = provider,
                     service = source.kind()
                 ));
-                crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, dir, &path)?;
+                crate::sources::wms::fetch_orthophoto_from(env.fetcher, source, bbox, &dir, &path)?;
                 let flight_label = label
                     .filter(|_| flight.is_some())
                     .map(|l| l.record.to_string());
-                project.orthophoto = Some(WmsRecord {
+                *records.orthophoto = Some(WmsRecord {
                     flight,
                     flight_label,
-                    fetched: crate::clock::today(),
+                    fetched: env.today,
                     bbox: stored_bbox(bbox),
                 });
             }
         }
         FetchMode::Offline => {
-            let covered = project.orthophoto.as_ref().is_some_and(|r| r.covers(bbox));
+            let covered = records.orthophoto.as_ref().is_some_and(|r| r.covers(bbox));
             if !path.exists() || !covered {
-                return Err(ProjectError::OrthophotoNotFetched);
+                return Err(AdapterError::OrthophotoNotFetched);
             }
         }
     }
@@ -1503,24 +1567,20 @@ const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
 /// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
 fn fetch_lvermgeo_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
+    let dir = &project.dir().to_path_buf();
     use crate::sources::lvermgeo::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
     // LVermGeo serves Saxony-Anhalt only; LGB and GeoSN report this through their missing tiles.
-    warn_beyond_state(project, Provider::LvermGeo, "LVermGeo", progress)?;
+    warn_beyond_state(env, project, Provider::LvermGeo.id(), "LVermGeo");
     let flight = || lvermgeo::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -1529,34 +1589,36 @@ fn fetch_lvermgeo_rasters(
             &flight,
             None,
         ),
-        progress,
     )?;
     let record = |date: Option<String>| WcsRecord {
-        fetched: crate::clock::today(),
+        fetched: env.today,
         bbox: stored_bbox(bbox),
         date,
     };
     match mode {
         FetchMode::Online => {
-            progress(note!(
+            (env.progress)(note!(
                 "progress-model-download",
                 model = crate::note::model(Model::Dgm1.label())
             ));
             lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, dir, &dir.join(TERRAIN_RELPATH))?;
-            project.terrain = Some(record(None));
+            *project.records().terrain = Some(record(None));
             if skip_surface {
-                keep_stored_surface(dir, mode, project, bbox, progress);
-                project.save(dir)?;
+                keep_stored_surface(env, project, bbox);
+                project.save()?;
                 return Ok(());
             }
-            progress(note!(
+            (env.progress)(note!(
                 "progress-model-download",
                 model = crate::note::model(Model::Dom1.label())
             ));
             match lvermgeo::fetch_model(fetcher, Model::Dom1, bbox, dir, &dir.join(SURFACE_RELPATH))
             {
-                Ok(()) => project.surface = Some(record(lvermgeo::surface_date(fetcher, bbox))),
-                Err(e) => progress(note!(
+                Ok(()) => {
+                    *project.records().surface =
+                        Some(record(lvermgeo::surface_date(fetcher, bbox)));
+                }
+                Err(e) => (env.progress)(note!(
                     "warning-model-unavailable",
                     model = crate::note::model(Model::Dom1.label()),
                     error = Arg::error(e)
@@ -1567,51 +1629,45 @@ fn fetch_lvermgeo_rasters(
             let stored = |r: &Option<WcsRecord>, relpath: &str| {
                 r.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
             };
-            if !stored(&project.terrain, TERRAIN_RELPATH) {
-                return Err(ProjectError::TerrainNotFetched);
+            if !stored(&*project.records().terrain, TERRAIN_RELPATH) {
+                return Err(AdapterError::TerrainNotFetched);
             }
-            if !stored(&project.surface, SURFACE_RELPATH) {
-                progress(note!("warning-no-surface-stored"));
+            if !stored(&*project.records().surface, SURFACE_RELPATH) {
+                (env.progress)(note!("warning-no-surface-stored"));
             }
         }
     }
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
 /// The LGV rasters of `bbox` (EPSG:25832): the orthophoto from the WMS (2026), DGM1 and bDOM
 /// (2022) read out of the statewide archives. The bDOM is only a template: an unavailable one
 /// costs a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_lgv_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::lgv::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Lgv, "LGV", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::Lgv.id(), "LGV");
     let flight = || lgv::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (&OrthophotoSource::Wms(lgv::WMS), "LGV", &flight, None),
-        progress,
     )?;
     // Offline the tiles come from the cache: they were fetched when the record says.
     let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => crate::clock::today(),
+            _ => env.today,
         },
         bbox: stored_bbox(bbox),
         date: Some(model.date().to_string()),
@@ -1627,7 +1683,7 @@ fn fetch_lgv_rasters(
             ));
         }
     };
-    progress(note!(
+    (env.progress)(note!(
         "progress-model-read",
         model = crate::note::model(Model::Dgm1.label())
     ));
@@ -1640,14 +1696,15 @@ fn fetch_lgv_rasters(
         dir,
         &dir.join(TERRAIN_RELPATH),
     )?;
-    warn_missing(progress, Model::Dgm1, missing);
-    project.terrain = Some(record(Model::Dgm1, &project.terrain));
+    warn_missing(env.progress, Model::Dgm1, missing);
+    let old = project.records().terrain.clone();
+    *project.records().terrain = Some(record(Model::Dgm1, &old));
     if skip_surface {
-        keep_stored_surface(dir, mode, project, bbox, progress);
-        project.save(dir)?;
+        keep_stored_surface(env, project, bbox);
+        project.save()?;
         return Ok(());
     }
-    progress(note!(
+    (env.progress)(note!(
         "progress-model-read",
         model = crate::note::model(Model::Bdom.label())
     ));
@@ -1661,16 +1718,17 @@ fn fetch_lgv_rasters(
         &dir.join(SURFACE_RELPATH),
     ) {
         Ok(missing) => {
-            warn_missing(progress, Model::Bdom, missing);
-            project.surface = Some(record(Model::Bdom, &project.surface));
+            warn_missing(env.progress, Model::Bdom, missing);
+            let old = project.records().surface.clone();
+            *project.records().surface = Some(record(Model::Bdom, &old));
         }
-        Err(e) => progress(note!(
+        Err(e) => (env.progress)(note!(
             "warning-model-unavailable",
             model = crate::note::model(Model::Bdom.label()),
             error = Arg::error(e)
         )),
     }
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
@@ -1680,24 +1738,24 @@ fn fetch_lgv_rasters(
 /// its tiles cover Wiesbaden; tiles may reach slightly past), so the line promises no empty
 /// templates. ALKIS and OSM are read from both states.
 fn warn_beyond_state(
-    project: &ProjectFile,
-    provider: Provider,
+    env: &mut AdapterEnv<'_>,
+    project: &dyn RasterProject,
+    provider: &str,
     name: &str,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    if regions_for(&project.region_bbox()?)
+) {
+    if regions_for(&project.region_bbox())
         .iter()
-        .any(|r| r.provider() != provider)
+        .any(|r| r.provider().id() != provider)
     {
-        progress(note!("progress-beyond-border", provider = name));
+        (env.progress)(note!("progress-beyond-border", provider = name));
     }
-    Ok(())
 }
 
 /// The record of a height model just read; offline the tiles come from the cache, so the record
 /// keeps the date they were fetched.
 fn height_record(
     mode: FetchMode,
+    today: NaiveDate,
     bbox: &BoundingBox,
     found: &crate::sources::height_model::HeightModel,
     old: &Option<WcsRecord>,
@@ -1705,7 +1763,7 @@ fn height_record(
     WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => crate::clock::today(),
+            _ => today,
         },
         bbox: stored_bbox(bbox),
         // Offline without the portal's tile list there is no date: the stored file is unchanged.
@@ -1740,30 +1798,24 @@ fn warn_missing_tiles(
 /// The HVBG rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 read out
 /// of the Downloadcenter's municipal zips. The DOM1 is only a template: an unavailable one costs
 /// a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_hvbg_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::hvbg::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Hvbg, "HVBG", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::Hvbg.id(), "HVBG");
     let flight = || hvbg::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (&OrthophotoSource::Wms(hvbg::WMS), "HVBG", &flight, None),
-        progress,
     )?;
     // What both models report alike is said once, after both: the places without a
     // Downloadcenter file (with the tiles that stayed empty for want of another file) and
@@ -1773,8 +1825,7 @@ fn fetch_hvbg_rasters(
     let mut list_warnings: Vec<Note> = Vec::new();
     let mut memo = hvbg::MetadataMemo::default();
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "Hesse",
@@ -1800,14 +1851,13 @@ fn fetch_hvbg_rasters(
                 }
             }
         },
-        progress,
     )?;
     for warning in &list_warnings {
-        progress(warning.clone());
+        (env.progress)(warning.clone());
     }
     if !unresolved.is_empty() {
         let places: Vec<String> = unresolved.iter().map(|p| format!("\"{p}\"")).collect();
-        progress(if unresolved_empty.is_empty() {
+        (env.progress)(if unresolved_empty.is_empty() {
             note!("warning-downloadcenter-no-file", places = places.join(", "))
         } else {
             note!(
@@ -1818,32 +1868,27 @@ fn fetch_hvbg_rasters(
             )
         });
     }
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
 /// The Geobasis NRW rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1
 /// from the 1 km tiles. The DOM1 is only a template: an unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_nrw_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::geobasis_nrw::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::GeobasisNrw, "Geobasis NRW", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::GeobasisNrw.id(), "Geobasis NRW");
     let flight = || geobasis_nrw::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -1852,11 +1897,9 @@ fn fetch_nrw_rasters(
             &flight,
             None,
         ),
-        progress,
     )?;
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "North Rhine-Westphalia",
@@ -1870,36 +1913,30 @@ fn fetch_nrw_rasters(
                 progress(warning.clone());
             }
         },
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
 /// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
 /// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
 /// names. The DOM1 is only a template: an unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_rp_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::lvermgeo_rp::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
     // The WMS is white beyond the state border, while the tiles reach across it.
-    warn_beyond_state(project, Provider::LvermGeoRp, "LVermGeo RP", progress)?;
+    warn_beyond_state(env, project, Provider::LvermGeoRp.id(), "LVermGeo RP");
     let flight = || lvermgeo_rp::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -1909,11 +1946,9 @@ fn fetch_rp_rasters(
             // The block's creation date, taken as the flight date: the record and the log say so.
             Some(&lvermgeo_rp::FLIGHT_LABEL),
         ),
-        progress,
     )?;
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "the map area",
@@ -1927,35 +1962,29 @@ fn fetch_rp_rasters(
                 progress(warning.clone());
             }
         },
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
 /// The LVermGeo SH rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and bDOM
 /// from the Downloadportal. The bDOM is only a template (and a 105 MB download per km²): an
 /// unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_sh_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::lvermgeo_sh::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::LvermGeoSh, "LVermGeo SH", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::LvermGeoSh.id(), "LVermGeo SH");
     let flight = || lvermgeo_sh::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -1964,11 +1993,9 @@ fn fetch_sh_rasters(
             &flight,
             None,
         ),
-        progress,
     )?;
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "Schleswig-Holstein",
@@ -2008,35 +2035,29 @@ fn fetch_sh_rasters(
                 ));
             }
         },
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
 /// The LAiV M-V rasters of `bbox` (EPSG:25833): the orthophoto from the DOP WCS, DGM1 and DOM1
 /// from the height WCS, masked to the MV tile set. The DOM1 is only a template: an unavailable
 /// one costs a warning.
-#[allow(clippy::too_many_arguments)]
 fn fetch_mv_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let cache = env.cache;
+    let dir = &project.dir().to_path_buf();
     use crate::sources::laiv_mv::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::LaivMv, "LAiV M-V", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::LaivMv.id(), "LAiV M-V");
     let flight = || laiv_mv::flight_date(fetcher, bbox);
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (
@@ -2045,11 +2066,9 @@ fn fetch_mv_rasters(
             &flight,
             None,
         ),
-        progress,
     )?;
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "Mecklenburg-Vorpommern",
@@ -2063,9 +2082,8 @@ fn fetch_mv_rasters(
                 progress(warning.clone());
             }
         },
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
@@ -2073,18 +2091,16 @@ fn fetch_mv_rasters(
 /// WCS, all dated by the STAC searches. The DOM1 is only a template: an unavailable one costs a
 /// warning, and so does one much older than the orthophoto.
 fn fetch_lgln_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
+) -> Result<(), AdapterError> {
+    let (fetcher, mode) = (env.fetcher, env.mode);
+    let dir = &project.dir().to_path_buf();
     use crate::sources::lgln::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Lgln, "LGLN", progress)?;
+    project.records().tiles.clear();
+    project.records().ndsm_tiles.clear();
+    warn_beyond_state(env, project, Provider::Lgln.id(), "LGLN");
     // One DOP search gives the flight date and the leaf state; offline nothing is asked.
     let (flown, missing) = match mode {
         FetchMode::Online => match lgln::orthophoto_date(fetcher, bbox) {
@@ -2100,19 +2116,20 @@ fn fetch_lgln_rasters(
     let flight_text = flown.map(|date| date.format("%d.%m.%Y").to_string());
     let flight = || flight_text.clone();
     fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
+        env,
         project,
         bbox,
         (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight, None),
-        progress,
     )?;
     // Without a fresh date a recent stored orthophoto is kept with its own (see
     // `fetch_wms_orthophoto`); the warning says which of the two happened.
-    let stored = project.orthophoto.as_ref().and_then(|o| o.flight.clone());
+    let stored = project
+        .records()
+        .orthophoto
+        .as_ref()
+        .and_then(|o| o.flight.clone());
     if let Some(reason) = missing {
-        progress(match &stored {
+        (env.progress)(match &stored {
             Some(date) => note!("warning-lgln-orthophoto-kept", reason = reason, date = date),
             None => note!("warning-lgln-orthophoto-undated", reason = reason),
         });
@@ -2121,11 +2138,10 @@ fn fetch_lgln_rasters(
         .as_deref()
         .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
     if let (FetchMode::Online, Some(date)) = (mode, shown) {
-        progress(lgln::leaf_state(date));
+        (env.progress)(lgln::leaf_state(date));
     }
     fetch_area_heights(
-        dir,
-        (mode, skip_surface),
+        env,
         project,
         bbox,
         "Lower Saxony",
@@ -2157,9 +2173,8 @@ fn fetch_lgln_rasters(
                 progress(warning.clone());
             }
         },
-        progress,
     )?;
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
@@ -2168,11 +2183,10 @@ fn fetch_lgln_rasters(
 /// per-area provider whose fetch reports a [`HeightModel`](crate::sources::height_model::HeightModel).
 /// `fetch(surface, out, progress)` reads one model into `out`; `after(surface, found, project, progress)`
 /// says what is specific to the provider once a model was read.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+#[allow(clippy::type_complexity)]
 fn fetch_area_heights(
-    dir: &Path,
-    (mode, skip_surface): (FetchMode, bool),
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
     state: &str,
     (terrain_label, surface_label): (&str, &str),
@@ -2184,45 +2198,51 @@ fn fetch_area_heights(
     after: &mut dyn FnMut(
         bool,
         &crate::sources::height_model::HeightModel,
-        &ProjectFile,
+        &RasterRecords<'_>,
         &mut dyn FnMut(Note),
     ),
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    progress(note!(
+) -> Result<(), AdapterError> {
+    let dir = project.dir().to_path_buf();
+    (env.progress)(note!(
         "progress-model-read",
         model = crate::note::model(terrain_label)
     ));
-    let found = fetch(false, &dir.join(TERRAIN_RELPATH), progress)?;
-    warn_missing_tiles(progress, state, terrain_label, &found);
-    after(false, &found, project, progress);
-    project.terrain = Some(height_record(mode, bbox, &found, &project.terrain));
-    if skip_surface {
-        keep_stored_surface(dir, mode, project, bbox, progress);
-        project.save(dir)?;
+    let found = fetch(false, &dir.join(TERRAIN_RELPATH), env.progress)?;
+    warn_missing_tiles(env.progress, state, terrain_label, &found);
+    let records = project.records();
+    after(false, &found, &records, env.progress);
+    *records.terrain = Some(height_record(
+        env.mode,
+        env.today,
+        bbox,
+        &found,
+        records.terrain,
+    ));
+    if env.skip_surface {
+        keep_stored_surface(env, project, bbox);
+        project.save()?;
         return Ok(());
     }
-    progress(note!(
+    (env.progress)(note!(
         "progress-model-read",
         model = crate::note::model(surface_label)
     ));
-    match fetch(true, &dir.join(SURFACE_RELPATH), progress) {
+    match fetch(true, &dir.join(SURFACE_RELPATH), env.progress) {
         Ok(found) => {
-            warn_missing_tiles(progress, state, surface_label, &found);
-            after(true, &found, project, progress);
-            project.surface = Some(height_record(mode, bbox, &found, &project.surface));
+            warn_missing_tiles(env.progress, state, surface_label, &found);
+            let records = project.records();
+            after(true, &found, &records, env.progress);
+            *records.surface = Some(height_record(
+                env.mode,
+                env.today,
+                bbox,
+                &found,
+                records.surface,
+            ));
         }
-        Err(e) => keep_surface(
-            dir,
-            mode,
-            project,
-            bbox,
-            surface_label,
-            Arg::error(e),
-            progress,
-        ),
+        Err(e) => keep_surface(env, project, bbox, surface_label, Arg::error(e)),
     }
-    project.save(dir)?;
+    project.save()?;
     Ok(())
 }
 
@@ -2230,37 +2250,33 @@ fn fetch_area_heights(
 /// kept when its record still covers `bbox` (derive uses it), and dropped with its file when it
 /// does not; offline nothing is deleted (derive ignores a record that does not cover the area).
 fn keep_surface(
-    dir: &Path,
-    mode: FetchMode,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
     label: &str,
     e: Arg,
-    progress: &mut dyn FnMut(Note),
 ) {
     let model = crate::note::model(label);
-    match stored_surface_or_drop(dir, mode, project, bbox) {
-        Some(fetched) => progress(note!(
+    match stored_surface_or_drop(env.mode, project, bbox) {
+        Some(fetched) => (env.progress)(note!(
             "warning-model-unavailable-kept",
             model = model,
             error = e,
             fetched = fetched.to_string()
         )),
-        None => progress(note!("warning-model-unavailable", model = model, error = e)),
+        None => (env.progress)(note!("warning-model-unavailable", model = model, error = e)),
     }
 }
 
 /// The surface model of a per-area provider left out for lack of disk space: the stored one stays
 /// while it covers `bbox`, and the user hears so.
 fn keep_stored_surface(
-    dir: &Path,
-    mode: FetchMode,
-    project: &mut ProjectFile,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
 ) {
-    if let Some(fetched) = stored_surface_or_drop(dir, mode, project, bbox) {
-        progress(note!(
+    if let Some(fetched) = stored_surface_or_drop(env.mode, project, bbox) {
+        (env.progress)(note!(
             "progress-surface-kept",
             fetched = fetched.to_string()
         ));
@@ -2282,12 +2298,13 @@ fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(Note)) {
 /// while its record covers `bbox` (the day it was fetched is returned); else it is dropped with
 /// its file, online only (offline derive ignores a record that does not cover the area).
 fn stored_surface_or_drop(
-    dir: &Path,
     mode: FetchMode,
-    project: &mut ProjectFile,
+    project: &mut dyn RasterProject,
     bbox: &BoundingBox,
 ) -> Option<NaiveDate> {
-    let stored = project
+    let dir = project.dir().to_path_buf();
+    let records = project.records();
+    let stored = records
         .surface
         .as_ref()
         .filter(|r| r.covers(bbox) && dir.join(SURFACE_RELPATH).exists());
@@ -2295,10 +2312,10 @@ fn stored_surface_or_drop(
         return Some(record.fetched);
     }
     if mode == FetchMode::Online {
-        project.surface = None;
+        *records.surface = None;
         let surface = dir.join(SURFACE_RELPATH);
         for file in [surface.clone(), surface.with_extension("tfw")] {
-            freemapper_fs::remove_inside(dir, &file);
+            freemapper_fs::remove_inside(&dir, &file);
         }
     }
     None
@@ -7568,6 +7585,148 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             .with_disk_space(std::sync::Arc::new(FixedSpace::everywhere(
                 "disk", available,
             )))
+    }
+
+    /// A Brandenburg school project served with LGB tiles and the nDSM point cloud.
+    fn strausberg_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
+        crate::fetch::test_support::serve_synthetic_ndsm(fetcher, school_tile());
+        (dir, cache_dir, cache)
+    }
+
+    /// The raster fetch of every provider gets `skip_surface` the same way (through the
+    /// environment of the fetch): on a disk without room for the surface model it asks for
+    /// nothing of it, says so, and records none.
+    #[test]
+    fn skip_surface_reaches_every_backend() {
+        type School = fn(&MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache);
+        let providers: [(Provider, School); 10] = [
+            (Provider::Lgb, strausberg_school),
+            (Provider::GeoSn, dresden_school),
+            (Provider::LvermGeo, halle_school),
+            (Provider::Lgv, eppendorf_school),
+            (Provider::Hvbg, frankfurt_school),
+            (Provider::LvermGeoSh, norderstedt_school),
+            (Provider::LaivMv, rostock_school),
+            (Provider::GeobasisNrw, koeln_school),
+            (Provider::Lgln, hannover_school),
+            (Provider::LvermGeoRp, koblenz_school),
+        ];
+        for (provider, school) in providers {
+            // With room for everything: the requests of a whole fetch.
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = school(&fetcher);
+            let (whole, _) = fetch(dir.path(), &fetcher, &cache);
+            assert_eq!(whole.provider, Some(provider));
+            let all: Vec<String> = fetcher.log.borrow().clone();
+            // One byte short: the surface model is the first part to go.
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = school(&fetcher);
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{provider:?}: {messages:?}"
+            );
+            let asked: Vec<String> = fetcher.log.borrow().clone();
+            let extra: Vec<&String> = asked.iter().filter(|url| !all.contains(url)).collect();
+            assert!(extra.is_empty(), "{provider:?} asked for more: {extra:?}");
+            let left_out = all.iter().filter(|url| !asked.contains(url)).count();
+            assert!(
+                left_out > 0,
+                "{provider:?} still asked for the surface model"
+            );
+            assert!(project.surface.is_none(), "{provider:?}");
+            assert!(project.ndsm_tiles.is_empty(), "{provider:?}");
+            assert!(
+                !project
+                    .tiles
+                    .iter()
+                    .any(|r| matches!(r.product, Product::ImageDsm | Product::SaxonyDsm)),
+                "{provider:?}"
+            );
+            // What the run needs is there.
+            assert!(
+                project.orthophoto.is_some()
+                    || project
+                        .tiles
+                        .iter()
+                        .any(|r| r.product == Product::Orthophoto),
+                "{provider:?}"
+            );
+        }
+    }
+
+    /// The raster fetch ends with an `AdapterError`; the engine turns it back into the error it
+    /// stands for, with the same words, so the caller words it as before.
+    #[test]
+    fn adapter_errors_map_back_to_the_same_project_error() {
+        let io = |kind| std::io::Error::from(kind);
+        let cases: Vec<(AdapterError, ProjectError)> = vec![
+            (
+                AdapterError::Fetch(FetchError::NotFound("https://example.invalid/x".into())),
+                ProjectError::Fetch(FetchError::NotFound("https://example.invalid/x".into())),
+            ),
+            (
+                AdapterError::Fetch(FetchError::Cancelled),
+                ProjectError::Fetch(FetchError::Cancelled),
+            ),
+            (
+                AdapterError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::NotFound),
+                ),
+                ProjectError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::NotFound),
+                ),
+            ),
+            (
+                AdapterError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::StorageFull),
+                ),
+                ProjectError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::StorageFull),
+                ),
+            ),
+            (
+                AdapterError::ProjectFile("missing field".into()),
+                ProjectError::Toml("missing field".into()),
+            ),
+            (
+                AdapterError::OrthophotoNotFetched,
+                ProjectError::OrthophotoNotFetched,
+            ),
+            (
+                AdapterError::TerrainNotFetched,
+                ProjectError::TerrainNotFetched,
+            ),
+        ];
+        for (adapter, expected) in cases {
+            let words = adapter.to_string();
+            let back = ProjectError::from(adapter);
+            assert_eq!(
+                std::mem::discriminant(&back),
+                std::mem::discriminant(&expected),
+                "{back:?}"
+            );
+            assert_eq!(back.to_string(), expected.to_string());
+            assert_eq!(words, expected.to_string());
+            if let (ProjectError::Fetch(back), ProjectError::Fetch(expected)) = (&back, &expected) {
+                assert_eq!(
+                    std::mem::discriminant(back),
+                    std::mem::discriminant(expected)
+                );
+            }
+        }
     }
 
     #[test]

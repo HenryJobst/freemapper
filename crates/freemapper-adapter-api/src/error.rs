@@ -70,6 +70,24 @@ pub enum FetchError {
     Cancelled,
 }
 
+/// What a raster fetch can end with. Each variant stands for one error of the engine, which
+/// turns it back into its own, so the caller words it as before.
+#[derive(Debug, thiserror::Error)]
+pub enum AdapterError {
+    #[error(transparent)]
+    Fetch(#[from] FetchError),
+    /// A file of the project could not be written or read.
+    #[error("{}", io_error_text(.0, .1))]
+    Io(PathBuf, io::Error),
+    /// The project file could not be written or read as what it must be.
+    #[error("invalid project file: {0}")]
+    ProjectFile(String),
+    #[error("no orthophoto stored for this map area; run `freemapper fetch` online first")]
+    OrthophotoNotFetched,
+    #[error("no terrain model stored for this map area; run `freemapper fetch` online first")]
+    TerrainNotFetched,
+}
+
 impl FetchError {
     /// Whether writing failed because the volume is full.
     pub fn is_disk_full(&self) -> bool {

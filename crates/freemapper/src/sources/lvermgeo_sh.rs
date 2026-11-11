@@ -16,8 +16,8 @@ use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, STALE_PART_AGE, download_with_retries, get_with_retries,
-    write_cache_file,
+    CacheDir, FetchError, FetchMode, Fetcher, STALE_PART_AGE, download_with_retries,
+    get_with_retries, write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{
@@ -359,7 +359,7 @@ const _: () = assert!(XYZ_MAX_BYTES > XYZ_MB as u64 * 1024 * 1024);
 #[allow(clippy::too_many_arguments)]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
@@ -376,7 +376,7 @@ pub fn fetch_model(
 #[allow(clippy::too_many_arguments)]
 fn fetch_model_with(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
@@ -555,7 +555,7 @@ fn tile_list(
 /// counts, and an older vintage does not hide a newer one. Used to tell what a fetch would
 /// download.
 pub fn cached_tile_files(
-    cache: &Cache,
+    cache: &CacheDir,
     model: Model,
 ) -> std::collections::HashMap<TileId, PathBuf> {
     let dir = cache.provider_dir("lvermgeo_sh");

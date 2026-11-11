@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
+use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::sources::height_model::{
     AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
 };
@@ -69,7 +69,7 @@ fn parse_flight_date(text: &str) -> Option<String> {
 
 /// The tiles among `tiles` that need no download: the newest kept tile list names them and their
 /// file exists (files are written whole, atomically), or the server answered 404 for them.
-pub fn cached_tiles(cache: &Cache, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
+pub fn cached_tiles(cache: &CacheDir, model: Model, tiles: &[TileId]) -> HashSet<TileId> {
     let dir = cache.provider_dir("geobasis_nrw");
     let Some(meta) = kept_meta(&dir, model) else {
         return HashSet::new();
@@ -408,7 +408,7 @@ fn clear_markers(dir: &Path, model: Model) {
 /// missing; the date is the centre tile's. No tile at all is an error.
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
@@ -465,6 +465,7 @@ pub fn fetch_model(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fetch::Cache;
     use crate::fetch::test_support::{MapFetcher, nrw_meta_zip, serve_synthetic_nrw};
     use crate::raster::GridSpec;
     use crate::sources::float_tiff::decode_float_tiff;

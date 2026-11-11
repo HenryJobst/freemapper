@@ -7,10 +7,12 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod cache;
+pub mod env;
 pub mod error;
 pub mod fetch;
 pub mod fs;
 pub mod note;
+pub mod project;
 pub mod records;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

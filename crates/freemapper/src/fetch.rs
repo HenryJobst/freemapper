@@ -582,7 +582,7 @@ impl TilePaths for CacheDir {
 /// cache lacks its current publication. Offline, the cached CSV and archives are used.
 pub fn fetch_tiles(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
@@ -626,7 +626,7 @@ pub type TileOutcome = (TileId, Result<FetchedTile, FetchError>);
 /// cannot be read fails the whole call.
 pub fn fetch_tiles_each(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
@@ -668,7 +668,7 @@ type CurrencyTable = HashMap<TileId, (TileCurrency, String)>;
 /// offline the cached copy is used.
 fn currency_table(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
@@ -691,7 +691,7 @@ fn currency_table(
 
 fn lgb_currency_table(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
@@ -724,7 +724,7 @@ fn lgb_currency_table(
 /// the rows of every query (`{"33414-5654": ["2024-11-30", "https://…"], …}`).
 fn geosn_currency_table(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tiles: &[TileId],
     mode: FetchMode,
@@ -774,7 +774,7 @@ fn geosn_currency_table(
 /// One tile of `product` in the cache; `None` offline when no version of it is cached.
 fn fetch_tile(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     product: Product,
     tile: TileId,
     (mut currency, url): (TileCurrency, String),
@@ -834,7 +834,7 @@ pub struct NdsmTile {
 /// skipped with a warning. Offline, the newest cached file per tile is used.
 pub fn fetch_ndsm_tiles(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     tiles: &[TileId],
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),

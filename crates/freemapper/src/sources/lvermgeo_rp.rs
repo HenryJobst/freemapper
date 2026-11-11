@@ -17,7 +17,7 @@ use chrono::{Datelike, NaiveDate};
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_limited_with_retries, get_with_retries, one_line,
+    CacheDir, FetchError, FetchMode, Fetcher, get_limited_with_retries, get_with_retries, one_line,
     write_cache_file,
 };
 use crate::sources::alkis_wfs::{number_matched, parse_gml};
@@ -532,7 +532,7 @@ pub const METALINK_MB: f64 = 11.0;
 /// `model` (an estimate before a run): the tile list kept for this area gives one of them no
 /// year, and no Metalink kept within [`RECHECK_AFTER`] can stand in.
 pub fn metalink_to_fetch(
-    cache: &Cache,
+    cache: &CacheDir,
     model: Model,
     bbox: &BoundingBox,
     tiles: &[TileId],
@@ -570,7 +570,7 @@ fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
 /// Metalink the run downloads one, and it is taken to name the file. Without a kept list, a file
 /// of any year counts.
 pub fn cached_tiles(
-    cache: &Cache,
+    cache: &CacheDir,
     model: Model,
     bbox: &BoundingBox,
     tiles: &[TileId],
@@ -632,7 +632,7 @@ pub(crate) fn list_path(dir: &Path, bbox: &BoundingBox) -> PathBuf {
 /// before the run (cached ones not left out yet). With a tile list kept for this area they are
 /// the ones it names, as in the run, also those wholly beyond the state border. Without one they
 /// are the tiles that touch the state.
-pub fn tiles_to_fetch(cache: &Cache, bbox: &BoundingBox) -> Vec<TileId> {
+pub fn tiles_to_fetch(cache: &CacheDir, bbox: &BoundingBox) -> Vec<TileId> {
     let kept = std::fs::read(list_path(&cache.provider_dir("lvermgeo_rp"), bbox))
         .ok()
         .and_then(|bytes| parse_tile_list(&String::from_utf8_lossy(&bytes)).ok());
@@ -661,7 +661,7 @@ fn is_tiff(bytes: &[u8]) -> bool {
 /// No tile at all is an error.
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
@@ -769,6 +769,7 @@ pub fn fetch_model(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fetch::Cache;
     use crate::fetch::test_support::{MapFetcher, rp_tile_list, serve_synthetic_rp_heights};
     use crate::note::Note;
     use crate::raster::GridSpec;

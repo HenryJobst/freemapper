@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_cache_file};
+use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{Region, tile_centre_in};
@@ -114,7 +114,7 @@ impl Model {
     }
 
     /// Where a tile of this model is cached: named after the tile, never the archive member.
-    pub fn tile_cache_file(self, cache: &Cache, tile: TileId) -> PathBuf {
+    pub fn tile_cache_file(self, cache: &CacheDir, tile: TileId) -> PathBuf {
         cache
             .provider_dir("lgv")
             .join(self.cache_name())
@@ -156,7 +156,7 @@ pub(crate) fn names(tiles: &[TileId]) -> String {
 /// No tile at all is an error (the archive was renamed or restructured).
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,

@@ -16,7 +16,7 @@ use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{
-    Cache, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_cache_file,
+    CacheDir, FetchError, FetchMode, Fetcher, get_with_attempts, one_line, write_cache_file,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{require_stored, write_float_raster};
@@ -346,7 +346,7 @@ fn tile_at(e: f64, n: f64) -> TileId {
 /// record too, as for Saxony-Anhalt); the kept tile list gives the missing tiles and the date.
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
-    cache: &Cache,
+    cache: &CacheDir,
     mode: FetchMode,
     model: Model,
     bbox: &BoundingBox,
@@ -535,6 +535,7 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use crate::fetch::Cache;
     use crate::fetch::test_support::MapFetcher;
     use crate::sources::float_tiff::decode_float_tiff;
 

@@ -97,6 +97,22 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// The id of the provider: its name in the project file.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Lgb => "lgb",
+            Self::GeoSn => "geosn",
+            Self::LvermGeo => "lvermgeo",
+            Self::Lgv => "lgv",
+            Self::Hvbg => "hvbg",
+            Self::LvermGeoSh => "lvermgeosh",
+            Self::LaivMv => "laivmv",
+            Self::GeobasisNrw => "geobasisnrw",
+            Self::Lgln => "lgln",
+            Self::LvermGeoRp => "lvermgeorp",
+        }
+    }
+
     /// The terrain model the contours come from, for `freemapper:source` on contour candidates.
     pub fn terrain_source(self) -> &'static str {
         match self {
@@ -610,6 +626,10 @@ mod tests {
         for region in Region::ALL {
             assert_eq!(serde_json::to_value(region).unwrap(), region.id());
             assert_eq!(Region::from_id(region.id()), Some(region));
+            assert_eq!(
+                serde_json::to_value(region.provider()).unwrap(),
+                region.provider().id()
+            );
         }
         assert_eq!(Region::from_id("bremen"), None);
     }
