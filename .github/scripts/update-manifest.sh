@@ -9,14 +9,15 @@
 # checks that each .gz unpacks to that executable and writes size and SHA-256 of the .gz and the
 # SHA-256 of the executable into the manifest. release.yml signs the result with minisign.
 #
-# The version comes from Cargo.toml. GITHUB_REPOSITORY (default HenryJobst/freemapper) names the
+# The version comes from Cargo.toml (CARGO_TOML names another file; the tests use it). GITHUB_REPOSITORY (default HenryJobst/freemapper) names the
 # repository of the asset URLs, RELEASED (default today, UTC) the release date.
 #
 # min_self_update_from, the oldest version whose updater may install this release, is
 #   1. `min_self_update_from` under `[workspace.metadata.update]` in Cargo.toml, if set. Set it by
 #      hand when a release changes the update path so that older updaters must not install it;
 #   2. otherwise the value in the manifest of the previous release (<previous-manifest>, which
-#      release.yml downloads), so it stays at the first release with the updater;
+#      release.yml downloads and verifies against assets/update/minisign.pub first), so it stays at
+#      the first release with the updater;
 #   3. otherwise, when there is no previous manifest (the first release with the updater), the
 #      version being built.
 # It is never above the version being built.
@@ -36,6 +37,7 @@ tag=${TAG:-}
 repo=${GITHUB_REPOSITORY:-HenryJobst/freemapper}
 released=${RELEASED:-$(date -u +%Y-%m-%d)}
 root=$(cd "$(dirname "$0")/../.." && pwd)
+cargo_toml=${CARGO_TOML:-$root/Cargo.toml}
 
 is_version() {
   printf '%s\n' "$1" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
@@ -69,16 +71,17 @@ printf '%s\n' "$tag" | grep -Eq '^[A-Za-z0-9._-]+$' || fail "TAG is empty or has
 printf '%s\n' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$' || fail "unexpected GITHUB_REPOSITORY '$repo'"
 printf '%s\n' "$released" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || fail "RELEASED is not YYYY-MM-DD: '$released'"
 [ -d "$dist" ] || fail "no folder $dist"
+[ -f "$cargo_toml" ] || fail "no file $cargo_toml"
 
-version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/Cargo.toml" | head -n 1)
+version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$cargo_toml" | head -n 1)
 is_version "$version" || fail "no x.y.z version in Cargo.toml: '$version'"
 
 pinned=$(awk '
   /^\[/ { section = $0; next }
-  section == "[workspace.metadata.update]" && $1 == "min_self_update_from" {
+  section == "[workspace.metadata.update]" && $0 ~ /^[ \t]*min_self_update_from[ \t]*=/ {
     value = $0; sub(/^[^=]*=[ \t]*"/, "", value); sub(/".*$/, "", value); print value; exit
   }
-' "$root/Cargo.toml")
+' "$cargo_toml")
 if [ -n "$pinned" ]; then
   min=$pinned
   origin="Cargo.toml"
