@@ -223,6 +223,10 @@ mod tests {
             ("version", v("0.12.0")),
             ("mode", v("notify")),
             ("platform", v("linux-riscv")),
+            (
+                "page",
+                v("https://github.com/HenryJobst/freemapper/releases/latest"),
+            ),
             // The area page's patterns (`page-*`); the page fills them in itself.
             ("n", n(2)),
             ("names", v("33421-5821, 33421-5822")),

@@ -11,10 +11,12 @@ use std::process::ExitCode;
 use anyhow::anyhow;
 use freemapper_update::{
     App, Mode, Outcome, ProcessRunner, UpdateError, Version, check_for_update, exe_path, install,
-    load_mode, previous_path, rollback, save_mode,
+    load_mode, manifest_url, previous_path, rollback, save_mode,
 };
 
-use super::{freemapper_app, mode_from_env, release_build, settings_dir, update_source};
+use super::{
+    HttpUpdateSource, freemapper_app, mode_from_env, release_build, settings_dir, update_source,
+};
 use crate::text::{text, v};
 
 /// The exit code of `update --check` when a newer version exists.
@@ -57,7 +59,8 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
             println!("{}", describe(&too_old));
             return Ok(ExitCode::from(UPDATE_AVAILABLE));
         }
-        result => result.map_err(failed)?,
+        result => result
+            .map_err(|e| anyhow!(check_failed(&app, &source, request.version.as_ref(), &e)))?,
     };
     println!("{}", checked(&app, &outcome));
     let Outcome::Available { version, notes, .. } = &outcome else {
@@ -130,10 +133,11 @@ fn installed_text(app: &App, installed: Version, notes: &str) -> String {
 /// `--check`.
 pub fn check_for_mcp() -> Result<String, String> {
     let app = freemapper_app();
-    match check_for_update(&app, &update_source(), None) {
+    let source = update_source();
+    match check_for_update(&app, &source, None) {
         Ok(outcome) => Ok(checked(&app, &outcome)),
         Err(too_old @ UpdateError::TooOldToSelfUpdate { .. }) => Ok(describe(&too_old)),
-        Err(e) => Err(describe(&e)),
+        Err(e) => Err(check_failed(&app, &source, None, &e)),
     }
 }
 
@@ -143,7 +147,8 @@ pub fn check_for_mcp() -> Result<String, String> {
 pub fn install_for_mcp() -> Result<String, String> {
     let app = freemapper_app();
     let source = update_source();
-    let outcome = check_for_update(&app, &source, None).map_err(|e| describe(&e))?;
+    let outcome =
+        check_for_update(&app, &source, None).map_err(|e| check_failed(&app, &source, None, &e))?;
     let Outcome::Available { notes, .. } = &outcome else {
         return Ok(text("update-current", &[("version", v(app.current))]));
     };
@@ -156,6 +161,35 @@ pub fn install_for_mcp() -> Result<String, String> {
         installed_text(&app, installed, notes),
         text("update-mcp-restart-now", &[])
     ))
+}
+
+/// A failed check in the language of the run. A manifest that is not there (HTTP 404) means a
+/// release that cannot install itself; one asked for by `version` may also not exist at all. Only
+/// the manifest counts: a missing signature or asset stays a plain failure.
+fn check_failed(
+    app: &App,
+    source: &HttpUpdateSource,
+    version: Option<&Version>,
+    error: &UpdateError,
+) -> String {
+    if !matches!(error, UpdateError::Download(_))
+        || !source.was_not_found(&manifest_url(app, version))
+    {
+        return describe(error);
+    }
+    match version {
+        None => text(
+            "update-no-manifest",
+            &[("page", v(format!("{}/releases/latest", app.repo_url)))],
+        ),
+        Some(version) => text(
+            "update-no-manifest-version",
+            &[
+                ("version", v(version)),
+                ("page", v(format!("{}/releases", app.repo_url))),
+            ],
+        ),
+    }
 }
 
 /// Stores `mode` in `settings.toml` and says where. Mentions `FREEMAPPER_UPDATE` when it overrides
