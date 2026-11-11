@@ -9,9 +9,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use freemapper::fetch::{Cache, FetchMode, Fetcher};
 use freemapper::project::{
-    MapOutcome, OcadOutcome, PdfSources, RunOutcome, RunStage, StarterDocuments,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, map_path, pdf_path,
-    run_project_steps, starter_documents,
+    MapOutcome, OcadOutcome, PdfSources, RunOutcome, RunStage, export_candidates_pdf_from,
+    export_ocad_from, export_pdf_from, map_path, pdf_path, run_project_steps, starter_documents,
 };
 use serde::Deserialize;
 
@@ -126,6 +125,7 @@ pub struct ResultFile {
 
 /// What a run did.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // `warnings`, `files` and `kept_map` are read by the page routes of stage 4.
 pub struct RunReport {
     /// The outcome in words for an agent (English).
     pub summary: String,

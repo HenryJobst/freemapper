@@ -1,31 +1,26 @@
 //! `freemapper mcp`: the MCP server on stdio, so an AI agent can make a map for a non-technical
 //! user. The tools are thin wrappers over the library; the pipeline runs as a job the agent polls.
 
-use std::collections::{HashMap, VecDeque};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use base64::Engine;
 use freemapper::area::MapArea;
-use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
+use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
-use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, RunOutcome,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, init_project, run_project,
-    starter_documents,
-};
+use freemapper::project::{MapKind, ProjectFile, init_project};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
 
+use crate::jobs::{JobHub, folder_key};
 use crate::pipeline::{self, describe};
-use crate::select::{Busy, Defaults, Selector, estimate_json, open_browser};
+use crate::select::{Defaults, Selector, estimate_json, open_browser};
 use serde_json::{Value, json};
 
-/// Progress lines kept per job.
-const JOB_LINES: usize = 50;
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
 
@@ -40,122 +35,6 @@ Mapper. When no place fits or the user wants to draw the area, open_area_selecto
 in the browser where the user draws or picks the area and saves it (this creates the project); \
 continue with estimate_download once the user says it is saved. Paths must be absolute or start \
 with ~. One pipeline runs at a time.";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum JobState {
-    Running,
-    Finished,
-    Failed,
-}
-
-impl JobState {
-    fn name(self) -> &'static str {
-        match self {
-            JobState::Running => "running",
-            JobState::Finished => "finished",
-            JobState::Failed => "failed",
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Job {
-    dir: PathBuf,
-    state: JobState,
-    lines: VecDeque<String>,
-    warnings: Vec<String>,
-    result: Option<String>,
-    error: Option<String>,
-}
-
-/// The pipeline jobs of this server's lifetime.
-#[derive(Debug, Default)]
-struct Jobs {
-    next: u64,
-    jobs: HashMap<String, Job>,
-}
-
-impl Jobs {
-    /// Registers a running job for `dir`; refused while any job runs, because all projects
-    /// share the download cache.
-    fn start(&mut self, dir: &Path) -> Result<String, String> {
-        if let Some((id, job)) = self
-            .jobs
-            .iter()
-            .find(|(_, job)| job.state == JobState::Running)
-        {
-            return Err(format!(
-                "{id} is still running for {}; one pipeline runs at a time because projects \
-                 share the download cache. Start this one when project_status reports finished \
-                 or failed",
-                job.dir.display()
-            ));
-        }
-        self.next += 1;
-        let id = format!("job-{}", self.next);
-        self.jobs.insert(
-            id.clone(),
-            Job {
-                dir: dir.to_path_buf(),
-                state: JobState::Running,
-                lines: VecDeque::new(),
-                warnings: Vec::new(),
-                result: None,
-                error: None,
-            },
-        );
-        Ok(id)
-    }
-
-    /// Whether a job runs for the folder `key` (see [`folder_key`]).
-    fn running_for(&self, key: &Path) -> bool {
-        self.jobs
-            .values()
-            .any(|job| job.state == JobState::Running && folder_key(&job.dir) == key)
-    }
-
-    fn progress(&mut self, id: &str, line: &str) {
-        let Some(job) = self.jobs.get_mut(id) else {
-            return;
-        };
-        if line.starts_with("warning:") {
-            job.warnings.push(line.to_string());
-        }
-        if job.lines.len() == JOB_LINES {
-            job.lines.pop_front();
-        }
-        job.lines.push_back(line.to_string());
-    }
-
-    fn finish(&mut self, id: &str, outcome: Result<String, String>) {
-        let Some(job) = self.jobs.get_mut(id) else {
-            return;
-        };
-        match outcome {
-            Ok(result) => {
-                job.state = JobState::Finished;
-                job.result = Some(result);
-            }
-            Err(error) => {
-                job.state = JobState::Failed;
-                job.error = Some(error);
-            }
-        }
-    }
-
-    fn status(&self, id: &str) -> Option<Value> {
-        let job = self.jobs.get(id)?;
-        Some(json!({
-            "job_id": id,
-            "dir": job.dir,
-            "state": job.state.name(),
-            "lines": job.lines,
-            "warnings": job.warnings,
-            "result": job.result,
-            "error": job.error,
-        }))
-    }
-}
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct FindPlace {
@@ -248,34 +127,9 @@ struct PreviewLayer {
 pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
-    jobs: Arc<Mutex<Jobs>>,
+    jobs: Arc<JobHub>,
     /// Area selection pages by [`folder_key`], one per folder.
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
-}
-
-/// The job table; a panic elsewhere never makes it unusable.
-fn lock(jobs: &Mutex<Jobs>) -> MutexGuard<'_, Jobs> {
-    jobs.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// Runs a job to its end and records the outcome; a panic is recorded as a failure, so the
-/// job never stays running.
-fn run_job(
-    jobs: &Mutex<Jobs>,
-    id: &str,
-    job: impl FnOnce(&mut dyn FnMut(&str)) -> Result<String, String>,
-) {
-    let mut progress = |line: &str| lock(jobs).progress(id, line);
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut progress)))
-        .unwrap_or_else(|panic| {
-            let message = panic
-                .downcast_ref::<&str>()
-                .map(|s| s.to_string())
-                .or_else(|| panic.downcast_ref::<String>().cloned())
-                .unwrap_or_default();
-            Err(format!("internal error: {message}"))
-        });
-    lock(jobs).finish(id, outcome);
 }
 
 /// A tool result with one text block.
@@ -313,18 +167,6 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
         ));
     }
     Ok(resolved)
-}
-
-/// One spelling per folder (`..`, symlinks and letter case resolved as far as the folder or its
-/// nearest existing parent exists), to find the page or job of a folder.
-fn folder_key(dir: &Path) -> PathBuf {
-    for ancestor in dir.ancestors() {
-        if let Ok(canonical) = std::fs::canonicalize(ancestor) {
-            let rest = dir.strip_prefix(ancestor).unwrap_or(Path::new(""));
-            return canonical.join(rest);
-        }
-    }
-    dir.to_path_buf()
 }
 
 /// The folder of an existing project.
@@ -535,32 +377,26 @@ impl FreemapperServer {
             Ok(options) => options,
             Err(e) => return failure(e),
         };
-        let id = match lock(&self.jobs).start(&dir) {
-            Ok(id) => id,
-            Err(e) => return failure(e),
-        };
-        let jobs = Arc::clone(&self.jobs);
         let cache = self.cache.clone();
-        let job_id = id.clone();
         let job_dir = dir.clone();
-        tokio::task::spawn_blocking(move || {
-            run_job(&jobs, &job_id, |progress| {
+        let started = self.jobs.start(
+            &dir,
+            Box::new(move |control, progress| {
                 pipeline::run(
                     &job_dir,
                     &options,
                     &cache,
                     &HttpFetcher::new(),
-                    &pipeline::RunControl::default(),
-                    &mut |event| {
-                        if let pipeline::Event::Line(line) = event {
-                            progress(line);
-                        }
-                    },
+                    control,
+                    progress,
                 )
-                .map(|report| report.summary)
                 .map_err(|e| describe(e.as_ref()))
-            });
-        });
+            }),
+        );
+        let id = match started {
+            Ok(id) => id,
+            Err(e) => return failure(e),
+        };
         text(json!({ "job_id": id, "dir": dir, "state": "running" }).to_string())
     }
 
@@ -572,8 +408,8 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<ProjectStatus>,
     ) -> Result<CallToolResult, McpError> {
-        match lock(&self.jobs).status(&req.job_id) {
-            Some(status) => text(status.to_string()),
+        match self.jobs.status(&req.job_id, 0) {
+            Some(status) => text(status.to_json().to_string()),
             None => failure(format!(
                 "no job {:?}; start_pipeline returns the job ids of this session",
                 req.job_id
@@ -646,11 +482,9 @@ impl FreemapperServer {
                     title: req.title,
                     from_agent: true,
                 };
-                let jobs = Arc::clone(&self.jobs);
-                let busy: Busy =
-                    Arc::new(move |dir: &Path| lock(&jobs).running_for(&folder_key(dir)));
+                let hub = Arc::clone(&self.jobs);
                 let started =
-                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(busy)).await;
+                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(hub)).await;
                 let selector = match started {
                     Ok(selector) => selector,
                     Err(e) => return failure(format!("cannot start the page: {e}")),
@@ -724,46 +558,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_one_pipeline_runs_at_a_time() {
-        // Jobs share the download cache, so a second one waits even for another project.
-        let mut jobs = Jobs::default();
-        let first = jobs.start(Path::new("/projects/school")).unwrap();
-        assert_eq!(first, "job-1");
-        for dir in ["/projects/school", "/projects/other"] {
-            let refused = jobs.start(Path::new(dir)).unwrap_err();
-            assert!(refused.contains("job-1"), "{refused}");
-        }
-        jobs.finish(&first, Err("offline".into()));
-        assert_eq!(jobs.start(Path::new("/projects/other")).unwrap(), "job-2");
-    }
-
-    #[test]
-    fn panicking_job_is_reported_as_failed() {
-        let jobs = Arc::new(Mutex::new(Jobs::default()));
-        let id = lock(&jobs).start(Path::new("/p")).unwrap();
-        run_job(&jobs, &id, |_| panic!("bad tile data"));
-        let status = lock(&jobs).status(&id).unwrap();
-        assert_eq!(status["state"], "failed");
-        assert!(
-            status["error"].as_str().unwrap().contains("bad tile data"),
-            "{status}"
-        );
-    }
-
-    #[test]
-    fn job_progress_and_outcome_are_recorded() {
-        let jobs = Arc::new(Mutex::new(Jobs::default()));
-        let id = lock(&jobs).start(Path::new("/p")).unwrap();
-        run_job(&jobs, &id, |progress| {
-            progress("warning: no nDSM for tile 33421-5821");
-            Ok("Wrote the map".into())
-        });
-        let status = lock(&jobs).status(&id).unwrap();
-        assert_eq!(status["state"], "finished");
-        assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
     fn project_dir_needs_a_project() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("school");
@@ -772,25 +566,6 @@ mod tests {
         std::fs::create_dir(&project).unwrap();
         std::fs::write(project.join("freemapper.toml"), "").unwrap();
         assert_eq!(project_dir(project.to_str().unwrap()).unwrap(), project);
-    }
-
-    #[test]
-    fn job_keeps_the_last_lines_and_the_warnings() {
-        let mut jobs = Jobs::default();
-        let id = jobs.start(Path::new("/p")).unwrap();
-        jobs.progress(&id, "warning: no nDSM for tile 33421-5821");
-        for i in 0..60 {
-            jobs.progress(&id, &format!("line {i}"));
-        }
-        let status = jobs.status(&id).unwrap();
-        assert_eq!(status["state"], "running");
-        assert_eq!(status["lines"].as_array().unwrap().len(), JOB_LINES);
-        assert_eq!(status["lines"][0], "line 10");
-        assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
-        jobs.finish(&id, Ok("Wrote the map".into()));
-        let status = jobs.status(&id).unwrap();
-        assert_eq!(status["state"], "finished");
-        assert_eq!(status["result"], "Wrote the map");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! `freemapper` command line interface.
 
+mod jobs;
 mod mcp;
 mod nominatim;
 mod pipeline;
@@ -509,8 +510,14 @@ fn main() -> anyhow::Result<()> {
                 from_agent: false,
             };
             tokio::runtime::Runtime::new()?.block_on(async {
-                let selector =
-                    select::Selector::start(dir.clone(), defaults, cache, port, None).await?;
+                let selector = select::Selector::start(
+                    dir.clone(),
+                    defaults,
+                    cache,
+                    port,
+                    Some(std::sync::Arc::new(jobs::JobHub::default())),
+                )
+                .await?;
                 println!("{}", selector.url);
                 std::io::Write::flush(&mut std::io::stdout())?;
                 eprintln!(
