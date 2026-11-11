@@ -181,3 +181,94 @@ footer {
     border-top: 1px solid #ccc;
   }
 }
+
+/* --- Run panel ---------------------------------------------------------------------------- */
+
+label.option {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+label.option > span {
+  width: auto;
+}
+
+label.option.select {
+  flex-wrap: wrap;
+}
+
+.option-help {
+  margin: 0 0 4px 22px;
+}
+
+.warning-note {
+  border-left: 3px solid #b00020;
+  padding-left: 8px;
+}
+
+.error-text {
+  color: #b00020;
+}
+
+#run-progress progress {
+  width: 100%;
+}
+
+#run-log {
+  max-height: 11em;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 6px;
+  background: #f0f0f0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#run-warnings li {
+  color: #8a5a00;
+}
+
+#run-result h3,
+#run-warnings h3 {
+  font-size: 14px;
+  margin: 12px 0 4px;
+}
+
+#run-result h3:focus {
+  outline: 2px solid #0b6bcb;
+  outline-offset: 2px;
+}
+
+#run-files {
+  padding-left: 18px;
+  word-break: break-word;
+}
+
+#run-dir {
+  word-break: break-all;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+#run-log:focus-visible {
+  outline: 2px solid #0b6bcb;
+  outline-offset: 2px;
+}
+
+dialog {
+  max-width: 26em;
+  border: 1px solid #888;
+  border-radius: 6px;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+dialog h2 {
+  margin-top: 0;
+}

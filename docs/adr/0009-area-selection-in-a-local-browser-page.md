@@ -1,7 +1,7 @@
 # 0009. Area selection in a local browser page
 
 Date: 2026-11-06
-Status: Accepted
+Status: Accepted (amended by [0090](0090-create-the-map-from-the-browser-page.md))
 
 ## Context
 

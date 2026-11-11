@@ -36,7 +36,7 @@ use tokio::sync::Notify;
 
 #[derive(RustEmbed)]
 #[folder = "web/"]
-struct Assets;
+pub(crate) struct Assets;
 
 /// Hosts can only be reached from this machine; the page tells the user so.
 const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \

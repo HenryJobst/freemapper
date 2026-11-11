@@ -21,8 +21,9 @@ in OOM oder OCAD.
   - mit `--pdf` die druckfertige Karte als PDF, mit `--pdf-candidates` zusätzlich die Trainingskarte mit allen Kandidaten, siehe
     [Karte als PDF](#karte-als-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
-- Bedienung per Kommandozeile, über eine Seite im Browser zum Wählen des Kartengebiets (siehe
-  [Gebiet im Browser wählen](#gebiet-im-browser-wählen)) oder über KI-Agenten (MCP-Server).
+- Bedienung per Kommandozeile, über eine Seite im Browser, auf der man das Kartengebiet wählt und die Karte
+  mit allen Optionen gleich erzeugt (siehe [Gebiet im Browser wählen](#gebiet-im-browser-wählen)), oder über
+  KI-Agenten (MCP-Server).
 - Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz (Open Data von LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN und LVermGeo RP);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
@@ -117,9 +118,11 @@ freemapper select mein-schulhof --kind schoolyard
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
-geschätzten Download. „Speichern“ legt das Projekt an, danach erzeugt
-`freemapper run mein-schulhof --pdf --ocad` die Karten. Die Seite läuft nur auf diesem Rechner
-(127.0.0.1). Mehr im [Handbuch, Kapitel 6](docs/manual/de.md#6-das-kartengebiet-im-browser-wählen).
+geschätzten Download. „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
+Optionen OCAD, PDF, Trainings-PDF, Maßstabsleiste, Quellenangabe und „nur Zwischenspeicher“, zeigt den
+Fortschritt, lässt sich abbrechen und öffnet am Ende den Ordner. Ein Terminal braucht man dafür nicht. Die
+Seite läuft nur auf diesem Rechner (127.0.0.1). Mehr im
+[Handbuch, Kapitel 6](docs/manual/de.md#karte-im-browser-erzeugen).
 
 ## Installation
 

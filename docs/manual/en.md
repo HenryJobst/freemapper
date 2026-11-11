@@ -185,9 +185,72 @@ contributors.*
   - the free disk space and how much of it the download needs. In the list "What is downloaded",
     anything that does not fit is marked "does not fit on the disk". Above it the page shows the
     messages from chapter 14 and whether freemapper leaves the part out or stops.
-- Set **map kind, scale and title**, then click *Save* and *Done*.
+- Set **map kind, scale and title**, then click *Save*. After that you can create the map right on the
+  page (next section), or close it with *Done* and start `freemapper run` in a terminal.
 
 The page runs only on your computer. With its buffer, an area may be at most 4 km × 4 km.
+
+### Create the map in the browser
+
+Below the settings sits the block "Create the map". It needs no terminal.
+
+![The options below the settings](images/run-options.webp)
+
+*The options with the defaults of the example (PDF, cache only, source lines "freemapper only"). The
+screenshot shows the German page.*
+
+1. **Choose the area** as above. The button "Create map" stays off while there is no area, the preview is
+   still computing, the area is too large or outside the supported states, or the disk space is not enough
+   (unless "Cache only" is ticked). The line above the button names the reason.
+2. **Set the options.** They match the switches of `freemapper run`:
+
+   | Option on the page | Terminal switch |
+   |---|---|
+   | Write an OCAD starter project | `--ocad` |
+   | Printable PDF | `--pdf` |
+   | Training PDF with every candidate | `--pdf-candidates` |
+   | Scale bar on the PDFs | `--pdf-scale-bar` |
+   | Source lines on the PDFs: automatic, full, freemapper only | `--pdf-sources auto`, `full`, `credit-only` |
+   | Cache only, no network | `--offline` |
+   | Replace the existing map | `--force` |
+
+   The scale bar and the source lines only apply when a PDF is made; without a PDF they are greyed out.
+   "freemapper only" names only freemapper on the PDFs. The data licences (ODbL, dl-de/by-2-0) require
+   attribution when you pass the map on; then you name the sources yourself. The page shows this hint as soon
+   as you choose it. Map kind, scale and title are set further up; for an existing project they are
+   read-only (they live in `freemapper.toml`).
+3. **Press "Create map".** If the area changed since the last save, the page saves it first. "Replace the
+   existing map" appears only when a map exists, and is never ticked in advance. When it is ticked, a dialog
+   asks first; "Cancel" has the focus there. The old map stays in the project folder as `.omap.bak`.
+4. **Progress:** The page shows "Step 2 of 4: Computing templates", a bar without a percentage (freemapper
+   does not know the duration), the last eight log lines and the warnings, for example about a second state
+   in the area. The warnings stay after the run. While the run goes on, the area, the settings, "Save" and
+   "Done" are locked. If you reload the page, it shows the running run again.
+
+   ![Progress of a run](images/run-progress.webp)
+
+   *Progress in the middle of a run (a staged server answer for the picture).*
+5. **Cancel:** "Cancel" stops the run at the next safe point. Whatever is written or downloaded stays whole (no
+   half files); a new run carries on from there.
+6. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
+   size and names the project folder. "Open folder" opens it in the file manager; if that fails, the path is
+   shown as text. If a map existed and "Replace the existing map" was off, it stays as it is, and the page says
+   so. On an error the program's message is shown; "Create again" starts a new run.
+
+**One folder, one run.** While a run goes on, the project folder holds the file `.freemapper-run.lock`. A
+second run, from the terminal, from an AI assistant or from a second browser window, stops with the message
+"another freemapper run is using this folder (since …, started by …)". Wait until the first one is done, or
+cancel it. After a crash the lock counts as abandoned after 60 seconds. If a run of another project is going
+on, the new one does not start, because the projects share the cache.
+
+**Defaults** are set when the page starts: `freemapper select my-schoolyard --pdf --ocad` ticks the two
+options already. The switches are `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+`--pdf-sources auto|full|credit-only` and `--offline`; the AI assistant can pass the same fields to
+`open_area_selector`. "Replace the existing map" has no default.
+
+The page speaks German or English, by the language of the browser. It calls no address outside your computer,
+apart from the background map tiles (through the local server) and the orthophoto services when you switch
+them on.
 
 ## 7. The result
 
