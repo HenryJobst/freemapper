@@ -338,7 +338,7 @@ pub fn size(bytes: u64) -> String {
 }
 
 /// [`size`] rounded down: what is free must not read as more than it is.
-fn size_down(bytes: u64) -> String {
+pub fn size_down(bytes: u64) -> String {
     let mb = bytes >> 20;
     if mb < 1024 {
         format!("{mb} MB")

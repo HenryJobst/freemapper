@@ -22,6 +22,7 @@ struct Selector {
 impl Selector {
     fn start(dir: &Path, cache: &Path, extra: &[&str]) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .env("FREEMAPPER_LANG", "en")
             .arg("select")
             .arg(dir)
             .args(["--no-browser", "--cache-dir", cache.to_str().unwrap()])
@@ -244,6 +245,7 @@ fn save_changes_an_existing_area() {
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
     let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(&project)
         .args(["--geojson", FIXTURE, "--title", "Schule"])
@@ -422,6 +424,7 @@ fn save_into_a_project_with_a_map_says_so() {
         vec!["export", project.to_str().unwrap()],
     ] {
         let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .env("FREEMAPPER_LANG", "en")
             .args(&args)
             .stdout(Stdio::null())
             .status()
@@ -447,6 +450,7 @@ fn busy_port_names_the_port() {
     let (address, _) = selector.address_and_token();
     let port = address.rsplit(':').next().unwrap().to_string();
     let output = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        .env("FREEMAPPER_LANG", "en")
         .arg("select")
         .arg(dir.path().join("b"))
         .args([

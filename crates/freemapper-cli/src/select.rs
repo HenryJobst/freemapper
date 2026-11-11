@@ -268,7 +268,7 @@ pub(crate) fn saved_project(state: &AppState) -> Result<Option<ProjectFile>, Str
     }
     ProjectFile::load(&state.dir)
         .map(Some)
-        .map_err(|e| e.to_string())
+        .map_err(|e| crate::pipeline::describe(&e))
 }
 
 /// The options of the run panel as the page starts them.
@@ -330,10 +330,11 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
 
 /// The map area in a request body: `area` (GeoJSON) and optionally `source_id` (`way/…`).
 fn area_of(body: &Value) -> Result<MapArea, String> {
-    let mut area = MapArea::from_geojson(&body["area"].to_string()).map_err(|e| e.to_string())?;
-    area.validate().map_err(|e| e.to_string())?;
+    let mut area = MapArea::from_geojson(&body["area"].to_string())
+        .map_err(|e| crate::pipeline::describe(&e))?;
+    area.validate().map_err(|e| crate::pipeline::describe(&e))?;
     if let Some(source_id) = body["source_id"].as_str() {
-        lookup_url(source_id).map_err(|e| e.to_string())?;
+        lookup_url(source_id).map_err(|e| crate::pipeline::describe(&e))?;
         area.source_id = Some(source_id.to_string());
     }
     Ok(area)
@@ -459,7 +460,7 @@ async fn places(Query(query): Query<PlacesQuery>) -> Response {
                 .collect::<Vec<_>>(),
         )
         .into_response(),
-        Ok(Err(e)) => bad_request(e.to_string()),
+        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
         Err(e) => bad_request(format!("internal error: {e}")),
     }
 }
@@ -479,7 +480,7 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
         Ok(Ok(area)) => {
             Json(json!({ "area": area.to_geojson_value(), "source_id": osm_id })).into_response()
         }
-        Ok(Err(e)) => bad_request(e.to_string()),
+        Ok(Err(e)) => bad_request(crate::pipeline::describe(&e)),
         Err(e) => bad_request(format!("internal error: {e}")),
     }
 }
@@ -524,10 +525,15 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
                 .map(str::to_string)
                 .or(state.defaults.title.clone());
             let today = chrono::Local::now().date_naive();
-            init_project(dir, &area, kind, scale, today, title).map_err(|e| e.to_string())?;
+            init_project(dir, &area, kind, scale, today, title)
+                .map_err(|e| crate::pipeline::describe(&e))?;
         } else {
-            let before = ProjectFile::load(dir).map_err(|e| e.to_string())?.crs();
-            let after = set_map_area(dir, &area).map_err(|e| e.to_string())?.crs();
+            let before = ProjectFile::load(dir)
+                .map_err(|e| crate::pipeline::describe(&e))?
+                .crs();
+            let after = set_map_area(dir, &area)
+                .map_err(|e| crate::pipeline::describe(&e))?
+                .crs();
             zone_changed = before != after;
         }
         Ok(json!({

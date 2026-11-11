@@ -20,7 +20,13 @@ struct Session {
 
 impl Session {
     fn start(cache: &std::path::Path) -> Self {
+        Self::start_in(cache, "en")
+    }
+
+    /// A server whose program language is `lang`.
+    fn start_in(cache: &std::path::Path, lang: &str) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .env("FREEMAPPER_LANG", lang)
             .args(["mcp", "--cache-dir", cache.to_str().unwrap()])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -435,4 +441,20 @@ fn mcp_pipeline_refuses_a_folder_another_run_holds() {
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
     assert!(!lock.exists(), "released when the job ended");
+}
+
+#[test]
+fn mcp_errors_follow_the_program_language() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start_in(cache.path(), "de");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("a"), "geojson": FIXTURE, "kind": "sprint", "scale": 3000 }),
+    );
+    assert!(error);
+    assert!(
+        text.contains("Der Maßstab 1:3000 ist für Sprintkarten nicht erlaubt"),
+        "{text}"
+    );
 }
