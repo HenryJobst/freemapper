@@ -19,6 +19,10 @@ argument, `help-arg-<argument>` for one that reads the same in every command. Th
 comment in `src/main.rs`; `cargo test -p freemapper-cli print_the_english_help -- --ignored --nocapture` prints
 the entries for new options.
 
+The MCP server's texts have ids that start with `mcp-`: `mcp-tool-<tool>` and `mcp-param-<tool>-<parameter>`
+for the descriptions, whose English text equals the one in `src/mcp.rs`
+(`cargo test -p freemapper-cli print_the_english_descriptions -- --ignored --nocapture` prints them).
+
 Progress lines and warnings of the engine are not in this folder. Their texts live beside the engine, in
 `crates/freemapper/i18n/<language>/notes.ftl`, with ids that start with `progress-`, `warning-` and `word-`
 (`crates/freemapper/src/note.rs`); `cargo test -p freemapper` checks them the same way.

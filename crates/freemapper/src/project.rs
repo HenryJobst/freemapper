@@ -219,10 +219,8 @@ impl MapKind {
     }
 
     /// A note for an allowed scale that has a catch, shown after `init`.
-    pub fn scale_note(self, scale: u32) -> Option<&'static str> {
-        (self == Self::Sprint && scale == 5000).then_some(
-            "note: 1:5000 is not in the sprint norm; freemapper-print warns about it and the symbols stay at 100 %",
-        )
+    pub fn scale_note(self, scale: u32) -> Option<Note> {
+        (self == Self::Sprint && scale == 5000).then(|| note!("note-scale-outside-norm"))
     }
 
     pub fn default_buffer_m(self) -> f64 {

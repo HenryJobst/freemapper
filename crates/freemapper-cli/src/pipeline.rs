@@ -2,6 +2,7 @@
 //! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs. One
 //! function, so the three callers cannot drift apart (ADR 0090).
 
+use crate::text::{n, text, v};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -52,8 +53,9 @@ pub fn parse(request: RunRequest) -> Result<RunOptions, String> {
         Some("full") => PdfSources::Full,
         Some("credit-only") => PdfSources::CreditOnly,
         Some(other) => {
-            return Err(format!(
-                "pdf_sources must be auto, full or credit-only, not {other:?}"
+            return Err(text(
+                "cli-pdf-sources-invalid",
+                &[("value", v(format!("{other:?}")))],
             ));
         }
     };
@@ -346,17 +348,15 @@ pub fn run(
                     (progress.borrow_mut())(Event::Written(Written::Ocad(outcome)));
                     summary.push_str(&ocad_summary(outcome));
                 }
-                Err(e) => summary.push_str(&format!("\nOCAD export failed: {e}")),
+                Err(e) => summary.push_str(&failed("cli-summary-ocad-failed", e)),
             }
             ocad = Some(result);
         }
         if (options.pdf || options.pdf_candidates)
             && options.pdf_sources.leaves_out_required_credits()
         {
-            summary.push_str(
-                "\nPDF without source credits: ODbL and dl-de/by-2-0 ask you to name the \
-                 sources when you pass the map on; see ATTRIBUTION.txt",
-            );
+            summary.push('\n');
+            summary.push_str(&text("cli-summary-pdf-without-credits", &[]));
         }
         if options.pdf {
             if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
@@ -373,12 +373,13 @@ pub fn run(
             match &result {
                 Ok(path) => {
                     (progress.borrow_mut())(Event::Written(Written::Pdf(path)));
-                    summary.push_str(&format!(
-                        "\nWrote the map {} (without candidates)",
-                        path.display()
+                    summary.push('\n');
+                    summary.push_str(&text(
+                        "cli-summary-wrote-pdf",
+                        &[("path", v(path.display()))],
                     ));
                 }
-                Err(e) => summary.push_str(&format!("\nPDF export failed: {e}")),
+                Err(e) => summary.push_str(&failed("cli-summary-pdf-failed", e)),
             }
             pdf = Some(result);
         }
@@ -397,12 +398,13 @@ pub fn run(
             match &result {
                 Ok(path) => {
                     (progress.borrow_mut())(Event::Written(Written::PdfCandidates(path)));
-                    summary.push_str(&format!(
-                        "\nWrote the training map {} (every candidate drawn as a map object)",
-                        path.display()
+                    summary.push('\n');
+                    summary.push_str(&text(
+                        "cli-summary-wrote-pdf-candidates",
+                        &[("path", v(path.display()))],
                     ));
                 }
-                Err(e) => summary.push_str(&format!("\nCandidates PDF export failed: {e}")),
+                Err(e) => summary.push_str(&failed("cli-summary-pdf-candidates-failed", e)),
             }
             pdf_candidates = Some(result);
         }
@@ -449,76 +451,65 @@ fn result_files(
 fn map_summary(outcome: &RunOutcome) -> String {
     let mut lines = Vec::new();
     match &outcome.map {
-        MapOutcome::Written(map) => lines.push(format!("Wrote the map {}", map.display())),
+        MapOutcome::Written(map) => {
+            lines.push(text("cli-summary-wrote-map", &[("path", v(map.display()))]));
+        }
         MapOutcome::Kept {
             map,
             references_images,
             missing_buildings,
             missing_canopies,
         } => {
-            lines.push(format!(
-                "Kept the existing map {} (it may contain the mapper's work)",
-                map.display()
-            ));
+            lines.push(text("cli-summary-kept-map", &[("path", v(map.display()))]));
             if !references_images {
-                lines.push(
-                    "The map does not reference the image templates yet. Start the pipeline \
-                     with force to replace it and keep the old one as .omap.bak."
-                        .to_string(),
-                );
+                lines.push(text("cli-summary-map-lacks-templates", &[]));
             }
             if *missing_buildings {
-                lines.push(
-                    "The map has no ALKIS buildings yet. Start the pipeline with force to add \
-                     them; it replaces the map and keeps the old one as .omap.bak."
-                        .to_string(),
-                );
+                lines.push(text("cli-summary-map-lacks-buildings", &[]));
             }
             if *missing_canopies {
-                lines.push(
-                    "The map lacks the ALKIS canopies and carports (522) that are now map \
-                     objects. Start the pipeline with force to add them; it replaces the map and \
-                     keeps the old one as .omap.bak."
-                        .to_string(),
-                );
+                lines.push(text("cli-summary-map-lacks-canopies", &[]));
             }
         }
     }
     for template in &outcome.templates {
-        lines.push(format!("Wrote {}", template.display()));
+        lines.push(text("cli-wrote", &[("path", v(template.display()))]));
     }
     lines.join("\n")
 }
 
+/// The summary line of a failed export step.
+fn failed(id: &str, error: &str) -> String {
+    format!("\n{}", text(id, &[("error", v(error))]))
+}
+
 /// What the OCAD export did, in words for the user.
 fn ocad_summary(outcome: &OcadOutcome) -> String {
-    let mut text = if outcome.kept {
-        format!(
-            "\nKept the existing OCAD map {} (it may contain the mapper's work; force replaces it)",
-            outcome.map.display()
-        )
+    let map = ("path", v(outcome.map.display()));
+    let mut lines = vec![if outcome.kept {
+        text("cli-summary-kept-ocad", &[map])
     } else {
-        format!(
-            "\nWrote the OCAD map {} ({} objects)",
-            outcome.map.display(),
-            outcome.objects
+        text(
+            "cli-summary-wrote-ocad",
+            &[map, ("count", n(outcome.objects))],
         )
-    };
-    for warning in &outcome.warnings {
-        text.push_str(&format!("\n{warning}"));
-    }
+    }];
+    lines.extend(outcome.warnings.iter().cloned());
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
-        text.push_str(&format!(
-            "\nLeft out of the OCAD map: {} objects and {} degenerate parts",
-            outcome.skipped, outcome.dropped_parts
+        lines.push(text(
+            "cli-summary-ocad-left-out",
+            &[
+                ("skipped", n(outcome.skipped)),
+                ("dropped", n(outcome.dropped_parts)),
+            ],
         ));
     }
-    text.push_str(&format!(
-        "\nWrote {}\nIn OCAD, choose Symbol > Load Colors and Symbols From… and pick the \
-         official ISSprOM 2019 or school symbol set; it replaces the placeholder symbols by number.",
-        outcome.candidates.display()
+    lines.push(text(
+        "cli-wrote",
+        &[("path", v(outcome.candidates.display()))],
     ));
-    text
+    lines.push(text("cli-summary-ocad-symbols", &[]));
+    lines.iter().map(|line| format!("\n{line}")).collect()
 }
 
 #[cfg(test)]

@@ -226,3 +226,7 @@ warning-nrw-list-rows-unusable = { $count } rows of the { $model } tile list hav
 warning-nrw-list-rows-undated = { $count } rows of the { $model } tile list have no readable date
 warning-nrw-list-older = the server's tile list of the { $model } dates from { $server }, older than the kept one from { $kept }; used the kept one
 warning-nrw-list-no-date = the tile list gives no date for the { $model } tile { $tile }
+
+## After `init`
+
+note-scale-outside-norm = note: 1:5000 is not in the sprint norm; freemapper-print warns about it and the symbols stay at 100 %

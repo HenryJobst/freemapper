@@ -243,3 +243,98 @@ help-select-pdf-candidates = Auf der Seite ist die Trainings-PDF (jeder Kandidat
 help-select-pdf-scale-bar = Auf der Seite ist die Maßstabsleiste auf den PDFs vorgewählt
 help-select-pdf-sources = Auf der Seite ist diese Wahl der Quellenzeilen auf den PDFs vorgewählt, wie bei `run`
 help-mcp = Die Werkzeuge einem KI-Agenten über MCP anbieten (stdin/stdout)
+
+## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
+
+cli-internal-error = Interner Fehler: { $message }
+cli-pdf-sources-invalid = pdf_sources muss auto, full oder credit-only sein, nicht { $value }
+cli-summary-wrote-map = Karte { $path } geschrieben
+cli-summary-kept-map = Die vorhandene Karte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten)
+cli-summary-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Starten Sie die Pipeline mit force, um sie zu ersetzen; die alte bleibt als .omap.bak erhalten.
+cli-summary-map-lacks-buildings = Die Karte hat noch keine ALKIS-Gebäude. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
+cli-summary-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die jetzt Kartenobjekte sind. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
+cli-summary-wrote-ocad = OCAD-Karte { $path } geschrieben ({ $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    })
+cli-summary-kept-ocad = Die vorhandene OCAD-Karte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten; force ersetzt sie)
+cli-summary-ocad-left-out = In der OCAD-Karte fehlen: { $skipped ->
+        [one] 1 Objekt
+       *[other] { $skipped } Objekte
+    } und { $dropped ->
+        [one] 1 entarteter Teil
+       *[other] { $dropped } entartete Teile
+    }
+cli-summary-ocad-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden von … und nehmen Sie den offiziellen Symbolsatz ISSprOM 2019 oder den Schulsymbolsatz; er ersetzt die Platzhaltersymbole nach ihrer Nummer.
+cli-summary-ocad-failed = OCAD-Export fehlgeschlagen: { $error }
+cli-summary-pdf-without-credits = PDF ohne Quellenangaben: ODbL und dl-de/by-2-0 verlangen, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben; siehe ATTRIBUTION.txt
+cli-summary-wrote-pdf = Karte { $path } geschrieben (ohne Kandidaten)
+cli-summary-pdf-failed = PDF-Export fehlgeschlagen: { $error }
+cli-summary-wrote-pdf-candidates = Trainingskarte { $path } geschrieben (jeder Kandidat als Kartenobjekt gezeichnet)
+cli-summary-pdf-candidates-failed = Export der Trainings-PDF fehlgeschlagen: { $error }
+
+## Der MCP-Server. Tool-, Parameter- und Feldnamen bleiben Englisch.
+
+mcp-error-no-home = Dieses System hat keinen Home-Ordner; geben Sie einen absoluten Pfad an
+mcp-error-relative-path = { $path } ist ein relativer Pfad; geben Sie einen absoluten Pfad an oder einen, der mit ~ beginnt
+mcp-error-home-folder = { $path } ist der Home-Ordner selbst; nehmen Sie einen Ordner darin, z. B. ~/maps/school
+mcp-error-no-project = In { $path } liegt kein freemapper-Projekt; rufen Sie zuerst create_project auf
+mcp-error-unknown-kind = Unbekannte Kartenart { $kind }; möglich sind "schoolyard" und "sprint"
+mcp-error-reading = { $path } lässt sich nicht lesen: { $error }
+mcp-error-one-area-source = Geben Sie genau eines an: osm_id (aus find_place) oder geojson
+mcp-error-page-open = Die Seite zur Gebietsauswahl für dieses Projekt ist noch offen; bitten Sie die Nutzerin oder den Nutzer, das Gebiet zu speichern und auf der Seite „Fertig“ zu drücken, und starten Sie dann die Pipeline
+mcp-error-no-job = Keinen Job { $job } gefunden; start_pipeline gibt die Job-IDs dieser Sitzung zurück
+mcp-error-job-running = { $job } läuft noch für { $path }; es läuft immer nur eine Pipeline, weil sich die Projekte den Zwischenspeicher teilen. Starten Sie diese, wenn project_status finished oder failed meldet
+mcp-error-page-start = Die Seite lässt sich nicht starten: { $error }
+mcp-created-project = Projekt { $path } für { $area } angelegt ({ $kind ->
+        [schoolyard] Schulhof
+       *[sprint] Sprint
+    }, 1:{ $scale }). Als Nächstes: estimate_download, dann start_pipeline.
+mcp-created-project-given-area = Projekt { $path } für das angegebene Gebiet angelegt ({ $kind ->
+        [schoolyard] Schulhof
+       *[sprint] Sprint
+    }, 1:{ $scale }). Als Nächstes: estimate_download, dann start_pipeline.
+mcp-page-already-open = Die Seite für diesen Ordner ist schon offen; sie behält die Einstellungen, mit denen sie geöffnet wurde.
+mcp-page-next = Bitten Sie die Nutzerin oder den Nutzer, das Gebiet auf der Seite zu wählen und dann „Speichern“ und „Fertig“ zu drücken.
+mcp-preview-of = Vorschau von { $layer }
+mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000) aus amtlichen Geodaten von Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline.
+mcp-tool-create-project = Legt einen Projektordner für ein Kartengebiet an. Geben Sie osm_id (aus find_place) oder eine GeoJSON-Datei an. kind ist schoolyard (1:1000, Standard) oder sprint (1:4000).
+mcp-param-create-project-dir = Neuer Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-param-create-project-geojson = Statt osm_id: eine GeoJSON-Datei mit dem Polygon des Kartengebiets (EPSG:4326).
+mcp-param-create-project-kind = "schoolyard" (Standard, 1:1000) oder "sprint" (1:4000).
+mcp-param-create-project-osm-id = OSM-Objekt des Kartengebiets aus find_place, z. B. "way/992423119".
+mcp-param-create-project-part = Mit osm_id: welcher Teil einer Fläche aus mehreren getrennten Teilen verwendet wird (1 ist der größte).
+mcp-param-create-project-scale = Maßstabszahl: Schulhof 1000 (Standard); Sprint 4000 (Standard) oder 5000. Andere Werte werden abgelehnt; für 1:3000 in 4000 zeichnen, freemapper-print vergrößert beim Drucken.
+mcp-param-create-project-title = Kartentitel für die Randangaben (Standard: der Ordnername).
+mcp-tool-estimate-download = Was start_pipeline für ein Projekt laden wird: die Kacheln, jeder Download mit seiner Größe in MB, ob er im Zwischenspeicher liegt und ob er auf den Datenträger passt, die noch zu ladenden MB und unter disk der freie Platz der Datenträger von Zwischenspeicher und Projekt mit Meldungen zu dem, was nicht passt (sagen Sie es der Nutzerin oder dem Nutzer).
+mcp-param-estimate-download-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-tool-find-place = Sucht eine Schule, einen Park oder einen anderen Ort nach Namen (OpenStreetMap Nominatim). Liefert bis zu 5 Treffer, Flächen zuerst; nur Treffer mit has_area können ein Kartengebiet sein. Eine leere Liste heißt, dass nichts gefunden wurde.
+mcp-param-find-place-query = Name der Schule oder des Ortes, z. B. "Clara-Zetkin-Schule Strausberg".
+mcp-tool-list-layers = Die Ebenen eines Projekts: die Karte, die Kandidaten und die Rastervorlagen, jede mit ihrer Datei, ob es sie schon gibt und welcher Schritt sie erzeugt.
+mcp-param-list-layers-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-tool-open-area-selector = Öffnet eine Seite im Browser, auf der die Nutzerin oder der Nutzer das Kartengebiet zeichnet (Rechteck oder Polygon) oder einen Ort wählt, die Kacheln und die Downloadgröße sieht und speichert; das Speichern legt den Projektordner an oder ändert sein Gebiet. Liefert die URL für die Nutzerin oder den Nutzer. Die Seite läuft, bis „Fertig“ gedrückt wird; ein weiterer Aufruf für denselben Ordner liefert dieselbe URL.
+mcp-param-open-area-selector-dir = Projektordner (absoluter Pfad oder mit ~ beginnend); wird beim Speichern angelegt.
+mcp-param-open-area-selector-kind = Kartenart eines neuen Projekts: "schoolyard" (Standard, 1:1000) oder "sprint" (1:4000).
+mcp-param-open-area-selector-ocad = Im Lauf-Block ist das OCAD-Startprojekt vorgewählt. Standard false.
+mcp-param-open-area-selector-offline = Im Lauf-Block ist „Nur Zwischenspeicher“ vorgewählt. Standard false.
+mcp-param-open-area-selector-open-browser = Die Seite auch im Standardbrowser dieses Rechners öffnen. Standard true.
+mcp-param-open-area-selector-pdf = Im Lauf-Block ist die druckfertige PDF vorgewählt. Standard false.
+mcp-param-open-area-selector-pdf-candidates = Im Lauf-Block ist die Trainings-PDF (jeder Kandidat) vorgewählt. Standard false.
+mcp-param-open-area-selector-pdf-scale-bar = Im Lauf-Block ist die Maßstabsleiste auf den PDFs vorgewählt. Standard false.
+mcp-param-open-area-selector-pdf-sources = Quellenzeilen auf den PDFs, mit denen der Block startet: "auto" (Standard), "full" oder "credit-only", wie bei start_pipeline.
+mcp-param-open-area-selector-scale = Maßstabszahl eines neuen Projekts: Schulhof 1000 (Standard); Sprint 4000 (Standard) oder 5000. Andere Werte werden abgelehnt.
+mcp-param-open-area-selector-title = Kartentitel eines neuen Projekts.
+mcp-tool-preview-layer = Eine PNG-Vorschau (höchstens 800 px) einer Rastervorlage: orthophoto, hillshade, slope oder ndsm.
+mcp-param-preview-layer-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-param-preview-layer-layer = "orthophoto", "hillshade", "slope" oder "ndsm".
+mcp-tool-project-status = Zustand eines Pipeline-Jobs: running, finished oder failed, die letzten Fortschrittszeilen, die Warnungen und das Ergebnis oder der Fehler.
+mcp-param-project-status-job-id = Job-ID aus start_pipeline, z. B. "job-1".
+mcp-tool-start-pipeline = Lädt die Daten, berechnet die Kartenvorlagen und schreibt das Startprojekt (fetch, derive, export). Läuft im Hintergrund und gibt eine job_id zurück; fragen Sie project_status ab. Es läuft immer nur eine Pipeline. Eine vorhandene Karte bleibt, außer force ist true.
+mcp-param-start-pipeline-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-param-start-pipeline-force = Eine vorhandene Kartendatei ersetzen und die alte als .omap.bak behalten. Standard false.
+mcp-param-start-pipeline-ocad = Zusätzlich einen OCAD-Startpunkt in den Ordner ocad/ schreiben (Format OCAD 12, für alle, die in OCAD arbeiten). Standard false.
+mcp-param-start-pipeline-offline = Nur den Zwischenspeicher verwenden, ohne Netzzugriff. Standard false.
+mcp-param-start-pipeline-pdf = Zusätzlich <name>.pdf schreiben, die druckfertige Karte (nur die Kartenobjekte, keine Kandidaten). Standard false.
+mcp-param-start-pipeline-pdf-candidates = Zusätzlich <name>-candidates.pdf schreiben, die Trainingskarte (die Karte und jeder Kandidat als Kartenobjekt; im Gelände prüfen). Standard false.
+mcp-param-start-pipeline-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen. Standard false (deutsche Karten haben meist keine; die Maßstabszahl bleibt im Titelblock).
+mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Standard; die ganze Liste, gekürzt nur, wenn sie mehr als 5 Zeilen braucht), "full" (nie gekürzt) oder "credit-only" (nur die freemapper-Zeile; ODbL und dl-de/by-2-0 verlangen dann, die Quellen zu nennen, wenn die Karte weitergegeben wird). ATTRIBUTION.txt nennt immer jede Quelle.

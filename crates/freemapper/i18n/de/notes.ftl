@@ -273,3 +273,7 @@ warning-nrw-list-rows-undated = { $model }: { $count ->
     } kein lesbares Datum
 warning-nrw-list-older = { $model }: Die Kachelliste des Servers ist vom { $server } und damit älter als die aufbewahrte vom { $kept }; die aufbewahrte wurde verwendet
 warning-nrw-list-no-date = Die Kachelliste nennt kein Datum für die Kachel { $tile }, { $model }
+
+## Nach `init`
+
+note-scale-outside-norm = Hinweis: 1:5000 steht nicht in der Sprintnorm; freemapper-print warnt davor, und die Symbole bleiben bei 100 %

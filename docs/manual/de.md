@@ -802,7 +802,7 @@ Sprache des Programms. Englisch bleibt in einer deutschen Fehlermeldung, was ein
 ein Parser dazu sagt, und einige Einzelheiten, etwa bei der Ortssuche.
 
 Auch die Fortschrittszeilen und die Warnungen kommen in der Sprache des Programms; eine Warnung beginnt mit
-`Warnung:` (englisch `warning:`). Auch die Hilfe (`--help`, `freemapper help <Befehl>`) und die Meldungen zu falschen Aufrufen sind übersetzt; nur die Platzhalter der Aufrufzeile wie `[OPTIONS]` und `<DIR>` bleiben. Die Gebietsseite nimmt die Sprache
+`Warnung:` (englisch `warning:`). Auch die Hilfe (`--help`, `freemapper help <Befehl>`) und die Meldungen zu falschen Aufrufen sind übersetzt; nur die Platzhalter der Aufrufzeile wie `[OPTIONS]` und `<DIR>` bleiben. Der MCP-Server beschreibt dem Assistenten seine Werkzeuge in der Sprache des Programms und antwortet in ihr; mit `--lang en` hinter `mcp` bleibt er englisch. Die Gebietsseite nimmt die Sprache
 des Programms, wenn `--lang`, `FREEMAPPER_LANG` oder das System eine nennt; sonst richtet sie sich nach der
 Sprache des Browsers. Die Tabelle nennt die Meldungen im englischen Wortlaut; mit `--lang en` zeigt freemapper
 sie so. Die wichtigsten Meldungen:

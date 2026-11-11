@@ -92,7 +92,10 @@ args = ["mcp"]
 ```
 
 Optional arguments after `mcp`: `--cache-dir <folder>` (another download cache) and `--lang de|en` (language of the
-texts the tools return; default: `FREEMAPPER_LANG`, then the system language, then English).
+server instructions, the tool and parameter descriptions and the texts the tools return; default:
+`FREEMAPPER_LANG`, then the system language, then English). Tool names, parameter names, JSON field names and
+states such as `running` or `finished` are the same in both languages. This file quotes the English texts; pass
+`--lang en` to get exactly those.
 
 ### Tools
 

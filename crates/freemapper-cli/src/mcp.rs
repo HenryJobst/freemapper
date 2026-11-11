@@ -19,22 +19,11 @@ use serde::Deserialize;
 use crate::jobs::{JobHub, folder_key};
 use crate::pipeline::{self, describe};
 use crate::select::{Defaults, Selector, estimate_json, open_browser};
+use crate::text::{text as t, v};
 use serde_json::{Value, json};
 
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
-
-const INSTRUCTIONS: &str = "freemapper makes OpenOrienteering Mapper starter projects for \
-orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate, and from OSM. \
-Workflow: find_place (search the school or area by name; pick a result with has_area) → \
-create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user \
-how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → \
-project_status (poll every few seconds until the state is finished or failed) → list_layers and \
-preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering \
-Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page \
-in the browser where the user draws or picks the area and saves it (this creates the project); \
-continue with estimate_download once the user says it is saved. Paths must be absolute or start \
-with ~. One pipeline runs at a time.";
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct FindPlace {
@@ -185,7 +174,10 @@ fn localize_router(router: &mut ToolRouter<FreemapperServer>, lang: &crate::text
         }
         let mut schema = (*route.attr.input_schema).clone();
         for (param, description) in param_descriptions(&mut schema) {
-            if let Some(id) = param_ids(name, &param).iter().find(|id| english.contains(*id)) {
+            if let Some(id) = param_ids(name, &param)
+                .iter()
+                .find(|id| english.contains(*id))
+            {
                 *description = Value::String(text(id));
             }
         }
@@ -210,21 +202,21 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
     let path = path.trim();
     let home = dirs::home_dir();
     let resolved = if path == "~" || path.starts_with("~/") || path.starts_with("~\\") {
-        let home = home
-            .clone()
-            .ok_or("no home folder on this system; use an absolute path")?;
+        let home = home.clone().ok_or_else(|| t("mcp-error-no-home", &[]))?;
         home.join(path[1..].trim_start_matches(['/', '\\']))
     } else {
         PathBuf::from(path)
     };
     if !resolved.is_absolute() {
-        return Err(format!(
-            "{path:?} is a relative path; use an absolute path or one starting with ~"
+        return Err(t(
+            "mcp-error-relative-path",
+            &[("path", v(format!("{path:?}")))],
         ));
     }
     if home.is_some_and(|home| home == resolved) {
-        return Err(format!(
-            "{path:?} is the home folder itself; use a folder inside it, e.g. ~/maps/school"
+        return Err(t(
+            "mcp-error-home-folder",
+            &[("path", v(format!("{path:?}")))],
         ));
     }
     Ok(resolved)
@@ -234,10 +226,7 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
 fn project_dir(path: &str) -> Result<PathBuf, String> {
     let dir = resolve(path)?;
     if !dir.join("freemapper.toml").is_file() {
-        return Err(format!(
-            "no freemapper project in {}; use create_project first",
-            dir.display()
-        ));
+        return Err(t("mcp-error-no-project", &[("path", v(dir.display()))]));
     }
     Ok(dir)
 }
@@ -246,8 +235,9 @@ fn map_kind(kind: Option<&str>) -> Result<MapKind, String> {
     match kind.unwrap_or("schoolyard") {
         "schoolyard" => Ok(MapKind::Schoolyard),
         "sprint" => Ok(MapKind::Sprint),
-        other => Err(format!(
-            "unknown kind {other:?}; use \"schoolyard\" or \"sprint\""
+        other => Err(t(
+            "mcp-error-unknown-kind",
+            &[("kind", v(format!("{other:?}")))],
         )),
     }
 }
@@ -266,7 +256,7 @@ async fn blocking<T: Send + 'static>(
 ) -> Result<T, String> {
     tokio::task::spawn_blocking(f)
         .await
-        .map_err(|e| format!("internal error: {e}"))?
+        .map_err(|e| t("cli-internal-error", &[("message", v(e))]))?
 }
 
 #[tool_router]
@@ -343,13 +333,17 @@ impl FreemapperServer {
                 .await
             }
             (None, Some(geojson)) => resolve(&geojson).and_then(|path| {
-                let text = std::fs::read_to_string(&path)
-                    .map_err(|e| format!("reading {}: {e}", path.display()))?;
+                let text = std::fs::read_to_string(&path).map_err(|e| {
+                    t(
+                        "mcp-error-reading",
+                        &[("path", v(path.display())), ("error", v(e))],
+                    )
+                })?;
                 let area = MapArea::from_geojson(&text).map_err(|e| describe(&e))?;
                 area.validate().map_err(|e| describe(&e))?;
                 Ok(area)
             }),
-            _ => Err("give exactly one of osm_id (from find_place) or geojson".to_string()),
+            _ => Err(t("mcp-error-one-area-source", &[])),
         };
         let area = match area {
             Ok(area) => area,
@@ -357,20 +351,28 @@ impl FreemapperServer {
         };
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
-            Ok(project) => text(format!(
-                "Created project {} for {} ({}, 1:{}). Next: estimate_download, then start_pipeline.{}",
-                dir.display(),
-                area.source_id.as_deref().unwrap_or("the given area"),
-                match kind {
+            Ok(project) => {
+                let kind = match kind {
                     MapKind::Schoolyard => "schoolyard",
                     MapKind::Sprint => "sprint",
-                },
-                project.scale_denominator,
-                project
+                };
+                let args = [
+                    ("path", v(dir.display())),
+                    ("area", v(area.source_id.as_deref().unwrap_or_default())),
+                    ("kind", v(kind)),
+                    ("scale", v(project.scale_denominator)),
+                ];
+                let created = if area.source_id.is_some() {
+                    t("mcp-created-project", &args)
+                } else {
+                    t("mcp-created-project-given-area", &args)
+                };
+                let note = project
                     .map_kind
                     .scale_note(project.scale_denominator)
-                    .map_or_else(String::new, |note| format!(" {note}"))
-            )),
+                    .map_or_else(String::new, |note| format!(" {}", pipeline::line(&note)));
+                text(format!("{created}{note}"))
+            }
             Err(e) => failure(describe(&e)),
         }
     }
@@ -423,10 +425,7 @@ impl FreemapperServer {
             .get(&folder_key(&dir))
             .is_some_and(Selector::is_running);
         if page_open {
-            return failure(
-                "the area selection page for this project is still open; ask the user to save \
-                 the area and press Done on the page, then start the pipeline",
-            );
+            return failure(t("mcp-error-page-open", &[]));
         }
         let options = match pipeline::parse(pipeline::RunRequest {
             force: req.force,
@@ -479,9 +478,9 @@ impl FreemapperServer {
     ) -> Result<CallToolResult, McpError> {
         match self.jobs.status(&req.job_id, 0) {
             Some(status) => text(status.to_json().to_string()),
-            None => failure(format!(
-                "no job {:?}; start_pipeline returns the job ids of this session",
-                req.job_id
+            None => failure(t(
+                "mcp-error-no-job",
+                &[("job", v(format!("{:?}", req.job_id)))],
             )),
         }
     }
@@ -549,13 +548,7 @@ impl FreemapperServer {
         let mut selectors = self.selectors.lock().await;
         selectors.retain(|_, selector| selector.is_running());
         let (url, note) = match selectors.get(&key) {
-            Some(selector) => (
-                selector.url.clone(),
-                Some(
-                    "The page for this folder is already open; it keeps the settings it was \
-                     opened with.",
-                ),
-            ),
+            Some(selector) => (selector.url.clone(), Some(t("mcp-page-already-open", &[]))),
             None => {
                 let defaults = Defaults {
                     kind,
@@ -569,7 +562,7 @@ impl FreemapperServer {
                     Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(hub)).await;
                 let selector = match started {
                     Ok(selector) => selector,
-                    Err(e) => return failure(format!("cannot start the page: {e}")),
+                    Err(e) => return failure(t("mcp-error-page-start", &[("error", v(e))])),
                 };
                 let url = selector.url.clone();
                 selectors.insert(key, selector);
@@ -584,7 +577,7 @@ impl FreemapperServer {
                 "dir": dir,
                 "opened_browser": opened,
                 "note": note,
-                "next": "Ask the user to choose the area on the page, press Save and then Done.",
+                "next": t("mcp-page-next", &[]),
             })
             .to_string(),
         )
@@ -606,7 +599,7 @@ impl FreemapperServer {
         .await;
         match png {
             Ok(png) => Ok(CallToolResult::success(vec![
-                ContentBlock::text(format!("Preview of {layer}")),
+                ContentBlock::text(t("mcp-preview-of", &[("layer", v(layer))])),
                 ContentBlock::image(
                     base64::engine::general_purpose::STANDARD.encode(png),
                     "image/png",
@@ -671,10 +664,6 @@ mod tests {
             let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
             assert_eq!(catalog, text, "{id}");
         }
-        assert_eq!(
-            crate::text::TEXTS.text(&crate::text::Lang::english(), "mcp-instructions", &[]),
-            INSTRUCTIONS
-        );
     }
 
     #[test]
@@ -695,10 +684,15 @@ mod tests {
         localize_router(&mut router, &german);
         let route = router.map.get("find_place").unwrap();
         let description = route.attr.description.clone().unwrap();
-        assert!(description.contains("OpenStreetMap Nominatim"), "{description}");
+        assert!(
+            description.contains("OpenStreetMap Nominatim"),
+            "{description}"
+        );
         assert!(description.starts_with("Sucht"), "{description}");
         let schema = Value::Object((*route.attr.input_schema).clone());
-        let query = schema["properties"]["query"]["description"].as_str().unwrap();
+        let query = schema["properties"]["query"]["description"]
+            .as_str()
+            .unwrap();
         assert!(query.starts_with("Name der Schule"), "{query}");
     }
 
@@ -711,7 +705,10 @@ mod tests {
         let mut texts: HashMap<String, std::collections::BTreeSet<String>> = HashMap::new();
         let mut uses: HashMap<String, usize> = HashMap::new();
         for (ids, text) in &all {
-            texts.entry(ids[1].clone()).or_default().insert(text.clone());
+            texts
+                .entry(ids[1].clone())
+                .or_default()
+                .insert(text.clone());
             *uses.entry(ids[1].clone()).or_default() += 1;
         }
         let mut printed = std::collections::BTreeSet::new();
@@ -722,7 +719,6 @@ mod tests {
                 println!("{id} = {text}");
             }
         }
-        println!("mcp-instructions = {INSTRUCTIONS}");
     }
 
     #[test]

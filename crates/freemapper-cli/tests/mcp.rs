@@ -458,3 +458,49 @@ fn mcp_errors_follow_the_program_language() {
         "{text}"
     );
 }
+
+/// The instructions, the tool descriptions and the results come in the program's language; the
+/// tool and parameter names stay as they are (ADR 0092, stage 4).
+#[test]
+fn mcp_describes_its_tools_in_the_program_language() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start_in(cache.path(), "de");
+    let instructions = session.info["instructions"].as_str().unwrap().to_string();
+    assert!(
+        instructions.starts_with("freemapper erzeugt Startprojekte"),
+        "{instructions}"
+    );
+    let tools = session.request("tools/list", json!({}));
+    let tool = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "create_project")
+        .unwrap()
+        .clone();
+    let description = tool["description"].as_str().unwrap();
+    assert!(
+        description.starts_with("Legt einen Projektordner"),
+        "{description}"
+    );
+    let osm_id = tool["inputSchema"]["properties"]["osm_id"]["description"]
+        .as_str()
+        .unwrap();
+    assert!(
+        osm_id.starts_with("OSM-Objekt des Kartengebiets"),
+        "{osm_id}"
+    );
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": dir.path().join("a"), "geojson": FIXTURE }),
+    );
+    assert!(!error, "{text}");
+    assert!(
+        text.contains("angelegt (Schulhof, 1:1000). Als Nächstes: estimate_download"),
+        "{text}"
+    );
+    let (error, text) = session.call("project_status", json!({ "job_id": "job-9" }));
+    assert!(error);
+    assert!(text.starts_with("Keinen Job \"job-9\" gefunden"), "{text}");
+}

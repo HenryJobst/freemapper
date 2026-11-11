@@ -772,7 +772,7 @@ a server, the operating system or a parser says inside an error stays as it is, 
 example of the place search.
 
 Progress lines and warnings come in the program's language too; a warning starts with `warning:` (German
-`Warnung:`). The help (`--help`, `freemapper help <command>`) and the messages about wrong calls are translated too; only the placeholders of the usage line such as `[OPTIONS]` and `<DIR>` stay. The area page takes the
+`Warnung:`). The help (`--help`, `freemapper help <command>`) and the messages about wrong calls are translated too; only the placeholders of the usage line such as `[OPTIONS]` and `<DIR>` stay. The MCP server describes its tools to the assistant in the program's language and answers in it; `--lang en` after `mcp` keeps it English. The area page takes the
 program's language when `--lang`, `FREEMAPPER_LANG` or the system names one; otherwise it follows the browser's
 language. The most important messages, in their English wording:
 
