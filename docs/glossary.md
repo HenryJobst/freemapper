@@ -124,7 +124,11 @@ Orienteering Maps 2019 (IOF).
 |---|---|---|---|
 | Geobasisdaten | official geodata | Amtliche Vermessungsdaten der Bundesländer (hier: LGB Brandenburg). | – |
 | Datenquelle | data source | Anbieter + Produkt, z. B. LGB DGM1, OSM. | `DataSource` |
-| Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert. | `SourceAdapter` |
+| Quelladapter | source adapter | Code, der eine Datenquelle findet, lädt und normiert; für ein Bundesland oder Land siehe Regionsadapter. | `SourceAdapter` |
+| Regionsadapter | region adapter | Alles, was ein Bundesland oder Land liefert: Grenze, Koordinatensystem, OSM-Auszüge, Quellenangabe, Schätzposten und wahlweise ALKIS, Raster und Zusatzebenen. Ersetzt die Aufzählungen `Region` und `Provider`. | `RegionAdapter` |
+| Adaptermanifest | adapter manifest | TOML-Datei (Format 1), die die Standarddienste eines Regionsadapters (WMS, WCS, WFS, OGC API Features, Geofabrik-Pfad) deklariert und bei Bedarf ein Rasterbackend nennt. Wird zur Laufzeit aus einem Ordner gelesen und gilt als nicht vertrauenswürdig. | `ManifestAdapter` |
+| Rasterbackend | raster backend | Code für eine Höhenmodell- oder Orthofoto-Quelle, die kein Standarddienst ist (Kachelliste, Zip-Bereiche, Metalink, festes Zertifikat); ein Manifest nennt es beim Namen. | `RasterBackend` |
+| Adapterprüfung | adapter check | `freemapper adapter check`: statische Prüfungen, Wiedergabe der Fixtures und wahlweise ein Lauf gegen die echten Dienste. | `adapter check` |
 | Produkt | product | Einzelner Datensatztyp einer Quelle, z. B. DGM1, nDOM, DOP20. | `Product` |
 | Kachel | tile | Rechteckiges Teilstück eines Produkts (LGB: 1×1 km). | `Tile` |
 | Kachelliste | tile list | Liste eines Anbieters mit Namen (und Datum) der verfügbaren Kacheln; bei Geobasis NRW die `*_meta.zip` je Produkt, bei LVermGeo RP die WFS-Ebene `Laserbefliegung` (Flugtage je Kachel, daraus das Jahr im Dateinamen). | `meta_list`, `lvermgeo_rp::tile_list` |

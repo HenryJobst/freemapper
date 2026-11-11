@@ -979,6 +979,53 @@ fn check_pbf(path: &Path, url: &str) -> Result<Option<NaiveDate>, FetchError> {
     }
 }
 
+/// Facts about the extracts of a region, for the golden net of the adapter migration
+/// (`tests/adapters_golden.rs`). Test and `golden` feature only.
+#[cfg(any(test, feature = "golden"))]
+pub mod golden {
+    use super::*;
+
+    /// One Geofabrik extract as the code states it.
+    #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+    pub struct OsmFacts {
+        pub url: String,
+        pub state_url: String,
+        pub prefix: String,
+        pub megabytes: f64,
+        pub label: String,
+    }
+
+    /// The extracts `region` reads, as [`extracts_for`] maps them (North Rhine-Westphalia: all
+    /// five government districts).
+    pub fn extracts_of(region: Region) -> Vec<OsmFacts> {
+        let sources: Vec<ExtractSource> = match region {
+            Region::Brandenburg | Region::Berlin => vec![ExtractSource::Brandenburg],
+            Region::Saxony => vec![ExtractSource::Saxony],
+            Region::SaxonyAnhalt => vec![ExtractSource::SaxonyAnhalt],
+            Region::Hamburg => vec![ExtractSource::Hamburg],
+            Region::Hessen => vec![ExtractSource::Hessen],
+            Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
+            Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
+            Region::Niedersachsen => vec![ExtractSource::Niedersachsen],
+            Region::RheinlandPfalz => vec![ExtractSource::RheinlandPfalz],
+            Region::NordrheinWestfalen => GovernmentDistrict::ALL
+                .into_iter()
+                .map(ExtractSource::NordrheinWestfalen)
+                .collect(),
+        };
+        sources
+            .into_iter()
+            .map(|source| OsmFacts {
+                url: source.url().to_string(),
+                state_url: source.state_url().to_string(),
+                prefix: source.prefix().to_string(),
+                megabytes: source.megabytes(),
+                label: source.label().to_string(),
+            })
+            .collect()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

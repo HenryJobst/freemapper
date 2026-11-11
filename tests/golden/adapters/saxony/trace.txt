@@ -1,0 +1,18 @@
+estimate: terrain model (GeoSN DGM1) tile 33458-5670 | Terrain | 14.000 MB | cached: false
+estimate: surface model (GeoSN DOM1) tile 33458-5670 | Surface | 15.000 MB | cached: false
+estimate: orthophoto (GeoSN WMS) | Orthophoto | 0.524 MB | cached: false
+estimate: OSM extract Saxony (shared by all projects) | MapData | 270.000 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+GET https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer/6/query?f=json&geometry=458001,5670001,459999,5671999&geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects&outFields=Kachel,Download,Stand&returnGeometry=false
+GET https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33458_5670_2_sn_tiff.zip
+GET https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer/4/query?f=json&geometry=458001,5670001,459999,5671999&geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects&outFields=Kachel,Download,Stand&returnGeometry=false
+GET https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33458_5670_2_sn_tiff.zip
+GET https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=sn_dop_020_info&QUERY_LAYERS=sn_dop_020_info&STYLES=&CRS=EPSG:25833&BBOX=459521.00100000005,5670213.513,459541.201,5670233.7129999995&WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=text/plain
+GET https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=sn_dop_020&STYLES=&CRS=EPSG:25833&BBOX=459403.6,5670095,459658.6,5670352.2&WIDTH=1275&HEIGHT=1286&FORMAT=image/jpeg
+GET https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&RESULTTYPE=hits
+GET https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&RESULTTYPE=hits
+GET https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf [to file]
+result: fetched

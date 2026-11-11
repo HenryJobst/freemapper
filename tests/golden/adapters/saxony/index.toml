@@ -1,0 +1,65 @@
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer/6/query?f=json&geometry=458001,5670001,459999,5671999&geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects&outFields=Kachel,Download,Stand&returnGeometry=false"
+body = "5bae862252d8c66c010fd57caed94060132d936b81ff63864566c6e68b709cd3"
+bytes = 552
+
+[[response]]
+method = "GET"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33458_5670_2_sn_tiff.zip"
+body = "f6ed0494a8422b0836e81cb686d8526bdb251bc508714caac894ea95ae2bb810"
+bytes = 14842463
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/ags-relay/ArcGISServer/guest/arcgis/rest/services/geosn/rest_geosn_downloadlinks/MapServer/4/query?f=json&geometry=458001,5670001,459999,5671999&geometryType=esriGeometryEnvelope&inSR=25833&spatialRel=esriSpatialRelIntersects&outFields=Kachel,Download,Stand&returnGeometry=false"
+body = "52f5f6f5b352e773a1a7a4eff52f5fc1c0825c8bbe88e4168c296adac879b3c9"
+bytes = 552
+
+[[response]]
+method = "GET"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33458_5670_2_sn_tiff.zip"
+body = "6a04379ca1ee09ab927377cdd85eb571d85e4ea3678868b38104259e11722048"
+bytes = 15195315
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=sn_dop_020_info&QUERY_LAYERS=sn_dop_020_info&STYLES=&CRS=EPSG:25833&BBOX=459521.00100000005,5670213.513,459541.201,5670233.7129999995&WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=text/plain"
+body = "b54c6701cd7bb4905125175019d1ae754bee0966740feb7afbaf1147d6f822bd"
+bytes = 221
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=sn_dop_020&STYLES=&CRS=EPSG:25833&BBOX=459403.6,5670095,459658.6,5670352.2&WIDTH=1275&HEIGHT=1286&FORMAT=image/jpeg"
+body = "ae0bcf799f870920188fe7f06655b0574e0cf287d53bd958160c57b31bdfffe1"
+bytes = 493412
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&RESULTTYPE=hits"
+body = "3470a480dcf3e8aa14ddbcb0c25bb35804fb0f141ba6b126609f19ac6b870732"
+bytes = 367
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "5a26bb302965477343eb1919e13960ae6f70334700aec28f43e7bb6b01a8f523"
+bytes = 184469
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&RESULTTYPE=hits"
+body = "c9d4869d811249152c0d43b6bd6dc4ae7822a2a4915938f63955d5c6957a69d3"
+bytes = 367
+
+[[response]]
+method = "GET"
+url = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=459403,5670095,459659,5670353,urn:ogc:def:crs:EPSG::25833&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "d7629ef31fa2430fc94b5a45051bbd9d8969e2a01346331f9f4324deb283b147"
+bytes = 293954
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt"
+body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
+bytes = 113

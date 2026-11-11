@@ -1,0 +1,1479 @@
+[
+  {
+    "name": "example:berlin-viktoriapark",
+    "min_e": 389613,
+    "min_n": 5816190,
+    "max_e": 390529,
+    "max_n": 5816909
+  },
+  {
+    "name": "example:brandenburg-sanssouci",
+    "min_e": 366018,
+    "min_n": 5807311,
+    "max_e": 367036,
+    "max_n": 5808036
+  },
+  {
+    "name": "example:hamburg-blankenese",
+    "min_e": 155411,
+    "min_n": 5946592,
+    "max_e": 156356,
+    "max_n": 5947351
+  },
+  {
+    "name": "example:hessen-marburg",
+    "min_e": 60569,
+    "min_n": 5646842,
+    "max_e": 61621,
+    "max_n": 5647618
+  },
+  {
+    "name": "example:mecklenburg-vorpommern-wismar",
+    "min_e": 267262,
+    "min_n": 5976928,
+    "max_e": 268194,
+    "max_n": 5977668
+  },
+  {
+    "name": "example:niedersachsen-herrenhausen",
+    "min_e": 138718,
+    "min_n": 5817053,
+    "max_e": 139763,
+    "max_n": 5817819
+  },
+  {
+    "name": "example:nordrhein-westfalen-monschau",
+    "min_e": -120560,
+    "min_n": 5636679,
+    "max_e": -119589,
+    "max_n": 5637473
+  },
+  {
+    "name": "example:rheinland-pfalz-cochem",
+    "min_e": -60046,
+    "min_n": 5583729,
+    "max_e": -58982,
+    "max_n": 5584523
+  },
+  {
+    "name": "example:sachsen-anhalt-quedlinburg",
+    "min_e": 233270,
+    "min_n": 5744142,
+    "max_e": 234204,
+    "max_n": 5744884
+  },
+  {
+    "name": "example:sachsen-bautzen",
+    "min_e": 459078,
+    "min_n": 5669870,
+    "max_e": 459985,
+    "max_n": 5670577
+  },
+  {
+    "name": "example:schleswig-holstein-luebeck",
+    "min_e": 215940,
+    "min_n": 5976861,
+    "max_e": 216978,
+    "max_n": 5977616
+  },
+  {
+    "name": "border:bb-be:0",
+    "min_e": 369922,
+    "min_n": 5808240,
+    "max_e": 370262,
+    "max_n": 5808906
+  },
+  {
+    "name": "border:bb-be:1",
+    "min_e": 369988,
+    "min_n": 5808134,
+    "max_e": 370972,
+    "max_n": 5809274
+  },
+  {
+    "name": "border:bb-be:2",
+    "min_e": 370221,
+    "min_n": 5808142,
+    "max_e": 371079,
+    "max_n": 5808960
+  },
+  {
+    "name": "border:bb-be:3",
+    "min_e": 369587,
+    "min_n": 5808544,
+    "max_e": 369965,
+    "max_n": 5810026
+  },
+  {
+    "name": "border:bb-be:4",
+    "min_e": 369101,
+    "min_n": 5808133,
+    "max_e": 370075,
+    "max_n": 5809485
+  },
+  {
+    "name": "border:bb-be:5",
+    "min_e": 397261,
+    "min_n": 5835344,
+    "max_e": 398209,
+    "max_n": 5835592
+  },
+  {
+    "name": "border:bb-be:6",
+    "min_e": 396514,
+    "min_n": 5835533,
+    "max_e": 397242,
+    "max_n": 5836301
+  },
+  {
+    "name": "border:bb-be:7",
+    "min_e": 396715,
+    "min_n": 5834765,
+    "max_e": 397121,
+    "max_n": 5835561
+  },
+  {
+    "name": "border:bb-be:8",
+    "min_e": 396896,
+    "min_n": 5835560,
+    "max_e": 397160,
+    "max_n": 5836636
+  },
+  {
+    "name": "border:bb-be:9",
+    "min_e": 396842,
+    "min_n": 5834576,
+    "max_e": 397382,
+    "max_n": 5836024
+  },
+  {
+    "name": "border:bb-be:10",
+    "min_e": 413652,
+    "min_n": 5809140,
+    "max_e": 414878,
+    "max_n": 5810102
+  },
+  {
+    "name": "border:bb-be:11",
+    "min_e": 414279,
+    "min_n": 5809916,
+    "max_e": 415365,
+    "max_n": 5810476
+  },
+  {
+    "name": "border:bb-be:12",
+    "min_e": 413380,
+    "min_n": 5809219,
+    "max_e": 414652,
+    "max_n": 5809553
+  },
+  {
+    "name": "border:bb-be:13",
+    "min_e": 413907,
+    "min_n": 5809025,
+    "max_e": 414113,
+    "max_n": 5809269
+  },
+  {
+    "name": "border:bb-be:14",
+    "min_e": 413080,
+    "min_n": 5809112,
+    "max_e": 414362,
+    "max_n": 5809818
+  },
+  {
+    "name": "border:bb-be:15",
+    "min_e": 391471,
+    "min_n": 5803235,
+    "max_e": 392885,
+    "max_n": 5803897
+  },
+  {
+    "name": "border:bb-be:16",
+    "min_e": 392183,
+    "min_n": 5803337,
+    "max_e": 392619,
+    "max_n": 5804641
+  },
+  {
+    "name": "border:bb-be:17",
+    "min_e": 391679,
+    "min_n": 5803796,
+    "max_e": 393053,
+    "max_n": 5804418
+  },
+  {
+    "name": "border:bb-be:18",
+    "min_e": 391624,
+    "min_n": 5803522,
+    "max_e": 391790,
+    "max_n": 5803738
+  },
+  {
+    "name": "border:bb-be:19",
+    "min_e": 391500,
+    "min_n": 5803683,
+    "max_e": 391814,
+    "max_n": 5804741
+  },
+  {
+    "name": "border:st-ni:0",
+    "min_e": 230808,
+    "min_n": 5792547,
+    "max_e": 231244,
+    "max_n": 5793445
+  },
+  {
+    "name": "border:st-ni:1",
+    "min_e": 231834,
+    "min_n": 5792114,
+    "max_e": 232458,
+    "max_n": 5792586
+  },
+  {
+    "name": "border:st-ni:2",
+    "min_e": 231376,
+    "min_n": 5792709,
+    "max_e": 232734,
+    "max_n": 5793857
+  },
+  {
+    "name": "border:st-ni:3",
+    "min_e": 230779,
+    "min_n": 5792532,
+    "max_e": 231085,
+    "max_n": 5792954
+  },
+  {
+    "name": "border:st-ni:4",
+    "min_e": 231093,
+    "min_n": 5792556,
+    "max_e": 231583,
+    "max_n": 5793180
+  },
+  {
+    "name": "border:st-ni:5",
+    "min_e": 195835,
+    "min_n": 5747868,
+    "max_e": 196647,
+    "max_n": 5748486
+  },
+  {
+    "name": "border:st-ni:6",
+    "min_e": 194849,
+    "min_n": 5747410,
+    "max_e": 196129,
+    "max_n": 5747588
+  },
+  {
+    "name": "border:st-ni:7",
+    "min_e": 195187,
+    "min_n": 5747113,
+    "max_e": 195729,
+    "max_n": 5747449
+  },
+  {
+    "name": "border:st-ni:8",
+    "min_e": 194513,
+    "min_n": 5747547,
+    "max_e": 195917,
+    "max_n": 5747863
+  },
+  {
+    "name": "border:st-ni:9",
+    "min_e": 195070,
+    "min_n": 5748195,
+    "max_e": 195462,
+    "max_n": 5748713
+  },
+  {
+    "name": "border:st-ni:10",
+    "min_e": 226665,
+    "min_n": 5815645,
+    "max_e": 227045,
+    "max_n": 5816475
+  },
+  {
+    "name": "border:st-ni:11",
+    "min_e": 225683,
+    "min_n": 5816518,
+    "max_e": 226863,
+    "max_n": 5816904
+  },
+  {
+    "name": "border:st-ni:12",
+    "min_e": 225326,
+    "min_n": 5816136,
+    "max_e": 226684,
+    "max_n": 5816814
+  },
+  {
+    "name": "border:st-ni:13",
+    "min_e": 226305,
+    "min_n": 5815897,
+    "max_e": 226887,
+    "max_n": 5816987
+  },
+  {
+    "name": "border:st-ni:14",
+    "min_e": 225694,
+    "min_n": 5815364,
+    "max_e": 226636,
+    "max_n": 5816590
+  },
+  {
+    "name": "border:st-ni:15",
+    "min_e": 248196,
+    "min_n": 5865187,
+    "max_e": 249484,
+    "max_n": 5865461
+  },
+  {
+    "name": "border:st-ni:16",
+    "min_e": 249405,
+    "min_n": 5864976,
+    "max_e": 249755,
+    "max_n": 5865814
+  },
+  {
+    "name": "border:st-ni:17",
+    "min_e": 248240,
+    "min_n": 5864244,
+    "max_e": 249420,
+    "max_n": 5865620
+  },
+  {
+    "name": "border:st-ni:18",
+    "min_e": 248907,
+    "min_n": 5865015,
+    "max_e": 250159,
+    "max_n": 5866229
+  },
+  {
+    "name": "border:st-ni:19",
+    "min_e": 249167,
+    "min_n": 5865394,
+    "max_e": 250023,
+    "max_n": 5866732
+  },
+  {
+    "name": "border:ni-hb:0",
+    "min_e": 81783,
+    "min_n": 5895346,
+    "max_e": 82973,
+    "max_n": 5895930
+  },
+  {
+    "name": "border:ni-hb:1",
+    "min_e": 82540,
+    "min_n": 5895350,
+    "max_e": 83736,
+    "max_n": 5896316
+  },
+  {
+    "name": "border:ni-hb:2",
+    "min_e": 83092,
+    "min_n": 5894851,
+    "max_e": 83312,
+    "max_n": 5895239
+  },
+  {
+    "name": "border:ni-hb:3",
+    "min_e": 82431,
+    "min_n": 5895115,
+    "max_e": 82931,
+    "max_n": 5896145
+  },
+  {
+    "name": "border:ni-hb:4",
+    "min_e": 81936,
+    "min_n": 5894618,
+    "max_e": 83008,
+    "max_n": 5896038
+  },
+  {
+    "name": "border:ni-hb:5",
+    "min_e": 94917,
+    "min_n": 5895857,
+    "max_e": 95965,
+    "max_n": 5896809
+  },
+  {
+    "name": "border:ni-hb:6",
+    "min_e": 94904,
+    "min_n": 5895508,
+    "max_e": 95906,
+    "max_n": 5896796
+  },
+  {
+    "name": "border:ni-hb:7",
+    "min_e": 95598,
+    "min_n": 5895131,
+    "max_e": 96474,
+    "max_n": 5895999
+  },
+  {
+    "name": "border:ni-hb:8",
+    "min_e": 95857,
+    "min_n": 5894779,
+    "max_e": 96693,
+    "max_n": 5895823
+  },
+  {
+    "name": "border:ni-hb:9",
+    "min_e": 95005,
+    "min_n": 5896066,
+    "max_e": 95587,
+    "max_n": 5897116
+  },
+  {
+    "name": "border:ni-hb:10",
+    "min_e": 72315,
+    "min_n": 5909981,
+    "max_e": 73289,
+    "max_n": 5911341
+  },
+  {
+    "name": "border:ni-hb:11",
+    "min_e": 72251,
+    "min_n": 5910059,
+    "max_e": 73591,
+    "max_n": 5910271
+  },
+  {
+    "name": "border:ni-hb:12",
+    "min_e": 73238,
+    "min_n": 5909884,
+    "max_e": 73718,
+    "max_n": 5910920
+  },
+  {
+    "name": "border:ni-hb:13",
+    "min_e": 72536,
+    "min_n": 5909497,
+    "max_e": 73022,
+    "max_n": 5910507
+  },
+  {
+    "name": "border:ni-hb:14",
+    "min_e": 72940,
+    "min_n": 5910208,
+    "max_e": 73136,
+    "max_n": 5911424
+  },
+  {
+    "name": "border:ni-hb:15",
+    "min_e": 79223,
+    "min_n": 5951519,
+    "max_e": 79373,
+    "max_n": 5952539
+  },
+  {
+    "name": "border:ni-hb:16",
+    "min_e": 78094,
+    "min_n": 5951078,
+    "max_e": 79510,
+    "max_n": 5952250
+  },
+  {
+    "name": "border:ni-hb:17",
+    "min_e": 78639,
+    "min_n": 5951241,
+    "max_e": 79371,
+    "max_n": 5952737
+  },
+  {
+    "name": "border:ni-hb:18",
+    "min_e": 79151,
+    "min_n": 5951612,
+    "max_e": 79921,
+    "max_n": 5952666
+  },
+  {
+    "name": "border:ni-hb:19",
+    "min_e": 78703,
+    "min_n": 5951858,
+    "max_e": 80115,
+    "max_n": 5952630
+  },
+  {
+    "name": "border:he-rp:0",
+    "min_e": 16503,
+    "min_n": 5562082,
+    "max_e": 17579,
+    "max_n": 5562690
+  },
+  {
+    "name": "border:he-rp:1",
+    "min_e": 15818,
+    "min_n": 5563013,
+    "max_e": 17272,
+    "max_n": 5563227
+  },
+  {
+    "name": "border:he-rp:2",
+    "min_e": 16526,
+    "min_n": 5562551,
+    "max_e": 17672,
+    "max_n": 5564007
+  },
+  {
+    "name": "border:he-rp:3",
+    "min_e": 17304,
+    "min_n": 5561657,
+    "max_e": 17496,
+    "max_n": 5562951
+  },
+  {
+    "name": "border:he-rp:4",
+    "min_e": 17136,
+    "min_n": 5562888,
+    "max_e": 17488,
+    "max_n": 5563642
+  },
+  {
+    "name": "border:he-rp:5",
+    "min_e": 4192,
+    "min_n": 5604417,
+    "max_e": 5346,
+    "max_n": 5605887
+  },
+  {
+    "name": "border:he-rp:6",
+    "min_e": 3867,
+    "min_n": 5603557,
+    "max_e": 4701,
+    "max_n": 5604835
+  },
+  {
+    "name": "border:he-rp:7",
+    "min_e": 3829,
+    "min_n": 5604044,
+    "max_e": 4899,
+    "max_n": 5604680
+  },
+  {
+    "name": "border:he-rp:8",
+    "min_e": 4205,
+    "min_n": 5604198,
+    "max_e": 4557,
+    "max_n": 5605096
+  },
+  {
+    "name": "border:he-rp:9",
+    "min_e": 3740,
+    "min_n": 5604045,
+    "max_e": 4308,
+    "max_n": 5605459
+  },
+  {
+    "name": "border:he-rp:10",
+    "min_e": -8976,
+    "min_n": 5559051,
+    "max_e": -8298,
+    "max_n": 5559921
+  },
+  {
+    "name": "border:he-rp:11",
+    "min_e": -8322,
+    "min_n": 5559459,
+    "max_e": -8132,
+    "max_n": 5559993
+  },
+  {
+    "name": "border:he-rp:12",
+    "min_e": -8226,
+    "min_n": 5560092,
+    "max_e": -7076,
+    "max_n": 5560294
+  },
+  {
+    "name": "border:he-rp:13",
+    "min_e": -8844,
+    "min_n": 5559649,
+    "max_e": -8174,
+    "max_n": 5560135
+  },
+  {
+    "name": "border:he-rp:14",
+    "min_e": -8745,
+    "min_n": 5559807,
+    "max_e": -8351,
+    "max_n": 5559959
+  },
+  {
+    "name": "border:he-rp:15",
+    "min_e": 21696,
+    "min_n": 5517584,
+    "max_e": 21850,
+    "max_n": 5518982
+  },
+  {
+    "name": "border:he-rp:16",
+    "min_e": 22289,
+    "min_n": 5517492,
+    "max_e": 23239,
+    "max_n": 5518702
+  },
+  {
+    "name": "border:he-rp:17",
+    "min_e": 21373,
+    "min_n": 5518168,
+    "max_e": 22019,
+    "max_n": 5519172
+  },
+  {
+    "name": "border:he-rp:18",
+    "min_e": 21423,
+    "min_n": 5518254,
+    "max_e": 22719,
+    "max_n": 5519676
+  },
+  {
+    "name": "border:he-rp:19",
+    "min_e": 22427,
+    "min_n": 5518871,
+    "max_e": 22799,
+    "max_n": 5519405
+  },
+  {
+    "name": "border:nw-ni:0",
+    "min_e": 17917,
+    "min_n": 5815649,
+    "max_e": 18727,
+    "max_n": 5816971
+  },
+  {
+    "name": "border:nw-ni:1",
+    "min_e": 18845,
+    "min_n": 5815554,
+    "max_e": 20287,
+    "max_n": 5816986
+  },
+  {
+    "name": "border:nw-ni:2",
+    "min_e": 18500,
+    "min_n": 5815377,
+    "max_e": 19334,
+    "max_n": 5816789
+  },
+  {
+    "name": "border:nw-ni:3",
+    "min_e": 18366,
+    "min_n": 5815113,
+    "max_e": 19028,
+    "max_n": 5816037
+  },
+  {
+    "name": "border:nw-ni:4",
+    "min_e": 18528,
+    "min_n": 5815128,
+    "max_e": 19008,
+    "max_n": 5816396
+  },
+  {
+    "name": "border:nw-ni:5",
+    "min_e": 90858,
+    "min_n": 5806351,
+    "max_e": 91182,
+    "max_n": 5807821
+  },
+  {
+    "name": "border:nw-ni:6",
+    "min_e": 90846,
+    "min_n": 5806278,
+    "max_e": 91312,
+    "max_n": 5806982
+  },
+  {
+    "name": "border:nw-ni:7",
+    "min_e": 90047,
+    "min_n": 5805532,
+    "max_e": 90267,
+    "max_n": 5806556
+  },
+  {
+    "name": "border:nw-ni:8",
+    "min_e": 89854,
+    "min_n": 5806324,
+    "max_e": 90934,
+    "max_n": 5807206
+  },
+  {
+    "name": "border:nw-ni:9",
+    "min_e": 90363,
+    "min_n": 5805535,
+    "max_e": 91279,
+    "max_n": 5806983
+  },
+  {
+    "name": "border:nw-ni:10",
+    "min_e": -19309,
+    "min_n": 5822621,
+    "max_e": -18637,
+    "max_n": 5823487
+  },
+  {
+    "name": "border:nw-ni:11",
+    "min_e": -19175,
+    "min_n": 5822394,
+    "max_e": -18281,
+    "max_n": 5822792
+  },
+  {
+    "name": "border:nw-ni:12",
+    "min_e": -18875,
+    "min_n": 5822122,
+    "max_e": -18267,
+    "max_n": 5823164
+  },
+  {
+    "name": "border:nw-ni:13",
+    "min_e": -19627,
+    "min_n": 5822031,
+    "max_e": -18259,
+    "max_n": 5823263
+  },
+  {
+    "name": "border:nw-ni:14",
+    "min_e": -18787,
+    "min_n": 5822164,
+    "max_e": -18315,
+    "max_n": 5823154
+  },
+  {
+    "name": "border:nw-ni:15",
+    "min_e": 116299,
+    "min_n": 5753531,
+    "max_e": 117031,
+    "max_n": 5754249
+  },
+  {
+    "name": "border:nw-ni:16",
+    "min_e": 116301,
+    "min_n": 5752737,
+    "max_e": 116751,
+    "max_n": 5752941
+  },
+  {
+    "name": "border:nw-ni:17",
+    "min_e": 116390,
+    "min_n": 5752947,
+    "max_e": 117314,
+    "max_n": 5753967
+  },
+  {
+    "name": "border:nw-ni:18",
+    "min_e": 115972,
+    "min_n": 5753199,
+    "max_e": 116986,
+    "max_n": 5754325
+  },
+  {
+    "name": "border:nw-ni:19",
+    "min_e": 116733,
+    "min_n": 5753874,
+    "max_e": 117881,
+    "max_n": 5754140
+  },
+  {
+    "name": "border:mv-sh:0",
+    "min_e": 224042,
+    "min_n": 5979633,
+    "max_e": 225484,
+    "max_n": 5980233
+  },
+  {
+    "name": "border:mv-sh:1",
+    "min_e": 225285,
+    "min_n": 5979980,
+    "max_e": 226303,
+    "max_n": 5980698
+  },
+  {
+    "name": "border:mv-sh:2",
+    "min_e": 224842,
+    "min_n": 5979566,
+    "max_e": 225464,
+    "max_n": 5980474
+  },
+  {
+    "name": "border:mv-sh:3",
+    "min_e": 224665,
+    "min_n": 5979566,
+    "max_e": 225763,
+    "max_n": 5980564
+  },
+  {
+    "name": "border:mv-sh:4",
+    "min_e": 224424,
+    "min_n": 5978868,
+    "max_e": 225332,
+    "max_n": 5979282
+  },
+  {
+    "name": "border:mv-sh:5",
+    "min_e": 230434,
+    "min_n": 5986487,
+    "max_e": 230928,
+    "max_n": 5987131
+  },
+  {
+    "name": "border:mv-sh:6",
+    "min_e": 231197,
+    "min_n": 5985212,
+    "max_e": 232095,
+    "max_n": 5986704
+  },
+  {
+    "name": "border:mv-sh:7",
+    "min_e": 231657,
+    "min_n": 5986152,
+    "max_e": 232067,
+    "max_n": 5987138
+  },
+  {
+    "name": "border:mv-sh:8",
+    "min_e": 231084,
+    "min_n": 5986406,
+    "max_e": 231920,
+    "max_n": 5986666
+  },
+  {
+    "name": "border:mv-sh:9",
+    "min_e": 231726,
+    "min_n": 5986248,
+    "max_e": 232008,
+    "max_n": 5987118
+  },
+  {
+    "name": "border:mv-sh:10",
+    "min_e": 224693,
+    "min_n": 5959087,
+    "max_e": 225545,
+    "max_n": 5960531
+  },
+  {
+    "name": "border:mv-sh:11",
+    "min_e": 223814,
+    "min_n": 5958424,
+    "max_e": 224846,
+    "max_n": 5958970
+  },
+  {
+    "name": "border:mv-sh:12",
+    "min_e": 224481,
+    "min_n": 5959154,
+    "max_e": 225347,
+    "max_n": 5959446
+  },
+  {
+    "name": "border:mv-sh:13",
+    "min_e": 224383,
+    "min_n": 5959606,
+    "max_e": 225769,
+    "max_n": 5959836
+  },
+  {
+    "name": "border:mv-sh:14",
+    "min_e": 224310,
+    "min_n": 5958062,
+    "max_e": 225098,
+    "max_n": 5959430
+  },
+  {
+    "name": "border:mv-sh:15",
+    "min_e": 230186,
+    "min_n": 5944952,
+    "max_e": 230806,
+    "max_n": 5945314
+  },
+  {
+    "name": "border:mv-sh:16",
+    "min_e": 229317,
+    "min_n": 5944238,
+    "max_e": 229855,
+    "max_n": 5944500
+  },
+  {
+    "name": "border:mv-sh:17",
+    "min_e": 229235,
+    "min_n": 5943640,
+    "max_e": 230623,
+    "max_n": 5944726
+  },
+  {
+    "name": "border:mv-sh:18",
+    "min_e": 229377,
+    "min_n": 5944474,
+    "max_e": 230523,
+    "max_n": 5945518
+  },
+  {
+    "name": "border:mv-sh:19",
+    "min_e": 229544,
+    "min_n": 5943618,
+    "max_e": 230280,
+    "max_n": 5944146
+  },
+  {
+    "name": "border:mv-bb:0",
+    "min_e": 333526,
+    "min_n": 5904272,
+    "max_e": 334194,
+    "max_n": 5904608
+  },
+  {
+    "name": "border:mv-bb:1",
+    "min_e": 332421,
+    "min_n": 5903718,
+    "max_e": 332885,
+    "max_n": 5904094
+  },
+  {
+    "name": "border:mv-bb:2",
+    "min_e": 332922,
+    "min_n": 5902665,
+    "max_e": 333618,
+    "max_n": 5903627
+  },
+  {
+    "name": "border:mv-bb:3",
+    "min_e": 332519,
+    "min_n": 5903425,
+    "max_e": 332893,
+    "max_n": 5904129
+  },
+  {
+    "name": "border:mv-bb:4",
+    "min_e": 332106,
+    "min_n": 5904155,
+    "max_e": 332990,
+    "max_n": 5904585
+  },
+  {
+    "name": "border:mv-bb:5",
+    "min_e": 372712,
+    "min_n": 5898199,
+    "max_e": 373216,
+    "max_n": 5899025
+  },
+  {
+    "name": "border:mv-bb:6",
+    "min_e": 372887,
+    "min_n": 5898393,
+    "max_e": 373205,
+    "max_n": 5899691
+  },
+  {
+    "name": "border:mv-bb:7",
+    "min_e": 373119,
+    "min_n": 5898343,
+    "max_e": 373541,
+    "max_n": 5899625
+  },
+  {
+    "name": "border:mv-bb:8",
+    "min_e": 373417,
+    "min_n": 5897267,
+    "max_e": 373649,
+    "max_n": 5898593
+  },
+  {
+    "name": "border:mv-bb:9",
+    "min_e": 372165,
+    "min_n": 5898062,
+    "max_e": 373549,
+    "max_n": 5899136
+  },
+  {
+    "name": "border:mv-bb:10",
+    "min_e": 427142,
+    "min_n": 5920383,
+    "max_e": 428628,
+    "max_n": 5921659
+  },
+  {
+    "name": "border:mv-bb:11",
+    "min_e": 427146,
+    "min_n": 5920629,
+    "max_e": 428600,
+    "max_n": 5921853
+  },
+  {
+    "name": "border:mv-bb:12",
+    "min_e": 427327,
+    "min_n": 5920446,
+    "max_e": 428475,
+    "max_n": 5921460
+  },
+  {
+    "name": "border:mv-bb:13",
+    "min_e": 427410,
+    "min_n": 5920623,
+    "max_e": 427996,
+    "max_n": 5922067
+  },
+  {
+    "name": "border:mv-bb:14",
+    "min_e": 426227,
+    "min_n": 5920003,
+    "max_e": 427111,
+    "max_n": 5921327
+  },
+  {
+    "name": "border:mv-bb:15",
+    "min_e": 254920,
+    "min_n": 5890195,
+    "max_e": 255560,
+    "max_n": 5891405
+  },
+  {
+    "name": "border:mv-bb:16",
+    "min_e": 255201,
+    "min_n": 5891371,
+    "max_e": 256415,
+    "max_n": 5891937
+  },
+  {
+    "name": "border:mv-bb:17",
+    "min_e": 255795,
+    "min_n": 5890111,
+    "max_e": 256163,
+    "max_n": 5891061
+  },
+  {
+    "name": "border:mv-bb:18",
+    "min_e": 255202,
+    "min_n": 5891133,
+    "max_e": 256660,
+    "max_n": 5891793
+  },
+  {
+    "name": "border:mv-bb:19",
+    "min_e": 255783,
+    "min_n": 5890570,
+    "max_e": 257039,
+    "max_n": 5891250
+  },
+  {
+    "name": "border:sn-bb:0",
+    "min_e": 395173,
+    "min_n": 5695824,
+    "max_e": 396663,
+    "max_n": 5696164
+  },
+  {
+    "name": "border:sn-bb:1",
+    "min_e": 395128,
+    "min_n": 5695387,
+    "max_e": 395940,
+    "max_n": 5695887
+  },
+  {
+    "name": "border:sn-bb:2",
+    "min_e": 396062,
+    "min_n": 5696364,
+    "max_e": 396648,
+    "max_n": 5696534
+  },
+  {
+    "name": "border:sn-bb:3",
+    "min_e": 395514,
+    "min_n": 5695267,
+    "max_e": 396140,
+    "max_n": 5696157
+  },
+  {
+    "name": "border:sn-bb:4",
+    "min_e": 395948,
+    "min_n": 5694950,
+    "max_e": 396524,
+    "max_n": 5695778
+  },
+  {
+    "name": "border:sn-bb:5",
+    "min_e": 455018,
+    "min_n": 5708212,
+    "max_e": 455872,
+    "max_n": 5708422
+  },
+  {
+    "name": "border:sn-bb:6",
+    "min_e": 453840,
+    "min_n": 5708258,
+    "max_e": 454816,
+    "max_n": 5708550
+  },
+  {
+    "name": "border:sn-bb:7",
+    "min_e": 453740,
+    "min_n": 5707321,
+    "max_e": 454864,
+    "max_n": 5707997
+  },
+  {
+    "name": "border:sn-bb:8",
+    "min_e": 455048,
+    "min_n": 5707420,
+    "max_e": 455596,
+    "max_n": 5708364
+  },
+  {
+    "name": "border:sn-bb:9",
+    "min_e": 454526,
+    "min_n": 5707982,
+    "max_e": 455738,
+    "max_n": 5709432
+  },
+  {
+    "name": "border:sn-bb:10",
+    "min_e": 480793,
+    "min_n": 5710768,
+    "max_e": 481077,
+    "max_n": 5711438
+  },
+  {
+    "name": "border:sn-bb:11",
+    "min_e": 480666,
+    "min_n": 5710652,
+    "max_e": 481548,
+    "max_n": 5712050
+  },
+  {
+    "name": "border:sn-bb:12",
+    "min_e": 480827,
+    "min_n": 5710220,
+    "max_e": 482199,
+    "max_n": 5711014
+  },
+  {
+    "name": "border:sn-bb:13",
+    "min_e": 480429,
+    "min_n": 5710608,
+    "max_e": 481853,
+    "max_n": 5711338
+  },
+  {
+    "name": "border:sn-bb:14",
+    "min_e": 480328,
+    "min_n": 5710096,
+    "max_e": 480984,
+    "max_n": 5711312
+  },
+  {
+    "name": "border:sn-bb:15",
+    "min_e": 375593,
+    "min_n": 5698825,
+    "max_e": 375793,
+    "max_n": 5699787
+  },
+  {
+    "name": "border:sn-bb:16",
+    "min_e": 374450,
+    "min_n": 5699278,
+    "max_e": 374730,
+    "max_n": 5699916
+  },
+  {
+    "name": "border:sn-bb:17",
+    "min_e": 374934,
+    "min_n": 5698322,
+    "max_e": 376260,
+    "max_n": 5699192
+  },
+  {
+    "name": "border:sn-bb:18",
+    "min_e": 373889,
+    "min_n": 5698682,
+    "max_e": 375101,
+    "max_n": 5699828
+  },
+  {
+    "name": "border:sn-bb:19",
+    "min_e": 374458,
+    "min_n": 5698621,
+    "max_e": 375912,
+    "max_n": 5699947
+  },
+  {
+    "name": "border:hh-sh:0",
+    "min_e": 170111,
+    "min_n": 5959127,
+    "max_e": 170735,
+    "max_n": 5959791
+  },
+  {
+    "name": "border:hh-sh:1",
+    "min_e": 168973,
+    "min_n": 5959441,
+    "max_e": 169897,
+    "max_n": 5960365
+  },
+  {
+    "name": "border:hh-sh:2",
+    "min_e": 168938,
+    "min_n": 5959609,
+    "max_e": 169944,
+    "max_n": 5960757
+  },
+  {
+    "name": "border:hh-sh:3",
+    "min_e": 169944,
+    "min_n": 5959132,
+    "max_e": 171150,
+    "max_n": 5959610
+  },
+  {
+    "name": "border:hh-sh:4",
+    "min_e": 169572,
+    "min_n": 5959566,
+    "max_e": 169852,
+    "max_n": 5959806
+  },
+  {
+    "name": "border:hh-sh:5",
+    "min_e": 151328,
+    "min_n": 5949753,
+    "max_e": 152634,
+    "max_n": 5951117
+  },
+  {
+    "name": "border:hh-sh:6",
+    "min_e": 152451,
+    "min_n": 5949878,
+    "max_e": 153227,
+    "max_n": 5951170
+  },
+  {
+    "name": "border:hh-sh:7",
+    "min_e": 152742,
+    "min_n": 5950490,
+    "max_e": 152904,
+    "max_n": 5951870
+  },
+  {
+    "name": "border:hh-sh:8",
+    "min_e": 151529,
+    "min_n": 5950560,
+    "max_e": 153003,
+    "max_n": 5951082
+  },
+  {
+    "name": "border:hh-sh:9",
+    "min_e": 152296,
+    "min_n": 5949914,
+    "max_e": 152630,
+    "max_n": 5951414
+  },
+  {
+    "name": "border:hh-sh:10",
+    "min_e": 181839,
+    "min_n": 5956143,
+    "max_e": 183181,
+    "max_n": 5957543
+  },
+  {
+    "name": "border:hh-sh:11",
+    "min_e": 181322,
+    "min_n": 5955692,
+    "max_e": 182550,
+    "max_n": 5956022
+  },
+  {
+    "name": "border:hh-sh:12",
+    "min_e": 181376,
+    "min_n": 5956108,
+    "max_e": 182354,
+    "max_n": 5956470
+  },
+  {
+    "name": "border:hh-sh:13",
+    "min_e": 181548,
+    "min_n": 5956798,
+    "max_e": 182260,
+    "max_n": 5957310
+  },
+  {
+    "name": "border:hh-sh:14",
+    "min_e": 181737,
+    "min_n": 5956017,
+    "max_e": 182743,
+    "max_n": 5957063
+  },
+  {
+    "name": "border:hh-sh:15",
+    "min_e": 181749,
+    "min_n": 5940526,
+    "max_e": 182467,
+    "max_n": 5940680
+  },
+  {
+    "name": "border:hh-sh:16",
+    "min_e": 181962,
+    "min_n": 5940266,
+    "max_e": 183160,
+    "max_n": 5940954
+  },
+  {
+    "name": "border:hh-sh:17",
+    "min_e": 181693,
+    "min_n": 5940436,
+    "max_e": 182229,
+    "max_n": 5941728
+  },
+  {
+    "name": "border:hh-sh:18",
+    "min_e": 182697,
+    "min_n": 5940778,
+    "max_e": 183075,
+    "max_n": 5941210
+  },
+  {
+    "name": "border:hh-sh:19",
+    "min_e": 183125,
+    "min_n": 5940452,
+    "max_e": 183321,
+    "max_n": 5940870
+  },
+  {
+    "name": "border:hh-ni:0",
+    "min_e": 163583,
+    "min_n": 5930932,
+    "max_e": 164893,
+    "max_n": 5932312
+  },
+  {
+    "name": "border:hh-ni:1",
+    "min_e": 163805,
+    "min_n": 5931980,
+    "max_e": 163997,
+    "max_n": 5932432
+  },
+  {
+    "name": "border:hh-ni:2",
+    "min_e": 163783,
+    "min_n": 5931097,
+    "max_e": 165023,
+    "max_n": 5931357
+  },
+  {
+    "name": "border:hh-ni:3",
+    "min_e": 164220,
+    "min_n": 5931733,
+    "max_e": 165242,
+    "max_n": 5932639
+  },
+  {
+    "name": "border:hh-ni:4",
+    "min_e": 163960,
+    "min_n": 5930902,
+    "max_e": 165248,
+    "max_n": 5932082
+  },
+  {
+    "name": "border:hh-ni:5",
+    "min_e": 155990,
+    "min_n": 5936029,
+    "max_e": 157136,
+    "max_n": 5937277
+  },
+  {
+    "name": "border:hh-ni:6",
+    "min_e": 155743,
+    "min_n": 5936195,
+    "max_e": 156269,
+    "max_n": 5937217
+  },
+  {
+    "name": "border:hh-ni:7",
+    "min_e": 155670,
+    "min_n": 5935200,
+    "max_e": 155854,
+    "max_n": 5936136
+  },
+  {
+    "name": "border:hh-ni:8",
+    "min_e": 155607,
+    "min_n": 5935296,
+    "max_e": 156757,
+    "max_n": 5936764
+  },
+  {
+    "name": "border:hh-ni:9",
+    "min_e": 155134,
+    "min_n": 5935224,
+    "max_e": 155664,
+    "max_n": 5936034
+  },
+  {
+    "name": "border:hh-ni:10",
+    "min_e": 187404,
+    "min_n": 5929907,
+    "max_e": 187572,
+    "max_n": 5930945
+  },
+  {
+    "name": "border:hh-ni:11",
+    "min_e": 187583,
+    "min_n": 5929746,
+    "max_e": 188087,
+    "max_n": 5929926
+  },
+  {
+    "name": "border:hh-ni:12",
+    "min_e": 187290,
+    "min_n": 5930393,
+    "max_e": 187546,
+    "max_n": 5930571
+  },
+  {
+    "name": "border:hh-ni:13",
+    "min_e": 187089,
+    "min_n": 5930175,
+    "max_e": 188463,
+    "max_n": 5930883
+  },
+  {
+    "name": "border:hh-ni:14",
+    "min_e": 187504,
+    "min_n": 5929532,
+    "max_e": 187704,
+    "max_n": 5931004
+  },
+  {
+    "name": "border:hh-ni:15",
+    "min_e": 152899,
+    "min_n": 5943374,
+    "max_e": 153075,
+    "max_n": 5944056
+  },
+  {
+    "name": "border:hh-ni:16",
+    "min_e": 153817,
+    "min_n": 5943195,
+    "max_e": 154637,
+    "max_n": 5944511
+  },
+  {
+    "name": "border:hh-ni:17",
+    "min_e": 153197,
+    "min_n": 5944226,
+    "max_e": 153357,
+    "max_n": 5944404
+  },
+  {
+    "name": "border:hh-ni:18",
+    "min_e": 153431,
+    "min_n": 5943355,
+    "max_e": 154909,
+    "max_n": 5944455
+  },
+  {
+    "name": "border:hh-ni:19",
+    "min_e": 153561,
+    "min_n": 5943840,
+    "max_e": 154317,
+    "max_n": 5944770
+  }
+]

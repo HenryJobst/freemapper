@@ -405,15 +405,10 @@ const RECHECK_AFTER: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 
 /// Whether the 404 note at `path` holds: offline always, online while it is recent.
 fn known_missing(path: &Path, mode: FetchMode) -> bool {
-    let Ok(meta) = std::fs::metadata(path) else {
+    if std::fs::metadata(path).is_err() {
         return false;
-    };
-    mode == FetchMode::Offline
-        || meta
-            .modified()
-            .ok()
-            .and_then(|written| written.elapsed().ok())
-            .is_some_and(|age| age < RECHECK_AFTER)
+    }
+    mode == FetchMode::Offline || crate::clock::age_of(path).is_some_and(|age| age < RECHECK_AFTER)
 }
 
 /// The Metalink of `model` for the whole Land (AGS `07`, 11 MB): file name, size and SHA-256 of
@@ -574,12 +569,7 @@ fn kept_list(dir: &Path, bbox: &BoundingBox) -> Option<TileList> {
 
 /// The kept Metalink of `model` if it was downloaded within [`RECHECK_AFTER`].
 fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
-    let age = std::fs::metadata(metalink_path(dir, model))
-        .ok()?
-        .modified()
-        .ok()?
-        .elapsed()
-        .ok()?;
+    let age = crate::clock::age_of(&metalink_path(dir, model))?;
     (age < RECHECK_AFTER)
         .then(|| kept_metalink(dir, model))
         .flatten()
@@ -1059,6 +1049,37 @@ mod tests {
         fetcher.insert(&east_url, east_file);
         let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
         assert!(found.missing.is_empty(), "{:?}", found.missing);
+        assert!(!marker.exists());
+    }
+
+    #[test]
+    fn rp_rechecks_missing_tiles_after_30_days_by_the_clock() {
+        let fetcher = MapFetcher::default();
+        serve_synthetic_rp_heights(&fetcher, &BBOX);
+        let east_url = tile_url(Model::Dgm1, "dgm1_32_400_5579_1_rp_2024");
+        let east_file = fetcher.responses.borrow_mut().remove(&east_url).unwrap();
+        let (cache_dir, cache) = temp_cache();
+        let tif = cache_dir.path().join("dgm1.tif");
+        run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+        let dir = cache_dir.path().join("lvermgeo_rp");
+        let marker = dir.join("dgm1/dgm1_32_400_5579_1_rp_2024.missing");
+        let kept = dir.join("meta4/dgm1_tif_07.meta4");
+        std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+        std::fs::write(&kept, metalink(&["dgm1_32_401_5579_1_rp_2025.tif"])).unwrap();
+        fetcher.insert(&east_url, east_file);
+        // Both files are written now; the clock moves, not their modification time.
+        let in_days = |days: i64| chrono::Utc::now().naive_utc() + chrono::Duration::days(days);
+        crate::clock::with_fixed(in_days(29), || {
+            assert!(known_missing(&marker, FetchMode::Online));
+            assert!(fresh_metalink(&dir, Model::Dgm1).is_some());
+        });
+        crate::clock::with_fixed(in_days(31), || {
+            assert!(!known_missing(&marker, FetchMode::Online));
+            assert!(known_missing(&marker, FetchMode::Offline));
+            assert!(fresh_metalink(&dir, Model::Dgm1).is_none());
+            let found = run(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &tif).unwrap();
+            assert!(found.missing.is_empty(), "{:?}", found.missing);
+        });
         assert!(!marker.exists());
     }
 

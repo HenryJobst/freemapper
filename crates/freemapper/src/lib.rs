@@ -4,6 +4,7 @@
 
 pub mod area;
 pub mod build;
+pub mod clock;
 pub mod crs;
 pub mod derive;
 pub mod fetch;

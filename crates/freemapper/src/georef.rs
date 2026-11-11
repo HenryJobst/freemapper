@@ -43,6 +43,16 @@ fn round_angle(deg: f64) -> f64 {
     (deg * 100.0).round() / 100.0
 }
 
+/// A projected point on a millimetre grid. The projection's last digits depend on the maths
+/// library of the system; the reference point is written into the map, which must be the same
+/// file everywhere.
+fn round_to_millimetre(p: ProjectedPoint) -> ProjectedPoint {
+    ProjectedPoint {
+        easting: (p.easting * 1000.0).round() / 1000.0,
+        northing: (p.northing * 1000.0).round() / 1000.0,
+    }
+}
+
 /// Rounds a scale factor to 1e-6.
 fn round_scale_factor(factor: f64) -> f64 {
     (factor * 1e6).round() / 1e6
@@ -82,7 +92,7 @@ impl Georeferencing {
             scale_denominator,
             epsg: crs.epsg(),
             ref_geographic: ref_point,
-            ref_projected: crs.forward(ref_point),
+            ref_projected: round_to_millimetre(crs.forward(ref_point)),
             declination_deg: round_angle(magnetic_declination_deg(ref_point, declination_date)?),
             convergence_deg: crs.convergence_deg(ref_point),
             grid_scale_factor: round_scale_factor(crs.scale_factor(ref_point)),
@@ -150,6 +160,24 @@ mod tests {
         NaiveDate::from_ymd_opt(2026, 11, 7).unwrap()
     }
 
+    /// The reference point is written into the map with every digit. Projected with the maths
+    /// library of the system it differs in the last one, so it is kept on a millimetre grid:
+    /// the map file is then the same bytes on every system.
+    #[test]
+    fn the_projected_reference_point_is_on_a_millimetre_grid() {
+        for crs in [Crs::Utm32, Crs::Utm33] {
+            let georef = Georeferencing::new_in(crs, school(), 4000, date()).unwrap();
+            let exact = crs.forward(school());
+            for (kept, exact) in [
+                (georef.ref_projected.easting, exact.easting),
+                (georef.ref_projected.northing, exact.northing),
+            ] {
+                assert_eq!(kept, (kept * 1000.0).round() / 1000.0);
+                assert!((kept - exact).abs() <= 0.0005, "{kept} is not {exact}");
+            }
+        }
+    }
+
     fn school() -> LatLon {
         LatLon {
             lat: 52.5401,
@@ -171,7 +199,10 @@ mod tests {
             "{}",
             g.convergence_deg
         );
-        assert_eq!(g.ref_projected, Crs::Utm32.forward(halle));
+        // On the millimetre grid, see `the_projected_reference_point_is_on_a_millimetre_grid`.
+        let exact = Crs::Utm32.forward(halle);
+        assert!((g.ref_projected.easting - exact.easting).abs() <= 0.0005);
+        assert!((g.ref_projected.northing - exact.northing).abs() <= 0.0005);
         let corner = g.geographic_to_map(halle).unwrap();
         assert_eq!((corner.x, corner.y), (0, 0));
         assert_eq!(

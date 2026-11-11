@@ -1,0 +1,65 @@
+[[response]]
+method = "GET"
+url = "https://www.wms.nrw.de/geobasis/wms_nw_dop?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=nw_dop_utm_info&QUERY_LAYERS=nw_dop_utm_info&STYLES=&CRS=EPSG:25832&BBOX=304400.253,5603700.489,304600.253,5603900.489&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain"
+body = "05ba6e8d9f12ed4df13f322c35081710b1d8c58d8811b7339006d15b77699b8c"
+bytes = 208
+
+[[response]]
+method = "GET"
+url = "https://www.wms.nrw.de/geobasis/wms_nw_dop?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=nw_dop_rgb&STYLES=&CRS=EPSG:25832&BBOX=304369.4,5603669.6,304631.2,5603931.4&WIDTH=1309&HEIGHT=1309&FORMAT=image/jpeg"
+body = "c328de3ec1de8d1995d78de794db6bcbf86ca3d69f0e24a949ebd5916543180b"
+bytes = 384175
+
+[[response]]
+method = "GET"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/dgm1_tiff/dgm1_tiff/dgm1_meta.zip"
+body = "87cec0750e4a88e9e5334994a6ae7ff41e89b4707f12cbbf3aee03626ca251db"
+bytes = 111741
+
+[[response]]
+method = "GET"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/dgm1_tiff/dgm1_tiff/dgm1_32_304_5603_1_nw_2021.tif"
+body = "256d933f604b4a666c24fd1328193f28fb96422be72752798df844c7a7676665"
+bytes = 2655181
+
+[[response]]
+method = "GET"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/dom1_tiff/dom1_tiff/dom1_meta.zip"
+body = "7b56b08f1b67d35beb61c12a5133df134b24bec2a67b44c8a7c12a7db9a52c39"
+bytes = 111743
+
+[[response]]
+method = "GET"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/dom1_tiff/dom1_tiff/dom1_32_304_5603_1_nw_2021.tif"
+body = "1c2476e659b5f8edd97fd1fb62da4b2d39f28840eed278615b6f9f5991b4d410"
+bytes = 2753999
+
+[[response]]
+method = "GET"
+url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "305cda3f439705ea418c28f5a804015046ea1d15581fa619c86df83c435a472b"
+bytes = 354
+
+[[response]]
+method = "GET"
+url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "a616ec47685d0eaf2882cf8ce18ea0c105f69f1be9dc87f42254c35e9085934e"
+bytes = 163087
+
+[[response]]
+method = "GET"
+url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "12a562c96aad15a7a7aed6e83897569d8bd8731835e10d95b0d21eecc2d0f71e"
+bytes = 354
+
+[[response]]
+method = "GET"
+url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "a9a605a4a5f5ace0a43539be53142725579943008b9dceaed2d046d7bb79f768"
+bytes = 367954
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt"
+body = "b78fe605fe0d27ece4f15c219a3daf7132cda1aece4484b97fa1e3fd68029e9d"
+bytes = 113

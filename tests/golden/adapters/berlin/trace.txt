@@ -1,0 +1,53 @@
+estimate: orthophoto (DOP20) tile 33390-5816 | Orthophoto | 8.000 MB | cached: false
+estimate: terrain model (DGM1) tile 33390-5816 | Terrain | 1.300 MB | cached: false
+estimate: nDSM tile 33390-5816 (surface model (bDOM)) | Surface | 30.000 MB | cached: false
+estimate: OSM extract Brandenburg (shared by all projects) | MapData | 300.000 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+estimate: Berlin ALKIS structures, tree cadastre, street survey and point layers | BerlinLayers | 0.786 MB | cached: false
+estimate: Berlin K5 map (1:5000) template | K5 | 0.983 MB | cached: false
+GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv
+GET https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33390-5816.zip
+GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv
+GET https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33390-5816.zip
+HEAD https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33390-5816_LAS12.laz
+GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv
+GET https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33390-5816.zip
+GET https://gdi.berlin.de/services/wfs/alkis_gebaeude?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis_gebaeude:gebaeude&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis:tatsaechlichenutzungflaechen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis:bauwerkeflaechen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis:bauwerkelinien&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis:relief&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/alkis?service=WFS&version=2.0.0&request=GetFeature&typeNames=alkis:gewaesservegetationlinien&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/baumbestand?service=WFS&version=2.0.0&request=GetFeature&typeNames=baumbestand:strassenbaeume&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/baumbestand?service=WFS&version=2.0.0&request=GetFeature&typeNames=baumbestand:anlagenbaeume&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ce_gruenflaeche&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:cm_fahrbahn&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:cl_gehweg&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ch_radweg&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ck_parkflaeche&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ci_oeffentlicher_platz&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:cj_fussgaengerzone&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:by_gehwegueberfahrt&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bd_bordstein&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:cc_treppe&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bh_mauer&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bf_gelaender&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bb_verkehrsschutzgitter&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bg_leitplanke&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bj_sitzbank&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:av_poller&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:as_mast&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:am_fahnenmast&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ag_werbesaeule&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:br_fahrgastunterstand&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:af_wasserpumpen_brunnen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:bv_springbrunnen_zierbrunnen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/strassenbefahrung?service=WFS&version=2.0.0&request=GetFeature&typeNames=strassenbefahrung:ac_trinkwasserbrunnen_wasserspender&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/beleuchtung?service=WFS&version=2.0.0&request=GetFeature&typeNames=beleuchtung:beleuchtung&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/zierbrunnen?service=WFS&version=2.0.0&request=GetFeature&typeNames=zierbrunnen:bez_zierbrunnen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/trinkwasserbrunnen?service=WFS&version=2.0.0&request=GetFeature&typeNames=trinkwasserbrunnen:trinkwasserbrunnen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen?service=WFS&version=2.0.0&request=GetFeature&typeNames=ua_gebaeudehoehen:gebaeudehoehen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
+GET https://gdi.berlin.de/services/wms/k5_farbe?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=k5_farbe&STYLES=&CRS=EPSG:25833&BBOX=390073.5,5816416.75,390326.75,5816676&WIDTH=1013&HEIGHT=1037&FORMAT=image/png
+GET https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf [to file]
+result: fetched

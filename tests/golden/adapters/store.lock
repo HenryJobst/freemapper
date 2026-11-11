@@ -1,0 +1,5 @@
+# The fixture store this tree needs: scripts/golden.sh fetch (tests/golden/adapters/README.md).
+version = 1
+url = "https://github.com/HenryJobst/freemapper/releases/download/golden-adapters-1/golden-adapters-1.tar.gz"
+sha256 = "c292ae205e34d94fa985868ff4580c686834fc80ecc962621479c2cd7560ce9c"
+bytes = 206350882

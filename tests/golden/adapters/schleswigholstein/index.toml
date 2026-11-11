@@ -1,0 +1,65 @@
+[[response]]
+method = "GET"
+url = "https://service.gdi-sh.de/WMS_SH_MD_DOP?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=DOP20&QUERY_LAYERS=DOP20&STYLES=&CRS=EPSG:25832&BBOX=610697.135,5969695.29,610897.135,5969895.29&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain"
+body = "4f2aa00f918a893c8aa0ed4c2f8c66b1046793e42b5fb08c06b7f6b59285f9c7"
+bytes = 1068
+
+[[response]]
+method = "GET"
+url = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=sh_dop20_rgb&STYLES=&CRS=EPSG:25832&BBOX=610672.8,5969665.6,610921.4,5969925&WIDTH=1243&HEIGHT=1297&FORMAT=image/jpeg"
+body = "ff0b326df999dc28a2fee01982768ec4cf24cdbb8c897d7757d8a90b752425e0"
+bytes = 376564
+
+[[response]]
+method = "GET"
+url = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/_ajax/overview.php?type[]=dgm1&bbox=610672,5969665,610922,5969925&crs=EPSG:25832"
+body = "804035e0150d2d08ea8cae7f317f3af24b0168fc923dee7f1af85093320428ce"
+bytes = 666
+
+[[response]]
+method = "GET"
+url = "https://service.gdi-sh.de/INSPIRE_Atom/EL/data/dgm1_32_610_5969_1_sh_2022.tif"
+body = "f4b6d79decf60e66f33a396f69372adeff946df00e20adf6c3ac71bdc09c409e"
+bytes = 1775590
+
+[[response]]
+method = "GET"
+url = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/_ajax/overview.php?type[]=bdom&bbox=610672,5969665,610922,5969925&crs=EPSG:25832"
+body = "46892a2696d4cd862f2b50c6e6e13eb0cac813eec69b467718b96fbac4fe6c1a"
+bytes = 608
+
+[[response]]
+method = "GET"
+url = "https://geodaten.schleswig-holstein.de/gaialight-sh/_apps/dladownload/massen.php?file=bdom20nc_32_610_5969_1_sh_2023.tif&id=6&live=2023&km=32610_5960&stack=32610_5969"
+body = "5babb1352e90f929c193121d12404a837e58d802bd623f8f14bb76912cd26d40"
+bytes = 104861185
+
+[[response]]
+method = "GET"
+url = "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=610672,5969665,610922,5969925,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "3914b6464b9026deabf74de47a79a6261f3b67c10c1f2458dcb8d6693bf17c31"
+bytes = 366
+
+[[response]]
+method = "GET"
+url = "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=610672,5969665,610922,5969925,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "740679ee3dd6c529ca81ee46a4bbba931316c3fbb048458171037858a6491892"
+bytes = 219242
+
+[[response]]
+method = "GET"
+url = "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=610672,5969665,610922,5969925,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "9227febcdb45718989bfcc54f557bcb2108a5eae04dd6c212ec78616d921035d"
+bytes = 366
+
+[[response]]
+method = "GET"
+url = "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=610672,5969665,610922,5969925,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "7b8901a8fd6a6a34490ffacae3e056d514e7b75dc3db50effa80fbc1e5eae2a8"
+bytes = 305225
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt"
+body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
+bytes = 113

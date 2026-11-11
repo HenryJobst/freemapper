@@ -355,6 +355,43 @@ pub struct ProjectFile {
     pub ndsm_tiles: Vec<NdsmRecord>,
 }
 
+/// The grid the area of a raster record is stored on, in metres. A projected coordinate differs
+/// in its last digits from one maths library to the next; on this grid the project file is the
+/// same bytes on every system.
+const STORED_METRE: f64 = 0.001;
+
+/// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
+const STORED_DEGREE: f64 = 1e-8;
+
+/// `value` on the grid of `step`. Dividing by the whole number of steps in one unit gives the
+/// number that is written with as few digits as the grid has; multiplying by the step would
+/// leave `5816416.924000001` in the file.
+fn on_grid(value: f64, step: f64) -> f64 {
+    let per_unit = (1.0 / step).round();
+    (value * per_unit).round() / per_unit
+}
+
+/// `bbox` as a raster record stores it: rounded to the millimetre.
+fn stored_bbox(bbox: &BoundingBox) -> [f64; 4] {
+    [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n].map(|value| on_grid(value, STORED_METRE))
+}
+
+/// `area` as the OSM record stores it.
+fn stored_geo_box(area: &GeoBox) -> [f64; 4] {
+    [area.min_lat, area.min_lon, area.max_lat, area.max_lon]
+        .map(|value| on_grid(value, STORED_DEGREE))
+}
+
+/// Whether the stored area of a raster record covers `bbox`. The rounding of [`stored_bbox`]
+/// may leave it up to half a millimetre short, which counts as covered.
+fn stored_bbox_covers(stored: [f64; 4], bbox: &BoundingBox) -> bool {
+    let [min_e, min_n, max_e, max_n] = stored;
+    min_e <= bbox.min_e + STORED_METRE
+        && min_n <= bbox.min_n + STORED_METRE
+        && max_e >= bbox.max_e - STORED_METRE
+        && max_n >= bbox.max_n - STORED_METRE
+}
+
 /// The orthophoto fetched from a WMS for one area.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WmsRecord {
@@ -372,8 +409,7 @@ pub struct WmsRecord {
 
 impl WmsRecord {
     fn covers(&self, bbox: &BoundingBox) -> bool {
-        let [min_e, min_n, max_e, max_n] = self.bbox;
-        min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
+        stored_bbox_covers(self.bbox, bbox)
     }
 }
 
@@ -390,8 +426,7 @@ pub struct WcsRecord {
 
 impl WcsRecord {
     fn covers(&self, bbox: &BoundingBox) -> bool {
-        let [min_e, min_n, max_e, max_n] = self.bbox;
-        min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
+        stored_bbox_covers(self.bbox, bbox)
     }
 }
 
@@ -417,10 +452,10 @@ pub struct OsmRecord {
 impl OsmRecord {
     fn covers(&self, area: &GeoBox) -> bool {
         let [min_lat, min_lon, max_lat, max_lon] = self.area;
-        min_lat <= area.min_lat
-            && min_lon <= area.min_lon
-            && max_lat >= area.max_lat
-            && max_lon >= area.max_lon
+        min_lat <= area.min_lat + STORED_DEGREE
+            && min_lon <= area.min_lon + STORED_DEGREE
+            && max_lat >= area.max_lat - STORED_DEGREE
+            && max_lon >= area.max_lon - STORED_DEGREE
     }
 }
 
@@ -1102,7 +1137,7 @@ fn check_space(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Option<SpacePlan>, ProjectError> {
-    let today = chrono::Local::now().date_naive();
+    let today = crate::clock::today();
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     let mut estimate = crate::layers::estimate_area(region_bbox, bbox, cache, today, alkis_cached);
     mark_stored(&mut estimate, dir, project, bbox);
@@ -1416,7 +1451,7 @@ fn fetch_wms_orthophoto(
             // Reused while the stored image covers the area and the flight date is the same.
             // Without a date from the service (none known, or the query failed), the image is
             // reused only while it is recent, and keeps the date it has.
-            let today = chrono::Local::now().date_naive();
+            let today = crate::clock::today();
             let recent =
                 |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
             let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
@@ -1455,8 +1490,8 @@ fn fetch_wms_orthophoto(
                 project.orthophoto = Some(WmsRecord {
                     flight,
                     flight_label,
-                    fetched: chrono::Local::now().date_naive(),
-                    bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+                    fetched: crate::clock::today(),
+                    bbox: stored_bbox(bbox),
                 });
             }
         }
@@ -1519,8 +1554,8 @@ fn fetch_k5_into(
             project.k5 = Some(WmsRecord {
                 flight: Some(K5_DATASET_DATE.to_string()),
                 flight_label: Some("K5 dataset".to_string()),
-                fetched: chrono::Local::now().date_naive(),
-                bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+                fetched: crate::clock::today(),
+                bbox: stored_bbox(bbox),
             });
         }
         Err(e) => {
@@ -1573,8 +1608,8 @@ fn fetch_lvermgeo_rasters(
         progress,
     )?;
     let record = |date: Option<String>| WcsRecord {
-        fetched: chrono::Local::now().date_naive(),
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        fetched: crate::clock::today(),
+        bbox: stored_bbox(bbox),
         date,
     };
     match mode {
@@ -1652,9 +1687,9 @@ fn fetch_lgv_rasters(
     let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => chrono::Local::now().date_naive(),
+            _ => crate::clock::today(),
         },
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        bbox: stored_bbox(bbox),
         date: Some(model.date().to_string()),
     };
     let warn_missing = |progress: &mut dyn FnMut(Note), model: Model, missing: Vec<_>| {
@@ -1746,9 +1781,9 @@ fn height_record(
     WcsRecord {
         fetched: match (mode, old) {
             (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => chrono::Local::now().date_naive(),
+            _ => crate::clock::today(),
         },
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        bbox: stored_bbox(bbox),
         // Offline without the portal's tile list there is no date: the stored file is unchanged.
         date: found.date.clone().or_else(|| {
             old.as_ref()
@@ -2472,7 +2507,7 @@ fn fetch_osm_into(
         .expect("every map area touches a region");
     Ok(OsmRecord {
         extract: extract_date,
-        area: [area.min_lat, area.min_lon, area.max_lat, area.max_lon],
+        area: stored_geo_box(&area),
         count: features.len(),
     })
 }
@@ -2546,7 +2581,7 @@ fn fetch_buildings_into(
             bbox.max_e.ceil(),
             bbox.max_n.ceil(),
         ],
-        fetched: chrono::Local::now().date_naive(),
+        fetched: crate::clock::today(),
         latest_update: parsed.buildings.iter().filter_map(|b| b.updated).max(),
         count,
         regions: regions_of(parsed.buildings.iter().map(|b| b.oid.as_str())),
@@ -2611,7 +2646,7 @@ fn fetch_land_use_into(
                     bbox.max_e.ceil(),
                     bbox.max_n.ceil(),
                 ],
-                fetched: chrono::Local::now().date_naive(),
+                fetched: crate::clock::today(),
                 latest_update: land_use.iter().filter_map(|l| l.updated).max(),
                 count: land_use.len(),
                 regions: regions_of(land_use.iter().map(|l| l.oid.as_str())),
@@ -2755,7 +2790,7 @@ fn fetch_berlin_layers_into(
                     file.to_string(),
                     AlkisRecord {
                         bbox,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update: None,
                         count,
                         regions: vec![Region::Berlin],
@@ -2893,7 +2928,7 @@ fn fetch_nas_layers_into(
                     file.to_string(),
                     AlkisRecord {
                         bbox: rounded,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update,
                         count,
                         regions: fetched.regions,
@@ -3094,7 +3129,7 @@ fn fetch_tree_layers_into(
                     id.to_string(),
                     AlkisRecord {
                         bbox: rounded,
-                        fetched: chrono::Local::now().date_naive(),
+                        fetched: crate::clock::today(),
                         latest_update,
                         count,
                         regions: fetched.regions,
@@ -5372,6 +5407,96 @@ fn check_folders(dir: &Path, folders: &[&str]) -> Result<(), ProjectError> {
     Ok(())
 }
 
+/// The credit lines of a project as the attribution functions give them, for the golden net of
+/// the adapter migration (`tests/adapters_golden.rs`). Test and `golden` feature only.
+#[cfg(any(test, feature = "golden"))]
+pub mod golden {
+    use super::*;
+
+    /// The lines of `ATTRIBUTION.txt` that a project of `region` gets when everything it holds
+    /// was fetched in `year`. `rasters` adds the orthophoto, terrain and surface records (and
+    /// one recorded tile for the tile providers) to the ALKIS records. `lon` and `lat` place the
+    /// map area (a 150 m square) inside the region.
+    pub fn credit_lines(
+        region: Region,
+        lon: f64,
+        lat: f64,
+        year: i32,
+        rasters: bool,
+    ) -> Vec<String> {
+        let (dlon, dlat) = (0.001_1, 0.000_7);
+        let ring = [
+            [lon - dlon, lat - dlat],
+            [lon + dlon, lat - dlat],
+            [lon + dlon, lat + dlat],
+            [lon - dlon, lat + dlat],
+            [lon - dlon, lat - dlat],
+        ];
+        let date = NaiveDate::from_ymd_opt(year, 6, 15).expect("valid date");
+        let mut project = ProjectFile {
+            map_kind: crate::project::MapKind::Sprint,
+            scale_denominator: 4000,
+            declination_date: date,
+            buffer_m: 50.0,
+            map_area_source_id: None,
+            map_area: serde_json::json!({"type": "Polygon", "coordinates": [ring]}),
+            crs: Crs::Utm33.epsg(),
+            provider: None,
+            title: None,
+            tiles: Vec::new(),
+            buildings: None,
+            land_use: None,
+            berlin_layers: BTreeMap::new(),
+            nas_layers: BTreeMap::new(),
+            tree_layers: BTreeMap::new(),
+            osm: None,
+            orthophoto: None,
+            k5: None,
+            terrain: None,
+            surface: None,
+            ndsm_tiles: Vec::new(),
+        };
+        let bbox = [0.0, 0.0, 1.0, 1.0];
+        project.buildings = Some(AlkisRecord {
+            bbox,
+            fetched: date,
+            latest_update: None,
+            count: 1,
+            regions: vec![region],
+        });
+        if rasters {
+            project.orthophoto = Some(WmsRecord {
+                flight: None,
+                flight_label: None,
+                fetched: date,
+                bbox,
+            });
+            let wcs = WcsRecord {
+                fetched: date,
+                bbox,
+                date: None,
+            };
+            project.terrain = Some(wcs.clone());
+            project.surface = Some(wcs);
+            let product = match region.provider() {
+                Provider::GeoSn => Some(Product::SaxonyDtm),
+                Provider::Lgb => Some(Product::Dtm),
+                _ => None,
+            };
+            if let Some(product) = product {
+                project.tiles.push(TileRecord {
+                    product,
+                    tile: "t".to_string(),
+                    url: "https://example.invalid/t".to_string(),
+                    currency: date,
+                    published: date,
+                });
+            }
+        }
+        attribution_lines(&project, &[])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
@@ -6975,6 +7100,75 @@ mod tests {
             &project.bbox().unwrap(),
         );
         (dir, cache_dir, cache)
+    }
+
+    #[test]
+    fn fixed_clock_dates_the_records() {
+        // A day that is never today, so the test cannot pass by reading the system clock.
+        let at = NaiveDate::from_ymd_opt(2020, 1, 2)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        crate::clock::with_fixed(at, || fetch(dir.path(), &fetcher, &cache));
+        let stored = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let fetched: Vec<&str> = stored
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.starts_with("fetched = "))
+            .collect();
+        assert!(fetched.len() >= 3, "{stored}");
+        assert!(
+            fetched
+                .iter()
+                .all(|line| *line == "fetched = \"2020-01-02\""),
+            "{fetched:?}"
+        );
+    }
+
+    /// The project file must be the same bytes on every system. A projected coordinate differs
+    /// in its last digits with the maths library, so the areas of the records are stored on a
+    /// grid, and a record still covers the area it was fetched for.
+    #[test]
+    fn stored_areas_are_on_a_grid() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        let bbox = project.bbox().unwrap();
+        let gridded = |value: f64, step: f64| (on_grid(value, step) - value).abs() < step / 1e3;
+        let wms = project.orthophoto.clone().unwrap();
+        let terrain = project.terrain.clone().unwrap();
+        let surface = project.surface.clone().unwrap();
+        for stored in [wms.bbox, terrain.bbox, surface.bbox] {
+            assert!(
+                stored.iter().all(|v| gridded(*v, STORED_METRE)),
+                "{stored:?}"
+            );
+        }
+        assert!(wms.covers(&bbox) && terrain.covers(&bbox) && surface.covers(&bbox));
+        let osm = project.osm.clone().unwrap();
+        assert!(
+            osm.area.iter().all(|v| gridded(*v, STORED_DEGREE)),
+            "{:?}",
+            osm.area
+        );
+        assert!(osm.covers(&project.area().unwrap().geo_box(project.buffer_m)));
+        // The file shows no more digits than the grid has.
+        assert_eq!(
+            on_grid(5_816_416.924_000_4, STORED_METRE).to_string(),
+            "5816416.924"
+        );
+        assert_eq!(
+            on_grid(13.384_737_621, STORED_DEGREE).to_string(),
+            "13.38473762"
+        );
+        // A record written before the grid, with every digit of the projection, still covers.
+        let exact = [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n];
+        assert!(stored_bbox_covers(exact, &bbox));
+        // One that ends a centimetre short does not.
+        let short = [bbox.min_e + 0.01, bbox.min_n, bbox.max_e, bbox.max_n];
+        assert!(!stored_bbox_covers(short, &bbox));
     }
 
     #[test]

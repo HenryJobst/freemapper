@@ -687,6 +687,7 @@ dependencies = [
  "contour",
  "crc32fast",
  "dirs",
+ "freemapper",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
