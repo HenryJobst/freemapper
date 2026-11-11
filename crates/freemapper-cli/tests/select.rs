@@ -481,19 +481,73 @@ fn busy_port_names_the_port() {
     );
 }
 
-#[test]
-fn the_page_takes_over_a_named_program_language() {
+/// The environment of a process in which nothing names a language.
+const NO_LANGUAGE: [(&str, &str); 4] = [
+    ("FREEMAPPER_LANG", ""),
+    ("LC_ALL", ""),
+    ("LC_MESSAGES", ""),
+    ("LANG", "C"),
+];
+
+/// `api/texts` of a page started with `extra` and `env`, asked with `accept_language`.
+fn texts_answer(extra: &[&str], env: &[(&str, &str)], accept_language: Option<&str>) -> Value {
+    let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
-    let lang_of = |extra: &[&str]| {
-        let dir = tempfile::tempdir().unwrap();
-        let selector = Selector::start(&dir.path().join("p"), cache.path(), extra);
-        let (status, body) = selector.get("api/project");
-        assert_eq!(status, 200, "{body}");
-        serde_json::from_str::<Value>(&body).unwrap()["lang"].clone()
-    };
-    // The test environment names English; the switch wins over it.
-    assert_eq!(lang_of(&[]), "en");
-    assert_eq!(lang_of(&["--lang", "de"]), "de");
+    let selector = Selector::start_with_env(&dir.path().join("p"), cache.path(), extra, env);
+    let mut request = selector.agent.get(&format!("{}api/texts", selector.url));
+    if let Some(value) = accept_language {
+        request = request.header("Accept-Language", value);
+    }
+    let mut response = request.call().unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap()
+}
+
+#[test]
+fn api_texts_language_comes_from_lang_then_the_browser_then_english() {
+    let german = Some("de-DE,de;q=0.9,en;q=0.8");
+    // --lang wins over the browser, and so does the environment's language.
+    let answer = texts_answer(&["--lang", "de"], &NO_LANGUAGE, Some("en-US,en"));
+    assert_eq!(answer["lang"], "de");
+    assert_eq!(answer["texts"]["page-title"], "freemapper – Gebietsauswahl");
+    assert_eq!(
+        texts_answer(&[], &[], german)["lang"],
+        "en",
+        "FREEMAPPER_LANG=en"
+    );
+    // Nothing named: the browser's language, else English.
+    let answer = texts_answer(&[], &NO_LANGUAGE, german);
+    assert_eq!(answer["lang"], "de");
+    assert_eq!(answer["texts"]["page-heading"], "Kartengebiet wählen");
+    assert_eq!(
+        texts_answer(&[], &NO_LANGUAGE, Some("fr, en;q=0.5"))["lang"],
+        "en"
+    );
+    let answer = texts_answer(&[], &NO_LANGUAGE, Some("fr"));
+    assert_eq!(answer["lang"], "en");
+    assert_eq!(answer["texts"]["page-title"], "freemapper – area selection");
+    assert_eq!(texts_answer(&[], &NO_LANGUAGE, None)["lang"], "en");
+    // Patterns keep their placeholders; the suite's own words come along.
+    let texts = &answer["texts"];
+    assert_eq!(
+        texts["page-size"],
+        "Size with buffer: { $width } × { $height } m"
+    );
+    assert_eq!(texts["suite-banner-dismiss"], "Dismiss");
+    assert!(
+        texts
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|id| id.starts_with("page-") || id.starts_with("suite-"))
+    );
+    // The project answer no longer carries a language.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("p"), cache.path(), &[]);
+    let (_, state) = selector.get("api/project");
+    let state: Value = serde_json::from_str(&state).unwrap();
+    assert!(state.get("lang").is_none(), "{state}");
 }
 
 /// `api/update` of a page whose cache holds `record` (if any). `base` is the update stub the

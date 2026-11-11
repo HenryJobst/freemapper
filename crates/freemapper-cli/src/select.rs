@@ -17,7 +17,7 @@ use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
 use axum::extract::{DefaultBodyLimit, Path as UrlPath, Query, State};
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use freemapper::area::MapArea;
@@ -176,6 +176,7 @@ fn router(
             &format!("{prefix}/tiles/osm/{{z}}/{{x}}/{{y}}"),
             get(osm_tile),
         )
+        .route(&format!("{prefix}/api/texts"), get(texts))
         .route(&format!("{prefix}/api/project"), get(project))
         .route(&format!("{prefix}/api/update"), get(update_notice))
         .route(&format!("{prefix}/api/preview"), post(preview))
@@ -243,6 +244,21 @@ async fn index() -> Response {
 
 async fn asset(UrlPath(path): UrlPath<String>) -> Response {
     embedded::<Assets>(&path)
+}
+
+/// The page's language from the request's `Accept-Language`, unless `--lang` or the environment
+/// named one (ADR 0092, core ADR 0030).
+fn page_lang(headers: &HeaderMap) -> crate::text::Lang {
+    let accept = headers
+        .get(header::ACCEPT_LANGUAGE)
+        .and_then(|value| value.to_str().ok());
+    crate::text::page_lang(accept)
+}
+
+/// Every word of the page: `{ "lang": "de" | "en", "texts": { id: text } }` (core ADR 0030).
+async fn texts(headers: HeaderMap) -> Response {
+    let lang = page_lang(&headers);
+    Json(json!({ "lang": lang.code(), "texts": crate::text::page_texts(&lang) })).into_response()
 }
 
 fn kind_name(kind: MapKind) -> &'static str {
@@ -316,9 +332,6 @@ async fn project(State(state): State<Arc<AppState>>) -> Response {
         .map(|kind| (kind.name().to_string(), json!(kind.allowed_scales())))
         .collect::<serde_json::Map<_, _>>()
         .into();
-    // The program language when `--lang` or the environment named one; else null, and the page
-    // follows the browser (ADR 0092).
-    answer["lang"] = crate::text::named_lang().map_or(Value::Null, |lang| Value::from(lang.code()));
     answer["running"] = crate::select_run::running_json(&state);
     Json(answer).into_response()
 }
@@ -1183,9 +1196,6 @@ pub(crate) mod tests {
                 "pdf_sources": "credit-only",
             })
         );
-        // No language was named in this test process, so the page follows the browser.
-        assert!(answer["lang"].is_null(), "{answer}");
-        assert!(answer.as_object().unwrap().contains_key("lang"));
         // Without flags every option is off and the sources are automatic.
         let (selector, _dir) = page_with(plain_defaults(), None).await;
         let answer = project_json(&selector).await;

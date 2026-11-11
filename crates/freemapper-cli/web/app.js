@@ -1,208 +1,35 @@
 // freemapper area selection page: draw or pick the map area, see tiles and download, save it.
-"use strict";
-
-const TEXTS = {
-  de: {
-    pageTitle: "freemapper – Gebietsauswahl",
-    heading: "Kartengebiet wählen",
-    updateAvailable: (version) => `freemapper ${version} ist verfügbar. Aktualisieren mit `,
-    updateNotes: "Versionshinweise",
-    folder: "Projektordner",
-    pick: "Ort suchen",
-    queryPlaceholder: "z. B. Clara-Zetkin-Schule Strausberg",
-    searchButton: "Suchen",
-    searching: "Suche …",
-    noResults: "Nichts gefunden.",
-    pointOnly: "nur ein Punkt, keine Fläche",
-    draw: "Selbst zeichnen",
-    rectangle: "Rechteck",
-    polygon: "Polygon",
-    finishPolygon: "Polygon schließen",
-    clear: "Löschen",
-    hintRectangle: "Klicke zwei gegenüberliegende Ecken in die Karte.",
-    hintPolygon:
-      "Klicke die Ecken nacheinander. Zum Schließen die erste Ecke anklicken, doppelklicken oder „Polygon schließen“ wählen. Esc bricht ab, Rücktaste nimmt die letzte Ecke zurück.",
-    hintIdle: "Wähle einen Ort aus der Suche oder zeichne das Gebiet selbst.",
-    summary: "Gebiet",
-    sourceOsm: "Aus OpenStreetMap: ",
-    sourceDrawn: "Selbst gezeichnet",
-    size: (w, h) => `Größe mit Puffer: ${w} × ${h} m`,
-    tiles: (n, names) => `${n} Kachel${n === 1 ? "" : "n"}: ${names}`,
-    download: (mb) => `Download: etwa ${mb} MB`,
-    downloadNone: "Download: alles schon im Zwischenspeicher",
-    downloadDetails: "Was geladen wird",
-    cached: "schon geladen",
-    disk: "Speicherplatz: ",
-    diskVolume: (free, needed) => `${free} frei, gebraucht etwa ${needed}`,
-    cacheVolume: "Zwischenspeicher",
-    projectVolume: "Projektordner",
-    noRoom: "passt nicht auf den Datenträger",
-    noRoomSkip: (reserve) =>
-      `Nicht alles passt auf den Datenträger (freemapper lässt ${reserve} frei). Das Laden lässt die markierten Teile aus. Schaffe vorher Platz, wenn du sie brauchst:`,
-    noRoomStop: (reserve) =>
-      `Zu wenig Speicherplatz (freemapper lässt ${reserve} frei). Ohne die markierten Teile entsteht keine Karte, deshalb bricht das Laden ab, bevor es etwas lädt. Schaffe vorher Platz:`,
-    diskUnknown: (error) =>
-      `Den freien Speicherplatz kann freemapper nicht lesen (${error}). Es lädt dann ohne Prüfung.`,
-    tooLarge: (max) =>
-      `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
-    outside:
-      "Das Gebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.",
-    settings: "Karte",
-    kind: "Kartenart",
-    schoolyard: "Schulhofkarte (1:1000)",
-    sprint: "Sprintkarte (1:4000)",
-    scale: "Maßstab 1:",
-    title: "Titel",
-    settingsFixed:
-      "Das Projekt gibt es schon; Kartenart, Maßstab und Titel stehen in freemapper.toml.",
-    save: "Speichern",
-    saving: "Speichere …",
-    saved: "Gespeichert in freemapper.toml.",
-    zoneChanged:
-      "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
-    providerChanged:
-      "Gespeichert. Für das neue Gebiet liefert ein anderer Datenanbieter die Höhen- und Luftbilddaten; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
-    hasMap:
-      "Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. Mit der Option „Vorhandene Karte ersetzen“ unten (oder „freemapper run --force“) entsteht auch die Karte neu, die alte bleibt als .omap.bak.",
-    done: "Fertig",
-    closed: "Fertig. Du kannst dieses Fenster schließen.",
-    next: (dir) => `Weiter: freemapper run "${dir}"`,
-    madeFiles: (files, dir) => `Erzeugt: ${files}. Ordner: ${dir}`,
-    backToAgent: "Sag deinem KI-Assistenten, dass das Gebiet gespeichert ist.",
-    nothingSaved: "Es wurde nichts gespeichert.",
-    failed: "Fehler: ",
-    osm: "OpenStreetMap",
-    aerial: "Luftbild Brandenburg/Berlin (LGB)",
-    aerialSaxony: "Luftbild Sachsen (GeoSN)",
-    aerialSaxonyAnhalt: "Luftbild Sachsen-Anhalt (LVermGeo)",
-    aerialHamburg: "Luftbild Hamburg (LGV)",
-    aerialHessen: "Luftbild Hessen (HVBG)",
-    aerialSchleswigHolstein: "Luftbild Schleswig-Holstein (LVermGeo SH)",
-    aerialMecklenburgVorpommern: "Luftbild Mecklenburg-Vorpommern (LAiV M-V)",
-    aerialNordrheinWestfalen: "Luftbild Nordrhein-Westfalen (Geobasis NRW)",
-    aerialNiedersachsen: "Luftbild Niedersachsen (LGLN)",
-    aerialRheinlandPfalz: "Luftbild Rheinland-Pfalz (LVermGeo RP)",
-  },
-  en: {
-    pageTitle: "freemapper – area selection",
-    heading: "Choose the map area",
-    updateAvailable: (version) => `freemapper ${version} is available. Update with `,
-    updateNotes: "Release notes",
-    folder: "Project folder",
-    pick: "Search a place",
-    queryPlaceholder: "e.g. Clara-Zetkin-Schule Strausberg",
-    searchButton: "Search",
-    searching: "Searching …",
-    noResults: "Nothing found.",
-    pointOnly: "a point only, not an area",
-    draw: "Draw it yourself",
-    rectangle: "Rectangle",
-    polygon: "Polygon",
-    finishPolygon: "Close polygon",
-    clear: "Clear",
-    hintRectangle: "Click two opposite corners on the map.",
-    hintPolygon:
-      "Click the corners one after another. To close it, click the first corner, double-click or click \"Close polygon\". Esc cancels, Backspace removes the last corner.",
-    hintIdle: "Pick a place from the search or draw the area yourself.",
-    summary: "Area",
-    sourceOsm: "From OpenStreetMap: ",
-    sourceDrawn: "Drawn by hand",
-    size: (w, h) => `Size with buffer: ${w} × ${h} m`,
-    tiles: (n, names) => `${n} tile${n === 1 ? "" : "s"}: ${names}`,
-    download: (mb) => `Download: about ${mb} MB`,
-    downloadNone: "Download: everything is cached already",
-    downloadDetails: "What is downloaded",
-    cached: "cached",
-    disk: "Disk space: ",
-    diskVolume: (free, needed) => `${free} free, about ${needed} needed`,
-    cacheVolume: "cache",
-    projectVolume: "project folder",
-    noRoom: "does not fit on the disk",
-    noRoomSkip: (reserve) =>
-      `Not everything fits on the disk (freemapper keeps ${reserve} free). The fetch leaves out the marked parts. Free some space first if you need them:`,
-    noRoomStop: (reserve) =>
-      `Not enough disk space (freemapper keeps ${reserve} free). There is no map without the marked parts, so the fetch stops before it downloads anything. Free some space first:`,
-    diskUnknown: (error) =>
-      `freemapper cannot read the free disk space (${error}). It fetches without the check.`,
-    tooLarge: (max) =>
-      `The area is too large: at most ${max} m per side (with buffer). Please choose a smaller one.`,
-    outside:
-      "The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has no data sources for other regions yet.",
-    settings: "Map",
-    kind: "Map kind",
-    schoolyard: "Schoolyard map (1:1000)",
-    sprint: "Sprint map (1:4000)",
-    scale: "Scale 1:",
-    title: "Title",
-    settingsFixed:
-      "The project exists already; map kind, scale and title are in freemapper.toml.",
-    save: "Save",
-    saving: "Saving …",
-    saved: "Saved to freemapper.toml.",
-    zoneChanged:
-      "Saved. The area now lies in another UTM zone; freemapper fetches its data again on the next run.",
-    providerChanged:
-      "Saved. Another data provider serves the elevation and aerial imagery of the new area; freemapper fetches its data again on the next run.",
-    hasMap:
-      "The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. The option \"Replace the existing map\" below (or \"freemapper run --force\") makes the map anew too and keeps the old one as .omap.bak.",
-    done: "Done",
-    closed: "Done. You can close this window.",
-    next: (dir) => `Next: freemapper run "${dir}"`,
-    madeFiles: (files, dir) => `Created: ${files}. Folder: ${dir}`,
-    backToAgent: "Tell your AI assistant that the area is saved.",
-    nothingSaved: "Nothing was saved.",
-    failed: "Error: ",
-    osm: "OpenStreetMap",
-    aerial: "Aerial photo Brandenburg/Berlin (LGB)",
-    aerialSaxony: "Aerial photo Saxony (GeoSN)",
-    aerialSaxonyAnhalt: "Aerial photo Saxony-Anhalt (LVermGeo)",
-    aerialHamburg: "Aerial photo Hamburg (LGV)",
-    aerialHessen: "Aerial photo Hesse (HVBG)",
-    aerialSchleswigHolstein: "Aerial photo Schleswig-Holstein (LVermGeo SH)",
-    aerialMecklenburgVorpommern: "Aerial photo Mecklenburg-Vorpommern (LAiV M-V)",
-    aerialNordrheinWestfalen: "Aerial photo North Rhine-Westphalia (Geobasis NRW)",
-    aerialNiedersachsen: "Aerial photo Lower Saxony (LGLN)",
-    aerialRheinlandPfalz: "Aerial photo Rhineland-Palatinate (LVermGeo RP)",
-  },
-};
-
-// The language of the browser; `project.lang` (the program language, when `--lang` or the
-// environment named one) wins.
-let T = (navigator.language || "de").toLowerCase().startsWith("de") ? TEXTS.de : TEXTS.en;
-
-/** The page language: "de" or "en". */
-function lang() {
-  return T === TEXTS.de ? "de" : "en";
-}
-
-function applyTexts() {
-  document.documentElement.lang = lang();
-  document.querySelectorAll("[data-text]").forEach((el) => {
-    const text = T[el.dataset.text];
-    if (typeof text === "string") el.textContent = text;
-  });
-  document.querySelectorAll("[data-placeholder]").forEach((el) => {
-    el.placeholder = T[el.dataset.placeholder];
-  });
-}
-applyTexts();
+// Every server call goes through the suite's api.js, every visible word comes from api/texts
+// through the suite's texts.js (core ADR 0030, ADR 0096). Leaflet is a classic script before this
+// module; run.js comes after it.
+import { get, post } from "../suite/api.js";
+import { language, loadTexts, t, tn } from "../suite/texts.js";
+import { clearBanner, showBanner } from "../suite/status.js";
 
 const $ = (id) => document.getElementById(id);
 
-async function api(path, body) {
-  const options = body === undefined
-    ? {}
-    : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
-  const response = await fetch(path, options);
-  const answer = await response.json().catch(() => ({ error: response.statusText }));
-  if (!response.ok) {
-    const error = new Error(answer.error || response.statusText);
-    // Callers that need more than the text (409 with a job, 422 with the disk plan).
-    error.status = response.status;
-    error.body = answer;
+/** The text of an error answer: the server's sentence, else the status. */
+function errorText(answer) {
+  const data = answer.data;
+  if (data && typeof data === "object" && typeof data.error === "string") return data.error;
+  if (typeof data === "string" && data) return data;
+  return `HTTP ${answer.status}`;
+}
+
+/**
+ * A GET (without `body`) or a POST to the page's server; the answer's data, or an error with
+ * `status` and `body` for callers that need more than the text (409 with a job or a revision, 422
+ * with the disk plan). `revision` goes into the revision header of a POST.
+ */
+async function api(path, body, revision = null) {
+  const answer = body === undefined ? await get(path) : await post(path, body, revision);
+  if (!answer.ok) {
+    const error = new Error(errorText(answer));
+    error.status = answer.status;
+    error.body = answer.data;
     throw error;
   }
-  return answer;
+  return answer.data;
 }
 
 // --- Map -------------------------------------------------------------------------------------
@@ -296,28 +123,24 @@ const aerialRheinlandPfalz = L.tileLayer.wms("https://geo4.service24.rlp.de/wms/
   maxZoom: 20,
   attribution: `©GeoBasis-DE / LVermGeoRP${new Date().getFullYear()}, dl-de/by-2-0, www.lvermgeo.rlp.de`,
 });
-let layerControl = null;
-
-/** The layer control with its names in the page language; built again when the language changes. */
+/** The layer control, with its names in the page language: built once the texts are loaded. */
 function showLayerNames() {
-  if (layerControl) layerControl.remove();
-  layerControl = L.control
+  L.control
     .layers({
-      [T.osm]: osm,
-      [T.aerial]: aerial,
-      [T.aerialSaxony]: aerialSaxony,
-      [T.aerialSaxonyAnhalt]: aerialSaxonyAnhalt,
-      [T.aerialHamburg]: aerialHamburg,
-      [T.aerialHessen]: aerialHessen,
-      [T.aerialSchleswigHolstein]: aerialSchleswigHolstein,
-      [T.aerialMecklenburgVorpommern]: aerialMecklenburgVorpommern,
-      [T.aerialNordrheinWestfalen]: aerialNordrheinWestfalen,
-      [T.aerialNiedersachsen]: aerialNiedersachsen,
-      [T.aerialRheinlandPfalz]: aerialRheinlandPfalz,
+      [t("page-layer-osm")]: osm,
+      [t("page-layer-aerial")]: aerial,
+      [t("page-layer-aerial-saxony")]: aerialSaxony,
+      [t("page-layer-aerial-saxony-anhalt")]: aerialSaxonyAnhalt,
+      [t("page-layer-aerial-hamburg")]: aerialHamburg,
+      [t("page-layer-aerial-hessen")]: aerialHessen,
+      [t("page-layer-aerial-schleswig-holstein")]: aerialSchleswigHolstein,
+      [t("page-layer-aerial-mecklenburg-vorpommern")]: aerialMecklenburgVorpommern,
+      [t("page-layer-aerial-nordrhein-westfalen")]: aerialNordrheinWestfalen,
+      [t("page-layer-aerial-niedersachsen")]: aerialNiedersachsen,
+      [t("page-layer-aerial-rheinland-pfalz")]: aerialRheinlandPfalz,
     })
     .addTo(map);
 }
-showLayerNames();
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
 );
@@ -344,6 +167,12 @@ let savedSignature = null;
 
 function signature() {
   return JSON.stringify({ area, sourceId });
+}
+
+/** The signature of the area that `project` holds, as `signature()` gives it once shown. */
+function savedSignatureOf(project) {
+  const saved = project && project.area ? geometryOf(project.area) : null;
+  return JSON.stringify({ area: saved, sourceId: saved ? project.source_id : null });
 }
 
 /** Tells the run panel that the area, the preview or the project changed. */
@@ -414,7 +243,7 @@ async function updatePreview() {
     preview = null;
     showPreview();
     updateControls();
-    setMessage(T.failed + e.message, "error");
+    setMessage(t("page-failed", { error: e.message }), "error");
   }
   notifyRun();
 }
@@ -423,7 +252,9 @@ function showPreview() {
   tileLayer.clearLayers();
   $("summary").hidden = !area;
   if (!area) return;
-  $("source").textContent = sourceId ? T.sourceOsm + (sourceName || sourceId) : T.sourceDrawn;
+  $("source").textContent = sourceId
+    ? t("page-source-osm", { name: sourceName || sourceId })
+    : t("page-source-drawn");
   if (!preview) {
     ["size", "tiles", "download", "disk"].forEach((id) => ($(id).textContent = ""));
     $("items").replaceChildren();
@@ -431,22 +262,29 @@ function showPreview() {
     $("no-room").hidden = true;
     return;
   }
-  $("size").textContent = T.size(Math.round(preview.width_m), Math.round(preview.height_m));
+  $("size").textContent = t("page-size", {
+    width: Math.round(preview.width_m),
+    height: Math.round(preview.height_m),
+  });
   const unusable = preview.too_large || preview.outside_coverage;
   $("too-large").hidden = !unusable;
   $("too-large").textContent = preview.outside_coverage
-    ? T.outside
-    : T.tooLarge(Math.round(preview.max_side_m));
+    ? t("page-outside")
+    : t("page-too-large", { max: Math.round(preview.max_side_m) });
   const names = preview.tiles.map((t) => t.name);
-  $("tiles").textContent = unusable ? "" : T.tiles(names.length, names.join(", "));
+  $("tiles").textContent = unusable
+    ? ""
+    : tn("page-tiles", names.length, { names: names.join(", ") });
   const mb = preview.estimate.total_megabytes;
   $("download").textContent = unusable
     ? ""
-    : mb > 0 ? T.download(Math.ceil(mb)) : T.downloadNone;
+    : mb > 0 ? t("page-download", { mb: Math.ceil(mb) }) : t("page-download-none");
   $("items").replaceChildren(
     ...preview.estimate.items.map((item) => {
       const li = document.createElement("li");
-      const note = item.cached ? ` (${T.cached})` : item.fits === false ? ` (${T.noRoom})` : "";
+      const note = item.cached
+        ? ` (${t("page-cached")})`
+        : item.fits === false ? ` (${t("page-no-room")})` : "";
       li.textContent = `${item.what}: ${item.megabytes} MB${note}`;
       li.classList.toggle("warning", !item.cached && item.fits === false);
       return li;
@@ -469,7 +307,7 @@ function showPreview() {
 /** `350 MB` or `1,2 GB` in the page's language. */
 function megabytes(mb) {
   if (mb < 1024) return `${Math.ceil(mb)} MB`;
-  const gb = (mb / 1024).toLocaleString(document.documentElement.lang, {
+  const gb = (mb / 1024).toLocaleString(language(), {
     maximumFractionDigits: 1,
     minimumFractionDigits: 1,
   });
@@ -482,20 +320,24 @@ function showDisk(estimate) {
   const volumes = (disk && disk.volumes) || [];
   const named = volumes.length > 1;
   $("disk").textContent = volumes.length
-    ? T.disk +
-      volumes
+    ? t("page-disk", {
+      volumes: volumes
         .map((v) => {
-          const where = v.holds.includes("cache") ? T.cacheVolume : T.projectVolume;
-          const text = T.diskVolume(megabytes(v.free_megabytes), megabytes(v.needed_megabytes));
+          const where = t(v.holds.includes("cache") ? "page-cache-volume" : "page-project-volume");
+          const text = t("page-disk-volume", {
+            free: megabytes(v.free_megabytes),
+            needed: megabytes(v.needed_megabytes),
+          });
           return named ? `${where}: ${text}` : text;
         })
-        .join("; ")
+        .join("; "),
+    })
     : "";
   const messages = (disk && disk.messages) || [];
   const notice = $("no-room");
   notice.replaceChildren();
   if (disk && disk.error) {
-    notice.textContent = T.diskUnknown(disk.error);
+    notice.textContent = t("page-disk-unknown", { error: disk.error });
   } else if (messages.length) {
     const reserve = megabytes(disk.reserve_megabytes);
     const list = document.createElement("ul");
@@ -506,7 +348,7 @@ function showDisk(estimate) {
         return li;
       }),
     );
-    notice.append(disk.stops ? T.noRoomStop(reserve) : T.noRoomSkip(reserve), list);
+    notice.append(t(disk.stops ? "page-no-room-stop" : "page-no-room-skip", { reserve }), list);
   }
   notice.hidden = !notice.textContent;
 }
@@ -518,11 +360,11 @@ $("search").addEventListener("submit", async (event) => {
   const query = $("query").value.trim();
   if (!query) return;
   const list = $("results");
-  list.replaceChildren(Object.assign(document.createElement("li"), { textContent: T.searching }));
+  list.replaceChildren(Object.assign(document.createElement("li"), { textContent: t("page-searching") }));
   try {
     const places = await api(`api/places?q=${encodeURIComponent(query)}`);
     if (places.length === 0) {
-      list.replaceChildren(Object.assign(document.createElement("li"), { textContent: T.noResults }));
+      list.replaceChildren(Object.assign(document.createElement("li"), { textContent: t("page-no-results") }));
       return;
     }
     list.replaceChildren(
@@ -531,18 +373,18 @@ $("search").addEventListener("submit", async (event) => {
         li.textContent = place.display_name;
         if (!place.has_area) {
           li.classList.add("point");
-          li.title = T.pointOnly;
-          li.textContent += ` (${T.pointOnly})`;
+          li.title = t("page-point-only");
+          li.textContent += ` (${li.title})`;
           return li;
         }
         li.addEventListener("click", async () => {
           if (busy) return;
-          setMessage(T.searching);
+          setMessage(t("page-searching"));
           try {
             const found = await api(`api/place?osm_id=${encodeURIComponent(place.osm_id)}`);
             await chooseArea(found.area, found.source_id, place.name || place.display_name, true);
           } catch (e) {
-            setMessage(T.failed + e.message, "error");
+            setMessage(t("page-failed", { error: e.message }), "error");
           }
         });
         return li;
@@ -550,7 +392,7 @@ $("search").addEventListener("submit", async (event) => {
     );
   } catch (e) {
     list.replaceChildren();
-    setMessage(T.failed + e.message, "error");
+    setMessage(t("page-failed", { error: e.message }), "error");
   }
 });
 
@@ -574,8 +416,11 @@ function setMode(next) {
 
 /** The hint under the drawing buttons, for the current mode in the page language. */
 function showHint() {
-  $("hint").textContent =
-    mode === "rectangle" ? T.hintRectangle : mode === "polygon" ? T.hintPolygon : T.hintIdle;
+  $("hint").textContent = t(
+    mode === "rectangle"
+      ? "page-hint-rectangle"
+      : mode === "polygon" ? "page-hint-polygon" : "page-hint-idle",
+  );
 }
 
 function ring(latlngs) {
@@ -696,7 +541,8 @@ $("save").addEventListener("click", saveArea);
 /** Saves the area (and, for a new project, kind, scale and title); true when it worked. */
 async function saveArea() {
   if (!area || busy) return false;
-  setMessage(T.saving);
+  setMessage(t("page-saving"));
+  clearBanner();
   $("save").disabled = true;
   try {
     const body = { area, source_id: sourceId };
@@ -705,15 +551,18 @@ async function saveArea() {
       body.scale = Number($("scale").value) || undefined;
       body.title = $("title").value.trim() || undefined;
     }
-    const answer = await api("api/save", body);
+    // The revision of freemapper.toml as this page read it; none before the file exists.
+    const answer = await api("api/save", body, project.revision);
     savedHere = true;
     savedSignature = signature();
     setMessage(
-      answer.zone_changed
-        ? T.zoneChanged
-        : answer.provider_changed
-          ? T.providerChanged
-          : T.saved,
+      t(
+        answer.zone_changed
+          ? "page-zone-changed"
+          : answer.provider_changed
+            ? "page-provider-changed"
+            : "page-saved",
+      ),
       "ok",
     );
     $("has-map").hidden = !answer.has_map;
@@ -721,7 +570,20 @@ async function saveArea() {
     showSettings();
     return true;
   } catch (e) {
-    setMessage(T.failed + e.message, "error");
+    if (e.status === 409 && e.body && typeof e.body.revision === "string") {
+      // Another window or program wrote freemapper.toml since this page read it (core ADR 0030):
+      // nothing was saved. The page takes the saved state and keeps the area it shows.
+      setMessage("");
+      showBanner(e.message);
+      try {
+        await reloadProject();
+        savedSignature = savedSignatureOf(project);
+      } catch (reload) {
+        // The banner stays; the next save asks the server again.
+      }
+    } else {
+      setMessage(t("page-failed", { error: e.message }), "error");
+    }
     return false;
   } finally {
     updateControls();
@@ -747,10 +609,10 @@ $("done").addEventListener("click", async () => {
   }
   const made = window.freemapperRun && window.freemapperRun.closingText();
   $("next").textContent = !savedHere && !made
-    ? T.nothingSaved
+    ? t("page-nothing-saved")
     : project && project.from_agent
-      ? T.backToAgent
-      : made || T.next(project ? project.dir : "");
+      ? t("page-back-to-agent")
+      : made || t("page-next", { dir: project ? project.dir : "" });
   $("closed").hidden = false;
 });
 
@@ -769,22 +631,24 @@ function setBusy(value) {
   updateControls();
 }
 
+/** Reads the project again: its settings, whether it has a map, the revision of freemapper.toml. */
+async function reloadProject() {
+  project = await api("api/project");
+  $("has-map").hidden = !project.has_map;
+  showSettings();
+  return project;
+}
+
 // What the run panel (run.js) may use.
 window.freemapperPage = {
   api,
-  lang,
   getProject: () => project,
   getPreview: () => preview,
   hasArea: () => !!area,
   isSaved,
   ensureSaved,
   setBusy,
-  async reloadProject() {
-    project = await api("api/project");
-    $("has-map").hidden = !project.has_map;
-    showSettings();
-    return project;
-  },
+  reloadProject,
 };
 
 // --- Update notice ---------------------------------------------------------------------------
@@ -795,7 +659,7 @@ async function showUpdateNotice() {
     const { available } = await api("api/update");
     if (!available) return;
     const notice = $("update-notice");
-    notice.replaceChildren(T.updateAvailable(available.version));
+    notice.replaceChildren(t("page-update-available", { version: available.version }), " ");
     const command = document.createElement("code");
     command.textContent = "freemapper update";
     notice.append(command, ".");
@@ -804,7 +668,7 @@ async function showUpdateNotice() {
       link.href = available.notes;
       link.target = "_blank";
       link.rel = "noopener";
-      link.textContent = T.updateNotes;
+      link.textContent = t("page-update-notes");
       notice.append(" ", link);
     }
     notice.hidden = false;
@@ -815,23 +679,13 @@ async function showUpdateNotice() {
 
 // --- Start -----------------------------------------------------------------------------------
 
-/**
- * Switches the page to the program language `code` ("de" or "en"; anything else keeps the
- * browser's). Texts with a `data-text` and the texts a script has set are all written again.
- */
-function setLanguage(code) {
-  if (code !== "de" && code !== "en") return;
-  T = TEXTS[code];
-  applyTexts();
-  showLayerNames();
-  showHint();
-}
-
 async function start() {
-  setMode(null);
   try {
+    // First the texts: everything below writes them.
+    await loadTexts();
+    setMode(null);
+    showLayerNames();
     project = await api("api/project");
-    setLanguage(project.lang);
     $("folder").textContent = project.dir;
     showUpdateNotice();
     showSettings();
@@ -842,10 +696,9 @@ async function start() {
     }
     if (window.freemapperRun) window.freemapperRun.init(project);
   } catch (e) {
-    setMessage(T.failed + e.message, "error");
+    setMessage(t("page-failed", { error: e.message }), "error");
   }
 }
 
-// After run.js has loaded, which comes right after this script.
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
-else start();
+// Module scripts run before DOMContentLoaded, run.js after this one: by then both are loaded.
+document.addEventListener("DOMContentLoaded", start);

@@ -1,47 +1,34 @@
-//! Consistency tests of the embedded page (`web/`): texts in both languages, ids and labels.
-//! No JavaScript runner is needed; the tables are read as text.
+//! Consistency tests of the embedded page (`web/`): its texts in the catalog, ids and labels, the
+//! suite's page rules. No JavaScript runner is needed; the files are read as text.
 #![cfg(test)]
 
 use std::collections::BTreeSet;
+
+use crate::text::{Lang, TEXTS, page_texts};
 
 fn asset(name: &str) -> String {
     let file = crate::select::Assets::get(name).unwrap_or_else(|| panic!("no asset {name}"));
     String::from_utf8(file.data.to_vec()).unwrap()
 }
 
-/// The keys of the language table `lang` (`de` or `en`) inside the object `table` (`TEXTS` or
-/// `RUN_TEXTS`) of a script. Keys sit at four spaces of indentation.
-fn keys_of(script: &str, table: &str, lang: &str) -> BTreeSet<String> {
-    let start = script
-        .find(&format!("const {table} = {{"))
-        .unwrap_or_else(|| panic!("no table {table}"));
-    let mut in_lang = false;
-    let mut keys = BTreeSet::new();
-    for line in script[start..].lines().skip(1) {
-        if line == format!("  {lang}: {{") {
-            in_lang = true;
-        } else if in_lang && line == "  }," {
-            return keys;
-        } else if in_lang {
-            let Some(rest) = line.strip_prefix("    ") else {
-                continue;
-            };
-            if rest.starts_with(' ') {
-                continue;
-            }
-            if let Some(end) = rest.find(':') {
-                let key = rest[..end].trim_matches('"');
-                if !key.is_empty()
-                    && key
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-                {
-                    keys.insert(key.to_string());
-                }
-            }
-        }
-    }
-    panic!("table {table} has no language {lang}");
+/// The page's own scripts.
+const SCRIPTS: [&str; 2] = ["app.js", "run.js"];
+
+/// The attributes through which the suite's `texts.js` puts a text into an element.
+const TEXT_ATTRIBUTES: [&str; 4] = ["data-text", "data-label", "data-title", "data-placeholder"];
+
+fn de() -> Lang {
+    TEXTS.parse_lang_arg("de").unwrap()
+}
+
+/// The ids of the page's family (`page-*`) and the suite modules' (`suite-*`) in the catalog of
+/// `code`.
+fn page_ids(code: &str) -> BTreeSet<String> {
+    TEXTS
+        .message_ids(code)
+        .into_iter()
+        .filter(|id| id.starts_with("page-") || id.starts_with("suite-"))
+        .collect()
 }
 
 fn attribute_values(html: &str, attribute: &str) -> Vec<String> {
@@ -69,33 +56,112 @@ fn options_section(html: &str) -> &str {
     &html[start..start + end]
 }
 
-#[test]
-fn page_texts_have_the_same_keys_in_both_languages() {
-    let app = asset("app.js");
-    assert_eq!(keys_of(&app, "TEXTS", "de"), keys_of(&app, "TEXTS", "en"));
-    assert!(keys_of(&app, "TEXTS", "de").len() > 40);
+/// The text ids written as string literals in a script: what `t`, `tn` and the id tables name.
+fn script_ids(script: &str) -> BTreeSet<String> {
+    freemapper_text::ids_in_source(script, &["page-", "suite-"])
+}
+
+/// Whether the catalog has `id`, or the two messages `tn` picks from for it.
+fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
+    ids.contains(id) || (ids.contains(&format!("{id}-one")) && ids.contains(&format!("{id}-other")))
+}
+
+/// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
+/// `page-file-kind-<kind>`.
+const FILE_KINDS: [&str; 6] = [
+    "map",
+    "template",
+    "ocad",
+    "ocad-candidates",
+    "pdf",
+    "pdf-candidates",
+];
+
+/// The steps of a run; the run panel names each with `page-<label key>`.
+fn step_ids() -> Vec<String> {
+    use crate::pipeline::Step;
+    [
+        Step::Fetch,
+        Step::Derive,
+        Step::Map,
+        Step::Ocad,
+        Step::Pdf,
+        Step::PdfCandidates,
+    ]
+    .into_iter()
+    .map(|step| format!("page-{}", step.label_key()))
+    .collect()
 }
 
 #[test]
-fn run_texts_have_the_same_keys_in_both_languages() {
-    let run = asset("run.js");
-    let de = keys_of(&run, "RUN_TEXTS", "de");
-    assert_eq!(de, keys_of(&run, "RUN_TEXTS", "en"));
-    assert!(de.len() > 30, "{de:?}");
-    // The two tables never share a key, so one cannot hide the other.
-    let app = keys_of(&asset("app.js"), "TEXTS", "de");
-    assert!(app.intersection(&de).next().is_none());
+fn page_texts_have_the_same_ids_in_both_languages() {
+    let english = page_ids("en");
+    assert_eq!(english, page_ids("de"));
+    assert!(english.len() > 130, "{}", english.len());
+    assert!(english.contains("suite-banner-dismiss"));
 }
 
 #[test]
-fn every_text_key_and_placeholder_of_the_page_has_a_text() {
-    let html = asset("index.html");
-    let mut known = keys_of(&asset("app.js"), "TEXTS", "de");
-    known.extend(keys_of(&asset("run.js"), "RUN_TEXTS", "de"));
-    for attribute in ["data-text", "data-placeholder"] {
-        for key in attribute_values(&html, attribute) {
-            assert!(known.contains(&key), "{attribute}={key} has no text");
+fn page_messages_have_no_selectors_and_no_functions() {
+    // The page fills in `{ $name }` itself (suite texts.js): a selector or a function would reach
+    // it unformatted.
+    for source in [
+        include_str!("../i18n/en/freemapper.ftl"),
+        include_str!("../i18n/de/freemapper.ftl"),
+    ] {
+        let mut current = "";
+        for line in source.lines() {
+            if !line.starts_with([' ', '#']) && !line.is_empty() {
+                current = line.split('=').next().unwrap_or_default().trim();
+            }
+            if current.starts_with("page-") || current.starts_with("suite-") {
+                for banned in ["->", "NUMBER(", "DATETIME(", "{ -", "{-"] {
+                    assert!(!line.contains(banned), "{current}: {line}");
+                }
+            }
         }
+    }
+}
+
+#[test]
+fn every_text_id_of_the_page_is_in_the_catalog() {
+    let html = asset("index.html");
+    let ids = page_ids("en");
+    let mut seen = 0;
+    for attribute in TEXT_ATTRIBUTES {
+        for id in attribute_values(&html, attribute) {
+            assert!(ids.contains(&id), "{attribute}={id} has no text");
+            seen += 1;
+        }
+    }
+    assert!(seen > 45, "only {seen} text ids in the page");
+    assert!(html.contains(r#"<title data-text="page-title">"#));
+}
+
+#[test]
+fn every_text_id_the_scripts_use_is_in_the_catalog() {
+    let ids = page_ids("en");
+    let mut seen = 0;
+    for name in SCRIPTS {
+        for id in script_ids(&asset(name)) {
+            assert!(
+                has_text(&ids, &id),
+                "{name} uses {id}, the catalog has none"
+            );
+            seen += 1;
+        }
+    }
+    assert!(seen > 60, "only {seen} ids in the scripts");
+    for id in step_ids().into_iter().chain(
+        FILE_KINDS
+            .iter()
+            .map(|kind| format!("page-file-kind-{kind}")),
+    ) {
+        assert!(ids.contains(&id), "{id}");
+    }
+    let pipeline = include_str!("pipeline.rs");
+    for kind in FILE_KINDS {
+        assert!(pipeline.contains(&format!("(\"{kind}\"")), "{kind}");
     }
 }
 
@@ -103,7 +169,7 @@ fn every_text_key_and_placeholder_of_the_page_has_a_text() {
 fn every_id_the_scripts_use_exists_in_the_page() {
     let html = asset("index.html");
     let ids: BTreeSet<String> = attribute_values(&html, "id").into_iter().collect();
-    for script in ["app.js", "run.js"] {
+    for script in SCRIPTS {
         let text = asset(script);
         for opener in ["$(\"", "$r(\""] {
             for (at, _) in text.match_indices(opener) {
@@ -113,6 +179,8 @@ fn every_id_the_scripts_use_exists_in_the_page() {
             }
         }
     }
+    // The suite's status module writes into these two.
+    assert!(html.contains(r#"<div id="banner" role="alert">"#));
 }
 
 #[test]
@@ -174,27 +242,15 @@ fn run_js_names_no_path_field() {
 
 #[test]
 fn german_text_says_bundesland_not_land_for_states() {
-    let app = asset("app.js");
-    assert!(app.contains("Bundesländer"));
-    assert!(!app.contains("unterstützten Länder"));
-    let run = asset("run.js");
-    assert!(!run.contains("Länder"));
-}
-
-#[test]
-fn step_names_exist_for_all_steps_in_both_languages() {
-    use crate::pipeline::Step;
-    let run = asset("run.js");
-    for step in [
-        Step::Fetch,
-        Step::Derive,
-        Step::Map,
-        Step::Ocad,
-        Step::Pdf,
-        Step::PdfCandidates,
-    ] {
-        let key = step.label_key();
-        assert_eq!(run.matches(&format!("\"{key}\":")).count(), 2, "{key}");
+    let texts = page_texts(&de());
+    assert!(
+        texts["page-outside"].contains("außerhalb der unterstützten Bundesländer"),
+        "{}",
+        texts["page-outside"]
+    );
+    assert!(texts["page-why-outside"].contains("Bundesländer"));
+    for (id, text) in &texts {
+        assert!(!text.contains("Länder"), "{id}: {text}");
     }
 }
 
@@ -240,23 +296,10 @@ fn page_has_no_inline_handlers_and_no_external_requests() {
 }
 
 #[test]
-fn outside_text_uses_bundesland() {
-    let app = asset("app.js");
-    assert!(app.contains("außerhalb der unterstützten Bundesländer"));
-}
-
-#[test]
 fn scales_come_from_the_server() {
     let app = asset("app.js");
     assert!(!app.contains("const SCALES"));
     assert!(app.contains("allowed_scales"));
-}
-
-#[test]
-fn project_language_wins_over_the_browser_language() {
-    let app = asset("app.js");
-    assert!(app.contains("project.lang"));
-    assert!(app.contains("navigator.language"));
 }
 
 /// The body of the top-level function `name` in `script`, up to its closing brace in column 0.
@@ -268,25 +311,77 @@ fn function_body<'a>(script: &'a str, name: &str) -> &'a str {
     &rest[..rest.find("\n}\n").expect("the function ends")]
 }
 
-/// The hint under the drawing buttons and the layer names of the map are set by the script, not
-/// by a `data-text`. They were written once in the browser's language and stayed German on an
-/// English page. Every text the script sets goes through `setLanguage`.
+/// The hint under the drawing buttons, the layer names of the map and the update notice are set by
+/// the scripts, not by a `data-*` attribute. They were once written in the browser's language and
+/// stayed German on an English page. Now every word comes from `api/texts` in the one language the
+/// server chose: no script and no element carries a text of its own, nothing picks a language on
+/// the page, and the script-set texts are written only after the texts are loaded.
 #[test]
-fn texts_the_script_sets_follow_the_project_language() {
-    let app = asset("app.js");
-    let switch = function_body(&app, "setLanguage");
-    for call in ["applyTexts()", "showLayerNames()", "showHint()"] {
-        assert!(switch.contains(call), "setLanguage does not call {call}");
+fn script_set_texts_come_from_the_catalog_in_the_page_language() {
+    let html = asset("index.html");
+    let scripts: Vec<(&str, String)> = SCRIPTS.iter().map(|name| (*name, asset(name))).collect();
+    // No word of the page is written into a script or an element, in either language.
+    for lang in [Lang::english(), de()] {
+        for (id, text) in page_texts(&lang) {
+            if text.contains("{ $") || !text.contains(' ') || text.chars().count() < 12 {
+                continue;
+            }
+            for (name, script) in &scripts {
+                assert!(
+                    !script.contains(&text),
+                    "{name} holds the text of {id}: {text}"
+                );
+            }
+            assert!(
+                !html.contains(&text),
+                "index.html holds the text of {id}: {text}"
+            );
+        }
     }
-    assert!(function_body(&app, "start").contains("setLanguage(project.lang)"));
-    // The table changes in one place only, so nothing can switch it and forget the rest.
-    assert_eq!(app.matches("T = TEXTS[").count(), 1);
-    // The names of the layer control are read where it is built, never once at load.
-    let names = function_body(&app, "showLayerNames");
-    assert!(names.contains("[T.osm]") && names.contains("layerControl.remove()"));
-    assert_eq!(app.matches("[T.osm]").count(), 1);
-    assert!(function_body(&app, "showHint").contains("T.hintIdle"));
-    assert_eq!(app.matches("T.hintIdle").count(), 1);
-    // The title of the browser tab is a page text like the others.
-    assert!(asset("index.html").contains(r#"<title data-text="pageTitle">"#));
+    for (name, script) in &scripts {
+        for own in ["TEXTS", "navigator.language", "setLanguage", "applyTexts"] {
+            assert!(
+                !script.contains(own),
+                "{name} picks its own language: {own}"
+            );
+        }
+        assert!(script.contains("../suite/texts.js"), "{name}");
+    }
+    // The texts are loaded before the page writes any of them.
+    let app = &scripts[0].1;
+    let start = function_body(app, "start");
+    let loaded = start
+        .find("await loadTexts()")
+        .expect("start loads the texts");
+    for call in [
+        "setMode(null)",
+        "showLayerNames()",
+        "showUpdateNotice()",
+        "api(\"api/project\")",
+    ] {
+        let at = start
+            .find(call)
+            .unwrap_or_else(|| panic!("start calls {call}"));
+        assert!(loaded < at, "{call} comes before loadTexts()");
+    }
+    // The layer control is built once, in start, from the catalog.
+    assert_eq!(app.matches("showLayerNames();").count(), 1);
+    assert!(function_body(app, "showLayerNames").contains("t(\"page-layer-osm\")"));
+    assert!(function_body(app, "showHint").contains("\"page-hint-idle\""));
+    assert!(function_body(app, "showUpdateNotice").contains("t(\"page-update-available\""));
+    // start runs after both modules are loaded.
+    assert!(app.contains("document.addEventListener(\"DOMContentLoaded\", start)"));
+}
+
+#[test]
+fn every_server_call_goes_through_the_suite_api() {
+    for name in SCRIPTS {
+        let script = asset(name);
+        assert!(!script.contains("fetch("), "{name} calls fetch itself");
+        assert!(!script.contains("XMLHttpRequest"), "{name}");
+    }
+    let app = asset("app.js");
+    assert!(app.contains("from \"../suite/api.js\""));
+    // The save names the revision of freemapper.toml the page last read.
+    assert!(function_body(&app, "saveArea").contains("project.revision"));
 }
