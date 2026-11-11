@@ -282,6 +282,13 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   (nur ein Kandidat 501.5) bleibt ganz. Loser Kies, Sand, Erde und Gras bleiben unbefestigt in der Karte: 506
   unter 1,5 m Breite, 505.1 und ab 3 m 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype`: grade1 ist
   befestigt, grade2 fest (501.7, Karte), grade3 bis grade5 unbefestigt (505.2, Kandidat).
+- Bahngleise (Sprintkarte, Kartenobjekt). Gleise aus OSM (`railway=rail`, `light_rail`, `narrow_gauge`, auch
+  Brücken und Nebengleise) sind Kartenobjekte mit 509.1, einer Linie von mindestens 4 mm Länge auf dem Papier;
+  jedes Gleis ist eine eigene Linie. Tunnel, stillgelegte, abgebaute und geplante Gleise und Überleitungen
+  zeichnet freemapper nicht. U-Bahn-Gleise ohne Tunnel sind Kandidaten, auf einer Hochbahnbrücke
+  (`bridge=yes`) Kartenobjekte. Straßenbahngleise (`railway=tram`) sind Kandidaten 509.2, weil die Norm sie nur
+  zeichnet, wenn sie der Orientierung dienen. Ein Wald wird an einem Gleis geschnitten. Das Bahngelände aus ALKIS
+  bleibt ein Kandidat 520 (Sperrfläche), die Gleise darin bleiben stehen. Schulhofkarten haben kein Gleis.
 - Kontrollstandorte für Bahnleger: Poller, Straßenlaternen, Papierkörbe, Fahrradständer und Bänke als Punkte
   (531, auffälliges künstliches Objekt) unter den Kandidaten, nie in der Karte selbst. In Berlin kommen aus der
   Straßenbefahrung und dem Beleuchtungskataster Poller, Masten, Fahnenmasten, Bänke, Laternen und Werbesäulen

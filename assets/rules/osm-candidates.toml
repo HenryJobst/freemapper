@@ -449,6 +449,38 @@ when = ["power=cable", "location=overhead"]
 draw = "line"
 sprint = "510"
 
+# Railways (sprint only, ADR 0093). ISSprOM 4.5, 509.1 "Railway": "a permanent track laid with rails
+# on which locomotives, carriages or wagons can travel", minimum length (isolated) 4 mm. 509.2
+# "Tramway": "generally not represented. However, if they serve navigation or orientation, they can
+# be represented". Trains are the most reliable line in OSM, so `rail`, `light_rail` and
+# `narrow_gauge` are map objects, bridges included (the line crosses over the road or the water).
+# Sidings, yard tracks and spurs are tracks too and have the same symbol; crossovers between two
+# main tracks only add clutter at this scale. Tunnels, passages under buildings, culverts and
+# everything that is disused, abandoned, razed, proposed or under construction are not on the
+# ground. A subway runs below ground unless `bridge=yes` says it is a viaduct; an untagged one is a
+# candidate. A tram is a candidate: whether it serves navigation is for the mapper.
+[[rule]]
+when = ["railway=rail|light_rail|narrow_gauge", "service!=crossover", "tunnel!=yes|building_passage|culvert", "location!=underground", "area!=yes"]
+draw = "line"
+target = "map"
+sprint = "509.1"
+
+[[rule]]
+when = ["railway=subway", "bridge=yes|viaduct", "tunnel!=yes|building_passage|culvert", "location!=underground"]
+draw = "line"
+target = "map"
+sprint = "509.1"
+
+[[rule]]
+when = ["railway=subway", "tunnel!=yes|building_passage|culvert", "location!=underground"]
+draw = "line"
+sprint = "509.1"
+
+[[rule]]
+when = ["railway=tram", "service!=crossover", "tunnel!=yes|building_passage|culvert", "location!=underground"]
+draw = "line"
+sprint = "509.2"
+
 # Pipelines above ground (sprint only, candidates only, ADR 0083). ISSprOM 4.5, 528 prominent line
 # feature: "a low pipeline (gas, water, oil, heat, etc.)", minimum length 2.2 mm; 529 prominent
 # uncrossable line feature: "a high pipeline", minimum length 3 mm. "The definition of the symbol

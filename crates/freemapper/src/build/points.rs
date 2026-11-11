@@ -149,9 +149,10 @@ const BOUNDARY_MIN_MM: f64 = 2.65;
 /// boundary.
 const BOUNDARY_CUT_MM: f64 = 0.1;
 /// The paths a 402 or 405 is cut at, with their width on paper (mm) at 1:4000: the line of the
-/// bundled symbol and, for 505 and the 501 footprints, its two 0.1 mm border lines. A forest never
+/// bundled symbol and, for 505, the 501 footprints and the 509.1 railway, its two 0.1 mm border
+/// lines. A forest never
 /// covers a path (ADR 0069).
-const PATH_WIDTHS_MM: [(&str, f64); 8] = [
+const PATH_WIDTHS_MM: [(&str, f64); 9] = [
     ("505.1", 0.55),
     ("505.2", 0.70),
     ("506", 0.27),
@@ -160,6 +161,7 @@ const PATH_WIDTHS_MM: [(&str, f64); 8] = [
     ("501.7", 0.70),
     ("501.8", 1.0),
     ("501.9", 1.2),
+    ("509.1", 0.55),
 ];
 /// The paved areas among the candidates a 402 or 405 is cut at, like the drawn paving.
 const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
@@ -1939,6 +1941,41 @@ mod tests {
                 "{code}: the path stays on the map"
             );
         }
+    }
+
+    #[test]
+    fn forest_never_covers_a_railway_map_object() {
+        // ADR 0093: a 509.1 railway is a map object like the firm-gravel ways; a tree group is
+        // cut at it.
+        let f = fixture(MapKind::Sprint);
+        let land = f.rect("401", (-200.0, -200.0), (400.0, 400.0));
+        let way = path(&f, "509.1", (-10.0, 14.0), (40.0, 14.0));
+        let found = f.run_with(
+            f.grid(REGISTER, (8, 8), 4.0, 6.0),
+            vec![way.clone()],
+            &[],
+            &[],
+            std::slice::from_ref(&land),
+            &[],
+        );
+        let areas = group_areas_of(&f, &found.areas);
+        assert!(!areas.is_empty());
+        let line = geo_types::LineString::from(
+            way.coords
+                .iter()
+                .map(|c| {
+                    let p = f.georef.map_to_projected(*c);
+                    (p.easting, p.northing)
+                })
+                .collect::<Vec<_>>(),
+        );
+        for area in &areas {
+            assert!(
+                !projected(&f, area).intersects(&line),
+                "the forest covers the railway"
+            );
+        }
+        assert!(found.map.contains(&way));
     }
 
     #[test]

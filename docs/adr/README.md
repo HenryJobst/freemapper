@@ -138,3 +138,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0090](0090-create-the-map-from-the-browser-page.md) | Create the map from the browser page | Proposed | 2026-11-11 |
 | [0091](0091-one-document-build-per-command.md) | One document build per command | Accepted | 2026-11-11 |
 | [0092](0092-program-language.md) | Program language | Accepted | 2026-11-11 |
+| [0093](0093-railways-from-osm.md) | Railways from OSM | Accepted | 2026-11-11 |
