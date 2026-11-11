@@ -6,10 +6,12 @@
 
 pub mod float_tiff;
 pub mod height_model;
+pub mod ogc_api;
 pub mod raster;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod wcs;
+pub mod wfs;
 pub mod wms;
 pub mod xlsx;
 pub mod xml;
