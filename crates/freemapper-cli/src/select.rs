@@ -446,8 +446,17 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
     }
     let _saving = state.saving.lock().await;
     let task_state = Arc::clone(&state);
-    let saved = tokio::task::spawn_blocking(move || -> Result<Value, String> {
+    let saved = tokio::task::spawn_blocking(move || -> Result<Value, SaveError> {
         let state = task_state;
+        // A folder that exists may be in use by a terminal or the MCP server; a new one cannot be.
+        let _lock = if state.dir.is_dir() {
+            Some(
+                crate::lock::acquire(&state.dir, crate::lock::Who::Page)
+                    .map_err(|e| SaveError::Locked(e.to_string()))?,
+            )
+        } else {
+            None
+        };
         let area = area_of(&body)?;
         let dir = &state.dir;
         let created = !dir.join("freemapper.toml").exists();
@@ -485,8 +494,24 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
     .await;
     match saved {
         Ok(Ok(answer)) => Json(answer).into_response(),
-        Ok(Err(e)) => bad_request(e),
+        Ok(Err(SaveError::Locked(e))) => {
+            (StatusCode::CONFLICT, Json(json!({ "error": e }))).into_response()
+        }
+        Ok(Err(SaveError::Other(e))) => bad_request(e),
         Err(e) => bad_request(format!("internal error: {e}")),
+    }
+}
+
+/// Why a save did not happen.
+enum SaveError {
+    /// Another freemapper run holds the folder.
+    Locked(String),
+    Other(String),
+}
+
+impl From<String> for SaveError {
+    fn from(message: String) -> Self {
+        SaveError::Other(message)
     }
 }
 
@@ -646,6 +671,77 @@ mod tests {
         assert_eq!(status, 409, "{text}");
         assert!(text.contains("pipeline"), "{text}");
         assert!(!dir.path().join("p").exists());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn save_is_refused_while_another_process_holds_the_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("p");
+        let area = freemapper::area::MapArea::from_geojson(
+            &std::fs::read_to_string(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../tests/fixtures/clara-zetkin-schule.geojson"
+            ))
+            .unwrap(),
+        )
+        .unwrap();
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 11, 11).unwrap();
+        init_project(&project, &area, MapKind::Schoolyard, None, date, None).unwrap();
+        let before = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+        let held = crate::lock::acquire(&project, crate::lock::Who::Cli).unwrap();
+        let defaults = Defaults {
+            kind: MapKind::Schoolyard,
+            scale: None,
+            title: None,
+            from_agent: false,
+        };
+        let cache = Cache::new(dir.path().join("cache"));
+        let selector = Selector::start(project.clone(), defaults, cache, 0, None)
+            .await
+            .unwrap();
+        let url = format!("{}api/save", selector.url);
+        let origin = origin_of(&selector.url);
+        let post = move |url: String, origin: String| {
+            let agent: ureq::Agent = ureq::Agent::config_builder()
+                .http_status_as_error(false)
+                .build()
+                .into();
+            let body = r#"{"area":{"type":"Polygon","coordinates":[[[13.843,52.539],[13.846,52.539],[13.846,52.541],[13.843,52.539]]]}}"#;
+            let mut response = agent
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .header("Origin", &origin)
+                .send(body)
+                .unwrap();
+            (
+                response.status().as_u16(),
+                response.body_mut().read_to_string().unwrap(),
+            )
+        };
+        let (u, o) = (url.clone(), origin.clone());
+        let (status, text) = tokio::task::spawn_blocking(move || post(u, o))
+            .await
+            .unwrap();
+        assert_eq!(status, 409, "{text}");
+        assert!(
+            text.contains("another freemapper run is using this folder"),
+            "{text}"
+        );
+        assert!(
+            !text.contains(&dir.path().display().to_string()),
+            "no path: {text}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(project.join("freemapper.toml")).unwrap(),
+            before
+        );
+        // Let go, and the same save goes through; the page leaves no lock behind.
+        drop(held);
+        let (status, text) = tokio::task::spawn_blocking(move || post(url, origin))
+            .await
+            .unwrap();
+        assert_eq!(status, 200, "{text}");
+        assert!(!project.join(crate::lock::LOCK_NAME).exists());
     }
 
     /// A stand-in for the tile server: answers every request with `status` and collects the

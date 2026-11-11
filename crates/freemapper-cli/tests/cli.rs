@@ -676,3 +676,110 @@ fn init_refuses_scales_print_would_refuse() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("not in the sprint norm"), "{stdout}");
 }
+/// A lock file as another freemapper process would have left it.
+fn write_lock(project: &std::path::Path, who: &str) -> std::path::PathBuf {
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let path = project.join(".freemapper-run.lock");
+    std::fs::write(
+        &path,
+        format!(r#"{{"pid":1,"started":{started},"who":"{who}"}}"#),
+    )
+    .unwrap();
+    path
+}
+
+#[test]
+fn run_fetch_derive_and_export_refuse_a_folder_another_run_holds() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let cache = dir.path().join("cache");
+    let lock = write_lock(&project, "mcp");
+    let held = std::fs::read_to_string(&lock).unwrap();
+    for command in ["run", "fetch", "derive", "export"] {
+        let mut args = vec![command, project.to_str().unwrap()];
+        if command != "export" {
+            args.extend(["--cache-dir", cache.to_str().unwrap()]);
+        }
+        let output = freemapper().args(&args).output().unwrap();
+        assert_eq!(output.status.code(), Some(1), "{command}: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("another freemapper run is using this folder (since ")
+                && stderr.contains("started by an AI agent (MCP)"),
+            "{command}: {stderr}"
+        );
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), held, "{command}");
+    }
+    // Nothing was written beside the project file and the lock.
+    let mut names: Vec<String> = std::fs::read_dir(&project)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, [".freemapper-run.lock", "freemapper.toml"]);
+}
+
+#[test]
+fn the_refusal_is_worded_in_german_when_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    write_lock(&project, "page");
+    let output = freemapper_in(&[("FREEMAPPER_LANG", "de")])
+        .args(["export", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Ein anderer freemapper-Lauf verwendet diesen Ordner")
+            && stderr.contains("von der Gebietsauswahl-Seite"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn a_stale_lock_does_not_block_and_a_finished_command_leaves_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let lock = write_lock(&project, "cli");
+    let file = std::fs::OpenOptions::new().write(true).open(&lock).unwrap();
+    file.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(120))
+        .unwrap();
+    drop(file);
+    let output = freemapper()
+        .args(["export", project.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(!lock.exists(), "released at the end");
+    // A failing command releases it too.
+    let output = freemapper()
+        .args([
+            "derive",
+            project.to_str().unwrap(),
+            "--cache-dir",
+            dir.path().join("cache").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(!lock.exists(), "released after an error");
+}
+
+#[test]
+fn a_command_on_a_missing_folder_reports_the_usual_error_not_a_lock_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = freemapper()
+        .args(["export", dir.path().join("nope").to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains("lock"), "{stderr}");
+}
