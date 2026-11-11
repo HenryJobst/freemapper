@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use crate::jobs::JobHub;
 use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
@@ -50,15 +51,13 @@ pub struct Defaults {
     pub from_agent: bool,
 }
 
-/// Whether a pipeline is running for a folder; saving is refused then, because the pipeline
-/// would write its own copy of the project file back.
-pub type Busy = Arc<dyn Fn(&Path) -> bool + Send + Sync>;
-
 struct AppState {
     dir: PathBuf,
     defaults: Defaults,
     cache: Cache,
-    busy: Option<Busy>,
+    /// Saving is refused while a pipeline runs for the folder, because the pipeline would write
+    /// its own copy of the project file back.
+    hub: Option<Arc<JobHub>>,
     /// Saves one after the other.
     saving: tokio::sync::Mutex<()>,
     /// The OpenStreetMap base layer, fetched here with an identifying `User-Agent`.
@@ -84,9 +83,9 @@ impl Selector {
         defaults: Defaults,
         cache: Cache,
         port: u16,
-        busy: Option<Busy>,
+        hub: Option<Arc<JobHub>>,
     ) -> anyhow::Result<Self> {
-        Self::start_with_tiles(dir, defaults, cache, port, busy, TileProxy::new()).await
+        Self::start_with_tiles(dir, defaults, cache, port, hub, TileProxy::new()).await
     }
 
     async fn start_with_tiles(
@@ -94,14 +93,14 @@ impl Selector {
         defaults: Defaults,
         cache: Cache,
         port: u16,
-        busy: Option<Busy>,
+        hub: Option<Arc<JobHub>>,
         tiles: TileProxy,
     ) -> anyhow::Result<Self> {
         let state = Arc::new(AppState {
             dir,
             defaults,
             cache,
-            busy,
+            hub,
             saving: tokio::sync::Mutex::new(()),
             tiles,
         });
@@ -434,7 +433,11 @@ async fn place(Query(query): Query<PlaceQuery>) -> Response {
 }
 
 async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    if state.busy.as_ref().is_some_and(|busy| busy(&state.dir)) {
+    if state
+        .hub
+        .as_ref()
+        .is_some_and(|hub| hub.running_for(&state.dir))
+    {
         return (
             StatusCode::CONFLICT,
             Json(json!({ "error": "a pipeline is running for this project; save again when it has finished" })),
@@ -609,7 +612,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn save_is_refused_while_a_pipeline_runs() {
         let dir = tempfile::tempdir().unwrap();
-        let busy: Busy = Arc::new(|_| true);
+        let hub = Arc::new(JobHub::default());
+        hub.register(&dir.path().join("p")).unwrap();
         let defaults = Defaults {
             kind: MapKind::Schoolyard,
             scale: None,
@@ -617,7 +621,7 @@ mod tests {
             from_agent: true,
         };
         let cache = Cache::new(dir.path().join("cache"));
-        let selector = Selector::start(dir.path().join("p"), defaults, cache, 0, Some(busy))
+        let selector = Selector::start(dir.path().join("p"), defaults, cache, 0, Some(hub))
             .await
             .unwrap();
         let url = format!("{}api/save", selector.url);
@@ -838,12 +842,19 @@ mod tests {
             "Content-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         ));
-        let mut stream = std::net::TcpStream::connect(host).unwrap();
-        stream.write_all(head.as_bytes()).unwrap();
-        // The server may answer 413 and close before it has read everything.
-        let _ = stream.write_all(body.as_bytes());
+        // The server may answer 403 or 413 and close before it has read the body; Windows then
+        // resets the connection and drops the answer, so an empty answer is asked for again.
         let mut answer = Vec::new();
-        let _ = stream.read_to_end(&mut answer);
+        for _ in 0..5 {
+            let mut stream = std::net::TcpStream::connect(host).unwrap();
+            stream.write_all(head.as_bytes()).unwrap();
+            let _ = stream.write_all(body.as_bytes());
+            answer.clear();
+            let _ = stream.read_to_end(&mut answer);
+            if !answer.is_empty() {
+                break;
+            }
+        }
         let answer = String::from_utf8_lossy(&answer).to_string();
         let (head, body) = answer.split_once("\r\n\r\n").unwrap_or((&answer, ""));
         let status = head.split(' ').nth(1).unwrap().parse().unwrap();

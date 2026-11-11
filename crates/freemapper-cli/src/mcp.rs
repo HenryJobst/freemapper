@@ -1,30 +1,26 @@
 //! `freemapper mcp`: the MCP server on stdio, so an AI agent can make a map for a non-technical
 //! user. The tools are thin wrappers over the library; the pipeline runs as a job the agent polls.
 
-use std::collections::{HashMap, VecDeque};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use base64::Engine;
 use freemapper::area::MapArea;
-use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
+use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
-use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, RunOutcome,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, init_project, run_project,
-    starter_documents,
-};
+use freemapper::project::{MapKind, ProjectFile, init_project};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::{ErrorData as McpError, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
 use serde::Deserialize;
 
-use crate::select::{Busy, Defaults, Selector, estimate_json, open_browser};
+use crate::jobs::{JobHub, folder_key};
+use crate::pipeline::{self, describe};
+use crate::select::{Defaults, Selector, estimate_json, open_browser};
 use serde_json::{Value, json};
 
-/// Progress lines kept per job.
-const JOB_LINES: usize = 50;
 /// Longest side of a preview image in pixels.
 const PREVIEW_PX: u32 = 800;
 
@@ -39,122 +35,6 @@ Mapper. When no place fits or the user wants to draw the area, open_area_selecto
 in the browser where the user draws or picks the area and saves it (this creates the project); \
 continue with estimate_download once the user says it is saved. Paths must be absolute or start \
 with ~. One pipeline runs at a time.";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum JobState {
-    Running,
-    Finished,
-    Failed,
-}
-
-impl JobState {
-    fn name(self) -> &'static str {
-        match self {
-            JobState::Running => "running",
-            JobState::Finished => "finished",
-            JobState::Failed => "failed",
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Job {
-    dir: PathBuf,
-    state: JobState,
-    lines: VecDeque<String>,
-    warnings: Vec<String>,
-    result: Option<String>,
-    error: Option<String>,
-}
-
-/// The pipeline jobs of this server's lifetime.
-#[derive(Debug, Default)]
-struct Jobs {
-    next: u64,
-    jobs: HashMap<String, Job>,
-}
-
-impl Jobs {
-    /// Registers a running job for `dir`; refused while any job runs, because all projects
-    /// share the download cache.
-    fn start(&mut self, dir: &Path) -> Result<String, String> {
-        if let Some((id, job)) = self
-            .jobs
-            .iter()
-            .find(|(_, job)| job.state == JobState::Running)
-        {
-            return Err(format!(
-                "{id} is still running for {}; one pipeline runs at a time because projects \
-                 share the download cache. Start this one when project_status reports finished \
-                 or failed",
-                job.dir.display()
-            ));
-        }
-        self.next += 1;
-        let id = format!("job-{}", self.next);
-        self.jobs.insert(
-            id.clone(),
-            Job {
-                dir: dir.to_path_buf(),
-                state: JobState::Running,
-                lines: VecDeque::new(),
-                warnings: Vec::new(),
-                result: None,
-                error: None,
-            },
-        );
-        Ok(id)
-    }
-
-    /// Whether a job runs for the folder `key` (see [`folder_key`]).
-    fn running_for(&self, key: &Path) -> bool {
-        self.jobs
-            .values()
-            .any(|job| job.state == JobState::Running && folder_key(&job.dir) == key)
-    }
-
-    fn progress(&mut self, id: &str, line: &str) {
-        let Some(job) = self.jobs.get_mut(id) else {
-            return;
-        };
-        if line.starts_with("warning:") {
-            job.warnings.push(line.to_string());
-        }
-        if job.lines.len() == JOB_LINES {
-            job.lines.pop_front();
-        }
-        job.lines.push_back(line.to_string());
-    }
-
-    fn finish(&mut self, id: &str, outcome: Result<String, String>) {
-        let Some(job) = self.jobs.get_mut(id) else {
-            return;
-        };
-        match outcome {
-            Ok(result) => {
-                job.state = JobState::Finished;
-                job.result = Some(result);
-            }
-            Err(error) => {
-                job.state = JobState::Failed;
-                job.error = Some(error);
-            }
-        }
-    }
-
-    fn status(&self, id: &str) -> Option<Value> {
-        let job = self.jobs.get(id)?;
-        Some(json!({
-            "job_id": id,
-            "dir": job.dir,
-            "state": job.state.name(),
-            "lines": job.lines,
-            "warnings": job.warnings,
-            "result": job.result,
-            "error": job.error,
-        }))
-    }
-}
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct FindPlace {
@@ -247,34 +127,9 @@ struct PreviewLayer {
 pub struct FreemapperServer {
     tool_router: ToolRouter<Self>,
     cache: Cache,
-    jobs: Arc<Mutex<Jobs>>,
+    jobs: Arc<JobHub>,
     /// Area selection pages by [`folder_key`], one per folder.
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
-}
-
-/// The job table; a panic elsewhere never makes it unusable.
-fn lock(jobs: &Mutex<Jobs>) -> MutexGuard<'_, Jobs> {
-    jobs.lock().unwrap_or_else(PoisonError::into_inner)
-}
-
-/// Runs a job to its end and records the outcome; a panic is recorded as a failure, so the
-/// job never stays running.
-fn run_job(
-    jobs: &Mutex<Jobs>,
-    id: &str,
-    job: impl FnOnce(&mut dyn FnMut(&str)) -> Result<String, String>,
-) {
-    let mut progress = |line: &str| lock(jobs).progress(id, line);
-    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut progress)))
-        .unwrap_or_else(|panic| {
-            let message = panic
-                .downcast_ref::<&str>()
-                .map(|s| s.to_string())
-                .or_else(|| panic.downcast_ref::<String>().cloned())
-                .unwrap_or_default();
-            Err(format!("internal error: {message}"))
-        });
-    lock(jobs).finish(id, outcome);
 }
 
 /// A tool result with one text block.
@@ -285,20 +140,6 @@ fn text(text: impl Into<String>) -> Result<CallToolResult, McpError> {
 /// A tool error the agent can relay to the user.
 fn failure(message: impl Into<String>) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::error(vec![ContentBlock::text(message)]))
-}
-
-/// An error with its causes, e.g. "fetch failed: tile 33421-5821 is not in the cache".
-fn describe(error: &dyn std::error::Error) -> String {
-    let mut message = error.to_string();
-    let mut source = error.source();
-    while let Some(cause) = source {
-        let line = cause.to_string();
-        if !message.contains(&line) {
-            message = format!("{message}: {line}");
-        }
-        source = cause.source();
-    }
-    message
 }
 
 /// Resolves a path from the agent: absolute, or `~/…` (`~\…`) inside the home folder.
@@ -326,18 +167,6 @@ fn resolve(path: &str) -> Result<PathBuf, String> {
         ));
     }
     Ok(resolved)
-}
-
-/// One spelling per folder (`..`, symlinks and letter case resolved as far as the folder or its
-/// nearest existing parent exists), to find the page or job of a folder.
-fn folder_key(dir: &Path) -> PathBuf {
-    for ancestor in dir.ancestors() {
-        if let Ok(canonical) = std::fs::canonicalize(ancestor) {
-            let rest = dir.strip_prefix(ancestor).unwrap_or(Path::new(""));
-            return canonical.join(rest);
-        }
-    }
-    dir.to_path_buf()
 }
 
 /// The folder of an existing project.
@@ -368,82 +197,6 @@ fn role_name(role: LayerRole) -> &'static str {
         LayerRole::Candidates => "candidates",
         LayerRole::Template => "template",
     }
-}
-
-/// What the pipeline did, in words for the user.
-fn summary(outcome: &RunOutcome) -> String {
-    let mut lines = Vec::new();
-    match &outcome.map {
-        MapOutcome::Written(map) => lines.push(format!("Wrote the map {}", map.display())),
-        MapOutcome::Kept {
-            map,
-            references_images,
-            missing_buildings,
-            missing_canopies,
-        } => {
-            lines.push(format!(
-                "Kept the existing map {} (it may contain the mapper's work)",
-                map.display()
-            ));
-            if !references_images {
-                lines.push(
-                    "The map does not reference the image templates yet. Start the pipeline \
-                     with force to replace it and keep the old one as .omap.bak."
-                        .to_string(),
-                );
-            }
-            if *missing_buildings {
-                lines.push(
-                    "The map has no ALKIS buildings yet. Start the pipeline with force to add \
-                     them; it replaces the map and keeps the old one as .omap.bak."
-                        .to_string(),
-                );
-            }
-            if *missing_canopies {
-                lines.push(
-                    "The map lacks the ALKIS canopies and carports (522) that are now map \
-                     objects. Start the pipeline with force to add them; it replaces the map and \
-                     keeps the old one as .omap.bak."
-                        .to_string(),
-                );
-            }
-        }
-    }
-    for template in &outcome.templates {
-        lines.push(format!("Wrote {}", template.display()));
-    }
-    lines.join("\n")
-}
-
-/// What the OCAD export did, in words for the user.
-fn ocad_summary(outcome: &OcadOutcome) -> String {
-    let mut text = if outcome.kept {
-        format!(
-            "\nKept the existing OCAD map {} (it may contain the mapper's work; force replaces it)",
-            outcome.map.display()
-        )
-    } else {
-        format!(
-            "\nWrote the OCAD map {} ({} objects)",
-            outcome.map.display(),
-            outcome.objects
-        )
-    };
-    for warning in &outcome.warnings {
-        text.push_str(&format!("\n{warning}"));
-    }
-    if outcome.skipped > 0 || outcome.dropped_parts > 0 {
-        text.push_str(&format!(
-            "\nLeft out of the OCAD map: {} objects and {} degenerate parts",
-            outcome.skipped, outcome.dropped_parts
-        ));
-    }
-    text.push_str(&format!(
-        "\nWrote {}\nIn OCAD, choose Symbol > Load Colors and Symbols From… and pick the \
-         official ISSprOM 2019 or school symbol set; it replaces the placeholder symbols by number.",
-        outcome.candidates.display()
-    ));
-    text
 }
 
 /// Runs blocking library code off the async runtime.
@@ -612,91 +365,38 @@ impl FreemapperServer {
                  the area and press Done on the page, then start the pipeline",
             );
         }
-        let pdf_sources = match req.pdf_sources.as_deref() {
-            None | Some("auto") => PdfSources::Auto,
-            Some("full") => PdfSources::Full,
-            Some("credit-only") => PdfSources::CreditOnly,
-            Some(other) => {
-                return failure(format!(
-                    "pdf_sources must be auto, full or credit-only, not {other:?}"
-                ));
-            }
+        let options = match pipeline::parse(pipeline::RunRequest {
+            force: req.force,
+            offline: req.offline,
+            ocad: req.ocad,
+            pdf: req.pdf,
+            pdf_candidates: req.pdf_candidates,
+            pdf_scale_bar: req.pdf_scale_bar,
+            pdf_sources: req.pdf_sources,
+        }) {
+            Ok(options) => options,
+            Err(e) => return failure(e),
         };
-        let id = match lock(&self.jobs).start(&dir) {
+        let cache = self.cache.clone();
+        let job_dir = dir.clone();
+        let started = self.jobs.start(
+            &dir,
+            Box::new(move |control, progress| {
+                pipeline::run(
+                    &job_dir,
+                    &options,
+                    &cache,
+                    &HttpFetcher::new(),
+                    control,
+                    progress,
+                )
+                .map_err(|e| describe(e.as_ref()))
+            }),
+        );
+        let id = match started {
             Ok(id) => id,
             Err(e) => return failure(e),
         };
-        let jobs = Arc::clone(&self.jobs);
-        let cache = self.cache.clone();
-        let mode = if req.offline.unwrap_or(false) {
-            FetchMode::Offline
-        } else {
-            FetchMode::Online
-        };
-        let force = req.force.unwrap_or(false);
-        let ocad = req.ocad.unwrap_or(false);
-        let pdf = req.pdf.unwrap_or(false);
-        let pdf_candidates = req.pdf_candidates.unwrap_or(false);
-        let pdf_scale_bar = req.pdf_scale_bar.unwrap_or(false);
-        let job_id = id.clone();
-        let job_dir = dir.clone();
-        tokio::task::spawn_blocking(move || {
-            run_job(&jobs, &job_id, |progress| {
-                let mut text =
-                    run_project(&job_dir, &HttpFetcher::new(), &cache, mode, force, progress)
-                        .map(|outcome| summary(&outcome))
-                        .map_err(|e| describe(&e))?;
-                // Built once for the outputs after the run (ADR 0091); a failure is reported by
-                // each output that needed them.
-                let documents = (ocad || pdf || pdf_candidates)
-                    .then(|| starter_documents(&job_dir).map_err(|e| describe(&e)));
-                let documents = || match &documents {
-                    Some(Ok(documents)) => Ok(documents),
-                    Some(Err(e)) => Err(e.clone()),
-                    None => unreachable!("built when an output asks for them"),
-                };
-                // The OOM project is written already: an OCAD failure is reported, not fatal.
-                if ocad {
-                    match documents().and_then(|d| {
-                        export_ocad_from(&job_dir, d, force).map_err(|e| describe(&e))
-                    }) {
-                        Ok(outcome) => text.push_str(&ocad_summary(&outcome)),
-                        Err(e) => text.push_str(&format!("\nOCAD export failed: {e}")),
-                    }
-                }
-                if (pdf || pdf_candidates) && pdf_sources.leaves_out_required_credits() {
-                    text.push_str(
-                        "\nPDF without source credits: ODbL and dl-de/by-2-0 ask you to name the \
-                         sources when you pass the map on; see ATTRIBUTION.txt",
-                    );
-                }
-                if pdf {
-                    match documents().and_then(|d| {
-                        export_pdf_from(&job_dir, d, pdf_scale_bar, pdf_sources)
-                            .map_err(|e| describe(&e))
-                    }) {
-                        Ok(path) => text.push_str(&format!(
-                            "\nWrote the map {} (without candidates)",
-                            path.display()
-                        )),
-                        Err(e) => text.push_str(&format!("\nPDF export failed: {e}")),
-                    }
-                }
-                if pdf_candidates {
-                    match documents().and_then(|d| {
-                        export_candidates_pdf_from(&job_dir, d, pdf_scale_bar, pdf_sources)
-                            .map_err(|e| describe(&e))
-                    }) {
-                        Ok(path) => text.push_str(&format!(
-                            "\nWrote the training map {} (every candidate drawn as a map object)",
-                            path.display()
-                        )),
-                        Err(e) => text.push_str(&format!("\nCandidates PDF export failed: {e}")),
-                    }
-                }
-                Ok(text)
-            });
-        });
         text(json!({ "job_id": id, "dir": dir, "state": "running" }).to_string())
     }
 
@@ -708,8 +408,8 @@ impl FreemapperServer {
         &self,
         Parameters(req): Parameters<ProjectStatus>,
     ) -> Result<CallToolResult, McpError> {
-        match lock(&self.jobs).status(&req.job_id) {
-            Some(status) => text(status.to_string()),
+        match self.jobs.status(&req.job_id, 0) {
+            Some(status) => text(status.to_json().to_string()),
             None => failure(format!(
                 "no job {:?}; start_pipeline returns the job ids of this session",
                 req.job_id
@@ -782,11 +482,9 @@ impl FreemapperServer {
                     title: req.title,
                     from_agent: true,
                 };
-                let jobs = Arc::clone(&self.jobs);
-                let busy: Busy =
-                    Arc::new(move |dir: &Path| lock(&jobs).running_for(&folder_key(dir)));
+                let hub = Arc::clone(&self.jobs);
                 let started =
-                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(busy)).await;
+                    Selector::start(dir.clone(), defaults, self.cache.clone(), 0, Some(hub)).await;
                 let selector = match started {
                     Ok(selector) => selector,
                     Err(e) => return failure(format!("cannot start the page: {e}")),
@@ -860,65 +558,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn missing_canopies_message_names_no_state() {
-        let outcome = RunOutcome {
-            templates: Vec::new(),
-            map: MapOutcome::Kept {
-                map: PathBuf::from("/tmp/x/x.omap"),
-                references_images: true,
-                missing_buildings: false,
-                missing_canopies: true,
-            },
-        };
-        let text = summary(&outcome);
-        assert!(
-            text.contains("The map lacks the ALKIS canopies and carports (522)"),
-            "{text}"
-        );
-        assert!(!text.contains("Berlin"), "{text}");
-    }
-
-    #[test]
-    fn only_one_pipeline_runs_at_a_time() {
-        // Jobs share the download cache, so a second one waits even for another project.
-        let mut jobs = Jobs::default();
-        let first = jobs.start(Path::new("/projects/school")).unwrap();
-        assert_eq!(first, "job-1");
-        for dir in ["/projects/school", "/projects/other"] {
-            let refused = jobs.start(Path::new(dir)).unwrap_err();
-            assert!(refused.contains("job-1"), "{refused}");
-        }
-        jobs.finish(&first, Err("offline".into()));
-        assert_eq!(jobs.start(Path::new("/projects/other")).unwrap(), "job-2");
-    }
-
-    #[test]
-    fn panicking_job_is_reported_as_failed() {
-        let jobs = Arc::new(Mutex::new(Jobs::default()));
-        let id = lock(&jobs).start(Path::new("/p")).unwrap();
-        run_job(&jobs, &id, |_| panic!("bad tile data"));
-        let status = lock(&jobs).status(&id).unwrap();
-        assert_eq!(status["state"], "failed");
-        assert!(
-            status["error"].as_str().unwrap().contains("bad tile data"),
-            "{status}"
-        );
-    }
-
-    #[test]
-    fn job_progress_and_outcome_are_recorded() {
-        let jobs = Arc::new(Mutex::new(Jobs::default()));
-        let id = lock(&jobs).start(Path::new("/p")).unwrap();
-        run_job(&jobs, &id, |progress| {
-            progress("warning: no nDSM for tile 33421-5821");
-            Ok("Wrote the map".into())
-        });
-        let status = lock(&jobs).status(&id).unwrap();
-        assert_eq!(status["state"], "finished");
-        assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
-    }
-
-    #[test]
     fn project_dir_needs_a_project() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("school");
@@ -930,25 +569,6 @@ mod tests {
     }
 
     #[test]
-    fn job_keeps_the_last_lines_and_the_warnings() {
-        let mut jobs = Jobs::default();
-        let id = jobs.start(Path::new("/p")).unwrap();
-        jobs.progress(&id, "warning: no nDSM for tile 33421-5821");
-        for i in 0..60 {
-            jobs.progress(&id, &format!("line {i}"));
-        }
-        let status = jobs.status(&id).unwrap();
-        assert_eq!(status["state"], "running");
-        assert_eq!(status["lines"].as_array().unwrap().len(), JOB_LINES);
-        assert_eq!(status["lines"][0], "line 10");
-        assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
-        jobs.finish(&id, Ok("Wrote the map".into()));
-        let status = jobs.status(&id).unwrap();
-        assert_eq!(status["state"], "finished");
-        assert_eq!(status["result"], "Wrote the map");
-    }
-
-    #[test]
     fn paths_must_be_absolute_or_home() {
         assert!(resolve("projects/school").unwrap_err().contains("relative"));
         let home = dirs::home_dir().unwrap();
@@ -957,26 +577,5 @@ mod tests {
         assert!(resolve("~").unwrap_err().contains("home folder itself"));
         let absolute = std::env::temp_dir().join("x");
         assert_eq!(resolve(absolute.to_str().unwrap()).unwrap(), absolute);
-    }
-
-    #[test]
-    fn describe_adds_causes_once() {
-        #[derive(Debug)]
-        struct Outer(std::io::Error);
-        impl std::fmt::Display for Outer {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_str("fetch failed")
-            }
-        }
-        impl std::error::Error for Outer {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                Some(&self.0)
-            }
-        }
-        let error = Outer(std::io::Error::other("tile 33421-5821 is not in the cache"));
-        assert_eq!(
-            describe(&error),
-            "fetch failed: tile 33421-5821 is not in the cache"
-        );
     }
 }

@@ -1,7 +1,9 @@
 //! `freemapper` command line interface.
 
+mod jobs;
 mod mcp;
 mod nominatim;
+mod pipeline;
 mod select;
 mod text;
 mod tiles;
@@ -16,7 +18,7 @@ use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, derive_project, export_candidates_pdf_from,
     export_ocad_from, export_pdf_from, export_starter_project_from, fetch_project, init_project,
-    map_path, run_project, starter_documents,
+    map_path, starter_documents,
 };
 
 use text::{n, text, v};
@@ -286,6 +288,40 @@ fn report_ocad(outcome: &OcadOutcome) {
     println!("{}", text("cli-ocad-load-symbols", &[]));
 }
 
+/// Prints what a step of `run` wrote.
+fn print_written(written: pipeline::Written, sources: PdfSources) {
+    match written {
+        pipeline::Written::Map(outcome) => {
+            for path in &outcome.templates {
+                wrote(path);
+            }
+            match &outcome.map {
+                MapOutcome::Written(map) => wrote(map),
+                MapOutcome::Kept {
+                    map,
+                    references_images,
+                    missing_buildings,
+                    missing_canopies,
+                } => {
+                    kept(map);
+                    if !references_images {
+                        println!("{}", text("cli-map-lacks-templates", &[]));
+                    }
+                    if *missing_buildings {
+                        println!("{}", text("cli-map-lacks-buildings", &[]));
+                    }
+                    if *missing_canopies {
+                        println!("{}", text("cli-map-lacks-canopies", &[]));
+                    }
+                }
+            }
+        }
+        pipeline::Written::Ocad(outcome) => report_ocad(outcome),
+        pipeline::Written::Pdf(path) => report_pdf(path, false, sources),
+        pipeline::Written::PdfCandidates(path) => report_pdf(path, true, sources),
+    }
+}
+
 fn report(message: &str) {
     eprintln!("{message}");
 }
@@ -432,63 +468,30 @@ fn main() -> anyhow::Result<()> {
             pdf_sources,
             cache,
         } => {
-            let outcome = run_project(
-                &dir,
-                &HttpFetcher::new(),
-                &cache.cache()?,
-                mode(offline),
+            let options = pipeline::RunOptions {
                 force,
-                &mut report,
+                offline,
+                ocad,
+                pdf,
+                pdf_candidates,
+                pdf_scale_bar,
+                pdf_sources: pdf_sources.into(),
+                fail_fast: true,
+            };
+            pipeline::run(
+                &dir,
+                &options,
+                &cache.cache()?,
+                &HttpFetcher::new(),
+                &pipeline::RunControl::default(),
+                &mut |event| match event {
+                    pipeline::Event::Line(line) => report(line),
+                    pipeline::Event::Phase { .. } => {}
+                    pipeline::Event::Written(written) => {
+                        print_written(written, options.pdf_sources)
+                    }
+                },
             )?;
-            for path in outcome.templates {
-                wrote(&path);
-            }
-            match outcome.map {
-                MapOutcome::Written(map) => wrote(&map),
-                MapOutcome::Kept {
-                    map,
-                    references_images,
-                    missing_buildings,
-                    missing_canopies,
-                } => {
-                    kept(&map);
-                    if !references_images {
-                        println!("{}", text("cli-map-lacks-templates", &[]));
-                    }
-                    if missing_buildings {
-                        println!("{}", text("cli-map-lacks-buildings", &[]));
-                    }
-                    if missing_canopies {
-                        println!("{}", text("cli-map-lacks-canopies", &[]));
-                    }
-                }
-            }
-            if ocad || pdf || pdf_candidates {
-                // Built once for the outputs after the run (ADR 0091).
-                let documents = starter_documents(&dir)?;
-                if ocad {
-                    report_ocad(&export_ocad_from(&dir, &documents, force)?);
-                }
-                if pdf {
-                    report_pdf(
-                        &export_pdf_from(&dir, &documents, pdf_scale_bar, pdf_sources.into())?,
-                        false,
-                        pdf_sources.into(),
-                    );
-                }
-                if pdf_candidates {
-                    report_pdf(
-                        &export_candidates_pdf_from(
-                            &dir,
-                            &documents,
-                            pdf_scale_bar,
-                            pdf_sources.into(),
-                        )?,
-                        true,
-                        pdf_sources.into(),
-                    );
-                }
-            }
         }
         Commands::Select {
             dir,
@@ -507,8 +510,14 @@ fn main() -> anyhow::Result<()> {
                 from_agent: false,
             };
             tokio::runtime::Runtime::new()?.block_on(async {
-                let selector =
-                    select::Selector::start(dir.clone(), defaults, cache, port, None).await?;
+                let selector = select::Selector::start(
+                    dir.clone(),
+                    defaults,
+                    cache,
+                    port,
+                    Some(std::sync::Arc::new(jobs::JobHub::default())),
+                )
+                .await?;
                 println!("{}", selector.url);
                 std::io::Write::flush(&mut std::io::stdout())?;
                 eprintln!(
