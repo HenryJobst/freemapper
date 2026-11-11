@@ -316,6 +316,10 @@ fn mcp_page_and_pipeline_do_not_overlap() {
     let done = agent
         .post(&format!("{url}api/done"))
         .header("Content-Type", "application/json")
+        .header(
+            "Origin",
+            url.split('/').take(3).collect::<Vec<_>>().join("/"),
+        )
         .send("{}")
         .unwrap();
     assert_eq!(done.status().as_u16(), 200);

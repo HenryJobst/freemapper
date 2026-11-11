@@ -20,6 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Gebietsauswahl: Der lokale Server läuft jetzt auf der gemeinsamen Bibliothek `freemapper-web` aus freemapper-core v0.11.0 (ADR 0090, Stufe 1; ADR 0009 und 0067, Nachtrag). Die Seite sieht gleich aus. Die Prüfungen sind strenger: Ein POST braucht den `Origin` der Seite und `Content-Type: application/json`, sonst antwortet der Server mit 403. Wer die Routen mit einem eigenen Skript aufruft, muss beides senden. Anfragen mit `Sec-Fetch-Site: cross-site` werden abgelehnt, jede Antwort trägt `X-Content-Type-Options: nosniff`, und ein Anfragekörper darf höchstens 1 MiB groß sein (ein Umriss mit 5000 Punkten braucht etwa 150 KB). Alle Kernbibliotheken sind jetzt auf dasselbe Tag v0.11.0 festgelegt.
 - Die Vorschaubilder der Beispiele sind jetzt WebP statt JPEG (`preview.webp`, `preview-map.webp`). Sie entstehen direkt aus den PDFs und sind kleiner als die JPEGs. Das Titelbild der README (Viktoriapark) ist mit 1600 Pixeln Breite schärfer.
 - Tests: Jeder Testlauf prüft jetzt, ob Karte und `freemapper.toml` den Vertrag der Suite einhalten (ADR 0089, `freemapper-contract` aus freemapper-core v0.8.0). Geprüft werden eine Schulhofkarte 1:1000 und eine Sprintkarte 1:4000 gegen zwölf Regeln und gegen das Vokabular, auf das sich freemapper-print und freemapper-courseplan verlassen: Namen der Kartenteile, Tags der Randangaben und der belaufbaren Fläche, Vertragsschlüssel der Projektdatei. Das Programm selbst ändert sich nicht.
 

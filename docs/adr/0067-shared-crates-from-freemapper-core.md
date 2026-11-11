@@ -54,3 +54,5 @@ Source: user request of 2026-11-09 (move freemapper onto `freemapper-fs` of free
 freemapper-core ADRs 0001, 0004, 0005, 0006, 0008, 0009; branch `core-fs`.
 
 Update 2026-11-10: freemapper also uses `freemapper-georef` (core ADR 0015) and both crates are pinned to freemapper-core v0.5.1. `crs.rs` and `tiles.rs` re-export the crate; the 12 tests of those modules moved with the code. Branch `core-georef`.
+
+Update 2026-11-11: freemapper also uses `freemapper-web` (core ADR 0020) for the area selection page. It, `freemapper-fs`, `freemapper-georef` and the test-only `freemapper-contract` now all point at the one tag v0.11.0, so the lock file holds one copy of each core crate. Before, v0.5.1 and v0.8.0 lay side by side, with two copies of `freemapper-omap`. Pin all core crates to a single tag from now on. The contract tests of ADR 0089 pass unchanged. Stage 1 of ADR 0090.

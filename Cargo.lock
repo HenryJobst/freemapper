@@ -534,7 +534,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -726,7 +726,7 @@ dependencies = [
  "dirs",
  "freemapper",
  "freemapper-text",
- "getrandom 0.4.3",
+ "freemapper-web",
  "rmcp",
  "rust-embed",
  "schemars",
@@ -739,8 +739,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-contract"
-version = "0.8.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.8.0#5028aeb7bb57fa283f61100563cd34bd5c1fd7eb"
+version = "0.11.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.11.0#eb13d942f1c1b0097234d829002a0f25c54e6e93"
 dependencies = [
  "freemapper-omap",
  "serde",
@@ -750,21 +750,21 @@ dependencies = [
 
 [[package]]
 name = "freemapper-fs"
-version = "0.5.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.5.1#d033348838c07ebbd7794e34b6e8e4c1e41b51c2"
+version = "0.11.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.11.0#eb13d942f1c1b0097234d829002a0f25c54e6e93"
 dependencies = [
  "same-file",
 ]
 
 [[package]]
 name = "freemapper-georef"
-version = "0.5.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.5.1#d033348838c07ebbd7794e34b6e8e4c1e41b51c2"
+version = "0.11.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.11.0#eb13d942f1c1b0097234d829002a0f25c54e6e93"
 
 [[package]]
 name = "freemapper-omap"
-version = "0.8.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.8.0#5028aeb7bb57fa283f61100563cd34bd5c1fd7eb"
+version = "0.11.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.11.0#eb13d942f1c1b0097234d829002a0f25c54e6e93"
 dependencies = [
  "quick-xml",
  "thiserror 2.0.21",
@@ -778,6 +778,18 @@ dependencies = [
  "fluent-bundle",
  "fluent-syntax",
  "unic-langid",
+]
+
+[[package]]
+name = "freemapper-web"
+version = "0.11.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.11.0#eb13d942f1c1b0097234d829002a0f25c54e6e93"
+dependencies = [
+ "axum",
+ "getrandom 0.4.3",
+ "rust-embed",
+ "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]

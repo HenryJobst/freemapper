@@ -72,6 +72,11 @@ impl Selector {
             .agent
             .post(&format!("{}{path}", self.url))
             .header("Content-Type", "application/json")
+            // The page sends its own origin; the server refuses a POST without it.
+            .header(
+                "Origin",
+                self.url.split('/').take(3).collect::<Vec<_>>().join("/"),
+            )
             .send(body.to_string())
             .unwrap();
         let status = response.status().as_u16();
@@ -337,7 +342,8 @@ fn foreign_origin_and_bad_requests_are_refused() {
     let own = post(&format!("Origin: http://{address}\r\n"), "application/json");
     assert_eq!(raw_status(&address, &own), 400, "own origin, empty area");
     let form = post("", "text/plain");
-    assert_eq!(raw_status(&address, &form), 415);
+    // Refused by the shared guard (strict POST) before the JSON extractor would answer 415.
+    assert_eq!(raw_status(&address, &form), 403);
     let no_port = format!("GET /{token}/ HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
     assert_eq!(raw_status(&address, &no_port), 403);
     let page = raw_response(
