@@ -810,14 +810,14 @@ impl RasterProject for ProjectDir<'_> {
     }
 
     fn save(&mut self) -> Result<(), AdapterError> {
-        match self.project.save(self.dir) {
-            Ok(()) => Ok(()),
-            Err(ProjectError::Io(path, e)) => Err(AdapterError::Io(path, e)),
-            Err(ProjectError::Toml(message)) => Err(AdapterError::ProjectFile(message)),
-            Err(other) => {
-                unreachable!("saving the project file fails as a write or as a format: {other}")
-            }
-        }
+        // A failed write comes as a fetch error (`fetch::write_inside`). Whatever the save
+        // fails with reaches the caller as the same error: nothing is lost, nothing panics.
+        self.project.save(self.dir).map_err(|error| match error {
+            ProjectError::Fetch(e) => AdapterError::Fetch(e),
+            ProjectError::Io(path, e) => AdapterError::Io(path, e),
+            ProjectError::Toml(message) => AdapterError::ProjectFile(message),
+            other => AdapterError::Engine(Box::new(other)),
+        })
     }
 
     fn dir(&self) -> &Path {
@@ -843,6 +843,11 @@ impl From<AdapterError> for ProjectError {
             AdapterError::ProjectFile(message) => ProjectError::Toml(message),
             AdapterError::OrthophotoNotFetched => ProjectError::OrthophotoNotFetched,
             AdapterError::TerrainNotFetched => ProjectError::TerrainNotFetched,
+            // The engine's own error, as it was; an error of another kind keeps its words.
+            AdapterError::Engine(e) => match e.downcast::<ProjectError>() {
+                Ok(own) => *own,
+                Err(other) => ProjectError::Toml(other.to_string()),
+            },
         }
     }
 }
@@ -7663,6 +7668,30 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
+    /// The checkpoint of a raster fetch writes the project file. When that fails (a folder that
+    /// is gone, a full disk, a link that leads out of the project), the fetch ends with the same
+    /// error as before the raster fetch took a `RasterProject`.
+    #[test]
+    fn a_failed_save_in_a_raster_fetch_is_the_write_error() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let region_bbox = project.region_bbox().unwrap();
+        let gone = dir.path().join("gone");
+        let direct = project.save(&gone).unwrap_err();
+        let mut in_dir = ProjectDir {
+            dir: &gone,
+            project: &mut project,
+            region_bbox,
+        };
+        let through = ProjectError::from(RasterProject::save(&mut in_dir).unwrap_err());
+        assert!(
+            matches!(through, ProjectError::Fetch(FetchError::Io(..))),
+            "{through:?}"
+        );
+        assert_eq!(through.to_string(), direct.to_string());
+    }
+
     /// The raster fetch ends with an `AdapterError`; the engine turns it back into the error it
     /// stands for, with the same words, so the caller words it as before.
     #[test]
@@ -7708,6 +7737,10 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             (
                 AdapterError::TerrainNotFetched,
                 ProjectError::TerrainNotFetched,
+            ),
+            (
+                AdapterError::Engine(Box::new(ProjectError::NotFetched)),
+                ProjectError::NotFetched,
             ),
         ];
         for (adapter, expected) in cases {

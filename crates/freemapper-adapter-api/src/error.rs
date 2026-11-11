@@ -86,6 +86,10 @@ pub enum AdapterError {
     OrthophotoNotFetched,
     #[error("no terrain model stored for this map area; run `freemapper fetch` online first")]
     TerrainNotFetched,
+    /// An error of the engine that passes through the fetch as it is (the checkpoint failed in
+    /// a way the variants above do not name). The engine takes its own error out again.
+    #[error("{0}")]
+    Engine(Box<dyn std::error::Error + Send + Sync>),
 }
 
 impl FetchError {
