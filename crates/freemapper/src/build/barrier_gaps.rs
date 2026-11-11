@@ -28,6 +28,9 @@ const LINES: [(&str, f64, f64); 3] = [
 
 type P = (f64, f64);
 
+/// A distance this much (map units, 0.002 mm) under its limit still counts as kept. A moved point
+/// sits exactly at the limit, where the last digits of a sum differ between systems.
+const TOLERANCE: f64 = 2.0;
 /// How many steps of half a symbol size the search for a free spot goes along the line and away
 /// from it.
 const SEARCH_STEPS: i32 = 10;
@@ -123,7 +126,9 @@ pub fn move_points_off_barriers(
                 .iter()
                 .enumerate()
                 .filter(|&(m, &(.., other, r2, _))| {
-                    m != n && !removed[m] && (q.0 - other.0).hypot(q.1 - other.1) < r + r2 + gap
+                    m != n
+                        && !removed[m]
+                        && (q.0 - other.0).hypot(q.1 - other.1) < r + r2 + gap - TOLERANCE
                 })
                 .map(|(m, _)| m)
                 .collect()
@@ -243,7 +248,7 @@ fn away_from_lines(p: P, room: f64, segments: &[Segment]) -> Option<P> {
         let cross = dx * (p.1 - s.a.1) - dy * (p.0 - s.a.0);
         let on_right = cross > 0.0;
         let clearance = room + if on_right { s.right } else { s.left };
-        if d >= clearance || best.is_some_and(|(b, _)| d >= b) {
+        if d >= clearance - TOLERANCE || best.is_some_and(|(b, _)| d >= b) {
             continue;
         }
         // The direction from the line to the point; on the line itself, the side without ticks.
