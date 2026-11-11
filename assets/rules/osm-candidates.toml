@@ -283,6 +283,39 @@ draw = "line"
 target = "map"
 sprint = "501.6"
 
+# Paved service ways (sprint only, ADR 0098): a driveway, a courtyard road or the access to a castle
+# is a paved way wider than a footpath: 501.6 to 501.9 by `width`, 501.8 (3 m) without one. Other
+# streets keep no rule, the ALKIS traffic areas show them.
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=4"]
+draw = "line"
+target = "map"
+sprint = "501.9"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=3"]
+draw = "line"
+target = "map"
+sprint = "501.8"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width>=2"]
+draw = "line"
+target = "map"
+sprint = "501.7"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes", "width<2"]
+draw = "line"
+target = "map"
+sprint = "501.6"
+
+[[rule]]
+when = ["highway=service", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "surface=asphalt|paved|paving_stones|concrete|sett|cobblestone|bricks|chipseal|concrete:plates|concrete:lanes"]
+draw = "line"
+target = "map"
+sprint = "501.8"
+
 # Unpaved ways (sprint only). Sidewalks have no rule: the ALKIS traffic areas and the
 # orthophoto cover them. Map objects only in the open: tunnels, covered and indoor ways and
 # pedestrian areas (closed rings) fall through to the candidate rule below.

@@ -678,7 +678,7 @@ pub(crate) fn way_footprints(
 
 /// The rings of `piece` outside `no_boundary`, joined where a ring was split at its start,
 /// simplified by `tolerance` and at least `min_length` long (all in the map's CRS).
-fn boundary_lines(
+pub(crate) fn boundary_lines(
     piece: &Polygon<f64>,
     no_boundary: &MultiPolygon<f64>,
     min_length: f64,
@@ -720,7 +720,7 @@ fn boundary_lines(
 }
 
 /// The map coordinates of `line` (map CRS); a closed line is closed as OOM expects.
-fn line_coords(
+pub(crate) fn line_coords(
     line: &LineString<f64>,
     georef: &Georeferencing,
 ) -> Result<Vec<MapCoord>, GeorefError> {

@@ -1303,9 +1303,22 @@ mod tests {
                 "{extra:?}"
             );
         }
+        // A paved service way is a wider line: 3 m without a width.
+        assert_eq!(
+            sprint_way(&[("highway", "service"), ("surface", "sett")]),
+            Some(("501.8".to_string(), Target::Map))
+        );
+        assert_eq!(
+            sprint_way(&[
+                ("highway", "service"),
+                ("surface", "asphalt"),
+                ("width", "4")
+            ]),
+            Some(("501.9".to_string(), Target::Map))
+        );
         // A street keeps no rule: the traffic areas show it.
         assert_eq!(
-            sprint_way(&[("highway", "service"), ("surface", "asphalt")]),
+            sprint_way(&[("highway", "residential"), ("surface", "asphalt")]),
             None
         );
     }
