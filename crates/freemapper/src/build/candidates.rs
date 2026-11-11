@@ -2441,7 +2441,7 @@ mod tests {
 
     #[test]
     fn railways_are_509_1_map_objects_and_trams_candidates() {
-        // ISSprOM 4.5, 509.1 Railway and 509.2 Tramway (ADR 0092).
+        // ISSprOM 4.5, 509.1 Railway and 509.2 Tramway (ADR 0093).
         let code = |t: &[(&str, &str)]| sprint_way(t);
         let map = |c: &str| Some((c.to_string(), Target::Map));
         let candidate = |c: &str| Some((c.to_string(), Target::Candidates));

@@ -724,7 +724,14 @@ Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei
 
 ## 14. Meldungen und was zu tun ist
 
-freemapper meldet auf Englisch. Die wichtigsten Meldungen:
+freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
+Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
+Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
+
+Bisher sind nur die Zeilen übersetzt, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und
+die Hinweise nach `run` und `export`. Fortschrittszeilen, Warnungen, Fehlermeldungen und die Hilfe (`--help`)
+sind noch Englisch; die Gebietsseite richtet sich nach der Sprache des Browsers. Die wichtigsten englischen
+Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|

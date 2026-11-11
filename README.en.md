@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,124](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C124-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,139](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C139-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -70,7 +70,7 @@ paper, the stronger line stays.
 freemapper is still under development. Next, the region adapters are rebuilt so that other developers
 can contribute adapters for their own country. Then come more detailed sprint maps for further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
-Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, program texts in German and English,
+Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, complete German program texts (the first stage is in: `--lang de`),
 and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).

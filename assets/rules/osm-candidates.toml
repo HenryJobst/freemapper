@@ -449,7 +449,7 @@ when = ["power=cable", "location=overhead"]
 draw = "line"
 sprint = "510"
 
-# Railways (sprint only, ADR 0092). ISSprOM 4.5, 509.1 "Railway": "a permanent track laid with rails
+# Railways (sprint only, ADR 0093). ISSprOM 4.5, 509.1 "Railway": "a permanent track laid with rails
 # on which locomotives, carriages or wagons can travel", minimum length (isolated) 4 mm. 509.2
 # "Tramway": "generally not represented. However, if they serve navigation or orientation, they can
 # be represented". Trains are the most reliable line in OSM, so `rail`, `light_rail` and

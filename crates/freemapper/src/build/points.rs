@@ -1945,7 +1945,7 @@ mod tests {
 
     #[test]
     fn forest_never_covers_a_railway_map_object() {
-        // ADR 0092: a 509.1 railway is a map object like the firm-gravel ways; a tree group is
+        // ADR 0093: a 509.1 railway is a map object like the firm-gravel ways; a tree group is
         // cut at it.
         let f = fixture(MapKind::Sprint);
         let land = f.rect("401", (-200.0, -200.0), (400.0, 400.0));

@@ -83,8 +83,8 @@ Orienteering Maps 2019 (IOF).
 | Quelle (Wasser) | spring | Stelle, an der ein Wasserlauf entspringt (ISSprOM 312); Kandidat aus OSM `natural=spring`. | `"312"` |
 | Markantes Wasserobjekt | prominent water feature | Auffälliges Wasserobjekt als Punkt (ISSprOM 313); auf Schulhofkarten Kandidat aus OSM `amenity=drinking_water` (Trinkbrunnen). | `"313"` |
 | Brücke | bridge | Bauwerk, das Wege über Wasser, Bahn oder Straße führt. ALKIS enthält keine Brücken; OSM-Flächen `man_made=bridge` werden auf Sprintkarten Kandidaten 501.5. Die Uferlinie läuft unter der Brücke durch und muss dort von Hand getrennt werden. | `man_made=bridge` |
-| Bahnstrecke | railway | Gleis mit Schienen (ISSprOM 509.1). Aus OSM `railway=rail\|light_rail\|narrow_gauge` (auch Nebengleise, außer Überleitungen) als Kartenobjekt auf Sprintkarten, Brücken eingeschlossen, Tunnel nicht (ADR 0092). | `"509.1"` |
-| Straßenbahn | tramway | Gleis der Straßenbahn (ISSprOM 509.2); die Norm zeichnet sie nur, wenn sie der Orientierung dient. Kandidat aus OSM `railway=tram` (ADR 0092). | `"509.2"` |
+| Bahnstrecke | railway | Gleis mit Schienen (ISSprOM 509.1). Aus OSM `railway=rail\|light_rail\|narrow_gauge` (auch Nebengleise, außer Überleitungen) als Kartenobjekt auf Sprintkarten, Brücken eingeschlossen, Tunnel nicht (ADR 0093). | `"509.1"` |
+| Straßenbahn | tramway | Gleis der Straßenbahn (ISSprOM 509.2); die Norm zeichnet sie nur, wenn sie der Orientierung dient. Kandidat aus OSM `railway=tram` (ADR 0093). | `"509.2"` |
 | Verbotenes Gebiet / Privatgelände | out-of-bounds area | Nicht zu betretende Fläche, olivgrün (ISSprOM 520); Kandidaten aus der ALKIS-Nutzung. | `out_of_bounds_objects` |
 | Unpassierbares Objekt / Durchgangsbarriere | impassable feature | Darf nicht überquert werden: Mauer, Zaun, Hecke usw. | `ImpassableFeature` |
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |
@@ -238,6 +238,8 @@ Orienteering Maps 2019 (IOF).
 | Speicherplan | space plan | Welche Teile eines Abrufs auf die Datenträger passen; fehlt Platz, lässt freemapper die entbehrlichen aus und warnt. | `SpacePlan`, `Shortfall` |
 | Datenträger voll | disk full | Schreibfehler, weil der Datenträger voll ist (ENOSPC); freemapper löscht die halbe Datei und meldet es klar. | `is_storage_full` |
 | Gemeinsame Bibliothek | shared crate | Rust-Crate aus freemapper-core, die mehrere Programme der Suite nutzen; freemapper bindet sie über Git mit festem Release-Tag ein (ADR 0067). | `freemapper_fs` |
+| Programmsprache | program language | Sprache der Programmtexte eines Laufs, Deutsch oder Englisch: aus `--lang`, sonst `FREEMAPPER_LANG`, sonst der Sprache des Systems, sonst Englisch (ADR 0092). Nicht die Sprache der Karte: Kartentexte und Quellenangaben bleiben, wie die Karte sie braucht. | `text::lang`, `--lang` |
+| Textkatalog | catalog | Die Programmtexte in allen Sprachen als Fluent-Dateien, Englisch als Referenz (`i18n/<Sprache>/freemapper.ftl`). | `text::TEXTS` |
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |

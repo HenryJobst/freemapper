@@ -3,6 +3,7 @@
 mod mcp;
 mod nominatim;
 mod select;
+mod text;
 mod tiles;
 
 use std::path::PathBuf;
@@ -18,6 +19,8 @@ use freemapper::project::{
     map_path, run_project, starter_documents,
 };
 
+use text::{n, text, v};
+
 #[derive(Parser)]
 #[command(
     name = "freemapper",
@@ -26,6 +29,10 @@ use freemapper::project::{
     arg_required_else_help = true
 )]
 struct Cli {
+    /// Language of the program texts, `de` or `en` (default: FREEMAPPER_LANG, then the system
+    /// language, then English).
+    #[arg(long, global = true, value_name = "LANGUAGE")]
+    lang: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -181,14 +188,11 @@ impl AreaArgs {
     /// `part` picks one part of an OSM area of several separate parts (`--osm` only).
     fn area(self, part: Option<usize>) -> anyhow::Result<MapArea> {
         if part.is_some() && self.osm.is_none() {
-            anyhow::bail!(
-                "--part picks a part of an OSM area and needs --osm; with --place, look up the \
-                 id first and use --osm <id> --part <n>"
-            );
+            anyhow::bail!(text("cli-part-needs-osm", &[]));
         }
         if let Some(geojson) = self.geojson {
             let text = std::fs::read_to_string(&geojson)
-                .with_context(|| format!("reading {}", geojson.display()))?;
+                .with_context(|| text("cli-reading-file", &[("path", v(geojson.display()))]))?;
             let area = MapArea::from_geojson(&text)?;
             area.validate()?;
             return Ok(area);
@@ -199,13 +203,17 @@ impl AreaArgs {
         }
         let query = self.place.expect("clap requires one area source");
         let places = find_places(&fetcher, &query)?;
-        let place = places.iter().find(|p| p.has_area).with_context(|| {
-            format!(
-                "no area found for {query:?}. If the place is an area of several separate \
-                     parts, pick one with --osm <id> --part <n>, or use --geojson"
+        let place = places
+            .iter()
+            .find(|p| p.has_area)
+            .with_context(|| text("cli-no-area-for-place", &[("query", v(&query))]))?;
+        eprintln!(
+            "{}",
+            text(
+                "cli-using-place",
+                &[("name", v(&place.display_name)), ("id", v(&place.osm_id))]
             )
-        })?;
-        eprintln!("Using {} ({})", place.display_name, place.osm_id);
+        );
         // Nominatim allows one request per second.
         std::thread::sleep(std::time::Duration::from_secs(1));
         Ok(place_area(&fetcher, &place.osm_id, None)?)
@@ -223,8 +231,7 @@ impl CacheArgs {
     fn cache(self) -> anyhow::Result<Cache> {
         match self.cache_dir {
             Some(dir) => Ok(Cache::new(dir)),
-            None => Cache::default_location()
-                .context("no cache directory on this system; pass --cache-dir"),
+            None => Cache::default_location().with_context(|| text("cli-no-cache-dir", &[])),
         }
     }
 }
@@ -239,18 +246,14 @@ fn mode(offline: bool) -> FetchMode {
 
 fn report_pdf(path: &std::path::Path, candidates: bool, sources: PdfSources) {
     if sources.leaves_out_required_credits() {
-        println!(
-            "PDF without source credits: ODbL and dl-de/by-2-0 ask you to name the sources when you pass the map on; see ATTRIBUTION.txt"
-        );
+        println!("{}", text("cli-pdf-without-credits", &[]));
     }
-    if candidates {
-        println!(
-            "Wrote {} (training map with every candidate drawn as a map object; check it in the terrain)",
-            path.display()
-        );
+    let id = if candidates {
+        "cli-wrote-pdf-candidates"
     } else {
-        println!("Wrote {} (the map without candidates)", path.display());
-    }
+        "cli-wrote-pdf"
+    };
+    println!("{}", text(id, &[("path", v(path.display()))]));
 }
 
 /// What the OCAD export wrote and what the user does next in OCAD.
@@ -258,34 +261,43 @@ fn report_ocad(outcome: &OcadOutcome) {
     for warning in &outcome.warnings {
         eprintln!("{warning}");
     }
+    let map = ("path", v(outcome.map.display()));
     if outcome.kept {
-        println!(
-            "Kept {} (it may contain your work; --force replaces it and keeps the old one as .ocd.bak)",
-            outcome.map.display()
-        );
+        println!("{}", text("cli-ocad-kept", &[map]));
     } else {
         println!(
-            "Wrote {} ({} objects)",
-            outcome.map.display(),
-            outcome.objects
+            "{}",
+            text("cli-ocad-wrote", &[map, ("count", n(outcome.objects))])
         );
     }
-    println!("Wrote {}", outcome.candidates.display());
+    wrote(&outcome.candidates);
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         println!(
-            "Left out of the OCAD map: {} objects (no symbol for OCAD, no area, or outside OCAD's \
-             drawing area of ±2 m) and {} degenerate line parts or holes.",
-            outcome.skipped, outcome.dropped_parts
+            "{}",
+            text(
+                "cli-ocad-left-out",
+                &[
+                    ("skipped", n(outcome.skipped)),
+                    ("dropped", n(outcome.dropped_parts))
+                ]
+            )
         );
     }
-    println!(
-        "In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official ISSprOM \
-         2019 or school symbol set; it replaces freemapper's placeholder symbols by number."
-    );
+    println!("{}", text("cli-ocad-load-symbols", &[]));
 }
 
 fn report(message: &str) {
     eprintln!("{message}");
+}
+
+/// Says that `path` was written.
+fn wrote(path: &std::path::Path) {
+    println!("{}", text("cli-wrote", &[("path", v(path.display()))]));
+}
+
+/// Says that the map at `path` was kept.
+fn kept(path: &std::path::Path) {
+    println!("{}", text("cli-kept-map", &[("path", v(path.display()))]));
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -322,6 +334,11 @@ impl From<Kind> for MapKind {
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    if let Err(message) = text::set_lang(cli.lang.as_deref()) {
+        // A usage error, as clap reports one.
+        eprintln!("error: {message}");
+        std::process::exit(2);
+    }
     match cli.command {
         Commands::Init {
             dir,
@@ -334,7 +351,10 @@ fn main() -> anyhow::Result<()> {
             let area = area.area(part.map(|p| p as usize))?;
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
-            println!("Created project {}", dir.display());
+            println!(
+                "{}",
+                text("cli-created-project", &[("path", v(dir.display()))])
+            );
             if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
                 println!("{note}");
             }
@@ -352,10 +372,9 @@ fn main() -> anyhow::Result<()> {
             let documents = starter_documents(&dir)?;
             let existing = map_path(&dir);
             if (ocad || pdf || pdf_candidates) && existing.exists() && !force {
-                println!("Kept {} (it may contain your work)", existing.display());
+                kept(&existing);
             } else {
-                let map = export_starter_project_from(&dir, &documents, force)?;
-                println!("Wrote {}", map.display());
+                wrote(&export_starter_project_from(&dir, &documents, force)?);
             }
             if ocad {
                 report_ocad(&export_ocad_from(&dir, &documents, force)?);
@@ -392,11 +411,14 @@ fn main() -> anyhow::Result<()> {
                 mode(offline),
                 &mut report,
             )?;
-            println!("Fetched {} tiles", project.tiles.len());
+            println!(
+                "{}",
+                text("cli-fetched-tiles", &[("count", n(project.tiles.len()))])
+            );
         }
         Commands::Derive { dir, cache } => {
             for path in derive_project(&dir, &cache.cache()?, &mut report)? {
-                println!("Wrote {}", path.display());
+                wrote(&path);
             }
         }
         Commands::Run {
@@ -419,36 +441,25 @@ fn main() -> anyhow::Result<()> {
                 &mut report,
             )?;
             for path in outcome.templates {
-                println!("Wrote {}", path.display());
+                wrote(&path);
             }
             match outcome.map {
-                MapOutcome::Written(map) => println!("Wrote {}", map.display()),
+                MapOutcome::Written(map) => wrote(&map),
                 MapOutcome::Kept {
                     map,
                     references_images,
                     missing_buildings,
                     missing_canopies,
                 } => {
-                    println!("Kept {} (it may contain your work)", map.display());
+                    kept(&map);
                     if !references_images {
-                        println!(
-                            "The map does not reference the image templates yet. Add them in \
-                             OOM (Templates > Open template…) or replace the map with --force, \
-                             which keeps the old one as .omap.bak."
-                        );
+                        println!("{}", text("cli-map-lacks-templates", &[]));
                     }
                     if missing_buildings {
-                        println!(
-                            "The map has no ALKIS buildings yet. To add them, replace it with \
-                             --force, which keeps the old one as .omap.bak."
-                        );
+                        println!("{}", text("cli-map-lacks-buildings", &[]));
                     }
                     if missing_canopies {
-                        println!(
-                            "The map lacks the ALKIS canopies and carports (522) that are now \
-                             map objects. To add them, run with --force, which keeps the old map \
-                             as .omap.bak."
-                        );
+                        println!("{}", text("cli-map-lacks-canopies", &[]));
                     }
                 }
             }
@@ -501,11 +512,11 @@ fn main() -> anyhow::Result<()> {
                 println!("{}", selector.url);
                 std::io::Write::flush(&mut std::io::stdout())?;
                 eprintln!(
-                    "Area selection for {}: press \"Done\" on the page or Ctrl+C to stop.",
-                    dir.display()
+                    "{}",
+                    text("cli-select-running", &[("path", v(dir.display()))])
                 );
                 if !no_browser && let Err(e) = select::open_browser(&selector.url) {
-                    eprintln!("Could not open the browser ({e}); open the address above.");
+                    eprintln!("{}", text("cli-select-no-browser", &[("error", v(e))]));
                 }
                 tokio::select! {
                     finished = selector.finished() => finished?,

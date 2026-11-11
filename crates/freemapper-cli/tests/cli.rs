@@ -1,7 +1,79 @@
 use std::process::Command;
 
+/// The program with English texts, whatever language the machine that runs the tests has.
 fn freemapper() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    command.env("FREEMAPPER_LANG", "en");
+    command
+}
+
+/// The program with the language taken from `lang` alone.
+fn freemapper_in(lang: &[(&str, &str)]) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    for name in ["FREEMAPPER_LANG", "LC_ALL", "LC_MESSAGES", "LANG"] {
+        command.env_remove(name);
+    }
+    command.envs(lang.iter().copied());
+    command
+}
+
+#[test]
+fn texts_follow_lang_switch_and_environment() {
+    let dir = tempfile::tempdir().unwrap();
+    let init = |name: &str, lang: &[(&str, &str)], extra: &[&str]| {
+        let output = freemapper_in(lang)
+            .arg("init")
+            .arg(dir.path().join(name))
+            .args(["--geojson", FIXTURE])
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{name}: {output:?}");
+        String::from_utf8(output.stdout).unwrap()
+    };
+    assert!(init("a", &[], &[]).starts_with("Created project "));
+    assert!(init("b", &[("LANG", "de_DE.UTF-8")], &[]).contains(" angelegt"));
+    assert!(
+        init(
+            "c",
+            &[("FREEMAPPER_LANG", "de"), ("LANG", "en_US.UTF-8")],
+            &[]
+        )
+        .contains(" angelegt")
+    );
+    // The switch wins over the environment, before or after the subcommand.
+    assert!(
+        init("d", &[("LANG", "de_DE.UTF-8")], &["--lang", "en"]).starts_with("Created project ")
+    );
+    let output = freemapper_in(&[])
+        .args(["--lang", "DE", "init"])
+        .arg(dir.path().join("e"))
+        .args(["--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    assert!(String::from_utf8_lossy(&output.stdout).contains(" angelegt"));
+}
+
+#[test]
+fn an_unknown_language_is_a_usage_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let output = freemapper_in(&[("LANG", "de_DE.UTF-8")])
+        .args(["--lang", "fr", "init"])
+        .arg(dir.path().join("a"))
+        .args(["--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("fr") && stderr.contains("en, de"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("keine Texte"),
+        "worded in the environment's language: {stderr}"
+    );
+    assert!(!dir.path().join("a").exists());
 }
 
 #[test]

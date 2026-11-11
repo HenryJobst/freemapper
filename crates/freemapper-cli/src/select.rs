@@ -4,16 +4,15 @@
 //! The server listens on 127.0.0.1 only. Every path starts with a random token, and requests for
 //! another host name are refused, so other websites cannot reach it (also not by DNS rebinding).
 
-use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::tiles::{TileError, TileProxy};
 use axum::Json;
 use axum::Router;
-use axum::extract::{Path as UrlPath, Query, Request, State};
+use axum::extract::{Path as UrlPath, Query, State};
 use axum::http::{HeaderValue, StatusCode, header};
-use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use freemapper::area::MapArea;
@@ -24,6 +23,8 @@ use freemapper::project::{
     MAX_AREA_SIDE_M, MapKind, ProjectFile, init_project, map_path, set_map_area,
 };
 use freemapper::space::RESERVE_BYTES;
+pub use freemapper_web::open_browser;
+use freemapper_web::{LocalServer, ServeOptions, embedded};
 use rust_embed::RustEmbed;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -57,20 +58,23 @@ struct AppState {
     dir: PathBuf,
     defaults: Defaults,
     cache: Cache,
-    allowed_hosts: [String; 2],
-    allowed_origins: [String; 2],
     busy: Option<Busy>,
     /// Saves one after the other.
     saving: tokio::sync::Mutex<()>,
-    done: Notify,
     /// The OpenStreetMap base layer, fetched here with an identifying `User-Agent`.
     tiles: TileProxy,
 }
 
+/// Largest request body of the page: a polygon of 5000 vertices is about 150 KB, and the shared
+/// crate's default of 1 MiB leaves room for the places and options to come.
+const MAX_BODY: usize = 1 << 20;
+
 /// A running area selection page.
 pub struct Selector {
     pub url: String,
-    server: tokio::task::JoinHandle<std::io::Result<()>>,
+    server: LocalServer,
+    /// Set when the user presses "done".
+    stopped: Arc<AtomicBool>,
 }
 
 impl Selector {
@@ -93,118 +97,82 @@ impl Selector {
         busy: Option<Busy>,
         tiles: TileProxy,
     ) -> anyhow::Result<Self> {
-        let listener = tokio::net::TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], port)))
-            .await
-            .map_err(|e| {
-                if port == 0 {
-                    anyhow::anyhow!("cannot listen on 127.0.0.1: {e}")
-                } else {
-                    anyhow::anyhow!(
-                        "cannot listen on 127.0.0.1:{port} ({e}); leave out --port to pick a free port"
-                    )
-                }
-            })?;
-        let port = listener.local_addr()?.port();
-        let token = token()?;
-        let hosts = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
         let state = Arc::new(AppState {
             dir,
             defaults,
             cache,
-            allowed_origins: hosts.clone().map(|host| format!("http://{host}")),
-            allowed_hosts: hosts,
             busy,
             saving: tokio::sync::Mutex::new(()),
-            done: Notify::new(),
             tiles,
         });
-        let app = router(&token, Arc::clone(&state));
-        let shutdown = Arc::clone(&state);
-        let server = tokio::spawn(async move {
-            axum::serve(listener, app)
-                .with_graceful_shutdown(async move { shutdown.done.notified().await })
-                .await
-        });
+        let options = ServeOptions {
+            port,
+            strict_post: true,
+            max_body: MAX_BODY,
+            ..ServeOptions::new(CONTENT_SECURITY_POLICY)
+        };
+        let stopped = Arc::new(AtomicBool::new(false));
+        let route_stopped = Arc::clone(&stopped);
+        let server = freemapper_web::serve(
+            |prefix, done| router(prefix, state, done, route_stopped),
+            options,
+        )
+        .await
+        .map_err(|e| {
+            if port == 0 {
+                anyhow::anyhow!("{e}")
+            } else {
+                anyhow::anyhow!("{e}; leave out --port to pick a free port")
+            }
+        })?;
         Ok(Self {
-            url: format!("http://127.0.0.1:{port}/{token}/"),
+            url: server.url.clone(),
             server,
+            stopped,
         })
     }
 
     /// Whether the page still serves (the user has not pressed "done").
     pub fn is_running(&self) -> bool {
-        !self.server.is_finished()
+        !self.stopped.load(Ordering::SeqCst)
     }
 
     /// Waits until the user presses "done" on the page.
     pub async fn finished(self) -> anyhow::Result<()> {
-        self.server.await??;
+        self.server.finished().await?;
         Ok(())
     }
 }
 
-/// 128 random bits from the operating system, as hex.
-fn token() -> anyhow::Result<String> {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).map_err(|e| anyhow::anyhow!("no random source: {e}"))?;
-    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
-}
-
-fn router(token: &str, state: Arc<AppState>) -> Router {
-    let host_check = Arc::clone(&state);
+/// The routes of the page below `prefix` (`/{token}`); the shared crate adds the guards.
+/// "Done" notifies `done`, which stops the server.
+fn router(
+    prefix: &str,
+    state: Arc<AppState>,
+    done: Arc<Notify>,
+    stopped: Arc<AtomicBool>,
+) -> Router {
     Router::new()
-        .route(&format!("/{token}/"), get(index))
-        .route(&format!("/{token}/assets/{{*path}}"), get(asset))
+        .route(&format!("{prefix}/"), get(index))
+        .route(&format!("{prefix}/assets/{{*path}}"), get(asset))
         .route(
-            &format!("/{token}/tiles/osm/{{z}}/{{x}}/{{y}}"),
+            &format!("{prefix}/tiles/osm/{{z}}/{{x}}/{{y}}"),
             get(osm_tile),
         )
-        .route(&format!("/{token}/api/project"), get(project))
-        .route(&format!("/{token}/api/preview"), post(preview))
-        .route(&format!("/{token}/api/places"), get(places))
-        .route(&format!("/{token}/api/place"), get(place))
-        .route(&format!("/{token}/api/save"), post(save))
-        .route(&format!("/{token}/api/done"), post(done))
+        .route(&format!("{prefix}/api/project"), get(project))
+        .route(&format!("{prefix}/api/preview"), post(preview))
+        .route(&format!("{prefix}/api/places"), get(places))
+        .route(&format!("{prefix}/api/place"), get(place))
+        .route(&format!("{prefix}/api/save"), post(save))
+        .route(
+            &format!("{prefix}/api/done"),
+            post(move || async move {
+                stopped.store(true, Ordering::SeqCst);
+                done.notify_one();
+                Json(json!({ "done": true }))
+            }),
+        )
         .with_state(state)
-        .layer(middleware::from_fn(move |request: Request, next: Next| {
-            let state = Arc::clone(&host_check);
-            async move {
-                let host = request
-                    .headers()
-                    .get(header::HOST)
-                    .and_then(|h| h.to_str().ok())
-                    .unwrap_or_default();
-                if !state.allowed_hosts.iter().any(|allowed| allowed == host) {
-                    return StatusCode::FORBIDDEN.into_response();
-                }
-                // Browsers send Origin on cross-site requests: only the page itself may call.
-                if let Some(origin) = request.headers().get(header::ORIGIN)
-                    && !state
-                        .allowed_origins
-                        .iter()
-                        .any(|allowed| allowed == origin)
-                {
-                    return StatusCode::FORBIDDEN.into_response();
-                }
-                let mut response = next.run(request).await;
-                let headers = response.headers_mut();
-                // Tiles set their own lifetime.
-                if !headers.contains_key(header::CACHE_CONTROL) {
-                    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-                }
-                headers.insert(
-                    header::CONTENT_SECURITY_POLICY,
-                    HeaderValue::from_static(CONTENT_SECURITY_POLICY),
-                );
-                headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
-                // The token is in the URL: never send it to the tile servers.
-                headers.insert(
-                    header::REFERRER_POLICY,
-                    HeaderValue::from_static("no-referrer"),
-                );
-                response
-            }
-        }))
 }
 
 /// A JSON error the page shows to the user.
@@ -214,17 +182,6 @@ fn bad_request(message: impl Into<String>) -> Response {
         Json(json!({ "error": message.into() })),
     )
         .into_response()
-}
-
-fn embedded(path: &str) -> Response {
-    match Assets::get(path) {
-        Some(file) => (
-            [(header::CONTENT_TYPE, file.metadata.mimetype().to_string())],
-            file.data.into_owned(),
-        )
-            .into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
-    }
 }
 
 /// One tile of the OpenStreetMap base layer. The address is checked before anything is fetched.
@@ -250,11 +207,11 @@ async fn osm_tile(
 }
 
 async fn index() -> Response {
-    embedded("index.html")
+    embedded::<Assets>("index.html")
 }
 
 async fn asset(UrlPath(path): UrlPath<String>) -> Response {
-    embedded(&path)
+    embedded::<Assets>(&path)
 }
 
 fn kind_name(kind: MapKind) -> &'static str {
@@ -530,34 +487,6 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
     }
 }
 
-async fn done(State(state): State<Arc<AppState>>) -> Response {
-    state.done.notify_one();
-    Json(json!({ "done": true })).into_response()
-}
-
-/// Opens `url` in the default browser; an error when no opener can be started (e.g. on a server).
-/// Does not wait for the opener: some keep running as long as the browser.
-pub fn open_browser(url: &str) -> std::io::Result<()> {
-    let mut command = if cfg!(target_os = "macos") {
-        std::process::Command::new("open")
-    } else if cfg!(windows) {
-        let mut command = std::process::Command::new("cmd");
-        command.args(["/C", "start", ""]);
-        command
-    } else {
-        std::process::Command::new("xdg-open")
-    };
-    let mut child = command
-        .arg(url)
-        // The MCP server's stdin is the protocol pipe.
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()?;
-    std::thread::spawn(move || child.wait());
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -692,6 +621,7 @@ mod tests {
             .await
             .unwrap();
         let url = format!("{}api/save", selector.url);
+        let origin = origin_of(&selector.url);
         let (status, text) = tokio::task::spawn_blocking(move || {
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .http_status_as_error(false)
@@ -701,6 +631,7 @@ mod tests {
             let mut response = agent
                 .post(&url)
                 .header("Content-Type", "application/json")
+                .header("Origin", &origin)
                 .send(area)
                 .unwrap();
             let status = response.status().as_u16();
@@ -861,5 +792,317 @@ mod tests {
         let app = String::from_utf8_lossy(&app.data);
         assert!(!app.contains("https://tile.openstreetmap.org"));
         assert!(app.contains("tiles/osm/{z}/{x}/{y}.png"));
+    }
+
+    /// `http://127.0.0.1:<port>` of a page address.
+    fn origin_of(url: &str) -> String {
+        let rest = url.strip_prefix("http://").unwrap();
+        format!("http://{}", rest.split('/').next().unwrap())
+    }
+
+    /// The page address with its token replaced by `token`.
+    fn with_token(url: &str, token: &str) -> String {
+        let old = url.trim_end_matches('/').rsplit('/').next().unwrap();
+        url.replace(old, token)
+    }
+
+    /// Status, lower-cased header block and body of a raw request. `extra` are header lines;
+    /// `Host` is added unless one of them sets it.
+    fn raw(
+        url: &str,
+        method: &str,
+        path: &str,
+        extra: &[String],
+        body: &str,
+    ) -> (u16, String, String) {
+        use std::io::{Read, Write};
+        let host = url
+            .strip_prefix("http://")
+            .unwrap()
+            .split('/')
+            .next()
+            .unwrap();
+        let prefix = &url[url.find(host).unwrap() + host.len()..];
+        let mut head = format!("{method} {prefix}{path} HTTP/1.1\r\n");
+        if !extra
+            .iter()
+            .any(|h| h.to_ascii_lowercase().starts_with("host:"))
+        {
+            head.push_str(&format!("Host: {host}\r\n"));
+        }
+        for line in extra {
+            head.push_str(line);
+            head.push_str("\r\n");
+        }
+        head.push_str(&format!(
+            "Content-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        ));
+        let mut stream = std::net::TcpStream::connect(host).unwrap();
+        stream.write_all(head.as_bytes()).unwrap();
+        // The server may answer 413 and close before it has read everything.
+        let _ = stream.write_all(body.as_bytes());
+        let mut answer = Vec::new();
+        let _ = stream.read_to_end(&mut answer);
+        let answer = String::from_utf8_lossy(&answer).to_string();
+        let (head, body) = answer.split_once("\r\n\r\n").unwrap_or((&answer, ""));
+        let status = head.split(' ').nth(1).unwrap().parse().unwrap();
+        (status, head.to_ascii_lowercase(), body.to_string())
+    }
+
+    async fn request(
+        url: &str,
+        method: &'static str,
+        path: &str,
+        extra: Vec<String>,
+        body: String,
+    ) -> (u16, String, String) {
+        let (url, path) = (url.to_string(), path.to_string());
+        tokio::task::spawn_blocking(move || raw(&url, method, &path, &extra, &body))
+            .await
+            .unwrap()
+    }
+
+    fn json_post(origin: &str) -> Vec<String> {
+        vec![
+            format!("Origin: {origin}"),
+            "Content-Type: application/json".to_string(),
+        ]
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn every_embedded_asset_has_its_content_type_and_nosniff() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        let mut seen = std::collections::BTreeSet::new();
+        let mut paths: Vec<String> = Assets::iter().map(|p| p.to_string()).collect();
+        paths.sort();
+        assert!(paths.len() >= 11, "{paths:?}");
+        for path in paths {
+            let url = if path == "index.html" {
+                String::new()
+            } else {
+                format!("assets/{path}")
+            };
+            let (status, head, body) =
+                request(&selector.url, "GET", &url, vec![], String::new()).await;
+            assert_eq!(status, 200, "{path}");
+            assert!(!body.is_empty(), "{path}");
+            assert!(
+                head.contains("x-content-type-options: nosniff"),
+                "{path}: {head}"
+            );
+            let content_type = head
+                .lines()
+                .find_map(|l| l.strip_prefix("content-type: "))
+                .unwrap_or_else(|| panic!("{path}: no content type in {head}"))
+                .to_string();
+            let extension = path.rsplit_once('.').map_or("", |(_, e)| e);
+            let expected = match extension {
+                "html" => "text/html; charset=utf-8",
+                "js" => "text/javascript; charset=utf-8",
+                "css" => "text/css; charset=utf-8",
+                "png" => "image/png",
+                // No extension (the Leaflet licence): anything but a type a browser would run.
+                _ => {
+                    assert!(
+                        !content_type.contains("html") && !content_type.contains("script"),
+                        "{path}: {content_type}"
+                    );
+                    continue;
+                }
+            };
+            assert_eq!(content_type, expected, "{path}");
+            seen.insert(extension.to_string());
+        }
+        assert_eq!(seen.len(), 4, "{seen:?}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn asset_paths_cannot_leave_the_embedded_folder() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        for path in [
+            "assets/../Cargo.toml",
+            "assets/%2e%2e/index.html",
+            "assets/missing.js",
+        ] {
+            let (status, ..) = request(&selector.url, "GET", path, vec![], String::new()).await;
+            assert!(status == 404 || status == 400, "{path}: {status}");
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn post_without_origin_is_refused() {
+        let (selector, dir) = selector_with(TileProxy::new()).await;
+        let extra = vec!["Content-Type: application/json".to_string()];
+        let (status, ..) = request(&selector.url, "POST", "api/save", extra, "{}".into()).await;
+        assert_eq!(status, 403);
+        assert!(!dir.path().join("p").exists());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn post_with_a_form_content_type_is_refused() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        let origin = origin_of(&selector.url);
+        for content_type in ["text/plain", "application/x-www-form-urlencoded"] {
+            let extra = vec![
+                format!("Origin: {origin}"),
+                format!("Content-Type: {content_type}"),
+            ];
+            let (status, ..) = request(&selector.url, "POST", "api/done", extra, "{}".into()).await;
+            assert_eq!(status, 403, "{content_type}");
+        }
+        // Without a content type at all.
+        let extra = vec![format!("Origin: {origin}")];
+        let (status, ..) = request(&selector.url, "POST", "api/done", extra, String::new()).await;
+        assert_eq!(status, 403);
+        assert!(selector.is_running());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn post_with_a_foreign_origin_is_refused() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        for origin in ["http://evil.example", "http://127.0.0.1:1", "null"] {
+            let (status, ..) = request(
+                &selector.url,
+                "POST",
+                "api/done",
+                json_post(origin),
+                "{}".into(),
+            )
+            .await;
+            assert_eq!(status, 403, "{origin}");
+        }
+        assert!(selector.is_running());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cross_site_fetch_metadata_is_refused_but_navigation_works() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        let cross = vec!["Sec-Fetch-Site: cross-site".to_string()];
+        let (status, ..) = request(&selector.url, "GET", "", cross, String::new()).await;
+        assert_eq!(status, 403);
+        let mut post = json_post(&origin_of(&selector.url));
+        post.push("Sec-Fetch-Site: cross-site".into());
+        let (status, ..) = request(&selector.url, "POST", "api/done", post, "{}".into()).await;
+        assert_eq!(status, 403);
+        // Typing the address into the browser (or `open`) sends `none`; the page's own
+        // requests send `same-origin`.
+        for site in ["none", "same-origin"] {
+            let extra = vec![
+                format!("Sec-Fetch-Site: {site}"),
+                "Sec-Fetch-Mode: navigate".to_string(),
+            ];
+            let (status, ..) = request(&selector.url, "GET", "", extra, String::new()).await;
+            assert_eq!(status, 200, "{site}");
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn requests_for_another_host_name_are_refused() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        for host in [
+            "evil.example",
+            "evil.example:80",
+            "127.0.0.1",
+            "127.0.0.1:1",
+        ] {
+            let extra = vec![format!("Host: {host}")];
+            let (status, ..) =
+                request(&selector.url, "GET", "api/project", extra, String::new()).await;
+            assert_eq!(status, 403, "{host}");
+        }
+        let origin = origin_of(&selector.url);
+        let port = origin.rsplit(':').next().unwrap();
+        let extra = vec![format!("Host: localhost:{port}")];
+        let (status, ..) = request(&selector.url, "GET", "api/project", extra, String::new()).await;
+        assert_eq!(status, 200);
+        // A wrong token is a 404, not a page.
+        let wrong = with_token(&selector.url, &"0".repeat(32));
+        let (status, ..) = request(&wrong, "GET", "", vec![], String::new()).await;
+        assert_eq!(status, 404);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn done_stops_the_server() {
+        let (selector, _dir) = selector_with(TileProxy::new()).await;
+        let origin = origin_of(&selector.url);
+        let (status, _, body) = request(
+            &selector.url,
+            "POST",
+            "api/done",
+            json_post(&origin),
+            "{}".into(),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert!(body.contains("\"done\":true"), "{body}");
+        tokio::time::timeout(std::time::Duration::from_secs(10), selector.finished())
+            .await
+            .expect("the server stops after done")
+            .unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn tile_route_is_protected_like_the_rest() {
+        let stub = stub_tiles(200, "max-age=3600");
+        let (selector, _dir) = selector_with(TileProxy::with_base(&stub.base)).await;
+        let path = "tiles/osm/5/17/10.png";
+        let foreign = vec!["Host: evil.example".to_string()];
+        let (status, ..) = request(&selector.url, "GET", path, foreign, String::new()).await;
+        assert_eq!(status, 403);
+        let cross = vec!["Sec-Fetch-Site: cross-site".to_string()];
+        let (status, ..) = request(&selector.url, "GET", path, cross, String::new()).await;
+        assert_eq!(status, 403);
+        let wrong = with_token(&selector.url, &"1".repeat(32));
+        let (status, ..) = request(&wrong, "GET", path, vec![], String::new()).await;
+        assert_eq!(status, 404);
+        assert!(stub.heads.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_polygon_of_5000_vertices_fits_the_body_limit() {
+        let (selector, dir) = selector_with(TileProxy::new()).await;
+        let mut ring: Vec<String> = (0..5000)
+            .map(|i| {
+                let a = f64::from(i) / 5000.0 * std::f64::consts::TAU;
+                format!(
+                    "[{:.7},{:.7}]",
+                    13.8445 + 0.0006 * a.cos(),
+                    52.5400 + 0.0004 * a.sin()
+                )
+            })
+            .collect();
+        ring.push(ring[0].clone());
+        let body = format!(
+            r#"{{"area":{{"type":"Polygon","coordinates":[[{}]]}}}}"#,
+            ring.join(",")
+        );
+        assert!(
+            body.len() > 100_000 && body.len() < 1 << 20,
+            "{}",
+            body.len()
+        );
+        let origin = origin_of(&selector.url);
+        let (status, _, answer) = request(
+            &selector.url,
+            "POST",
+            "api/save",
+            json_post(&origin),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(status, 200, "{answer}");
+        assert!(dir.path().join("p").join("freemapper.toml").exists());
+        // Above the limit the request is refused with 413, not read.
+        let huge = format!("{body}{}", " ".repeat(1 << 20));
+        let (status, ..) = request(
+            &selector.url,
+            "POST",
+            "api/preview",
+            json_post(&origin),
+            huge,
+        )
+        .await;
+        assert_eq!(status, 413);
     }
 }
