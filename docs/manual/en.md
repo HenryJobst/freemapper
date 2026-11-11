@@ -79,6 +79,107 @@ Note the **full path** to the program, e.g. `C:\Users\Anna\Documents\freemapper\
 Besides the program, the folder holds the READMEs, the licence, this manual and `AGENTS.md`, instructions for AI
 assistants (chapter 4).
 
+### Updating
+
+`freemapper update` puts the newest release in place of the program. The path stays the same, so an assistant
+that knows freemapper by its path keeps working with it. Versions 0.11.0 and older cannot update themselves. For
+them, download the newest archive once as in step 1 and replace the program in your folder with the one from the
+archive. From then on the command does it.
+
+```sh
+./freemapper update
+```
+
+The command shows the new version, its release date, the link to the release notes and the download size, and
+asks `Install it now? [y/N]`. Only `y` or `yes` installs (in German also `j` and `ja`). These switches change
+what it does:
+
+| Call | What it does |
+|---|---|
+| `freemapper update --check` | Only checks. Exit code 10 means a newer version exists, 0 means this one is current. |
+| `freemapper update --yes` | Installs without asking. A script or any call without a terminal needs it, because there freemapper cannot ask. |
+| `freemapper update --version 0.12.0` | Installs this release, also an older one. It works only for releases that can update themselves. |
+| `freemapper update --rollback` | Goes back to the version the last update replaced. |
+| `freemapper update --mode notify` | Stores what the daily check does: `notify`, `install` or `off` (see below). |
+
+**Checks before the swap.** Each release carries a list of its program files with their sizes and SHA-256
+checksums, signed with the project's minisign key. freemapper has the public half of that key built in. It
+installs only when the signature and the checksums match, otherwise it reports the error and the old program
+stays. Then it starts the new program once with `--version`. Only if that prints the expected version does the
+new program take the place of the old one.
+
+**The previous version.** The replaced program stays next to the new one as `freemapper.previous` (Windows:
+`freemapper.previous.exe`). `--rollback` swaps the two back, and a second `--rollback` returns to the newer one.
+
+**Program folder.** freemapper must be able to write to the folder it lives in. It does not ask for administrator
+rights. If the folder is write-protected, the message names it; unpack the new release there by hand, or move
+freemapper to a folder you can write to. If you start freemapper through a link such as
+`~/.local/bin/freemapper`, the update replaces the file the link points to.
+
+**Built from source.** A freemapper you built yourself with cargo does not update itself. `freemapper update`
+then only says to update it with `git pull` and `cargo build --release --locked`, and there is no daily check.
+
+#### The daily check
+
+After `init`, `select`, `fetch` and `run`, which go online anyway, freemapper checks at most once a day whether
+a newer release exists. `derive` and `export` work offline and do not check. The check runs while the command
+works. If it finds a newer version, one line follows the command's own output on the error output (stderr):
+
+```text
+freemapper 0.12.0 is available (you have 0.11.0). Update with: freemapper update
+```
+
+The line can also come after an error message; even in mode `install` freemapper then installs nothing. The check
+has 3 seconds from the start of the command, so a very fast command can take up to 3 s longer. freemapper drops a
+check that takes longer. A dropped or failed check shows nothing and still counts for the day, so a computer without internet asks once a
+day and not with every command. The time and result of the last check are in `update-check.json` in the cache
+folder.
+
+There is no daily check with `--offline`, when the environment variable `CI` is set (as on build servers), in
+mode `off`, or in a build from source.
+
+#### Modes
+
+| Mode | What happens when the daily check finds a newer version |
+|---|---|
+| `notify` (default) | The line above. |
+| `install` | freemapper installs it after the command, but only if the command succeeded; after a failed command it shows the line instead. The new version applies from the next start. If the install fails, freemapper prints a `warning:` line and the command keeps its exit code. |
+| `off` | No daily check. `freemapper update` still works. |
+
+`freemapper update --mode install` stores the mode in the file `settings.toml`:
+
+- Windows: `%APPDATA%\freemapper\settings.toml`, e.g. `C:\Users\Anna\AppData\Roaming\freemapper\settings.toml`
+- macOS: `~/Library/Application Support/freemapper/settings.toml`
+- Linux: `~/.config/freemapper/settings.toml`, or `$XDG_CONFIG_HOME/freemapper/settings.toml` if that variable
+  is set
+
+The file then holds `mode = "install"` under `[update]`. The environment variable `FREEMAPPER_UPDATE` with `off`,
+`notify` or `install` overrides the file while it is set; `--mode` tells you when it does. `FREEMAPPER_CONFIG_DIR`
+names another folder for the file. `--mode` also works in a build from source, because it only writes the file.
+
+To switch the check off for good, run `freemapper update --mode off`. For one terminal session, set
+`FREEMAPPER_UPDATE=off`.
+
+#### What freemapper sends
+
+The check asks github.com for two small files of the newest release: the update manifest
+`freemapper-update.json` and its signature. GitHub forwards the request to its download servers, and freemapper
+follows it only to `release-assets.githubusercontent.com` and `objects.githubusercontent.com`. An install then
+loads the program file for your system from there. Each request carries only the fixed `User-Agent`
+`freemapper/<version> (+https://github.com/HenryJobst/freemapper)`, the same as for the geodata. freemapper sends
+no ID, no project data and nothing about you.
+
+#### With an assistant
+
+The MCP server checks once a day too, and it never installs on its own. When it knows a newer version, its next
+answer to the assistant ends with a note for you. The assistant should then ask you, and only once you agree does
+it call the tool `install_update`. The tool `check_update` only checks. A running MCP server keeps the old
+version until the assistant restarts it; in Claude Desktop, quit the app and open it again. `AGENTS.md` gives the
+assistant these rules.
+
+The area page in the browser shows a line with the command when the last daily check found a newer version. The
+page itself installs nothing.
+
 ## 4. Route A: with an AI assistant
 
 The assistant operates freemapper for you. For this freemapper is an "MCP server", a tool that AI
@@ -885,6 +986,17 @@ language. The most important messages, in their English wording:
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |
 | `warning: the disk is full, so freemapper uses the cached OSM extract from …` | The new OSM extract no longer fitted on the disk. freemapper uses the older one. | Free some space and fetch again later. |
 | `warning: cannot read the free disk space of …` | The system does not report the free space, as with some network drives. freemapper downloads without the check. | Nothing. If the disk fills up, freemapper reports `the disk is full`. |
+| `freemapper … is available (you have …). Update with: freemapper update` | The daily check found a newer release (chapter 3, "Updating"). The line comes after the command's output, also after an error. | Run `freemapper update` when it suits you, or switch the check off with `freemapper update --mode off`. |
+| `This freemapper was built from source.` | `freemapper update` in a build you made yourself with cargo. | Update with `git pull` and `cargo build --release --locked`. |
+| `the input is not a terminal, so freemapper cannot ask before installing` | `freemapper update` ran in a script or another place where it cannot ask. | Run `freemapper update --yes`. |
+| `cannot write to the program folder …` | freemapper may not write to its own folder and does not ask for administrator rights. | Unpack the new release there by hand, or move freemapper to a folder you can write to. |
+| `the release could not be verified (…); nothing was installed` | The signature of the release does not match the key built into freemapper. The old program stays. | Try again later. If it persists, report a bug and download the archive by hand. |
+| `freemapper … cannot be installed by the self-update of …` | The new release needs a newer starting version than yours. `update --check` exits with 10 here too. | Install the version named in the message by hand from the linked release page, as in chapter 3. |
+| `the release has no program for this system (…)` | The release has no program file for your system. | Report a bug. |
+| `another update or rollback is running in the program folder` | A second `freemapper update` works in the same folder. | Wait for it to finish and try again. |
+| `there is no previous version to go back to` | `--rollback` finds no `freemapper.previous`, because no update ran yet or the file was deleted. | Nothing to undo. Install an older version with `freemapper update --version <x.y.z>` if needed. |
+| `the update failed: …` | Another error during the update, for example a download that broke off. The old program stays. | Try again later. |
+| `warning: freemapper … was not installed: …` | In mode `install` the install after the command failed. The command itself ran and keeps its exit code. | Try `freemapper update` by hand; the reason follows the colon. |
 
 ## 15. Attribution
 

@@ -145,6 +145,13 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
 4. Prüfen im Terminal (Windows: PowerShell) im entpackten Ordner: `./freemapper --version`
    (Windows: `.\freemapper.exe --version`).
 
+`freemapper update` lädt nach einer Rückfrage die neueste Version und ersetzt das Programm an
+derselben Stelle. Vorher prüft es die Signatur der Version, und das alte Programm bleibt für
+`freemapper update --rollback` liegen. Nach `init`, `select`, `fetch` und `run` sieht freemapper höchstens einmal
+am Tag nach, ob es eine neuere Version gibt, und meldet sie in einer Zeile; `freemapper update --mode off` schaltet
+das ab. Die Versionen bis 0.11.0 können sich noch nicht selbst aktualisieren und werden einmal von Hand ersetzt,
+wie oben beschrieben. Einzelheiten stehen im [Handbuch](docs/manual/de.md#aktualisieren).
+
 Bequemer geht es mit einem KI-Assistenten (siehe [Mit einem KI-Agenten](#mit-einem-ki-agenten-mcp)):
 dort wird freemapper einmal mit seinem vollständigen Pfad angemeldet, danach erledigt der Assistent
 den Rest. Ein Assistent, der Befehle ausführen kann (Claude Code, Codex), übernimmt mit
@@ -366,6 +373,9 @@ Ablauf, wie der Agent ihn geht:
 
 Passt kein Suchtreffer oder will man das Gebiet selbst zeichnen, öffnet `open_area_selector` die
 Gebietsauswahl im Browser und gibt die Adresse zurück; nach dem Speichern geht es mit Schritt 3 weiter.
+
+`check_update` sagt, ob es eine neuere freemapper-Version gibt. `install_update` installiert sie, aber nur mit
+`confirm: true`, nachdem die Nutzerin oder der Nutzer zugestimmt hat; danach startet der Assistent den Server neu.
 
 Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mapper.
 

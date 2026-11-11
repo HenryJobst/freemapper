@@ -86,6 +86,111 @@ oder `/Users/anna/Documents/freemapper/freemapper`. Der Assistent braucht ihn.
 Im Ordner liegen außer dem Programm die READMEs, die Lizenz, dieses Handbuch und `AGENTS.md`, eine Anleitung
 für KI-Assistenten (Kapitel 4).
 
+### Aktualisieren
+
+`freemapper update` setzt die neueste Version an die Stelle des Programms. Der Pfad bleibt gleich, deshalb
+arbeitet ein Assistent, der freemapper über seinen Pfad kennt, ohne Änderung weiter. Die Versionen bis 0.11.0
+können sich noch nicht selbst aktualisieren. Laden Sie dafür einmal wie in Schritt 1 das neueste Archiv herunter
+und ersetzen Sie das Programm in Ihrem Ordner durch das aus dem Archiv. Danach übernimmt der Befehl das.
+
+```sh
+./freemapper update
+```
+
+Der Befehl zeigt die neue Version, ihr Erscheinungsdatum, den Link zu den Versionshinweisen und die
+Downloadgröße und fragt `Jetzt installieren? [j/N]`. Nur `j` oder `ja` installiert (auch `y` und `yes`). Diese
+Schalter ändern, was er tut:
+
+| Aufruf | Was er tut |
+|---|---|
+| `freemapper update --check` | Prüft nur. Exit-Code 10 heißt, es gibt eine neuere Version, 0 heißt, diese ist aktuell. |
+| `freemapper update --yes` | Installiert ohne Rückfrage. Ein Skript oder jeder Aufruf ohne Terminal braucht das, denn dort kann freemapper nicht fragen. |
+| `freemapper update --version 0.12.0` | Installiert diese Version, auch eine ältere. Das geht nur mit Versionen, die sich selbst aktualisieren können. |
+| `freemapper update --rollback` | Kehrt zu der Version zurück, die die letzte Aktualisierung ersetzt hat. |
+| `freemapper update --mode notify` | Legt fest, was die tägliche Prüfung tut: `notify`, `install` oder `off` (siehe unten). |
+
+**Prüfung vor dem Austausch.** Jede Version bringt eine Liste ihrer Programmdateien mit Größe und
+SHA-256-Prüfsumme mit, signiert mit dem minisign-Schlüssel des Projekts. Den öffentlichen Teil dieses Schlüssels
+hat freemapper eingebaut. Es installiert nur, wenn Signatur und Prüfsummen stimmen; sonst meldet es den Fehler,
+und das alte Programm bleibt. Danach startet es das neue Programm einmal mit `--version`. Erst wenn das die
+erwartete Version nennt, nimmt das neue Programm den Platz des alten ein.
+
+**Die vorherige Version.** Das ersetzte Programm bleibt neben dem neuen als `freemapper.previous` liegen
+(Windows: `freemapper.previous.exe`). `--rollback` tauscht die beiden zurück, ein zweites `--rollback` kehrt zur
+neueren zurück.
+
+**Programmordner.** freemapper muss in seinen eigenen Ordner schreiben dürfen. Nach Administratorrechten fragt es
+nicht. Ist der Ordner schreibgeschützt, nennt die Meldung ihn; entpacken Sie die neue Version dann von Hand dort
+oder verschieben Sie freemapper in einen Ordner, in den Sie schreiben dürfen. Starten Sie freemapper über einen
+Link wie `~/.local/bin/freemapper`, ersetzt die Aktualisierung die Datei, auf die der Link zeigt.
+
+**Selbst gebaut.** Ein freemapper, das Sie selbst mit cargo gebaut haben, aktualisiert sich nicht selbst.
+`freemapper update` sagt dann nur, dass es mit `git pull` und `cargo build --release --locked` aktualisiert wird,
+und die tägliche Prüfung entfällt.
+
+#### Die tägliche Prüfung
+
+Nach `init`, `select`, `fetch` und `run`, die ohnehin ins Netz gehen, prüft freemapper höchstens einmal am Tag, ob
+es eine neuere Version gibt. `derive` und `export` arbeiten ohne Netz und prüfen nicht. Die Prüfung läuft,
+während der Befehl arbeitet. Findet sie eine neuere Version, folgt nach der Ausgabe des Befehls eine Zeile auf der
+Fehlerausgabe (stderr):
+
+```text
+freemapper 0.12.0 ist verfügbar (Sie haben 0.11.0). Aktualisieren mit: freemapper update
+```
+
+Die Zeile kann auch nach einer Fehlermeldung kommen; selbst im Modus `install` installiert freemapper dann nichts.
+Die Prüfung hat 3 Sekunden ab dem Start des Befehls, ein sehr schneller Befehl kann also bis zu 3 s länger dauern.
+Braucht die Prüfung länger, bricht freemapper sie ab. Eine abgebrochene oder fehlgeschlagene Prüfung zeigt nichts und zählt trotzdem für den
+Tag; ein Rechner ohne Internet fragt also einmal am Tag und nicht bei jedem Befehl. Zeit und Ergebnis der letzten
+Prüfung stehen in `update-check.json` im Zwischenspeicher.
+
+Keine tägliche Prüfung gibt es mit `--offline`, wenn die Umgebungsvariable `CI` gesetzt ist (wie auf
+Build-Servern), im Modus `off` und in einem selbst gebauten freemapper.
+
+#### Aktualisierungsmodus
+
+| Modus | Was geschieht, wenn die tägliche Prüfung eine neuere Version findet |
+|---|---|
+| `notify` (Standard) | Die Zeile oben. |
+| `install` | freemapper installiert sie nach dem Befehl, aber nur, wenn der Befehl gelungen ist; nach einem fehlgeschlagenen Befehl zeigt es stattdessen die Zeile. Die neue Version gilt ab dem nächsten Start. Scheitert die Installation, gibt freemapper eine Zeile mit `Warnung:` aus, und der Befehl behält seinen Exit-Code. |
+| `off` | Keine tägliche Prüfung. `freemapper update` funktioniert weiter. |
+
+`freemapper update --mode install` speichert den Modus in der Datei `settings.toml`:
+
+- Windows: `%APPDATA%\freemapper\settings.toml`, z. B. `C:\Users\Anna\AppData\Roaming\freemapper\settings.toml`
+- macOS: `~/Library/Application Support/freemapper/settings.toml`
+- Linux: `~/.config/freemapper/settings.toml`, oder `$XDG_CONFIG_HOME/freemapper/settings.toml`, wenn diese
+  Variable gesetzt ist
+
+Die Datei enthält dann `mode = "install"` unter `[update]`. Die Umgebungsvariable `FREEMAPPER_UPDATE` mit `off`,
+`notify` oder `install` hat Vorrang vor der Datei, solange sie gesetzt ist; `--mode` sagt es dann.
+`FREEMAPPER_CONFIG_DIR` nennt einen anderen Ordner für die Datei. `--mode` geht auch in einem selbst gebauten
+freemapper, denn es schreibt nur die Datei.
+
+Dauerhaft ausschalten lässt sich die Prüfung mit `freemapper update --mode off`, für eine Terminal-Sitzung mit
+`FREEMAPPER_UPDATE=off`.
+
+#### Was freemapper sendet
+
+Die Prüfung fragt bei github.com zwei kleine Dateien der neuesten Version ab: das Aktualisierungsmanifest
+`freemapper-update.json` und seine Signatur. GitHub leitet die Anfrage an seine Download-Server weiter, und
+freemapper folgt nur zu `release-assets.githubusercontent.com` und `objects.githubusercontent.com`. Eine
+Installation lädt dann von dort die Programmdatei für Ihr System. Jede Anfrage trägt nur den festen `User-Agent`
+`freemapper/<Version> (+https://github.com/HenryJobst/freemapper)`, denselben wie bei den Geodaten. freemapper
+sendet keine Kennung, keine Projektdaten und nichts über Sie.
+
+#### Mit einem Assistenten
+
+Auch der MCP-Server prüft einmal am Tag, und er installiert nie von sich aus. Kennt er eine neuere Version, endet
+seine nächste Antwort an den Assistenten mit einem Hinweis für Sie. Der Assistent soll Sie dann fragen und erst
+nach Ihrer Zustimmung das Werkzeug `install_update` aufrufen. Das Werkzeug `check_update` prüft nur. Ein
+laufender MCP-Server behält die alte Version, bis der Assistent ihn neu startet; in Claude Desktop beenden Sie die
+App und öffnen sie wieder. `AGENTS.md` gibt dem Assistenten diese Regeln.
+
+Die Gebietsseite im Browser zeigt eine Zeile mit dem Befehl, wenn die letzte tägliche Prüfung eine neuere Version
+gefunden hat. Die Seite selbst installiert nichts.
+
 ## 4. Weg A: mit einem KI-Assistenten
 
 Der Assistent bedient freemapper für Sie. freemapper ist dafür ein „MCP-Server“, ein Werkzeug, das
@@ -918,6 +1023,17 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Der Datenträger ist voll, deshalb konnte freemapper … nicht schreiben` (englisch: `the disk is full, so freemapper could not write …`) | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |
 | `Warnung: Der Datenträger ist voll, deshalb verwendet freemapper den OSM-Auszug vom … aus dem Zwischenspeicher` (englisch: `warning: the disk is full, so freemapper uses the cached OSM extract from …`) | Der neue OSM-Auszug passte nicht mehr auf den Datenträger. freemapper nimmt den älteren. | Platz schaffen und später erneut laden. |
 | `Warnung: Der freie Plattenplatz von … lässt sich nicht lesen` (englisch: `warning: cannot read the free disk space of …`) | Das System nennt den freien Platz nicht, etwa bei manchen Netzlaufwerken. freemapper lädt ohne Prüfung. | Nichts. Läuft der Datenträger voll, meldet freemapper `the disk is full`. |
+| `freemapper … ist verfügbar (Sie haben …). Aktualisieren mit: freemapper update` (englisch: `freemapper … is available (you have …). Update with: freemapper update`) | Die tägliche Prüfung hat eine neuere Version gefunden (Kapitel 3, „Aktualisieren“). Die Zeile kommt nach der Ausgabe des Befehls, auch nach einem Fehler. | `freemapper update` aufrufen, wenn es passt, oder die Prüfung mit `freemapper update --mode off` ausschalten. |
+| `Dieses freemapper wurde aus dem Quellcode gebaut.` (englisch: `This freemapper was built from source.`) | `freemapper update` in einem selbst mit cargo gebauten freemapper. | Mit `git pull` und `cargo build --release --locked` aktualisieren. |
+| `Die Eingabe ist kein Terminal, deshalb kann freemapper vor der Installation nicht fragen.` (englisch: `the input is not a terminal, so freemapper cannot ask before installing`) | `freemapper update` lief in einem Skript oder an einer anderen Stelle, an der es nicht fragen kann. | `freemapper update --yes` aufrufen. |
+| `In den Programmordner … kann nicht geschrieben werden` (englisch: `cannot write to the program folder …`) | freemapper darf nicht in seinen eigenen Ordner schreiben und fragt nicht nach Administratorrechten. | Die neue Version dort von Hand entpacken oder freemapper in einen Ordner verschieben, in den Sie schreiben dürfen. |
+| `Die neue Version ließ sich nicht verifizieren (…). Es wurde nichts installiert.` (englisch: `the release could not be verified (…); nothing was installed`) | Die Signatur der Version passt nicht zum Schlüssel, den freemapper eingebaut hat. Das alte Programm bleibt. | Später erneut versuchen. Bleibt es dabei, einen Fehler melden und das Archiv von Hand laden. |
+| `freemapper … lässt sich nicht durch die Selbstaktualisierung von … installieren` (englisch: `freemapper … cannot be installed by the self-update of …`) | Die neue Version braucht eine neuere Ausgangsversion als Ihre. Auch hier endet `update --check` mit 10. | Die genannte Version von Hand von der verlinkten Release-Seite installieren, wie in Kapitel 3. |
+| `Die neue Version enthält kein Programm für dieses System (…)` (englisch: `the release has no program for this system (…)`) | Zu Ihrem System gibt es in dieser Version keine Programmdatei. | Einen Fehler melden. |
+| `Im Programmordner läuft schon eine Aktualisierung oder ein Zurücksetzen` (englisch: `another update or rollback is running in the program folder`) | Ein zweites `freemapper update` arbeitet im selben Ordner. | Warten, bis es fertig ist, und erneut versuchen. |
+| `Es gibt keine vorherige Version, zu der zurückgekehrt werden kann` (englisch: `there is no previous version to go back to`) | `--rollback` findet kein `freemapper.previous`, weil noch keine Aktualisierung lief oder die Datei gelöscht wurde. | Nichts rückgängig zu machen. Eine ältere Version bei Bedarf mit `freemapper update --version <x.y.z>` installieren. |
+| `Die Aktualisierung ist fehlgeschlagen: …` (englisch: `the update failed: …`) | Ein anderer Fehler bei der Aktualisierung, etwa ein abgebrochener Download. Das alte Programm bleibt. | Später erneut versuchen. |
+| `Warnung: freemapper … wurde nicht installiert: …` (englisch: `warning: freemapper … was not installed: …`) | Im Modus `install` ist die Installation nach dem Befehl gescheitert. Der Befehl selbst lief und behält seinen Exit-Code. | `freemapper update` von Hand versuchen; der Grund steht nach dem Doppelpunkt. |
 
 ## 15. Namensnennung
 

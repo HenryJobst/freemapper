@@ -66,8 +66,15 @@ the user asks; the release archives are ready to run.
      `Expand-Archive` avoids it; otherwise the user confirms with *More info* > *Run anyway*.
 5. Check: `<folder>/freemapper --version` prints `freemapper <version>`.
 
-Remember the absolute path of the executable; the MCP registration needs it. Updating means unpacking a newer
-archive and pointing the registration at the new path. Projects and the download cache stay valid.
+Remember the absolute path of the executable; the MCP registration needs it.
+
+To update, run `<path>/freemapper update --yes` after the person agreed. It replaces the program at the same
+path, so the MCP registration stays valid; restart the MCP server afterwards (see "Use it through MCP"). It
+installs only a release whose signature checks out, keeps the old program as `freemapper.previous`
+(`freemapper.previous.exe` on Windows), and `freemapper update --rollback` brings it back. Versions 0.11.0 and
+older have no `update` command: unpack the newest archive as above, once, and point the registration at the new
+path if it changed. A program built from source answers `update` with how to update it with git and cargo
+instead. Projects and the download cache stay valid either way.
 
 Do not add the user's e-mail address, name or other personal data to any request, file name, project title or
 setting. freemapper itself sends only a fixed `User-Agent` that names the program and its repository.
@@ -94,13 +101,22 @@ freemapper run <dir> --pdf
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
+| `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only`. All commands that download take `--cache-dir <folder>`.
 
 Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
 passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
-usage error exits with code 2. Exit code 0 means success.
+usage error exits with code 2. Exit code 0 means success. `update --check` exits with 10 when a newer version
+exists, also one that must be installed by hand, and with 0 when this one is current.
+
+At most once a day, `init`, `select`, `fetch` and `run` also check for a newer release. When they find one, a
+last line follows the command's output on stderr, also after an `error:` line:
+`freemapper 0.12.0 is available (you have 0.11.0). Update with: freemapper update`. It does not change the exit
+code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
+after `freemapper update --mode off` there is no check. If the person chose mode `install`, freemapper installs
+the update itself after a successful command and says so on stdout.
 
 Workflow:
 
@@ -157,6 +173,8 @@ states such as `running` or `finished` are the same in both languages. This file
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `orthophoto`, `hillshade`, `slope` or `ndsm`. |
 | `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline` | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
+| `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
+| `install_update` | `confirm` | Installs the newest release over the program the server runs from. Without `confirm: true` it installs nothing and returns an error. The new version applies once the MCP server is restarted. |
 
 ### Workflow
 
@@ -181,6 +199,17 @@ Rules:
   the same folder fails until the first ends; a lock left by a crashed run is taken over after 60 seconds.
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
   file stays as `<name>.omap.bak`.
+- The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
+  text block at its end, the note `Note for the person: freemapper 0.12.0 is available (this is 0.11.0). Ask them
+  before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
+  takes its place: after a successful call of either the note does not come; after a failed one it still can.
+  Pass the note on to the person.
+- Never install without the person's yes. Ask, and call `install_update` with `confirm: true` only after they
+  agreed. The server never installs on its own.
+- After `install_update` succeeded, the server still runs the old version. Restart the freemapper MCP server, or
+  ask the person to restart the assistant (Claude Desktop: quit and open it again).
+- A note that says `install_update cannot install it` means the new release must be installed by hand from the
+  linked release page (see "Install").
 - `offline: true` works only with data fetched before into the cache.
 - Errors come back as one sentence meant for the user. Relay it; do not retry the same call unchanged.
 
@@ -218,6 +247,11 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
   folder. Wait for it, or use another folder.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
+- "cannot write to the program folder": the update cannot replace the program there and does not ask for
+  administrator rights. Unpack the new release by hand, or move freemapper to a folder the person owns and
+  register the new path.
+- "the release could not be verified": the signature does not match; nothing was installed. Do not work around
+  it. Tell the person and try again later.
 
 ## The freemapper suite
 
