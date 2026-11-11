@@ -204,3 +204,72 @@ progress-sh-dgm-not-in-atom = Die DGM1-Kachel { $tile } liegt nicht im INSPIRE-A
 progress-sh-dgm-atom-unreadable = Die DGM1-Kachel { $tile } aus dem INSPIRE-ATOM-Verzeichnis lässt sich nicht lesen ({ $error }); ihre XYZ-Datei wird geladen ({ $megabytes } MB)
 progress-sh-tile = Kachel { $tile }: { $text }
 progress-sh-download-again = Kachel { $tile }: Der Download lässt sich nicht lesen ({ $message }); er wird noch einmal geladen
+warning-sh-portal-no-date = Das Downloadportal nennt kein Datum für die Kachel { $tile }, { $model }
+warning-sh-dgm-xyz-used = Die DGM1-Kachel { $tile } liegt nicht im INSPIRE-ATOM-Verzeichnis; ihre XYZ-Datei aus dem Downloadportal wurde verwendet
+warning-sh-dgm-xyz-used-unreadable = Die DGM1-Kachel { $tile } aus dem INSPIRE-ATOM-Verzeichnis lässt sich nicht lesen ({ $error }); ihre XYZ-Datei aus dem Downloadportal wurde verwendet
+
+## Kachellisten und Datumsangaben der Höhenmodelle
+
+warning-model-tile-cells-empty = { $model }, Kachel { $tile }: { $count ->
+        [one] 1 Zelle des Kartengebiets hat
+       *[other] { $count } Zellen des Kartengebiets haben
+    } keine Höhe
+warning-centre-tile-missing = { $model }: Die Kachel { $tile } in der Mitte des Kartengebiets fehlt, deshalb gibt es kein Datum
+warning-centre-tile-unlisted = { $model }: Die Kachelliste nennt die Kachel { $tile } in der Mitte des Kartengebiets nicht, deshalb gibt es kein Datum
+warning-list-unreadable-kept = { $model }: Die Kachelliste ließ sich nicht lesen ({ $error }); die Liste aus einem früheren Lauf wurde verwendet
+warning-portal-list-unreadable-kept = { $model }: Die Kachelliste des Downloadportals ließ sich nicht lesen ({ $error }); die Liste aus einem früheren Lauf wurde verwendet
+warning-surface-much-older = Das { $model } ist vom { $surface }, das Orthophoto vom { $flight }. Im nDSM können neuere Gebäude und Bäume fehlen.
+
+## Rheinland-Pfalz
+
+warning-rp-list-features-unusable = { $count ->
+        [one] 1 Eintrag der Kachelliste hat
+       *[other] { $count } Einträge der Kachelliste haben
+    } keinen brauchbaren Kachelschlüssel; übersprungen
+warning-rp-list-unreadable-kept = Die Kachelliste von LVermGeo RP ließ sich nicht lesen ({ $error }); die Liste aus einem früheren Lauf wurde verwendet
+warning-rp-metalink-not-kept = Der Metalink von LVermGeo RP wurde nicht aufbewahrt: { $error }
+warning-rp-metalink-unreadable-kept = { $model }: Der Metalink von LVermGeo RP ließ sich nicht lesen ({ $detail }); der Metalink aus einem früheren Lauf wurde verwendet
+warning-rp-metalink-unreadable = { $model }: Der Metalink von LVermGeo RP ließ sich nicht lesen ({ $detail }); die Kacheln, für die die Kachelliste kein Flugjahr nennt, bleiben deshalb ohne Höhen
+warning-rp-tile-without-name = { $model }, Kachel { $tile }: Dieses 1-km-Quadrat hat in der Karte keine Höhen. Die Kachelliste von LVermGeo RP (Laserbefliegung) { $note }, der Dateiname ist deshalb nicht bekannt{ $either ->
+        [metalink] , und auch der Metalink nennt keine Datei für sie
+       *[none] {""}
+    }
+warning-rp-centre-no-date = { $model }: Die Kachel { $tile } hat kein Datum: Die Kachelliste von LVermGeo RP (Laserbefliegung) { $note }
+word-rp-list-neither = nennt für sie weder ein Flugjahr noch Flugtage
+word-rp-list-no-days = nennt für sie keine Flugtage
+word-rp-list-no-year = nennt für sie kein Flugjahr
+word-rp-list-days-unreadable = nennt für sie Flugtage { $days }, die sich nicht lesen lassen
+word-rp-list-disagree = nennt für sie Flugtage { $days } und ein Flugjahr { $year }, die nicht auf ein Jahr passen
+
+## Hessen
+
+warning-hvbg-undated = Die Metadatenliste hat kein lesbares Bildflugdatum für die Kachel { $tiles }; die Projekteinträge dazu haben kein Flugdatum
+warning-hvbg-undated-more = Die Metadatenliste hat kein lesbares Bildflugdatum für die Kachel { $tiles } und { $more } weitere; die Projekteinträge dazu haben kein Flugdatum
+warning-hvbg-list-unreadable-older = Die neue HVBG-Metadatenliste { $name } ließ sich nicht lesen ({ $detail }); die ältere Liste { $older } wird verwendet
+
+## Niedersachsen
+
+warning-lgln-no-date-unlisted = { $model }: kein Datum, die STAC-Suche nennt in der Mitte des Kartengebiets keine Kachel
+warning-lgln-no-date = { $model }: kein Datum ({ $error })
+
+## Mecklenburg-Vorpommern
+
+warning-mv-list-failed-date-kept = { $error }; das gespeicherte Modell behält sein vermerktes Datum
+warning-mv-cells-empty = { $model }: { $count ->
+        [one] 1 Zelle innerhalb der Kacheln von Mecklenburg-Vorpommern hat
+       *[other] { $count } Zellen innerhalb der Kacheln von Mecklenburg-Vorpommern haben
+    } keine Höhe
+warning-mv-centre-no-date = { $model }: kein Datum für die mittlere Kachel { $tile }
+
+## Nordrhein-Westfalen
+
+warning-nrw-list-rows-unusable = { $model }: { $count ->
+        [one] 1 Zeile der Kachelliste hat
+       *[other] { $count } Zeilen der Kachelliste haben
+    } keinen brauchbaren Kachelnamen; übersprungen
+warning-nrw-list-rows-undated = { $model }: { $count ->
+        [one] 1 Zeile der Kachelliste hat
+       *[other] { $count } Zeilen der Kachelliste haben
+    } kein lesbares Datum
+warning-nrw-list-older = { $model }: Die Kachelliste des Servers ist vom { $server } und damit älter als die aufbewahrte vom { $kept }; die aufbewahrte wurde verwendet
+warning-nrw-list-no-date = Die Kachelliste nennt kein Datum für die Kachel { $tile }, { $model }

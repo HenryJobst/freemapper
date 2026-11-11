@@ -1776,7 +1776,7 @@ fn fetch_hvbg_rasters(
     // the metadata list's problems.
     let mut unresolved: Vec<String> = Vec::new();
     let mut unresolved_empty: Vec<TileId> = Vec::new();
-    let mut list_warnings: Vec<String> = Vec::new();
+    let mut list_warnings: Vec<Note> = Vec::new();
     let mut memo = hvbg::MetadataMemo::default();
     fetch_area_heights(
         dir,
@@ -1809,7 +1809,7 @@ fn fetch_hvbg_rasters(
         progress,
     )?;
     for warning in &list_warnings {
-        progress(Note::plain(format!("warning: {warning}")));
+        progress(warning.clone());
     }
     if !unresolved.is_empty() {
         let places: Vec<String> = unresolved.iter().map(|p| format!("\"{p}\"")).collect();
@@ -1873,7 +1873,7 @@ fn fetch_nrw_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
         },
         progress,
@@ -1930,7 +1930,7 @@ fn fetch_rp_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
         },
         progress,
@@ -1985,7 +1985,7 @@ fn fetch_sh_rasters(
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
             if !surface {
                 return;
@@ -2066,7 +2066,7 @@ fn fetch_mv_rasters(
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
         },
         progress,
@@ -2142,7 +2142,7 @@ fn fetch_lgln_rasters(
         },
         &mut |surface, found, project, progress| {
             for warning in &found.warnings {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
             if !surface {
                 return;
@@ -2160,7 +2160,7 @@ fn fetch_lgln_rasters(
             if let (Some(scanned), Some(flight)) = (scanned, flight)
                 && let Some(warning) = lgln::surface_age_warning(scanned, flight)
             {
-                progress(Note::plain(format!("warning: {warning}")));
+                progress(warning.clone());
             }
         },
         progress,

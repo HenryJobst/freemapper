@@ -28,7 +28,7 @@ freemapper-core.
   |---|---|---|
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
   | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
-  | 3 | progress lines and warnings of the engine | done except the warnings of the height-model sources, see below |
+  | 3 | progress lines and warnings of the engine | done, see below |
   | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page done, see below; rest open |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
@@ -67,8 +67,9 @@ freemapper-core.
   each catalog words them (`hesse`, `schoolyard`, `terrain`).
 - Tests: every language has every message with the same variables, every id in the engine's code has a text,
   every text is used, and in debug builds a note fails that names a value its message lacks.
-- Not yet messages: about 25 warnings the height-model sources collect as strings (tile lists, dates, the
-  Metalink). They travel as `Note::plain` and stay English. `Note::plain` goes when they are converted.
+- The height-model sources collect their warnings (tile lists, dates, the Metalink) as notes too and hand them
+  on in `HeightModel::warnings`. Two notes count as equal when they read the same in English; the sources use
+  that to say a thing once. No line of the engine is a finished English string any more.
 
 ### Stage 4, first part: the language of the selection page (2026-11-11)
 
@@ -79,8 +80,8 @@ freemapper-core.
 
 ## Consequences
 
-- A German run still mixes languages in two places: the warnings of the height-model sources (stage 3, rest) and
-  `--help` (stage 4). The manual says so.
+- A German run still shows English in `--help` and in the closing summaries of a run (stage 4). The manual says
+  so.
 - Windows and macOS set `LANG` only in some shells. Where it is missing, the program is English unless
   `FREEMAPPER_LANG` or `--lang` is given. That is the suite's rule; reading the system language through the
   operating system would be a change for all three programs.

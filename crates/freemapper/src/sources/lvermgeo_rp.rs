@@ -7,6 +7,7 @@
 //! comes from the origin hosts; the GeoPortal.rlp registry proxy answers errors with HTML and
 //! status 200.
 
+use crate::note::{Arg, Note, note};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -145,7 +146,7 @@ struct ListedTile {
     /// The last flight day, `YYYY-MM-DD`.
     date: Option<String>,
     /// Why the year or the date is missing, as what the tile list does (`gives no flight days`).
-    note: Option<String>,
+    note: Option<Note>,
 }
 
 impl ListedTile {
@@ -166,7 +167,7 @@ impl ListedTile {
 #[derive(Debug, Default)]
 struct TileList {
     tiles: HashMap<TileId, ListedTile>,
-    warnings: Vec<String>,
+    warnings: Vec<Note>,
 }
 
 fn digits(value: &str, n: usize) -> bool {
@@ -243,19 +244,12 @@ fn listed_tile(tile: TileId, flight_year: &str, days: &str) -> ListedTile {
     let flown = (!days.is_empty()).then(|| flight_days(days));
     let quoted = |s: &str| format!("`{}`", one_line(s, 80));
     let (year, date, note) = match (year, flown) {
-        (None, None) => (
-            None,
-            None,
-            Some("gives neither a flight year nor flight days".to_string()),
-        ),
-        (Some(year), None) => (Some(year), None, Some("gives no flight days".to_string())),
+        (None, None) => (None, None, Some(note!("word-rp-list-neither"))),
+        (Some(year), None) => (Some(year), None, Some(note!("word-rp-list-no-days"))),
         (year, Some(None)) => (
             year,
             None,
-            Some(format!(
-                "gives flight days {} that cannot be read",
-                quoted(days)
-            )),
+            Some(note!("word-rp-list-days-unreadable", days = quoted(days))),
         ),
         (year, Some(Some(dates))) => {
             let years: HashSet<i32> = dates.iter().map(|d| d.year()).collect();
@@ -266,10 +260,10 @@ fn listed_tile(tile: TileId, flight_year: &str, days: &str) -> ListedTile {
                 _ => (
                     None,
                     last,
-                    Some(format!(
-                        "gives flight days {} and a flight year {} that do not agree on one year",
-                        quoted(days),
-                        quoted(flight_year)
+                    Some(note!(
+                        "word-rp-list-disagree",
+                        days = quoted(days),
+                        year = quoted(flight_year)
                     )),
                 ),
             }
@@ -320,8 +314,9 @@ fn parse_tile_list(text: &str) -> Result<TileList, String> {
     }
     let mut warnings = Vec::new();
     if unreadable > 0 {
-        warnings.push(format!(
-            "{unreadable} features of the tile list have no usable tile key; skipped"
+        warnings.push(note!(
+            "warning-rp-list-features-unusable",
+            count = unreadable
         ));
     }
     Ok(TileList { tiles, warnings })
@@ -349,7 +344,7 @@ fn tile_list(
     dir: &Path,
     mode: FetchMode,
     bbox: &BoundingBox,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Result<TileList, FetchError> {
     let url = tile_list_url(bbox);
     let path = list_path(dir, bbox);
@@ -384,9 +379,9 @@ fn tile_list(
             let Some(list) = kept() else {
                 return Err(e);
             };
-            warnings.push(format!(
-                "the LVermGeo RP tile list could not be read ({e}); used the one kept from an \
-                 earlier run"
+            warnings.push(note!(
+                "warning-rp-list-unreadable-kept",
+                error = Arg::error(e)
             ));
             Ok(list)
         }
@@ -492,7 +487,7 @@ fn metalink_names(
     dir: &Path,
     mode: FetchMode,
     model: Model,
-    warnings: &mut Vec<String>,
+    warnings: &mut Vec<Note>,
 ) -> Option<HashMap<TileId, String>> {
     let path = metalink_path(dir, model);
     let error = match mode {
@@ -517,7 +512,7 @@ fn metalink_names(
                 Ok((names, bytes)) => match write_cache_file(&path, &bytes) {
                     Ok(()) => return Some(names),
                     Err(e) => {
-                        warnings.push(format!("the LVermGeo RP Metalink was not kept: {e}"));
+                        warnings.push(note!("warning-rp-metalink-not-kept", error = Arg::error(e)));
                         return Some(names);
                     }
                 },
@@ -528,19 +523,19 @@ fn metalink_names(
     match kept_metalink(dir, model) {
         Some(names) => {
             if mode == FetchMode::Online {
-                warnings.push(format!(
-                    "the LVermGeo RP Metalink of the {} could not be read ({error}); used the one \
-                     kept from an earlier run",
-                    model.label()
+                warnings.push(note!(
+                    "warning-rp-metalink-unreadable-kept",
+                    model = crate::note::model(model.label()),
+                    detail = &error
                 ));
             }
             Some(names)
         }
         None => {
-            warnings.push(format!(
-                "the LVermGeo RP Metalink of the {} could not be read ({error}), so the tiles its \
-                 tile list gives no flight year for stay without heights",
-                model.label()
+            warnings.push(note!(
+                "warning-rp-metalink-unreadable",
+                model = crate::note::model(model.label()),
+                detail = &error
             ));
             None
         }
@@ -725,24 +720,28 @@ pub fn fetch_model(
             area.named.push((entry.tile, name.clone()));
             continue;
         }
-        let note = entry.note.as_deref().unwrap_or("gives no flight year");
+        let note = entry
+            .note
+            .clone()
+            .unwrap_or_else(|| note!("word-rp-list-no-year"));
         let (either, why) = if metalink.is_some() {
             (
-                ", and its Metalink names no file for it either",
+                "metalink",
                 "no flight year in LVermGeo RP's tile list (Laserbefliegung) and no file in its \
                  Metalink",
             )
         } else {
             (
-                "",
+                "none",
                 "no flight year in LVermGeo RP's tile list (Laserbefliegung)",
             )
         };
-        warnings.push(format!(
-            "{} tile {}: this 1 km square has no heights in the map. LVermGeo RP's tile list \
-             (Laserbefliegung) {note} for it, so the file name is not known{either}",
-            model.label(),
-            short_name(entry.tile),
+        warnings.push(note!(
+            "warning-rp-tile-without-name",
+            model = crate::note::model(model.label()),
+            tile = short_name(entry.tile),
+            note = note,
+            either = either
         ));
         area.missing.push((entry.tile, why.to_string()));
     }
@@ -769,11 +768,14 @@ pub fn fetch_model(
     let centre = centre_tile(bbox);
     let listed = list.tiles.get(&centre).map(|entry| {
         entry.date.clone().ok_or_else(|| {
-            format!(
-                "the {} tile {} has no date: LVermGeo RP's tile list (Laserbefliegung) {} for it",
-                model.label(),
-                short_name(centre),
-                entry.note.as_deref().unwrap_or("gives no flight days")
+            note!(
+                "warning-rp-centre-no-date",
+                model = crate::note::model(model.label()),
+                tile = short_name(centre),
+                note = entry
+                    .note
+                    .clone()
+                    .unwrap_or_else(|| note!("word-rp-list-no-days"))
             )
         })
     });
@@ -1075,7 +1077,7 @@ mod tests {
             found.warnings.iter().any(|w| w.contains("32_400_5579")
                 && w.contains("no heights in the map")
                 && w.contains("LVermGeo RP's tile list (Laserbefliegung)")
-                && !w.contains('\u{2014}')),
+                && !w.contains("\u{2014}")),
             "{:?}",
             found.warnings
         );

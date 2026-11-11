@@ -2,6 +2,7 @@
 //! Geoinformation"), all in EPSG:25832: the DGM1 and DOM1 1 km tiles read by byte ranges out of
 //! the Downloadcenter's municipal zips, found through the DGM/DOM metadata list.
 
+use crate::note::{Note, note};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -543,7 +544,7 @@ struct Session<'a> {
     dir: PathBuf,
     index: Rc<TileIndex>,
     /// Problems with the metadata list (see [`HeightModel::warnings`]).
-    warnings: Vec<String>,
+    warnings: Vec<Note>,
     /// The district nodes of the product tree (online only).
     districts: Vec<String>,
     listings: HashMap<String, Rc<Files>>,
@@ -561,7 +562,7 @@ struct Session<'a> {
 /// the next one (the DOM1 run after the DGM1 run) so each is read and parsed once.
 #[derive(Default)]
 pub struct MetadataMemo {
-    loaded: Option<(Rc<TileIndex>, Vec<String>)>,
+    loaded: Option<(Rc<TileIndex>, Vec<Note>)>,
     /// The DGM1 tree's districts and the metadata link of its description.
     tree: Option<(Vec<String>, Option<Link>)>,
 }
@@ -588,7 +589,7 @@ fn metadata_list(
     mode: FetchMode,
     dir: &Path,
     link: Option<Link>,
-) -> Result<(TileIndex, Vec<String>), FetchError> {
+) -> Result<(TileIndex, Vec<Note>), FetchError> {
     let read_index = |bytes: &[u8]| TileIndex::from_rows(&xlsx_rows(bytes)?);
     if mode == FetchMode::Offline {
         let newest = kept_lists(dir)
@@ -618,9 +619,11 @@ fn metadata_list(
                 continue;
             };
             let old_name = older.file_name().unwrap_or_default().to_string_lossy();
-            let warning = format!(
-                "the new HVBG metadata list {name} could not be read ({message}); \
-                 using the older list {old_name}"
+            let warning = note!(
+                "warning-hvbg-list-unreadable-older",
+                name = &name,
+                detail = &message,
+                older = old_name.to_string()
             );
             return Some((index, vec![warning]));
         }
@@ -733,16 +736,15 @@ impl<'a> Session<'a> {
             if !index.undated.is_empty() {
                 let shown: Vec<&str> = index.undated.iter().take(5).map(String::as_str).collect();
                 let more = index.undated.len() - shown.len();
-                warnings.push(format!(
-                    "the metadata list has no readable Bildflugdatum for tile {}{}; their \
-                     project records have no flight date",
-                    shown.join(", "),
-                    if more > 0 {
-                        format!(" and {more} more")
-                    } else {
-                        String::new()
-                    }
-                ));
+                warnings.push(if more > 0 {
+                    note!(
+                        "warning-hvbg-undated-more",
+                        tiles = shown.join(", "),
+                        more = more
+                    )
+                } else {
+                    note!("warning-hvbg-undated", tiles = shown.join(", "))
+                });
             }
             memo.loaded = Some((Rc::new(index), warnings));
         }

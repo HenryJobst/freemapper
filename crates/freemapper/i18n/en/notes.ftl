@@ -172,3 +172,57 @@ progress-sh-dgm-not-in-atom = DGM1 tile { $tile } is not in the INSPIRE ATOM dir
 progress-sh-dgm-atom-unreadable = DGM1 tile { $tile } from the INSPIRE ATOM directory does not read ({ $error }); downloading its XYZ ({ $megabytes } MB)
 progress-sh-tile = tile { $tile }: { $text }
 progress-sh-download-again = tile { $tile }: the download does not read ({ $message }); downloading it once more
+warning-sh-portal-no-date = the Downloadportal gives no date for the { $model } tile { $tile }
+warning-sh-dgm-xyz-used = DGM1 tile { $tile } is not in the INSPIRE ATOM directory; used its XYZ from the Downloadportal
+warning-sh-dgm-xyz-used-unreadable = DGM1 tile { $tile } from the INSPIRE ATOM directory does not read ({ $error }); used its XYZ from the Downloadportal
+
+## Tile lists and dates of the height models
+
+warning-model-tile-cells-empty = { $model } tile { $tile }: { $count } cells of the map area have no height
+warning-centre-tile-missing = the { $model } tile { $tile } at the centre of the map area is missing, so there is no date
+warning-centre-tile-unlisted = the tile list names no { $model } tile { $tile } at the centre of the map area, so there is no date
+warning-list-unreadable-kept = the tile list of the { $model } could not be read ({ $error }); used the one kept from an earlier run
+warning-portal-list-unreadable-kept = the Downloadportal's tile list of the { $model } could not be read ({ $error }); used the one kept from an earlier run
+warning-surface-much-older = the { $model } is from { $surface }, the orthophoto from { $flight }. The nDSM may lack newer buildings and trees.
+
+## Rhineland-Palatinate
+
+warning-rp-list-features-unusable = { $count } features of the tile list have no usable tile key; skipped
+warning-rp-list-unreadable-kept = the LVermGeo RP tile list could not be read ({ $error }); used the one kept from an earlier run
+warning-rp-metalink-not-kept = the LVermGeo RP Metalink was not kept: { $error }
+warning-rp-metalink-unreadable-kept = the LVermGeo RP Metalink of the { $model } could not be read ({ $detail }); used the one kept from an earlier run
+warning-rp-metalink-unreadable = the LVermGeo RP Metalink of the { $model } could not be read ({ $detail }), so the tiles its tile list gives no flight year for stay without heights
+warning-rp-tile-without-name = { $model } tile { $tile }: this 1 km square has no heights in the map. LVermGeo RP's tile list (Laserbefliegung) { $note } for it, so the file name is not known{ $either ->
+        [metalink] , and its Metalink names no file for it either
+       *[none] {""}
+    }
+warning-rp-centre-no-date = the { $model } tile { $tile } has no date: LVermGeo RP's tile list (Laserbefliegung) { $note } for it
+word-rp-list-neither = gives neither a flight year nor flight days
+word-rp-list-no-days = gives no flight days
+word-rp-list-no-year = gives no flight year
+word-rp-list-days-unreadable = gives flight days { $days } that cannot be read
+word-rp-list-disagree = gives flight days { $days } and a flight year { $year } that do not agree on one year
+
+## Hesse
+
+warning-hvbg-undated = the metadata list has no readable Bildflugdatum for tile { $tiles }; their project records have no flight date
+warning-hvbg-undated-more = the metadata list has no readable Bildflugdatum for tile { $tiles } and { $more } more; their project records have no flight date
+warning-hvbg-list-unreadable-older = the new HVBG metadata list { $name } could not be read ({ $detail }); using the older list { $older }
+
+## Lower Saxony
+
+warning-lgln-no-date-unlisted = { $model }: no date, the STAC lists no tile at the centre of the map area
+warning-lgln-no-date = { $model }: no date ({ $error })
+
+## Mecklenburg-Vorpommern
+
+warning-mv-list-failed-date-kept = { $error }; the stored model keeps its recorded date
+warning-mv-cells-empty = { $model }: { $count } cells inside the Mecklenburg-Vorpommern tiles have no height
+warning-mv-centre-no-date = { $model }: no date for the centre tile { $tile }
+
+## North Rhine-Westphalia
+
+warning-nrw-list-rows-unusable = { $count } rows of the { $model } tile list have no usable tile name; skipped
+warning-nrw-list-rows-undated = { $count } rows of the { $model } tile list have no readable date
+warning-nrw-list-older = the server's tile list of the { $model } dates from { $server }, older than the kept one from { $kept }; used the kept one
+warning-nrw-list-no-date = the tile list gives no date for the { $model } tile { $tile }
