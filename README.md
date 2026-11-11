@@ -134,6 +134,8 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
    - macOS mit Apple-Chip (M1 und neuer): `freemapper-…-macos-arm64.tar.gz`
    - macOS mit Intel-Prozessor: `freemapper-…-macos-x86_64.tar.gz`
    - Linux: `freemapper-…-linux-x86_64.tar.gz` (ARM-Rechner: `linux-arm64`)
+
+   Die `.gz`-Dateien und `freemapper-update.json` auf der Seite sind für `freemapper update`.
 2. Das Archiv entpacken (Doppelklick). Der Ordner enthält `freemapper` bzw. `freemapper.exe`.
 3. Beim ersten Start warnt das System, weil das Programm nicht signiert ist:
    - **Windows:** „Der Computer wurde durch Windows geschützt“ → *Weitere Informationen* →
@@ -165,7 +167,10 @@ cargo build --release --locked
 ```
 
 Ein Tag `v<Version>` (passend zur Version in `Cargo.toml`) erzeugt über
-`.github/workflows/release.yml` die Archive für alle Systeme und das GitHub-Release.
+`.github/workflows/release.yml` die Archive für alle Systeme und das GitHub-Release, dazu die nackten
+Programmdateien als `.gz` und das mit dem Release-Schlüssel signierte Update-Manifest. Von Hand mit `dry_run`
+gestartet, baut und signiert der Workflow den aktuellen Branch und legt das Ergebnis als Workflow-Artefakt ab,
+ohne etwas zu veröffentlichen.
 
 Entwicklung: `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`.
 Git-Hooks: `lefthook install`.

@@ -68,6 +68,8 @@ freemapper is a single program without an installer.
    - **Mac with Apple chip** (M1 and newer): `freemapper-…-macos-arm64.tar.gz`
    - **Mac with Intel processor:** `freemapper-…-macos-x86_64.tar.gz`
    - **Linux:** `freemapper-…-linux-x86_64.tar.gz`
+
+   The `.gz` files and `freemapper-update.json` on that page are for `freemapper update`; you do not need them.
 2. Unpack the archive with a double click. Put the folder in a fixed place, e.g. `Documents/freemapper`.
 3. On the first start the system warns you, because the program is not signed:
    - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.

@@ -72,6 +72,8 @@ freemapper ist ein einzelnes Programm ohne Installer.
    - **Mac mit Apple-Chip** (M1 und neuer): `freemapper-…-macos-arm64.tar.gz`
    - **Mac mit Intel-Prozessor:** `freemapper-…-macos-x86_64.tar.gz`
    - **Linux:** `freemapper-…-linux-x86_64.tar.gz`
+
+   Die `.gz`-Dateien und `freemapper-update.json` auf der Seite sind für `freemapper update`; Sie brauchen sie nicht.
 2. Entpacken Sie das Archiv mit einem Doppelklick. Legen Sie den Ordner an einen festen Ort,
    z. B. `Dokumente/freemapper`.
 3. Beim ersten Start warnt das System, weil das Programm nicht signiert ist:

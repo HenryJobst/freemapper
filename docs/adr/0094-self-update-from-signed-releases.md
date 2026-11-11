@@ -37,6 +37,10 @@ origin. The user asked for an auto-update feature on 2026-11-11.
   test limit it); a lost signing key without a successor forces one manual update; GitHub changing its redirect
   breaks the check until the program falls back to the API.
 
+Addendum (2026-11-11, release workflow): `min_self_update_from` carries over from the previous release's signed
+manifest and is raised only by hand, through the pin `[workspace.metadata.update] min_self_update_from` in
+`Cargo.toml` that `.github/scripts/update-manifest.sh` reads; the first updater release takes its own version.
+
 Source: user request of 2026-11-11; spec `docs/superpowers/specs/2026-11-11-self-update-design.md`; plan
 `docs/superpowers/plans/2026-11-11-self-update.md`; ADRs 0012, 0067, 0088, 0092; freemapper-core ADRs 0005, 0006,
 0007, 0009.
