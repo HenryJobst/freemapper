@@ -147,18 +147,8 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # The upstream release binary, pinned by SHA-256 (checked against the minisign author's key
-      # when pinned), not apt: the runner's Ubuntu mirrors were unreachable for the v0.12.0 release.
       - name: Install minisign
-        run: |
-          set -euo pipefail
-          url=https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-linux.tar.gz
-          curl -fsSL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/minisign.tar.gz" "$url"
-          echo "9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73  $RUNNER_TEMP/minisign.tar.gz" \
-            | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP"
-          sudo install -m 0755 "$RUNNER_TEMP/minisign-linux/$(uname -m)/minisign" /usr/local/bin/minisign
-          minisign -v
+        run: sudo apt-get update && sudo apt-get install -y minisign
       # Its signed manifest gives min_self_update_from (see update-manifest.sh).
       - name: Find the previous release with an update manifest
         id: previous
