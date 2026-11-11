@@ -10,7 +10,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Program language, third stage (ADR 0092): progress lines and warnings come in the program's language, on the command line, in the MCP server and in the log of the area page. A German warning starts with `Warnung:`. An error inside a warning, such as a failed download, is translated as well. That includes the warnings about the height models of the single states (tile lists, dates).
 - Program language, help (ADR 0092, stage 4): `--help`, `freemapper help <command>` and the messages about wrong calls (unknown option, missing argument, invalid value) come in the program's language, with German headings ("Aufruf:", "Optionen:"). The English help is unchanged.
-- `AGENTS.md`: instructions for AI agents on installing freemapper (choosing the archive, the checksum, the macOS quarantine flag) and using it through MCP or the command line, with the tools, the workflow, the result files and what the agent should tell the person. It is now part of every release archive too.
+- `AGENTS.md`: instructions for AI agents on installing freemapper (choosing the archive, the checksum, the macOS quarantine flag) and using it through MCP or the command line, with the tools, the workflow, the result files and what the agent should tell the person. It is now part of every release archive too. The manual (chapters 3 and 4) and the READMEs tell how to let an assistant that can run commands set freemapper up with it.
 
 ### Changed
 
