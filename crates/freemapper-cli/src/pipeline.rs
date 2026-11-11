@@ -172,12 +172,8 @@ pub struct Cancelled {
 
 impl std::fmt::Display for Cancelled {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("cancelled")?;
-        let names: Vec<&str> = self.kept.iter().map(|f| f.relative_path.as_str()).collect();
-        if !names.is_empty() {
-            write!(f, "; kept: {}", names.join(", "))?;
-        }
-        Ok(())
+        use crate::errors::Localize;
+        f.write_str(&self.localize(&crate::text::lang()))
     }
 }
 
@@ -218,17 +214,8 @@ fn file_entry(dir: &Path, kind: &'static str, path: &Path) -> Option<ResultFile>
 }
 
 /// An error with its causes, e.g. "fetch failed: tile 33421-5821 is not in the cache".
-pub fn describe(error: &dyn std::error::Error) -> String {
-    let mut message = error.to_string();
-    let mut source = error.source();
-    while let Some(cause) = source {
-        let line = cause.to_string();
-        if !message.contains(&line) {
-            message = format!("{message}: {line}");
-        }
-        source = cause.source();
-    }
-    message
+pub fn describe(error: &(dyn std::error::Error + 'static)) -> String {
+    crate::errors::message(error, &crate::text::lang())
 }
 
 /// The steps `options` selects, in running order.

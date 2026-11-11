@@ -75,3 +75,102 @@ cli-open-folder-failed = Der Ordner ließ sich nicht öffnen ({ $error }).
 cli-open-folder-no-opener = Dieser Rechner hat kein Programm zum Öffnen von Ordnern ({ $program }). Öffnen Sie den Ordner von Hand.
 cli-open-folder-missing = Der Projektordner existiert noch nicht. Speichern Sie zuerst das Gebiet.
 cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den Dateimanager weiterzugeben.
+
+## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen
+## an und bleibt, wie es ist; das gilt auch für Einzelheiten, die freemapper bisher nur auf
+## Englisch kennt.
+
+cli-error-prefix = Fehler
+error-cancelled = abgebrochen
+cli-cancelled-kept = abgebrochen; behalten: { $files }
+error-io = { $path }: { $message }
+error-io-disk-full = Der Datenträger ist voll, deshalb konnte freemapper { $path } nicht schreiben. Geben Sie Platz frei und versuchen Sie es noch einmal
+
+## Fehler: Projekt
+
+error-project-already-exists = Das Projekt gibt es schon: { $path }
+error-project-map-exists = Die Karte gibt es schon (sie kann Ihre Arbeit enthalten); --force ersetzt sie: { $path }
+error-project-invalid-scale = ungültiger Maßstab 1:{ $scale }
+error-project-scale-not-allowed = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }
+error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }. Zeichnen Sie in 1:4000, freemapper-print vergrößert beim Drucken auf 1:3000
+word-kind-schoolyard = Schulhofkarten
+word-kind-sprint = Sprintkarten
+error-project-toml = ungültige Projektdatei: { $message }
+error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
+error-project-ocd = OCAD-Export: { $message }
+error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
+error-project-tiles-outdated = Das Kartengebiet braucht die Kacheln { $tiles }, die nicht geladen sind; rufen Sie `freemapper fetch` auf
+error-project-buildings-not-fetched = Für dieses Kartengebiet sind keine ALKIS-Gebäude gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
+error-project-orthophoto-not-fetched = Für dieses Kartengebiet ist kein Orthophoto gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
+error-project-terrain-not-fetched = Für dieses Kartengebiet ist kein Geländemodell gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
+error-project-candidates-outdated = Die gespeicherten OSM-Kandidaten decken das Kartengebiet nicht ab; rufen Sie `freemapper fetch` auf
+error-project-stored = { $path }: { $message }; rufen Sie `freemapper fetch` noch einmal auf
+error-project-area-too-large = Das Kartengebiet mit Puffer misst { $width } × { $height } m, mehr als { $limit } m je Seite; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+error-project-outside-coverage = Das Kartengebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); bisher hat freemapper nur für diese Datenquellen
+
+## Fehler: Speicherplatz
+
+error-space-required = Der Speicherplatz reicht nicht für { $part }. Gebraucht werden { $needed }, aber { $path } hat über die Reserve von { $reserve } hinaus nur { $left } frei. Geben Sie Platz frei und rufen Sie `freemapper fetch` noch einmal auf
+error-space-skipped = Aus Platzmangel lässt freemapper { $part } weg. Gebraucht werden { $needed }, aber { $path } hat über die Reserve von { $reserve } hinaus nur { $left } frei. Geben Sie Platz frei und rufen Sie `freemapper fetch` noch einmal auf
+word-part-map-data = die Kartendaten aus ALKIS und OSM
+word-part-terrain = das Geländemodell
+word-part-orthophoto = das Orthophoto
+word-part-surface = das Oberflächenmodell für die nDSM-Vorlage
+word-part-osm-update = die Aktualisierung des gespeicherten OSM-Auszugs
+word-part-k-five = die Berliner Kartenvorlage K5
+word-part-berlin-layers = die Berliner ALKIS-Bauwerke, das Baumkataster, die Straßenbefahrung und die Punktebenen
+word-part-state-layers = die vollständigen ALKIS-Bauwerke und die Baumkataster
+
+## Fehler: Herunterladen
+
+error-fetch-http = Das Herunterladen von { $url } ist gescheitert: { $message }
+error-fetch-corrupt-archive = Von { $url } kam kein vollständiges Kachelarchiv: { $message }
+error-fetch-corrupt-extract = Von { $url } kam kein vollständiger OSM-Auszug: { $message }
+error-fetch-tiles-not-covered = { $count ->
+        [one] Die Kachel { $tiles } gehört nicht zu den veröffentlichten Kacheln; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+       *[other] Die Kacheln { $tiles } gehören nicht zu den veröffentlichten Kacheln; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+    }
+error-fetch-missing-offline = { $count ->
+        [one] Ohne Netzverbindung und nicht im Zwischenspeicher: { $product }, Kachel { $tiles }; rufen Sie `freemapper fetch` mit Netzverbindung auf
+       *[other] Ohne Netzverbindung und nicht im Zwischenspeicher: { $product }, Kacheln { $tiles }; rufen Sie `freemapper fetch` mit Netzverbindung auf
+    }
+word-product-orthophoto = Orthophoto (DOP20)
+word-product-dtm = Geländemodell (DGM1)
+word-product-image-dsm = Oberflächenmodell (bDOM)
+word-product-saxony-dtm = Geländemodell (GeoSN DGM1)
+word-product-saxony-dsm = Oberflächenmodell (GeoSN DOM1)
+error-fetch-osm-extract-missing = Im Zwischenspeicher liegt kein OSM-Auszug; rufen Sie `freemapper fetch` mit Netzverbindung auf
+error-fetch-not-found = { $name } gibt es auf dem Server nicht
+error-fetch-refused = { $url }: Der Server hat die Anfrage abgelehnt (HTTP { $status })
+error-fetch-refused-detail = { $url }: Der Server hat die Anfrage abgelehnt (HTTP { $status }): { $detail }
+error-fetch-too-large = Die Datei von { $url } ist größer als { $limit } MB; abgebrochen
+error-fetch-not-stored = Für dieses Kartengebiet ist nichts gespeichert ({ $label }): { $path } fehlt, lässt sich nicht lesen oder deckt das Gebiet nicht ab; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
+error-fetch-range-ignored = { $url }: Der Server hat den Bytebereich { $range } nicht beachtet (HTTP { $status })
+error-fetch-currency-csv = Aktualitäts-CSV, Zeile { $line }: { $message }
+error-alkis = ungültige ALKIS-Daten: { $message }
+error-osm = OSM-Daten: { $message }
+
+## Fehler: Vorlagen und Raster
+
+error-derive-zip = Kachelarchiv: { $message }
+error-derive-image = Bild: { $message }
+error-derive-no-tiles = Es gibt keine Kacheln, aus denen sich etwas ableiten lässt
+error-derive-area-too-large = Das Kartengebiet ist zu groß für eine Vorlage: { $width } × { $height } Pixel (höchstens { $limit } je Seite); verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+error-raster-world-file = ungültige Weltdatei: { $message }
+error-raster-misaligned = Die Raster liegen nicht auf demselben Pixelgitter: { $message }
+error-raster-pixel-size = Die Raster haben verschiedene Pixelgrößen: { $message }
+
+## Fehler: Kartengebiet, Georeferenzierung, Kartendatei, OCAD-Datei
+
+error-area-geojson = ungültiges GeoJSON: { $message }
+error-area-no-polygon = Das GeoJSON enthält kein Polygon
+error-area-multi-polygon = MultiPolygon mit { $parts } Teilen; das Kartengebiet muss ein einzelnes Polygon sein
+error-area-out-of-range = Koordinate außerhalb des Wertebereichs: Breite { $lat }, Länge { $lon }
+error-area-not-an-area = kein brauchbares Kartengebiet: { $message }
+error-georef-date = Das Datum { $date } liegt außerhalb der Gültigkeit des World Magnetic Model
+error-georef-map-range = Der Punkt E { $easting } N { $northing } liegt außerhalb des Koordinatenbereichs der Karte
+error-omap-xml = ungültiges OOM-XML: { $message }
+error-omap-missing-element = Das Element <{ $name }> fehlt
+error-ocd-duplicate-symbol = Die Symbolnummer { $symbol } kommt zweimal vor
+error-ocd-unknown-symbol = Ein Objekt verweist auf das Symbol { $symbol }, das in der Datei fehlt
+error-ocd-wrong-type = Ein Objekt des Symbols { $symbol } hat nicht den Typ seines Symbols

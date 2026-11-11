@@ -5,7 +5,11 @@ is the reference and the fallback; every other language has the same message ids
 (ADR 0092).
 
 To add a text: give it an id that starts with `cli-`, write it in every language, and use it in the code as
-`text("cli-…", &[("name", v(value))])`. To add a language: add a folder, list it in `TEXTS` in `src/text.rs`,
+`text("cli-…", &[("name", v(value))])`. Ids are lower-case letters and hyphens only.
+
+Errors of the library have ids that start with `error-`, words inside them (a map kind, a product) ids that start
+with `word-`; `src/errors.rs` maps each error variant to its text. The English text of an error equals the
+library's own message, and a test compares the two. To add a language: add a folder, list it in `TEXTS` in `src/text.rs`,
 and run `cargo test -p freemapper-cli`. The tests name every missing message, every variable that differs
 between languages, every id the code uses but the catalog lacks, and every id the catalog holds but the code
 does not use.

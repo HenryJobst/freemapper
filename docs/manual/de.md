@@ -795,10 +795,15 @@ freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `-
 Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
 Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
 
-Bisher sind nur die Zeilen übersetzt, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und
-die Hinweise nach `run` und `export`. Fortschrittszeilen, Warnungen, Fehlermeldungen und die Hilfe (`--help`)
-sind noch Englisch; die Gebietsseite richtet sich nach der Sprache des Browsers. Die wichtigsten englischen
-Meldungen:
+Übersetzt sind die Zeilen, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und die Hinweise
+nach `run` und `export`, und die Fehlermeldungen. Eine Fehlermeldung beginnt mit `Fehler:` (englisch `error:`),
+das Programm endet dann mit dem Exit-Code 1. Auch der MCP-Server und die Gebietsseite melden Fehler in der
+Sprache des Programms. Englisch bleibt in einer deutschen Fehlermeldung, was ein Server, das Betriebssystem oder
+ein Parser dazu sagt, und einige Einzelheiten, etwa bei der Ortssuche.
+
+Fortschrittszeilen, Warnungen und die Hilfe (`--help`) sind noch Englisch; die Gebietsseite richtet sich nach
+der Sprache des Browsers. Die Tabelle nennt die Meldungen deshalb im englischen Wortlaut; mit `--lang en` zeigt
+freemapper auch die Fehler so. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|

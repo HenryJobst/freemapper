@@ -96,6 +96,33 @@ mod tests {
             ("job", v("job-1")),
             ("messages", v("m")),
             ("program", v("open")),
+            ("files", v("a.omap")),
+            ("message", v("m")),
+            ("scale", v(4000)),
+            ("kind", v("k")),
+            ("allowed", v("1:4000")),
+            ("tiles", v("33421-5821")),
+            ("width", v(1)),
+            ("height", v(1)),
+            ("limit", v(1)),
+            ("part", v("p")),
+            ("needed", v("1 MB")),
+            ("left", v("1 MB")),
+            ("reserve", v("1 GB")),
+            ("url", v("u")),
+            ("product", v("p")),
+            ("status", v(404)),
+            ("detail", v("d")),
+            ("label", v("l")),
+            ("range", v("0-1")),
+            ("line", v(1)),
+            ("parts", v(2)),
+            ("lat", v(1)),
+            ("lon", v(1)),
+            ("date", v("2026-01-01")),
+            ("easting", v(1)),
+            ("northing", v(1)),
+            ("symbol", v(1)),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -108,8 +135,10 @@ mod tests {
             include_str!("text.rs"),
             include_str!("lock.rs"),
             include_str!("select_run.rs"),
+            include_str!("errors.rs"),
+            include_str!("pipeline.rs"),
         ] {
-            for id in freemapper_text::ids_in_source(source, &["cli-"]) {
+            for id in freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
@@ -119,9 +148,11 @@ mod tests {
             include_str!("text.rs"),
             include_str!("lock.rs"),
             include_str!("select_run.rs"),
+            include_str!("errors.rs"),
+            include_str!("pipeline.rs"),
         ]
         .iter()
-        .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-"]))
+        .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]))
         .collect();
         for id in &english {
             assert!(used.contains(id), "{id} is in the catalog but not used");

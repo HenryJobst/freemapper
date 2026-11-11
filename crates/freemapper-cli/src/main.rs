@@ -1,5 +1,6 @@
 //! `freemapper` command line interface.
 
+mod errors;
 mod jobs;
 mod lock;
 mod mcp;
@@ -399,13 +400,28 @@ impl From<Kind> for MapKind {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> std::process::ExitCode {
     let cli = Cli::parse();
     if let Err(message) = text::set_lang(cli.lang.as_deref()) {
         // A usage error, as clap reports one.
         eprintln!("error: {message}");
-        std::process::exit(2);
+        return std::process::ExitCode::from(2);
     }
+    match run(cli) {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!(
+                "{}: {}",
+                text("cli-error-prefix", &[]),
+                errors::message(error.as_ref(), &text::lang())
+            );
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+/// Runs the command; an error comes back for `main` to word in the language of the run.
+fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Commands::Init {
             dir,

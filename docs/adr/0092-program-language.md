@@ -27,16 +27,31 @@ freemapper-core.
   | Stage | Texts | State |
   |---|---|---|
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
-  | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | open |
+  | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
   | 3 | progress lines and warnings, which the library formats today | open |
   | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | open |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
 
+### Stage 2: errors (2026-11-11)
+
+- The CLI crate has a trait `Localize` (`src/errors.rs`) and implements it for the library's error types. It is the
+  CLI's own trait, as in freemapper-courseplan, because the types belong to another crate. The library does not learn
+  about languages.
+- In English the catalog text equals the type's `Display` text. A test builds a value of every variant and compares
+  the two, so a reworded library message fails the test until the catalog follows.
+- `main` prints `error: <text>` or `Fehler: <text>` with the causes after colons and exits with 1. Before, `anyhow`
+  printed `Error: …` and a "Caused by:" list.
+- `pipeline::describe` uses the same texts, so the MCP server and the area page report errors in the program's
+  language.
+- What stays as it is inside a translated error: words of the operating system, of parsers and of servers, and the
+  details the library carries as free text (`AreaError::Place`, `ProjectError::Layer`, the `message` fields). Turning
+  those into variants is work for the library and can follow where a message matters.
+
 ## Consequences
 
-- After stage 1 a German run mixes languages: the CLI's own lines are German, progress lines, warnings and errors are
-  English. The manual says so.
+- Until stage 3 a German run mixes languages: the CLI's own lines and the errors are German, progress lines and
+  warnings are English. The manual says so.
 - Windows and macOS set `LANG` only in some shells. Where it is missing, the program is English unless
   `FREEMAPPER_LANG` or `--lang` is given. That is the suite's rule; reading the system language through the
   operating system would be a change for all three programs.

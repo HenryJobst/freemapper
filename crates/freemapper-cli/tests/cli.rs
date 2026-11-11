@@ -783,3 +783,44 @@ fn a_command_on_a_missing_folder_reports_the_usual_error_not_a_lock_error() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(!stderr.contains("lock"), "{stderr}");
 }
+
+#[test]
+fn errors_follow_the_language_and_exit_with_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let cache = dir.path().join("cache");
+    let derive = |lang: &[(&str, &str)]| {
+        let output = freemapper_in(lang)
+            .args([
+                "derive",
+                project.to_str().unwrap(),
+                "--cache-dir",
+                cache.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        String::from_utf8(output.stderr).unwrap()
+    };
+    assert_eq!(
+        derive(&[]).trim_end(),
+        "error: no tiles fetched yet; run `freemapper fetch` first"
+    );
+    assert_eq!(
+        derive(&[("FREEMAPPER_LANG", "de")]).trim_end(),
+        "Fehler: Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf"
+    );
+    // A second init is refused in German too.
+    let again = freemapper_in(&[("FREEMAPPER_LANG", "de")])
+        .arg("init")
+        .arg(&project)
+        .args(["--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(again.stderr).unwrap();
+    assert!(
+        stderr.starts_with("Fehler: Das Projekt gibt es schon: "),
+        "{stderr}"
+    );
+}

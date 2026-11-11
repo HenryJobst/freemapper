@@ -765,9 +765,14 @@ freemapper has German and English texts. The language comes from `--lang de` or 
 environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), else it is English. On Windows
 `LANG` is usually not set; use `--lang de` there if you want German.
 
-So far only the lines the program prints at the end of a step are translated, such as "Wrote …" and the hints
-after `run` and `export`. Progress lines, warnings, error messages and the help (`--help`) are English in both
-languages; the area page follows the browser's language. The most important messages:
+German covers the lines the program prints at the end of a step, such as "Wrote …" and the hints after `run`
+and `export`, and the error messages. An error message starts with `error:` (German `Fehler:`), and the program
+then ends with exit code 1. The MCP server and the area page report errors in the program's language too. What
+a server, the operating system or a parser says inside an error stays as it is, and so do a few details, for
+example of the place search.
+
+Progress lines, warnings and the help (`--help`) are English in both languages; the area page follows the
+browser's language. The most important messages, in their English wording:
 
 | Message (start) | Meaning | What to do |
 |---|---|---|
