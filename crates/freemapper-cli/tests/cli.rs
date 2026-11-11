@@ -1123,8 +1123,39 @@ fn update_check_with_a_bad_signature_is_an_error() {
     assert_eq!(output.status.code(), Some(1), "{output:?}");
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("error: the update failed: the update signature is not valid"),
+        stderr.contains(
+            "error: the release could not be verified (the update signature is not valid); nothing was installed"
+        ),
         "{stderr}"
+    );
+}
+
+/// Spec 3.3: `--check` exits 10 whenever a newer release exists, also one that needs a manual
+/// install; the message links its release page.
+#[test]
+#[cfg(all(feature = "test-stub", debug_assertions))]
+fn update_check_of_a_release_that_needs_a_manual_install_exits_10() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+    let stub = UpdateStub::serving(
+        std::fs::read(dir.join("manifest-99-manual.json")).unwrap(),
+        std::fs::read(dir.join("manifest-99-manual.json.minisig")).unwrap(),
+        Vec::new(),
+    );
+    let output = update_with(
+        std::path::Path::new(env!("CARGO_BIN_EXE_freemapper")),
+        &stub,
+    )
+    .arg("--check")
+    .output()
+    .unwrap();
+    assert_eq!(output.status.code(), Some(10), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains(&format!(
+            "freemapper 99.0.0 cannot be installed by the self-update of {}; install 98.0.0 or newer by hand, see https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "{stdout}"
     );
 }
 
@@ -1266,6 +1297,11 @@ fn update_yes_installs_over_a_copied_binary() {
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     let stdout = String::from_utf8(output.stdout).unwrap();
     let current = env!("CARGO_PKG_VERSION");
+    // Progress goes to stdout like the other progress lines.
+    assert!(
+        stdout.contains("downloading and checking freemapper 99.0.0"),
+        "{stdout}"
+    );
     assert!(
         stdout.contains(&format!(
             "freemapper updated from {current} to 99.0.0. Release notes: https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0"

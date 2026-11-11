@@ -1,8 +1,8 @@
 //! `freemapper update` (spec 3.4 to 3.6): check for a newer release, install it after asking, go
 //! back to the previous version, or store the mode of the daily check.
 //!
-//! Results go to stdout, the download line to stderr, and errors back to `main`, which prints them
-//! as its usual `error:` line with exit code 1.
+//! Results and progress go to stdout, and errors back to `main`, which prints them as its usual
+//! `error:` line with exit code 1.
 
 use std::io::{BufRead as _, IsTerminal as _, Write as _};
 use std::path::Path;
@@ -34,8 +34,8 @@ pub struct Request {
     pub mode: Option<Mode>,
 }
 
-/// Runs the command. Exit codes: 0 done or current, 10 `--check` found an update; errors come back
-/// for `main` (exit 1).
+/// Runs the command. Exit codes: 0 done or current, 10 `--check` found an update (also one that
+/// needs a manual install); errors come back for `main` (exit 1).
 pub fn run(request: Request) -> anyhow::Result<ExitCode> {
     // Only a setting, so it works in a build from source too.
     if let Some(mode) = request.mode {
@@ -51,7 +51,14 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
         return roll_back(&app, &running_exe()?);
     }
     let source = update_source();
-    let outcome = check_for_update(&app, &source, request.version.as_ref()).map_err(failed)?;
+    let outcome = match check_for_update(&app, &source, request.version.as_ref()) {
+        // An update exists, only not by this way (spec 3.3).
+        Err(too_old @ UpdateError::TooOldToSelfUpdate { .. }) if request.check => {
+            println!("{}", describe(&too_old));
+            return Ok(ExitCode::from(UPDATE_AVAILABLE));
+        }
+        result => result.map_err(failed)?,
+    };
     let Outcome::Available {
         version,
         released,
@@ -94,7 +101,7 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
         }
     }
     let exe = running_exe()?;
-    eprintln!("{}", text("update-installing", &[("version", v(version))]));
+    println!("{}", text("update-installing", &[("version", v(version))]));
     let installed =
         install(&app, &source, &ProcessRunner::new(app.name), &exe, &outcome).map_err(failed)?;
     println!(
@@ -153,11 +160,21 @@ fn roll_back(app: &App, exe: &Path) -> anyhow::Result<ExitCode> {
             println!("{}", text("update-mcp-restart", &[]));
             Ok(ExitCode::SUCCESS)
         }
-        Err(UpdateError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => Err(anyhow!(text(
-            "update-no-previous",
-            &[("path", v(shown(&previous)))]
-        ))),
-        Err(e) => Err(failed(e)),
+        Err(e) => Err(rollback_error(e, &previous)),
+    }
+}
+
+/// A failed rollback. A missing file means "no previous version" only when it is the previous
+/// version that is missing.
+fn rollback_error(error: UpdateError, previous: &Path) -> anyhow::Error {
+    match error {
+        UpdateError::Io(e)
+            if e.kind() == std::io::ErrorKind::NotFound
+                && std::fs::symlink_metadata(previous).is_err() =>
+        {
+            anyhow!(text("update-no-previous", &[("path", v(shown(previous)))]))
+        }
+        other => failed(other),
     }
 }
 
@@ -188,7 +205,7 @@ fn failed(error: UpdateError) -> anyhow::Error {
     anyhow!(describe(&error))
 }
 
-fn describe(error: &UpdateError) -> String {
+pub(super) fn describe(error: &UpdateError) -> String {
     match error {
         UpdateError::NotWritable(folder) => {
             text("update-not-writable", &[("path", v(shown(folder)))])
@@ -207,6 +224,12 @@ fn describe(error: &UpdateError) -> String {
             ],
         ),
         UpdateError::Busy(lock) => text("update-busy", &[("path", v(shown(lock)))]),
+        UpdateError::Signature | UpdateError::UnknownKey => {
+            text("update-bad-signature", &[("error", v(error))])
+        }
+        UpdateError::NoAssetForPlatform(platform) => {
+            text("update-no-asset", &[("platform", v(platform))])
+        }
         other => text("update-failed", &[("error", v(other))]),
     }
 }
@@ -266,14 +289,48 @@ mod tests {
             "{too_old}"
         );
         assert!(too_old.contains("releases/tag/v0.13.0"), "{too_old}");
+        assert!(too_old.contains("the self-update of"), "{too_old}");
+        for unverified in [UpdateError::Signature, UpdateError::UnknownKey] {
+            let detail = unverified.to_string();
+            assert_eq!(
+                describe(&unverified),
+                text("update-bad-signature", &[("error", v(detail))])
+            );
+        }
         assert_eq!(
             describe(&UpdateError::Signature),
-            "the update failed: the update signature is not valid"
+            "the release could not be verified (the update signature is not valid); nothing was installed"
+        );
+        assert_eq!(
+            describe(&UpdateError::NoAssetForPlatform("linux-riscv".into())),
+            text("update-no-asset", &[("platform", v("linux-riscv"))])
+        );
+        let lock = Path::new("/opt/freemapper/freemapper.update-lock");
+        assert_eq!(
+            describe(&UpdateError::Busy(lock.to_path_buf())),
+            text("update-busy", &[("path", v(lock.display()))])
         );
         assert_eq!(
             shown(Path::new(r"\\?\C:\bin\freemapper.exe")),
             r"C:\bin\freemapper.exe"
         );
         assert_eq!(shown(Path::new("/usr/bin/x")), "/usr/bin/x");
+    }
+
+    #[test]
+    fn a_missing_file_is_no_previous_only_when_previous_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let previous = dir.path().join("freemapper.previous");
+        let not_found = || UpdateError::Io(std::io::ErrorKind::NotFound.into());
+        let no_previous = text("update-no-previous", &[("path", v(previous.display()))]);
+        assert_eq!(
+            rollback_error(not_found(), &previous).to_string(),
+            no_previous
+        );
+        // Another file that is missing (the previous is there) is not "no previous".
+        std::fs::write(&previous, "x").unwrap();
+        let other = rollback_error(not_found(), &previous).to_string();
+        assert_ne!(other, no_previous);
+        assert!(other.starts_with("the update failed"), "{other}");
     }
 }

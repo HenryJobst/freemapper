@@ -93,11 +93,13 @@ update-done = freemapper wurde von { $old } auf { $new } aktualisiert. Versionsh
 update-mcp-restart = Ein laufender MCP-Server behält die alte Version, bis der KI-Assistent ihn neu startet.
 update-rolled-back = Zurück zu freemapper { $version }. Die verlassene Version liegt als { $path } bereit.
 update-not-writable = In den Programmordner { $path } kann nicht geschrieben werden, und freemapper fragt nicht nach Administratorrechten. Entpacken Sie die neue Version dort von Hand oder verschieben Sie freemapper in einen Ordner, in den Sie schreiben dürfen.
-update-too-old = freemapper { $new } lässt sich nicht per Update von { $old } aus installieren. Installieren Sie { $needed } oder neuer von Hand, siehe { $notes }
-update-busy = Im Programmordner läuft schon ein Update oder ein Zurücksetzen (Sperrdatei { $path }). Warten Sie, bis es fertig ist, und versuchen Sie es dann erneut.
+update-too-old = freemapper { $new } lässt sich nicht durch die Selbstaktualisierung von { $old } installieren. Installieren Sie { $needed } oder neuer von Hand, siehe { $notes }
+update-busy = Im Programmordner läuft schon eine Aktualisierung oder ein Zurücksetzen (Sperrdatei { $path }). Warten Sie, bis der Vorgang beendet ist, und versuchen Sie es dann erneut.
+update-bad-signature = Die neue Version ließ sich nicht verifizieren ({ $error }). Es wurde nichts installiert.
+update-no-asset = Die neue Version enthält kein Programm für dieses System ({ $platform }). Es wurde nichts installiert.
 update-no-previous = Es gibt keine vorherige Version, zu der zurückgekehrt werden kann ({ $path } fehlt).
-update-failed = Das Update ist fehlgeschlagen: { $error }
-update-mode-set = Update-Modus { $mode } in { $path } gespeichert.
+update-failed = Die Aktualisierung ist fehlgeschlagen: { $error }
+update-mode-set = Aktualisierungsmodus { $mode } in { $path } gespeichert.
 update-mode-env = FREEMAPPER_UPDATE={ $value } hat Vorrang vor dieser Einstellung, solange die Variable gesetzt ist.
 update-mode-failed = { $path } ließ sich nicht schreiben: { $error }
 update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
@@ -273,7 +275,7 @@ help-update = Eine neuere freemapper-Version aus den GitHub-Releases installiere
 help-update-check = Nur prüfen: Exit-Code 10, wenn es eine neuere Version gibt, 0, wenn diese aktuell ist
 help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Terminal ist
 help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
-help-update-rollback = Zur Version zurückkehren, die das letzte Update ersetzt hat
+help-update-rollback = Zur Version zurückkehren, die die letzte Aktualisierung ersetzt hat
 help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite

@@ -163,6 +163,7 @@ mod tests {
             ("size", v("11.8")),
             ("version", v("0.12.0")),
             ("mode", v("notify")),
+            ("platform", v("linux-riscv")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
