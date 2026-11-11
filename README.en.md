@@ -19,9 +19,9 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
     [Starting point for OCAD](#starting-point-for-ocad);
   - with `--pdf`, the print-ready map as a PDF, and with `--pdf-candidates` also the training map with every candidate, see [Map as PDF](#map-as-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
-- Use it from the command line, through a page in the browser for choosing the map area (see
-  [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or through AI agents (MCP
-  server).
+- Use it from the command line, through a page in the browser where you choose the map area and create the
+  map with all options (see [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or
+  through AI agents (MCP server).
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
   schoolyard maps 1:1000 and sprint maps 1:4000.
@@ -115,8 +115,10 @@ freemapper select my-schoolyard --kind schoolyard
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
 orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
-project; then `freemapper run my-schoolyard --pdf --ocad` makes the maps. The page runs on this computer
-only (127.0.0.1). More in the [user manual, chapter 6](docs/manual/en.md#6-choosing-the-map-area-in-the-browser).
+project. Below it, "Create map" makes the map with the options OCAD, PDF, training PDF, scale bar, source
+lines and "cache only", shows the progress, can be cancelled and opens the folder at the end. No terminal is
+needed for that. The page runs on this computer only (127.0.0.1). More in the
+[user manual, chapter 6](docs/manual/en.md#create-the-map-in-the-browser).
 
 ## Installation
 

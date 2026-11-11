@@ -43,7 +43,7 @@ const TEXTS = {
     tooLarge: (max) =>
       `Das Gebiet ist zu groß: höchstens ${max} m Seitenlänge (mit Puffer). Bitte kleiner wählen.`,
     outside:
-      "Das Gebiet liegt außerhalb der unterstützten Länder (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.",
+      "Das Gebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.",
     settings: "Karte",
     kind: "Kartenart",
     schoolyard: "Schulhofkarte (1:1000)",
@@ -58,10 +58,11 @@ const TEXTS = {
     zoneChanged:
       "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
     hasMap:
-      "Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. „freemapper run --force“ erzeugt auch die Karte neu und behält die alte als .omap.bak.",
+      "Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. Mit der Option „Vorhandene Karte ersetzen“ unten (oder „freemapper run --force“) entsteht auch die Karte neu, die alte bleibt als .omap.bak.",
     done: "Fertig",
     closed: "Fertig. Du kannst dieses Fenster schließen.",
     next: (dir) => `Weiter: freemapper run "${dir}"`,
+    madeFiles: (files, dir) => `Erzeugt: ${files}. Ordner: ${dir}`,
     backToAgent: "Sag deinem KI-Assistenten, dass das Gebiet gespeichert ist.",
     nothingSaved: "Es wurde nichts gespeichert.",
     failed: "Fehler: ",
@@ -133,10 +134,11 @@ const TEXTS = {
     zoneChanged:
       "Saved. The area now lies in another UTM zone; freemapper fetches its data again on the next run.",
     hasMap:
-      "The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. \"freemapper run --force\" makes the map anew too and keeps the old one as .omap.bak.",
+      "The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. The option \"Replace the existing map\" below (or \"freemapper run --force\") makes the map anew too and keeps the old one as .omap.bak.",
     done: "Done",
     closed: "Done. You can close this window.",
     next: (dir) => `Next: freemapper run "${dir}"`,
+    madeFiles: (files, dir) => `Created: ${files}. Folder: ${dir}`,
     backToAgent: "Tell your AI assistant that the area is saved.",
     nothingSaved: "Nothing was saved.",
     failed: "Error: ",
@@ -154,15 +156,26 @@ const TEXTS = {
   },
 };
 
-const T = (navigator.language || "de").toLowerCase().startsWith("de") ? TEXTS.de : TEXTS.en;
-document.documentElement.lang = T === TEXTS.de ? "de" : "en";
-document.querySelectorAll("[data-text]").forEach((el) => {
-  const text = T[el.dataset.text];
-  if (typeof text === "string") el.textContent = text;
-});
-document.querySelectorAll("[data-placeholder]").forEach((el) => {
-  el.placeholder = T[el.dataset.placeholder];
-});
+// The language of the browser; `project.lang` (the program language of the suite) wins once the
+// server sends one.
+let T = (navigator.language || "de").toLowerCase().startsWith("de") ? TEXTS.de : TEXTS.en;
+
+/** The page language: "de" or "en". */
+function lang() {
+  return T === TEXTS.de ? "de" : "en";
+}
+
+function applyTexts() {
+  document.documentElement.lang = lang();
+  document.querySelectorAll("[data-text]").forEach((el) => {
+    const text = T[el.dataset.text];
+    if (typeof text === "string") el.textContent = text;
+  });
+  document.querySelectorAll("[data-placeholder]").forEach((el) => {
+    el.placeholder = T[el.dataset.placeholder];
+  });
+}
+applyTexts();
 
 const $ = (id) => document.getElementById(id);
 
@@ -172,7 +185,13 @@ async function api(path, body) {
     : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   const response = await fetch(path, options);
   const answer = await response.json().catch(() => ({ error: response.statusText }));
-  if (!response.ok) throw new Error(answer.error || response.statusText);
+  if (!response.ok) {
+    const error = new Error(answer.error || response.statusText);
+    // Callers that need more than the text (409 with a job, 422 with the disk plan).
+    error.status = response.status;
+    error.body = answer;
+    throw error;
+  }
   return answer;
 }
 
@@ -301,6 +320,30 @@ let preview = null;
 // Answers to older preview requests are dropped.
 let previewRequest = 0;
 let savedHere = false;
+// True while a run goes on: the area, the settings and "Save" are locked.
+let busy = false;
+// The area and source as last saved or loaded; a different one needs a save before a run.
+let savedSignature = null;
+
+function signature() {
+  return JSON.stringify({ area, sourceId });
+}
+
+/** Tells the run panel that the area, the preview or the project changed. */
+function notifyRun() {
+  if (window.freemapperRun) window.freemapperRun.refresh();
+}
+
+/** The enabled state of every control that a run locks. */
+function updateControls() {
+  const unusable = !area || !preview || preview.too_large || preview.outside_coverage;
+  $("save").disabled = busy || unusable;
+  for (const id of ["draw-rectangle", "draw-polygon", "finish-polygon", "clear", "query", "done"]) {
+    $(id).disabled = busy;
+  }
+  $("search").querySelector("button").disabled = busy;
+  for (const id of ["kind", "scale", "title"]) $(id).disabled = busy || (project && project.exists);
+}
 
 function setMessage(text, kind) {
   const el = $("message");
@@ -339,6 +382,7 @@ async function updatePreview() {
   if (!area) return;
   const request = ++previewRequest;
   $("save").disabled = true;
+  notifyRun();
   try {
     const body = { area, source_id: sourceId };
     if (project && !project.exists) body.kind = $("kind").value;
@@ -346,14 +390,16 @@ async function updatePreview() {
     if (request !== previewRequest) return;
     preview = answer;
     showPreview();
-    $("save").disabled = preview.too_large || preview.outside_coverage;
+    updateControls();
     setMessage("");
   } catch (e) {
     if (request !== previewRequest) return;
     preview = null;
     showPreview();
+    updateControls();
     setMessage(T.failed + e.message, "error");
   }
+  notifyRun();
 }
 
 function showPreview() {
@@ -473,6 +519,7 @@ $("search").addEventListener("submit", async (event) => {
           return li;
         }
         li.addEventListener("click", async () => {
+          if (busy) return;
           setMessage(T.searching);
           try {
             const found = await api(`api/place?osm_id=${encodeURIComponent(place.osm_id)}`);
@@ -542,6 +589,7 @@ function finishPolygon() {
 }
 
 map.on("click", (event) => {
+  if (busy) return;
   if (mode === "rectangle") {
     points.push(event.latlng);
     if (points.length === 2) {
@@ -598,18 +646,18 @@ $("clear").addEventListener("click", () => {
   preview = null;
   areaLayer.clearLayers();
   showPreview();
-  $("save").disabled = true;
+  updateControls();
   setMessage("");
+  notifyRun();
 });
 
 // --- Settings, save, done --------------------------------------------------------------------
 
-// The scales freemapper-print accepts per map kind (ADR 0085); the first is the default.
-const SCALES = { schoolyard: [1000], sprint: [4000, 5000] };
-
-// Fills the scale list for `kind`; a stored scale outside the table stays selectable.
+// Fills the scale list for `kind` from the server's table (`allowed_scales`, ADR 0085; the first
+// is the default); a stored scale outside the table stays selectable.
 function fillScales(kind, current) {
-  const list = [...(SCALES[kind] || SCALES.schoolyard)];
+  const table = (project && project.allowed_scales) || {};
+  const list = [...(table[kind] || (current ? [current] : []))];
   if (current && !list.includes(current)) list.push(current);
   $("scale").replaceChildren(...list.map((s) => new Option(String(s), String(s))));
   $("scale").value = String(current || list[0]);
@@ -621,8 +669,11 @@ $("kind").addEventListener("change", () => {
   updatePreview();
 });
 
-$("save").addEventListener("click", async () => {
-  if (!area) return;
+$("save").addEventListener("click", saveArea);
+
+/** Saves the area (and, for a new project, kind, scale and title); true when it worked. */
+async function saveArea() {
+  if (!area || busy) return false;
   setMessage(T.saving);
   $("save").disabled = true;
   try {
@@ -634,16 +685,30 @@ $("save").addEventListener("click", async () => {
     }
     const answer = await api("api/save", body);
     savedHere = true;
+    savedSignature = signature();
     setMessage(answer.zone_changed ? T.zoneChanged : T.saved, "ok");
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
     showSettings();
+    return true;
   } catch (e) {
     setMessage(T.failed + e.message, "error");
+    return false;
   } finally {
-    $("save").disabled = !area || !preview || preview.too_large || preview.outside_coverage;
+    updateControls();
+    notifyRun();
   }
-});
+}
+
+/** True when the shown area is the one in freemapper.toml. */
+function isSaved() {
+  return !!project && project.exists && signature() === savedSignature;
+}
+
+/** Saves first when the area changed; true when the project on disk matches the page. */
+async function ensureSaved() {
+  return isSaved() ? true : saveArea();
+}
 
 $("done").addEventListener("click", async () => {
   try {
@@ -651,11 +716,12 @@ $("done").addEventListener("click", async () => {
   } catch (e) {
     // The server may close before it answers; the page is finished either way.
   }
-  $("next").textContent = !savedHere
+  const made = window.freemapperRun && window.freemapperRun.closingText();
+  $("next").textContent = !savedHere && !made
     ? T.nothingSaved
     : project && project.from_agent
       ? T.backToAgent
-      : T.next(project ? project.dir : "");
+      : made || T.next(project ? project.dir : "");
   $("closed").hidden = false;
 });
 
@@ -663,23 +729,58 @@ function showSettings() {
   $("kind").value = project.kind;
   fillScales(project.kind, project.scale);
   $("title").value = project.title || "";
-  for (const id of ["kind", "scale", "title"]) $(id).disabled = project.exists;
+  updateControls();
   $("settings-fixed").hidden = !project.exists;
 }
 
+/** A run starts or ends: the area controls lock while it goes on. */
+function setBusy(value) {
+  busy = value;
+  if (busy) setMode(null);
+  updateControls();
+}
+
+// What the run panel (run.js) may use.
+window.freemapperPage = {
+  api,
+  lang,
+  getProject: () => project,
+  getPreview: () => preview,
+  hasArea: () => !!area,
+  isSaved,
+  ensureSaved,
+  setBusy,
+  async reloadProject() {
+    project = await api("api/project");
+    $("has-map").hidden = !project.has_map;
+    showSettings();
+    return project;
+  },
+};
+
 // --- Start -----------------------------------------------------------------------------------
 
-(async () => {
+async function start() {
   setMode(null);
   try {
     project = await api("api/project");
+    if (project.lang === "de" || project.lang === "en") {
+      T = TEXTS[project.lang];
+      applyTexts();
+    }
     $("folder").textContent = project.dir;
     showSettings();
     $("has-map").hidden = !project.has_map;
     if (project.area) {
       await chooseArea(project.area, project.source_id, null, true);
+      savedSignature = signature();
     }
+    if (window.freemapperRun) window.freemapperRun.init(project);
   } catch (e) {
     setMessage(T.failed + e.message, "error");
   }
-})();
+}
+
+// After run.js has loaded, which comes right after this script.
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+else start();

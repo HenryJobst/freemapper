@@ -6,6 +6,7 @@ mod mcp;
 mod nominatim;
 mod pipeline;
 mod select;
+mod select_page;
 mod select_run;
 mod text;
 mod tiles;

@@ -193,9 +193,76 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
   - den freien Speicherplatz und wie viel davon der Download braucht. Was nicht auf den Datenträger
     passt, trägt in der Liste „Was geladen wird“ den Vermerk „passt nicht auf den Datenträger“.
     Darüber stehen die Meldungen aus Kapitel 14 und ob freemapper den Teil auslässt oder abbricht.
-- **Kartenart, Maßstab und Titel** einstellen, dann *Speichern* und *Fertig*.
+- **Kartenart, Maßstab und Titel** einstellen, dann *Speichern*. Danach können Sie die Karte gleich auf
+  der Seite erzeugen (nächster Abschnitt) oder mit *Fertig* schließen und `freemapper run` im Terminal
+  starten.
 
 Die Seite läuft nur auf Ihrem Rechner. Ein Gebiet darf mit Puffer höchstens 4 km × 4 km groß sein.
+
+### Karte im Browser erzeugen
+
+Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Terminal.
+
+![Die Optionen unter den Einstellungen](images/run-options.webp)
+
+*Die Optionen mit den Voreinstellungen des Beispiels (PDF, nur Zwischenspeicher, Quellenangabe „nur freemapper“).*
+
+1. **Gebiet wählen** wie oben. Der Knopf „Karte erzeugen“ bleibt aus, solange kein Gebiet gewählt ist, die
+   Vorschau noch rechnet, das Gebiet zu groß ist oder außerhalb der unterstützten Bundesländer liegt oder
+   der Speicherplatz nicht reicht (ohne „Nur Zwischenspeicher“). Die Zeile über dem Knopf nennt den Grund.
+2. **Optionen setzen.** Sie entsprechen den Schaltern von `freemapper run`:
+
+   | Option auf der Seite | Schalter im Terminal |
+   |---|---|
+   | OCAD-Startprojekt schreiben | `--ocad` |
+   | Druckfertige PDF | `--pdf` |
+   | Trainings-PDF mit allen Kandidaten | `--pdf-candidates` |
+   | Maßstabsleiste in die PDFs | `--pdf-scale-bar` |
+   | Quellenangabe in den PDFs: automatisch, vollständig, nur freemapper | `--pdf-sources auto`, `full`, `credit-only` |
+   | Nur Zwischenspeicher, kein Netz | `--offline` |
+   | Vorhandene Karte ersetzen | `--force` |
+
+   Maßstabsleiste und Quellenangabe gelten nur, wenn eine PDF entsteht; ohne PDF sind sie ausgegraut.
+   „Nur freemapper“ nennt in den PDFs nur freemapper. Die Lizenzen der Daten (ODbL, dl-de/by-2-0) verlangen
+   die Quellenangabe, wenn Sie die Karte weitergeben; dann nennen Sie die Quellen selbst. Die Seite zeigt
+   diesen Hinweis, sobald Sie die Wahl treffen. Kartenart, Maßstab und Titel stellen Sie weiter oben ein;
+   bei einem vorhandenen Projekt sind sie schreibgeschützt (sie stehen in `freemapper.toml`).
+3. **„Karte erzeugen“ drücken.** Hat sich das Gebiet seit dem letzten Speichern geändert, speichert die Seite
+   zuerst. „Vorhandene Karte ersetzen“ erscheint nur, wenn es schon eine Karte gibt, und ist nie vorgewählt.
+   Ist sie angehakt, fragt ein Dialog nach; „Abbrechen“ ist dort vorgewählt. Die alte Karte bleibt als
+   `.omap.bak` im Projektordner.
+4. **Fortschritt:** Die Seite zeigt „Schritt 2 von 4: Vorlagen berechnen“, einen Balken ohne Prozentangabe
+   (freemapper kennt die Dauer nicht), die letzten acht Zeilen des Protokolls und die Warnungen, etwa zu einem
+   zweiten Bundesland im Gebiet. Die Warnungen bleiben nach dem Lauf stehen. Solange der Lauf geht, sind
+   Gebiet, Einstellungen, „Speichern“ und „Fertig“ gesperrt. Laden Sie die Seite neu, zeigt sie den laufenden
+   Lauf weiter an.
+
+   ![Fortschritt eines Laufs](images/run-progress.webp)
+
+   *Der Fortschritt mitten im Lauf (für die Abbildung mit einer gestellten Serverantwort).*
+5. **Abbrechen:** „Abbrechen“ hält den Lauf an der nächsten Stelle an. Was schon geschrieben oder geladen
+   ist, bleibt ganz erhalten (keine halben Dateien); ein neuer Lauf macht dort weiter.
+6. **Ergebnis:** Die Seite sagt, ob der Lauf fertig, fehlgeschlagen oder abgebrochen ist, listet die Dateien
+   mit Größe und nennt den Projektordner. „Ordner öffnen“ öffnet ihn im Dateimanager; geht das nicht, steht
+   der Pfad als Text da. Gab es schon eine Karte und war „Vorhandene Karte ersetzen“ aus, bleibt sie
+   unverändert, und die Seite sagt das. Bei einem Fehler steht die Meldung des Programms da; „Nochmal
+   erzeugen“ startet einen neuen Lauf.
+
+**Ein Ordner, ein Lauf.** Im Projektordner liegt während eines Laufs die Datei `.freemapper-run.lock`. Ein
+zweiter Lauf, vom Terminal, von einem KI-Assistenten oder aus einem zweiten Browserfenster, hört mit der
+Meldung „Ein anderer freemapper-Lauf verwendet diesen Ordner (seit …, gestartet von …)“ auf. Warten Sie, bis
+der erste fertig ist, oder brechen Sie ihn ab. Nach einem Absturz gilt die Sperre nach 60 Sekunden als
+verwaist. Läuft ein Lauf eines anderen Projekts, startet der neue nicht, denn die Projekte teilen sich den
+Zwischenspeicher.
+
+**Voreinstellungen** setzen Sie beim Start der Seite: `freemapper select mein-schulhof --pdf --ocad` hakt
+die beiden Optionen schon an. Es gibt `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+`--pdf-sources auto|full|credit-only` und `--offline`; der KI-Assistent kann dieselben Felder an
+`open_area_selector` übergeben. „Vorhandene Karte ersetzen“ hat keine Voreinstellung.
+
+Die Seite spricht Deutsch oder Englisch, je nach Sprache des Browsers. Sie ruft keine Adresse außerhalb Ihres
+Rechners auf, außer den Kartenkacheln im Hintergrund (über den lokalen Server) und den Luftbild-Diensten,
+wenn Sie sie einschalten.
 
 ## 7. Das Ergebnis
 
