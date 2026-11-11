@@ -902,6 +902,18 @@ fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
 
 fn g4_pipeline_of(id: &str) {
     let (replayed, hashes) = golden_pipeline(id);
+    // `FREEMAPPER_GOLDEN_KEEP=1` keeps every output in `target/golden-outputs/<id>/`, to look at
+    // or to compare with those of another system.
+    if std::env::var_os("FREEMAPPER_GOLDEN_KEEP").is_some() {
+        let kept = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/golden-outputs")
+            .join(id);
+        for (file, path) in files_under(&replayed.dir) {
+            let copy = kept.join(&file);
+            std::fs::create_dir_all(copy.parent().expect("a folder")).unwrap();
+            std::fs::copy(&path, &copy).unwrap();
+        }
+    }
     let name = format!("{id}/expected.sha256");
     let mut text = hashes.join("\n");
     text.push('\n');

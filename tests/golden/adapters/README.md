@@ -53,6 +53,11 @@ Version 0 was the pilot (Saxony-Anhalt and Hesse, 8.5 MB). Version 1 holds all e
 surface model tile), Berlin 47 MB, Brandenburg and Saxony 31 MB each; the other seven states
 have 7 MB or less each.
 
+To look at the outputs of a run, or to compare them with another system's, set
+`FREEMAPPER_GOLDEN_KEEP=1`: G4 then copies every file to `target/golden-outputs/<id>/`. A failing
+G4 keeps the files that differ in `target/golden-diff/<id>/`, and the CI job `golden` uploads
+that folder.
+
 ## When a golden changes
 
 A commit whose subject starts with `refactor(` must not change any file here; the CI guard

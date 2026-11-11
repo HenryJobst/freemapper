@@ -355,6 +355,40 @@ pub struct ProjectFile {
     pub ndsm_tiles: Vec<NdsmRecord>,
 }
 
+/// The grid the area of a raster record is stored on, in metres. A projected coordinate differs
+/// in its last digits from one maths library to the next; on this grid the project file is the
+/// same bytes on every system.
+const STORED_METRE: f64 = 0.001;
+
+/// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
+const STORED_DEGREE: f64 = 1e-8;
+
+/// `value` on the grid of `step`.
+fn on_grid(value: f64, step: f64) -> f64 {
+    (value / step).round() * step
+}
+
+/// `bbox` as a raster record stores it: rounded to the millimetre.
+fn stored_bbox(bbox: &BoundingBox) -> [f64; 4] {
+    [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n].map(|value| on_grid(value, STORED_METRE))
+}
+
+/// `area` as the OSM record stores it.
+fn stored_geo_box(area: &GeoBox) -> [f64; 4] {
+    [area.min_lat, area.min_lon, area.max_lat, area.max_lon]
+        .map(|value| on_grid(value, STORED_DEGREE))
+}
+
+/// Whether the stored area of a raster record covers `bbox`. The rounding of [`stored_bbox`]
+/// may leave it up to half a millimetre short, which counts as covered.
+fn stored_bbox_covers(stored: [f64; 4], bbox: &BoundingBox) -> bool {
+    let [min_e, min_n, max_e, max_n] = stored;
+    min_e <= bbox.min_e + STORED_METRE
+        && min_n <= bbox.min_n + STORED_METRE
+        && max_e >= bbox.max_e - STORED_METRE
+        && max_n >= bbox.max_n - STORED_METRE
+}
+
 /// The orthophoto fetched from a WMS for one area.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WmsRecord {
@@ -372,8 +406,7 @@ pub struct WmsRecord {
 
 impl WmsRecord {
     fn covers(&self, bbox: &BoundingBox) -> bool {
-        let [min_e, min_n, max_e, max_n] = self.bbox;
-        min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
+        stored_bbox_covers(self.bbox, bbox)
     }
 }
 
@@ -390,8 +423,7 @@ pub struct WcsRecord {
 
 impl WcsRecord {
     fn covers(&self, bbox: &BoundingBox) -> bool {
-        let [min_e, min_n, max_e, max_n] = self.bbox;
-        min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
+        stored_bbox_covers(self.bbox, bbox)
     }
 }
 
@@ -417,10 +449,10 @@ pub struct OsmRecord {
 impl OsmRecord {
     fn covers(&self, area: &GeoBox) -> bool {
         let [min_lat, min_lon, max_lat, max_lon] = self.area;
-        min_lat <= area.min_lat
-            && min_lon <= area.min_lon
-            && max_lat >= area.max_lat
-            && max_lon >= area.max_lon
+        min_lat <= area.min_lat + STORED_DEGREE
+            && min_lon <= area.min_lon + STORED_DEGREE
+            && max_lat >= area.max_lat - STORED_DEGREE
+            && max_lon >= area.max_lon - STORED_DEGREE
     }
 }
 
@@ -1456,7 +1488,7 @@ fn fetch_wms_orthophoto(
                     flight,
                     flight_label,
                     fetched: crate::clock::today(),
-                    bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+                    bbox: stored_bbox(bbox),
                 });
             }
         }
@@ -1520,7 +1552,7 @@ fn fetch_k5_into(
                 flight: Some(K5_DATASET_DATE.to_string()),
                 flight_label: Some("K5 dataset".to_string()),
                 fetched: crate::clock::today(),
-                bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+                bbox: stored_bbox(bbox),
             });
         }
         Err(e) => {
@@ -1574,7 +1606,7 @@ fn fetch_lvermgeo_rasters(
     )?;
     let record = |date: Option<String>| WcsRecord {
         fetched: crate::clock::today(),
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        bbox: stored_bbox(bbox),
         date,
     };
     match mode {
@@ -1654,7 +1686,7 @@ fn fetch_lgv_rasters(
             (FetchMode::Offline, Some(old)) => old.fetched,
             _ => crate::clock::today(),
         },
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        bbox: stored_bbox(bbox),
         date: Some(model.date().to_string()),
     };
     let warn_missing = |progress: &mut dyn FnMut(Note), model: Model, missing: Vec<_>| {
@@ -1748,7 +1780,7 @@ fn height_record(
             (FetchMode::Offline, Some(old)) => old.fetched,
             _ => crate::clock::today(),
         },
-        bbox: [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n],
+        bbox: stored_bbox(bbox),
         // Offline without the portal's tile list there is no date: the stored file is unchanged.
         date: found.date.clone().or_else(|| {
             old.as_ref()
@@ -2472,7 +2504,7 @@ fn fetch_osm_into(
         .expect("every map area touches a region");
     Ok(OsmRecord {
         extract: extract_date,
-        area: [area.min_lat, area.min_lon, area.max_lat, area.max_lon],
+        area: stored_geo_box(&area),
         count: features.len(),
     })
 }
@@ -7090,6 +7122,41 @@ mod tests {
                 .all(|line| *line == "fetched = \"2020-01-02\""),
             "{fetched:?}"
         );
+    }
+
+    /// The project file must be the same bytes on every system. A projected coordinate differs
+    /// in its last digits with the maths library, so the areas of the records are stored on a
+    /// grid, and a record still covers the area it was fetched for.
+    #[test]
+    fn stored_areas_are_on_a_grid() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        let bbox = project.bbox().unwrap();
+        let gridded = |value: f64, step: f64| (on_grid(value, step) - value).abs() < step / 1e3;
+        let wms = project.orthophoto.clone().unwrap();
+        let terrain = project.terrain.clone().unwrap();
+        let surface = project.surface.clone().unwrap();
+        for stored in [wms.bbox, terrain.bbox, surface.bbox] {
+            assert!(
+                stored.iter().all(|v| gridded(*v, STORED_METRE)),
+                "{stored:?}"
+            );
+        }
+        assert!(wms.covers(&bbox) && terrain.covers(&bbox) && surface.covers(&bbox));
+        let osm = project.osm.clone().unwrap();
+        assert!(
+            osm.area.iter().all(|v| gridded(*v, STORED_DEGREE)),
+            "{:?}",
+            osm.area
+        );
+        assert!(osm.covers(&project.area().unwrap().geo_box(project.buffer_m)));
+        // A record written before the grid, with every digit of the projection, still covers.
+        let exact = [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n];
+        assert!(stored_bbox_covers(exact, &bbox));
+        // One that ends a centimetre short does not.
+        let short = [bbox.min_e + 0.01, bbox.min_n, bbox.max_e, bbox.max_n];
+        assert!(!stored_bbox_covers(short, &bbox));
     }
 
     #[test]
