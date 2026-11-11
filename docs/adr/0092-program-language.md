@@ -29,7 +29,7 @@ freemapper-core.
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
   | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
   | 3 | progress lines and warnings of the engine | done, see below |
-  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page done, see below; rest open |
+  | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page and `--help` done, see below; the MCP texts and the closing summaries of a run open |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
 
@@ -78,10 +78,23 @@ freemapper-core.
 - English as the mere fallback does not count as named. Otherwise a German browser on Windows, where `LANG` is
   usually missing, would get an English page after this change.
 
+### Stage 4, second part: `--help` and the parse errors (2026-11-11)
+
+- The doc comments of the clap derive stay the English help. The catalog holds the same texts under `help-…` ids
+  (`help-<command>`, `help-<command>-<argument>`, `help-arg-<argument>` for an argument that reads the same in
+  every command), and a test compares the English catalog with the doc comments. A new option without a catalog
+  text fails that test.
+- `src/help.rs` rebuilds the derived command with the catalog's texts, as freemapper-courseplan does: the headings,
+  "possible values" and "default", the `help` command and the `-h`/`-V` flags. `--lang` is read from the raw
+  arguments before clap parses, because the help itself needs the language.
+- The common parse errors (unknown argument or command, missing argument, invalid value, conflict) come from the
+  catalog and start with `error:` or `Fehler:`; the rare kinds keep clap's English text. The exit code stays 2.
+- Still clap's: the placeholders in the usage line (`[OPTIONS]`, `<COMMAND>`, `<DIR>`).
+
 ## Consequences
 
-- A German run still shows English in `--help` and in the closing summaries of a run (stage 4). The manual says
-  so.
+- A German run still shows English in the texts of the MCP server: the tool descriptions and the closing
+  summaries of a run (stage 4).
 - Windows and macOS set `LANG` only in some shells. Where it is missing, the program is English unless
   `FREEMAPPER_LANG` or `--lang` is given. That is the suite's rule; reading the system language through the
   operating system would be a change for all three programs.

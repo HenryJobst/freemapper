@@ -14,6 +14,11 @@ and run `cargo test -p freemapper-cli`. The tests name every missing message, ev
 between languages, every id the code uses but the catalog lacks, and every id the catalog holds but the code
 does not use.
 
+The help has ids that start with `help-`: `help-<command>` for a command, `help-<command>-<argument>` for an
+argument, `help-arg-<argument>` for one that reads the same in every command. The English text equals the doc
+comment in `src/main.rs`; `cargo test -p freemapper-cli print_the_english_help -- --ignored --nocapture` prints
+the entries for new options.
+
 Progress lines and warnings of the engine are not in this folder. Their texts live beside the engine, in
 `crates/freemapper/i18n/<language>/notes.ftl`, with ids that start with `progress-`, `warning-` and `word-`
 (`crates/freemapper/src/note.rs`); `cargo test -p freemapper` checks them the same way.
