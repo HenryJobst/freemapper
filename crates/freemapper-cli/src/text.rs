@@ -13,14 +13,18 @@
 //! counts (`de`, `de-DE` and `de_DE.UTF-8` all mean German). A `--lang` value that names no
 //! available language is a usage error.
 
+use std::collections::BTreeMap;
 use std::sync::OnceLock;
 
 use freemapper_text::Catalog;
 pub use freemapper_text::{FluentValue, Lang};
 
+/// The English catalog, the reference.
+const ENGLISH: &str = include_str!("../i18n/en/freemapper.ftl");
+
 /// The embedded catalogs: language code and file content. English comes first.
 pub static TEXTS: Catalog = Catalog::new(&[
-    ("en", include_str!("../i18n/en/freemapper.ftl")),
+    ("en", ENGLISH),
     ("de", include_str!("../i18n/de/freemapper.ftl")),
 ]);
 
@@ -73,9 +77,64 @@ pub fn lang() -> Lang {
 }
 
 /// The language of this run when `--lang` or the environment named it. The selection page takes
-/// it over; without one it follows the browser.
+/// it over; without one it follows the browser ([`page_lang`]).
 pub fn named_lang() -> Option<Lang> {
     NAMED.get().copied().unwrap_or(false).then(lang)
+}
+
+/// The language of the area page's texts (core ADR 0030, the rule of ADR 0092): the language
+/// `--lang` or the environment named ([`named_lang`]), else the browser's from `accept_language`,
+/// else English.
+pub fn page_lang(accept_language: Option<&str>) -> Lang {
+    let fixed = named_lang().map(|lang| lang.code());
+    let code = freemapper_web::texts_language(fixed.as_deref(), accept_language);
+    TEXTS
+        .parse_lang_arg(code)
+        .unwrap_or_else(|_| Lang::english())
+}
+
+/// The area page's messages (`page-*`) and those of the suite's page modules (`suite-*`) in
+/// `lang`, for `api/texts` (ADR 0096). A value stays as `{ $name }` in the text; the page fills it
+/// in. These messages have no selectors, so every variable is such a placeholder.
+pub fn page_texts(lang: &Lang) -> BTreeMap<String, String> {
+    TEXTS
+        .message_ids("en")
+        .into_iter()
+        .filter(|id| id.starts_with("page-") || id.starts_with("suite-"))
+        .map(|id| {
+            let names = variables_of(ENGLISH, &id);
+            let placeholders: Vec<(&str, FluentValue)> = names
+                .iter()
+                .map(|name| (name.as_str(), v(format!("{{ ${name} }}"))))
+                .collect();
+            let text = TEXTS.text(lang, &id, &placeholders);
+            (id, text)
+        })
+        .collect()
+}
+
+/// The variables (`$name`) of the message `id` in the Fluent `source`: its first line and the
+/// indented lines after it.
+fn variables_of(source: &str, id: &str) -> Vec<String> {
+    let mut lines = source.lines().skip_while(|line| {
+        line.split_once('=')
+            .is_none_or(|(name, _)| name.trim_end() != id || name.starts_with(' '))
+    });
+    let mut message = lines.next().unwrap_or_default().to_owned();
+    for line in lines.take_while(|line| line.starts_with(' ')) {
+        message.push_str(line);
+    }
+    let mut names = Vec::new();
+    for (at, _) in message.match_indices('$') {
+        let name: String = message[at + 1..]
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+            .collect();
+        if !name.is_empty() && !names.contains(&name) {
+            names.push(name);
+        }
+    }
+    names
 }
 
 /// The text `id` in the language of this run.
@@ -164,9 +223,23 @@ mod tests {
             ("version", v("0.12.0")),
             ("mode", v("notify")),
             ("platform", v("linux-riscv")),
+            // The area page's patterns (`page-*`); the page fills them in itself.
+            ("n", n(2)),
+            ("names", v("33421-5821, 33421-5822")),
+            ("mb", v(350)),
+            ("volumes", v("1 GB free, about 350 MB needed")),
+            ("free", v("1 GB")),
+            ("max", v(1500)),
+            ("dir", v("/p")),
+            ("index", v(1)),
+            ("total", v(3)),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
+
+    /// The id families the Rust code names: `page-` for the area page's sentences the server
+    /// writes (a stale save), the others as in `i18n/README.md`.
+    const PREFIXES: [&str; 6] = ["cli-", "error-", "word-", "mcp-", "update-", "page-"];
 
     #[test]
     fn every_id_used_in_the_code_exists() {
@@ -175,6 +248,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
@@ -186,10 +260,7 @@ mod tests {
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
         ] {
-            for id in freemapper_text::ids_in_source(
-                source,
-                &["cli-", "error-", "word-", "mcp-", "update-"],
-            ) {
+            for id in freemapper_text::ids_in_source(source, &PREFIXES) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
@@ -198,6 +269,7 @@ mod tests {
             include_str!("main.rs"),
             include_str!("text.rs"),
             include_str!("lock.rs"),
+            include_str!("select.rs"),
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
@@ -210,14 +282,12 @@ mod tests {
             include_str!("update/source.rs"),
         ]
         .iter()
-        .flat_map(|source| {
-            freemapper_text::ids_in_source(source, &["cli-", "error-", "word-", "mcp-", "update-"])
-        })
+        .flat_map(|source| freemapper_text::ids_in_source(source, &PREFIXES))
         .collect();
         // The help and the MCP descriptions are looked up by name; `help.rs` and `mcp.rs` test
-        // those.
+        // those. The area page's texts are used by its scripts; `select_page.rs` tests those.
         for id in english.iter().filter(|id| {
-            !["help-", "mcp-tool-", "mcp-param-"]
+            !["help-", "mcp-tool-", "mcp-param-", "page-", "suite-"]
                 .iter()
                 .any(|p| id.starts_with(p))
         }) {
@@ -258,6 +328,40 @@ mod tests {
             TEXTS.text(&de(), "cli-fetched-tiles", &two),
             "2 Kacheln geladen"
         );
+    }
+
+    #[test]
+    fn page_texts_keep_their_placeholders_for_the_page() {
+        let english = page_texts(&Lang::english());
+        assert_eq!(
+            english["page-size"],
+            "Size with buffer: { $width } × { $height } m"
+        );
+        assert_eq!(
+            english["page-step-line"],
+            "Step { $index } of { $total }: { $label }"
+        );
+        assert_eq!(english["suite-banner-dismiss"], "Dismiss");
+        let german = page_texts(&de());
+        assert_eq!(german["page-tiles-one"], "{ $n } Kachel: { $names }");
+        assert_eq!(german["page-tiles-other"], "{ $n } Kacheln: { $names }");
+        assert_eq!(german["page-next"], r#"Weiter: freemapper run "{ $dir }""#);
+        // Only the page's families, and every message of them.
+        assert!(
+            english
+                .keys()
+                .all(|id| id.starts_with("page-") || id.starts_with("suite-"))
+        );
+        assert_eq!(english.len(), german.len());
+        assert!(english.contains_key("page-save-stale"));
+    }
+
+    #[test]
+    fn variables_are_read_from_the_message_only() {
+        let source = "a = x { $one }\n    and { $two }\nb = { $three }\nab = { $four }\n";
+        assert_eq!(variables_of(source, "a"), ["one", "two"]);
+        assert_eq!(variables_of(source, "ab"), ["four"]);
+        assert!(variables_of(source, "c").is_empty());
     }
 
     #[test]

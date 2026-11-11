@@ -75,7 +75,12 @@ impl Selector {
     }
 
     fn post(&self, path: &str, body: Value) -> (u16, Value) {
-        let mut response = self
+        self.post_with_revision(path, body, None)
+    }
+
+    /// A POST as the page sends it, with the revision header when `revision` is given.
+    fn post_with_revision(&self, path: &str, body: Value, revision: Option<&str>) -> (u16, Value) {
+        let mut request = self
             .agent
             .post(&format!("{}{path}", self.url))
             .header("Content-Type", "application/json")
@@ -83,15 +88,30 @@ impl Selector {
             .header(
                 "Origin",
                 self.url.split('/').take(3).collect::<Vec<_>>().join("/"),
-            )
-            .send(body.to_string())
-            .unwrap();
+            );
+        if let Some(revision) = revision {
+            request = request.header("X-Freemapper-Revision", revision);
+        }
+        let mut response = request.send(body.to_string()).unwrap();
         let status = response.status().as_u16();
         let text = response.body_mut().read_to_string().unwrap();
         (
             status,
             serde_json::from_str(&text).unwrap_or(Value::String(text)),
         )
+    }
+
+    /// The project as the page reads it.
+    fn project(&self) -> Value {
+        let (status, body) = self.get("api/project");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str(&body).unwrap()
+    }
+
+    /// A save as the page makes it: with the revision of freemapper.toml it read last.
+    fn save(&self, body: Value) -> (u16, Value) {
+        let revision = self.project()["revision"].as_str().map(str::to_owned);
+        self.post_with_revision("api/save", body, revision.as_deref())
     }
 
     /// `127.0.0.1:<port>` and the token of the URL.
@@ -267,24 +287,115 @@ fn save_changes_an_existing_area() {
     let rectangle = json!({ "type": "Polygon", "coordinates": [[
         [13.843, 52.539], [13.846, 52.539], [13.846, 52.541], [13.843, 52.541], [13.843, 52.539]
     ]] });
-    let (status, saved) = selector.post("api/save", json!({ "area": rectangle }));
+    let (status, saved) = selector.save(json!({ "area": rectangle }));
     assert_eq!(status, 200, "{saved}");
     let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(text.contains("13.846") && text.contains("Schule"), "{text}");
     assert!(!text.contains("way/992423119"), "{text}");
     assert_eq!(saved["zone_changed"], false);
     // Halle, Saxony-Anhalt: the map moves to UTM zone 32.
-    let (status, saved) =
-        selector.post("api/save", json!({ "area": rectangle_at(11.971, 51.478) }));
+    let (status, saved) = selector.save(json!({ "area": rectangle_at(11.971, 51.478) }));
     assert_eq!(status, 200, "{saved}");
     assert_eq!(saved["zone_changed"], true, "{saved}");
     let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(text.contains("crs = 25832"), "{text}");
     // Hamburg lies in the same zone, but another provider serves it: the data is dropped as well.
-    let (status, saved) = selector.post("api/save", json!({ "area": rectangle_at(9.98, 53.59) }));
+    let (status, saved) = selector.save(json!({ "area": rectangle_at(9.98, 53.59) }));
     assert_eq!(status, 200, "{saved}");
     assert_eq!(saved["zone_changed"], false, "{saved}");
     assert_eq!(saved["provider_changed"], true, "{saved}");
+}
+
+/// A project made by `init` in a fresh folder and a page on it.
+fn page_on_a_project() -> (
+    tempfile::TempDir,
+    tempfile::TempDir,
+    std::path::PathBuf,
+    Selector,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        .env("FREEMAPPER_LANG", "en")
+        .arg("init")
+        .arg(&project)
+        .args(["--geojson", FIXTURE])
+        .stdout(Stdio::null())
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let selector = Selector::start(&project, cache.path(), &[]);
+    (dir, cache, project, selector)
+}
+
+#[test]
+fn save_with_a_stale_revision_is_refused_and_writes_nothing() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let file = project.join("freemapper.toml");
+    let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+    assert_eq!(seen.len(), 16, "{seen}");
+    // Another window (or a run in a terminal) writes the file after this page read it.
+    let mut other = std::fs::read_to_string(&file).unwrap();
+    other.push_str("\n# changed elsewhere\n");
+    std::fs::write(&file, &other).unwrap();
+    let (status, answer) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.843, 52.539) }),
+        Some(&seen),
+    );
+    assert_eq!(status, 409, "{answer}");
+    assert!(
+        answer["error"].as_str().unwrap().contains("another window"),
+        "{answer}"
+    );
+    let current = answer["revision"].as_str().unwrap();
+    assert_ne!(current, seen);
+    assert_eq!(selector.project()["revision"], current);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), other);
+    // A page that names no revision although the file exists has not seen it either.
+    let (status, answer) = selector.post("api/save", json!({ "area": rectangle(13.843, 52.539) }));
+    assert_eq!(status, 409, "{answer}");
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), other);
+}
+
+#[test]
+fn save_with_the_current_revision_goes_through() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+    let (status, saved) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.843, 52.539) }),
+        Some(&seen),
+    );
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("13.846"), "{text}");
+    // The answer names the new revision, the one the page reads next.
+    let new = saved["revision"].as_str().unwrap();
+    assert_ne!(new, seen);
+    assert_eq!(selector.project()["revision"], new);
+    // The old revision is stale now.
+    let (status, _) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.85, 52.539) }),
+        Some(&seen),
+    );
+    assert_eq!(status, 409);
+}
+
+#[test]
+fn first_save_needs_no_revision() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    let selector = Selector::start(&project, cache.path(), &[]);
+    assert!(selector.project()["revision"].is_null());
+    let (status, saved) = selector.post("api/save", json!({ "area": school_area() }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(saved["created"], true);
+    assert_eq!(selector.project()["revision"], saved["revision"], "{saved}");
+    assert!(saved["revision"].is_string(), "{saved}");
 }
 
 fn rectangle_at(lon: f64, lat: f64) -> Value {
@@ -447,7 +558,7 @@ fn save_into_a_project_with_a_map_says_so() {
     let state: Value = serde_json::from_str(&state).unwrap();
     assert_eq!(state["has_map"], true);
     assert_eq!(state["from_agent"], false);
-    let (status, saved) = selector.post("api/save", json!({ "area": rectangle(13.843, 52.539) }));
+    let (status, saved) = selector.save(json!({ "area": rectangle(13.843, 52.539) }));
     assert_eq!(status, 200, "{saved}");
     assert_eq!(saved["has_map"], true);
     assert_eq!(saved["created"], false);
@@ -481,19 +592,73 @@ fn busy_port_names_the_port() {
     );
 }
 
-#[test]
-fn the_page_takes_over_a_named_program_language() {
+/// The environment of a process in which nothing names a language.
+const NO_LANGUAGE: [(&str, &str); 4] = [
+    ("FREEMAPPER_LANG", ""),
+    ("LC_ALL", ""),
+    ("LC_MESSAGES", ""),
+    ("LANG", "C"),
+];
+
+/// `api/texts` of a page started with `extra` and `env`, asked with `accept_language`.
+fn texts_answer(extra: &[&str], env: &[(&str, &str)], accept_language: Option<&str>) -> Value {
+    let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
-    let lang_of = |extra: &[&str]| {
-        let dir = tempfile::tempdir().unwrap();
-        let selector = Selector::start(&dir.path().join("p"), cache.path(), extra);
-        let (status, body) = selector.get("api/project");
-        assert_eq!(status, 200, "{body}");
-        serde_json::from_str::<Value>(&body).unwrap()["lang"].clone()
-    };
-    // The test environment names English; the switch wins over it.
-    assert_eq!(lang_of(&[]), "en");
-    assert_eq!(lang_of(&["--lang", "de"]), "de");
+    let selector = Selector::start_with_env(&dir.path().join("p"), cache.path(), extra, env);
+    let mut request = selector.agent.get(&format!("{}api/texts", selector.url));
+    if let Some(value) = accept_language {
+        request = request.header("Accept-Language", value);
+    }
+    let mut response = request.call().unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap()
+}
+
+#[test]
+fn api_texts_language_comes_from_lang_then_the_browser_then_english() {
+    let german = Some("de-DE,de;q=0.9,en;q=0.8");
+    // --lang wins over the browser, and so does the environment's language.
+    let answer = texts_answer(&["--lang", "de"], &NO_LANGUAGE, Some("en-US,en"));
+    assert_eq!(answer["lang"], "de");
+    assert_eq!(answer["texts"]["page-title"], "freemapper – Gebietsauswahl");
+    assert_eq!(
+        texts_answer(&[], &[], german)["lang"],
+        "en",
+        "FREEMAPPER_LANG=en"
+    );
+    // Nothing named: the browser's language, else English.
+    let answer = texts_answer(&[], &NO_LANGUAGE, german);
+    assert_eq!(answer["lang"], "de");
+    assert_eq!(answer["texts"]["page-heading"], "Kartengebiet wählen");
+    assert_eq!(
+        texts_answer(&[], &NO_LANGUAGE, Some("fr, en;q=0.5"))["lang"],
+        "en"
+    );
+    let answer = texts_answer(&[], &NO_LANGUAGE, Some("fr"));
+    assert_eq!(answer["lang"], "en");
+    assert_eq!(answer["texts"]["page-title"], "freemapper – area selection");
+    assert_eq!(texts_answer(&[], &NO_LANGUAGE, None)["lang"], "en");
+    // Patterns keep their placeholders; the suite's own words come along.
+    let texts = &answer["texts"];
+    assert_eq!(
+        texts["page-size"],
+        "Size with buffer: { $width } × { $height } m"
+    );
+    assert_eq!(texts["suite-banner-dismiss"], "Dismiss");
+    assert!(
+        texts
+            .as_object()
+            .unwrap()
+            .keys()
+            .all(|id| id.starts_with("page-") || id.starts_with("suite-"))
+    );
+    // The project answer no longer carries a language.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("p"), cache.path(), &[]);
+    let (_, state) = selector.get("api/project");
+    let state: Value = serde_json::from_str(&state).unwrap();
+    assert!(state.get("lang").is_none(), "{state}");
 }
 
 /// `api/update` of a page whose cache holds `record` (if any). `base` is the update stub the

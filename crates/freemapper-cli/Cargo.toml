@@ -38,6 +38,8 @@ tokio.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]
+# The suite's page rules (core ADR 0030), for the test of the area page's assets.
+freemapper-web = { workspace = true, features = ["page-rules"] }
 minisign-verify.workspace = true
 sha2.workspace = true
 tempfile.workspace = true

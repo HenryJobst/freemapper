@@ -76,6 +76,156 @@ cli-open-folder-no-opener = This computer has no program to open folders ({ $pro
 cli-open-folder-missing = The project folder does not exist yet. Save the area first.
 cli-open-folder-refused = The folder name is not safe to pass on to the file manager.
 
+## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
+## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has
+## two messages, `<id>-one` and `<id>-other`. AGENTS.md, the manual and scripts/browser-smoke.md quote
+## these words.
+
+page-title = freemapper – area selection
+page-heading = Choose the map area
+page-update-available = freemapper { $version } is available. Update with
+page-update-notes = Release notes
+page-folder = Project folder
+page-pick = Search a place
+page-query-placeholder = e.g. Clara-Zetkin-Schule Strausberg
+page-search-button = Search
+page-searching = Searching …
+page-no-results = Nothing found.
+page-point-only = a point only, not an area
+page-draw = Draw it yourself
+page-rectangle = Rectangle
+page-polygon = Polygon
+page-finish-polygon = Close polygon
+page-clear = Clear
+page-hint-rectangle = Click two opposite corners on the map.
+page-hint-polygon = Click the corners one after another. To close it, click the first corner, double-click or click "Close polygon". Esc cancels, Backspace removes the last corner.
+page-hint-idle = Pick a place from the search or draw the area yourself.
+page-summary = Area
+page-source-osm = From OpenStreetMap: { $name }
+page-source-drawn = Drawn by hand
+page-size = Size with buffer: { $width } × { $height } m
+page-tiles-one = { $n } tile: { $names }
+page-tiles-other = { $n } tiles: { $names }
+page-download = Download: about { $mb } MB
+page-download-none = Download: everything is cached already
+page-download-details = What is downloaded
+page-cached = cached
+page-disk = Disk space: { $volumes }
+page-disk-volume = { $free } free, about { $needed } needed
+page-cache-volume = cache
+page-project-volume = project folder
+page-no-room = does not fit on the disk
+page-no-room-skip = Not everything fits on the disk (freemapper keeps { $reserve } free). The fetch leaves out the marked parts. Free some space first if you need them:
+page-no-room-stop = Not enough disk space (freemapper keeps { $reserve } free). There is no map without the marked parts, so the fetch stops before it downloads anything. Free some space first:
+page-disk-unknown = freemapper cannot read the free disk space ({ $error }). It fetches without the check.
+page-too-large = The area is too large: at most { $max } m per side (with buffer). Please choose a smaller one.
+page-outside = The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has no data sources for other regions yet.
+page-settings = Map
+page-kind = Map kind
+page-schoolyard = Schoolyard map (1:1000)
+page-sprint = Sprint map (1:4000)
+page-scale = Scale 1:
+page-map-title = Title
+page-settings-fixed = The project exists already; map kind, scale and title are in freemapper.toml.
+page-save = Save
+page-saving = Saving …
+page-saved = Saved to freemapper.toml.
+page-zone-changed = Saved. The area now lies in another UTM zone; freemapper fetches its data again on the next run.
+page-provider-changed = Saved. Another data provider serves the elevation and aerial imagery of the new area; freemapper fetches its data again on the next run.
+page-save-stale = freemapper.toml was changed in another window or by another program since this page read it. Nothing was saved; the page now knows the saved state. Save again to replace it with the area shown here.
+page-has-map = The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. The option "Replace the existing map" below (or "freemapper run --force") makes the map anew too and keeps the old one as .omap.bak.
+page-done = Done
+page-closed = Done. You can close this window.
+page-next = Next: freemapper run "{ $dir }"
+page-made-files = Created: { $files }. Folder: { $dir }
+page-back-to-agent = Tell your AI assistant that the area is saved.
+page-nothing-saved = Nothing was saved.
+page-failed = Error: { $error }
+page-layer-osm = OpenStreetMap
+page-layer-aerial = Aerial photo Brandenburg/Berlin (LGB)
+page-layer-aerial-saxony = Aerial photo Saxony (GeoSN)
+page-layer-aerial-saxony-anhalt = Aerial photo Saxony-Anhalt (LVermGeo)
+page-layer-aerial-hamburg = Aerial photo Hamburg (LGV)
+page-layer-aerial-hessen = Aerial photo Hesse (HVBG)
+page-layer-aerial-schleswig-holstein = Aerial photo Schleswig-Holstein (LVermGeo SH)
+page-layer-aerial-mecklenburg-vorpommern = Aerial photo Mecklenburg-Vorpommern (LAiV M-V)
+page-layer-aerial-nordrhein-westfalen = Aerial photo North Rhine-Westphalia (Geobasis NRW)
+page-layer-aerial-niedersachsen = Aerial photo Lower Saxony (LGLN)
+page-layer-aerial-rheinland-pfalz = Aerial photo Rhineland-Palatinate (LVermGeo RP)
+
+## The run panel of the area page (ADR 0090)
+
+page-run-heading = Create the map
+page-opt-ocad = Write an OCAD starter project
+page-help-ocad = For everyone who carries on in OCAD.
+page-opt-pdf = Printable PDF
+page-help-pdf = Map objects only, no candidates.
+page-opt-pdf-candidates = Training PDF with every candidate
+page-opt-scale-bar = Scale bar on the PDFs
+page-help-scale-bar = German maps usually have none.
+page-opt-sources = Source lines on the PDFs
+page-sources-auto = automatic
+page-sources-full = full
+page-sources-credit-only = freemapper only
+page-warn-credit-only = The PDFs then name freemapper only. The data licences (ODbL, dl-de/by-2-0) require attribution when you pass the map on; then you name the sources yourself. ATTRIBUTION.txt lists them all.
+page-need-pdf = The scale bar and the source lines only apply when a PDF is made.
+page-opt-offline = Cache only, no network
+page-opt-force = Replace the existing map
+page-help-force = The old file stays as .omap.bak.
+page-run-start = Create map
+page-run-again = Create again
+page-run-cancel = Cancel
+page-run-cancelling = Cancelling …
+page-warnings-heading = Warnings
+page-where-files = The files are in the project folder:
+page-open-folder = Open folder
+page-log-label = Log of the run
+page-force-title = Replace the existing map?
+page-force-text = The existing map is replaced. Your edits in it are not lost: the old file stays in the project folder as .omap.bak. Continue?
+page-force-cancel = Cancel
+page-force-confirm = Replace
+page-step-fetch = Fetching data
+page-step-derive = Computing templates
+page-step-map = Writing the map
+page-step-ocad = Writing the OCAD project
+page-step-pdf = Writing the PDF
+page-step-pdf-candidates = Writing the training PDF
+page-step-line = Step { $index } of { $total }: { $label }
+page-starting = The run is starting …
+page-file-kind-map = map
+page-file-kind-template = template
+page-file-kind-ocad = OCAD map
+page-file-kind-ocad-candidates = OCAD candidates
+page-file-kind-pdf = PDF
+page-file-kind-pdf-candidates = training PDF
+page-file-line = { $path } ({ $kind }, { $size })
+page-result-done = Done. The files are written.
+page-result-failed = The run failed: { $error }
+page-result-failed-kept = What is written stays in the project folder; a new run carries on from there.
+page-result-cancelled = Cancelled. What is downloaded already stays in the cache; a new run carries on from there.
+page-result-title-done = Map created
+page-result-title-failed = Run failed
+page-result-title-cancelled = Run cancelled
+page-kept-map = The existing map was left as it is. "Replace the existing map" makes it anew and keeps the old one as .omap.bak.
+page-no-files = No files were made.
+page-opened-folder = The folder is open.
+page-open-failed = { $message } Folder: { $dir }
+page-why-no-area = Choose an area first.
+page-why-checking = The preview is being computed …
+page-why-too-large = The area is too large.
+page-why-outside = The area lies outside the supported states.
+page-why-disk = Not enough free disk space (see above).
+page-why-running = A run is going on.
+page-err-scale-bar-no-pdf = The scale bar needs a PDF.
+page-err-sources-no-pdf = The source lines need a PDF.
+page-save-failed = The area is not saved; no run was started.
+page-poll-lost = No answer from the server. freemapper keeps trying.
+page-run-unknown = The server no longer knows this run.
+
+## The shared modules of the suite's pages (core ADR 0030)
+
+suite-banner-dismiss = Dismiss
+
 ## update (spec 3.4 to 3.6)
 
 update-source-build = This freemapper was built from source. Update it with git pull and cargo build --release --locked.

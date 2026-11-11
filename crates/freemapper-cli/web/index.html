@@ -1,42 +1,43 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title data-text="pageTitle">freemapper – Gebietsauswahl</title>
+<title data-text="page-title">freemapper</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="assets/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="suite/suite.css">
 <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
 <div id="map"></div>
 <aside id="panel">
-  <h1 data-text="heading">Kartengebiet wählen</h1>
+  <h1 data-text="page-heading"></h1>
   <p id="update-notice" class="notice" role="status" aria-live="polite" hidden></p>
-  <p class="folder"><span data-text="folder">Projektordner</span>: <code id="folder"></code></p>
+  <p class="folder"><span data-text="page-folder"></span>: <code id="folder"></code></p>
 
   <section>
-    <h2 data-text="pick">Ort suchen</h2>
+    <h2 data-text="page-pick"></h2>
     <form id="search">
-      <input id="query" type="search" autocomplete="off" data-placeholder="queryPlaceholder">
-      <button type="submit" data-text="searchButton">Suchen</button>
+      <input id="query" type="search" autocomplete="off" data-placeholder="page-query-placeholder">
+      <button type="submit" data-text="page-search-button"></button>
     </form>
     <ul id="results"></ul>
   </section>
 
   <section>
-    <h2 data-text="draw">Selbst zeichnen</h2>
+    <h2 data-text="page-draw"></h2>
     <div class="buttons">
-      <button id="draw-rectangle" type="button" data-text="rectangle">Rechteck</button>
-      <button id="draw-polygon" type="button" data-text="polygon">Polygon</button>
-      <button id="finish-polygon" type="button" data-text="finishPolygon" hidden>Polygon schließen</button>
-      <button id="clear" type="button" data-text="clear">Löschen</button>
+      <button id="draw-rectangle" type="button" data-text="page-rectangle"></button>
+      <button id="draw-polygon" type="button" data-text="page-polygon"></button>
+      <button id="finish-polygon" type="button" data-text="page-finish-polygon" hidden></button>
+      <button id="clear" type="button" data-text="page-clear"></button>
     </div>
     <p id="hint" class="hint"></p>
   </section>
 
   <section id="summary" hidden>
-    <h2 data-text="summary">Gebiet</h2>
+    <h2 data-text="page-summary"></h2>
     <p id="source"></p>
     <p id="size"></p>
     <p id="tiles"></p>
@@ -44,77 +45,78 @@
     <p id="disk"></p>
     <div id="no-room" class="warning" hidden></div>
     <details>
-      <summary data-text="downloadDetails">Was geladen wird</summary>
+      <summary data-text="page-download-details"></summary>
       <ul id="items"></ul>
     </details>
     <p id="too-large" class="warning" hidden></p>
   </section>
 
   <section id="settings">
-    <h2 data-text="settings">Karte</h2>
-    <label><span data-text="kind">Kartenart</span>
+    <h2 data-text="page-settings"></h2>
+    <label><span data-text="page-kind"></span>
       <select id="kind">
-        <option value="schoolyard" data-text="schoolyard">Schulhofkarte (1:1000)</option>
-        <option value="sprint" data-text="sprint">Sprintkarte (1:4000)</option>
+        <option value="schoolyard" data-text="page-schoolyard"></option>
+        <option value="sprint" data-text="page-sprint"></option>
       </select>
     </label>
-    <label><span data-text="scale">Maßstab 1:</span>
+    <label><span data-text="page-scale"></span>
       <select id="scale"></select>
     </label>
-    <label><span data-text="title">Titel</span>
+    <label><span data-text="page-map-title"></span>
       <input id="title" type="text">
     </label>
-    <p id="settings-fixed" class="hint" data-text="settingsFixed" hidden></p>
+    <p id="settings-fixed" class="hint" data-text="page-settings-fixed" hidden></p>
   </section>
 
   <section>
-    <button id="save" type="button" class="primary" data-text="save" disabled>Speichern</button>
+    <button id="save" type="button" class="primary" data-text="page-save" disabled></button>
+    <div id="banner" role="alert"></div>
     <p id="message" role="status"></p>
-    <p id="has-map" class="hint" data-text="hasMap" hidden></p>
+    <p id="has-map" class="hint" data-text="page-has-map" hidden></p>
   </section>
 
   <section id="run" hidden>
-    <h2 data-text="runHeading">Karte erzeugen</h2>
+    <h2 data-text="page-run-heading"></h2>
     <div id="run-options">
       <label class="option"><input id="run-ocad" type="checkbox">
-        <span data-text="optOcad">OCAD-Startprojekt schreiben</span></label>
-      <p class="hint option-help" data-text="helpOcad">Für alle, die in OCAD weiterarbeiten.</p>
+        <span data-text="page-opt-ocad"></span></label>
+      <p class="hint option-help" data-text="page-help-ocad"></p>
       <label class="option"><input id="run-pdf" type="checkbox">
-        <span data-text="optPdf">Druckfertige PDF</span></label>
-      <p class="hint option-help" data-text="helpPdf">Nur die Kartenobjekte, ohne Kandidaten.</p>
+        <span data-text="page-opt-pdf"></span></label>
+      <p class="hint option-help" data-text="page-help-pdf"></p>
       <label class="option"><input id="run-pdf-candidates" type="checkbox">
-        <span data-text="optPdfCandidates">Trainings-PDF mit allen Kandidaten</span></label>
+        <span data-text="page-opt-pdf-candidates"></span></label>
       <label class="option"><input id="run-pdf-scale-bar" type="checkbox" aria-describedby="run-pdf-hint">
-        <span data-text="optScaleBar">Maßstabsleiste in die PDFs</span></label>
-      <p class="hint option-help" data-text="helpScaleBar">Deutsche Karten haben meist keine.</p>
-      <label class="option select"><span data-text="optSources">Quellenangabe in den PDFs</span>
+        <span data-text="page-opt-scale-bar"></span></label>
+      <p class="hint option-help" data-text="page-help-scale-bar"></p>
+      <label class="option select"><span data-text="page-opt-sources"></span>
         <select id="run-pdf-sources" aria-describedby="run-pdf-hint run-sources-warning">
-          <option value="auto" data-text="sourcesAuto">automatisch</option>
-          <option value="full" data-text="sourcesFull">vollständig</option>
-          <option value="credit-only" data-text="sourcesCreditOnly">nur freemapper</option>
+          <option value="auto" data-text="page-sources-auto"></option>
+          <option value="full" data-text="page-sources-full"></option>
+          <option value="credit-only" data-text="page-sources-credit-only"></option>
         </select></label>
-      <p id="run-sources-warning" class="hint warning-note" data-text="warnCreditOnly" hidden></p>
-      <p id="run-pdf-hint" class="hint" data-text="needPdf" hidden></p>
+      <p id="run-sources-warning" class="hint warning-note" data-text="page-warn-credit-only" hidden></p>
+      <p id="run-pdf-hint" class="hint" data-text="page-need-pdf" hidden></p>
       <label class="option"><input id="run-offline" type="checkbox">
-        <span data-text="optOffline">Nur Zwischenspeicher, kein Netz</span></label>
+        <span data-text="page-opt-offline"></span></label>
       <div id="run-force-row" hidden>
         <label class="option"><input id="run-force" type="checkbox" aria-describedby="run-force-help">
-          <span data-text="optForce">Vorhandene Karte ersetzen</span></label>
-        <p id="run-force-help" class="hint option-help" data-text="helpForce">Die alte Datei bleibt als .omap.bak.</p>
+          <span data-text="page-opt-force"></span></label>
+        <p id="run-force-help" class="hint option-help" data-text="page-help-force"></p>
       </div>
     </div><!-- end run-options -->
     <p id="run-why" class="hint" hidden></p>
-    <button id="run-start" type="button" class="primary" data-text="runStart" disabled>Karte erzeugen</button>
+    <button id="run-start" type="button" class="primary" data-text="page-run-start" disabled></button>
     <p id="run-alert" class="error-text" role="alert" hidden></p>
 
     <div id="run-progress" hidden>
       <p id="run-step" role="status" aria-live="polite"></p>
       <progress id="run-bar" aria-labelledby="run-step"></progress>
-      <button id="run-cancel" type="button" data-text="runCancel">Abbrechen</button>
-      <pre id="run-log" aria-live="off" tabindex="0"></pre>
+      <button id="run-cancel" type="button" data-text="page-run-cancel"></button>
+      <pre id="run-log" aria-live="off" tabindex="0" data-label="page-log-label"></pre>
     </div>
     <div id="run-warnings" hidden>
-      <h3 data-text="warningsHeading">Warnungen</h3>
+      <h3 data-text="page-warnings-heading"></h3>
       <ul id="run-warning-list"></ul>
     </div>
     <div id="run-result" role="region" aria-labelledby="run-result-heading" hidden>
@@ -122,14 +124,14 @@
       <p id="run-result-text"></p>
       <p id="run-kept" hidden></p>
       <ul id="run-files"></ul>
-      <p><span data-text="whereFiles">Die Dateien liegen im Projektordner:</span> <code id="run-dir"></code></p>
-      <button id="run-open" type="button" data-text="openFolder">Ordner öffnen</button>
+      <p><span data-text="page-where-files"></span> <code id="run-dir"></code></p>
+      <button id="run-open" type="button" data-text="page-open-folder"></button>
       <p id="run-open-message" role="status" hidden></p>
     </div>
   </section>
 
   <section>
-    <button id="done" type="button" data-text="done">Fertig</button>
+    <button id="done" type="button" data-text="page-done"></button>
   </section>
 
   <footer>
@@ -138,21 +140,21 @@
   </footer>
 </aside>
 <div id="closed" hidden>
-  <p data-text="closed">Fertig. Du kannst dieses Fenster schließen.</p>
+  <p data-text="page-closed"></p>
   <p><code id="next"></code></p>
 </div>
-<script src="assets/vendor/leaflet/leaflet.js"></script>
 <dialog id="force-dialog" aria-labelledby="force-title" aria-describedby="force-text">
   <form method="dialog">
-    <h2 id="force-title" data-text="forceTitle">Vorhandene Karte ersetzen?</h2>
-    <p id="force-text" data-text="forceText">Die vorhandene Karte wird ersetzt.</p>
-    <div class="buttons">
-      <button id="force-cancel" type="submit" value="cancel" autofocus data-text="forceCancel">Abbrechen</button>
-      <button id="force-confirm" type="submit" value="confirm" data-text="forceConfirm">Ersetzen</button>
+    <h2 id="force-title" data-text="page-force-title"></h2>
+    <p id="force-text" data-text="page-force-text"></p>
+    <div class="dialog-buttons">
+      <button id="force-cancel" type="submit" value="cancel" autofocus data-text="page-force-cancel"></button>
+      <button id="force-confirm" type="submit" value="confirm" data-text="page-force-confirm"></button>
     </div>
   </form>
 </dialog>
-<script src="assets/app.js"></script>
-<script src="assets/run.js"></script>
+<script src="assets/vendor/leaflet/leaflet.js"></script>
+<script type="module" src="assets/app.js"></script>
+<script type="module" src="assets/run.js"></script>
 </body>
 </html>

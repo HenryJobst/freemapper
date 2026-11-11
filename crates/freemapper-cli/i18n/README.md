@@ -21,6 +21,15 @@ the entries for new options.
 
 The self-update's texts (`freemapper update` and its notices, `src/update/`) have ids that start with `update-`.
 
+The area page's texts (`web/`, ADR 0096) have ids that start with `page-`. The page loads every `page-*` and
+`suite-*` message through `GET api/texts` and puts them into its elements (`data-text`, `data-label`, `data-title`,
+`data-placeholder`) or sets them from its scripts with `t(id, args)`. A message with a value keeps `{ $name }` in the
+text and the page fills it in, so these messages have no selectors and no functions; a count has two messages,
+`<id>-one` and `<id>-other`, and the page picks one. `suite-*` holds the words of the suite's shared page modules
+from freemapper-core (core ADR 0030), so far `suite-banner-dismiss`. The page speaks to the person with "du", as it
+did before its texts moved here; AGENTS.md, the manual and `scripts/browser-smoke.md` quote its words.
+`src/select_page.rs` checks that every id the page uses exists and that every `page-*` message is used.
+
 The MCP server's texts have ids that start with `mcp-`: `mcp-tool-<tool>` and `mcp-param-<tool>-<parameter>`
 for the descriptions, whose English text equals the one in `src/mcp.rs`
 (`cargo test -p freemapper-cli print_the_english_descriptions -- --ignored --nocapture` prints them).
