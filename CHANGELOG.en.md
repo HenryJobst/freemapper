@@ -6,6 +6,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The area selection page now tells when only the data provider changes with a new area (same UTM zone, other state): it showed the plain "saved" message although freemapper had dropped the fetched data. `set_map_area` reports the reason (`zone_changed`, `provider_changed`), and the answer of `api/save` carries `provider_changed`.
+- The download estimate as JSON (`estimate_json`) moved from the selection page module into its own module of the command line crate. The MCP server and the browser run no longer depend on the web module for it. No change in output.
+
 ## [0.12.0] - 2026-11-11
 
 ### Added

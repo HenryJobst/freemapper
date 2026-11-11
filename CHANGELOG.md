@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Die Auswahlseite meldet jetzt auch, wenn mit dem neuen Gebiet nur der Datenanbieter wechselt (gleiche UTM-Zone, anderes Bundesland): Sie zeigte die schlichte Meldung „Gespeichert“, obwohl freemapper die geholten Daten verworfen hatte. `set_map_area` nennt den Grund (`zone_changed`, `provider_changed`), und die Antwort von `api/save` enthält `provider_changed`.
+- Die Download-Schätzung als JSON (`estimate_json`) liegt jetzt in einem eigenen Modul der Kommandozeilen-Crate statt im Modul der Auswahlseite. Der MCP-Server und der Lauf aus dem Browser hängen dafür nicht mehr vom Web-Modul ab. Die Ausgabe bleibt gleich.
+
 ## [0.12.0] - 2026-11-11
 
 ### Hinzugefügt

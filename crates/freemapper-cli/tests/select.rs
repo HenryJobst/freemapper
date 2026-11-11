@@ -280,6 +280,11 @@ fn save_changes_an_existing_area() {
     assert_eq!(saved["zone_changed"], true, "{saved}");
     let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
     assert!(text.contains("crs = 25832"), "{text}");
+    // Hamburg lies in the same zone, but another provider serves it: the data is dropped as well.
+    let (status, saved) = selector.post("api/save", json!({ "area": rectangle_at(9.98, 53.59) }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(saved["zone_changed"], false, "{saved}");
+    assert_eq!(saved["provider_changed"], true, "{saved}");
 }
 
 fn rectangle_at(lon: f64, lat: f64) -> Value {

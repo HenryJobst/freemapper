@@ -19,12 +19,13 @@ use freemapper::project::map_path;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::estimate::estimate_json;
 use crate::jobs::{JobState, JobStatus, folder_key};
 use crate::lock::{Who, acquire};
 use crate::pipeline::{
     Event, RunControl, RunOptions, RunReport, RunRequest, describe, parse as parse_options,
 };
-use crate::select::{AppState, estimate_json, saved_project};
+use crate::select::{AppState, saved_project};
 use crate::text::{text, v};
 use crate::tiles::TileProxy;
 

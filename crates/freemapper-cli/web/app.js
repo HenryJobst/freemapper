@@ -60,6 +60,8 @@ const TEXTS = {
     saved: "Gespeichert in freemapper.toml.",
     zoneChanged:
       "Gespeichert. Das Gebiet liegt jetzt in einer anderen UTM-Zone; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
+    providerChanged:
+      "Gespeichert. Für das neue Gebiet liefert ein anderer Datenanbieter die Höhen- und Luftbilddaten; freemapper ruft seine Daten beim nächsten Lauf neu ab.",
     hasMap:
       "Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. Mit der Option „Vorhandene Karte ersetzen“ unten (oder „freemapper run --force“) entsteht auch die Karte neu, die alte bleibt als .omap.bak.",
     done: "Fertig",
@@ -139,6 +141,8 @@ const TEXTS = {
     saved: "Saved to freemapper.toml.",
     zoneChanged:
       "Saved. The area now lies in another UTM zone; freemapper fetches its data again on the next run.",
+    providerChanged:
+      "Saved. Another data provider serves the elevation and aerial imagery of the new area; freemapper fetches its data again on the next run.",
     hasMap:
       "The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. The option \"Replace the existing map\" below (or \"freemapper run --force\") makes the map anew too and keeps the old one as .omap.bak.",
     done: "Done",
@@ -704,7 +708,14 @@ async function saveArea() {
     const answer = await api("api/save", body);
     savedHere = true;
     savedSignature = signature();
-    setMessage(answer.zone_changed ? T.zoneChanged : T.saved, "ok");
+    setMessage(
+      answer.zone_changed
+        ? T.zoneChanged
+        : answer.provider_changed
+          ? T.providerChanged
+          : T.saved,
+      "ok",
+    );
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
     showSettings();
