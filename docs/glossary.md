@@ -236,6 +236,8 @@ Orienteering Maps 2019 (IOF).
 | Speicherplan | space plan | Welche Teile eines Abrufs auf die Datenträger passen; fehlt Platz, lässt freemapper die entbehrlichen aus und warnt. | `SpacePlan`, `Shortfall` |
 | Datenträger voll | disk full | Schreibfehler, weil der Datenträger voll ist (ENOSPC); freemapper löscht die halbe Datei und meldet es klar. | `is_storage_full` |
 | Gemeinsame Bibliothek | shared crate | Rust-Crate aus freemapper-core, die mehrere Programme der Suite nutzen; freemapper bindet sie über Git mit festem Release-Tag ein (ADR 0067). | `freemapper_fs` |
+| Programmsprache | program language | Sprache der Programmtexte eines Laufs, Deutsch oder Englisch: aus `--lang`, sonst `FREEMAPPER_LANG`, sonst der Sprache des Systems, sonst Englisch (ADR 0092). Nicht die Sprache der Karte: Kartentexte und Quellenangaben bleiben, wie die Karte sie braucht. | `text::lang`, `--lang` |
+| Textkatalog | catalog | Die Programmtexte in allen Sprachen als Fluent-Dateien, Englisch als Referenz (`i18n/<Sprache>/freemapper.ftl`). | `text::TEXTS` |
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |

@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Program language, first stage (ADR 0092): `--lang de` or `--lang en` chooses the language of the program texts; without it `FREEMAPPER_LANG` counts, then the system language (`LC_ALL`, `LC_MESSAGES`, `LANG`), then English. German so far covers the lines the program prints itself at the end of a step ("… geschrieben", "… behalten", the hints after `run`, `export` and `select`). Progress lines, warnings, error messages and `--help` stay English for now.
+
 ### Changed
 
 - `export` and `run` build the map and the candidates template once per command instead of once per output (ADR 0091). With `--ocad --pdf --pdf-candidates` that used to be four passes over all stored layers; now it is one for `export` and two for `run`. The written files are the same byte for byte.
