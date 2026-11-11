@@ -1,6 +1,7 @@
 //! `freemapper` command line interface.
 
 mod jobs;
+mod lock;
 mod mcp;
 mod nominatim;
 mod pipeline;
@@ -331,6 +332,16 @@ fn wrote(path: &std::path::Path) {
     println!("{}", text("cli-wrote", &[("path", v(path.display()))]));
 }
 
+/// Takes the lock of the project folder for a command that writes into it, so no other freemapper
+/// process (a terminal, the MCP server, the selection page) works in it at the same time. A
+/// folder that does not exist is left to the command, which reports its usual error.
+fn lock_folder(dir: &std::path::Path) -> anyhow::Result<Option<lock::FolderLock>> {
+    if !dir.is_dir() {
+        return Ok(None);
+    }
+    Ok(Some(lock::acquire_for_command(dir, lock::Who::Cli)?))
+}
+
 /// Says that the map at `path` was kept.
 fn kept(path: &std::path::Path) {
     println!("{}", text("cli-kept-map", &[("path", v(path.display()))]));
@@ -404,6 +415,7 @@ fn main() -> anyhow::Result<()> {
             pdf_scale_bar,
             pdf_sources,
         } => {
+            let _lock = lock_folder(&dir)?;
             // Built once for every output of this command (ADR 0091).
             let documents = starter_documents(&dir)?;
             let existing = map_path(&dir);
@@ -440,6 +452,7 @@ fn main() -> anyhow::Result<()> {
             offline,
             cache,
         } => {
+            let _lock = lock_folder(&dir)?;
             let project = fetch_project(
                 &dir,
                 &HttpFetcher::new(),
@@ -453,6 +466,7 @@ fn main() -> anyhow::Result<()> {
             );
         }
         Commands::Derive { dir, cache } => {
+            let _lock = lock_folder(&dir)?;
             for path in derive_project(&dir, &cache.cache()?, &mut report)? {
                 wrote(&path);
             }
@@ -468,6 +482,7 @@ fn main() -> anyhow::Result<()> {
             pdf_sources,
             cache,
         } => {
+            let _lock = lock_folder(&dir)?;
             let options = pipeline::RunOptions {
                 force,
                 offline,

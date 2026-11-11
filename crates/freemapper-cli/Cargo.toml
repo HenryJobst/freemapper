@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 freemapper.workspace = true
+freemapper-fs.workspace = true
 freemapper-web.workspace = true
 freemapper-text.workspace = true
 anyhow.workspace = true

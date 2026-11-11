@@ -725,6 +725,7 @@ dependencies = [
  "clap",
  "dirs",
  "freemapper",
+ "freemapper-fs",
  "freemapper-text",
  "freemapper-web",
  "rmcp",

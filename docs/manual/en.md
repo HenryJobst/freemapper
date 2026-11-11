@@ -709,6 +709,7 @@ languages; the area page follows the browser's language. The most important mess
 | Message (start) | Meaning | What to do |
 |---|---|---|
 | `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony or Rhineland-Palatinate. Bremen is not included yet. | Choose another area; more states will follow. |
+| `another freemapper run is using this folder (since …` | A second freemapper (a terminal, an AI assistant or the area page) works in this project folder. The file `.freemapper-run.lock` in the folder shows it. | Wait until the other run is done, or stop it. A run that was killed leaves the file behind; after a minute without a sign of life it is replaced automatically. |
 | `map area plus buffer is … more than 4000 m per side` | The area is too large. | Draw it smaller or split it into several maps. |
 | `no area found for …` | The place was not found, or its grounds are several parts in OSM. | Spell it differently, draw the area in the browser, or pick a part with `--osm <id> --part <n>`. |
 | `… is an area of … separate parts (…)` | The OSM object is several separate areas. The brackets give their sizes, largest first. | Pick one with `--part <n>` (1 is the largest), or with `part` over MCP. Or save the outline as GeoJSON and use `--geojson`. |

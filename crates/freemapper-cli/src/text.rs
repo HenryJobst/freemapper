@@ -91,6 +91,8 @@ mod tests {
             ("error", v("e")),
             ("value", v("fr")),
             ("available", v("en, de")),
+            ("time", v("14:02")),
+            ("who", v("the terminal")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -98,17 +100,24 @@ mod tests {
     #[test]
     fn every_id_used_in_the_code_exists() {
         let english = TEXTS.message_ids("en");
-        for source in [include_str!("main.rs"), include_str!("text.rs")] {
+        for source in [
+            include_str!("main.rs"),
+            include_str!("text.rs"),
+            include_str!("lock.rs"),
+        ] {
             for id in freemapper_text::ids_in_source(source, &["cli-"]) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
             }
         }
         // And nothing is left over.
-        let used: std::collections::BTreeSet<String> =
-            [include_str!("main.rs"), include_str!("text.rs")]
-                .iter()
-                .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-"]))
-                .collect();
+        let used: std::collections::BTreeSet<String> = [
+            include_str!("main.rs"),
+            include_str!("text.rs"),
+            include_str!("lock.rs"),
+        ]
+        .iter()
+        .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-"]))
+        .collect();
         for id in &english {
             assert!(used.contains(id), "{id} is in the catalog but not used");
         }
