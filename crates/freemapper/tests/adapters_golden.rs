@@ -77,6 +77,101 @@ fn g1_registry_data_is_unchanged() {
     check_golden("g1-regions.json", &text);
 }
 
+/// The service constants of the states, as they print and as the URLs they ask for three
+/// sample areas. The service structs change how they hold their texts (plan B4: owned fields,
+/// so a manifest can build a service at run time); what they ask must stay the same.
+#[test]
+fn g1_service_constants_are_unchanged() {
+    use freemapper::raster::GridSpec;
+    use freemapper::sources::{
+        alkis_nas, alkis_wfs, geobasis_nrw, geosn, hvbg, laiv_mv, lgln, lgv, lvermgeo, lvermgeo_rp,
+        lvermgeo_sh, trees, wms,
+    };
+    use std::fmt::Write as _;
+    let boxes = [
+        (400_000.0, 5_800_000.0, 400_300.0, 5_800_200.0),
+        (366_200.4, 5_807_100.6, 367_100.2, 5_807_700.9),
+        (600_000.0, 5_600_000.0, 601_500.0, 5_601_000.0),
+    ]
+    .map(|(min_e, min_n, max_e, max_n)| BoundingBox {
+        min_e,
+        min_n,
+        max_e,
+        max_n,
+    });
+    let grids = boxes.map(|b| GridSpec {
+        west: b.min_e,
+        north: b.max_n,
+        pixel_size: 0.2,
+        width: 1000,
+        height: 800,
+    });
+    let mut text = String::new();
+    let mut add = |name: &str, service: String, urls: Vec<String>| {
+        writeln!(text, "{name}: {service}").unwrap();
+        for url in urls {
+            writeln!(text, "  {url}").unwrap();
+        }
+    };
+    for (name, service) in [
+        ("lgv::WMS", lgv::WMS),
+        ("lvermgeo_rp::WMS", lvermgeo_rp::WMS),
+        ("lvermgeo_sh::WMS", lvermgeo_sh::WMS),
+        ("hvbg::WMS", hvbg::WMS),
+        ("lgln::WMS", lgln::WMS),
+        ("geosn::WMS", geosn::WMS),
+        ("geobasis_nrw::WMS", geobasis_nrw::WMS),
+        ("lvermgeo::WMS", lvermgeo::WMS),
+        ("wms::K5_WMS", wms::K5_WMS),
+    ] {
+        let urls = grids.iter().map(|g| service.piece_url(g)).collect();
+        add(name, format!("{service:?}"), urls);
+    }
+    for (name, service) in [
+        ("lgln::DGM1_WCS", lgln::DGM1_WCS),
+        ("lgln::DOM1_WCS", lgln::DOM1_WCS),
+    ] {
+        let urls = boxes.iter().map(|b| service.get_coverage_url(b)).collect();
+        add(name, format!("{service:?}"), urls);
+    }
+    let dop = laiv_mv::DOP;
+    let urls = grids.iter().map(|g| dop.piece_url(g)).collect();
+    add("laiv_mv::DOP", format!("{dop:?}"), urls);
+    for (name, service) in [
+        ("alkis_wfs::GEOSN", alkis_wfs::GEOSN),
+        ("alkis_wfs::LVERMGEO", alkis_wfs::LVERMGEO),
+        ("alkis_wfs::HVBG", alkis_wfs::HVBG),
+        ("alkis_wfs::GEOBASIS_NRW", alkis_wfs::GEOBASIS_NRW),
+        ("alkis_wfs::LGLN", alkis_wfs::LGLN),
+        ("alkis_wfs::LVERMGEO_RP", alkis_wfs::LVERMGEO_RP),
+        ("alkis_wfs::LVERMGEO_SH", alkis_wfs::LVERMGEO_SH),
+        ("alkis_wfs::LGV", alkis_wfs::LGV),
+        ("alkis_wfs::LAIV_MV", alkis_wfs::LAIV_MV),
+    ] {
+        let mut urls = Vec::new();
+        for b in &boxes {
+            urls.push(service.wfs_url(service.buildings_type, b, 0));
+            urls.push(service.wfs_url(service.land_use_type, b, 10_000));
+        }
+        add(name, format!("{service:?}"), urls);
+    }
+    let nas = alkis_nas::LGB_NAS;
+    let layer = alkis_nas::NAS_LAYERS[0].type_name;
+    let urls = boxes
+        .iter()
+        .map(|b| nas.get_feature_url(layer, b))
+        .collect();
+    add("alkis_nas::LGB_NAS", format!("{nas:?}"), urls);
+    let potsdam = trees::POTSDAM;
+    let urls = boxes
+        .iter()
+        .flat_map(|b| potsdam.endpoints.iter().map(|e| potsdam.url(e, b)))
+        .map(|url| url.unwrap_or_else(|| "(outside)".to_string()))
+        .collect();
+    add("trees::POTSDAM", format!("{potsdam:?}"), urls);
+    check_golden("g1-services.txt", &text);
+}
+
 // Layer G2: geometry and dispatch. What the region functions answer for 211 boxes: the eleven
 // example areas and 200 boxes on borders and coasts, where the answers change.
 

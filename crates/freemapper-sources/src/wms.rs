@@ -36,7 +36,7 @@ pub struct WmsService {
 
 impl WmsService {
     /// The GetMap request for `piece` (JPEG).
-    fn piece_url(&self, piece: &GridSpec) -> String {
+    pub fn piece_url(&self, piece: &GridSpec) -> String {
         self.piece_url_as(piece, "image/jpeg")
     }
 
