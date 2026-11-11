@@ -1007,6 +1007,76 @@ per_state!(
     rheinlandpfalz
 );
 
+/// The download estimate of a project as a golden row: the tiles, every item (text, megabytes,
+/// cached flag, part, store), the megabytes still to download and the parts stored in place.
+fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
+    let estimate = estimate_download(dir, cache, clock::today()).unwrap();
+    serde_json::json!({
+        "region": id,
+        "tiles": estimate.tiles,
+        "items": estimate
+            .items
+            .iter()
+            .map(|item| format!(
+                "{} | {:.3} MB | cached: {} | {:?} | {:?}",
+                item.what, item.megabytes, item.cached, item.part, item.store
+            ))
+            .collect::<Vec<_>>(),
+        "total_megabytes": format!("{:.3}", estimate.total_megabytes),
+        "in_place": estimate
+            .in_place
+            .iter()
+            .map(|part| format!("{part:?}"))
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// The estimate of a new project in every state, with an empty cache, under the fixed clock.
+/// The ten `*_items` functions of `layers.rs` move into the adapters (plan C5); the items must
+/// stay.
+#[test]
+fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
+    let rows: Vec<serde_json::Value> = Region::ALL
+        .into_iter()
+        .map(|region| {
+            let root = tempfile::tempdir().unwrap();
+            let (dir, cache) = (root.path().join("project"), root.path().join("cache"));
+            let cache = Cache::new(cache);
+            clock::with_fixed(golden_noon(), || {
+                init_golden_project(&dir, region);
+                estimate_row(&id_of(region), &dir, &cache)
+            })
+        })
+        .collect();
+    assert_eq!(rows.len(), 11);
+    check_golden("g2-estimates.json", &pretty(&rows));
+}
+
+/// The estimate of every state after its fetch: the tiles and lists are in the cache and the
+/// rasters in the project folder, so the items say what is cached and what is replaced in place.
+/// Each provider finds its files in the cache under its own names; the move of plan C5 must
+/// keep them.
+#[test]
+#[ignore = "needs the fixture store: scripts/golden.sh test"]
+fn g3_estimates_after_the_fetch_are_unchanged() {
+    let rows: Vec<serde_json::Value> = Region::ALL
+        .into_iter()
+        .map(|region| {
+            let id = id_of(region);
+            let replayed = replayed_fetch(&id);
+            assert_eq!(
+                replayed.lines.last().map(String::as_str),
+                Some("result: fetched"),
+                "{id}"
+            );
+            clock::with_fixed(golden_noon(), || {
+                estimate_row(&id, &replayed.dir, &replayed.cache)
+            })
+        })
+        .collect();
+    check_golden("g3-estimates.json", &pretty(&rows));
+}
+
 /// One interrupted fetch: what was asked, what was said, and the project file left behind.
 #[derive(Debug, Serialize)]
 struct Interrupted {
