@@ -6,13 +6,16 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod adapter;
 pub mod cache;
 pub mod env;
 pub mod error;
 pub mod fetch;
 pub mod fs;
+pub mod info;
 pub mod note;
 pub mod project;
 pub mod records;
+pub mod registry;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

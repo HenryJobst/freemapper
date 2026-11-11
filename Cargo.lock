@@ -726,6 +726,7 @@ dependencies = [
  "freemapper-fs",
  "freemapper-georef",
  "freemapper-text",
+ "geo-types",
  "serde",
  "tempfile",
  "thiserror 2.0.21",

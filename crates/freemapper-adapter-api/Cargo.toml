@@ -17,6 +17,7 @@ chrono.workspace = true
 freemapper-fs.workspace = true
 freemapper-georef.workspace = true
 freemapper-text.workspace = true
+geo-types.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 

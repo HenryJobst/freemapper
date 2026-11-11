@@ -2,6 +2,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod adapters;
 pub mod area;
 pub mod build;
 pub mod clock;

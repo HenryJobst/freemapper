@@ -179,6 +179,23 @@ impl Region {
         }
     }
 
+    /// What the ALKIS object ids of the region start with.
+    pub fn object_id_prefix(self) -> &'static str {
+        match self {
+            Self::Brandenburg => "DEBB",
+            Self::Berlin => "DEBE",
+            Self::Saxony => "DESN",
+            Self::SaxonyAnhalt => "DEST",
+            Self::Hamburg => "DEHH",
+            Self::Hessen => "DEHE",
+            Self::SchleswigHolstein => "DESH",
+            Self::MecklenburgVorpommern => "DEMV",
+            Self::NordrheinWestfalen => "DENW",
+            Self::Niedersachsen => "DENI",
+            Self::RheinlandPfalz => "DERP",
+        }
+    }
+
     /// The region with this id.
     pub fn from_id(id: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|region| region.id() == id)
@@ -233,7 +250,7 @@ impl Region {
     }
 
     /// The region's boundary, parsed once.
-    fn boundary(self) -> &'static MultiPolygon<f64> {
+    pub(crate) fn boundary(self) -> &'static MultiPolygon<f64> {
         static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 11] = [
             OnceLock::new(),
             OnceLock::new(),
@@ -626,6 +643,10 @@ mod tests {
         for region in Region::ALL {
             assert_eq!(serde_json::to_value(region).unwrap(), region.id());
             assert_eq!(Region::from_id(region.id()), Some(region));
+            assert_eq!(
+                Region::of_object_id(&format!("{}AL01", region.object_id_prefix())),
+                Some(region)
+            );
             assert_eq!(
                 serde_json::to_value(region.provider()).unwrap(),
                 region.provider().id()
