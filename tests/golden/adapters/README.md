@@ -48,7 +48,10 @@ another folder, for the script and for the tests.
 
 A published version is never changed. A new recording is a new version.
 
-Version 0 is the pilot: Saxony-Anhalt and Hesse, 8.5 MB.
+Version 0 was the pilot (Saxony-Anhalt and Hesse, 8.5 MB). Version 1 holds all eleven states:
+206 MB as an archive, 234 MB unpacked. Most of it is whole tiles: Schleswig-Holstein 108 MB (one
+surface model tile), Berlin 47 MB, Brandenburg and Saxony 31 MB each; the other seven states
+have 7 MB or less each.
 
 ## When a golden changes
 
@@ -70,8 +73,8 @@ A commit that adds or changes a request needs new answers. Recording talks to th
 1. Raise `version` in `store.lock` and copy the unpacked store of the old version to
    `target/golden-adapters/<new version>/`, so the states that stay keep their answers.
 2. `scripts/golden.sh record <id>` for each state concerned. It fetches the golden area (about
-   150 m square around the centre of the state's example) into an empty folder with an empty
-   cache, keeps every answer, and then writes `trace.txt` and `expected.sha256` from a replay.
+   150 m square around the centre of the state's example, moved a little in four states so that
+   it needs one tile, see `golden_centre`) into an empty folder with an empty cache, keeps every answer, and then writes `trace.txt` and `expected.sha256` from a replay.
    The maintainer's cached OSM extract is used if there is one, so no extract is downloaded.
 3. `scripts/golden.sh pack` writes the archive and its hash into `store.lock`.
 4. Publish the archive as the prerelease the script prints (`--prerelease --latest=false`), then

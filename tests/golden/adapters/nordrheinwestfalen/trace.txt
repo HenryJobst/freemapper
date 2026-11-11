@@ -1,0 +1,18 @@
+estimate: orthophoto (Geobasis NRW WMS) | Orthophoto | 0.600 MB | cached: false
+estimate: terrain model (Geobasis NRW DGM1) | Terrain | 2.200 MB | cached: false
+estimate: surface model (Geobasis NRW DOM1) | Surface | 3.000 MB | cached: false
+estimate: OSM extract North Rhine-Westphalia, Köln (shared by all projects) | MapData | 225.200 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+GET https://www.wms.nrw.de/geobasis/wms_nw_dop?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=nw_dop_utm_info&QUERY_LAYERS=nw_dop_utm_info&STYLES=&CRS=EPSG:25832&BBOX=304400.253,5603700.489,304600.253,5603900.489&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain
+GET https://www.wms.nrw.de/geobasis/wms_nw_dop?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=nw_dop_rgb&STYLES=&CRS=EPSG:25832&BBOX=304369.4,5603669.6,304631.2,5603931.4&WIDTH=1309&HEIGHT=1309&FORMAT=image/jpeg
+GET https://www.opengeodata.nrw.de/produkte/geobasis/hm/dgm1_tiff/dgm1_tiff/dgm1_meta.zip
+GET https://www.opengeodata.nrw.de/produkte/geobasis/hm/dgm1_tiff/dgm1_tiff/dgm1_32_304_5603_1_nw_2021.tif
+GET https://www.opengeodata.nrw.de/produkte/geobasis/hm/dom1_tiff/dom1_tiff/dom1_meta.zip
+GET https://www.opengeodata.nrw.de/produkte/geobasis/hm/dom1_tiff/dom1_tiff/dom1_32_304_5603_1_nw_2021.tif
+GET https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=304369,5603669,304632,5603932,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf [to file]
+result: fetched

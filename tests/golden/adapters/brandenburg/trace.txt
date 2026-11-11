@@ -1,0 +1,27 @@
+estimate: orthophoto (DOP20) tile 33366-5807 | Orthophoto | 8.000 MB | cached: false
+estimate: terrain model (DGM1) tile 33366-5807 | Terrain | 1.300 MB | cached: false
+estimate: nDSM tile 33366-5807 | Surface | 15.000 MB | cached: false
+estimate: OSM extract Brandenburg (shared by all projects) | MapData | 300.000 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+estimate: full ALKIS structures (NAS) | StateLayers | 0.132 MB | cached: false
+estimate: city tree cadastres | StateLayers | 0.100 MB | cached: false
+GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv
+GET https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5807.zip
+GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv
+GET https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33366-5807.zip
+HEAD https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz
+GET https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz
+GET https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000
+GET https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_SonstigesBauwerkOderSonstigeEinrichtung&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Vegetationsmerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Strukturlinie3D&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImVerkehrsbereich&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImGewaesserbereich&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_UntergeordnetesGewaesser&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000 [to file]
+GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
+GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
+GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
+GET https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf [to file]
+result: fetched

@@ -1,0 +1,106 @@
+[[response]]
+method = "GET"
+url = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv"
+body = "544d1877a9c50e7c494e746d14752d1d0c438bc82a10f1dccf944cc25a700644"
+bytes = 1495120
+
+[[response]]
+method = "GET"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5807.zip"
+body = "c99fd51f853e0b53b8db81a560f3fe8fe383c4a6ba7c4f44cb49608361508c0b"
+bytes = 10048036
+
+[[response]]
+method = "GET"
+url = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv"
+body = "2ac8a8fac3e32cb3d84a3ca460729b788202f1c2f441fe21df9584d3f167bc94"
+bytes = 1374927
+
+[[response]]
+method = "GET"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33366-5807.zip"
+body = "5a13b02d8bb844cb0595ffe88f925a5f55a7cb703d6c2dbb9b8898eb92fce99d"
+bytes = 1316045
+
+[[response]]
+method = "HEAD"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz"
+last_modified = "2025-04-02"
+
+[[response]]
+method = "GET"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz"
+body = "5a31d6fad00b5efa7fa66366afb27e21618545c81413a9fb6e43a9561b640674"
+bytes = 16542820
+
+[[response]]
+method = "GET"
+url = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000"
+body = "27b64cfdba2c85ee93d8c26f8802df496bae7a4b5de61a198cf1faf1801d48c7"
+bytes = 15096
+
+[[response]]
+method = "GET"
+url = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000"
+body = "152db683e8c4d492db9c924e29f9f9b61807deff33c07ae1eda6fc5255271b82"
+bytes = 29073
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_SonstigesBauwerkOderSonstigeEinrichtung&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "bdfa0b898c7b0260b267f814bc078b0ef9a3a895d70dbf8808011928f97a9083"
+bytes = 94048
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Vegetationsmerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "b4a241be4372605281a154e0aefccd4b0b8fc0cff723c3ed66103b095e86ce57"
+bytes = 20352
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Strukturlinie3D&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "235517a16b759750db55b28667ed13e7227d8ecca2c9ed33a790753af04fd213"
+bytes = 8467
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImVerkehrsbereich&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "1bfc142a00b1474ae037db2c5781c62054d531f44969213f48b1cf3b405993fe"
+bytes = 816
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImGewaesserbereich&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "71e3fec3ab0139f00e70520e03acde1be88995202d8e47bc4eea5b34dcef0d13"
+bytes = 816
+
+[[response]]
+method = "GET"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_UntergeordnetesGewaesser&SRSNAME=urn:ogc:def:crs:EPSG::25833&BBOX=366400,5807543,366655,5807804,urn:ogc:def:crs:EPSG::25833&COUNT=100000"
+body = "2c741dc38b30b531345c05569dd881af624c065c699874c27e15f23a9471716a"
+bytes = 816
+
+[[response]]
+method = "GET"
+url = "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932)"
+body = "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c"
+bytes = 42
+
+[[response]]
+method = "GET"
+url = "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932)"
+body = "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c"
+bytes = 42
+
+[[response]]
+method = "GET"
+url = "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932)"
+body = "ed778c73ea51338d6576fb5992b189f2b94d9f3d5e199f46c1af520d6b0b3e6c"
+bytes = 42
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt"
+body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
+bytes = 113

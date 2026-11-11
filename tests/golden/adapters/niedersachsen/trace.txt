@@ -1,0 +1,19 @@
+estimate: orthophoto (LGLN WMS) | Orthophoto | 0.557 MB | cached: false
+estimate: terrain model (LGLN DGM1) | Terrain | 0.278 MB | cached: false
+estimate: surface model (LGLN DOM1) | Surface | 0.278 MB | cached: false
+estimate: OSM extract Lower Saxony (shared by all projects) | MapData | 510.000 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+GET https://dop.stac.lgln.niedersachsen.de/search?bbox=9.696952,52.387909,9.697248,52.388091&limit=100
+GET https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=ni_dop20&STYLES=&CRS=EPSG:25832&BBOX=547315.4,5804294,547566.8,5804551.4&WIDTH=1257&HEIGHT=1287&FORMAT=image/jpeg
+GET https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=ni_dgm1&FORMAT=image/tiff&SUBSET=x(547315,547567)&SUBSET=y(5804294,5804552)
+GET https://dgm.stac.lgln.niedersachsen.de/search?bbox=9.696952,52.387909,9.697248,52.388091&limit=100
+GET https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=ni_dom1&FORMAT=image/tiff&SUBSET=x(547315,547567)&SUBSET=y(5804294,5804552)
+GET https://dom.stac.lgln.niedersachsen.de/search?bbox=9.696952,52.387909,9.697248,52.388091&limit=100
+warning: the surface model (LGLN DOM1) is from 18.04.2016, the orthophoto from 06.03.2025. The nDSM may lack newer buildings and trees.
+GET https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=547315,5804294,547567,5804552,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=547315,5804294,547567,5804552,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=547315,5804294,547567,5804552,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=547315,5804294,547567,5804552,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf [to file]
+result: fetched

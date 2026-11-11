@@ -650,9 +650,24 @@ fn region_of(id: &str) -> Region {
         .unwrap_or_else(|| panic!("no region {id:?}"))
 }
 
-/// The golden area of a region: about 150 m square around the centre of its example area.
+/// The centre of the golden area of a region (longitude, latitude): the centre of its example
+/// area. In four states that centre lies so close to a line of the 1 km grid that the area
+/// would need two or four tiles (Schleswig-Holstein: four surface model tiles of 105 MB each);
+/// there the centre is moved by 90 to 190 m, so that the area with its buffer stays in one tile.
+/// The numbers are written out, not computed: the area must be the same on every system.
+fn golden_centre(region: Region) -> (f64, f64) {
+    match region {
+        Region::Berlin => (13.3829, 52.488),
+        Region::SchleswigHolstein => (10.6849, 53.8648),
+        Region::NordrheinWestfalen => (6.2401, 50.5534),
+        Region::RheinlandPfalz => (7.1638, 50.1443),
+        _ => inside(region),
+    }
+}
+
+/// The golden area of a region: about 150 m square around [`golden_centre`].
 fn golden_area(region: Region) -> MapArea {
-    let (lon, lat) = inside(region);
+    let (lon, lat) = golden_centre(region);
     let (dlon, dlat) = (0.001_1, 0.000_7);
     let ring = [
         [lon - dlon, lat - dlat],
@@ -719,7 +734,8 @@ fn replayed_fetch(id: &str) -> Replayed {
         }
         let fetched = fetch_project(&dir, &fetcher, &cache, FetchMode::Online, &mut |note| {
             if note.is_warning() {
-                add(format!("warning: {note}"));
+                // The text of a warning starts with "warning:".
+                add(note.to_string());
             }
         });
         match fetched {
@@ -798,7 +814,21 @@ macro_rules! per_state {
     };
 }
 
-per_state!(g3_trace, crate::g3_trace_of, saxonyanhalt, hessen);
+per_state!(
+    g3_trace,
+    crate::g3_trace_of,
+    brandenburg,
+    berlin,
+    saxony,
+    saxonyanhalt,
+    hamburg,
+    hessen,
+    schleswigholstein,
+    mecklenburgvorpommern,
+    nordrheinwestfalen,
+    niedersachsen,
+    rheinlandpfalz
+);
 
 // Layer G4: the whole pipeline per state. It goes on from the replayed fetch of G3, so every
 // file the run reads was written by the run, and hashes every file the project folder holds
@@ -871,7 +901,7 @@ fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
 }
 
 fn g4_pipeline_of(id: &str) {
-    let (_replayed, hashes) = golden_pipeline(id);
+    let (replayed, hashes) = golden_pipeline(id);
     let name = format!("{id}/expected.sha256");
     let mut text = hashes.join("\n");
     text.push('\n');
@@ -895,14 +925,48 @@ fn g4_pipeline_of(id: &str) {
             differing.push(format!("recorded: {line}"));
         }
     }
-    assert!(
-        differing.is_empty(),
-        "{name} differs from the recorded behaviour; a refactor must not change it\n  {}",
-        differing.join("\n  ")
+    if differing.is_empty() {
+        return;
+    }
+    // The files that differ are kept, so they can be compared with those of another system
+    // (CI uploads the folder as an artifact).
+    let kept = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../target/golden-diff")
+        .join(id);
+    for (file, path) in files_under(&replayed.dir) {
+        let recorded_hash = expected
+            .iter()
+            .find_map(|line| line.split_once("  ").filter(|(_, name)| *name == file));
+        let now = sha256_hex(&std::fs::read(&path).unwrap());
+        if recorded_hash.is_none_or(|(hash, _)| hash != now) {
+            let copy = kept.join(&file);
+            std::fs::create_dir_all(copy.parent().expect("a folder")).unwrap();
+            std::fs::copy(&path, &copy).unwrap();
+        }
+    }
+    panic!(
+        "{name} differs from the recorded behaviour; a refactor must not change it\n  {}\n\
+         the files are kept in {}",
+        differing.join("\n  "),
+        kept.display()
     );
 }
 
-per_state!(g4_pipeline, crate::g4_pipeline_of, saxonyanhalt, hessen);
+per_state!(
+    g4_pipeline,
+    crate::g4_pipeline_of,
+    brandenburg,
+    berlin,
+    saxony,
+    saxonyanhalt,
+    hamburg,
+    hessen,
+    schleswigholstein,
+    mecklenburgvorpommern,
+    nordrheinwestfalen,
+    niedersachsen,
+    rheinlandpfalz
+);
 
 /// Copies the maintainer's cached OSM extracts of `region` into `cache`, so the recording does
 /// not download 50 to 500 MB that the replay answers with the empty extract anyway.

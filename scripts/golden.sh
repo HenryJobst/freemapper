@@ -78,6 +78,11 @@ pack() {
   local archive sha bytes
   [ -d "$store/responses" ] || { echo "nothing is recorded in $store" >&2; exit 1; }
   archive=$root/target/golden-adapters/golden-adapters-$version.tar.gz
+  # Answers no index names any more (a state recorded again) do not go into the archive.
+  for body in "$store"/responses/*.bin; do
+    name=$(basename "$body" .bin)
+    grep -qs "^body = \"$name\"" "$root"/tests/golden/adapters/*/index.toml || rm -f "$body"
+  done
   (cd "$store" && COPYFILE_DISABLE=1 tar -czf "$archive" --exclude .sha256 .)
   sha=$(sha256_of "$archive")
   bytes=$(wc -c < "$archive" | tr -d ' ')
