@@ -64,10 +64,11 @@ input, select, button {
   padding: 4px 8px;
 }
 
-button.active,
-button.primary {
+/* A drawing tool that is on looks like the suite's button.primary; the suite colours the primary
+   buttons, this file only sizes them. */
+button.active {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
   border: 1px solid var(--accent);
 }
 
