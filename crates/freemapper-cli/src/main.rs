@@ -1,6 +1,7 @@
 //! `freemapper` command line interface.
 
 mod errors;
+mod help;
 mod jobs;
 mod lock;
 mod mcp;
@@ -15,7 +16,7 @@ mod tiles;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory as _, FromArgMatches as _, Parser, Subcommand, ValueEnum};
 use freemapper::area::MapArea;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
@@ -406,12 +407,55 @@ impl From<Kind> for MapKind {
 }
 
 fn main() -> std::process::ExitCode {
-    let cli = Cli::parse();
-    if let Err(message) = text::set_lang(cli.lang.as_deref()) {
+    // The language first: the help and the parse errors need it.
+    let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
+    if let Err(message) = text::set_lang(help::lang_from_args(&args).as_deref()) {
         // A usage error, as clap reports one.
         eprintln!("error: {message}");
         return std::process::ExitCode::from(2);
     }
+    let lang = text::lang();
+    let usage_error = |message: &str| {
+        eprintln!("{}: {message}", text("cli-error-prefix", &[]));
+        eprintln!("\n{}", text("cli-parse-hint", &[]));
+        std::process::ExitCode::from(2)
+    };
+    let parse_error = |error: clap::Error| {
+        if !error.use_stderr() {
+            // Help and version.
+            let _ = error.print();
+            return std::process::ExitCode::SUCCESS;
+        }
+        match help::parse_error_message(&lang, &error) {
+            Some(message) => usage_error(&message),
+            None => {
+                let _ = error.print();
+                std::process::ExitCode::from(2)
+            }
+        }
+    };
+    let mut command = help::localized(Cli::command(), &lang);
+    let matches = match command.clone().try_get_matches_from(args) {
+        Ok(matches) => matches,
+        Err(error) => return parse_error(error),
+    };
+    if let Some(("help", sub)) = matches.subcommand() {
+        let path: Vec<String> = sub
+            .get_many::<String>("command")
+            .map(|words| words.cloned().collect())
+            .unwrap_or_default();
+        return match help::help_of(&mut command, &path) {
+            Ok(help) => {
+                print!("{help}");
+                std::process::ExitCode::SUCCESS
+            }
+            Err(word) => usage_error(&text("cli-parse-invalid-subcommand", &[("value", v(word))])),
+        };
+    }
+    let cli = match Cli::from_arg_matches(&matches) {
+        Ok(cli) => cli,
+        Err(error) => return parse_error(error),
+    };
     match run(cli) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {

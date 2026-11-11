@@ -146,6 +146,10 @@ mod tests {
             ("easting", v(1)),
             ("northing", v(1)),
             ("symbol", v(1)),
+            ("arg", v("--x")),
+            ("args", v("<DIR>")),
+            ("values", v("a, b")),
+            ("other", v("--y")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -160,6 +164,7 @@ mod tests {
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
+            include_str!("help.rs"),
         ] {
             for id in freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
@@ -173,11 +178,13 @@ mod tests {
             include_str!("select_run.rs"),
             include_str!("errors.rs"),
             include_str!("pipeline.rs"),
+            include_str!("help.rs"),
         ]
         .iter()
         .flat_map(|source| freemapper_text::ids_in_source(source, &["cli-", "error-", "word-"]))
         .collect();
-        for id in &english {
+        // The help texts are looked up by command and argument name; `help.rs` tests those.
+        for id in english.iter().filter(|id| !id.starts_with("help-")) {
             assert!(used.contains(id), "{id} is in the catalog but not used");
         }
     }
