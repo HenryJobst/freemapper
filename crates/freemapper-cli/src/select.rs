@@ -545,7 +545,8 @@ async fn save(
             "provider_changed": provider_changed,
             "dir": dir,
             "has_map": map_path(dir).exists(),
-            // The page names it with its next save.
+            // The page compares it with the revision it reads next: another one means that
+            // another window or program wrote the file in between.
             "revision": project_revision(dir),
         }))
     })

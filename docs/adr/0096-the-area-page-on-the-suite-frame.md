@@ -12,7 +12,8 @@ suite's local pages").
 freemapper-core v0.21.0 serves a shared page frame below the page token at `/{token}/suite/`: `suite.css` with the
 suite's tokens in light and dark, `api.js`, `texts.js`, `status.js` and `tree.js`, and on the Rust side
 `texts_language`, `revision`, `stale`, `refused` and the test helper `check_page_rules` (core ADR 0030 with its
-addendum). freemapper-courseplan's editor and freemapper-print's editor use it; freemapper's area page did not.
+addendum). freemapper-courseplan's editor moves to it and freemapper-print's planned editor builds on it (core ADR
+0030, work split 2 and 3); freemapper's area page did not use it.
 The page kept its texts in two tables, `TEXTS` in `app.js` and `RUN_TEXTS` in `run.js`, picked its language from
 `project.lang` or the browser, called `fetch` itself, had fixed colours without a dark mode, and saved
 `freemapper.toml` without checking whether another window or program had written it in the meantime.
@@ -42,7 +43,9 @@ The page kept its texts in two tables, `TEXTS` in `app.js` and `RUN_TEXTS` in `r
   `freemapper_web::texts_language(fixed, Accept-Language)`: `fixed` is the language `--lang` or the environment named
   (what `project.lang` carried before, ADR 0092 stage 4), otherwise the browser's language from the request, otherwise
   English. The rule of ADR 0092 is unchanged; the server now applies it, and the page no longer reads
-  `navigator.language`. `project.lang`, `setLanguage()` and the two tables are gone. The page loads the texts first
+  `navigator.language`. One difference when nothing is named: the server takes the German or English entry of
+  `Accept-Language` with the highest q-value, where the page took only the browser's first language, so
+  `fr-FR, de;q=0.9` now gives German instead of English (core ADR 0030). `project.lang`, `setLanguage()` and the two tables are gone. The page loads the texts first
   and only then writes the hint, the layer names and the update notice, so no script-set text can stay in another
   language.
 - **Revision on save.** `GET api/project` carries `revision`, the FNV-1a revision of `freemapper.toml` as the page read
@@ -50,9 +53,11 @@ The page kept its texts in two tables, `TEXTS` in `app.js` and `RUN_TEXTS` in `r
   `X-Freemapper-Revision`. Under the folder lock the server reads the file again and compares; when the revisions
   differ, or the page names none although the file exists, nothing is written and the answer is 409 from
   `freemapper_web::stale` with the current revision and the sentence `page-save-stale` in the page's language. The
-  page shows it in the suite banner, reads the project again and keeps the area it shows; saving once more replaces
-  the file knowingly. A first save, before the file exists, needs no revision. A successful save answers the new
-  revision.
+  page shows it in the suite banner, reads the project again and keeps the area it shows. Until the person clicks
+  "Save" again, the run panel does not save on its own before a run (`ensureSaved` answers false and the run panel
+  says the area is not saved); that click replaces the file knowingly. A first save, before the file exists, needs
+  no revision. A successful save answers the new revision; when the revision the page reads right after differs,
+  another window wrote in between, and the page treats it as a conflict too.
 - **The exception of core ADR 0030.** The area page is no editor and does not write at once with an undo stack. It
   keeps its save button, the replace dialog of the run panel and `.omap.bak`: saving an area can drop fetched data
   (another UTM zone or provider), and creating the map can replace a map with the mapper's work in it, which no undo
@@ -60,15 +65,15 @@ The page kept its texts in two tables, `TEXTS` in `app.js` and `RUN_TEXTS` in `r
   check on its one writing route.
 - **Messages.** The page keeps its own message line under the save button (`#message`, `role="status"`) with its
   colours for a save that worked and an error, because `status.js` writes text only and the page has no status bar;
-  replacing it would drop the colour. The new conflict of a stale save goes to the suite banner (`#banner`), as in the
-  other two pages.
+  replacing it would drop the colour. The new conflict of a stale save goes to the suite banner (`#banner`), as the
+  editors of the suite do.
 - **Rules and size.** A test runs `freemapper_web::check_page_rules` over `web/` without `web/vendor/` plus the suite
   assets, within 300 KiB. Leaflet counts separately, also within 300 KiB.
 
 ## Consequences
 
-- The page has a dark mode and looks like the other two pages of the suite; a fix in the frame reaches it with the
-  next core tag.
+- The page has a dark mode and the suite's look, which courseplan and print take up too; a fix in the frame reaches it
+  with the next core tag.
 - Two open pages of the same folder, or a page and a run in a terminal, can no longer overwrite each other's
   `freemapper.toml` unnoticed. A script that posts to `api/save` on an existing project must send the revision from
   `api/project`.

@@ -421,6 +421,27 @@ fn every_server_call_goes_through_the_suite_api() {
     assert!(function_body(&app, "saveArea").contains("project.revision"));
 }
 
+/// After a stale save the run panel must not save on its own: it would replace what another window
+/// wrote without the person deciding. Only a click on "Save" clears the conflict.
+#[test]
+fn a_conflict_blocks_the_save_before_a_run() {
+    let app = asset("app.js");
+    let ensure = function_body(&app, "ensureSaved");
+    let check = ensure
+        .find("if (conflict) return false;")
+        .expect("ensureSaved checks conflict");
+    assert!(check < ensure.find("saveArea(").unwrap());
+    assert!(app.contains(r#"$("save").addEventListener("click", () => saveArea(true));"#));
+    let save = function_body(&app, "saveArea");
+    assert!(save.contains("if (explicit) conflict = false;"));
+    assert!(save.contains("showConflict(e.message)"));
+    // A save whose revision is not the one read right after it lost to another writer.
+    assert!(save.contains("answer.revision !== project.revision"));
+    assert!(function_body(&app, "showConflict").contains("conflict = true;"));
+    // The declaration and the explicit save, nothing else clears it.
+    assert_eq!(app.matches("conflict = false;").count(), 2);
+}
+
 #[test]
 fn page_follows_the_suite_rules() {
     // The page's own files and the suite's, without the vendored Leaflet (its own limit below).

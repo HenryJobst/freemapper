@@ -164,6 +164,9 @@ let savedHere = false;
 let busy = false;
 // The area and source as last saved or loaded; a different one needs a save before a run.
 let savedSignature = null;
+// Set when another window or program wrote freemapper.toml since this page read it. Only a click
+// on "Save" clears it; until then a run does not save on its own (ensureSaved).
+let conflict = false;
 
 function signature() {
   return JSON.stringify({ area, sourceId });
@@ -189,6 +192,12 @@ function updateControls() {
   }
   $("search").querySelector("button").disabled = busy;
   for (const id of ["kind", "scale", "title"]) $(id).disabled = busy || (project && project.exists);
+}
+
+/** "Error: …" in the page language; the bare message while the texts are missing. */
+function failedText(message) {
+  const text = t("page-failed", { error: message });
+  return text === "page-failed" ? message : text;
 }
 
 function setMessage(text, kind) {
@@ -243,7 +252,7 @@ async function updatePreview() {
     preview = null;
     showPreview();
     updateControls();
-    setMessage(t("page-failed", { error: e.message }), "error");
+    setMessage(failedText(e.message), "error");
   }
   notifyRun();
 }
@@ -384,7 +393,7 @@ $("search").addEventListener("submit", async (event) => {
             const found = await api(`api/place?osm_id=${encodeURIComponent(place.osm_id)}`);
             await chooseArea(found.area, found.source_id, place.name || place.display_name, true);
           } catch (e) {
-            setMessage(t("page-failed", { error: e.message }), "error");
+            setMessage(failedText(e.message), "error");
           }
         });
         return li;
@@ -392,7 +401,7 @@ $("search").addEventListener("submit", async (event) => {
     );
   } catch (e) {
     list.replaceChildren();
-    setMessage(t("page-failed", { error: e.message }), "error");
+    setMessage(failedText(e.message), "error");
   }
 });
 
@@ -536,10 +545,24 @@ $("kind").addEventListener("change", () => {
   updatePreview();
 });
 
-$("save").addEventListener("click", saveArea);
+$("save").addEventListener("click", () => saveArea(true));
 
-/** Saves the area (and, for a new project, kind, scale and title); true when it worked. */
-async function saveArea() {
+/**
+ * freemapper.toml holds another state than this page saved or read: show `text` in the banner,
+ * take the saved area as the saved one and wait for an explicit "Save".
+ */
+function showConflict(text) {
+  conflict = true;
+  setMessage("");
+  showBanner(text);
+  savedSignature = savedSignatureOf(project);
+}
+
+/**
+ * Saves the area (and, for a new project, kind, scale and title); true when it worked. `explicit`
+ * is a click on "Save", the only save that clears a conflict.
+ */
+async function saveArea(explicit = false) {
   if (!area || busy) return false;
   setMessage(t("page-saving"));
   clearBanner();
@@ -568,21 +591,25 @@ async function saveArea() {
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
     showSettings();
+    if (answer.revision !== project.revision) {
+      // Another window or program wrote the file between this save and the reload.
+      showConflict(t("page-save-stale"));
+      return false;
+    }
+    if (explicit) conflict = false;
     return true;
   } catch (e) {
     if (e.status === 409 && e.body && typeof e.body.revision === "string") {
       // Another window or program wrote freemapper.toml since this page read it (core ADR 0030):
       // nothing was saved. The page takes the saved state and keeps the area it shows.
-      setMessage("");
-      showBanner(e.message);
       try {
         await reloadProject();
-        savedSignature = savedSignatureOf(project);
       } catch (reload) {
         // The banner stays; the next save asks the server again.
       }
+      showConflict(e.message);
     } else {
-      setMessage(t("page-failed", { error: e.message }), "error");
+      setMessage(failedText(e.message), "error");
     }
     return false;
   } finally {
@@ -596,8 +623,12 @@ function isSaved() {
   return !!project && project.exists && signature() === savedSignature;
 }
 
-/** Saves first when the area changed; true when the project on disk matches the page. */
+/**
+ * Saves first when the area changed; true when the project on disk matches the page. After a
+ * conflict it saves nothing and answers false: the person decides with "Save".
+ */
 async function ensureSaved() {
+  if (conflict) return false;
   return isSaved() ? true : saveArea();
 }
 
@@ -696,7 +727,7 @@ async function start() {
     }
     if (window.freemapperRun) window.freemapperRun.init(project);
   } catch (e) {
-    setMessage(t("page-failed", { error: e.message }), "error");
+    setMessage(failedText(e.message), "error");
   }
 }
 
