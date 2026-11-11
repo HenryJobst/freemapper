@@ -471,6 +471,7 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
         let dir = &state.dir;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
+        let mut provider_changed = false;
         if created {
             let kind = match body["kind"].as_str() {
                 Some(kind) => parse_kind(kind)?,
@@ -489,19 +490,17 @@ async fn save(State(state): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
             init_project(dir, &area, kind, scale, today, title)
                 .map_err(|e| crate::pipeline::describe(&e))?;
         } else {
-            let before = ProjectFile::load(dir)
-                .map_err(|e| crate::pipeline::describe(&e))?
-                .crs();
-            let after = set_map_area(dir, &area)
-                .map_err(|e| crate::pipeline::describe(&e))?
-                .crs();
-            zone_changed = before != after;
+            let saved = set_map_area(dir, &area).map_err(|e| crate::pipeline::describe(&e))?;
+            zone_changed = saved.zone_changed;
+            provider_changed = saved.provider_changed;
         }
         Ok(json!({
             "saved": true,
             "created": created,
-            // Everything fetched for the old area was in the other UTM zone and is dropped.
+            // The new area lies in another UTM zone: what was fetched for the old one is dropped.
             "zone_changed": zone_changed,
+            // Another provider serves the new area: its data is fetched again as well.
+            "provider_changed": provider_changed,
             "dir": dir,
             "has_map": map_path(dir).exists(),
         }))

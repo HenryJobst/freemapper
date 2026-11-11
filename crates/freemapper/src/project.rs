@@ -728,9 +728,28 @@ pub(crate) const TREE_LAYERS_DIR: &str = "data/trees";
 /// ALKIS buildings around the map area, as fetched (GeoJSON in the map's CRS).
 pub(crate) const BUILDINGS_RELPATH: &str = "data/alkis-buildings.geojson";
 
+/// A project after a new map area was saved, with why the data fetched for the old area was
+/// dropped, if it was.
+#[derive(Debug)]
+pub struct AreaSaved {
+    pub project: ProjectFile,
+    /// The new area lies in another UTM zone.
+    pub zone_changed: bool,
+    /// Another provider serves the new area, in the same zone or not.
+    pub provider_changed: bool,
+}
+
+impl AreaSaved {
+    /// Whether the fetched data was dropped: the next `fetch` loads it again for the new area.
+    pub fn dropped_fetched(&self) -> bool {
+        self.zone_changed || self.provider_changed
+    }
+}
+
 /// Sets the map area of the project in `dir` (from the area selection page), keeping every other
-/// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`.
-pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectError> {
+/// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`;
+/// the result says whether it was dropped and why.
+pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<AreaSaved, ProjectError> {
     area.validate()?;
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
@@ -752,13 +771,18 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<ProjectFile, ProjectEr
     // Another provider (in the same zone) serves other rasters: fetch them again too.
     let provider = raster_region(&region_bbox).map(Region::provider);
     let provider_changed = old_provider.is_some() && old_provider != provider;
-    if crs != project.crs() || provider_changed {
+    let zone_changed = crs != project.crs();
+    if zone_changed || provider_changed {
         project.crs = crs.epsg();
         project.drop_fetched(dir);
     }
     project.provider = provider;
     project.save(dir)?;
-    Ok(project)
+    Ok(AreaSaved {
+        project,
+        zone_changed,
+        provider_changed,
+    })
 }
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
@@ -5373,7 +5397,7 @@ mod tests {
         ))
         .unwrap();
         let area = MapArea::from_geojson(&text).unwrap();
-        let project = set_map_area(dir.path(), &area).unwrap();
+        let project = set_map_area(dir.path(), &area).unwrap().project;
         let loaded = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project, loaded);
         assert_eq!(loaded.map_area, area.to_geojson_value());
@@ -6692,7 +6716,9 @@ mod tests {
         let before = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(before.provider, Some(Provider::Lgv));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
-        let project = set_map_area(dir.path(), &norderstedt_area()).unwrap();
+        let project = set_map_area(dir.path(), &norderstedt_area())
+            .unwrap()
+            .project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
         assert_eq!(project.provider, Some(Provider::LvermGeoSh));
         assert!(project.terrain.is_none() && project.surface.is_none());
@@ -6797,7 +6823,7 @@ mod tests {
         let (dir, _cache_dir, cache) = halle_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         assert!(dir.path().join(TERRAIN_RELPATH).exists());
-        let project = set_map_area(dir.path(), &frankfurt_area()).unwrap();
+        let project = set_map_area(dir.path(), &frankfurt_area()).unwrap().project;
         assert_eq!(project.provider, Some(Provider::Hvbg));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
@@ -6809,7 +6835,7 @@ mod tests {
         let before = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(before.provider, Some(Provider::Hvbg));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
-        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap().project;
         assert_eq!(project.provider, Some(Provider::Lgv));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
@@ -6826,7 +6852,9 @@ mod tests {
         let before = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(before.provider, Some(Provider::LvermGeo));
         assert!(before.terrain.is_some());
-        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        let saved = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        assert!(saved.provider_changed && !saved.zone_changed, "{saved:?}");
+        let project = saved.project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
         assert_eq!(project.provider, Some(Provider::Lgv));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
@@ -6843,7 +6871,7 @@ mod tests {
         let mut older = ProjectFile::load(dir.path()).unwrap();
         older.provider = None;
         older.save(dir.path()).unwrap();
-        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap();
+        let project = set_map_area(dir.path(), &eppendorf_area()).unwrap().project;
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(!dir.path().join(SURFACE_RELPATH).exists());
     }
@@ -6910,7 +6938,7 @@ mod tests {
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let before = ProjectFile::load(dir.path()).unwrap();
         assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
-        let project = set_map_area(dir.path(), &latina_area()).unwrap();
+        let project = set_map_area(dir.path(), &latina_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert!(project.buildings.is_none() && project.land_use.is_none());
@@ -6922,7 +6950,7 @@ mod tests {
             );
         }
         // Moving within a zone keeps them (they are checked against the new area on fetch).
-        let back = set_map_area(dir.path(), &fixture_area()).unwrap();
+        let back = set_map_area(dir.path(), &fixture_area()).unwrap().project;
         assert_eq!(back.crs(), crate::crs::Crs::Utm33);
     }
 
@@ -7125,7 +7153,7 @@ mod tests {
         let before = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(before.provider, Some(Provider::LaivMv));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
-        let project = set_map_area(dir.path(), &fixture_area()).unwrap();
+        let project = set_map_area(dir.path(), &fixture_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
         assert_eq!(project.provider, Some(Provider::Lgb));
         assert!(project.terrain.is_none() && project.surface.is_none());
@@ -7354,7 +7382,7 @@ mod tests {
         let before = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(before.provider, Some(Provider::Lgb));
         assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
-        let project = set_map_area(dir.path(), &rostock_area()).unwrap();
+        let project = set_map_area(dir.path(), &rostock_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
         assert_eq!(project.provider, Some(Provider::LaivMv));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
