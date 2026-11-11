@@ -798,6 +798,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "freemapper-adapter-api",
+ "freemapper-contract",
  "freemapper-georef",
  "geo-types",
  "geojson",

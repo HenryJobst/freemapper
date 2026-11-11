@@ -146,6 +146,28 @@ impl Region {
         Self::RheinlandPfalz,
     ];
 
+    /// The id of the region: its name in the project file and its adapter id.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Brandenburg => "brandenburg",
+            Self::Berlin => "berlin",
+            Self::Saxony => "saxony",
+            Self::SaxonyAnhalt => "saxonyanhalt",
+            Self::Hamburg => "hamburg",
+            Self::Hessen => "hessen",
+            Self::SchleswigHolstein => "schleswigholstein",
+            Self::MecklenburgVorpommern => "mecklenburgvorpommern",
+            Self::NordrheinWestfalen => "nordrheinwestfalen",
+            Self::Niedersachsen => "niedersachsen",
+            Self::RheinlandPfalz => "rheinlandpfalz",
+        }
+    }
+
+    /// The region with this id.
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|region| region.id() == id)
+    }
+
     /// The state an ALKIS object id belongs to, by its first four characters (`DEBB…`, `DEBE…`,
     /// `DESN…`, `DEST…`, `DEHH…`, `DEHE…`, `DESH…`, `DEMV…`, `DENW…`, `DENI…`, `DERP…`).
     pub fn of_object_id(oid: &str) -> Option<Self> {
@@ -581,6 +603,16 @@ mod tests {
     }
 
     use super::*;
+
+    /// The id is what the project file writes for the region; the readers name a state by it.
+    #[test]
+    fn the_id_of_a_region_is_its_name_in_the_project_file() {
+        for region in Region::ALL {
+            assert_eq!(serde_json::to_value(region).unwrap(), region.id());
+            assert_eq!(Region::from_id(region.id()), Some(region));
+        }
+        assert_eq!(Region::from_id("bremen"), None);
+    }
 
     fn around(e: f64, n: f64, half: f64) -> BoundingBox {
         BoundingBox {

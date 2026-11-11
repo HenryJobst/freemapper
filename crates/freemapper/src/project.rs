@@ -2854,7 +2854,11 @@ fn fetch_nas_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched.regions,
+                        regions: fetched
+                            .regions
+                            .iter()
+                            .filter_map(|id| Region::from_id(id.as_str()))
+                            .collect(),
                     },
                 );
             }
@@ -3055,7 +3059,11 @@ fn fetch_tree_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched.regions,
+                        regions: fetched
+                            .regions
+                            .iter()
+                            .filter_map(|id| Region::from_id(id.as_str()))
+                            .collect(),
                     },
                 );
             }

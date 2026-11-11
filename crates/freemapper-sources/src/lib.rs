@@ -6,10 +6,12 @@
 
 pub mod float_tiff;
 pub mod height_model;
+pub mod nas;
 pub mod ogc_api;
 pub mod raster;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+pub mod trees;
 pub mod wcs;
 pub mod wfs;
 pub mod wms;
@@ -46,4 +48,9 @@ mod fetch {
         pub(crate) use crate::testing::*;
         pub(crate) use freemapper_adapter_api::testing::MapFetcher;
     }
+}
+
+#[allow(unused_imports)]
+mod fsutil {
+    pub(crate) use freemapper_adapter_api::fs::*;
 }
