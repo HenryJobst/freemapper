@@ -842,12 +842,19 @@ mod tests {
             "Content-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
         ));
-        let mut stream = std::net::TcpStream::connect(host).unwrap();
-        stream.write_all(head.as_bytes()).unwrap();
-        // The server may answer 413 and close before it has read everything.
-        let _ = stream.write_all(body.as_bytes());
+        // The server may answer 403 or 413 and close before it has read the body; Windows then
+        // resets the connection and drops the answer, so an empty answer is asked for again.
         let mut answer = Vec::new();
-        let _ = stream.read_to_end(&mut answer);
+        for _ in 0..5 {
+            let mut stream = std::net::TcpStream::connect(host).unwrap();
+            stream.write_all(head.as_bytes()).unwrap();
+            let _ = stream.write_all(body.as_bytes());
+            answer.clear();
+            let _ = stream.read_to_end(&mut answer);
+            if !answer.is_empty() {
+                break;
+            }
+        }
         let answer = String::from_utf8_lossy(&answer).to_string();
         let (head, body) = answer.split_once("\r\n\r\n").unwrap_or((&answer, ""));
         let status = head.split(' ').nth(1).unwrap().parse().unwrap();
