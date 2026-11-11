@@ -203,7 +203,8 @@ its own AGENTS.md:
 
 - [freemapper-print](https://github.com/HenryJobst/freemapper-print/blob/main/AGENTS.md): print-ready PDFs of the
   map (sheet, margins, scales such as 1:3000 by enlargement).
-- freemapper-courseplan: course planning on the map (its AGENTS.md follows with its next release).
+- [freemapper-courseplan](https://github.com/HenryJobst/freemapper-courseplan/blob/main/AGENTS.md): course planning
+  on the map.
 
 ## Working on the freemapper code
 
