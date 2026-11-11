@@ -28,7 +28,7 @@ freemapper-core.
   |---|---|---|
   | 1 | the lines the CLI prints itself: what was written or kept, the hints after `run`, `export` and `select` | this ADR |
   | 2 | error messages (the `Display` texts of the library's error types stay English for logs and tests) | done, see below |
-  | 3 | progress lines and warnings, which the library formats today | open |
+  | 3 | progress lines and warnings of the engine | done except the warnings of the height-model sources, see below |
   | 4 | `--help`, the MCP texts, and `lang` in `api/project` so the page follows `--lang` | page done, see below; rest open |
 
 - Tests of the CLI set `FREEMAPPER_LANG=en`, so they pass on a machine with any system language.
@@ -48,6 +48,28 @@ freemapper-core.
   details the library carries as free text (`AreaError::Place`, `ProjectError::Layer`, the `message` fields). Turning
   those into variants is work for the library and can follow where a message matters.
 
+### Stage 3: progress lines and warnings (2026-11-11)
+
+- The engine no longer hands its callback a finished English line. It hands over a `Note`
+  (`crates/freemapper/src/note.rs`): a message id and the values the message names. A value is a text, a count, an
+  error, or another note.
+- The texts of the notes live beside the engine, in `crates/freemapper/i18n/<language>/notes.ftl`. This differs
+  from stage 2, where the CLI holds the texts of the library's errors. The reasons: a progress line is one
+  statement at its call site, and a closed type with about 200 variants would cost five edits per line; and the
+  region adapters are to become crates of their own, which then bring their texts with them.
+- The engine still picks no language. The caller renders a note with `Note::text(lang, error)`; `error` words
+  the errors a note carries, so the CLI passes its `errors::message` and a failed download inside a German warning
+  is German too. `Display` gives the English line, so logs and the engine's tests read as before.
+- The id decides the kind: `progress-…` is a progress line, `warning-…` a warning, `word-…` a name inside another
+  message. A warning gets its prefix (`warning:`, `Warnung:`) from the catalog. The CLI no longer recognizes
+  warnings by that prefix: `Note::is_warning` says so, and the pipeline sends them as `Event::Warning`.
+- Names that are English words in the code (a state, a map kind, the kind of a height model) travel as keys, and
+  each catalog words them (`hesse`, `schoolyard`, `terrain`).
+- Tests: every language has every message with the same variables, every id in the engine's code has a text,
+  every text is used, and in debug builds a note fails that names a value its message lacks.
+- Not yet messages: about 25 warnings the height-model sources collect as strings (tile lists, dates, the
+  Metalink). They travel as `Note::plain` and stay English. `Note::plain` goes when they are converted.
+
 ### Stage 4, first part: the language of the selection page (2026-11-11)
 
 - `api/project` carries `lang` when `--lang` or one of the environment variables named a language freemapper has
@@ -57,8 +79,8 @@ freemapper-core.
 
 ## Consequences
 
-- Until stage 3 a German run mixes languages: the CLI's own lines and the errors are German, progress lines and
-  warnings are English. The manual says so.
+- A German run still mixes languages in two places: the warnings of the height-model sources (stage 3, rest) and
+  `--help` (stage 4). The manual says so.
 - Windows and macOS set `LANG` only in some shells. Where it is missing, the program is English unless
   `FREEMAPPER_LANG` or `--lang` is given. That is the suite's rule; reading the system language through the
   operating system would be a change for all three programs.

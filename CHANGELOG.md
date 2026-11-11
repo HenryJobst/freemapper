@@ -6,6 +6,14 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Programmsprache, dritte Stufe (ADR 0092): Fortschrittszeilen und Warnungen kommen in der Sprache des Programms, auf der Kommandozeile, im MCP-Server und im Protokoll der Gebietsseite. Eine Warnung beginnt deutsch mit `Warnung:`. Steckt in einer Warnung ein Fehler, etwa ein fehlgeschlagener Download, ist auch er übersetzt. Noch Englisch sind `--help` und rund 25 Warnungen zu den Höhenmodellen einzelner Bundesländer (Kachellisten, Datumsangaben).
+
+### Geändert
+
+- Bibliothek: Die Rückruffunktion für den Fortschritt bekommt statt einer fertigen Zeile (`&str`) einen Wert `Note` mit Kennung und Angaben; `to_string()` gibt die englische Zeile wie bisher, `Note::text` die Zeile in einer Sprache, `Note::is_warning` sagt, ob es eine Warnung ist. Die Texte liegen in `crates/freemapper/i18n/`.
+
 ## [0.10.0] - 2026-11-11
 
 ### Hinzugefügt

@@ -73,7 +73,7 @@ Das Programm ist noch in Entwicklung. Als Nächstes werden die Regionsadapter so
 Entwickler eigene Adapter für ihr Land beitragen können. Danach folgen genauere Sprintkarten für weitere
 Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, vollständig deutsche
-Programmtexte (Fehlermeldungen und Abschlusszeilen sind schon deutsch: `--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen, Bayern,
+Programmtexte (Fehlermeldungen, Fortschrittszeilen und fast alle Warnungen sind schon deutsch: `--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen, Bayern,
 Saarland). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).

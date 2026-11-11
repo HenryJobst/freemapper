@@ -801,10 +801,12 @@ das Programm endet dann mit dem Exit-Code 1. Auch der MCP-Server und die Gebiets
 Sprache des Programms. Englisch bleibt in einer deutschen Fehlermeldung, was ein Server, das Betriebssystem oder
 ein Parser dazu sagt, und einige Einzelheiten, etwa bei der Ortssuche.
 
-Fortschrittszeilen, Warnungen und die Hilfe (`--help`) sind noch Englisch. Die Gebietsseite nimmt die Sprache
+Auch die Fortschrittszeilen und die Warnungen kommen in der Sprache des Programms; eine Warnung beginnt mit
+`Warnung:` (englisch `warning:`). Noch Englisch sind die Hilfe (`--help`) und einige Warnungen zu den
+Höhenmodellen einzelner Bundesländer, etwa zu Kachellisten und Datumsangaben. Die Gebietsseite nimmt die Sprache
 des Programms, wenn `--lang`, `FREEMAPPER_LANG` oder das System eine nennt; sonst richtet sie sich nach der
-Sprache des Browsers. Die Tabelle nennt die Meldungen deshalb im englischen Wortlaut; mit `--lang en` zeigt
-freemapper auch die Fehler so. Die wichtigsten Meldungen:
+Sprache des Browsers. Die Tabelle nennt die Meldungen im englischen Wortlaut; mit `--lang en` zeigt freemapper
+sie so. Die wichtigsten Meldungen:
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
