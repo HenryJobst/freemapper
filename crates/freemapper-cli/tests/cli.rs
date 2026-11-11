@@ -1282,7 +1282,8 @@ mod update_check {
             .unwrap();
         let took = started.elapsed();
         assert!(
-            took >= Duration::from_millis(2900) && took < Duration::from_millis(4500),
+            // The stub answers after 5 s twice: a check that was not dropped takes 10 s or more.
+            took >= Duration::from_millis(2900) && took < Duration::from_millis(8000),
             "{took:?}"
         );
         assert_eq!(with.status.code(), Some(1), "{with:?}");

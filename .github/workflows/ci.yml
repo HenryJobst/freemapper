@@ -23,4 +23,5 @@ jobs:
       - run: cargo test --locked --workspace
       # The update command and the MCP update tools against a stub server: only a debug build with
       # this feature reaches them.
+      - run: cargo clippy --locked -p freemapper-cli --all-targets --features test-stub -- -D warnings
       - run: cargo test --locked -p freemapper-cli --features test-stub --test cli --test mcp --test select update

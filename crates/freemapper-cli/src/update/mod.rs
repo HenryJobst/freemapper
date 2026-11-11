@@ -26,6 +26,16 @@ const _: () = assert!(
     "FREEMAPPER_DIST=github-release, but assets/update/minisign.pub still holds the TEST KEY"
 );
 
+// The test hooks redirect the update source; a release build never carries them.
+const _: () = assert!(
+    !(RELEASE && cfg!(feature = "test-stub")),
+    "FREEMAPPER_DIST=github-release together with the test-stub feature"
+);
+
+/// The key line of the test key in freemapper-core's `tests/keys/test.pub`, whose secret half is
+/// in the repository.
+const TEST_KEY_LINE: &[u8] = b"RWQr6TpLSQ74CbpwfXt6elefnjKJxHRj6tEawt4fudtGpb7yLegwOqX+";
+
 /// `dist` is `github-release`. A `const fn`, so the build can check it.
 const fn is_release(dist: Option<&str>) -> bool {
     match dist {
@@ -34,9 +44,12 @@ const fn is_release(dist: Option<&str>) -> bool {
     }
 }
 
-/// Whether a build of this kind may carry this key file: a release build never one with the test key.
+/// Whether a build of this kind may carry this key file: a release build never one with the test
+/// key, found by its comment or by its key line.
 const fn key_file_allowed(release: bool, key_file: &str) -> bool {
-    !release || !contains(key_file.as_bytes(), b"TEST KEY")
+    !release
+        || !(contains(key_file.as_bytes(), b"TEST KEY")
+            || contains(key_file.as_bytes(), TEST_KEY_LINE))
 }
 
 const fn bytes_equal(a: &[u8], b: &[u8]) -> bool {
@@ -180,6 +193,13 @@ mod tests {
             "untrusted comment: minisign public key 1234\nRWQ...\n"
         ));
         assert!(contains(b"ab TEST KEY", b"TEST KEY") && !contains(b"TEST KE", b"TEST KEY"));
+        // The test key under another comment, next to a release key, is refused too.
+        let renamed = format!(
+            "untrusted comment: minisign public key 1234\nRWQ...\nuntrusted comment: old\n{}\n",
+            std::str::from_utf8(TEST_KEY_LINE).unwrap()
+        );
+        assert!(!key_file_allowed(true, &renamed));
+        assert!(key_file_allowed(false, &renamed));
     }
 
     #[test]

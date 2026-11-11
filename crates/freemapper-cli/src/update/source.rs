@@ -432,6 +432,7 @@ mod tests {
             "https://evil.example/m.json",
             "http://github.com/m.json",
             "https://github.com:8443/m.json",
+            "//evil.example/m.json",
         ] {
             let stub = Stub::start(vec![(MANIFEST_PATH, redirect(302, location))]);
             let error = stub.source().get(MANIFEST_URL, 64 * 1024).unwrap_err();

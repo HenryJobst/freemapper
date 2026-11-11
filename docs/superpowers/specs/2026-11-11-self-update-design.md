@@ -110,7 +110,8 @@ executable.
 - Implicitly: after a command that uses the network anyway (`init`, `select`, `fetch`, `run`) finished, if the
   last attempt is older than 24 hours. `derive` and `export` work offline and send no request today, so they do not
   check either (D11). The check runs on a background thread started with the command, with a
-  3-second total timeout; if it is not done when the command ends, it is dropped and tried next time. The result
+  3-second total timeout counted from the start: when the command ends first, it waits for the rest of the 3 s
+  (so a very fast command can take up to 3 s longer); a check not done by then is dropped and tried next time. The result
   prints one line on stderr after the command's own output:
   `freemapper 0.11.0 is available (you have 0.10.0). Update with: freemapper update`. Translated (ADR 0092).
 - Never: on stdout of `mcp` (the protocol; see 3.7 for the server), with `--offline` on the commands that have it
@@ -280,7 +281,7 @@ AGENTS.md: the update tools and the rule to ask before installing. Changelog DE/
 | D6 | Pure parts in `freemapper-update` in core, network in the app | suite rule (shared code in core) and core ADR 0007 | an extra crate and tag before freemapper can use it |
 | D7 | Only the executable is updated, not the docs in the folder | docs are online and in the next full download | an AGENTS.md in the folder can lag behind |
 | D8 | No install button on the browser page in the first version | the page runs a local server with a lock; an install while the page runs needs more thought | users of the page use the command or the assistant |
-| D9 | Implicit check once per 24 h after the command, 3 s budget, dropped if late | never slows a command; no extra request per command | a notice can arrive a day late |
+| D9 | Implicit check once per 24 h with the command, 3 s budget from its start, dropped if late | at most 3 s added once a day, and a fast command does not waste the day's attempt | a fast command can take up to 3 s longer once a day; a notice can arrive a day late |
 | D10 | `freemapper.previous` kept for rollback | one version back covers a bad release | 20 to 40 MB more on disk |
 | D11 | Implicit check only after `init`, `select`, `fetch`, `run`; not after `derive`, `export` | those two send no request today, and `--offline` exists only on the network commands | someone who only exports never sees the notice |
 | D12 | A failed or dropped check counts as the day's attempt | no retry storm on a machine without network | an update notice can wait a day after a short outage |
