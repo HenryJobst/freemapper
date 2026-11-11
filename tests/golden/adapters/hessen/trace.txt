@@ -1,0 +1,30 @@
+estimate: orthophoto (HVBG WMS) | Orthophoto | 0.576 MB | cached: false
+estimate: terrain model (HVBG DGM1) | Terrain | 2.100 MB | cached: false
+estimate: surface model (HVBG DOM1) | Surface | 3.000 MB | cached: false
+estimate: tile metadata list (HVBG) | Terrain | 1.000 MB | cached: false
+estimate: OSM extract Hesse (shared by all projects) | MapData | 348.000 MB | cached: false
+estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
+GET https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=he_dop_rgb_info&QUERY_LAYERS=he_dop_rgb_info&STYLES=&CRS=EPSG:25832&BBOX=483554.264,5628622.166,483754.264,5628822.166&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain
+GET https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=he_dop20_rgb&STYLES=&CRS=EPSG:25832&BBOX=483526.4,5628594,483782.2,5628850.4&WIDTH=1279&HEIGHT=1282&FORMAT=image/jpeg
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29&navigation=all
+GET https://gds.hessen.de/INTERSHOP/static/WFS/HLBG-Geodaten-Site/-/HLBG-Geodaten/de_DE/Downloadcenter/Daten/3D-Daten/Metadaten_DGM-DOM_August-2026.xlsx
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf&page=2
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip [bytes=-65558]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip [bytes=373448380-373483047]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip [bytes=216985416-216985445]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip [bytes=216985471-219424464]
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29&navigation=all
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf
+GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf&page=2
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip [bytes=-65558]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip [bytes=468802225-468836892]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip [bytes=273631458-273631487]
+GET https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip [bytes=273631513-276785950]
+GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits
+GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0
+GET https://download.geofabrik.de/europe/germany/hessen-updates/state.txt
+GET https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf [to file]
+result: fetched

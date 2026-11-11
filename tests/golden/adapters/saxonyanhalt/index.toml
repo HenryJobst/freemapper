@@ -1,0 +1,59 @@
+[[response]]
+method = "GET"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=atkis_geobasis_bestand:truedop_kacheln&OUTPUTFORMAT=GEOJSON&BBOX=647518,5739613,647539,5739634,urn:ogc:def:crs:EPSG::25832"
+body = "ce64e184a6fe7766de58566f1d04848b9f8d112f811d3f42c1dc1d912f3bd883"
+bytes = 442
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=lsa_lvermgeo_dop20_2&STYLES=&CRS=EPSG:25832&BBOX=647400,5739493.4,647656.4,5739753.8&WIDTH=1282&HEIGHT=1302&FORMAT=image/jpeg"
+body = "b32dadb8d1a13a9c6da5408140ca9d903baf49006e93f4eabe369c9ac5108101"
+bytes = 1343634
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DGM1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Coverage1&FORMAT=image/tiff&SUBSET=x(647400,647657)&SUBSET=y(5739493,5739754)"
+body = "839b30027e96efd31c183b431800d1d78a2c2d2551d20977fa9dc11f43e41ef5"
+bytes = 592873
+
+[[response]]
+method = "GET"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DOM1?SERVICE=WCS&VERSION=2.0.1&REQUEST=GetCoverage&COVERAGEID=Coverage1&FORMAT=image/tiff&SUBSET=x(647400,647657)&SUBSET=y(5739493,5739754)"
+body = "2cde2fadc70afee16287676d9f1e797a843a9488ffebce3f2f011e1fa4b82300"
+bytes = 593119
+
+[[response]]
+method = "GET"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=atkis_geobasis_bestand:bdom_aktualitaet_zyklus&OUTPUTFORMAT=GEOJSON&BBOX=647518,5739613,647539,5739634,urn:ogc:def:crs:EPSG::25832"
+body = "20df4db996b64773e2d9dd308087e6f964456cd9968c1c5a6bce03c17e527ed7"
+bytes = 632
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "b73d829b9dfdf027b725668893153fe95c7378adde4b2a72c1a5f2f1a234939d"
+bytes = 457
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "9f25c2e586bacf6a47ebdedaefc223de1194e3bafca15f5ab4b6c0db373de0eb"
+bytes = 212934
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:Nutzung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "624e92dd2c4054e42c93fc36c06bfecb6c45f0b2f56e5c3ac2883f44b724e104"
+bytes = 457
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:Nutzung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "1443d0afe460631f0aa46fb2a9160ae011e3440c1ae04a5ac219ec916b2da294"
+bytes = 164234
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt"
+body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
+bytes = 113

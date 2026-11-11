@@ -456,6 +456,13 @@ pub mod golden {
         }
     }
 
+    /// A point (longitude, latitude) inside `region`: the centre of its example area and of its
+    /// golden area.
+    pub fn inside(region: Region) -> (f64, f64) {
+        let (_, lon, lat) = constants(region);
+        (lon, lat)
+    }
+
     fn boundary_text(region: Region) -> &'static str {
         match region {
             Region::Brandenburg => BRANDENBURG_BOUNDARY,

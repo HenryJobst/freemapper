@@ -5,16 +5,28 @@
 
 use std::path::{Path, PathBuf};
 
+use freemapper::area::MapArea;
+use freemapper::clock;
 use freemapper::crs::{BoundingBox, Crs, LatLon, ProjectedPoint, utm33_forward};
-use freemapper::project::ProjectFile;
+use freemapper::fetch::{ByteRange, Cache, FetchError, FetchMode, Fetcher, HttpFetcher};
+use freemapper::layers::estimate_download;
+use freemapper::project::{
+    MapKind, PdfSources, ProjectFile, derive_project, export_candidates_pdf_from, export_ocad_from,
+    export_pdf_from, export_starter_project_from, fetch_project, init_project, starter_documents,
+};
 use freemapper::sources::osm::extracts_for;
-use freemapper::sources::region::golden::legacy_facts;
+use freemapper::sources::region::golden::{inside, legacy_facts};
 use freemapper::sources::region::{
     Provider, Region, contains_point, provider_tiles, raster_region, reaches_beyond_coverage,
     regions_for, tile_centre_in, tile_touches,
 };
 use freemapper::tiles::{TileId, tiles_covering};
 use serde::{Deserialize, Serialize};
+
+#[path = "support/replay.rs"]
+mod replay;
+
+use replay::{RecordingFetcher, ReplayFetcher};
 
 /// `tests/golden/adapters/` at the repository root.
 fn golden_dir() -> PathBuf {
@@ -36,9 +48,23 @@ fn check_golden(name: &str, actual: &str) {
     let expected = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("{}: {e}; record it with FREEMAPPER_BLESS=1", path.display()));
     // Line endings are not part of the record (a Windows checkout may turn LF into CRLF).
-    assert!(
-        expected.replace("\r\n", "\n") == actual,
-        "{name} differs from the recorded behaviour; a refactor must not change it"
+    let expected = expected.replace("\r\n", "\n");
+    if expected == actual {
+        return;
+    }
+    let (mut recorded, mut now) = (expected.lines(), actual.lines());
+    let mut line = 1;
+    let (was, is) = loop {
+        match (recorded.next(), now.next()) {
+            (was, is) if was != is => break (was, is),
+            _ => line += 1,
+        }
+    };
+    panic!(
+        "{name} differs from the recorded behaviour in line {line}; a refactor must not change \
+         it\n  recorded: {}\n  now:      {}",
+        was.unwrap_or("(the file ends)"),
+        is.unwrap_or("(the output ends)")
     );
 }
 
@@ -463,6 +489,12 @@ const G2_MEASURED_MS: u128 = 1100;
 #[test]
 #[ignore = "a timing, run by hand in a release build"]
 fn g2_dispatch_is_fast_enough() {
+    if cfg!(debug_assertions) {
+        // `scripts/golden.sh test` runs the ignored tests too, in a debug build, where the
+        // time says nothing.
+        eprintln!("not timed: a debug build");
+        return;
+    }
     let boxes = recorded_boxes();
     // Once unmeasured, so the boundaries are parsed before the clock starts.
     boxes
@@ -482,5 +514,467 @@ fn g2_dispatch_is_fast_enough() {
     assert!(
         took <= 2 * G2_MEASURED_MS,
         "{took} ms is more than twice the {G2_MEASURED_MS} ms of v0.12.0"
+    );
+}
+
+// Layer G3: the requests of an online fetch per state, replayed from the fixture store.
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::Digest as _;
+    sha2::Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[test]
+fn replay_returns_recorded_bytes_and_logs_requests() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = dir.path().join("store");
+    std::fs::create_dir_all(store.join("responses")).unwrap();
+    let keep = |bytes: &[u8]| {
+        let hash = sha256_hex(bytes);
+        std::fs::write(store.join("responses").join(format!("{hash}.bin")), bytes).unwrap();
+        hash
+    };
+    let (whole, part) = (keep(b"the whole answer"), keep(b"wh"));
+    let index = dir.path().join("index.toml");
+    std::fs::write(
+        &index,
+        format!(
+            "[[response]]\nmethod = \"GET\"\nurl = \"https://example.invalid/a\"\n\
+             body = \"{whole}\"\nbytes = 16\n\n\
+             [[response]]\nmethod = \"GET\"\nurl = \"https://example.invalid/b\"\n\
+             range = \"bytes=4-5\"\nbody = \"{part}\"\nbytes = 2\n\n\
+             [[response]]\nmethod = \"HEAD\"\nurl = \"https://example.invalid/a\"\n\
+             last_modified = \"2025-03-03\"\n\n\
+             [[response]]\nmethod = \"GET\"\nurl = \"https://example.invalid/gone\"\n\
+             error = \"not-found\"\n"
+        ),
+    )
+    .unwrap();
+    let fetcher = ReplayFetcher::new(&index, &store);
+    assert_eq!(
+        fetcher.get("https://example.invalid/a").unwrap(),
+        b"the whole answer"
+    );
+    let range = ByteRange::From { start: 4, len: 2 };
+    assert_eq!(
+        fetcher
+            .get_range("https://example.invalid/b", range)
+            .unwrap(),
+        b"wh"
+    );
+    assert_eq!(
+        fetcher.last_modified("https://example.invalid/a").unwrap(),
+        chrono::NaiveDate::from_ymd_opt(2025, 3, 3)
+    );
+    let gone = fetcher.get("https://example.invalid/gone").unwrap_err();
+    assert!(matches!(gone, FetchError::NotFound(_)), "{gone:?}");
+    // A request the recording does not know fails like a server error and is logged.
+    let unknown = fetcher.get("https://example.invalid/new").unwrap_err();
+    assert!(
+        matches!(&unknown, FetchError::Http { message, .. } if message.contains("404")),
+        "{unknown:?}"
+    );
+    // An OSM extract is answered with the empty one, whatever the index says.
+    let extract = dir.path().join("x.osm.pbf.part");
+    let url = "https://example.invalid/x-latest.osm.pbf";
+    fetcher
+        .download_to(url, &extract, 1 << 20, &mut |_| {})
+        .unwrap();
+    let bytes = std::fs::read(&extract).unwrap();
+    assert!(
+        !bytes.is_empty() && bytes.len() < 300,
+        "{} bytes",
+        bytes.len()
+    );
+    assert_eq!(
+        fetcher.trace(),
+        [
+            "GET https://example.invalid/a",
+            "GET https://example.invalid/b [bytes=4-5]",
+            "HEAD https://example.invalid/a",
+            "GET https://example.invalid/gone",
+            "GET https://example.invalid/new",
+            "GET https://example.invalid/x-latest.osm.pbf [to file]",
+        ]
+    );
+}
+
+/// The version of the fixture store this tree needs (`store.lock`).
+fn store_version() -> u32 {
+    #[derive(Deserialize)]
+    struct Lock {
+        version: u32,
+    }
+    let path = golden_dir().join("store.lock");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    toml::from_str::<Lock>(&text).unwrap().version
+}
+
+/// Where the fixture store lies: `FREEMAPPER_GOLDEN_STORE`, or `target/golden-adapters/<version>/`
+/// at the repository root, where `scripts/golden.sh fetch` unpacks it.
+fn store_dir() -> PathBuf {
+    match std::env::var_os("FREEMAPPER_GOLDEN_STORE") {
+        Some(dir) => PathBuf::from(dir),
+        None => Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target/golden-adapters")
+            .join(store_version().to_string()),
+    }
+}
+
+/// The store, fetched. Without it G3 and G4 fail; they never pass by skipping.
+fn fetched_store() -> PathBuf {
+    let dir = store_dir();
+    assert!(
+        dir.join("responses").is_dir(),
+        "needs the fixture store: scripts/golden.sh test ({} is missing)",
+        dir.display()
+    );
+    dir
+}
+
+/// The instant every golden run happens at.
+fn golden_noon() -> chrono::NaiveDateTime {
+    chrono::NaiveDate::from_ymd_opt(2026, 11, 11)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap()
+}
+
+fn region_of(id: &str) -> Region {
+    Region::ALL
+        .into_iter()
+        .find(|region| id_of(*region) == id)
+        .unwrap_or_else(|| panic!("no region {id:?}"))
+}
+
+/// The golden area of a region: about 150 m square around the centre of its example area.
+fn golden_area(region: Region) -> MapArea {
+    let (lon, lat) = inside(region);
+    let (dlon, dlat) = (0.001_1, 0.000_7);
+    let ring = [
+        [lon - dlon, lat - dlat],
+        [lon + dlon, lat - dlat],
+        [lon + dlon, lat + dlat],
+        [lon - dlon, lat + dlat],
+        [lon - dlon, lat - dlat],
+    ];
+    let polygon = serde_json::json!({"type": "Polygon", "coordinates": [ring]});
+    MapArea::from_geojson(&polygon.to_string()).unwrap()
+}
+
+/// A new sprint project over the golden area of `region` in the empty folder `dir`.
+fn init_golden_project(dir: &Path, region: Region) {
+    std::fs::create_dir_all(dir).unwrap();
+    let date = golden_noon().date();
+    init_project(dir, &golden_area(region), MapKind::Sprint, None, date, None).unwrap();
+}
+
+/// `line` without the folders of this run, which have another name every time.
+fn without_run_folders(line: &str, dir: &Path, cache: &Path) -> String {
+    let mut scrubbed = line.to_string();
+    for (folder, name) in [(dir, "<project>"), (cache, "<cache>")] {
+        let resolved = std::fs::canonicalize(folder).unwrap_or_else(|_| folder.to_path_buf());
+        for spelling in [resolved.as_path(), folder] {
+            scrubbed = scrubbed.replace(&spelling.display().to_string(), name);
+        }
+    }
+    if scrubbed != line {
+        scrubbed = scrubbed.replace('\\', "/");
+    }
+    scrubbed
+}
+
+/// A project fetched online from the recording of one state.
+struct Replayed {
+    /// Holds the project folder and the cache; removed when dropped.
+    _root: tempfile::TempDir,
+    /// The project folder, named after the state, so the map files are too.
+    dir: PathBuf,
+    cache: Cache,
+    /// The estimate, then the requests and warnings in their order, then how the fetch ended.
+    lines: Vec<String>,
+}
+
+/// Fetches the golden project of `id` into an empty folder with an empty cache, under the fixed
+/// clock, every request answered from the store.
+fn replayed_fetch(id: &str) -> Replayed {
+    let store = fetched_store();
+    let root = tempfile::tempdir().unwrap();
+    let (dir, cache_dir) = (root.path().join(id), root.path().join("cache"));
+    let cache = Cache::new(cache_dir.clone());
+    let fetcher = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+    let log = fetcher.log();
+    let add = |line: String| log.lock().unwrap().push(line);
+    clock::with_fixed(golden_noon(), || {
+        init_golden_project(&dir, region_of(id));
+        let estimate = estimate_download(&dir, &cache, clock::today()).unwrap();
+        for item in &estimate.items {
+            add(format!(
+                "estimate: {} | {:?} | {:.3} MB | cached: {}",
+                item.what, item.part, item.megabytes, item.cached
+            ));
+        }
+        let fetched = fetch_project(&dir, &fetcher, &cache, FetchMode::Online, &mut |note| {
+            if note.is_warning() {
+                add(format!("warning: {note}"));
+            }
+        });
+        match fetched {
+            Ok(_) => add("result: fetched".to_string()),
+            Err(e) => add(format!("result: {e}")),
+        }
+    });
+    let lines = fetcher
+        .trace()
+        .iter()
+        .map(|line| without_run_folders(line, &dir, &cache_dir))
+        .collect();
+    Replayed {
+        _root: root,
+        dir,
+        cache,
+        lines,
+    }
+}
+
+fn g3_trace_of(id: &str) {
+    let replayed = replayed_fetch(id);
+    let mut text = replayed.lines.join("\n");
+    text.push('\n');
+    check_golden(&format!("{id}/trace.txt"), &text);
+    // Hesse and Schleswig-Holstein pick the newest kept list by modification time. A replay
+    // writes its files within one second, so the pick must never be between two lists.
+    let lists: Vec<String> = match id {
+        "hessen" => file_names_under(&replayed.cache.hvbg_dir())
+            .into_iter()
+            .filter(|name| name.ends_with(".xlsx"))
+            .map(|_| "metadata list".to_string())
+            .collect(),
+        "schleswigholstein" => file_names_under(&replayed.cache.lvermgeo_sh_dir().join("overview"))
+            .into_iter()
+            .filter_map(|name| name.split_once('_').map(|(kind, _)| kind.to_string()))
+            .collect(),
+        _ => return,
+    };
+    assert!(!lists.is_empty(), "{id} kept no list");
+    let mut kinds = lists.clone();
+    kinds.sort();
+    kinds.dedup();
+    assert_eq!(
+        kinds.len(),
+        lists.len(),
+        "{id} keeps two lists of one kind: {lists:?}"
+    );
+}
+
+/// The names of the files in `dir` and its subfolders.
+fn file_names_under(dir: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        if entry.path().is_dir() {
+            names.extend(file_names_under(&entry.path()));
+        } else {
+            names.push(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    names
+}
+
+/// One test per state in the module `$layer`, each calling `$run` with the state's id.
+macro_rules! per_state {
+    ($layer:ident, $run:path, $($id:ident),+) => {
+        mod $layer {
+            $(
+                #[test]
+                #[ignore = "needs the fixture store: scripts/golden.sh test"]
+                fn $id() {
+                    $run(stringify!($id));
+                }
+            )+
+        }
+    };
+}
+
+per_state!(g3_trace, crate::g3_trace_of, saxonyanhalt, hessen);
+
+// Layer G4: the whole pipeline per state. It goes on from the replayed fetch of G3, so every
+// file the run reads was written by the run, and hashes every file the project folder holds
+// afterwards: the stored data, the templates, the two maps, the OCAD project and the PDFs.
+
+/// Every file under `dir` with its path relative to `dir` (`/` on every system), sorted.
+fn files_under(dir: &Path) -> Vec<(String, PathBuf)> {
+    fn walk(dir: &Path, root: &Path, found: &mut Vec<(String, PathBuf)>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(&path, root, found);
+            } else {
+                let relative = path.strip_prefix(root).unwrap();
+                let name: Vec<String> = relative
+                    .components()
+                    .map(|part| part.as_os_str().to_string_lossy().into_owned())
+                    .collect();
+                found.push((name.join("/"), path));
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(dir, dir, &mut found);
+    found.sort();
+    found
+}
+
+/// Runs the pipeline on the golden project of `id` and returns its folder (kept alive by the
+/// first value) with the hash of every file in it, as lines `<sha256>  <path>`.
+fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
+    let quiet = &mut |_: freemapper::note::Note| {};
+    let replayed = replayed_fetch(id);
+    let dir = &replayed.dir;
+    clock::with_fixed(golden_noon(), || {
+        // An offline fetch on the result asks for nothing and leaves the project file alone.
+        let project_file = dir.join("freemapper.toml");
+        let before = std::fs::read(&project_file).unwrap();
+        let store = fetched_store();
+        let offline = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+        fetch_project(dir, &offline, &replayed.cache, FetchMode::Offline, quiet).unwrap();
+        assert_eq!(
+            offline.trace(),
+            Vec::<String>::new(),
+            "an offline fetch asked the network"
+        );
+        assert!(
+            std::fs::read(&project_file).unwrap() == before,
+            "an offline fetch changed freemapper.toml"
+        );
+        // The replay answered the extract with the empty one. The candidates of the real
+        // extract keep the OSM objects in the outputs.
+        std::fs::copy(
+            store.join(id).join("osm-candidates.geojson"),
+            dir.join("data/osm-candidates.geojson"),
+        )
+        .unwrap();
+        derive_project(dir, &replayed.cache, quiet).unwrap();
+        let documents = starter_documents(dir).unwrap();
+        export_starter_project_from(dir, &documents, true).unwrap();
+        export_ocad_from(dir, &documents, true).unwrap();
+        export_pdf_from(dir, &documents, false, PdfSources::Auto).unwrap();
+        export_candidates_pdf_from(dir, &documents, false, PdfSources::Auto).unwrap();
+    });
+    let hashes = files_under(dir)
+        .into_iter()
+        .map(|(name, path)| format!("{}  {name}", sha256_hex(&std::fs::read(path).unwrap())))
+        .collect();
+    (replayed, hashes)
+}
+
+fn g4_pipeline_of(id: &str) {
+    let (_replayed, hashes) = golden_pipeline(id);
+    let name = format!("{id}/expected.sha256");
+    let mut text = hashes.join("\n");
+    text.push('\n');
+    if blessing() {
+        check_golden(&name, &text);
+        return;
+    }
+    let path = golden_dir().join(&name);
+    let expected = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("{}: {e}; record it with FREEMAPPER_BLESS=1", path.display()));
+    let expected: Vec<&str> = expected.lines().collect();
+    // Every file that differs, not only the first: the list says which kind of output moved.
+    let mut differing: Vec<String> = Vec::new();
+    for line in &hashes {
+        if !expected.contains(&line.as_str()) {
+            differing.push(format!("now:      {line}"));
+        }
+    }
+    for line in &expected {
+        if !hashes.iter().any(|now| now == line) {
+            differing.push(format!("recorded: {line}"));
+        }
+    }
+    assert!(
+        differing.is_empty(),
+        "{name} differs from the recorded behaviour; a refactor must not change it\n  {}",
+        differing.join("\n  ")
+    );
+}
+
+per_state!(g4_pipeline, crate::g4_pipeline_of, saxonyanhalt, hessen);
+
+/// Copies the maintainer's cached OSM extracts of `region` into `cache`, so the recording does
+/// not download 50 to 500 MB that the replay answers with the empty extract anyway.
+fn seed_extracts(region: Region, cache: &Cache) {
+    let Some(kept) = Cache::default_location() else {
+        return;
+    };
+    std::fs::create_dir_all(cache.osm_dir()).unwrap();
+    for extract in freemapper::sources::osm::golden::extracts_of(region) {
+        for entry in std::fs::read_dir(kept.osm_dir())
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.starts_with(&extract.prefix) && name.ends_with(".osm.pbf") {
+                std::fs::copy(entry.path(), cache.osm_dir().join(&name)).unwrap();
+                eprintln!("using the cached extract {name}");
+            }
+        }
+    }
+}
+
+/// Records the online fetch of the state `FREEMAPPER_GOLDEN_RECORD` names: the index into the
+/// repository, the answers into the store folder. Run through `scripts/golden.sh record <id>`.
+/// No request carries personal data: the fetcher refuses a URL or a user agent with an `@`.
+#[test]
+#[ignore = "records from the network: scripts/golden.sh record <id>"]
+fn record_state() {
+    let Ok(id) = std::env::var("FREEMAPPER_GOLDEN_RECORD") else {
+        eprintln!("nothing to record: FREEMAPPER_GOLDEN_RECORD names no state");
+        return;
+    };
+    let region = region_of(&id);
+    let store = store_dir();
+    std::fs::create_dir_all(store.join(&id)).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join(&id);
+    let cache = Cache::new(root.path().join("cache"));
+    let index = golden_dir().join(&id).join("index.toml");
+    let recorder = RecordingFetcher::new(HttpFetcher::new(), &index, &store);
+    clock::with_fixed(golden_noon(), || {
+        init_golden_project(&dir, region);
+        seed_extracts(region, &cache);
+        let fetched = fetch_project(&dir, &recorder, &cache, FetchMode::Online, &mut |note| {
+            eprintln!("{note}");
+        });
+        if let Err(e) = fetched {
+            eprintln!("the fetch failed and is recorded as it is: {e}");
+        }
+    });
+    recorder.save();
+    // The candidates of the real extract: G4 puts them in place of the empty extract's.
+    let candidates = dir.join("data/osm-candidates.geojson");
+    if candidates.is_file() {
+        std::fs::copy(&candidates, store.join(&id).join("osm-candidates.geojson")).unwrap();
+    }
+    // The store republishes data of the state and of OpenStreetMap.
+    let (lon, lat) = inside(region);
+    let credit = freemapper::project::golden::credit_lines(region, lon, lat, 2026, true);
+    let mut attribution = format!(
+        "Recorded answers of the open data services for the golden area of {id}, and OpenStreetMap \
+         objects of the same area (osm-candidates.geojson, ODbL 1.0), for the tests of freemapper \
+         (https://github.com/HenryJobst/freemapper).\n\n"
+    );
+    for line in credit {
+        attribution.push_str(&line);
+        attribution.push('\n');
+    }
+    std::fs::write(store.join(&id).join("ATTRIBUTION.txt"), attribution).unwrap();
+    eprintln!(
+        "recorded {} requests of {id}",
+        recorder.log().lock().unwrap().len()
     );
 }

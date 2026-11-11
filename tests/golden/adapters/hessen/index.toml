@@ -1,0 +1,139 @@
+[[response]]
+method = "GET"
+url = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=he_dop_rgb_info&QUERY_LAYERS=he_dop_rgb_info&STYLES=&CRS=EPSG:25832&BBOX=483554.264,5628622.166,483754.264,5628822.166&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain"
+body = "e9a9222f837835a85f2f13fde6c3a7efeb3c08974ee2067191064ad06d9086c0"
+bytes = 279
+
+[[response]]
+method = "GET"
+url = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=he_dop20_rgb&STYLES=&CRS=EPSG:25832&BBOX=483526.4,5628594,483782.2,5628850.4&WIDTH=1279&HEIGHT=1282&FORMAT=image/jpeg"
+body = "9331ccd0544f7a7066995d3b7524948c5b59bf79366269e0ff1871c26d4875cd"
+bytes = 267565
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29&navigation=all"
+body = "aaeccfca329761e45a6139bf0d805759f88b3cdb720a94e17bed92b0bcb7e65e"
+bytes = 10394
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/static/WFS/HLBG-Geodaten-Site/-/HLBG-Geodaten/de_DE/Downloadcenter/Daten/3D-Daten/Metadaten_DGM-DOM_August-2026.xlsx"
+body = "de784e345e690cc6e436dfc9009f006e17e9b8d4d65ecf7166635eeb2a0d024c"
+bytes = 972183
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf"
+body = "4692d533518c60c65e2b1e5ba00db500a651974e8da5eb2af4b99873be5585a0"
+bytes = 8411
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf&page=2"
+body = "60372e30c7a374eb32432b4ba9a570ba88f77fccbab7c8c44a4a02ed7b305741"
+bytes = 2445
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+range = "bytes=-65558"
+body = "791259f4af02cc312970abd3bc67e85ce0b004366243670aa49f03ef87119e16"
+bytes = 65558
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+range = "bytes=373448380-373483047"
+body = "a7048f5616683572fae2e06b12205f0c1cbcb21ee09501f477c6e4b404b57dc6"
+bytes = 34668
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+range = "bytes=216985416-216985445"
+body = "45553c3be249ba3d57da3d6ab0cbb3196db669661e5419f65d502ea014d456ab"
+bytes = 30
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+range = "bytes=216985471-219424464"
+body = "b4433f9654710ea65bb7e8898448507fbd4a7d3632b2e324f1b4c44b1c8bcaaa"
+bytes = 2438994
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29&navigation=all"
+body = "b1303d0cc6e35e7d474d720641602b37089bd23c10265dee60979c29fbee7556"
+bytes = 10597
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf"
+body = "02aba3905ffcfc6565d1f6f0ced2b866ad378988558bb3e9b220afb4d506dfe6"
+bytes = 8225
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf&page=2"
+body = "fb43acc50a9d56d328b23c12017f47c4a74469aa97d053d33d11f883f3b3536f"
+bytes = 2550
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+range = "bytes=-65558"
+body = "3e8a815547f8f111283a5cffbf08c4668a5e6c8f71aea416e3230a64bf986cf8"
+bytes = 65558
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+range = "bytes=468802225-468836892"
+body = "c84f68cc03ee505833c8fe4742797c09c9621a3891b9fc41399abfa2280afb39"
+bytes = 34668
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+range = "bytes=273631458-273631487"
+body = "3cfbfcf0bae640f67a91fdd7e8e02e3300e49a612e3446f431849e03ff1ea071"
+bytes = 30
+
+[[response]]
+method = "GET"
+url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+range = "bytes=273631513-276785950"
+body = "c1f66cbf40a49ed71ff81cc59683efafddc7ceee1010d2b64e7e560203d484e3"
+bytes = 3154438
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "4ca276b275cd61be0af0ecffad3d04e392f6517972cd42ae1e86ddb03a7fba69"
+bytes = 362
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "94a67e10e6b74c977300e094898fbcaf12938664278806e66045a0408866f75c"
+bytes = 119921
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
+body = "94310876b874a4e636bf2798e744cdced464e923caddf65784b67cf79d47a1d0"
+bytes = 361
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
+body = "0f7734f3d27715f15027c4fc16a43aa1bf2a86b53bccf3369eecc85226ac7783"
+bytes = 147040
+
+[[response]]
+method = "GET"
+url = "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
+body = "b00feb24ab5f7e6e6532279b527d8dc748fb4788fcece41f1cdd69ff47bfbe82"
+bytes = 113

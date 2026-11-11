@@ -31,6 +31,16 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked --workspace
+      # The golden net of the adapter work (ADR 0082). Its layers G3 and G4 replay the recorded
+      # answers of the data services from the fixture store that store.lock names.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/golden-adapters
+          key: golden-adapters-${{ hashFiles('tests/golden/adapters/store.lock') }}
+      - run: tests/golden-store.sh
+        shell: bash
+      - run: scripts/golden.sh test
+        shell: bash
       # The update command and the MCP update tools against a stub server: only a debug build with
       # this feature reaches them.
       - run: cargo clippy --locked -p freemapper-cli --all-targets --features test-stub -- -D warnings
