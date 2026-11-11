@@ -151,26 +151,53 @@ enum UpdateNote {
     #[default]
     Unknown,
     Known(String),
-    /// A tool result carried it, or the agent asked an update tool itself.
+    /// An update tool runs; no result carries the note meanwhile, also not during a long
+    /// install. What the check finds waits here.
+    Held(Option<String>),
+    /// A tool result carried it, or an update tool gave the news itself.
     Given,
 }
 
 impl UpdateNote {
     fn know(&mut self, note: String) {
-        if matches!(self, UpdateNote::Unknown) {
-            *self = UpdateNote::Known(note);
+        match self {
+            UpdateNote::Unknown => *self = UpdateNote::Known(note),
+            UpdateNote::Held(held @ None) => *held = Some(note),
+            _ => {}
         }
     }
 
     /// The note, the first time it is asked for after it became known.
     fn take(&mut self) -> Option<String> {
+        if !matches!(self, UpdateNote::Known(_)) {
+            return None;
+        }
         match std::mem::replace(self, UpdateNote::Given) {
             UpdateNote::Known(note) => Some(note),
-            UpdateNote::Unknown => {
-                *self = UpdateNote::Unknown;
-                None
+            _ => None,
+        }
+    }
+
+    /// An update tool starts.
+    fn hold(&mut self) {
+        match self {
+            UpdateNote::Unknown => *self = UpdateNote::Held(None),
+            UpdateNote::Known(note) => {
+                let note = std::mem::take(note);
+                *self = UpdateNote::Held(Some(note));
             }
-            UpdateNote::Given => None,
+            UpdateNote::Held(_) | UpdateNote::Given => {}
+        }
+    }
+
+    /// An update tool ended. Its answer gave the news, unless it failed: then the state is the
+    /// one before the tool, plus what the check found meanwhile.
+    fn release(&mut self, failed: bool) {
+        if !failed {
+            *self = UpdateNote::Given;
+        } else if let UpdateNote::Held(held) = self {
+            let held = held.take();
+            *self = held.map_or(UpdateNote::Unknown, UpdateNote::Known);
         }
     }
 }
@@ -720,13 +747,21 @@ impl ServerHandler for FreemapperServer {
     ) -> Result<CallToolResponse, McpError> {
         let update_tool = matches!(request.name.as_ref(), "check_update" | "install_update");
         if update_tool {
-            // It gives the news itself, so no note follows, also not during a long install.
-            *self.update_note() = UpdateNote::Given;
+            self.update_note().hold();
         }
-        let mut response = self
+        let response = self
             .tool_router
             .call(ToolCallContext::new(self, request, context))
-            .await?;
+            .await;
+        if update_tool {
+            let failed = match &response {
+                Ok(CallToolResponse::Complete(result)) => result.is_error == Some(true),
+                Ok(_) => false,
+                Err(_) => true,
+            };
+            self.update_note().release(failed);
+        }
+        let mut response = response?;
         if !update_tool
             && let CallToolResponse::Complete(result) = &mut response
             && let Some(note) = self.update_note().take()
@@ -852,7 +887,36 @@ mod tests {
         note.know("newer".into());
         assert_eq!(note.take(), Some("newer".into()));
         assert_eq!(note.take(), None);
-        // Once given (or taken off by an update tool), a later check adds nothing.
+        // Once given, a later check adds nothing.
+        note.know("again".into());
+        assert_eq!(note.take(), None);
+    }
+
+    #[test]
+    fn an_update_tool_holds_the_note_and_gives_it_back_when_it_fails() {
+        // Known before a failed update tool: known after it.
+        let mut note = UpdateNote::Known("newer".into());
+        note.hold();
+        assert_eq!(note.take(), None);
+        note.release(true);
+        assert_eq!(note.take(), Some("newer".into()));
+        // Unknown before, found while the tool ran, the tool failed: known now.
+        let mut note = UpdateNote::default();
+        note.hold();
+        note.know("found".into());
+        assert_eq!(note.take(), None);
+        note.release(true);
+        assert_eq!(note.take(), Some("found".into()));
+        // Unknown before and after a failed tool: still waiting for the check.
+        let mut note = UpdateNote::default();
+        note.hold();
+        note.release(true);
+        note.know("later".into());
+        assert_eq!(note.take(), Some("later".into()));
+        // An update tool that answered gave the news: no note follows.
+        let mut note = UpdateNote::Known("newer".into());
+        note.hold();
+        note.release(false);
         note.know("again".into());
         assert_eq!(note.take(), None);
     }

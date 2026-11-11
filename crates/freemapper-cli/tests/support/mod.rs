@@ -18,6 +18,8 @@ pub const MANIFEST_PATH: &str =
 pub struct UpdateStub {
     pub base: String,
     paths: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    /// Open: the stub answers. Closed: each answer waits until [`UpdateStub::release`].
+    gate: std::sync::Arc<(std::sync::Mutex<bool>, std::sync::Condvar)>,
 }
 
 impl UpdateStub {
@@ -26,7 +28,13 @@ impl UpdateStub {
     }
 
     pub fn answering_after(delay: std::time::Duration, bodies: Vec<(String, Vec<u8>)>) -> Self {
+        Self::serve(delay, true, bodies)
+    }
+
+    fn serve(delay: std::time::Duration, open: bool, bodies: Vec<(String, Vec<u8>)>) -> Self {
         use std::io::{BufRead as _, Write as _};
+        let gate = std::sync::Arc::new((std::sync::Mutex::new(open), std::sync::Condvar::new()));
+        let waits = std::sync::Arc::clone(&gate);
         let bodies: std::collections::HashMap<String, Vec<u8>> = bodies.into_iter().collect();
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -52,6 +60,12 @@ impl UpdateStub {
                     .unwrap_or("")
                     .to_string();
                 seen.lock().unwrap().push(path.clone());
+                let (open, opened) = &*waits;
+                drop(
+                    opened
+                        .wait_while(open.lock().unwrap(), |open| !*open)
+                        .unwrap(),
+                );
                 std::thread::sleep(delay);
                 let (status, body) = match bodies.get(&path) {
                     Some(body) => (200, body.as_slice()),
@@ -65,7 +79,34 @@ impl UpdateStub {
                 let _ = stream.write_all(body);
             }
         });
-        Self { base, paths }
+        Self { base, paths, gate }
+    }
+
+    /// The committed manifest of release 99.0.0 (see [`Self::with_fixture`]), answered only
+    /// after [`Self::release`].
+    pub fn gated_fixture() -> Self {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+        Self::serve(
+            std::time::Duration::ZERO,
+            false,
+            vec![
+                (
+                    MANIFEST_PATH.to_string(),
+                    std::fs::read(dir.join("manifest-99.json")).unwrap(),
+                ),
+                (
+                    format!("{MANIFEST_PATH}.minisig"),
+                    std::fs::read(dir.join("manifest-99.json.minisig")).unwrap(),
+                ),
+            ],
+        )
+    }
+
+    /// Lets a gated stub answer, the requests waiting now and all later ones.
+    pub fn release(&self) {
+        let (open, opened) = &*self.gate;
+        *open.lock().unwrap() = true;
+        opened.notify_all();
     }
 
     /// Serves `manifest` and its signature as the latest release.

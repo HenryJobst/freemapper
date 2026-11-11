@@ -108,6 +108,8 @@ update-install-failed = Warnung: freemapper { $new } wurde nicht installiert: { 
 update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
 update-mcp-note = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }). Fragen Sie nach, bevor Sie install_update aufrufen.
 update-mcp-needs-confirm = Es wurde nichts installiert; fragen Sie zuerst die Nutzerin oder den Nutzer und rufen Sie install_update nach der Zustimmung mit confirm: true auf
+update-mcp-note-manual = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }), lässt sich aber nicht mit install_update installieren. { $needed } oder neuer muss von Hand installiert werden, siehe { $notes }
+update-mcp-restart-now = Starten Sie den freemapper-MCP-Server jetzt neu, denn er läuft noch mit der alten Version.
 
 ## Fehler. Was andere Programme formulieren (Betriebssystem, Parser, Server), kommt in Variablen
 ## an und bleibt, wie es ist; das gilt auch für Einzelheiten, die freemapper bisher nur auf

@@ -108,6 +108,8 @@ update-install-failed = warning: freemapper { $new } was not installed: { $error
 update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CONFIG_DIR
 update-mcp-note = Note for the person: freemapper { $new } is available (this is { $old }). Ask them before calling install_update.
 update-mcp-needs-confirm = nothing was installed; ask the person first and call install_update with confirm: true once they agree
+update-mcp-note-manual = Note for the person: freemapper { $new } is available (this is { $old }), but install_update cannot install it; install { $needed } or newer by hand, see { $notes }
+update-mcp-restart-now = Restart the freemapper MCP server now; it still runs the old version.
 
 ## Errors. In English each text equals the message of the library's error type, which stays
 ## English for logs and tests. Parts that other programs word (the operating system, parsers,

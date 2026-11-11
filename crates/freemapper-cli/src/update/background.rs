@@ -236,21 +236,31 @@ impl BackgroundCheck {
 /// The MCP server's daily check (spec 3.7): due and recorded as in 3.3, on a thread of its own.
 /// It prints nothing and never installs, whatever the mode (D14). `tell` gets the note for the
 /// person once the check finds a newer version, or at once when the record of an earlier check
-/// knows one.
+/// knows one. A release that needs a manual install gets a note that says so, with its link.
 pub fn check_for_server(ctx: &CheckContext, tell: impl FnOnce(String) + Send + 'static) {
     if let Some(check) = start_background_check(ctx) {
         let _ = std::thread::Builder::new()
             .name("update note".into())
             .spawn(move || {
-                let newer = match check.settle() {
-                    Some(
-                        Ok(Outcome::Available { version, .. })
-                        | Err(UpdateError::TooOldToSelfUpdate { version, .. }),
-                    ) => Some(version),
+                let note = match check.settle() {
+                    Some(Ok(Outcome::Available { version, .. })) => Some(server_note(version)),
+                    Some(Err(UpdateError::TooOldToSelfUpdate {
+                        needed,
+                        version,
+                        notes,
+                    })) => Some(text(
+                        "update-mcp-note-manual",
+                        &[
+                            ("new", v(version)),
+                            ("old", v(freemapper_app().current)),
+                            ("needed", v(needed)),
+                            ("notes", v(notes)),
+                        ],
+                    )),
                     _ => None,
                 };
-                if let Some(version) = newer {
-                    tell(server_note(version));
+                if let Some(note) = note {
+                    tell(note);
                 }
             });
     } else if let Some(version) = recorded_update(ctx) {

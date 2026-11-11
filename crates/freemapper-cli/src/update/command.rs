@@ -81,6 +81,7 @@ pub fn run(request: Request) -> anyhow::Result<ExitCode> {
     let installed =
         install(&app, &source, &ProcessRunner::new(app.name), &exe, &outcome).map_err(failed)?;
     println!("{}", installed_text(&app, installed, notes));
+    println!("{}", text("update-mcp-restart", &[]));
     Ok(ExitCode::SUCCESS)
 }
 
@@ -112,20 +113,15 @@ fn checked(app: &App, outcome: &Outcome) -> String {
     }
 }
 
-/// The lines after an install: from which version to which, and that a running MCP server
-/// needs a restart.
+/// The line after an install: from which version to which, and the release notes.
 fn installed_text(app: &App, installed: Version, notes: &str) -> String {
-    format!(
-        "{}\n{}",
-        text(
-            "update-done",
-            &[
-                ("old", v(app.current)),
-                ("new", v(installed)),
-                ("notes", v(notes)),
-            ]
-        ),
-        text("update-mcp-restart", &[])
+    text(
+        "update-done",
+        &[
+            ("old", v(app.current)),
+            ("new", v(installed)),
+            ("notes", v(notes)),
+        ],
     )
 }
 
@@ -154,7 +150,12 @@ pub fn install_for_mcp() -> Result<String, String> {
     let exe = exe_path().map_err(|e| describe(&UpdateError::Io(e)))?;
     let installed = install(&app, &source, &ProcessRunner::new(app.name), &exe, &outcome)
         .map_err(|e| describe(&e))?;
-    Ok(installed_text(&app, installed, notes))
+    // This server is the one that still runs the old version.
+    Ok(format!(
+        "{}\n{}",
+        installed_text(&app, installed, notes),
+        text("update-mcp-restart-now", &[])
+    ))
 }
 
 /// Stores `mode` in `settings.toml` and says where. Mentions `FREEMAPPER_UPDATE` when it overrides

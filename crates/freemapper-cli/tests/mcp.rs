@@ -594,6 +594,7 @@ mod update {
     use std::process::Command;
     use std::time::{Duration, Instant};
 
+    use freemapper_update::{CheckRecord, RecordResult, load_record, save_record};
     use serde_json::json;
 
     use super::Session;
@@ -615,6 +616,8 @@ mod update {
         Path::new(env!("CARGO_BIN_EXE_freemapper"))
     }
 
+    const NOTES: &str = "https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0";
+
     fn note() -> String {
         format!(
             "Note for the person: freemapper 99.0.0 is available (this is {}). Ask them before calling install_update.",
@@ -622,20 +625,53 @@ mod update {
         )
     }
 
-    /// Waits until the daily check wrote its record into `cache`.
+    /// Waits until the daily check wrote a record into `cache` that reads.
     fn wait_for_record(cache: &Path) {
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while !cache.join("update-check.json").exists() {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while load_record(&cache.join("update-check.json")).is_none() {
             assert!(Instant::now() < deadline, "no check record");
             std::thread::sleep(Duration::from_millis(20));
         }
-        // The note is set just after the record is written.
-        std::thread::sleep(Duration::from_millis(300));
+    }
+
+    /// A record of a check made now that found release 99.0.0: a server started with it knows
+    /// the note at once.
+    fn record_99(cache: &Path) {
+        std::fs::create_dir_all(cache).unwrap();
+        let record = CheckRecord {
+            at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+            by: env!("CARGO_PKG_VERSION").parse().unwrap(),
+            result: RecordResult::Available {
+                version: "99.0.0".parse().unwrap(),
+                notes: NOTES.into(),
+            },
+        };
+        save_record(&cache.join("update-check.json"), &record).unwrap();
     }
 
     /// A tool that answers at once without the network: its result, as (is_error, texts).
     fn cheap_call(session: &mut Session) -> (bool, Vec<String>) {
         session.call_all("project_status", json!({ "job_id": "job-1" }))
+    }
+
+    /// Calls the cheap tool until a result carries a note, which must be `expected`; the note
+    /// is set right after the record is written, so this takes a few calls at most.
+    fn call_until_note(session: &mut Session, expected: &str) {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let (_, texts) = cheap_call(session);
+            assert!(texts[0].contains("job-1"), "{texts:?}");
+            if let Some(note) = texts.get(1) {
+                assert_eq!(note, expected);
+                assert_eq!(texts.len(), 2, "{texts:?}");
+                return;
+            }
+            assert!(Instant::now() < deadline, "no note");
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 
     #[test]
@@ -654,7 +690,7 @@ mod update {
             texts,
             [format!(
                 "freemapper 99.0.0 is available (you have {current}), released 2026-11-20.\n\
-                 Release notes: https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0\n\
+                 Release notes: {NOTES}\n\
                  Download: 11.8 MB"
             )]
         );
@@ -698,12 +734,8 @@ mod update {
         let stub = UpdateStub::with_fixture();
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
         wait_for_record(&cache);
-        let (error, texts) = cheap_call(&mut session);
-        assert!(error, "{texts:?}");
         // The tool's own text first, then the note.
-        assert_eq!(texts.len(), 2, "{texts:?}");
-        assert!(texts[0].contains("job-1"), "{texts:?}");
-        assert_eq!(texts[1], note());
+        call_until_note(&mut session, &note());
         for _ in 0..3 {
             let (_, texts) = cheap_call(&mut session);
             assert_eq!(texts.len(), 1, "{texts:?}");
@@ -712,7 +744,7 @@ mod update {
         assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
         assert_eq!(stub.paths().len(), 2);
 
-        // A server started later the same day does not ask again; the record tells it.
+        // A server started later the same day does not ask again; the record tells it, at once.
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
         let (_, texts) = cheap_call(&mut session);
         assert_eq!(texts.get(1), Some(&note()), "{texts:?}");
@@ -721,13 +753,52 @@ mod update {
         assert_eq!(stub.paths().len(), 2);
 
         // check_update gives the news itself; no note follows it.
-        std::fs::remove_file(cache.join("update-check.json")).unwrap();
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
-        let (_, texts) = session.call_all("check_update", json!({}));
+        let (error, texts) = session.call_all("check_update", json!({}));
+        assert!(!error, "{texts:?}");
         assert_eq!(texts.len(), 1, "{texts:?}");
-        wait_for_record(&cache);
         let (_, texts) = cheap_call(&mut session);
         assert_eq!(texts.len(), 1, "{texts:?}");
+    }
+
+    /// An update tool that fails gives no news, so the note stays for the next result.
+    #[test]
+    fn a_failed_update_tool_keeps_the_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path().join("cache");
+        record_99(&cache);
+        let stub = UpdateStub::with_fixture();
+        let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
+        let (error, texts) = session.call_all("install_update", json!({}));
+        assert!(error, "{texts:?}");
+        assert_eq!(texts.len(), 1, "{texts:?}");
+        let (_, texts) = cheap_call(&mut session);
+        assert_eq!(texts.get(1), Some(&note()), "{texts:?}");
+        assert!(stub.paths().is_empty(), "{:?}", stub.paths());
+    }
+
+    /// A release that the self-update cannot install gets a note that says so, with the link.
+    #[test]
+    fn a_release_that_needs_a_manual_install_gets_its_own_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path().join("cache");
+        let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/update");
+        let stub = UpdateStub::serving(
+            std::fs::read(fixtures.join("manifest-99-manual.json")).unwrap(),
+            std::fs::read(fixtures.join("manifest-99-manual.json.minisig")).unwrap(),
+            Vec::new(),
+        );
+        let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
+        wait_for_record(&cache);
+        call_until_note(
+            &mut session,
+            &format!(
+                "Note for the person: freemapper 99.0.0 is available (this is {}), but install_update cannot install it; install 98.0.0 or newer by hand, see {NOTES}",
+                env!("CARGO_PKG_VERSION")
+            ),
+        );
+        let (stderr, rest) = session.close();
+        assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
     }
 
     /// A check that is not done when the first result goes out does not hold it up; its note
@@ -736,16 +807,14 @@ mod update {
     fn a_late_check_puts_the_note_on_a_later_result() {
         let dir = tempfile::tempdir().unwrap();
         let cache = dir.path().join("cache");
-        // Two requests of 700 ms each, well inside the 3 s of the check.
-        let stub = UpdateStub::with_fixture_after(Duration::from_millis(700));
+        // The stub holds its answers until the first result is out.
+        let stub = UpdateStub::gated_fixture();
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
-        let started = Instant::now();
         let (_, texts) = cheap_call(&mut session);
-        assert!(started.elapsed() < Duration::from_millis(500));
         assert_eq!(texts.len(), 1, "{texts:?}");
+        stub.release();
         wait_for_record(&cache);
-        let (_, texts) = cheap_call(&mut session);
-        assert_eq!(texts.get(1), Some(&note()), "{texts:?}");
+        call_until_note(&mut session, &note());
         let (stderr, rest) = session.close();
         assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
     }
@@ -763,9 +832,8 @@ mod update {
         command.env("FREEMAPPER_UPDATE", "install");
         let mut session = Session::start_with(command, &cache);
         wait_for_record(&cache);
-        let (_, texts) = cheap_call(&mut session);
-        assert_eq!(texts.get(1), Some(&note()), "{texts:?}");
-        std::thread::sleep(Duration::from_millis(500));
+        call_until_note(&mut session, &note());
+        // Whatever the server did, it did before it ended.
         let (stderr, rest) = session.close();
         assert_eq!((stderr.as_str(), rest.as_str()), ("", ""));
         assert!(!stub.asked_for_an_asset(), "{:?}", stub.paths());
@@ -773,7 +841,8 @@ mod update {
     }
 
     /// The server's stdout carries only the protocol, and its stderr stays empty, also while it
-    /// checks and knows an update: the usual session of an agent, line by line.
+    /// checks and knows an update: the usual session of an agent, line by line. The note comes
+    /// on exactly one result, whichever that is.
     #[test]
     fn nothing_reaches_stdout_outside_the_protocol() {
         let dir = tempfile::tempdir().unwrap();
@@ -783,20 +852,38 @@ mod update {
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
         let tools = session.request("tools/list", json!({}));
         assert_eq!(tools["tools"].as_array().unwrap().len(), 10);
+        let mut notes = 0;
+        let mut count = |texts: &[String]| {
+            notes += texts.iter().filter(|text| **text == note()).count();
+            notes
+        };
         let (error, texts) = session.call_all(
             "create_project",
             json!({ "dir": project, "geojson": super::FIXTURE }),
         );
         assert!(!error, "{texts:?}");
-        wait_for_record(&cache);
+        count(&texts);
         for (tool, arguments) in [
             ("estimate_download", json!({ "dir": project })),
             ("list_layers", json!({ "dir": project })),
+        ] {
+            count(&session.call_all(tool, arguments).1);
+        }
+        wait_for_record(&cache);
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while count(&cheap_call(&mut session).1) == 0 {
+            assert!(Instant::now() < deadline, "no note");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        for (tool, arguments) in [
             ("check_update", json!({})),
             ("install_update", json!({})),
+            ("list_layers", json!({ "dir": project })),
+            ("project_status", json!({ "job_id": "job-1" })),
         ] {
-            session.call_all(tool, arguments);
+            count(&session.call_all(tool, arguments).1);
         }
+        assert_eq!(count(&[]), 1);
         let (stderr, rest) = session.close();
         assert_eq!(stderr, "");
         assert_eq!(rest, "");
@@ -825,8 +912,8 @@ mod update {
         assert_eq!(
             texts,
             [format!(
-                "freemapper updated from {current} to 99.0.0. Release notes: https://github.com/HenryJobst/freemapper/releases/tag/v99.0.0\n\
-                 A running MCP server keeps the old version until the AI assistant restarts it."
+                "freemapper updated from {current} to 99.0.0. Release notes: {NOTES}\n\
+                 Restart the freemapper MCP server now; it still runs the old version."
             )]
         );
         let (stderr, rest) = session.close();
