@@ -8,5 +8,6 @@
 
 pub mod error;
 pub mod fetch;
+pub mod fs;
 pub mod note;
 pub mod records;
