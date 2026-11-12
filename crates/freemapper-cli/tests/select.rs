@@ -971,3 +971,75 @@ fn save_with_content_and_a_stale_revision_is_refused() {
     assert_eq!(status, 409, "{answer}");
     assert_eq!(std::fs::read_to_string(&file).unwrap(), other);
 }
+
+#[test]
+fn a_save_with_content_never_shows_a_half_written_file() {
+    // Two writes (the area, then the content) would leave a file with the new area and the old
+    // content for a moment. A reader that polls the file all the time sees every state that the
+    // file has had; with one write it sees the old file and the new one, nothing between. A
+    // polling reader can miss a state, so this test can pass by luck with two writes, but it
+    // never fails with one (the writes are renames, a reader sees whole files).
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let file = project.join("freemapper.toml");
+    let before = std::fs::read(&file).unwrap();
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let seen = {
+        let (stop, file) = (stop.clone(), file.clone());
+        std::thread::spawn(move || {
+            let mut states: Vec<Vec<u8>> = Vec::new();
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(bytes) = std::fs::read(&file)
+                    && states.last() != Some(&bytes)
+                {
+                    states.push(bytes);
+                }
+            }
+            states
+        })
+    };
+    std::thread::sleep(Duration::from_millis(50));
+    let (status, saved) = selector.save(json!({
+        "area": rectangle(13.843, 52.539),
+        "content": { "profile": "full", "walls": "off" },
+    }));
+    assert_eq!(status, 200, "{saved}");
+    std::thread::sleep(Duration::from_millis(50));
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    let states = seen.join().unwrap();
+    let after = std::fs::read(&file).unwrap();
+    assert_ne!(before, after);
+    for state in &states {
+        assert!(
+            *state == before || *state == after,
+            "the file had a state between the old and the new one:\n{}",
+            String::from_utf8_lossy(state)
+        );
+    }
+    assert!(states.contains(&after));
+}
+
+#[test]
+fn content_written_elsewhere_shows_in_the_next_project_answer() {
+    // The page takes this answer after a conflict, so an untouched content section follows the file.
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+    assert!(selector.project()["content"].is_null());
+    freemapper::project::set_content(
+        &project,
+        Some(freemapper::build::content::ContentSettings::with_profile(
+            freemapper::build::content::Profile::Full,
+        )),
+    )
+    .unwrap();
+    let state = selector.project();
+    assert_eq!(state["content"], json!({ "profile": "full" }));
+    assert_ne!(state["revision"].as_str().unwrap(), seen);
+    // A save with the old revision is refused and the foreign choice stays in the file.
+    let (status, _) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.843, 52.539), "content": { "profile": "balanced" } }),
+        Some(&seen),
+    );
+    assert_eq!(status, 409);
+    assert_eq!(stored_content(&project).unwrap().profile.name(), "full");
+}

@@ -165,17 +165,17 @@ page-layer-aerial-nordrhein-westfalen = Luftbild Nordrhein-Westfalen (Geobasis N
 page-layer-aerial-niedersachsen = Luftbild Niedersachsen (LGLN)
 page-layer-aerial-rheinland-pfalz = Luftbild Rheinland-Pfalz (LVermGeo RP)
 
-## Das Lauf-Feld der Gebietsauswahl-Seite (ADR 0090)
+## Der Block „Karte erzeugen“ der Gebietsauswahl-Seite (ADR 0090)
 
 page-content-heading = Was auf die Karte kommt
-page-content-help = Das Profil legt fest, was gleich auf die Karte kommt und was als Kandidat zur Prüfung bleibt. Eine Wahl für eine Gruppe geht dem Profil vor. Sie wird mit dem Gebiet gespeichert.
+page-content-help = Das Profil legt fest, was direkt auf die Karte kommt und was als Kandidat zur Prüfung bleibt. Eine Wahl für eine Gruppe geht dem Profil vor. Sie wird mit dem Gebiet gespeichert.
 page-content-profile-legend = Profil
 page-content-profile-safe = Sicher
-page-content-profile-safe-hint = Jedes Objekt bleibt dort, wo die Erzeugung es hinlegt: Gebäude, Flächen, Gewässer und Wege kommen auf die Karte, Mauern, Zäune, Bäume und Ähnliches bleiben Kandidaten.
+page-content-profile-safe-hint = Jedes Objekt bleibt dort, wo die Erzeugung es hinlegt: Gebäude und Flächen des Katasters kommen auf die Karte; Mauern, Zäune, Bäume und vieles aus OpenStreetMap (Teiche, Wege ohne bekannte Oberfläche) bleiben Kandidaten.
 page-content-profile-balanced = Ausgewogen
-page-content-profile-balanced-hint = Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte, bei Mauern, Zäunen, Hecken, Gewässern, Bäumen und Wegen auch die von OpenStreetMap. Alles andere bleibt, wo die Erzeugung es hinlegt.
+page-content-profile-balanced-hint = Objekte des Katasters, der Register und der Straßenbefahrung kommen direkt auf die Karte, außer Ausstattung, Höhenlinien und Sperrgebiete; bei Mauern, Zäunen, Hecken, Gewässern, Bäumen, Wegen und Gleisen auch die von OpenStreetMap.
 page-content-profile-full = Voll
-page-content-profile-full-hint = Alles kommt auf die Karte, wie in der Trainingskarte.
+page-content-profile-full-hint = Alles kommt auf die Karte, wie in der Trainingskarte; nur verborgene Kandidaten bleiben draußen.
 page-content-groups-legend = Je Gruppe
 page-content-groups-help = „Wie im Profil“ folgt dem Profil. Was das für eine Gruppe bedeutet, hängt davon ab, woher das einzelne Objekt stammt.
 page-content-place-profile = Wie im Profil
@@ -194,7 +194,7 @@ page-content-group-furniture = Ausstattung und Laternen
 page-content-group-passages = Durchgänge
 page-content-group-contours = Höhenlinien
 page-content-group-out-of-bounds = Sperrgebiete
-page-content-group-paths = Wege
+page-content-group-paths = Wege und Gleise
 page-content-group-streets = Straßen und Plätze
 page-run-heading = Karte erzeugen
 page-opt-ocad = OCAD-Startprojekt schreiben

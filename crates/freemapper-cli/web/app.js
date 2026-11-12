@@ -556,13 +556,25 @@ $("save").addEventListener("click", () => saveArea(true));
 
 /**
  * freemapper.toml holds another state than this page saved or read: show `text` in the banner,
- * take the saved area as the saved one and wait for an explicit "Save".
+ * take the saved area as the saved one and wait for an explicit "Save". The content settings follow
+ * the file unless the person changed them since they were loaded.
  */
 function showConflict(text) {
   conflict = true;
   setMessage("");
   showBanner(text);
   savedSignature = savedSignatureOf(project);
+  if (contentKey(content) === contentKey(loadedContent)) {
+    // The person did not touch the section: take what the file says now, so that a "Save" does not
+    // overwrite a choice that the command line or an assistant wrote.
+    content = contentOf(project);
+    loadedContent = contentOf(project);
+    showContent();
+  } else {
+    // The person changed it and sees it: their choice stays; open the section so they see what
+    // "Save" will write.
+    $("content-section").open = true;
+  }
 }
 
 /**
@@ -587,6 +599,7 @@ async function saveArea(explicit = false) {
     const answer = await api("api/save", body, project.revision);
     savedHere = true;
     savedSignature = signature();
+    loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
     setMessage(
       t(
         answer.zone_changed
@@ -633,7 +646,7 @@ function isSaved() {
 }
 
 /**
- * Saves first when the area changed; true when the project on disk matches the page. After a
+ * Saves first when the area or the content settings changed; true when the project on disk matches the page. After a
  * conflict it saves nothing and answers false: the person decides with "Save".
  */
 async function ensureSaved() {
@@ -728,6 +741,8 @@ const CONTENT_NAMES = {
 
 // The choice on the page: a profile and the groups that differ from it ({ group: place }).
 let content = { profile: "balanced", groups: {} };
+// The choice as last loaded from the file or saved: tells whether the person changed it since.
+let loadedContent = { profile: "balanced", groups: {} };
 
 /** The choice that `project` holds; `balanced` without exceptions when its file has none. */
 function contentOf(project) {
@@ -847,6 +862,7 @@ async function start() {
     showSettings();
     buildContent(project.content_options);
     content = contentOf(project);
+    loadedContent = contentOf(project);
     showContent();
     $("has-map").hidden = !project.has_map;
     if (project.area) {

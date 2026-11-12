@@ -165,17 +165,17 @@ page-layer-aerial-nordrhein-westfalen = Aerial photo North Rhine-Westphalia (Geo
 page-layer-aerial-niedersachsen = Aerial photo Lower Saxony (LGLN)
 page-layer-aerial-rheinland-pfalz = Aerial photo Rhineland-Palatinate (LVermGeo RP)
 
-## The run panel of the area page (ADR 0090)
+## The "Create the map" block of the area page (ADR 0090)
 
 page-content-heading = What goes onto the map
 page-content-help = The profile decides what goes straight onto the map and what stays a candidate to check. A choice for a group beats the profile. It is saved with the area.
 page-content-profile-legend = Profile
 page-content-profile-safe = Safe
-page-content-profile-safe-hint = Every object stays where the build puts it: buildings, areas, water and paths go onto the map; walls, fences, trees and the like stay candidates.
+page-content-profile-safe-hint = Every object stays where the build puts it: buildings and the areas of the cadastre go onto the map; walls, fences, trees and much from OpenStreetMap (ponds, paths without a known surface) stay candidates.
 page-content-profile-balanced = Balanced
-page-content-profile-balanced-hint = Objects of the cadastre, the registers and the street survey go onto the map, and for walls, fences, hedges, water, trees and paths those of OpenStreetMap too. Everything else stays where the build puts it.
+page-content-profile-balanced-hint = Objects of the cadastre, the registers and the street survey go onto the map, except street furniture, contours and areas that shall not be entered; for walls, fences, hedges, water, trees, paths and railways also those of OpenStreetMap.
 page-content-profile-full = Full
-page-content-profile-full-hint = Everything goes onto the map, as in the training map.
+page-content-profile-full-hint = Everything goes onto the map, as in the training map; only hidden candidates stay out.
 page-content-groups-legend = By group
 page-content-groups-help = "As in the profile" follows the profile. What that means for a group depends on where each object comes from.
 page-content-place-profile = As in the profile
@@ -194,7 +194,7 @@ page-content-group-furniture = Street furniture and lamps
 page-content-group-passages = Passages
 page-content-group-contours = Contours
 page-content-group-out-of-bounds = Areas that shall not be entered
-page-content-group-paths = Paths
+page-content-group-paths = Paths and railways
 page-content-group-streets = Streets and squares
 page-run-heading = Create the map
 page-opt-ocad = Write an OCAD starter project
