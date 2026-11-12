@@ -329,3 +329,27 @@ label.group-row > select {
   flex: none;
   max-width: 48%;
 }
+
+/* --- Map preview -------------------------------------------------------------------------------- */
+
+#preview-section {
+  margin: 14px 0 0;
+}
+
+#preview-section summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#preview-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 6px 0;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+#preview-image.computing {
+  opacity: 0.45;
+}
