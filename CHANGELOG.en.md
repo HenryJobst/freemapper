@@ -9,6 +9,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The example [Treppenviertel Blankenese](examples/hamburg-blankenese/) is rebuilt with the default profile `balanced`: contours, paths and 110 stairs from OpenStreetMap are on the map now (1780 map objects, 755 candidates). The [comparison page](examples/compare.en.md) says which examples were made before the content profiles and gives the measurements for Blankenese and Saarlouis.
+- Internal: after the adapter work the golden net still records four states (Brandenburg, Berlin, Saxony-Anhalt, Hesse), one of each kind of fetch; the layers that need no recording still check all eleven. The fixture store of the tests shrinks from 206 to 79 MB.
 
 ## [0.14.0] - 2026-11-12
 
