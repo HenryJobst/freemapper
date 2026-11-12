@@ -146,3 +146,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0098](0098-paved-osm-ways-as-paved-lines.md) | Paved OSM ways are paved lines | Accepted | 2026-11-11 |
 | [0099](0099-paved-areas-get-their-border.md) | Paved areas get their border | Accepted | 2026-11-11 |
 | [0100](0100-content-profiles.md) | Content profiles decide what goes straight onto the map | Accepted | 2026-11-12 |
+| [0101](0101-content-profiles-on-the-area-page.md) | Content profiles on the area page | Accepted | 2026-11-12 |

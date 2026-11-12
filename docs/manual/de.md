@@ -364,6 +364,11 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    die Quellenangabe, wenn Sie die Karte weitergeben; dann nennen Sie die Quellen selbst. Die Seite zeigt
    diesen Hinweis, sobald Sie die Wahl treffen. Kartenart, Maßstab und Titel stellen Sie weiter oben ein;
    bei einem vorhandenen Projekt sind sie schreibgeschützt (sie stehen in `freemapper.toml`).
+
+   Der Abschnitt „Was auf die Karte kommt“ (eingeklappt) stellt das Inhaltsprofil und die Ausnahmen je Gruppe
+   ein, wie `--content` und `--content-set`. Eine Gruppe auf „Wie im Profil“ folgt dem Profil. Wechseln Sie das
+   Profil, bleiben Ihre Ausnahmen stehen, und Sie können sie einzeln zurücknehmen. Die Seite speichert die Wahl
+   mit dem Gebiet; was die Profile tun, steht in [Abschnitt 8](#8-was-die-vorlagen-zeigen).
 3. **„Karte erzeugen“ drücken.** Hat sich das Gebiet seit dem letzten Speichern geändert, speichert die Seite
    zuerst. „Vorhandene Karte ersetzen“ erscheint nur, wenn es schon eine Karte gibt, und ist nie vorgewählt.
    Ist sie angehakt, fragt ein Dialog nach; „Abbrechen“ ist dort vorgewählt. Die alte Karte bleibt als
