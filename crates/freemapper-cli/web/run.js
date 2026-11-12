@@ -90,6 +90,7 @@ function blockedReason() {
 /** Brings the controls in line with the page: options, hints, start button. */
 function refresh() {
   if (!page() || $r("run").hidden) return;
+  const p = page();
   const anyPdf = $r("run-pdf").checked || $r("run-pdf-candidates").checked;
   $r("run-pdf-scale-bar").disabled = running || !anyPdf;
   $r("run-pdf-sources").disabled = running || !anyPdf;
@@ -98,6 +99,11 @@ function refresh() {
   for (const id of ["ocad", "pdf", "pdf-candidates", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;
   }
+  // The area on the page became saved or unsaved: that decides whether live images may come.
+  const areaSaved = p.areaIsSaved();
+  const areaChanged = previewAreaSaved !== null && areaSaved !== previewAreaSaved;
+  previewAreaSaved = areaSaved;
+  if (areaChanged && previewState) decidePreview(0);
   const reason = blockedReason();
   const why = $r("run-why");
   // Only a reason the user can act on is worth a line; "running" shows in the progress panel.
@@ -373,6 +379,8 @@ let previewVersion = 0;
 // The live image on show (its id), or null.
 let previewLive = null;
 let previewRetries = 0;
+// Whether the area on the page was the saved one when last looked at; null before.
+let previewAreaSaved = null;
 
 const previewImage = () => $r("preview-image");
 
@@ -432,11 +440,21 @@ async function showPreviewNow() {
     previewLine(project && project.has_map ? "page-preview-later" : "page-preview-none");
     return;
   }
-  // A run is starting or going on: its end brings the new image. A computation that was asked
-  // for before leaves its line and its dimming behind, so settle them.
+  // A run is starting or going on: its end brings the new image. A page opened meanwhile shows the
+  // stored one until then; a computation that was asked for before leaves its line and its
+  // dimming behind, so settle them.
   if (running || starting) {
+    if (previewImage().hidden) {
+      previewShowStored("page-preview-run");
+      return;
+    }
     previewImage().classList.remove("computing");
-    previewLine(previewSettledLine());
+    previewLine(previewLive === null ? "page-preview-run" : previewSettledLine());
+    return;
+  }
+  // The live images are of the saved area: a drawn area that is not saved yet gets none.
+  if (!page().areaIsSaved()) {
+    previewShowStored("page-preview-area-unsaved");
     return;
   }
   if (!previewState.fresh) {

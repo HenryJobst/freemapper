@@ -663,6 +663,13 @@ function isSaved() {
   return !!project && project.exists && signature() === savedSignature;
 }
 
+/** True when the shown area is the one in freemapper.toml, whatever the content settings. */
+function areaIsSaved() {
+  if (!project || !project.exists || savedSignature === null) return false;
+  const saved = JSON.parse(savedSignature);
+  return JSON.stringify({ area, sourceId }) === JSON.stringify({ area: saved.area, sourceId: saved.sourceId });
+}
+
 /**
  * Saves first when the area or the content settings changed; true when the project on disk matches the page. After a
  * conflict it saves nothing and answers false: the person decides with "Save".
@@ -717,6 +724,7 @@ window.freemapperPage = {
   getPreview: () => preview,
   hasArea: () => !!area,
   isSaved,
+  areaIsSaved,
   ensureSaved,
   setBusy,
   reloadProject,

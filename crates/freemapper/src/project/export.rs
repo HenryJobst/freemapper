@@ -656,7 +656,8 @@ pub struct MapImage {
 }
 
 /// What `data/map-preview.json` says about the preview next to the map: the project it was
-/// exported for, without its content settings ([`project_fingerprint`]), and those settings.
+/// exported for, by the fields that decide the build ([`project_fingerprint`]), and the content
+/// settings it was placed with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MapPreviewRecord {
     pub fingerprint: String,
@@ -743,18 +744,86 @@ pub fn export_map_preview_from(
     Ok(path)
 }
 
-/// SHA-256 (hex) of the project file the library writes for `project` without its `[content]`
-/// table and its title: equal for two projects that differ only in their content settings or
-/// title, so the stored data and a preview still fit the project. The title changes only the
-/// sheet, which the preview never draws.
+/// [`export_map_preview_from`] right after the map was written: a failure is the warning
+/// `warning-map-preview-failed`, not an error, because the map is written and the outputs after
+/// it (OCAD, PDFs) still run. The old preview went before the map was replaced, so the folder
+/// then has none rather than a wrong one. The path of the preview when it was written.
+pub fn export_map_preview_or_warn(
+    dir: &Path,
+    documents: &StarterDocuments,
+    progress: &mut dyn FnMut(Note),
+) -> Option<PathBuf> {
+    match export_map_preview_from(dir, documents) {
+        Ok(path) => Some(path),
+        Err(e) => {
+            progress(note!("warning-map-preview-failed", error = Arg::error(e)));
+            None
+        }
+    }
+}
+
+/// SHA-256 (hex) of the fields of `project` that decide which map the stored data builds: map
+/// kind, scale, declination date, buffer, the map area and its source, CRS and raster provider.
+/// Equal for two projects that differ only in what does not decide that, so the stored data and
+/// a preview still fit the project after such a change:
+/// - the content settings, which [`place`] applies to the build;
+/// - the title, which only the sheet shows, and the preview never draws the sheet;
+/// - the records of the fetch (tiles, ALKIS, registers, OSM, rasters, nDSM), which every online
+///   fetch rewrites, at least with today's date. Data that really changed changes the files
+///   under `data/` and `templates/`, and whoever caches a build watches those.
+///
+/// An allow-list, not "everything but": the fields are taken apart without `..`, so a field
+/// added to [`ProjectFile`] does not compile until it is sorted in here, and a new record cannot
+/// silently start to count.
 pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError> {
     use sha2::Digest as _;
-    let without_content = ProjectFile {
-        content: None,
-        title: None,
-        ..project.clone()
+    /// The fields that count, in the TOML the library writes for them.
+    #[derive(Serialize)]
+    struct Counted<'a> {
+        map_kind: &'a MapKind,
+        scale_denominator: u32,
+        declination_date: &'a chrono::NaiveDate,
+        buffer_m: f64,
+        map_area_source_id: &'a Option<String>,
+        map_area: &'a serde_json::Value,
+        crs: u32,
+        provider: &'a Option<AdapterId>,
+    }
+    let ProjectFile {
+        map_kind,
+        scale_denominator,
+        declination_date,
+        buffer_m,
+        map_area_source_id,
+        map_area,
+        crs,
+        provider,
+        title: _,
+        tiles: _,
+        buildings: _,
+        land_use: _,
+        berlin_layers: _,
+        nas_layers: _,
+        tree_layers: _,
+        osm: _,
+        orthophoto: _,
+        k5: _,
+        terrain: _,
+        surface: _,
+        ndsm_tiles: _,
+        content: _,
+    } = project;
+    let counted = Counted {
+        map_kind,
+        scale_denominator: *scale_denominator,
+        declination_date,
+        buffer_m: *buffer_m,
+        map_area_source_id,
+        map_area,
+        crs: *crs,
+        provider,
     };
-    let text = toml::to_string(&without_content).map_err(|e| ProjectError::Toml(e.to_string()))?;
+    let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
     Ok(sha2::Sha256::digest(text.as_bytes())
         .iter()
         .map(|b| format!("{b:02x}"))
@@ -779,10 +848,41 @@ fn forget_map_preview(dir: &Path) -> Result<(), ProjectError> {
     Ok(())
 }
 
-/// The record of the preview in `dir`; none when there is none or it does not read.
+/// The record of the preview in `dir`; none when there is none, it does not read, or it is not a
+/// file of the project folder ([`read_inside`]).
 pub fn read_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
-    let text = std::fs::read_to_string(dir.join(MAP_PREVIEW_RECORD_RELPATH)).ok()?;
-    serde_json::from_str(&text).ok()
+    let bytes = read_inside(dir, &dir.join(MAP_PREVIEW_RECORD_RELPATH))?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// The record of the stored preview: [`read_map_preview_record`] when the image is there too,
+/// as a file of the project folder. Without both there is no preview.
+pub fn stored_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
+    let record = read_map_preview_record(dir)?;
+    let image = map_preview_path(dir);
+    (!is_link(&image) && freemapper_fs::stays_inside(dir, &image) && image.is_file())
+        .then_some(record)
+}
+
+/// The stored preview, `<name>-preview.webp`, when it has its record; none otherwise.
+pub fn read_map_preview(dir: &Path) -> Option<Vec<u8>> {
+    read_map_preview_record(dir)?;
+    read_inside(dir, &map_preview_path(dir))
+}
+
+/// The file `path` of the project folder `dir`, read only when neither it nor a folder on the
+/// way is a link that leads elsewhere: the area page serves what it reads, and a planted link
+/// must not make it serve another file. Writing is guarded the same way (`write_files_inside`).
+fn read_inside(dir: &Path, path: &Path) -> Option<Vec<u8>> {
+    if is_link(path) || !freemapper_fs::stays_inside(dir, path) {
+        return None;
+    }
+    std::fs::read(path).ok()
+}
+
+/// Whether `path` itself is a link.
+fn is_link(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink())
 }
 
 /// The paper rectangle `rect` (µm) in millimetres.
@@ -1300,7 +1400,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         objects: info_block(&content, &info, &symbol_set),
     };
     // The borders for the project's own settings, from the paved areas and kerbs `route` leaves
-    // ([`PavedBorders`]): it sends each object by the object alone and keeps the order, so
+    // ([`PavedBorders`]): it sends each 501.x object by the object alone and keeps the order, so
     // routing these gives the ones of the routed lists.
     let saved_content = content_settings(&project);
     let paved_borders = PavedBorders::default();

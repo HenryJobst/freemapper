@@ -222,12 +222,27 @@ fn export_whose_preview_fails_leaves_no_preview_of_the_old_map() {
     std::fs::remove_file(&preview).unwrap();
     std::fs::create_dir(&preview).unwrap();
     std::fs::write(preview.join("keep"), "").unwrap();
+    let pdf = project.join("clara-zetkin-schule.pdf");
+    assert!(!pdf.exists());
     let export = freemapper()
-        .args(["export", project.to_str().unwrap(), "--force"])
+        .args(["export", project.to_str().unwrap(), "--force", "--pdf"])
         .output()
         .unwrap();
-    assert_eq!(export.status.code(), Some(1));
+    let (stdout, stderr) = (
+        String::from_utf8_lossy(&export.stdout),
+        String::from_utf8_lossy(&export.stderr),
+    );
+    // A warning, not a failure: the map is written, and the PDF after it too.
+    assert_eq!(export.status.code(), Some(0), "{stdout}{stderr}");
+    assert!(
+        stderr
+            .lines()
+            .any(|l| l.starts_with("warning: the map is written, but its preview is missing: ")),
+        "{stderr}"
+    );
+    assert!(!stdout.contains("preview.webp"), "{stdout}");
     assert!(project.join("clara-zetkin-schule.omap.bak").exists());
+    assert!(pdf.exists(), "{stdout}{stderr}");
     assert!(!project.join("data/map-preview.json").exists());
 }
 

@@ -38,6 +38,7 @@ tiles through the local server.
     Karte." Open "Was auf die Karte kommt", set one group (for example "Bäume und Baumgruppen") to "Aus": after a short pause the
     line reads "Wird berechnet …" with the old image faded, then "Mit den Einstellungen auf dieser Seite, noch
     nicht gespeichert." with a changed image, and `freemapper.toml` is unchanged. Set the group back to "Wie im
-    Profil": the stored image returns at once. Save another area and reload: the line says that a new run is
-    needed. "In voller Größe öffnen" opens the image in a new tab. Repeat with
+    Profil": the stored image returns at once. Draw another area without saving: the stored image stays and the
+    line says that the area is not saved yet; a group change asks for nothing. Save that area and reload: the line
+    asks for a run with „Vorhandene Karte ersetzen“. "In voller Größe öffnen" opens the image in a new tab. Repeat with
     `--lang en` and `set-color-scheme dark`.

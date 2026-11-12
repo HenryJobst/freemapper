@@ -1355,7 +1355,8 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     assert_eq!(
         answer["error"],
         "Das gespeicherte Projekt passt nicht mehr zur erzeugten Karte, etwa weil sich Gebiet, \
-         Kartenart oder Maßstab geändert haben. Starten Sie zuerst einen neuen Lauf.",
+         Kartenart oder Maßstab geändert haben. Starten Sie zuerst einen Lauf, der die Karte \
+         ersetzt („Vorhandene Karte ersetzen“ auf der Seite oder freemapper run --force).",
         "{answer}"
     );
     // The stored image stays, marked as not fresh.

@@ -4,7 +4,10 @@
 //!
 //! `data/map-preview.json` is the authority: an image without a record is no preview, and a
 //! record whose fingerprint differs from the saved project's belongs to another area, kind or
-//! scale, so the stored data cannot show the saved project and a live preview is refused.
+//! scale, so the stored data cannot show the saved project and a live preview is refused. The
+//! fingerprint counts only the fields that decide the build ([`project_fingerprint`]): the
+//! records a later fetch rewrites do not make a preview stale. Only a run that replaces the map
+//! writes a new record.
 //!
 //! A live preview never takes the folder lock: a run must not fail because the page computes a
 //! picture. It looks at the lock and the jobs before and after, and throws its result away when
@@ -12,6 +15,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 use axum::Json;
@@ -21,8 +25,8 @@ use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use freemapper::build::content::ContentSettings;
 use freemapper::project::{
-    BuiltProject, ProjectFile, build_project, map_preview_path, map_preview_webp, place,
-    project_fingerprint, read_map_preview_record,
+    BuiltProject, ProjectFile, build_project, map_preview_webp, place, project_fingerprint,
+    read_map_preview, stored_map_preview_record,
 };
 use serde_json::{Value, json};
 
@@ -38,6 +42,19 @@ pub(crate) struct MapImages {
     builds: Arc<tokio::sync::Mutex<Builds>>,
     /// The newest live image; an older one is dropped.
     live: std::sync::Mutex<Option<LiveImage>>,
+    /// How many live previews were asked for: the number of the newest request.
+    asked: AtomicU64,
+}
+
+impl MapImages {
+    /// Waits for the turn of a live preview asked for now. None when a newer one was asked for
+    /// while it waited: the page shows only the newest answer, so this one gives up its turn
+    /// without computing, and the newest comes sooner.
+    async fn turn(&self) -> Option<tokio::sync::OwnedMutexGuard<Builds>> {
+        let ticket = self.asked.fetch_add(1, Ordering::SeqCst) + 1;
+        let builds = Arc::clone(&self.builds).lock_owned().await;
+        (self.asked.load(Ordering::SeqCst) == ticket).then_some(builds)
+    }
 }
 
 /// The cached build of the project and the number of the last live image.
@@ -49,8 +66,9 @@ struct Builds {
     built: usize,
 }
 
-/// What a build was made from: the project file without its content settings, and the state of
-/// the stored data and templates. Another stamp means the build is out of date.
+/// What a build was made from: the fields of the project file that decide it
+/// ([`project_fingerprint`]), and the state of the stored data and templates. Another stamp means
+/// the build is out of date.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Stamp {
     fingerprint: String,
@@ -133,8 +151,8 @@ fn error_response(status: StatusCode, message: String) -> Response {
     (status, Json(json!({ "error": message }))).into_response()
 }
 
-/// Whether `record` describes `project`: the export that wrote it used the same project file,
-/// apart from the content settings and the title ([`project_fingerprint`]).
+/// Whether `record` describes `project`: the export that wrote it used a project file with the
+/// same fields that decide the build ([`project_fingerprint`]).
 fn fits(record_fingerprint: &str, project: &ProjectFile) -> bool {
     project_fingerprint(project).is_ok_and(|fingerprint| fingerprint == record_fingerprint)
 }
@@ -143,13 +161,10 @@ fn fits(record_fingerprint: &str, project: &ProjectFile) -> bool {
 pub(crate) async fn stored(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
     let lang = page_lang(&headers);
     let dir = state.dir.clone();
-    let image = tokio::task::spawn_blocking(move || {
-        read_map_preview_record(&dir)?;
-        std::fs::read(map_preview_path(&dir)).ok()
-    })
-    .await
-    .ok()
-    .flatten();
+    let image = tokio::task::spawn_blocking(move || read_map_preview(&dir))
+        .await
+        .ok()
+        .flatten();
     match image {
         Some(webp) => webp_response(Bytes::from(webp)),
         None => error_response(
@@ -160,12 +175,12 @@ pub(crate) async fn stored(State(state): State<Arc<AppState>>, headers: HeaderMa
 }
 
 /// `GET api/map-image/state`: `{ stored, fresh, content }`. `stored`: the folder has a preview;
-/// `fresh`: it was exported for the saved project (apart from the content settings and the
-/// title), so live previews work; `content`: the settings the stored preview shows, or null.
+/// `fresh`: it was exported for the saved project (by the fields that decide the build), so live
+/// previews work; `content`: the settings the stored preview shows, or null.
 pub(crate) async fn stored_state(State(state): State<Arc<AppState>>) -> Response {
     let dir = state.dir.clone();
     let answer = tokio::task::spawn_blocking(move || {
-        let record = read_map_preview_record(&dir).filter(|_| map_preview_path(&dir).is_file());
+        let record = stored_map_preview_record(&dir);
         let fresh = record.as_ref().is_some_and(|record| {
             ProjectFile::load(&dir).is_ok_and(|project| fits(&record.fingerprint, &project))
         });
@@ -212,7 +227,13 @@ pub(crate) async fn live(
         );
     }
     // Owned, so it stays held until the computation ends, also when the page stops waiting.
-    let mut builds = Arc::clone(&state.map_images.builds).lock_owned().await;
+    let Some(mut builds) = state.map_images.turn().await else {
+        // The page dropped this request when it asked for the newer one.
+        return error_response(
+            StatusCode::CONFLICT,
+            TEXTS.text(&lang, "cli-map-image-superseded", &[]),
+        );
+    };
     let task_state = Arc::clone(&state);
     let task_lang = lang.clone();
     let answer = tokio::task::spawn_blocking(move || -> Result<Value, Refusal> {
@@ -311,8 +332,7 @@ fn check_before(dir: &Path, lang: &Lang, running: &dyn Fn() -> bool) -> Result<C
     }
     check_runs(dir, lang, running)?;
     let project = ProjectFile::load(dir).map_err(|e| Refusal::Failed(message(&e, lang)))?;
-    let record = read_map_preview_record(dir)
-        .filter(|_| map_preview_path(dir).is_file())
+    let record = stored_map_preview_record(dir)
         .ok_or_else(|| Refusal::Conflict(text("cli-map-image-none")))?;
     if !fits(&record.fingerprint, &project) {
         return Err(Refusal::Conflict(text("cli-map-image-stale")));

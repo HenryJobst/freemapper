@@ -68,8 +68,9 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 6] = [
+const FILE_KINDS: [&str; 7] = [
     "map",
+    "preview",
     "template",
     "ocad",
     "ocad-candidates",
@@ -538,8 +539,17 @@ fn preview_uses_only_the_pages_own_image_routes() {
     assert!(run.contains("api/map-image/state"));
     assert!(run.contains("api/map-image/live/"));
     assert!(!run.contains("blob:") && !run.contains("createObjectURL"));
-    // A live image is not asked for while a run starts or goes on.
-    assert!(run.contains("if (running || starting) {\n    previewImage().classList.remove"));
+    // A live image is not asked for while a run starts or goes on (a page opened meanwhile shows
+    // the stored one), nor while the drawn area is not saved: both branches end before the
+    // request.
+    let during_run = run
+        .find("if (running || starting) {\n    if (previewImage().hidden) {\n      previewShowStored(\"page-preview-run\");")
+        .expect("the branch for a run");
+    let unsaved_area = run
+        .find("if (!page().areaIsSaved()) {\n    previewShowStored(\"page-preview-area-unsaved\");\n    return;\n  }")
+        .expect("the branch for an unsaved area");
+    let request = run.find("await requestLivePreview();").unwrap();
+    assert!(during_run < unsaved_area && unsaved_area < request);
 }
 
 #[test]

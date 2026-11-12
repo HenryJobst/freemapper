@@ -2677,6 +2677,9 @@ pub enum MapOutcome {
 pub struct RunOutcome {
     pub templates: Vec<PathBuf>,
     pub map: MapOutcome,
+    /// The preview written with the map (`<name>-preview.webp`); none when the map was kept, or
+    /// when the preview failed (the run then warns, `warning-map-preview-failed`).
+    pub preview: Option<PathBuf>,
 }
 
 /// The step [`run_project_steps`] is about to start.
@@ -2758,6 +2761,7 @@ pub fn run_project_steps_cancellable(
     stop_if(cancelled)?;
     stage(RunStage::Map);
     let existing = map_path(dir);
+    let mut preview = None;
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
@@ -2772,10 +2776,14 @@ pub fn run_project_steps_cancellable(
         // The preview goes with the map, from the same documents; never next to a kept map.
         let documents = starter_documents(dir)?;
         let map = export_starter_project_from(dir, &documents, force)?;
-        export_map_preview_from(dir, &documents)?;
+        preview = export_map_preview_or_warn(dir, &documents, progress);
         MapOutcome::Written(map)
     };
-    Ok(RunOutcome { templates, map })
+    Ok(RunOutcome {
+        templates,
+        map,
+        preview,
+    })
 }
 
 /// Checks that a template image and its world file form the grid `derive` would write for
@@ -5916,7 +5924,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
-    fn project_fingerprint_leaves_out_only_the_content_and_the_title() {
+    fn project_fingerprint_counts_only_what_decides_the_build() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let project = ProjectFile::load(dir.path()).unwrap();
@@ -5930,6 +5938,36 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             ..project.clone()
         };
         assert_eq!(project_fingerprint(&with_content).unwrap(), fingerprint);
+        // The records of a fetch: every online fetch dates them anew.
+        let day = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        let record = AlkisRecord {
+            bbox: [0.0, 0.0, 1.0, 1.0],
+            fetched: day,
+            latest_update: None,
+            count: 3,
+            regions: Vec::new(),
+        };
+        let fetched = ProjectFile {
+            tiles: vec![TileRecord {
+                product: Product::Dtm,
+                tile: "33421-5821".into(),
+                url: "https://example.org/t.zip".into(),
+                currency: day,
+                published: day,
+            }],
+            buildings: Some(record.clone()),
+            land_use: Some(record.clone()),
+            berlin_layers: BTreeMap::from([("a.geojson".to_string(), record.clone())]),
+            nas_layers: BTreeMap::from([("b.geojson".to_string(), record.clone())]),
+            tree_layers: BTreeMap::from([("c".to_string(), record)]),
+            osm: Some(OsmRecord {
+                extract: day,
+                area: [52.0, 13.0, 52.1, 13.1],
+                count: 7,
+            }),
+            ..project.clone()
+        };
+        assert_eq!(project_fingerprint(&fetched).unwrap(), fingerprint);
         // The title is drawn on the sheet only, never in the preview.
         for title in ["Clara-Zetkin-Schule", "Another title"] {
             let title = Some(title.to_string());
@@ -5950,9 +5988,43 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_ne!(project_fingerprint(&other_area).unwrap(), fingerprint);
         let other_scale = ProjectFile {
             scale_denominator: 2000,
-            ..project
+            ..project.clone()
         };
         assert_ne!(project_fingerprint(&other_scale).unwrap(), fingerprint);
+        // Every other field that decides the build counts too.
+        let changed = [
+            ProjectFile {
+                map_kind: MapKind::Sprint,
+                ..project.clone()
+            },
+            ProjectFile {
+                declination_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+                ..project.clone()
+            },
+            ProjectFile {
+                buffer_m: project.buffer_m + 5.0,
+                ..project.clone()
+            },
+            ProjectFile {
+                map_area_source_id: Some("way/1".into()),
+                ..project.clone()
+            },
+            ProjectFile {
+                crs: 25832,
+                ..project.clone()
+            },
+            ProjectFile {
+                provider: Some(AdapterId::built_in("hvbg")),
+                ..project.clone()
+            },
+        ];
+        for other in changed {
+            assert_ne!(
+                project_fingerprint(&other).unwrap(),
+                fingerprint,
+                "{other:?}"
+            );
+        }
     }
 
     #[test]
@@ -5971,10 +6043,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
         let kept = run(dir.path(), &fetcher, &cache, false);
         assert!(matches!(kept.map, MapOutcome::Kept { .. }));
+        assert_eq!(kept.preview, None);
         assert!(!preview.exists(), "a kept map gets no preview");
         assert!(read_map_preview_record(dir.path()).is_none());
 
-        run(dir.path(), &fetcher, &cache, true);
+        let written = run(dir.path(), &fetcher, &cache, true);
+        assert_eq!(written.preview.as_ref(), Some(&preview));
         assert!(preview.exists());
         let written = read_map_preview_record(dir.path()).expect("record");
         assert_eq!(
@@ -6010,15 +6084,30 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         std::fs::create_dir(&preview).unwrap();
         std::fs::write(preview.join("keep"), "").unwrap();
 
-        let failed = run_project(
+        // The map is written, so the run ends well and says that the preview is missing.
+        let mut notes = Vec::new();
+        let outcome = run_project(
             dir.path(),
             &fetcher,
             &cache,
             FetchMode::Online,
             true,
-            &mut |_| {},
+            &mut |note| notes.push(note),
+        )
+        .unwrap();
+        assert_eq!(outcome.map, MapOutcome::Written(map.clone()));
+        assert_eq!(outcome.preview, None);
+        let warnings: Vec<String> = notes
+            .iter()
+            .filter(|n| n.is_warning())
+            .map(ToString::to_string)
+            .collect();
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.starts_with("warning: the map is written, but its preview is missing: ")),
+            "{warnings:?}"
         );
-        assert!(failed.is_err());
         assert_ne!(
             std::fs::read_to_string(&map).unwrap(),
             "edited in OOM",
@@ -6026,6 +6115,95 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         );
         assert!(read_map_preview_record(dir.path()).is_none());
         assert!(!dir.path().join("data/map-preview.json").exists());
+    }
+
+    /// The day after the export, a run that keeps the map fetches again and dates the records
+    /// anew: the preview still belongs to the saved project, so live previews go on. A new area
+    /// does not fit it.
+    #[test]
+    fn a_kept_map_on_a_later_day_keeps_its_preview_fresh() {
+        let at = |day| {
+            NaiveDate::from_ymd_opt(2026, 11, day)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap()
+        };
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let fresh = || {
+            let record = stored_map_preview_record(dir.path()).expect("a stored preview");
+            record.fingerprint
+                == project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        };
+        let exported = crate::clock::with_fixed(at(12), || run(dir.path(), &fetcher, &cache, true));
+        assert!(exported.preview.is_some());
+        assert!(fresh());
+        let before = std::fs::read_to_string(&file).unwrap();
+
+        let kept = crate::clock::with_fixed(at(13), || run(dir.path(), &fetcher, &cache, false));
+        assert!(matches!(kept.map, MapOutcome::Kept { .. }));
+        assert_ne!(
+            std::fs::read_to_string(&file).unwrap(),
+            before,
+            "the fetch dated its records anew"
+        );
+        assert!(fresh(), "a later fetch keeps the preview fresh");
+        // A fetch alone on yet another day, too.
+        crate::clock::with_fixed(at(14), || fetch(dir.path(), &fetcher, &cache));
+        assert!(fresh());
+
+        set_map_area(dir.path(), &fixture_area()).unwrap();
+        assert!(!fresh(), "another area needs a run that replaces the map");
+    }
+
+    /// The stored preview and its record are read only as files of the project folder: a link
+    /// in their place, or a linked `data/` folder, is no preview.
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_preview_or_record_is_no_preview() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        export_map_preview_from(dir.path(), &documents).unwrap();
+        let image = map_preview_path(dir.path());
+        let record = dir.path().join("data/map-preview.json");
+        assert!(stored_map_preview_record(dir.path()).is_some());
+        assert_eq!(
+            read_map_preview(dir.path()),
+            Some(std::fs::read(&image).unwrap())
+        );
+        let outside = tempfile::tempdir().unwrap();
+        let elsewhere = |name: &str, from: &Path| {
+            let target = outside.path().join(name);
+            std::fs::rename(from, &target).unwrap();
+            std::os::unix::fs::symlink(&target, from).unwrap();
+            target
+        };
+
+        // The image is a link to a file elsewhere.
+        let target = elsewhere("image.webp", &image);
+        assert!(read_map_preview_record(dir.path()).is_some());
+        assert_eq!(stored_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
+        std::fs::remove_file(&image).unwrap();
+        std::fs::rename(&target, &image).unwrap();
+        assert!(read_map_preview(dir.path()).is_some());
+
+        // The record is a link.
+        let target = elsewhere("record.json", &record);
+        assert_eq!(read_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
+        std::fs::remove_file(&record).unwrap();
+        std::fs::rename(&target, &record).unwrap();
+        assert!(read_map_preview(dir.path()).is_some());
+
+        // The whole `data/` folder lies elsewhere.
+        let data = dir.path().join("data");
+        elsewhere("data", &data);
+        assert_eq!(read_map_preview_record(dir.path()), None);
+        assert_eq!(stored_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
     }
 
     /// The bytes of the map and of the candidates map as written to the `.omap` files.

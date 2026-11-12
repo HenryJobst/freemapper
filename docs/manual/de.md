@@ -393,9 +393,13 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    zeigt: „Stand der zuletzt erzeugten Karte.“ oder „Mit den Einstellungen auf dieser Seite, noch nicht
    gespeichert.“ „In voller Größe öffnen“ öffnet das Bild in einem neuen Tab. Das Bild zeigt nur die
    Kartenobjekte, keine Kandidaten, kein Luftbild, keine Legende und keinen Text. Haben Sie Gebiet, Kartenart
-   oder Maßstab seit dem letzten Lauf geändert, zeigt die Seite weiter das letzte Bild und sagt, dass ein neuer
-   Lauf nötig ist. Vor dem ersten Lauf gibt es kein Bild („Noch keine Karte erzeugt.“). Eine Karte aus einem älteren
-   freemapper hat auch keins; die Seite sagt das, und der nächste Lauf mit „Vorhandene Karte ersetzen“ erzeugt eins.
+   oder Maßstab geändert, seit die Karte erzeugt wurde, zeigt die Seite weiter das letzte Bild und sagt, dass
+   eine neue Vorschau einen Lauf mit „Vorhandene Karte ersetzen“ braucht: Ein Lauf, der die Karte behält,
+   schreibt keine Vorschau. Ein gezeichnetes Gebiet, das noch nicht gespeichert ist, bekommt ebenfalls kein neues
+   Bild, und die Zeile sagt das. Während eines Laufs zeigt die Seite das letzte Bild und aktualisiert es, wenn
+   der Lauf endet. Ein späteres Laden allein macht das Bild nicht veraltet. Vor dem ersten Lauf gibt es kein Bild
+   („Noch keine Karte erzeugt.“). Eine Karte aus einem älteren freemapper hat auch keins; die Seite sagt das, und
+   der nächste Lauf mit „Vorhandene Karte ersetzen“ erzeugt eins.
 7. **Ergebnis:** Die Seite sagt, ob der Lauf fertig, fehlgeschlagen oder abgebrochen ist, listet die Dateien
    mit Größe und nennt den Projektordner. „Ordner öffnen“ öffnet ihn im Dateimanager; geht das nicht, steht
    der Pfad als Text da. Gab es schon eine Karte und war „Vorhandene Karte ersetzen“ aus, bleibt sie
@@ -1008,6 +1012,7 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `--part wählt einen Teil eines OSM-Gebiets und braucht --osm` (englisch: `--part picks a part of an OSM area and needs --osm`) | `--part` gilt nur zusammen mit `--osm`. | Die OSM-Kennung suchen und `--osm <id> --part <n>` angeben. |
 | `MultiPolygon mit … Teilen` (englisch: `MultiPolygon with … parts`) | Das gewählte Gelände besteht aus mehreren Teilen. | Im Browser ein zusammenhängendes Gebiet zeichnen. |
 | `Warnung: Im Kartengebiet wurden keine ALKIS-Gebäude gefunden` (englisch: `warning: no ALKIS buildings found in the map area`) | Im Gebiet gibt es keine Gebäude, z. B. im Wald. | Nichts, wenn das stimmt. Sonst später erneut laden. |
+| `Warnung: Die Karte ist geschrieben, ihre Vorschau fehlt aber: …` (englisch: `warning: the map is written, but its preview is missing: …`) | Die Karte wurde geschrieben, `<name>-preview.webp` aber nicht, etwa weil die Platte voll ist oder ein Ordner dieses Namens im Weg steht. OCAD-Dateien und PDFs entstehen trotzdem. | Platz schaffen oder das Hindernis entfernen, dann noch einmal mit „Vorhandene Karte ersetzen“ (`--force`) laufen lassen. |
 | `Das Kartengebiet reicht über die Grenze des Bundeslands hinaus` (englisch: `the map area reaches beyond the state border`) | Ein Teil des Gebiets liegt im Nachbarbundesland. Luftbild und Höhenmodelle kommen aus dem Bundesland der Gebietsmitte, ALKIS und OSM aus beiden Bundesländern. | Die Vorlagen bleiben leer, wo Luftbild und Höhenmodelle dieses Bundeslandes enden. Den Teil von Hand zeichnen. |
 | `Warnung: Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer` (englisch: `warning: part of the map area lies outside the supported states`) | Ein Teil des Gebiets liegt außerhalb aller unterstützten Bundesländer: im Ausland, auf dem Meer oder in einem Bundesland, das freemapper noch nicht unterstützt. Das sind Bremen, Thüringen, Bayern, Baden-Württemberg und das Saarland. Zum Meer gehören die Ostsee vor Schleswig-Holstein und Mecklenburg-Vorpommern und das schleswig-holsteinische Wattenmeer, etwa zwischen Föhr und Dagebüll. Die Landesgrenzen dieser beiden Bundesländer lassen dieses Wasser aus. Dort gibt es keine Landesdaten, das Luftbild kann weiß sein, und ALKIS liefert weder Gebäude noch Nutzung. freemapper meldet das beim Laden, nicht schon bei der Größenschätzung. Ein Streifen bis 50 m hinter der Grenze löst die Warnung nicht aus. | Den Teil von Hand zeichnen oder das Gebiet verschieben. |
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |

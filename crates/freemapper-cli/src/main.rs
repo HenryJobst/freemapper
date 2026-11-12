@@ -27,9 +27,9 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
-    export_candidates_pdf_from, export_map_preview_from, export_ocad_from, export_pdf_from,
-    export_starter_project_from, fetch_project, init_project, map_path, map_preview_path,
-    set_content, starter_documents,
+    export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
+    export_starter_project_from, fetch_project, init_project, map_path, set_content,
+    starter_documents,
 };
 
 use text::{n, text, v};
@@ -379,8 +379,8 @@ fn report_ocad(outcome: &OcadOutcome) {
     println!("{}", text("cli-ocad-load-symbols", &[]));
 }
 
-/// Prints what a step of `run` in `dir` wrote.
-fn print_written(dir: &std::path::Path, written: pipeline::Written, sources: PdfSources) {
+/// Prints what a step of `run` wrote.
+fn print_written(written: pipeline::Written, sources: PdfSources) {
     match written {
         pipeline::Written::Map(outcome) => {
             for path in &outcome.templates {
@@ -389,7 +389,9 @@ fn print_written(dir: &std::path::Path, written: pipeline::Written, sources: Pdf
             match &outcome.map {
                 MapOutcome::Written(map) => {
                     wrote(map);
-                    wrote(&map_preview_path(dir));
+                    if let Some(preview) = &outcome.preview {
+                        wrote(preview);
+                    }
                 }
                 MapOutcome::Kept {
                     map,
@@ -652,7 +654,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 kept(&existing);
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
-                wrote(&export_map_preview_from(&dir, &documents)?);
+                // The map is written: a failed preview is a warning, and the outputs still run.
+                if let Some(preview) =
+                    export_map_preview_or_warn(&dir, &documents, &mut report_note)
+                {
+                    wrote(&preview);
+                }
             }
             if ocad {
                 report_ocad(&export_ocad_from(&dir, &documents, force)?);
@@ -735,7 +742,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                     pipeline::Event::Line(line) | pipeline::Event::Warning(line) => report(line),
                     pipeline::Event::Phase { .. } => {}
                     pipeline::Event::Written(written) => {
-                        print_written(&dir, written, options.pdf_sources)
+                        print_written(written, options.pdf_sources)
                     }
                 },
             )?;

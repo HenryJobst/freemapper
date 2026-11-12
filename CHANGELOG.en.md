@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- A preview of the map (ADR 0108). Every export that writes a map also writes `<name>-preview.webp` next to the `.omap`: the map objects as the map PDF draws them, no candidates, no sheet. The area page shows it in a new section "Map preview" below the run status, and when you change the content profile or a group there, it shows the effect without a run and without saving: within about a second, after a first computation that takes a few seconds. A line says whether the image is the map as generated last or the settings on the page; after a change of area, map kind or scale it says that a new run is needed. The `.omap`, the candidates map, the OCAD files and the PDFs do not change.
+- A preview of the map (ADR 0108). Every export that writes a map also writes `<name>-preview.webp` next to the `.omap`: the map objects as the map PDF draws them, no candidates, no sheet. The area page shows it in a new section "Map preview" below the run status, and when you change the content profile or a group there, it shows the effect without a run and without saving: within about a second, after a first computation that takes a few seconds. A line says whether the image is the map as generated last or the settings on the page; after a change of area, map kind or scale, or while a drawn area is not saved, it says that a run with "Replace the existing map" is needed. A later fetch does not make the image out of date. If the preview cannot be written, the run says so in a warning and still writes the map, the OCAD files and the PDFs; the list of files of a run names the preview. The `.omap`, the candidates map, the OCAD files and the PDFs do not change.
 
 ### Changed
 

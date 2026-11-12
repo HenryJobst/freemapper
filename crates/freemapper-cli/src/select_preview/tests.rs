@@ -149,7 +149,9 @@ fn the_build_is_kept_until_the_stored_data_changes() {
     // Another area: the data is not that area's, and nothing is built.
     set_map_area(&project, &moved_area()).unwrap();
     match compute(&project, &mut builds, None, &lang, &|| false) {
-        Err(Refusal::Conflict(e)) => assert!(e.contains("Start a new run first."), "{e}"),
+        Err(Refusal::Conflict(e)) => {
+            assert!(e.contains("Start a run that replaces the map first"), "{e}")
+        }
         other => panic!("{:?}", other.map(|c| c.content)),
     }
     assert_eq!(builds.built, 3);
@@ -274,7 +276,10 @@ fn a_save_during_a_live_preview_is_not_mixed_into_it() {
             }
         },
     ));
-    assert!(refused.contains("Start a new run first."), "{refused}");
+    assert!(
+        refused.contains("Start a run that replaces the map first"),
+        "{refused}"
+    );
     assert!(builds.cached.is_none());
 }
 
@@ -320,4 +325,33 @@ fn the_preview_is_clipped_to_the_area_it_was_built_for() {
     let before = map_preview_webp(&documents, &project).unwrap();
     set_map_area(&project, &moved_area()).unwrap();
     assert_eq!(map_preview_webp(&documents, &project).unwrap(), before);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_queued_live_preview_gives_up_its_turn_to_a_newer_one() {
+    let images = Arc::new(MapImages::default());
+    // A live preview is computed: it holds the builds.
+    let computing = images.turn().await.expect("the first request's turn");
+    // Two more are asked for meanwhile, one after the other, and wait.
+    let older = tokio::spawn({
+        let images = Arc::clone(&images);
+        async move { images.turn().await.is_some() }
+    });
+    while images.asked.load(Ordering::SeqCst) < 2 {
+        tokio::task::yield_now().await;
+    }
+    let newer = tokio::spawn({
+        let images = Arc::clone(&images);
+        async move { images.turn().await.is_some() }
+    });
+    while images.asked.load(Ordering::SeqCst) < 3 {
+        tokio::task::yield_now().await;
+    }
+    drop(computing);
+    // The older one returns as soon as it has the builds, without computing; the newer one
+    // gets its turn.
+    assert!(!older.await.unwrap(), "the older request computes nothing");
+    assert!(newer.await.unwrap(), "the newest request computes");
+    // Alone, a request gets its turn.
+    assert!(images.turn().await.is_some());
 }
