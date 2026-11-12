@@ -12,8 +12,14 @@ chrono.workspace = true
 freemapper-adapter-api.workspace = true
 freemapper-fs.workspace = true
 freemapper-georef.workspace = true
+geo.workspace = true
+geo-types.workspace = true
+geojson.workspace = true
 serde.workspace = true
 toml.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

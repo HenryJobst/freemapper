@@ -6,7 +6,8 @@ use std::path::PathBuf;
 /// One finding of the parser or the validator.
 ///
 /// The codes are stable; a text catalog words them later. `manifest.*` codes are about the file
-/// itself, `policy.*` codes about where its URLs lead:
+/// itself, `boundary.*` codes about a boundary file it names, `policy.*` codes about where its
+/// URLs lead:
 ///
 /// | Code | Meaning |
 /// |---|---|
@@ -32,6 +33,11 @@ use std::path::PathBuf;
 /// | `manifest.params` | a request parameter the manifest may not set |
 /// | `manifest.too-many-urls` | more than [`crate::MAX_URLS`] URLs |
 /// | `manifest.empty` | neither `[alkis]` nor `[orthophoto]` |
+/// | `manifest.file-missing` | a file the manifest names is not there or cannot be read |
+/// | `boundary.too-large` | a boundary file over 2 MiB or with more than a million vertices |
+/// | `boundary.format` | a boundary file that is not GeoJSON with one polygon feature |
+/// | `boundary.crs` | a boundary whose positions cannot be of the CRS the manifest states |
+/// | `boundary.invalid` | a boundary that is no valid geometry (a ring that crosses itself) |
 /// | `policy.url` | a URL that is not `https` on port 443 with a DNS name and without a query |
 /// | `policy.host` | an entry of `[net] hosts` that is no DNS name |
 /// | `policy.host-not-declared` | a URL whose host is not in `[net] hosts` |

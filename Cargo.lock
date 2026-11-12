@@ -816,7 +816,11 @@ dependencies = [
  "freemapper-adapter-api",
  "freemapper-fs",
  "freemapper-georef",
+ "geo",
+ "geo-types",
+ "geojson",
  "serde",
+ "tempfile",
  "toml",
 ]
 

@@ -11,6 +11,8 @@
 
 use std::path::Path;
 
+pub mod adapter;
+pub mod boundary;
 pub mod error;
 pub mod model;
 mod schema;
