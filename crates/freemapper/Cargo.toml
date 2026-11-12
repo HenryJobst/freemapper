@@ -11,7 +11,7 @@ rust-version.workspace = true
 # Test helpers for the golden net of the adapter work (tests/adapters_golden.rs): the fixed clock
 # and the facts the registry answers. The crate's own tests turn it on through a dev-dependency on
 # itself; it is never part of a release build.
-golden = ["dep:sha2", "freemapper-adapter-api/testing"]
+golden = ["freemapper-adapter-api/testing"]
 
 [dependencies]
 chrono.workspace = true
@@ -37,9 +37,10 @@ pdf-writer.workspace = true
 quick-xml.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2 = { workspace = true, optional = true }
+sha2.workspace = true
 thiserror.workspace = true
 tiff.workspace = true
+tiny-skia.workspace = true
 toml.workspace = true
 ureq.workspace = true
 weezl.workspace = true
@@ -59,5 +60,4 @@ freemapper-adapters-de = { workspace = true, features = ["testing"] }
 freemapper-sources = { workspace = true, features = ["testing"] }
 freemapper-contract = { workspace = true, features = ["fixtures"] }
 quick-xml.workspace = true
-sha2.workspace = true
 tempfile.workspace = true

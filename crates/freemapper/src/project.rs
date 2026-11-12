@@ -2769,7 +2769,11 @@ pub fn run_project_steps_cancellable(
             map: existing,
         }
     } else {
-        MapOutcome::Written(export_starter_project(dir, force)?)
+        // The preview goes with the map, from the same documents; never next to a kept map.
+        let documents = starter_documents(dir)?;
+        let map = export_starter_project_from(dir, &documents, force)?;
+        export_map_preview_from(dir, &documents)?;
+        MapOutcome::Written(map)
     };
     Ok(RunOutcome { templates, map })
 }
@@ -5844,6 +5848,138 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         // The tartan pitch is a candidate: only the candidates PDF paints it.
         assert!(!contains(&a, b"0.1 0.35 0.5 0 k"));
         assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
+    }
+
+    #[test]
+    fn map_preview_is_a_webp_of_the_map_area_with_its_content_record() {
+        use crate::build::content::{Group, Place, Profile};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let mut content = ContentSettings::with_profile(Profile::Full);
+        content.set(Group::Fences, Some(Place::Off));
+        let project = set_content(dir.path(), Some(content.clone())).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        assert_eq!(documents.content_settings, content);
+
+        let path = export_map_preview_from(dir.path(), &documents).unwrap();
+        assert_eq!(path, map_preview_path(dir.path()));
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let stem = map_path(dir.path())
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(name, format!("{stem}-preview.webp"));
+        let bytes = std::fs::read(&path).unwrap();
+        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::WebP)
+            .unwrap()
+            .to_rgba8();
+        let rect = PaperRect::of_bbox(&project.bbox().unwrap(), &documents.map.georef).unwrap();
+        let clip = crate::render::pdf::PaperBox {
+            min: (
+                f64::from(rect.min_x) / 1000.0,
+                f64::from(rect.min_y) / 1000.0,
+            ),
+            max: (
+                f64::from(rect.max_x) / 1000.0,
+                f64::from(rect.max_y) / 1000.0,
+            ),
+        };
+        let px_per_mm = crate::render::raster::preview_px_per_mm(&clip);
+        let expected = (
+            (clip.max.0 - clip.min.0) * px_per_mm,
+            (clip.max.1 - clip.min.1) * px_per_mm,
+        );
+        assert!(
+            (f64::from(image.width()) - expected.0).abs() <= 1.0
+                && (f64::from(image.height()) - expected.1).abs() <= 1.0,
+            "{:?} for {expected:?}",
+            image.dimensions()
+        );
+        assert!(expected.0.max(expected.1) <= 2049.0);
+        let white = image
+            .pixels()
+            .filter(|p| p.0 == [255, 255, 255, 255])
+            .count();
+        assert!(
+            white > 0 && white < image.pixels().count(),
+            "something is drawn"
+        );
+
+        let record = read_map_preview_record(dir.path()).expect("record");
+        assert_eq!(record.content, content);
+        assert_eq!(
+            record.fingerprint,
+            project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        );
+        assert!(dir.path().join("data/map-preview.json").exists());
+    }
+
+    #[test]
+    fn project_fingerprint_leaves_out_only_the_content() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let fingerprint = project_fingerprint(&project).unwrap();
+        assert_eq!(fingerprint.len(), 64);
+        assert!(fingerprint.chars().all(|c| c.is_ascii_hexdigit()));
+        let with_content = ProjectFile {
+            content: Some(ContentSettings::with_profile(
+                crate::build::content::Profile::Safe,
+            )),
+            ..project.clone()
+        };
+        assert_eq!(project_fingerprint(&with_content).unwrap(), fingerprint);
+        let other_area = ProjectFile {
+            map_area: serde_json::json!({
+                "type": "Polygon",
+                "coordinates": [[[13.0, 52.0], [13.001, 52.0], [13.001, 52.001], [13.0, 52.0]]]
+            }),
+            ..project.clone()
+        };
+        assert_ne!(project_fingerprint(&other_area).unwrap(), fingerprint);
+        let other_scale = ProjectFile {
+            scale_denominator: 2000,
+            ..project
+        };
+        assert_ne!(project_fingerprint(&other_scale).unwrap(), fingerprint);
+    }
+
+    #[test]
+    fn run_writes_the_preview_only_with_the_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let preview = map_preview_path(dir.path());
+        // The map export alone writes no preview (the golden net hashes its files).
+        let map = export_starter_project(dir.path(), false).unwrap();
+        assert!(!preview.exists());
+        std::fs::write(&map, "edited in OOM").unwrap();
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+
+        let kept = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(kept.map, MapOutcome::Kept { .. }));
+        assert!(!preview.exists(), "a kept map gets no preview");
+        assert!(read_map_preview_record(dir.path()).is_none());
+
+        run(dir.path(), &fetcher, &cache, true);
+        assert!(preview.exists());
+        let written = read_map_preview_record(dir.path()).expect("record");
+        assert_eq!(
+            written.content,
+            ContentSettings::with_profile(crate::build::content::Profile::Safe),
+            "the settings the test build places with"
+        );
+
+        // Another content and the map kept: the record still names the settings of its export.
+        let off = ContentSettings::with_profile(crate::build::content::Profile::Full);
+        set_content(dir.path(), Some(off)).unwrap();
+        let before = std::fs::read(&preview).unwrap();
+        run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(std::fs::read(&preview).unwrap(), before);
+        assert_eq!(read_map_preview_record(dir.path()), Some(written));
     }
 
     fn hex(text: &str) -> String {
@@ -10124,6 +10260,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 contour_interval_m: 5,
                 attribution: Vec::new(),
             },
+            content_settings: ContentSettings::default(),
         };
         let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);

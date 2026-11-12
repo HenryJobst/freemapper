@@ -630,17 +630,10 @@ pub(super) fn write_pdf_file(
             .flat_map(|o| draw::primitives(o, &symbols))
             .collect()
     };
-    let content = PaperRect::of_bbox(&project.bbox()?, &documents.map.georef)?;
-    let clip = pdf::PaperBox {
-        min: (
-            f64::from(content.min_x) / 1000.0,
-            f64::from(content.min_y) / 1000.0,
-        ),
-        max: (
-            f64::from(content.max_x) / 1000.0,
-            f64::from(content.max_y) / 1000.0,
-        ),
-    };
+    let clip = paper_box(&PaperRect::of_bbox(
+        &project.bbox()?,
+        &documents.map.georef,
+    )?);
     let bytes = pdf::write_pdf(
         &render(&map),
         &render(&sheet),
@@ -651,6 +644,139 @@ pub(super) fn write_pdf_file(
     let path = pdf_path(dir, candidates);
     write_inside(dir, &path, &bytes)?;
     Ok(path)
+}
+
+/// The preview of the map: a lossless WebP of what the map PDF draws in the map area.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapImage {
+    pub webp: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// What `data/map-preview.json` says about the preview next to the map: the project it was
+/// exported for, without its content settings ([`project_fingerprint`]), and those settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MapPreviewRecord {
+    pub fingerprint: String,
+    pub content: ContentSettings,
+}
+
+/// The record of the preview, in the internal store.
+const MAP_PREVIEW_RECORD_RELPATH: &str = "data/map-preview.json";
+
+/// The preview next to the map: `<name>-preview.webp` for `<name>.omap`.
+pub fn map_preview_path(dir: &Path) -> PathBuf {
+    let map = map_path(dir);
+    let stem = map
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    map.with_file_name(format!("{stem}-preview.webp"))
+}
+
+/// The preview of the map in `documents`: the base part and the map part as the map PDF draws
+/// them, clipped to the map area on paper (in paper orientation), without the sheet and without
+/// any candidate. Texts are left out (see [`crate::render::raster`]).
+pub fn map_preview_webp(
+    documents: &StarterDocuments,
+    dir: &Path,
+) -> Result<MapImage, ProjectError> {
+    use crate::render::{draw, raster, symbols::RenderSymbols};
+    let project = ProjectFile::load(dir)?;
+    let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
+    let (map, _) = pdf_objects(documents, false);
+    let primitives: Vec<draw::Primitive> = map
+        .iter()
+        .flat_map(|o| draw::primitives(o, &symbols))
+        .collect();
+    let clip = paper_box(&PaperRect::of_bbox(
+        &project.bbox()?,
+        &documents.map.georef,
+    )?);
+    let image = raster::rasterize(
+        &primitives,
+        clip,
+        &symbols.colours,
+        raster::preview_px_per_mm(&clip),
+    );
+    let (width, height) = image.dimensions();
+    let mut webp = Vec::new();
+    image::codecs::webp::WebPEncoder::new_lossless(&mut webp)
+        .encode(
+            image.as_raw(),
+            width,
+            height,
+            image::ExtendedColorType::Rgba8,
+        )
+        .map_err(|e| ProjectError::Io(map_preview_path(dir), std::io::Error::other(e)))?;
+    Ok(MapImage {
+        webp,
+        width,
+        height,
+    })
+}
+
+/// Writes the preview of the map, `<name>-preview.webp`, and its record `data/map-preview.json`
+/// (both or neither), from `documents`, which [`starter_documents`] built for `dir`. Called
+/// where the map is written, never where an existing map is kept.
+pub fn export_map_preview_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+) -> Result<PathBuf, ProjectError> {
+    let image = map_preview_webp(documents, dir)?;
+    let record = MapPreviewRecord {
+        fingerprint: project_fingerprint(&ProjectFile::load(dir)?)?,
+        content: documents.content_settings.clone(),
+    };
+    let path = map_preview_path(dir);
+    let record_path = dir.join(MAP_PREVIEW_RECORD_RELPATH);
+    let json = serde_json::to_vec_pretty(&record)
+        .map_err(|e| ProjectError::Io(record_path.clone(), std::io::Error::other(e)))?;
+    crate::fsutil::write_files_inside(
+        dir,
+        &[
+            (path.as_path(), &image.webp),
+            (record_path.as_path(), &json),
+        ],
+    )
+    .map_err(|(path, e)| ProjectError::Io(path, e))?;
+    Ok(path)
+}
+
+/// SHA-256 (hex) of the project file the library writes for `project` without its `[content]`
+/// table: equal for two projects that differ only in their content settings, so the stored data
+/// and a preview still fit the project.
+pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError> {
+    use sha2::Digest as _;
+    let without_content = ProjectFile {
+        content: None,
+        ..project.clone()
+    };
+    let text = toml::to_string(&without_content).map_err(|e| ProjectError::Toml(e.to_string()))?;
+    Ok(sha2::Sha256::digest(text.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
+/// The record of the preview in `dir`; none when there is none or it does not read.
+pub fn read_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
+    let text = std::fs::read_to_string(dir.join(MAP_PREVIEW_RECORD_RELPATH)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// The paper rectangle `rect` (µm) in millimetres.
+fn paper_box(rect: &PaperRect) -> crate::render::pdf::PaperBox {
+    crate::render::pdf::PaperBox {
+        min: (
+            f64::from(rect.min_x) / 1000.0,
+            f64::from(rect.min_y) / 1000.0,
+        ),
+        max: (
+            f64::from(rect.max_x) / 1000.0,
+            f64::from(rect.max_y) / 1000.0,
+        ),
+    }
 }
 
 /// Which source lines the PDF prints under the title block (ADR 0081). `ATTRIBUTION.txt` and the
@@ -706,6 +832,8 @@ pub struct StarterDocuments {
     /// The map content on paper and the texts of the sheet, from which the PDF builds its own.
     pub(super) content: PaperRect,
     pub(super) info: PeripheralInfo,
+    /// The content settings the objects were placed with (ADR 0100).
+    pub(super) content_settings: ContentSettings,
 }
 
 /// Builds the documents of the project in `dir` from its stored data. They belong to that folder
@@ -997,8 +1125,9 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     // What goes onto the map and what stays a candidate, by the project's content settings
     // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
     // default.
+    let settings = content_settings(&project);
     route(
-        &content_settings(&project),
+        &settings,
         &mut map_objects,
         &mut candidates.parts[0].objects,
         &symbol_set,
@@ -1096,6 +1225,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         attribution_text,
         content,
         info: sheet_info,
+        content_settings: settings,
     })
 }
 

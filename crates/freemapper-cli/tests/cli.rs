@@ -199,6 +199,8 @@ fn init_then_export_creates_starter_project() {
         "clara-zetkin-schule.omap",
         "templates/candidates.omap",
         "ATTRIBUTION.txt",
+        "clara-zetkin-schule-preview.webp",
+        "data/map-preview.json",
     ] {
         assert!(project.join(file).exists(), "{file} missing");
     }
