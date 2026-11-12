@@ -914,6 +914,35 @@ across the border, the templates on the other side stay empty where that state's
 models end. Some services reach further: the LGLN orthophoto and height models also cover the Hamburg
 corner at Harburg, and the LVermGeo RP height models reach across the Rhine at Mainz. freemapper tells you when an area crosses a border.
 
+### Adapters of your own
+
+The states above are built into the program. A further state or country can be added as a folder, if its
+services are standard ones: a WFS or an OGC API Features service for the cadastre, a WMS and a WCS for the
+orthophoto and the height models. The folder has the name of the adapter's id and holds a `manifest.toml` and a
+boundary file. freemapper reads such folders from your adapter folder:
+
+| System | Adapter folder |
+|---|---|
+| macOS | `~/Library/Application Support/freemapper/adapters` |
+| Linux | `~/.config/freemapper/adapters` |
+| Windows | `%APPDATA%\freemapper\adapters` |
+
+The variable `FREEMAPPER_ADAPTER_DIR` names another folder. `freemapper adapters list` shows every adapter with
+where it comes from, the day it was last checked and the servers it asks, and names your adapter folder in its
+last line. A folder with a mistake is left out with a warning that names the file and the line; the other
+adapters still load. An adapter from a folder cannot replace a built-in one.
+
+An adapter makes freemapper ask the servers it names, and no others. Still, read a manifest before you copy it
+into your adapter folder: `[net] hosts` lists every server.
+
+A project folder can bring adapters along in its folder `adapters`. freemapper loads them only when you say so,
+with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each with its
+servers. The area page and the AI assistant never load them. Use the switch for a project of your own.
+
+The format of the manifest is described in
+[ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md); the manifests of the built-in states in
+`crates/adapters/de/manifests/` are examples. A guide for contributors follows.
+
 ## 13. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.

@@ -7,7 +7,7 @@ use crate::alkis::AlkisSource;
 use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::extras::{NasService, TreeDataset};
-use crate::info::RegionInfo;
+use crate::info::{Declared, RegionInfo};
 use crate::rasters::RasterBackend;
 use crate::records::EstimateItem;
 
@@ -17,6 +17,12 @@ use crate::records::EstimateItem;
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;
+
+    /// What the manifest of the adapter declares about itself. `None`: the adapter has no
+    /// manifest.
+    fn declared(&self) -> Option<&Declared> {
+        None
+    }
 
     /// The boundary in EPSG:25833, parsed once and valid.
     fn boundary(&self) -> &MultiPolygon<f64>;

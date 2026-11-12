@@ -59,6 +59,20 @@ cli-find-hint = Create the project with: freemapper init <dir> --osm { $id }
 cli-find-no-area = None of these places has an area that can be a map area. Draw the area with: freemapper select <dir>
 cli-find-nothing = no place found for "{ $query }"; try another name, or draw the area with: freemapper select <dir>
 
+## adapters (ADR 0082). A finding of a manifest arrives in `{ $finding }` with its file, line, key
+## and code, in English.
+
+cli-adapter-skipped = warning: the adapter in { $folder } is left out: { $finding }
+cli-adapter-note = warning: the adapter in { $folder }: { $finding }
+cli-adapter-from-project = adapter { $adapter } from the project folder asks these hosts: { $hosts }
+cli-adapters-line = { $adapter }  { $name }  { $source }  revision { $revision }  checked { $checked }  hosts: { $hosts }
+cli-adapters-source-built-in = built in
+cli-adapters-source-user = from your folder
+cli-adapters-source-project = from the project
+cli-adapters-never-checked = never
+cli-adapters-user-dir = Your adapters are read from { $path }
+cli-adapters-no-user-dir = This system has no folder for your adapters; FREEMAPPER_ADAPTER_DIR names one
+
 ## Lists in sentences
 
 # A list in a sentence: its last item after the others, which are joined by commas.
@@ -324,7 +338,7 @@ error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for 
 word-kind-schoolyard = schoolyard
 word-kind-sprint = sprint
 error-project-toml = invalid project file: { $message }
-error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; a newer version may have it
+error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project, from the folder `adapters` of the project
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again
@@ -376,6 +390,21 @@ error-fetch-too-large = download of { $url } is larger than { $limit } MB; stopp
 error-fetch-not-stored = no { $label } stored for this map area: { $path } is missing, cannot be read or does not cover it; run `freemapper fetch` online first
 error-fetch-range-ignored = { $url }: the server ignored the byte range { $range } (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper does not send requests to this address: { $reason }
+error-reason-not-a-host-name = not a host name
+error-reason-not-ascii = a name outside ASCII must be written in its xn-- form
+error-reason-not-a-dns-name = not a DNS name
+error-reason-no-domain = a name of this computer or without a domain
+error-reason-local-name = a name of the local network
+error-reason-ip-address = an IP address, not a DNS name
+error-reason-unexpected-character = unexpected character
+error-reason-not-https = not https
+error-reason-user-info = user info
+error-reason-port = a port other than 443
+error-reason-host-not-declared = the host is not one of the declared hosts
+error-reason-local-address = an address of this computer or of the local network, not of a server on the internet
+error-reason-redirect-to = a redirect to { $target }
+error-reason-too-many-redirects = more than { $count } redirects
+error-reason-redirect-nowhere = a redirect (HTTP { $status }) to nowhere
 error-fetch-currency-csv = currency CSV line { $line }: { $message }
 error-alkis = invalid ALKIS data: { $message }
 error-osm = OSM data: { $message }
@@ -482,6 +511,11 @@ help-update-yes = Install without asking; needed when the input is not a termina
 help-update-version = Install this version (x.y.z) instead of the newest one, also an older one
 help-update-rollback = Go back to the version the last update replaced
 help-update-mode = Store what the daily check does when it finds a newer version (default: notify). Works in every build, because it only writes the setting
+help-adapters = Show the region adapters: the states and countries freemapper has data sources for
+help-adapters-list = List the adapters with where each comes from (built in, your folder, a project), its revision, the day it was last checked and the hosts it asks
+help-adapters-list-json = Print the list as JSON
+help-adapters-list-project = Also read the adapters in the folder `adapters` of this project folder, as --adapters-from-project would
+help-arg-adapters-from-project = Also load the adapters in the folder `adapters` of the project folder. freemapper names each of them with the hosts it asks. Use it for a project you trust: an adapter makes freemapper ask the servers it names
 
 ## The summary of a run, for the MCP server and the area page
 

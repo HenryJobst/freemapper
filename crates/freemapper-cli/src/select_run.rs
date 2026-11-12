@@ -13,7 +13,7 @@ use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use freemapper::fetch::{Cache, HttpFetcher};
+use freemapper::fetch::Cache;
 use freemapper::layers::preview_area;
 use freemapper::project::map_path;
 use serde::Deserialize;
@@ -63,7 +63,14 @@ impl PipelineRunner for RealRunner {
         control: &RunControl,
         progress: &mut dyn FnMut(Event),
     ) -> Result<RunReport, anyhow::Error> {
-        crate::pipeline::run(dir, options, cache, &HttpFetcher::new(), control, progress)
+        crate::pipeline::run(
+            dir,
+            options,
+            cache,
+            &crate::adapters::fetcher(),
+            control,
+            progress,
+        )
     }
 }
 

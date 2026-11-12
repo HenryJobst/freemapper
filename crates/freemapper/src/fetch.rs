@@ -27,7 +27,7 @@ pub(crate) use freemapper_adapter_api::fetch::{
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
 use freemapper_adapter_api::policy::{self, UrlPolicy};
-pub use freemapper_adapter_api::policy::{PolicyError, redirect_target};
+pub use freemapper_adapter_api::policy::{PolicyError, REASONS as POLICY_REASONS, redirect_target};
 use freemapper_adapter_api::trust::TrustAnchors;
 use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{

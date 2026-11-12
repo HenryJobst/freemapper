@@ -59,6 +59,20 @@ cli-find-hint = Projekt anlegen mit: freemapper init <ordner> --osm { $id }
 cli-find-no-area = Keiner dieser Orte hat eine Fläche, die ein Kartengebiet sein kann. Zeichnen Sie das Gebiet mit: freemapper select <ordner>
 cli-find-nothing = Zu „{ $query }“ wurde kein Ort gefunden. Versuchen Sie einen anderen Namen oder zeichnen Sie das Gebiet mit: freemapper select <ordner>
 
+## adapters (ADR 0082). Ein Befund eines Manifests kommt in `{ $finding }` mit Datei, Zeile, Schlüssel
+## und Code an, auf Englisch.
+
+cli-adapter-skipped = Warnung: Der Adapter in { $folder } wird ausgelassen: { $finding }
+cli-adapter-note = Warnung: Der Adapter in { $folder }: { $finding }
+cli-adapter-from-project = Adapter { $adapter } aus dem Projektordner fragt diese Hosts an: { $hosts }
+cli-adapters-line = { $adapter }  { $name }  { $source }  Revision { $revision }  geprüft { $checked }  Hosts: { $hosts }
+cli-adapters-source-built-in = eingebaut
+cli-adapters-source-user = aus Ihrem Ordner
+cli-adapters-source-project = aus dem Projekt
+cli-adapters-never-checked = nie
+cli-adapters-user-dir = Ihre Adapter werden aus { $path } gelesen
+cli-adapters-no-user-dir = Dieses System hat keinen Ordner für Ihre Adapter; FREEMAPPER_ADAPTER_DIR nennt einen
+
 ## Aufzählungen im Satz
 
 # Eine Aufzählung im Satz: das letzte Glied nach den anderen, die Kommas verbinden.
@@ -324,7 +338,7 @@ error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $
 word-kind-schoolyard = Schulhofkarten
 word-kind-sprint = Sprintkarten
 error-project-toml = ungültige Projektdatei: { $message }
-error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; eine neuere Version kann ihn haben
+error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; Adapter kommen mit dem Programm, aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project, aus dem Ordner `adapters` des Projekts
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
@@ -376,6 +390,21 @@ error-fetch-too-large = Die Datei von { $url } ist größer als { $limit } MB; a
 error-fetch-not-stored = Für dieses Kartengebiet ist nichts gespeichert ({ $label }): { $path } fehlt, lässt sich nicht lesen oder deckt das Gebiet nicht ab; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
 error-fetch-range-ignored = { $url }: Der Server hat den Bytebereich { $range } nicht beachtet (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper sendet keine Anfragen an diese Adresse: { $reason }
+error-reason-not-a-host-name = kein Hostname
+error-reason-not-ascii = ein Name außerhalb von ASCII muss in seiner xn---Form stehen
+error-reason-not-a-dns-name = kein DNS-Name
+error-reason-no-domain = ein Name dieses Rechners oder ohne Domain
+error-reason-local-name = ein Name des lokalen Netzes
+error-reason-ip-address = eine IP-Adresse, kein DNS-Name
+error-reason-unexpected-character = unerwartetes Zeichen
+error-reason-not-https = kein https
+error-reason-user-info = Benutzerangabe in der Adresse
+error-reason-port = ein anderer Port als 443
+error-reason-host-not-declared = der Host gehört nicht zu den erklärten Hosts
+error-reason-local-address = eine Adresse dieses Rechners oder des lokalen Netzes, nicht die eines Servers im Internet
+error-reason-redirect-to = eine Weiterleitung auf { $target }
+error-reason-too-many-redirects = mehr als { $count } Weiterleitungen
+error-reason-redirect-nowhere = eine Weiterleitung (HTTP { $status }) ohne Ziel
 error-fetch-currency-csv = Aktualitäts-CSV, Zeile { $line }: { $message }
 error-alkis = ungültige ALKIS-Daten: { $message }
 error-osm = OSM-Daten: { $message }
@@ -482,6 +511,11 @@ help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Te
 help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
 help-update-rollback = Zur Version zurückkehren, die die letzte Aktualisierung ersetzt hat
 help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
+help-adapters = Zeigt die Regionsadapter: die Bundesländer und Länder, für die freemapper Datenquellen hat
+help-adapters-list = Listet die Adapter auf, jeweils mit Herkunft (eingebaut, Ihr Ordner, ein Projekt), Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt
+help-adapters-list-json = Gibt die Liste als JSON aus
+help-adapters-list-project = Liest auch die Adapter im Ordner `adapters` dieses Projektordners, wie es --adapters-from-project täte
+help-arg-adapters-from-project = Lädt auch die Adapter im Ordner `adapters` des Projektordners. freemapper nennt jeden davon mit den Hosts, die er anfragt. Für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 

@@ -42,6 +42,23 @@ impl fmt::Display for PolicyError {
 
 impl std::error::Error for PolicyError {}
 
+/// Every reason a refusal of this module gives ([`PolicyError::reason`]), for the programs that
+/// word them in the language of the run.
+pub const REASONS: [&str; 12] = [
+    "not a host name",
+    "a name outside ASCII must be written in its xn-- form",
+    "not a DNS name",
+    "a name of this computer or without a domain",
+    "a name of the local network",
+    "an IP address, not a DNS name",
+    "unexpected character",
+    "not https",
+    "user info",
+    "a port other than 443",
+    "the host is not one of the declared hosts",
+    "an address of this computer or of the local network, not of a server on the internet",
+];
+
 /// The last label of a name of a local network.
 const LOCAL_ENDINGS: [&str; 11] = [
     "local",
@@ -350,6 +367,7 @@ mod tests {
             ("", "not https"),
         ] {
             let refused = host_of(url).unwrap_err();
+            assert!(REASONS.contains(&refused.reason), "{}", refused.reason);
             assert_eq!(
                 (refused.code, refused.reason),
                 ("policy.url", reason),
@@ -458,6 +476,7 @@ mod tests {
         ] {
             let addr: IpAddr = refused.parse().unwrap();
             let error = check_addr(addr).unwrap_err();
+            assert!(REASONS.contains(&error.reason), "{}", error.reason);
             assert_eq!(error.code, "policy.address", "{refused}");
             assert_eq!(error.subject, addr.to_string());
         }

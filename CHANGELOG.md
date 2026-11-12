@@ -6,8 +6,18 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Regionsadapter aus einem Ordner (ADR 0082, Stufe D; ADR 0107). Ein Bundesland oder Land mit Standarddiensten (WFS oder OGC API Features für ALKIS, WMS und WCS für die Raster) lässt sich ohne Rust ergänzen: ein Ordner mit einer `manifest.toml` und einer Grenzdatei. freemapper liest solche Ordner aus Ihrem Adapterordner (`freemapper/adapters` im Konfigurationsordner des Systems oder der Ordner, den `FREEMAPPER_ADAPTER_DIR` nennt). Ein Ordner mit einem Fehler wird ausgelassen, mit einer Warnung, die Datei, Zeile und Schlüssel nennt. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen. Die Anleitung für Beitragende folgt; bis dahin beschreiben ADR 0107 und die Manifeste in `crates/adapters/de/manifests/` das Format.
+- `freemapper adapters list` zeigt jeden Adapter mit Herkunft, Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt; `--json` gibt dasselbe als JSON aus.
+- `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` und `run` lädt auch die Adapter im Ordner `adapters` des Projektordners und nennt jeden mit den Hosts, die er anfragt. Die Gebietsseite und der MCP-Server laden sie nie, damit ein weitergegebenes Projekt keine Datenquelle mitbringen kann.
+
 ### Geändert
 
+- Anfragen gehen nur noch an Server im Internet (ADR 0106). freemapper verbindet sich nicht mehr mit einer Adresse dieses Rechners oder des lokalen Netzes, gleich ob eine URL sie nennt, ein Hostname dorthin auflöst oder ein Server dorthin weiterleitet. Das gilt für die Downloads, die Kartenkacheln der Gebietsseite und das Selbst-Update. Ein Proxy aus der Umgebung (`HTTPS_PROXY`) funktioniert weiter, auch ein lokaler. Eine Anfrage, die nicht gesendet wird, nennt den Grund in der Sprache des Laufs.
+- Ist ein Adapter aus einem Ordner geladen, bleibt jede Anfrage eines Laufs auf den Hosts, die die Adapter erklären, Weiterleitungen eingeschlossen.
+- Intern: Die elf Bundesländer sind Manifeste plus Code (ADR 0107). Jedes hat einen Ordner in `crates/adapters/de/manifests/` mit seinem Manifest und seiner Grenzdatei; Sachsen-Anhalt braucht keinen Raster-Code mehr. Das Golden-Netz bestätigt dieselben Anfragen und byte-gleiche Dateien.
+- Nennt eine Projektdatei einen Adapter, den dieses freemapper nicht hat, sagt die Meldung, woher Adapter kommen.
 - Intern: Die Bundesländer sind jetzt Regionsadapter (ADR 0082, Stufen B und C; ADR 0102). Ein Bundesland liefert über ein gemeinsames Trait seine Grenze, seine OSM-Auszüge, seinen ALKIS-Dienst, seine Rasterquellen, seine Quellenzeilen und seine Download-Schätzung; die Engine fragt die Registry und nennt selbst kein Bundesland mehr. Die Aufzählungen `Region` und `Provider` gibt es nicht mehr. Der Code der elf Bundesländer liegt in der neuen Crate `freemapper-adapters-de`, die allgemeinen Dienst-Leser in `freemapper-sources`, die gemeinsamen Typen in `freemapper-adapter-api`. Für Nutzerinnen und Nutzer ändert sich nichts: Das Golden-Netz bestätigt für alle elf Bundesländer dieselben Anfragen und byte-gleiche Dateien, und `freemapper.toml` wird gelesen und geschrieben wie zuvor.
 - Die Gebietsseite, ihre Content-Security-Policy, die Meldung für ein Gebiet außerhalb der unterstützten Bundesländer und die MCP-Anweisungen nehmen die Liste der Bundesländer aus der Registry (ADR 0103). Die Luftbild-Ebenen der Seite kommen über den neuen Endpunkt `api/adapters`; sie heißen wie bisher. Fällt der Endpunkt aus, startet die Seite trotzdem, zeigt nur OpenStreetMap und nennt den Grund.
 

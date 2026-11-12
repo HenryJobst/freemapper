@@ -1779,3 +1779,119 @@ mod update_check {
         assert!(stub.paths().is_empty());
     }
 }
+
+/// A valid adapter folder `id` in `dir`: a WFS on `geo.example.org` and a square boundary.
+fn write_adapter(dir: &std::path::Path, id: &str) {
+    let folder = dir.join(id);
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("manifest.toml"),
+        format!(
+            "format = 1\n\n[adapter]\nid = \"{id}\"\nrevision = 2\nmin_freemapper = \"0.13.0\"\ncrs = 25832\n\
+             names = {{ en = \"Sample\", de = \"Beispiel\" }}\n\n[net]\nhosts = [\"geo.example.org\"]\n\n\
+             [boundary]\nfile = \"boundary.geojson\"\ncrs = 25833\n\n[[osm.extract]]\n\
+             geofabrik = \"europe/germany/hamburg\"\nmegabytes = 54\nlabel = \"Sample\"\n\n[attribution]\n\
+             licence = \"dl-de/by-2-0\"\ntext = \"© Sample {{year}}\"\n\n[alkis]\nkind = \"wfs\"\n\
+             url = \"https://geo.example.org/wfs\"\nbuildings_type = \"ave:GebaeudeBauwerk\"\n\
+             land_use_type = \"ave:NutzungFlurstueck\"\n"
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+    )
+    .unwrap();
+}
+
+/// `adapters list` shows the states built into the program, then the adapters of the folder
+/// `FREEMAPPER_ADAPTER_DIR` names and, with `--project`, those of a project; a folder with a
+/// defect is a warning on stderr and the list goes on.
+#[test]
+fn adapters_list_shows_built_in_user_and_project_adapters() {
+    let user = tempfile::tempdir().unwrap();
+    write_adapter(user.path(), "mine");
+    std::fs::create_dir(user.path().join("broken")).unwrap();
+    let project = tempfile::tempdir().unwrap();
+    write_adapter(&project.path().join("adapters"), "theirs");
+    let list = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .args(["adapters", "list"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        (
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let (out, err) = list(&["--json"]);
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let adapters = json["adapters"].as_array().unwrap();
+    assert_eq!(adapters.len(), 12, "{out}");
+    assert_eq!(adapters[0]["id"], "brandenburg");
+    assert_eq!(adapters[0]["source"], "built-in");
+    assert_eq!(adapters[11]["id"], "mine");
+    assert_eq!(adapters[11]["source"], "user");
+    assert_eq!(adapters[11]["revision"], 2);
+    assert_eq!(json["warnings"][0]["skipped"], true);
+    assert_eq!(
+        json["warnings"][0]["findings"][0]["code"],
+        "manifest.file-missing"
+    );
+    assert!(err.is_empty(), "{err}");
+    // The project's adapters only when asked for.
+    let (out, _) = list(&["--json", "--project", project.path().to_str().unwrap()]);
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["adapters"][12]["id"], "theirs");
+    assert_eq!(json["adapters"][12]["source"], "project");
+    // As text, with the warning on stderr.
+    let (out, err) = list(&[]);
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 13, "{out}");
+    assert!(
+        lines[0].starts_with("brandenburg  Brandenburg  built in  revision 1  "),
+        "{out}"
+    );
+    assert_eq!(
+        lines[11],
+        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org"
+    );
+    assert!(
+        lines[12].starts_with("Your adapters are read from "),
+        "{out}"
+    );
+    assert!(err.starts_with("warning: the adapter in "), "{err}");
+    assert!(err.contains("[manifest.file-missing]"), "{err}");
+    let (out, err) = list(&["--lang", "de"]);
+    assert!(out.contains("  eingebaut  Revision 1  "), "{out}");
+    assert!(err.starts_with("Warnung: Der Adapter in "), "{err}");
+}
+
+/// A command loads the adapters of its project folder only with `--adapters-from-project`,
+/// and then says which adapter asks which hosts.
+#[test]
+fn project_adapters_need_the_flag() {
+    let user = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    write_adapter(&project.path().join("adapters"), "theirs");
+    let fetch = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("fetch")
+            .arg(project.path())
+            .arg("--offline")
+            .args(args)
+            .output()
+            .unwrap();
+        // The folder holds no project file, so the fetch itself fails either way.
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        String::from_utf8(output.stderr).unwrap()
+    };
+    let line = "adapter theirs from the project folder asks these hosts: geo.example.org";
+    assert!(!fetch(&[]).contains("theirs"));
+    assert!(fetch(&["--adapters-from-project"]).contains(line));
+}

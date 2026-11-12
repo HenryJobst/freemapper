@@ -948,6 +948,36 @@ weit über die Grenze, bleiben die Vorlagen jenseits davon leer, soweit Luftbild
 Bundeslandes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
 Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei Mainz über den Rhein. freemapper meldet, wenn ein Gebiet über eine Grenze reicht.
 
+### Eigene Adapter
+
+Die Bundesländer oben sind ins Programm eingebaut. Ein weiteres Bundesland oder Land lässt sich als Ordner
+ergänzen, wenn seine Dienste Standarddienste sind: ein WFS oder ein Dienst nach OGC API Features für das
+Kataster, ein WMS und ein WCS für Luftbild und Höhenmodelle. Der Ordner heißt wie die Kennung des Adapters und
+enthält eine `manifest.toml` und eine Grenzdatei. freemapper liest solche Ordner aus Ihrem Adapterordner:
+
+| System | Adapterordner |
+|---|---|
+| macOS | `~/Library/Application Support/freemapper/adapters` |
+| Linux | `~/.config/freemapper/adapters` |
+| Windows | `%APPDATA%\freemapper\adapters` |
+
+Die Variable `FREEMAPPER_ADAPTER_DIR` nennt einen anderen Ordner. `freemapper adapters list` zeigt jeden Adapter
+mit Herkunft, dem Tag der letzten Prüfung und den Servern, die er anfragt, und nennt in der letzten Zeile Ihren
+Adapterordner. Ein Ordner mit einem Fehler wird ausgelassen, mit einer Warnung, die Datei und Zeile nennt; die
+anderen Adapter laden trotzdem. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen.
+
+Ein Adapter lässt freemapper die Server anfragen, die er nennt, und keine anderen. Lesen Sie ein Manifest
+trotzdem, bevor Sie es in Ihren Adapterordner kopieren: `[net] hosts` zählt jeden Server auf.
+
+Ein Projektordner kann Adapter in seinem Ordner `adapters` mitbringen. freemapper lädt sie nur, wenn Sie es
+sagen, mit `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` oder `run`, und nennt dann jeden
+mit seinen Servern. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen Sie den Schalter für ein
+eigenes Projekt.
+
+Das Format des Manifests beschreibt
+[ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md) (englisch); die Manifeste der eingebauten
+Bundesländer in `crates/adapters/de/manifests/` sind Beispiele. Eine Anleitung für Beitragende folgt.
+
 ## 13. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte

@@ -770,6 +770,7 @@ dependencies = [
  "dirs",
  "freemapper",
  "freemapper-fs",
+ "freemapper-manifest",
  "freemapper-text",
  "freemapper-update",
  "freemapper-web",

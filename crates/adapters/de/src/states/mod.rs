@@ -15,7 +15,7 @@ use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
-use freemapper_adapter_api::info::RegionInfo;
+use freemapper_adapter_api::info::{Declared, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
@@ -362,6 +362,10 @@ impl StateAdapter {
 impl RegionAdapter for StateAdapter {
     fn info(&self) -> &RegionInfo {
         self.manifest.info()
+    }
+
+    fn declared(&self) -> Option<&Declared> {
+        self.manifest.declared()
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {

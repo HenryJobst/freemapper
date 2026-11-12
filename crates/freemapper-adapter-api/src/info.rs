@@ -60,6 +60,18 @@ pub struct PreviewInfo {
     pub agency: String,
 }
 
+/// What the manifest of an adapter declares about itself, for the list of the adapters and
+/// for the rule that keeps requests on declared hosts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Declared {
+    /// Counts the data changes of the adapter.
+    pub revision: u32,
+    /// The hosts the adapter asks.
+    pub hosts: Vec<String>,
+    /// The day someone last checked the adapter against its services.
+    pub last_verified: Option<chrono::NaiveDate>,
+}
+
 /// Identity and static facts of a region.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegionInfo {

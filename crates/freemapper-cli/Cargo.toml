@@ -20,6 +20,7 @@ test-stub = []
 [dependencies]
 freemapper.workspace = true
 freemapper-fs.workspace = true
+freemapper-manifest.workspace = true
 freemapper-update.workspace = true
 freemapper-web.workspace = true
 freemapper-text.workspace = true

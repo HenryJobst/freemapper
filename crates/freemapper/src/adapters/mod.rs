@@ -31,6 +31,19 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
     REGISTRY.set(registry)
 }
 
+/// The hosts the requests of a run may go to when they are held to what was declared: the hosts
+/// every adapter of the registry declares, and those of the requests that belong to no adapter
+/// (OSM extracts, the place search, the map tiles).
+pub fn declared_policy() -> freemapper_adapter_api::policy::UrlPolicy {
+    let hosts = registry()
+        .adapters()
+        .filter_map(|adapter| adapter.declared())
+        .flat_map(|declared| declared.hosts.iter().map(String::as_str));
+    freemapper_adapter_api::policy::UrlPolicy::core()
+        .with_hosts(hosts)
+        .expect("the hosts of a manifest are DNS names")
+}
+
 /// The names of the regions of the registry in its order, German with `german`, else English:
 /// the list of what freemapper supports, for messages.
 pub fn region_names(german: bool) -> Vec<&'static str> {

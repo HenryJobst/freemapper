@@ -6,8 +6,18 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Region adapters from a folder (ADR 0082, stage D; ADR 0107). A state or country with standard services (WFS or OGC API Features for ALKIS, WMS and WCS for the rasters) can be added without Rust: a folder with a `manifest.toml` and a boundary file. freemapper reads such folders from your adapter folder (`freemapper/adapters` in the configuration folder of the system, or the folder `FREEMAPPER_ADAPTER_DIR` names). A folder with a defect is left out with a warning that names the file, the line and the key. An adapter from a folder cannot replace a built-in one. The contributor guide follows; until then the format is described in ADR 0107 and by the manifests in `crates/adapters/de/manifests/`.
+- `freemapper adapters list` shows every adapter with where it comes from, its revision, the day it was last checked and the hosts it asks; `--json` prints the same as JSON.
+- `--adapters-from-project` for `init`, `fetch`, `derive`, `export` and `run` also loads the adapters in the folder `adapters` of the project folder and names each with the hosts it asks. The area page and the MCP server never load them, so a project someone passed on cannot bring a data source along.
+
 ### Changed
 
+- Requests go to servers on the internet only (ADR 0106). freemapper no longer connects to an address of this computer or of the local network, whether a URL names it, a host name resolves to it or a server redirects to it. This holds for the downloads, the map tiles of the area page and the self-update. A proxy from the environment (`HTTPS_PROXY`) still works, also a local one. A request that is not sent says why, in the language of the run.
+- With an adapter from a folder loaded, every request of a run stays on the hosts the adapters declare, redirects included.
+- Internal: the eleven states are manifests plus code (ADR 0107). Each has a folder in `crates/adapters/de/manifests/` with its manifest and its boundary file; Saxony-Anhalt needs no raster code any more. The golden net confirms the same requests and byte-identical files.
+- When a project file names an adapter this freemapper does not have, the message says where adapters come from.
 - Internal: the states are region adapters now (ADR 0082, stages B and C; ADR 0102). A state supplies its boundary, its OSM extracts, its ALKIS service, its raster sources, its credit lines and its download estimate through one trait; the engine asks the registry and names no state itself. The enums `Region` and `Provider` are gone. The code of the eleven states lives in the new crate `freemapper-adapters-de`, the generic service readers in `freemapper-sources`, the shared types in `freemapper-adapter-api`. Nothing changes for users: the golden net confirms the same requests and byte-identical files for all eleven states, and `freemapper.toml` is read and written as before.
 - The area page, its content security policy, the message for an area outside the supported states and the MCP instructions take the list of the states from the registry (ADR 0103). The aerial photo layers of the page come from the new endpoint `api/adapters`; their names are the same. When the endpoint fails, the page still starts, shows OpenStreetMap only and says why.
 

@@ -104,11 +104,17 @@ freemapper run <dir> --pdf
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
+| `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--json` prints JSON, `--project <dir>` also reads the folder `adapters` of a project. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
+
+`init`, `fetch`, `derive`, `export` and `run` take `--adapters-from-project`: it also loads the region adapters in
+the folder `adapters` of the project folder, which can make freemapper ask other servers. Pass it only when the
+person asks for it; the MCP server and the area page never load such adapters. A line `warning: the adapter in
+<folder> is left out: …` means a folder in the person's adapter folder has a mistake; pass it on.
 
 Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
 passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a

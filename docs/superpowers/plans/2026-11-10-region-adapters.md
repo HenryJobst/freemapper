@@ -545,6 +545,37 @@ Deferred on 2026-11-11: build it only when a new state or a contributor needs it
 - [ ] **Step 3:** Run the suite. Expected: PASS; no existing state uses the kind, so goldens are unchanged.
 - [ ] **Step 4:** Commit.
 
+### Stage D as built (2026-11-12)
+
+Done on the branch `region-adapters` (D1 to D7); [ADR 0106](../../adr/0106-requests-go-to-public-addresses-and-declared-hosts.md)
+and [ADR 0107](../../adr/0107-adapter-manifests-format-1-as-built.md) record the decisions. Where the tasks above
+and the code differ, the code and the ADRs hold:
+
+- D1: the URL rules are `freemapper_adapter_api::policy`, written with D1. The schema differs from the sketches
+  of the spec: `kind` may be left out beside `backend`; `date` has a `url`; new keys `[adapter] agency`,
+  `[alkis] name`, `[[osm.extract]] cache_prefix`, `[terrain] source_label`, `label` of a raster, `[preview]
+  agency`; no `page_count`; a manifest URL has no query. A byte order mark is read like CRLF.
+- D2: the address check sits in the resolver of the HTTP client and, for a target written as an address, in the
+  first connector of every agent. One fetcher has one policy (the union of the declared hosts), not one per
+  adapter. `UrlPolicy::update()` was not built: the self-update keeps the host rule of freemapper-core. New
+  `FetchError::NotAllowed`, with its reasons in both catalogs. Two reviews by the session that owns the
+  self-update and the tile proxy are built in.
+- D3: an adapter's own `rules.toml` is not read; a folder that has one loads with a warning.
+- D4 and D5: the three raster tables are all services or all name one backend, and an orthophoto comes with a
+  terrain model. A date is asked of a service, never of code. `RasterBackend::estimate` and the backends by name
+  in the registry are new. Saxony-Anhalt is the one state without raster code; Lower Saxony keeps its code, whose
+  fetch says more than a table can.
+- D6: all eleven states switched in one commit; the golden net did not change. The adapter of a state keeps code
+  for the credits of Brandenburg, Berlin and Saxony, for the estimate, for Berlin's ALKIS and for the boundary
+  (one parse for the adapter and the agency modules). The fetcher does not enforce the declared hosts for the
+  built-in adapters alone: that switch needs live runs of all states.
+- D7: `adapters list` also takes `--project <dir>`. `--adapters-from-project` is a switch of `init`, `fetch`,
+  `derive`, `export` and `run`; `select` and `mcp` have none. With an adapter from a folder loaded, the fetcher
+  of a run holds every request to the declared hosts of all adapters.
+
+Left for later: the host policy for the built-in adapters alone (after live runs), the raster code and the WFS
+constants that the manifests made double, and the estimate inside the backends.
+
 ---
 
 ## Stage E: tooling

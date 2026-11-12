@@ -13,7 +13,7 @@ use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
-use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
+use freemapper_adapter_api::info::{Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo};
 use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
@@ -112,6 +112,7 @@ pub struct ManifestAdapter {
     rasters: Option<Arc<dyn RasterBackend>>,
     nas: Option<NasService>,
     trees: Vec<TreeDataset>,
+    declared: Declared,
     declared_hosts_only: bool,
 }
 
@@ -231,6 +232,11 @@ impl ManifestAdapter {
                 .iter()
                 .map(|trees| crate::extras::tree_dataset(trees, &info.id))
                 .collect(),
+            declared: Declared {
+                revision: manifest.adapter.revision,
+                hosts: manifest.hosts.clone(),
+                last_verified: manifest.adapter.last_verified,
+            },
             info,
             manifest,
             boundary,
@@ -314,6 +320,10 @@ pub fn info_of(manifest: &Manifest) -> RegionInfo {
 impl RegionAdapter for ManifestAdapter {
     fn info(&self) -> &RegionInfo {
         &self.info
+    }
+
+    fn declared(&self) -> Option<&Declared> {
+        Some(&self.declared)
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {
