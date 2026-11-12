@@ -50,7 +50,9 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 ## Status
 
 Aktuelle Version ist [v0.14.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.14.0) vom
-12. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
+12. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+
+freemapper erzeugt
 Schulhof- und Sprintkarten für zwölf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
 Rheinland-Pfalz und Saarland. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
