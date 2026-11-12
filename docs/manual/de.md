@@ -567,7 +567,7 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 
 | Profil | Wirkung |
 |---|---|
-| `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, Flächen, Wasser und Wege auf der Karte, alles andere Kandidat. |
+| `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, Flächen sowie verlässlich erfasste Gewässer und Wege kommen auf die Karte. Mauern, Zäune, Bäume, OSM-Teiche, Wege ohne bekannte Oberfläche und alles andere Unsichere bleiben Kandidat. |
 | `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen, Böschungen, Treppen, Türme, Durchgänge. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Wege und Gleise kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Höhenlinien, Sperrgebiete, Ausstattung und Laternen, OSM-Parkflächen und OSM-Denkmäler bleiben Kandidat. |
 | `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
 
