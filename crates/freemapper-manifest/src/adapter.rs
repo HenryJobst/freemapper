@@ -14,6 +14,7 @@ use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
+use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use freemapper_adapter_api::registry::Registry;
@@ -23,6 +24,7 @@ use geo_types::MultiPolygon;
 
 use crate::boundary::parse_boundary;
 use crate::error::ManifestError;
+use crate::guard::{GuardedAlkis, GuardedRasters};
 use crate::model::{BoundaryCrs, Manifest, Orthophoto};
 use crate::rasters::DeclaredRasters;
 
@@ -110,6 +112,7 @@ pub struct ManifestAdapter {
     rasters: Option<Arc<dyn RasterBackend>>,
     nas: Option<NasService>,
     trees: Vec<TreeDataset>,
+    declared_hosts_only: bool,
 }
 
 impl ManifestAdapter {
@@ -232,7 +235,36 @@ impl ManifestAdapter {
             manifest,
             boundary,
             extracts,
+            declared_hosts_only: false,
         })
+    }
+
+    /// The adapter with its requests kept on the hosts of `[net] hosts`: for an adapter from a
+    /// folder, whose services may answer with addresses nobody declared. The built-in adapters
+    /// are reviewed code and ask what their code asks.
+    pub fn asking_declared_hosts_only(mut self) -> Self {
+        let policy = UrlPolicy::new(self.manifest.hosts.iter().map(String::as_str))
+            .expect("the validator accepts the hosts the policy accepts");
+        let policy = Arc::new(policy);
+        self.alkis = self.alkis.take().map(|inner| {
+            Box::new(GuardedAlkis {
+                inner,
+                policy: policy.clone(),
+            }) as Box<dyn AlkisSource>
+        });
+        self.rasters = self.rasters.take().map(|inner| {
+            Arc::new(GuardedRasters {
+                inner,
+                policy: policy.clone(),
+            }) as Arc<dyn RasterBackend>
+        });
+        self.declared_hosts_only = true;
+        self
+    }
+
+    /// Whether the requests of the adapter are kept on its declared hosts.
+    pub fn asks_declared_hosts_only(&self) -> bool {
+        self.declared_hosts_only
     }
 
     /// The manifest the adapter was made of.
