@@ -32,8 +32,8 @@ buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) 
 
 - **Drawn as finished map objects** is only what is reliable: buildings, water from the cadastre, and on
   sprint maps also paved areas (streets, squares) and unpaved paths with a known surface.
-- **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, height
-  above ground (nDSM), contours, fences, hedges, benches, playground equipment, out-of-bounds areas,
+- **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, local
+  relief, height above ground (nDSM), contours, knolls and banks from the terrain, fences, hedges, benches, playground equipment, out-of-bounds areas,
   ponds, streams, fountains and bridges.
 - You still draw and check the map in the terrain, in **OpenOrienteering Mapper (OOM)** or **OCAD**.
 
@@ -411,7 +411,7 @@ Among other files, the project folder then holds:
 | File | What it is |
 |---|---|
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
-| `templates/` | the templates: orthophoto, hillshade, slope, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
+| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
@@ -546,10 +546,25 @@ dl-de/by-2-0, Daten geändert.
 | **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
 | **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
 | **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
+| **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
 every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
+
+From the terrain model come further candidates the contours miss:
+
+- **Small knolls** (109) and **small elongated knolls** (110): a mound at least 1 m high on sprint maps
+  (0.5 m on schoolyard maps), narrower than 5 mm on paper and at least 10 m, that rises clearly from its
+  foot. An elongated knoll is turned along its length.
+- **Small depressions** (111): the same, as a hollow.
+- **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
+  most of its height difference within a few metres. A plain slope does not count. The ticks point down.
+
+None come at buildings, in water, or next to walls, fences and banks that are already drawn. The terrain
+model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
+as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Banks and cliffs belong to the group `slopes`
+(see below): with `full` or `--content-set slopes=map` they go straight onto the map.
 
 ### What goes straight onto the map
 
@@ -693,7 +708,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   point over from the candidates.
 - **Furniture and playground equipment:** it comes from OSM, in Berlin on schoolyard maps also from the
   street survey and the lighting cadastre. It is often incomplete.
-- **Contours:** small banks and steps show better in the hillshade or slope.
+- **Contours:** small banks and steps show better in the hillshade, slope or local relief; the knoll and
+  bank candidates point to them.
 
 ## 10. Map as PDF
 

@@ -205,9 +205,10 @@ Oder das Gebiet im Browser wählen, siehe [Gebiet im Browser wählen](#gebiet-im
   (beim ersten Mal 180–300 MB, danach nur, wenn er mehr als 7 Tage alt ist) in den Zwischenspeicher.
   Neu geladen wird nur, was neu veröffentlicht wurde; `--offline` nutzt nur bereits geladene Daten.
   Woher die Daten je Bundesland kommen, steht unter [Regionen](#regionen).
-- `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung und das nDOM
-  (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
-  (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve) als Kandidaten.
+- `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung, lokales Relief
+  und das nDOM (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
+  (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve), kleine Kuppen, Senken, Erdböschungen und
+  Felswände als Kandidaten.
 - `freemapper export <ordner>` – schreibt die OOM-Karte mit den Gebäuden als fertigen Kartenobjekten
   (Symbol 521, mit Herkunft: ALKIS-Objekt-ID und Datenstand). Übernommen werden Gebäude bis zum Puffer
   um das Kartengebiet; unterirdische Bauteile und Bauwerke wie Schornsteine entfallen, sehr kleine
@@ -221,9 +222,10 @@ Ergebnis im Projektordner:
 - `clara-zetkin-schule.omap` – georeferenzierte OOM-Karte (EPSG:25833, 1:1000, IOF-Schulsymbolsatz 2019)
 - `clara-zetkin-schule-preview.webp` – ein Bild der Kartenobjekte, mit der Karte geschrieben; die
   Gebietsseite zeigt es
-- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – Vorlagen hinter der Karte,
-  jeweils mit Weltdatei (`.jgw`/`.pgw`); Schummerung, Hangneigung und nDOM lassen sich in OOM
-  einblenden. nDOM-Farben: gelb 0,3–1 m, orange 1–2,5 m, hellgrün 2,5–8 m, dunkelgrün über 8 m
+- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` – Vorlagen hinter
+  der Karte, jeweils mit Weltdatei (`.jgw`/`.pgw`); Schummerung, Hangneigung, lokales Relief und nDOM
+  lassen sich in OOM einblenden. nDOM-Farben: gelb 0,3–1 m, orange 1–2,5 m, hellgrün 2,5–8 m,
+  dunkelgrün über 8 m
 - `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets und Kandidaten aus
   OpenStreetMap zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
   Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`),
@@ -334,7 +336,7 @@ schreibt zusätzlich den Ordner `ocad/`:
 - `<name>.ocd`: Karte im OCAD-12-Format (sollte sich in OCAD 12 und neuer öffnen), mit Georeferenz
   (ETRS89/UTM 33), Farben, den Kartenobjekten und den Vorlagen als Hintergrundkarten.
 - `<name>-candidates.ocd`: die Kandidaten als eigene OCAD-Karte.
-- Luftbild, Schummerung, Hangneigung und nDOM mit Weltdateien, direkt neben der `.ocd`.
+- Luftbild, Schummerung, Hangneigung, lokales Relief und nDOM mit Weltdateien, direkt neben der `.ocd`.
 
 Die Symbole in der `.ocd` sind Platzhalter: richtige Nummer, Name und Hauptfarbe, aber einfache
 Grafik. In OCAD lädt man den offiziellen Satz (*Symbol › Farben und Symbole laden aus…*, ISSprOM 2019

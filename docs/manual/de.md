@@ -35,7 +35,7 @@ OpenStreetMap (OSM).
 - **Fertig gezeichnet** wird nur, was verlässlich ist: Gebäude, Gewässer aus dem Kataster, auf
   Sprintkarten auch befestigte Flächen (Straßen, Plätze) und unbefestigte Wege mit bekannter Oberfläche.
 - **Als Vorlage** kommt alles, was Sie selbst beurteilen müssen: Luftbild, Höhenschummerung, Hangneigung,
-  Höhe über Grund (nDOM), Höhenlinien, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
+  lokales Relief, Höhe über Grund (nDOM), Höhenlinien, Kuppen und Böschungen aus dem Gelände, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
   Brunnen und Brücken.
 - Gezeichnet und im Gelände geprüft wird weiterhin von Ihnen, in **OpenOrienteering Mapper (OOM)** oder
   **OCAD**.
@@ -429,7 +429,7 @@ Im Projektordner liegen danach unter anderem:
 | Datei | Was sie ist |
 |---|---|
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
-| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
+| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
@@ -571,10 +571,27 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 | **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | ![nDOM über dem Luftbild](images/ndsm.jpg) |
 | **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | ![Schummerung](images/hillshade.jpg) |
 | **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | ![Hangneigung](images/slope.jpg) |
+| **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
 alle 2 m, jede fünfte als Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
+
+Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zeigen:
+
+- **Kleine Kuppen** (109) und **längliche Kuppen** (110): ein Hügel, auf Sprintkarten mindestens 1 m hoch
+  (auf Schulhofkarten 0,5 m), schmaler als 5 mm auf dem Papier und mindestens 10 m, der sich deutlich aus
+  seinem Fuß hebt. Eine längliche Kuppe ist in ihre Längsrichtung gedreht.
+- **Kleine Senken** (111): dasselbe als Mulde.
+- **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
+  Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
+  zählt nicht. Die Striche zeigen bergab.
+
+An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine. Das
+Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa einen Meter sind, übersieht es,
+und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
+Mauer herausstellen, eine Felswand als Treppe. Böschungen und Felswände gehören zur Gruppe `slopes` (siehe
+unten): Mit `full` oder `--content-set slopes=map` kommen sie direkt auf die Karte.
 
 ### Was direkt auf die Karte kommt
 
@@ -721,7 +738,8 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   übernehmen Sie den Punkt aus den Kandidaten.
 - **Möblierung und Spielgeräte:** Sie stammen aus OSM, in Berlin auf Schulhofkarten auch aus der
   Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
-- **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
+- **Höhenlinien:** Kleine Böschungen und Stufen zeigen eher Schummerung, Hangneigung oder lokales Relief;
+  die Kuppen- und Böschungs-Kandidaten weisen auf sie hin.
 
 ## 10. Karte als PDF
 

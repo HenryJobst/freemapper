@@ -199,9 +199,10 @@ Or choose the area in the browser, see [Choosing the area in the browser](#choos
   (180–300 MB the first time, afterwards only when it is more than 7 days old) into the cache. Only
   what was republished is downloaded again; `--offline` uses data fetched before. Where each state's
   data comes from is listed under [Regions](#regions).
-- `freemapper derive <dir>` – computes orthophoto, hillshade, slope and nDSM (height above ground:
-  hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
-  1 m, sprint 2 m; every fifth an index contour) as candidates.
+- `freemapper derive <dir>` – computes orthophoto, hillshade, slope, local relief and nDSM (height above
+  ground: hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
+  1 m, sprint 2 m; every fifth an index contour), small knolls, depressions, earth banks and cliffs as
+  candidates.
 - `freemapper export <dir>` – writes the OOM map with the buildings as finished map objects (symbol 521,
   with provenance: ALKIS object id and data currency). Buildings up to the buffer around the map area
   are included; underground parts, structures such as chimneys and very small buildings are left out,
@@ -214,9 +215,9 @@ Result in the project folder:
 - `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
 - `clara-zetkin-schule-preview.webp` – an image of the map objects, written with the map; the area page
   shows it
-- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – templates behind the map,
-  each with a world file (`.jgw`/`.pgw`); hillshade, slope and nDSM can be switched on in OOM. nDSM
-  colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m
+- `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` – templates behind
+  the map, each with a world file (`.jgw`/`.pgw`); hillshade, slope, local relief and nDSM can be
+  switched on in OOM. nDSM colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m
 - `templates/candidates.omap` – template map with the outline of the map area and candidates from
   OpenStreetMap to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
   trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`),
@@ -323,7 +324,7 @@ also writes the folder `ocad/`:
 - `<name>.ocd`: the map in OCAD 12 format (expected to open in OCAD 12 and newer), with georeferencing
   (ETRS89/UTM 33), colours, the map objects and the templates as background maps.
 - `<name>-candidates.ocd`: the candidates as a separate OCAD map.
-- Orthophoto, hillshade, slope and nDSM with world files, right next to the `.ocd`.
+- Orthophoto, hillshade, slope, local relief and nDSM with world files, right next to the `.ocd`.
 
 The symbols in the `.ocd` are placeholders: right number, name and main colour, but simple graphics.
 In OCAD, load the official set (*Symbol › Load Colors and Symbols From…*: ISSprOM 2019 for sprint, the

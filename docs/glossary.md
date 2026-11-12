@@ -59,6 +59,11 @@ Orienteering Maps 2019 (IOF).
 | Zählkurve | index contour | Hervorgehobene Höhenlinie, jede fünfte (ISSprOM 102). | `IndexContour` |
 | Formlinie | form line | Zwischenhöhenlinie für Geländeformen (ISSprOM 103). | `FormLine` |
 | Äquidistanz | contour interval | Höhenabstand benachbarter Höhenlinien in Metern (Sprint: 2 m). | `contour_interval_m` |
+| Kleine Kuppe | small knoll | Kleiner, deutlicher Hügel, den die Höhenlinien nicht zeigen (ISSprOM 109); längliche Kuppe 110. Kandidat aus dem DGM: ein kleiner geschlossener Ring feiner Höhenlinien um einen Gipfel. | `LandformKind::Knoll`, `LandformKind::ElongatedKnoll` |
+| Kleine Senke | small depression | Kleine, flache Vertiefung (ISSprOM 111). Kandidat aus dem DGM wie die Kuppe, auf dem umgekehrten Gelände. | `LandformKind::Depression` |
+| Erdböschung | earth bank | Steiler Geländeabsatz (ISSprOM 104); ab 3 m Höhe aus dem DGM als nicht begehbare Felswand (201) vorgeschlagen. | `LandformKind::Bank`, `LandformKind::Cliff` |
+| Geländeform-Kandidat | landform candidate | Kuppe, Senke, Böschung oder Felswand, die `derive` aus dem DGM findet; nur in der Kandidatenkarte. | `Landform`, `data/landforms.geojson` |
+| Höhensprung | height jump | Schmaler, langer, steiler Streifen im DGM, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut; Grundlage der Böschungs- und Felswand-Kandidaten. | `height_jumps` |
 | Gebäude | building | Gebäudeumriss (ISSprOM 521). | `Building` |
 | Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! In Berlin werden die ALKIS-Bauwerke `Überdachung` und `Carport` zu Kartenobjekten. | `Canopy`, `canopy_objects` |
 | Treppe | stairway | Treppe als Linie in Laufrichtung (ISSprOM 532.6 bis 532.9); in Berlin Kandidaten aus den ALKIS-Bauwerken `Treppe` und `Freitreppe`, im vollständigen ALKIS aus den Flächen mit `bauwerksfunktion` 1620/1621. | `stair_objects` |
@@ -152,6 +157,7 @@ Orienteering Maps 2019 (IOF).
 | Normalisiertes DOM (nDOM) | normalized DSM (nDSM) | DOM minus DGM = Objekthöhe über Grund. | `Ndsm` |
 | Schummerung | hillshade | Schattiertes Reliefbild aus dem DGM. | `Hillshade` |
 | Hangneigung | slope | Neigung des Geländes je Rasterzelle (Grad). | `Slope` |
+| Lokales Relief | local relief | DGM minus sein geglättetes Mittel (Sprint 5 m, Schulhof 3 m): Böschungen, Kuppen, Mulden und Gräben treten hervor, das allgemeine Gefälle nicht. Vorlage `templates/relief.png`. | `local_relief`, `RELIEF_RELPATH` |
 | Punktwolke | point cloud | Menge von 3D-Messpunkten (LAS/LAZ). | `PointCloud` |
 | Laserscan / ALS | airborne laser scanning (ALS) | Flugzeuggestützte LiDAR-Vermessung. | `Als` |
 | Bodenpunkt | ground point | Punkt der Klasse „Boden“ in einer Punktwolke. | `GroundPoint` |

@@ -1,0 +1,49 @@
+# 0104. Terrain candidates from the DGM1
+
+Date: 2026-11-12
+Status: Accepted, extends spec §4.4 and §4.5
+
+## Context
+
+The contours of a sprint map (2 m) or a schoolyard map (1 m) miss the small forms of a park: a play mound, a
+hollow, the bank of a terrace, a retaining wall the ALKIS does not have. Two open-source tools find such forms in
+LiDAR data for forest maps: karttapullautin (GPL-3.0) and omapmaker (a noncommercial licence that is not
+compatible with the GPL). The user asked which of their ideas improve sprint maps with park parts, and chose the
+three that work on the DGM1 every state publishes.
+
+## Decision
+
+- `derive` writes a new template `templates/relief.png`: the DGM1 minus its Gaussian mean (σ 5 m sprint, 3 m
+  schoolyard), grey with the mean at 128 and ±1 m and beyond white or black (`derive/relief.rs`). The idea is
+  omapmaker's local relief layer. It is hidden in the map and listed as layer `relief`.
+- `derive` writes `data/landforms.geojson` (`derive/landforms.rs`), read by the export into the candidates map:
+  - small knolls (109), small elongated knolls (110) and small depressions (111). The terrain is smoothed with
+    σ 1 m and traced at 0.25 m steps around each top. The outline is the lowest closed ring that lies at least
+    1 m (sprint) or 0.5 m (schoolyard) below the top, is between 2 m and 5 mm on paper (at least 10 m) across, and
+    rises at least 0.15 m per metre of its radius. Of two tops in one ring the higher stays. An outline with axes
+    of 1.5 : 1 or more is elongated and gets its direction. Depressions are found the same way on the negated
+    terrain.
+  - earth banks (104) and impassable cliffs (201, from 3 m). A cell is steep from a gradient of 0.5, because DGM1
+    blurs a 45° bank of 1.5 m to about 30°. A patch of steep cells is a bank when its median drop over ±3 m along
+    the slope reaches the minimum height and holds at least 70 % of the drop over ±6 m (a plain slope holds half),
+    and when it is at least twice as long as wide and at least 2 mm on paper (4 m on the ground) long. The line
+    follows the long axis with the low side on the right, so the ticks point down.
+- The export leaves out a landform within 2 m of a building (DGM1 is interpolated there), a knoll or depression
+  in the drawn water, and a bank or cliff that runs mostly within 2 m of the water or of a drawn earth bank, cliff,
+  wall or fence. Everything is a candidate with `freemapper:source` (the terrain model), `freemapper:height`
+  (0.1 m) and `freemapper:currency`. The landforms are added before the content routing (ADR 0100): banks
+  and cliffs belong to the group `slopes`, so `full` or `slopes=map` puts them on the map and `slopes=off`
+  drops them; `balanced` leaves them candidates, because the terrain model has no source rank. Knolls and
+  depressions belong to no group and stay candidates.
+- The algorithms are our own. The pairing of drop and steepness follows karttapullautin's cliff test, the drop
+  across the patch and the tick side follow omapmaker's cliff classification. No code is copied from omapmaker.
+  freemapper does not depend on karttapullautin: its library split (`pullauta-core`) is not upstream, and most of
+  what it needs are ground points we do not have in every state.
+
+## Consequences
+
+- Every project derives one more template and one more data file; the golden hashes (G4) change for every state.
+- The candidates show forms the contours miss, and the mapper confirms them against the orthophoto and in the
+  terrain. On DGM1 a wall narrower than a metre can be missed, and a road embankment shows up as a bank.
+- The parameters scale with `scale_denominator` and the map kind, so a later forest map kind can reuse the module
+  with its own values.
