@@ -11,6 +11,7 @@ mod nominatim;
 mod pipeline;
 mod select;
 mod select_page;
+mod select_preview;
 mod select_run;
 mod text;
 mod tiles;

@@ -12,6 +12,7 @@ use crate::errors::message;
 use crate::estimate::estimate_json;
 use crate::jobs::JobHub;
 use crate::pipeline::RunOptions;
+use crate::select_preview;
 use crate::select_run;
 use crate::select_run::{FolderOpener, PipelineRunner, Services};
 use crate::text::{Lang, TEXTS, v};
@@ -156,6 +157,8 @@ pub(crate) struct AppState {
     /// When the last status request was served, and the shortest gap between two.
     pub(crate) last_status: std::sync::Mutex<Option<std::time::Instant>>,
     pub(crate) status_gap: std::time::Duration,
+    /// The cached build of the project and the newest live map image.
+    pub(crate) map_images: crate::select_preview::MapImages,
 }
 
 /// Largest request body of the page: a polygon of 5000 vertices is about 150 KB, and the shared
@@ -203,6 +206,7 @@ impl Selector {
             opener: services.opener,
             last_status: std::sync::Mutex::new(None),
             status_gap: services.status_gap,
+            map_images: Default::default(),
         });
         let options = ServeOptions {
             port,
@@ -263,6 +267,20 @@ fn router(
         .route(&format!("{prefix}/api/project"), get(project))
         .route(&format!("{prefix}/api/update"), get(update_notice))
         .route(&format!("{prefix}/api/preview"), post(preview))
+        .route(
+            &format!("{prefix}/api/map-image"),
+            get(select_preview::stored)
+                .post(select_preview::live)
+                .layer(DefaultBodyLimit::max(select_run::MAX_BODY_SMALL)),
+        )
+        .route(
+            &format!("{prefix}/api/map-image/state"),
+            get(select_preview::stored_state),
+        )
+        .route(
+            &format!("{prefix}/api/map-image/live/{{id}}"),
+            get(select_preview::live_image),
+        )
         .route(&format!("{prefix}/api/places"), get(places))
         .route(&format!("{prefix}/api/place"), get(place))
         .route(&format!("{prefix}/api/save"), post(save))

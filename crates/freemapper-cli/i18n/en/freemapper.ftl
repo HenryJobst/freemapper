@@ -92,6 +92,11 @@ cli-save-running = A run is going on for this project. Save again when it has fi
 cli-save-unknown-kind = Unknown map kind "{ $kind }". Use schoolyard or sprint.
 cli-save-scale-too-large = The scale { $scale } is too large.
 cli-save-bad-content = The content settings are not valid. Nothing was saved.
+cli-map-image-none = Create the map first.
+cli-map-image-gone = This preview is no longer available.
+cli-map-image-running = A run is going on for this project. The preview can be computed once it has finished.
+cli-map-image-stale = The saved project no longer matches the generated map, for example because the area, map kind or scale changed. Start a new run first.
+cli-map-image-bad-content = The content settings are not valid.
 
 ## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
 ## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has

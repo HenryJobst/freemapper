@@ -92,6 +92,11 @@ cli-save-running = Für dieses Projekt läuft gerade ein Lauf. Speichern Sie noc
 cli-save-unknown-kind = Unbekannte Kartenart „{ $kind }“. Möglich sind schoolyard und sprint.
 cli-save-scale-too-large = Der Maßstab { $scale } ist zu groß.
 cli-save-bad-content = Die Inhaltseinstellungen sind ungültig. Es wurde nichts gespeichert.
+cli-map-image-none = Erzeugen Sie zuerst die Karte.
+cli-map-image-gone = Diese Vorschau gibt es nicht mehr.
+cli-map-image-running = Für dieses Projekt läuft gerade ein Lauf. Die Vorschau lässt sich berechnen, sobald er fertig ist.
+cli-map-image-stale = Das gespeicherte Projekt passt nicht mehr zur erzeugten Karte, etwa weil sich Gebiet, Kartenart oder Maßstab geändert haben. Starten Sie zuerst einen neuen Lauf.
+cli-map-image-bad-content = Die Inhaltseinstellungen sind ungültig.
 
 ## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
 ## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine
