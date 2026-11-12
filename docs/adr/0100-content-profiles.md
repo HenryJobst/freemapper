@@ -22,7 +22,9 @@ although a wall of the cadastre is as reliable as a building.
   `balanced`, the default, sends to the map the objects of the cadastre, the registers and the street survey (rank
   survey or higher, `build/dedup.rs`) of every group but furniture, contours and out-of-bounds, and for walls, fences, hedges, water, trees (and the tree
   groups made of them) and paths also those of OpenStreetMap, which is often the only source there (no register
-  outside a few cities). Monuments, open land and the rest of OSM stay candidates. The green strips (401) of
+  outside a few cities). The contours go to the map too (user decision 2026-11-12: a park map without relief looks empty; they are cut at
+  ways, ADR 0097). Areas that shall not be entered (520, a land-use guess that would also have to remove the
+  points under it), street furniture, monuments, open land and the rest of OSM stay candidates. The green strips (401) of
   the street survey belong to `streets`. `full` sends everything
   to the map. A choice per group beats the profile.
 - Hidden candidate points (`freemapper:hidden`) are never moved.

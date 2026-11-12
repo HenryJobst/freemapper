@@ -177,10 +177,10 @@ impl Group {
     const TREE_AREA_CODES: [&'static str; 4] = ["402", "405", "501.3", "416"];
 
     /// The lowest rank of a source whose objects of this group the `balanced` profile puts on the
-    /// map; `None` for a group it leaves as the build has it (contours, areas that shall not be
-    /// entered, street furniture). OpenStreetMap counts for walls, fences, hedges, water, trees and
-    /// paths, where it is often the only source; the rest needs the cadastre, a register or the
-    /// street survey.
+    /// map; `None` for a group it leaves as the build has it (areas that shall not be entered,
+    /// street furniture) or sends by another rule (the contours always go to the map).
+    /// OpenStreetMap counts for walls, fences, hedges, water, trees and paths, where it is often
+    /// the only source; the rest needs the cadastre, a register or the street survey.
     fn balanced_from(self) -> Option<Rank> {
         match self {
             Group::Walls
@@ -192,7 +192,7 @@ impl Group {
             Group::Slopes | Group::Stairs | Group::Monuments | Group::Passages | Group::Streets => {
                 Some(Rank::Survey)
             }
-            Group::Furniture | Group::Contours | Group::OutOfBounds => None,
+            Group::Furniture | Group::OutOfBounds | Group::Contours => None,
         }
     }
 }
@@ -340,6 +340,8 @@ impl ContentSettings {
         match self.profile {
             Profile::Safe => None,
             Profile::Full => Some(Place::Map),
+            // The contours come from the terrain model, which has no rank: they go to the map.
+            Profile::Balanced if group == Group::Contours => Some(Place::Map),
             Profile::Balanced => group
                 .balanced_from()
                 .is_some_and(|lowest| rank >= Some(lowest))
@@ -532,7 +534,7 @@ mod tests {
                 object(&f, "505.1", "osm"),
                 object(&f, "405", GENERALIZATION_SOURCE),
                 // Not for monuments or open land, the outline of the map area is no street
-                // edge, and contours and furniture are left as they are.
+                // edge, and furniture is left as it is. The contours go to the map.
                 object(&f, "526", "osm"),
                 object(&f, "401", "osm"),
                 object(&f, "501.1", "osm"),
@@ -540,9 +542,9 @@ mod tests {
                 object(&f, "531", "geoportal-berlin/beleuchtung"),
             ],
         );
-        assert_eq!(map.len(), 12, "{map:?}");
-        assert_eq!(cand.len(), 5);
-        assert_eq!(routed.to_map, 12);
+        assert_eq!(map.len(), 13, "{map:?}");
+        assert_eq!(cand.len(), 4);
+        assert_eq!(routed.to_map, 13);
     }
 
     #[test]

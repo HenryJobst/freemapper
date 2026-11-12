@@ -316,7 +316,7 @@ im Gelände zu prüfen. Mit beiden Schaltern entstehen beide Dateien nebeneinand
 
 Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, den ALKIS-Flächen
 (Verkehr, Gewässer, Parks) und den Wegen mit bekannter Oberfläche, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen und Treppen aus ALKIS, den Registern und der
-Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege und Gleise auch aus OSM auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
+Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege und Gleise auch aus OSM sowie die Höhenlinien auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
 `--content-set fences=candidates`; die Wahl steht in `freemapper.toml` und gilt auch im Browser und über MCP.
 
 ## Ausgangsstand für OCAD
