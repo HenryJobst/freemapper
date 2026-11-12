@@ -1897,7 +1897,7 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     );
     assert_eq!(
         lines[12],
-        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: brandenburg"
+        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: Brandenburg"
     );
     assert!(
         lines[13].starts_with("Your adapters are read from "),

@@ -159,17 +159,8 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
             ],
         ));
         if !adapter.overlaps.is_empty() {
-            // The regions by their names in the language of the run, as a person knows them.
             let german = crate::text::lang().code() == "de";
-            let others: Vec<&str> = adapter
-                .overlaps
-                .iter()
-                .map(|id| match assembled.registry.get(id) {
-                    Some(other) if german => other.info().names.de.as_str(),
-                    Some(other) => other.info().names.en.as_str(),
-                    None => id.as_str(),
-                })
-                .collect();
+            let others = region_names(assembled, &adapter.overlaps, german);
             lines.push(text(
                 "cli-adapter-overlaps",
                 &[
@@ -293,6 +284,18 @@ fn allowed_for<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
     assembled.allowed.get(id).map_or(&[], Vec::as_slice)
 }
 
+/// The regions of the adapters `ids` by their names, as a person knows them; German with
+/// `german`. An id the registry does not hold stays as it is.
+fn region_names<'a>(assembled: &'a Assembled, ids: &'a [String], german: bool) -> Vec<&'a str> {
+    ids.iter()
+        .map(|id| match assembled.registry.get(id) {
+            Some(other) if german => other.info().names.de.as_str(),
+            Some(other) => other.info().names.en.as_str(),
+            None => id.as_str(),
+        })
+        .collect()
+}
+
 /// The adapters on whose ground the adapter `id` lies, if it came from a folder.
 fn overlaps_of<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
     assembled
@@ -362,6 +365,7 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
             match overlaps_of(assembled, info.id.as_str()) {
                 [] => line,
                 others => {
+                    let others = region_names(assembled, others, german);
                     let others = text("cli-adapters-overlaps", &[("others", v(others.join(", ")))]);
                     format!("{line}  {others}")
                 }
@@ -694,12 +698,12 @@ land_use_type = "ave:NutzungFlurstueck"
         );
         assert_eq!(
             lines[12],
-            "useradapter  Sample useradapter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: brandenburg"
+            "useradapter  Sample useradapter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg"
         );
         // An adapter on the ground of another names it.
         assert_eq!(
             lines[13],
-            "zweiter  Sample zweiter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: brandenburg, useradapter"
+            "zweiter  Sample zweiter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg, Sample useradapter"
         );
         assert_eq!(
             lines[14],
@@ -712,6 +716,11 @@ land_use_type = "ave:NutzungFlurstueck"
             german[12].starts_with("useradapter  Beispiel useradapter  "),
             "{}",
             german[12]
+        );
+        assert!(
+            german[13].ends_with(": Brandenburg, Beispiel useradapter"),
+            "{}",
+            german[13]
         );
         let json: serde_json::Value =
             serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
