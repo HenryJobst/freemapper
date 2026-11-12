@@ -14,7 +14,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The examples Sanssouci, Viktoriapark, Monschau and Cochem are rebuilt with `--content-set vegetation=candidates`: their training maps now show the vegetation from the point clouds. The map objects are unchanged. Saarlouis and Bautzen stay without vegetation; the examples page says why.
 - Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
+
+### Fixed
+
+- Vegetation from point clouds stops at areas that shall not be entered (520). Before, the forest candidates punched white holes into the olive green private gardens and courtyards of the candidates map and the training PDF, because the white of the forest lies above the olive green in the colour order. On the map this holds for the areas of the map, in the candidates for those of the map and of the candidates (ADR 0105).
 
 ## [0.15.0] - 2026-11-12
 

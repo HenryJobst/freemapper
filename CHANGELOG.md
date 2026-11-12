@@ -14,7 +14,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Beispiele Sanssouci, Viktoriapark, Monschau und Cochem sind mit `--content-set vegetation=candidates` neu gebaut: Ihre Trainingskarten zeigen jetzt die Vegetation aus den Punktwolken. Die Kartenobjekte sind unverändert. Saarlouis und Bautzen bleiben ohne Vegetation; die Beispielübersicht nennt die Gründe.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
+
+### Behoben
+
+- Vegetation aus Punktwolken endet an Sperrflächen (520). Vorher stanzten die Wald-Kandidaten weiße Löcher in die olivgrünen Privatgärten und Höfe der Kandidatenkarte und des Trainings-PDFs, weil das Weiß des Waldes in der Farbreihenfolge über dem Olivgrün liegt. In der Karte gilt das für die Sperrflächen der Karte, in den Kandidaten für die aus Karte und Kandidaten (ADR 0105).
 
 ## [0.15.0] - 2026-11-12
 

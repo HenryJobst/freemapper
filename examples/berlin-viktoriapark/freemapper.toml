@@ -54,121 +54,121 @@ published = "2026-09-10"
 
 [buildings]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 1199
 regions = ["berlin"]
 
 [land_use]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 129
 regions = ["berlin"]
 
 [berlin_layers.anlagenbaeume]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 1486
 regions = ["berlin"]
 
 [berlin_layers.bauwerke-flaechen]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 143
 regions = ["berlin"]
 
 [berlin_layers.bauwerke-linien]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 895
 regions = ["berlin"]
 
 [berlin_layers.beleuchtung]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 268
 regions = ["berlin"]
 
 [berlin_layers.gebaeudehoehen]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 1478
 regions = ["berlin"]
 
 [berlin_layers.relief]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 182
 regions = ["berlin"]
 
 [berlin_layers.sb-bordstein]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 518
 regions = ["berlin"]
 
 [berlin_layers.sb-flaechen]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 1141
 regions = ["berlin"]
 
 [berlin_layers.sb-gelaender]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 12
 regions = ["berlin"]
 
 [berlin_layers.sb-gruenflaeche]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 5
 regions = ["berlin"]
 
 [berlin_layers.sb-mauer]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 9
 regions = ["berlin"]
 
 [berlin_layers.sb-moebel]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 1122
 regions = ["berlin"]
 
 [berlin_layers.sb-objekte]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 21
 regions = ["berlin"]
 
 [berlin_layers.sb-treppe]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.strassenbaeume]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 465
 regions = ["berlin"]
 
 [berlin_layers.trinkwasserbrunnen]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.vegetation-linien]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.zierbrunnen]
 bbox = [389613.0, 5816190.0, 390529.0, 5816909.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 count = 3
 regions = ["berlin"]
 
@@ -180,5 +180,19 @@ count = 1632
 [k5]
 flight = "2026-01-02"
 flight_label = "K5 dataset"
-fetched = "2026-11-10"
-bbox = [389613.7730797059, 5816190.641999358, 390528.49653260794, 5816908.071356393]
+fetched = "2026-11-12"
+bbox = [389613.773, 5816190.642, 390528.497, 5816908.071]
+
+[[point_clouds]]
+tile = "33389-5816"
+url = "https://gdi.berlin.de/data/a_als/atom/Mitte.zip"
+published = "2025-08-14"
+
+[[point_clouds]]
+tile = "33390-5816"
+url = "https://gdi.berlin.de/data/a_als/atom/Mitte.zip"
+published = "2025-08-14"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"
