@@ -10,7 +10,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{lgv, states};
+use freemapper_adapters_de::{lgv, lvgl, states};
 use freemapper_georef::crs::Crs;
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -45,8 +45,8 @@ fn wfs_of(manifest: &Manifest) -> WfsService {
 }
 
 #[test]
-fn manifest_wfs_rows_equal_the_nine_constants() {
-    let rows: [(&str, WfsService); 9] = [
+fn manifest_wfs_rows_equal_the_ten_constants() {
+    let rows: [(&str, WfsService); 10] = [
         ("saxony", wfs::GEOSN),
         ("saxonyanhalt", wfs::LVERMGEO),
         ("hamburg", wfs::LGV),
@@ -56,6 +56,7 @@ fn manifest_wfs_rows_equal_the_nine_constants() {
         ("nordrheinwestfalen", wfs::GEOBASIS_NRW),
         ("niedersachsen", wfs::LGLN),
         ("rheinlandpfalz", wfs::LVERMGEO_RP),
+        ("saarland", lvgl::ALKIS),
     ];
     for (id, constant) in rows {
         assert_eq!(wfs_of(&manifest(id)), constant, "{id}");
@@ -122,8 +123,23 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
 }
 
 /// The hosts a fetch of `state` asked when the golden net was recorded, without Geofabrik's
-/// (the OSM extracts belong to no adapter).
+/// (the OSM extracts belong to no adapter). Saarland came after the net: its hosts are those
+/// of the addresses its backend and its WFS are written with.
 fn hosts_of_the_trace(state: State) -> Vec<String> {
+    if state == State::Saarland {
+        let mut hosts: Vec<String> = [
+            lvgl::WMS.url.as_ref(),
+            lvgl::SHARE,
+            lvgl::ALKIS.url.as_ref(),
+        ]
+        .iter()
+        .filter_map(|url| url.strip_prefix("https://")?.split('/').next())
+        .map(str::to_string)
+        .collect();
+        hosts.sort();
+        hosts.dedup();
+        return hosts;
+    }
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../tests/golden/adapters")
         .join(state.id())
@@ -165,6 +181,10 @@ fn builtin_manifests_pass_the_validator_and_policy() {
                 manifest.hosts.contains(host),
                 "{id} does not declare {host}"
             );
+        }
+        if state == State::Saarland {
+            // No more than it asks, either: nothing recorded could hide a host here.
+            assert_eq!(manifest.hosts.len(), asked.len(), "{id}");
         }
         let mut expected: Vec<String> = std::iter::once(manifest.boundary.file.clone())
             .chain(
@@ -212,7 +232,32 @@ fn every_manifest_names_its_state() {
         assert_eq!(from_file.bounds(), built_in.bounds(), "{}", state.id());
         assert!(built_in.alkis().is_some(), "{}", state.id());
     }
-    assert_eq!(states::adapters().len(), 11);
+    assert_eq!(State::ALL.len(), 12);
+    assert_eq!(states::adapters().len(), 12);
+}
+
+/// Saarland asks the WFS of the geoportal with the type names of its ArcGIS server and
+/// without a sort, which that server refuses.
+#[test]
+fn saarland_asks_the_wfs_of_the_geoportal_with_its_own_type_names() {
+    let service = wfs_of(&manifest("saarland"));
+    let saarbruecken = freemapper_georef::crs::BoundingBox {
+        min_e: 353_875.0,
+        min_n: 5_455_271.0,
+        max_e: 354_075.0,
+        max_n: 5_455_471.0,
+    };
+    let url = service.wfs_url(&service.buildings_type, &saarbruecken, 0);
+    assert!(
+        url.starts_with(
+            "https://geoportal.saarland.de/registry/wfs/414?SERVICE=WFS&VERSION=2.0.0\
+             &REQUEST=GetFeature&TYPENAMES=ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk\
+             &SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=353875,5455271,354075,5455471,"
+        ),
+        "{url}"
+    );
+    assert!(!url.contains("SORTBY"), "{url}");
+    assert_eq!(service.land_use_type, "ALKIS_ALKIS_WFS_ohne_Eig:Nutzung");
 }
 
 /// A built-in state asks the hosts of its own manifest and no other: its policy lets every

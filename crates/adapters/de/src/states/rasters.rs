@@ -10,6 +10,7 @@ use crate::lgv::LgvBackend;
 use crate::lvermgeo::LvermgeoBackend;
 use crate::lvermgeo_rp::LvermgeoRpBackend;
 use crate::lvermgeo_sh::LvermgeoShBackend;
+use crate::lvgl::LvglBackend;
 use freemapper_adapter_api::rasters::RasterBackend;
 
 use crate::states::Agency;
@@ -27,5 +28,6 @@ pub fn backend(agency: Agency) -> Box<dyn RasterBackend> {
         Agency::GeobasisNrw => Box::new(GeobasisNrwBackend::new()),
         Agency::Lgln => Box::new(LglnBackend::new()),
         Agency::LvermGeoRp => Box::new(LvermgeoRpBackend::new()),
+        Agency::Lvgl => Box::new(LvglBackend::new()),
     }
 }

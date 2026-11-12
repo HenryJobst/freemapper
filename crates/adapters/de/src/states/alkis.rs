@@ -61,6 +61,7 @@ pub fn source(state: State) -> Box<dyn AlkisSource> {
         State::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
         State::Niedersachsen => wfs(alkis_wfs::LGLN),
         State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
+        State::Saarland => wfs(crate::lvgl::ALKIS),
     }
 }
 
@@ -132,6 +133,7 @@ mod tests {
             State::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
             State::Niedersachsen => wfs(alkis_wfs::LGLN),
             State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
+            State::Saarland => wfs(crate::lvgl::ALKIS),
         };
         // Kassel, a place both UTM zones can hold.
         let area = FetchArea::new(

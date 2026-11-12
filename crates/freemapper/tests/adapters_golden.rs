@@ -132,7 +132,7 @@ fn g1_credit_lines_match_for_all_year_and_record_combinations() {
             "sheet": lines.sheet,
         }));
     };
-    for region in regions::ALL {
+    for region in regions::LEGACY {
         for year in [2025, 2026] {
             for held in [Held::Rasters, Held::Alkis, Held::Both] {
                 row(std::slice::from_ref(&region), year, held);
@@ -390,7 +390,7 @@ impl Sequence {
 }
 
 fn region_at(easting: f64, northing: f64) -> Option<AdapterId> {
-    regions::ALL
+    regions::LEGACY
         .into_iter()
         .find(|region| contains_point(region, easting, northing))
 }
@@ -540,7 +540,7 @@ fn names(tiles: impl IntoIterator<Item = TileId>) -> Vec<String> {
 fn geometry_of(golden: &GoldenBox) -> Geometry {
     let bbox = golden.bbox();
     let mut providers: Vec<AdapterId> = Vec::new();
-    for region in regions::ALL {
+    for region in regions::LEGACY {
         if !providers.contains(&region.provider()) {
             providers.push(region.provider());
         }
@@ -811,7 +811,7 @@ fn golden_noon() -> chrono::NaiveDateTime {
 }
 
 fn region_of(id: &str) -> AdapterId {
-    regions::ALL
+    regions::LEGACY
         .into_iter()
         .find(|region| id_of(region) == id)
         .unwrap_or_else(|| panic!("no region {id:?}"))
@@ -1038,7 +1038,7 @@ fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
 /// stay.
 #[test]
 fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
-    let rows: Vec<serde_json::Value> = regions::ALL
+    let rows: Vec<serde_json::Value> = regions::LEGACY
         .into_iter()
         .map(|region| {
             let root = tempfile::tempdir().unwrap();
@@ -1061,7 +1061,7 @@ fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
 #[test]
 #[ignore = "needs the fixture store: scripts/golden.sh test"]
 fn g3_estimates_after_the_fetch_are_unchanged() {
-    let rows: Vec<serde_json::Value> = regions::ALL
+    let rows: Vec<serde_json::Value> = regions::LEGACY
         .into_iter()
         .map(|region| {
             let id = id_of(region);

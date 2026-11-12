@@ -604,7 +604,7 @@ mod tests {
             assert!(report.errors.is_empty(), "{:?}", report.errors);
             ids.push(report.adapter.unwrap().id);
         }
-        assert_eq!(ids.len(), 11);
+        assert_eq!(ids.len(), 12);
     }
 
     #[test]

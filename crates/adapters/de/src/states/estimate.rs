@@ -8,8 +8,8 @@ use freemapper_adapter_api::estimate::{
 use freemapper_adapter_api::records::{EstimateItem, Part, Store};
 
 use crate::boundaries::{
-    BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles,
-    states_touching, tile_touches,
+    BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAARLAND, SAXONY, SCHLESWIG_HOLSTEIN,
+    provider_tiles, states_touching, tile_touches,
 };
 use crate::crs::BoundingBox;
 use crate::sources::lgb::{Product, ProductTiles as _};
@@ -55,6 +55,7 @@ pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<Es
         Agency::GeobasisNrw => nrw_items(bbox, cache),
         Agency::Lgln => lgln_items(bbox),
         Agency::LvermGeoRp => rp_items(bbox, &area.map_bbox, cache),
+        Agency::Lvgl => lvgl_items(bbox, cache),
     }
 }
 
@@ -139,6 +140,39 @@ pub fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
         max_e: fold(|p| p.easting, f64::NEG_INFINITY, f64::max),
         max_n: fold(|p| p.northing, f64::NEG_INFINITY, f64::max),
     })
+}
+
+/// LVGL: the WMS orthophoto and the height model tiles of the area, read out of the district
+/// archives (≈2 MB DGM1 and ≈2.5 MB DOM1 per 1 km tile touched, those already cached left out).
+fn lvgl_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
+    use crate::lvgl::Model;
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, SAARLAND))
+        .collect();
+    let model_item = |model: Model, mb_per_tile: f64, part: Part| {
+        let open = tiles
+            .iter()
+            .filter(|t| !model.tile_cache_file(cache, **t).exists())
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+            part,
+            store: Store::Cache,
+        }
+    };
+    vec![
+        per_km2_item(
+            bbox,
+            "orthophoto (LVGL WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, 2.0, Part::Terrain),
+        model_item(Model::Dom1, 2.5, Part::Surface),
+    ]
 }
 
 /// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide

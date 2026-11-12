@@ -25,6 +25,7 @@ pub const MECKLENBURG_VORPOMMERN: &str = "mecklenburgvorpommern";
 pub const NORDRHEIN_WESTFALEN: &str = "nordrheinwestfalen";
 pub const NIEDERSACHSEN: &str = "niedersachsen";
 pub const RHEINLAND_PFALZ: &str = "rheinlandpfalz";
+pub const SAARLAND: &str = "saarland";
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
 const BRANDENBURG_BOUNDARY: &str = include_str!("../manifests/brandenburg/boundary.geojson");
@@ -61,8 +62,13 @@ const NIEDERSACHSEN_BOUNDARY: &str = include_str!("../manifests/niedersachsen/bo
 /// Mainz-Kastel are Hesse, not part of it.
 const RHEINLAND_PFALZ_BOUNDARY: &str = include_str!("../manifests/rheinlandpfalz/boundary.geojson");
 
+/// Saarland from the LVGL WFS "ALKIS Vereinfacht", `Verwaltungseinheit` DE10 (simplified 25 m,
+/// EPSG:25833; dl-de/by-2-0). In EPSG:25833 its eastings are all negative; three quarters of
+/// its outline towards Rhineland-Palatinate lie on that state's outline.
+const SAARLAND_BOUNDARY: &str = include_str!("../manifests/saarland/boundary.geojson");
+
 /// The states in the order of the registry, each with its boundary.
-const STATES: [(&str, &str); 11] = [
+const STATES: [(&str, &str); 12] = [
     (BRANDENBURG, BRANDENBURG_BOUNDARY),
     (BERLIN, BERLIN_BOUNDARY),
     (SAXONY, SAXONY_BOUNDARY),
@@ -74,6 +80,7 @@ const STATES: [(&str, &str); 11] = [
     (NORDRHEIN_WESTFALEN, NORDRHEIN_WESTFALEN_BOUNDARY),
     (NIEDERSACHSEN, NIEDERSACHSEN_BOUNDARY),
     (RHEINLAND_PFALZ, RHEINLAND_PFALZ_BOUNDARY),
+    (SAARLAND, SAARLAND_BOUNDARY),
 ];
 
 /// The outline of a state: its boundary and the box around it.
@@ -102,7 +109,8 @@ pub fn boundary_text(id: &str) -> Option<&'static str> {
 
 /// The outline of the state `id`, parsed once.
 pub fn outline(id: &str) -> Option<&'static StateOutline> {
-    static OUTLINES: [OnceLock<StateOutline>; 11] = [
+    static OUTLINES: [OnceLock<StateOutline>; 12] = [
+        OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),

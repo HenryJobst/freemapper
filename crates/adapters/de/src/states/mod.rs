@@ -49,6 +49,7 @@ pub enum State {
     NordrheinWestfalen,
     Niedersachsen,
     RheinlandPfalz,
+    Saarland,
 }
 
 /// Who serves the rasters of a state (orthophoto, terrain and surface models).
@@ -74,6 +75,8 @@ pub enum Agency {
     Lgln,
     /// LVermGeo Rheinland-Pfalz (EPSG:25832).
     LvermGeoRp,
+    /// LVGL, Saarland (EPSG:25832).
+    Lvgl,
 }
 
 impl Agency {
@@ -90,6 +93,7 @@ impl Agency {
             Self::GeobasisNrw => "geobasisnrw",
             Self::Lgln => "lgln",
             Self::LvermGeoRp => "lvermgeorp",
+            Self::Lvgl => "lvgl",
         }
     }
 
@@ -106,6 +110,7 @@ impl Agency {
             Self::GeobasisNrw => "geobasis-nrw-dgm1",
             Self::Lgln => "lgln-dgm1",
             Self::LvermGeoRp => "lvermgeo-rp-dgm1",
+            Self::Lvgl => "lvgl-dgm1",
         }
     }
 
@@ -122,13 +127,14 @@ impl Agency {
                 | Self::GeobasisNrw
                 | Self::Lgln
                 | Self::LvermGeoRp
+                | Self::Lvgl
         )
     }
 }
 
 impl State {
     /// All states, in the order they are listed and queried.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -140,6 +146,7 @@ impl State {
         Self::NordrheinWestfalen,
         Self::Niedersachsen,
         Self::RheinlandPfalz,
+        Self::Saarland,
     ];
 
     /// The id of the adapter of the state: its name in the project file.
@@ -156,6 +163,7 @@ impl State {
             Self::NordrheinWestfalen => "nordrheinwestfalen",
             Self::Niedersachsen => "niedersachsen",
             Self::RheinlandPfalz => "rheinlandpfalz",
+            Self::Saarland => "saarland",
         }
     }
 
@@ -173,6 +181,7 @@ impl State {
             Self::NordrheinWestfalen => "DENW",
             Self::Niedersachsen => "DENI",
             Self::RheinlandPfalz => "DERP",
+            Self::Saarland => "DESL",
         }
     }
 
@@ -188,6 +197,7 @@ impl State {
             Self::NordrheinWestfalen => Agency::GeobasisNrw,
             Self::Niedersachsen => Agency::Lgln,
             Self::RheinlandPfalz => Agency::LvermGeoRp,
+            Self::Saarland => Agency::Lvgl,
         }
     }
 
@@ -200,7 +210,8 @@ impl State {
             | Self::SchleswigHolstein
             | Self::NordrheinWestfalen
             | Self::Niedersachsen
-            | Self::RheinlandPfalz => Crs::Utm32,
+            | Self::RheinlandPfalz
+            | Self::Saarland => Crs::Utm32,
             _ => Crs::Utm33,
         }
     }
@@ -209,7 +220,7 @@ impl State {
 /// The manifests of the states, in the order of [`State::ALL`]. A manifest holds what a state
 /// declares: who it is, its OSM extracts, its ALKIS service, its credit, its preview and which
 /// code fetches its rasters.
-const MANIFESTS: [&str; 11] = [
+const MANIFESTS: [&str; 12] = [
     include_str!("../../manifests/brandenburg/manifest.toml"),
     include_str!("../../manifests/berlin/manifest.toml"),
     include_str!("../../manifests/saxony/manifest.toml"),
@@ -221,6 +232,7 @@ const MANIFESTS: [&str; 11] = [
     include_str!("../../manifests/nordrheinwestfalen/manifest.toml"),
     include_str!("../../manifests/niedersachsen/manifest.toml"),
     include_str!("../../manifests/rheinlandpfalz/manifest.toml"),
+    include_str!("../../manifests/saarland/manifest.toml"),
 ];
 
 /// The boundaries of the five OSM extracts of North Rhine-Westphalia: Geofabrik's
@@ -290,11 +302,12 @@ pub fn backend_name(agency: Agency) -> Option<&'static str> {
         Agency::GeobasisNrw => Some("geobasis-nrw"),
         Agency::Lgln => Some("lgln"),
         Agency::LvermGeoRp => Some("lvermgeo-rp"),
+        Agency::Lvgl => Some("lvgl"),
     }
 }
 
 /// The agencies whose rasters code of this crate fetches, in the order of the states.
-const AGENCIES: [Agency; 10] = [
+const AGENCIES: [Agency; 11] = [
     Agency::Lgb,
     Agency::GeoSn,
     Agency::LvermGeo,
@@ -305,6 +318,7 @@ const AGENCIES: [Agency; 10] = [
     Agency::GeobasisNrw,
     Agency::Lgln,
     Agency::LvermGeoRp,
+    Agency::Lvgl,
 ];
 
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
@@ -505,7 +519,7 @@ mod tests {
                 services.push((&one.wms, &one.layer));
             }
         }
-        assert_eq!(services.len(), 10);
+        assert_eq!(services.len(), 11);
         assert_eq!(previews[0], previews[1]);
     }
 
@@ -529,7 +543,7 @@ mod tests {
         }
         let mut registry = Registry::new();
         register(&mut registry).unwrap();
-        assert_eq!(registry.len(), 11);
+        assert_eq!(registry.len(), 12);
         assert_eq!(
             registry.backend_names().collect::<Vec<_>>(),
             [
@@ -541,7 +555,8 @@ mod tests {
                 "lgln",
                 "lgv",
                 "lvermgeo-rp",
-                "lvermgeo-sh"
+                "lvermgeo-sh",
+                "lvgl"
             ]
         );
         // A second registration is refused: a name is taken once.

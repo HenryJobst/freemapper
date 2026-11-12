@@ -16,6 +16,7 @@ pub mod lgv;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
+pub mod lvgl;
 pub mod states;
 pub mod tile_fetch;
 

@@ -97,6 +97,12 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
                 RP_LICENCE_NOTE,
             )
         }),
+        // The source note of the LVGL's records, with the note of changes.
+        State::Saarland => year().map(|year| {
+            CreditLine::new(format!(
+                "© GeoBasis DE/LVGL-SL {year}, dl-de/by-2-0, Daten geändert"
+            ))
+        }),
     };
     line.into_iter().collect()
 }
