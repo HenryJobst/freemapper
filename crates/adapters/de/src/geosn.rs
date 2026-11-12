@@ -6,14 +6,28 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::env::AdapterEnv;
+use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::project::RasterProject;
+use freemapper_adapter_api::rasters::{
+    DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, RasterKind, StoredRasters,
+};
+use freemapper_adapter_api::records::AdapterId;
+use freemapper_sources::raster_fetch::{
+    fetch_wms_orthophoto, raster_tiles, say_kept_surface_tiles, tile_record,
+};
+use freemapper_sources::wms::OrthophotoSource;
 use serde_json::Value;
 
 use crate::crs::BoundingBox;
 use crate::crs::Crs;
 use crate::fetch::{FetchError, Fetcher};
+use crate::lgb::TileProvider;
+use crate::note::{Arg, note};
 use crate::raster::GridSpec;
 use crate::sources::lgb::Product;
 use crate::sources::wms::{self, WmsService};
+use crate::tile_fetch::{TilePaths as _, TileProducts, fetch_tiles, fetch_tiles_each, tile_inputs};
 use crate::tiles::TileId;
 
 /// The orthophoto WMS (DOP20 RGB, released flights), and its layers.
@@ -149,6 +163,158 @@ pub fn parse_flight_date(text: &str) -> Option<String> {
     let after = text.split_once("Datum:")?.1;
     let date = after.split(['|', '\n']).next()?.trim();
     (!date.is_empty()).then(|| date.to_string())
+}
+
+/// The rasters of GeoSN (Saxony): terrain and surface model as tiles of 2 km, kept in the cache,
+/// and the orthophoto from the WMS for the area.
+pub struct GeosnBackend {
+    info: ProviderInfo,
+}
+
+impl GeosnBackend {
+    pub fn new() -> Self {
+        Self {
+            info: ProviderInfo {
+                id: AdapterId::built_in(TileProvider::GeoSn.id()),
+                cache_dir: Some(TileProvider::GeoSn.id().to_string()),
+                terrain_source: "geosn-dgm1".to_string(),
+                kind: RasterKind::Tiles {
+                    grid_km: Product::SaxonyDtm.grid_km(),
+                },
+            },
+        }
+    }
+}
+
+impl Default for GeosnBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RasterBackend for GeosnBackend {
+    fn provider(&self) -> &ProviderInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        env: &mut AdapterEnv<'_>,
+        project: &mut dyn RasterProject,
+        bbox: &BoundingBox,
+    ) -> Result<(), AdapterError> {
+        fetch_rasters(env, project, bbox)
+    }
+
+    fn derive_inputs(
+        &self,
+        env: &DeriveEnv<'_>,
+        stored: &StoredRasters<'_>,
+        area: &RasterArea,
+    ) -> DeriveInputs {
+        let products = TileProducts {
+            required: &[Product::SaxonyDtm],
+            orthophoto: None,
+            dtm: Product::SaxonyDtm,
+            dsm: Product::SaxonyDsm,
+        };
+        tile_inputs(TileProvider::GeoSn.id(), &products, env, stored, area)
+    }
+}
+
+/// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
+/// only a template; with `skip_surface` only the cached ones recorded before), and the
+/// orthophoto from the WMS.
+fn fetch_rasters(
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
+    bbox: &BoundingBox,
+) -> Result<(), AdapterError> {
+    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
+    let cache = env.cache;
+    let tiles = raster_tiles(
+        env,
+        bbox,
+        TileProvider::GeoSn.id(),
+        "GeoSN",
+        Product::SaxonyDtm.grid_km(),
+    );
+    let previous = std::mem::take(project.records().tiles);
+    let mut records = Vec::new();
+    for fetched in fetch_tiles(
+        fetcher,
+        cache,
+        Product::SaxonyDtm,
+        &tiles,
+        mode,
+        env.progress,
+    )? {
+        records.push(tile_record(fetched, &previous, env.progress));
+    }
+    *project.records().tiles = records;
+    project.records().ndsm_tiles.clear();
+    project.save()?;
+    let dsm = if skip_surface {
+        let cached = previous.iter().filter(|r| {
+            r.product == Product::SaxonyDsm
+                && TileId::parse(&r.tile).is_some_and(|t| {
+                    tiles.contains(&t) && cache.tile_path(r.product, t, r.published).exists()
+                })
+        });
+        let r = project.records();
+        r.tiles.extend(cached.cloned());
+        let kept: Vec<&str> = r
+            .tiles
+            .iter()
+            .filter(|r| r.product == Product::SaxonyDsm)
+            .map(|r| r.tile.as_str())
+            .collect();
+        say_kept_surface_tiles(&kept, env.progress);
+        Ok(Vec::new())
+    } else {
+        fetch_tiles_each(
+            fetcher,
+            cache,
+            Product::SaxonyDsm,
+            &tiles,
+            mode,
+            env.progress,
+        )
+    };
+    match dsm {
+        Ok(results) => {
+            for (tile, result) in results {
+                match result {
+                    Ok(fetched) => {
+                        project
+                            .records()
+                            .tiles
+                            .push(tile_record(fetched, &previous, env.progress))
+                    }
+                    Err(e) => (env.progress)(note!(
+                        "warning-model-tile-unavailable",
+                        model = crate::note::model(Product::SaxonyDsm.label()),
+                        tile = tile.name(),
+                        error = Arg::error(e)
+                    )),
+                }
+            }
+        }
+        Err(e) => (env.progress)(note!(
+            "warning-model-unavailable",
+            model = crate::note::model(Product::SaxonyDsm.label()),
+            error = Arg::error(e)
+        )),
+    }
+    let flight = || flight_date(fetcher, bbox);
+    fetch_wms_orthophoto(
+        env,
+        project,
+        bbox,
+        (&OrthophotoSource::Wms(WMS), "GeoSN", &flight, None),
+    )?;
+    project.save()?;
+    Ok(())
 }
 
 #[cfg(any(test, feature = "testing"))]

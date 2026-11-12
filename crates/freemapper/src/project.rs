@@ -1,8 +1,6 @@
 //! Project folder and project file (`freemapper.toml`).
 
-use crate::fetch::TilePaths as _;
 use crate::note::{Arg, Note, note};
-use crate::sources::lgb::ProductTiles as _;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -59,8 +57,7 @@ use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
-use crate::fetch::fetch_tiles_each;
-use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, fetch_tiles, write_inside};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::MapCoord;
@@ -385,8 +382,7 @@ pub(crate) use freemapper_sources::raster_fetch::{
     SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH,
 };
 use freemapper_sources::raster_fetch::{
-    fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface, raster_tiles,
-    say_kept_surface_tiles, tile_record, warn_beyond_state,
+    fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface, warn_beyond_state,
 };
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
@@ -1173,106 +1169,6 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
     raster_region_in(registry(), region_bbox)
         .and_then(|adapter| adapter.rasters())
         .ok_or(ProjectError::OutsideCoverage)
-}
-
-/// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
-/// only a template; with `skip_surface` only the cached ones recorded before), and the
-/// orthophoto from the WMS.
-pub(crate) fn fetch_geosn_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
-    let cache = env.cache;
-    let tiles = raster_tiles(
-        env,
-        bbox,
-        Provider::GeoSn.id(),
-        "GeoSN",
-        Product::SaxonyDtm.grid_km(),
-    );
-    let previous = std::mem::take(project.records().tiles);
-    let mut records = Vec::new();
-    for fetched in fetch_tiles(
-        fetcher,
-        cache,
-        Product::SaxonyDtm,
-        &tiles,
-        mode,
-        env.progress,
-    )? {
-        records.push(tile_record(fetched, &previous, env.progress));
-    }
-    *project.records().tiles = records;
-    project.records().ndsm_tiles.clear();
-    project.save()?;
-    let dsm = if skip_surface {
-        let cached = previous.iter().filter(|r| {
-            r.product == Product::SaxonyDsm
-                && TileId::parse(&r.tile).is_some_and(|t| {
-                    tiles.contains(&t) && cache.tile_path(r.product, t, r.published).exists()
-                })
-        });
-        let r = project.records();
-        r.tiles.extend(cached.cloned());
-        let kept: Vec<&str> = r
-            .tiles
-            .iter()
-            .filter(|r| r.product == Product::SaxonyDsm)
-            .map(|r| r.tile.as_str())
-            .collect();
-        say_kept_surface_tiles(&kept, env.progress);
-        Ok(Vec::new())
-    } else {
-        fetch_tiles_each(
-            fetcher,
-            cache,
-            Product::SaxonyDsm,
-            &tiles,
-            mode,
-            env.progress,
-        )
-    };
-    match dsm {
-        Ok(results) => {
-            for (tile, result) in results {
-                match result {
-                    Ok(fetched) => {
-                        project
-                            .records()
-                            .tiles
-                            .push(tile_record(fetched, &previous, env.progress))
-                    }
-                    Err(e) => (env.progress)(note!(
-                        "warning-model-tile-unavailable",
-                        model = crate::note::model(Product::SaxonyDsm.label()),
-                        tile = tile.name(),
-                        error = Arg::error(e)
-                    )),
-                }
-            }
-        }
-        Err(e) => (env.progress)(note!(
-            "warning-model-unavailable",
-            model = crate::note::model(Product::SaxonyDsm.label()),
-            error = Arg::error(e)
-        )),
-    }
-    let flight = || crate::sources::geosn::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        env,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(crate::sources::geosn::WMS),
-            "GeoSN",
-            &flight,
-            None,
-        ),
-    )?;
-    project.save()?;
-    Ok(())
 }
 
 /// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
@@ -3682,6 +3578,8 @@ mod tests {
     use crate::adapters::credit::{
         BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
     };
+    use crate::fetch::TilePaths as _;
+    use crate::sources::lgb::ProductTiles as _;
     use chrono::Datelike as _;
 
     #[test]

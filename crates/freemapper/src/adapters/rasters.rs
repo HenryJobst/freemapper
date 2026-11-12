@@ -5,16 +5,13 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{
-    DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, RasterKind, StoredRasters,
-};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
+use freemapper_adapters_de::geosn::GeosnBackend;
 use freemapper_adapters_de::lgb::LgbBackend;
-use freemapper_adapters_de::tile_fetch::{TileProducts, tile_inputs};
 
 use crate::crs::BoundingBox;
 use crate::project;
-use crate::sources::lgb::{Product, ProductTiles as _};
 use crate::sources::region::Provider;
 
 /// A raster fetch: the signature of [`RasterBackend::fetch`] without the backend.
@@ -25,7 +22,7 @@ type RasterFetch =
 pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
     let fetch: RasterFetch = match provider {
         Provider::Lgb => return Box::new(LgbBackend::new()),
-        Provider::GeoSn => project::fetch_geosn_rasters,
+        Provider::GeoSn => return Box::new(GeosnBackend::new()),
         Provider::LvermGeo => project::fetch_lvermgeo_rasters,
         Provider::Lgv => project::fetch_lgv_rasters,
         Provider::Hvbg => project::fetch_hvbg_rasters,
@@ -38,9 +35,9 @@ pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
     Box::new(LegacyBackend::new(provider, fetch))
 }
 
-/// The raster backend of a provider, as the enums describe it.
+/// The raster backend of a per-area provider, as the enums describe it. `derive` reads what
+/// the fetch stored in the project folder (the default of the trait).
 struct LegacyBackend {
-    provider: Provider,
     fetch: RasterFetch,
     info: ProviderInfo,
 }
@@ -48,18 +45,12 @@ struct LegacyBackend {
 impl LegacyBackend {
     fn new(provider: Provider, fetch: RasterFetch) -> Self {
         Self {
-            provider,
             fetch,
             info: ProviderInfo {
                 id: AdapterId::built_in(provider.id()),
                 cache_dir: cache_dir(provider).map(str::to_string),
                 terrain_source: provider.terrain_source().to_string(),
-                kind: match tile_products(provider) {
-                    Some(products) => RasterKind::Tiles {
-                        grid_km: products.dtm.grid_km(),
-                    },
-                    None => RasterKind::PerArea,
-                },
+                kind: RasterKind::PerArea,
             },
         }
     }
@@ -82,29 +73,6 @@ fn cache_dir(provider: Provider) -> Option<&'static str> {
     }
 }
 
-/// The tile products of a tile provider that is still a legacy backend: required, terrain and
-/// surface model. The per-area providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis
-/// NRW, LGLN, LVermGeo RP) store their height models per area and have none.
-fn tile_products(provider: Provider) -> Option<TileProducts> {
-    match provider {
-        Provider::GeoSn => Some(TileProducts {
-            required: &[Product::SaxonyDtm],
-            orthophoto: None,
-            dtm: Product::SaxonyDtm,
-            dsm: Product::SaxonyDsm,
-        }),
-        Provider::Lgb
-        | Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => None,
-    }
-}
-
 impl RasterBackend for LegacyBackend {
     fn provider(&self) -> &ProviderInfo {
         &self.info
@@ -117,18 +85,6 @@ impl RasterBackend for LegacyBackend {
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
         (self.fetch)(env, project, bbox)
-    }
-
-    fn derive_inputs(
-        &self,
-        env: &DeriveEnv<'_>,
-        stored: &StoredRasters<'_>,
-        area: &RasterArea,
-    ) -> DeriveInputs {
-        match tile_products(self.provider) {
-            Some(products) => tile_inputs(self.provider.id(), &products, env, stored, area),
-            None => DeriveInputs::stored(),
-        }
     }
 }
 
