@@ -1,7 +1,8 @@
 # The extra layers of an adapter: Berlin leaves the engine
 
 Date: 2026-11-13
-Status: Draft, for the user's approval. Reviewed by: session "freemapper-d3" (pending).
+Status: Draft, for the user's approval. Reviewed by session "freemapper-d3" on 2026-11-13 (owner of `build/`);
+its points are worked in.
 
 The user asked on 2026-11-12 for three restructurings left over from the adapter work (ADR 0082). Two are done
 (PR 57, the dead code; PR 59, the mouth of the Elbe). This is the third: "Berlin aus dem Kern lösen".
@@ -30,7 +31,10 @@ that a region is a folder and, where needed, a crate.
 ## Goals
 
 1. The engine names no region. `grep -ri berlin crates/freemapper/src` finds draw rules and tests, and nothing in
-   fetch, estimate, derive or the project file code that decides by a region's id.
+   fetch, estimate, derive or the project file code that decides by a region's id. Naming a layer is allowed: a
+   rule may read "the layer `gebaeudehoehen` of the set `berlin`" through the general reader, as the building
+   reader in `export.rs` and `stored_berlin_structures` do today by file name. What goes is the question "is this
+   Berlin?".
 2. One mechanism for extra layers: an adapter says which layer sets it has, the engine fetches, stores, lists and
    removes them in one place.
 3. Every output stays byte for byte: the golden net (G1 to G5) passes unchanged through every step, and the files
@@ -57,11 +61,26 @@ that a region is a folder and, where needed, a crate.
 
 - The trait method is `RegionAdapter::extras(&self) -> &[ExtraSet]`, with the default empty, as section 3.3 of the
   adapter design names it. An `ExtraSet` is data plus one function: its key (`berlin`, `alkis-nas`, `trees`), the
-  folder under `data/`, the layers for a map kind (key, file name), and `fetch(env, area, kind) -> Vec<Fetched>`.
+  folder under `data/`, the layers for a map kind (key, file name, the CRS its features are stored in, whether it
+  is a register), its item of the download estimate, and `fetch(env, area, kind) -> Vec<Fetched>`.
   It answers the design's open question "one trait or two" with one: the three families differ in what they
   fetch, not in how the engine stores, lists and removes them.
 - `nas()` and `tree_datasets()` of the trait stay as the data they are; the adapters of the states build their
-  `ExtraSet` from them. A caller that needs the service of the full ALKIS still gets it.
+  `ExtraSet` from them. The build modules keep reading the typed descriptions (`NasLayer`, `TreeDataset` with its
+  attribute names, Berlin's `ExtraLayer`) by key.
+- The general reader gives per stored layer: its key, the features, the day it was fetched and the CRS the
+  features are stored in. The three families differ there today: Berlin's layers are stored in EPSG:25833 and
+  reprojected when read, the full ALKIS is stored in the CRS of the map, the trees in the CRS of their dataset.
+  The reader hands the CRS on; it does not unify it.
+- The estimate does not change. Each family has a size per km² and the text of its item in `layers.rs` today; a
+  set carries both as data, and the engine builds the same items in the same order (G2 records them).
+- Registers: `build/dedup.rs` ranks objects of five Berlin layers as registers (the three registers and the two
+  tree cadastres); the adapter crate has a list of three for the credit lines. A layer of a set says whether it
+  is a register, `dedup::rank` asks that, and the rank of every object stays what it is. The signature of
+  `rank()` does not change.
+- Point clouds are not a set. They have a backend of their own (`PointCloudBackend`), records of their own and
+  files of hundreds of megabytes that `derive` reads as a raster input; nothing of them is stored as features of
+  the project.
 - "Near a region" has one meaning: the area, with the margin of the fetch, overlaps the boundary of the adapter
   that has the set. The three ways of asking for Berlin become that one question to the registry.
 - The K5 template is a raster template of an adapter: `RegionAdapter::templates(&self) -> &[RasterTemplate]`
@@ -69,17 +88,21 @@ that a region is a folder and, where needed, a crate.
   the adapters that cover the area; the record stays in the field `k5`.
 - The warning about Berlin's missing buildings in `derive` is asked of the adapter: a note id in its `RegionInfo`
   for "this region had no buildings", `None` for all others.
-- The GeoJSON reader moves to `freemapper-sources` under a neutral name; `object_polygon` moves to a build module
-  that is not named after a state; `BERLIN_REGISTERS` exists once, in the adapter crate.
+- The GeoJSON reader moves to `freemapper-sources` under a neutral name. `object_polygon` moves to
+  `build/geometry.rs`, unchanged and `pub(crate)`; it is not merged with `ticks::polygons`, which splits rings
+  at other flags.
 
 ## How it gets built
 
 Four steps, each its own pull request, each with the golden net unchanged:
 
 1. **One family in the engine.** The three hand copies in `project.rs` become one generic set of functions over a
-   small description (folder, records of the project file, note ids). Berlin, full ALKIS and trees are three
-   values of it. No trait changes yet. This is the largest step by lines and the one that needs the most care;
-   Berlin and Brandenburg are both recorded in G3 and G4.
+   small description (folder, records of the project file, note ids), in a module of their own
+   (`project/extras.rs`): `project.rs` has 14 000 lines, and "read what is stored" is the seam a later split of
+   the map pipeline hangs on. Berlin, full ALKIS and trees are three values of the description. No trait changes
+   yet. `build_project` in `export.rs` calls the stored layers of all three; its calls change as little as
+   possible. This is the largest step by lines and the one that needs the most care; Berlin and Brandenburg are
+   both recorded in G3 and G4.
 2. **The adapters say what they have.** `extras()` and `templates()` in the api crate; the adapters of the states
    return their sets; the engine reads them from the registry. The three ways of asking for Berlin collapse.
 3. **The engine names no region.** `touches_berlin`, the constant `BERLIN` in `project.rs`, the comparisons with
@@ -88,8 +111,9 @@ Four steps, each its own pull request, each with the golden net unchanged:
 4. **Records.** ADR for the change as built, the adapter guide (`docs/adapters/`) gets a paragraph on what a code
    adapter can add, the plan section of ADR 0082 is closed.
 
-Step 1 touches `project.rs` only. Steps 2 and 3 touch `build/` by `use` paths and by the place of
-`object_polygon`; session "freemapper-d3" sees each pull request before it merges.
+Step 1 touches `project.rs`, the new module and the calls in `export.rs`. Steps 2 and 3 touch `build/` by `use`
+paths, by `dedup::rank` and by the place of `object_polygon` (eleven files use it, counted again before the
+move); session "freemapper-d3" sees each pull request before it merges.
 
 ## Risks
 
@@ -103,7 +127,7 @@ Step 1 touches `project.rs` only. Steps 2 and 3 touch `build/` by `use` paths an
 ## Left to the builder
 
 The names of the generic functions and of the description type; whether `ExtraSet::fetch` returns features or
-writes through a sink; where exactly `object_polygon` lands; the order of the sub-steps inside step 1.
+writes through a sink; the order of the sub-steps inside step 1.
 
 ## Questions for the user
 
