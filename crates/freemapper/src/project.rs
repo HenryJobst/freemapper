@@ -51,8 +51,13 @@ use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
     contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
 };
+use crate::derive::landforms::{
+    LandformKind, height_jumps, knolls_and_depressions, landforms_from_geojson,
+    landforms_to_geojson,
+};
 use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
+use crate::derive::relief::{RELIEF_SPAN_M, local_relief, relief_shade};
 use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
@@ -290,6 +295,23 @@ impl MapKind {
         match self {
             Self::Schoolyard => 1.5,
             Self::Sprint => 2.0,
+        }
+    }
+
+    /// Width of the mean the local relief template is measured against (`derive/relief.rs`).
+    pub fn relief_sigma_m(self) -> f64 {
+        match self {
+            Self::Schoolyard => 3.0,
+            Self::Sprint => 5.0,
+        }
+    }
+
+    /// Smallest height of a knoll, depth of a depression or drop of a bank candidate
+    /// (`derive/landforms.rs`).
+    pub fn landform_min_height_m(self) -> f64 {
+        match self {
+            Self::Schoolyard => 0.5,
+            Self::Sprint => 1.0,
         }
     }
 
@@ -727,6 +749,7 @@ const NORTH_LINE_SPACING_MM: f64 = 30.0;
 pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
+pub(crate) const RELIEF_RELPATH: &str = "templates/relief.png";
 pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
@@ -739,6 +762,9 @@ const K5_DATASET_DATE: &str = "2026-01-02";
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
+/// Knolls, depressions, banks and cliffs from `derive` (GeoJSON in the map's CRS), input of the
+/// export.
+const LANDFORMS_RELPATH: &str = "data/landforms.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
 const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
 /// ALKIS land use around the map area (GeoJSON in the map's CRS), input of the export.
@@ -2564,6 +2590,11 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let black_deg = project.map_kind.slope_black_deg();
     write_gray_png(&slope_shade(&slope_deg(&dtm), black_deg), dir, &slope_path)?;
+    let relief_path = dir.join(RELIEF_RELPATH);
+    progress(note!("progress-writing", path = RELIEF_RELPATH));
+    stop_if(cancelled)?;
+    let relief = local_relief(&dtm, project.map_kind.relief_sigma_m());
+    write_gray_png(&relief_shade(&relief, RELIEF_SPAN_M), dir, &relief_path)?;
 
     progress(note!("progress-writing", path = CONTOURS_RELPATH));
     stop_if(cancelled)?;
@@ -2575,8 +2606,19 @@ pub fn derive_project_cancellable(
     );
     let contours_path = dir.join(CONTOURS_RELPATH);
     write_inside(dir, &contours_path, contours_to_geojson(&lines).as_bytes())?;
+    progress(note!("progress-writing", path = LANDFORMS_RELPATH));
+    stop_if(cancelled)?;
+    let min_height_m = project.map_kind.landform_min_height_m();
+    let mut landforms = knolls_and_depressions(&dtm, project.scale_denominator, min_height_m);
+    landforms.extend(height_jumps(&dtm, project.scale_denominator, min_height_m));
+    let landforms_path = dir.join(LANDFORMS_RELPATH);
+    write_inside(
+        dir,
+        &landforms_path,
+        landforms_to_geojson(&landforms).as_bytes(),
+    )?;
 
-    let mut written = vec![orthophoto, hillshade_path, slope_path];
+    let mut written = vec![orthophoto, hillshade_path, slope_path, relief_path];
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
         progress(note!("warning-berlin-buildings-missing"));
     }
@@ -2655,6 +2697,7 @@ pub fn derive_project_cancellable(
         written.push(ndsm_path);
     }
     written.push(contours_path);
+    written.push(landforms_path);
     Ok(written)
 }
 
@@ -5566,10 +5609,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 templates.join("orthophoto.jpg"),
                 templates.join("hillshade.png"),
                 templates.join("slope.png"),
-                dir.path().join("data/contours.geojson")
+                templates.join("relief.png"),
+                dir.path().join("data/contours.geojson"),
+                dir.path().join("data/landforms.geojson")
             ]
         );
-        for file in ["orthophoto.jgw", "hillshade.pgw", "slope.pgw"] {
+        for file in ["orthophoto.jgw", "hillshade.pgw", "slope.pgw", "relief.pgw"] {
             assert!(templates.join(file).exists(), "{file} missing");
         }
     }
@@ -5614,10 +5659,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 "templates/orthophoto.jpg",
                 "templates/hillshade.png",
                 "templates/slope.png",
+                "templates/relief.png",
                 "templates/candidates.omap"
             ]
         );
-        assert!(map.contains(r#"first_front_template="3""#), "{map}");
+        assert!(map.contains(r#"first_front_template="4""#), "{map}");
         assert!(map.contains(r#"type="TemplateImage""#));
         let lgb = "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert";
         assert!(map.contains(lgb));
@@ -5642,7 +5688,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
 
         let outcome = run(dir.path(), &fetcher, &cache, false);
-        assert_eq!(outcome.templates.len(), 4, "three images and the contours");
+        assert_eq!(
+            outcome.templates.len(),
+            6,
+            "four images, the contours and the landforms"
+        );
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
     }
 
@@ -5757,7 +5807,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         .unwrap_err();
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
-        assert_eq!(outcome.templates.len(), 4);
+        assert_eq!(outcome.templates.len(), 6);
         assert!(part_files(dir.path()).is_empty());
     }
 
@@ -5811,7 +5861,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             derive_project(dir.path(), &cache, &mut |_| {})
                 .unwrap()
                 .len(),
-            4
+            6
         );
     }
 
@@ -12582,8 +12632,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "{ndsm_ref}"
         );
         assert!(
-            map.contains(r#"first_front_template="4""#),
-            "four rasters behind the map"
+            map.contains(r#"first_front_template="5""#),
+            "five rasters behind the map"
         );
     }
 
@@ -12646,6 +12696,79 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             })
             .collect();
         assert_eq!(heights, ["63"]);
+    }
+
+    #[test]
+    fn landforms_become_candidates_but_not_on_buildings_or_far_away() {
+        use crate::derive::landforms::{Landform, LandformKind, landforms_to_geojson};
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        assert!(dir.path().join(LANDFORMS_RELPATH).exists());
+        let point = |kind, p: (f64, f64), height_m| Landform {
+            kind,
+            points: vec![p],
+            rotation_deg: if kind == LandformKind::ElongatedKnoll {
+                90.0
+            } else {
+                0.0
+            },
+            height_m,
+        };
+        let forms = [
+            point(LandformKind::Knoll, (421_620.0, 5_821_700.0), 1.1),
+            point(LandformKind::ElongatedKnoll, (421_630.0, 5_821_712.0), 1.2),
+            point(LandformKind::Depression, (421_625.0, 5_821_690.0), 1.3),
+            Landform {
+                kind: LandformKind::Bank,
+                points: vec![(421_600.0, 5_821_680.0), (421_640.0, 5_821_680.0)],
+                rotation_deg: 0.0,
+                height_m: 1.4,
+            },
+            // On the synthetic school building (10 m square at 421 605 / 5 821 730).
+            point(LandformKind::Knoll, (421_610.0, 5_821_735.0), 1.5),
+            // 500 m away, beyond map area and buffer.
+            point(LandformKind::Knoll, (422_200.0, 5_821_700.0), 1.6),
+        ];
+        std::fs::write(
+            dir.path().join(LANDFORMS_RELPATH),
+            landforms_to_geojson(&forms),
+        )
+        .unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        // Contour heights are whole metres; the landforms carry one decimal.
+        let heights: Vec<&str> = candidates
+            .match_indices(r#"<t k="freemapper:height">"#)
+            .map(|(i, m)| {
+                let rest = &candidates[i + m.len()..];
+                &rest[..rest.find('<').unwrap()]
+            })
+            .filter(|h| h.contains('.'))
+            .collect();
+        assert_eq!(heights, ["1.1", "1.2", "1.3", "1.4"]);
+        let symbol_set = ProjectFile::load(dir.path()).unwrap().map_kind.symbol_set();
+        for (code, object_type) in [("109", 0), ("110", 0), ("111", 0), ("104", 1)] {
+            let id = symbol_set.id_for_code(code).unwrap();
+            let start = format!(r#"<object type="{object_type}" symbol="{id}""#);
+            assert!(candidates.contains(&start), "{code}");
+        }
+        // The map itself stays without them.
+        let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
+        assert!(!map.contains(">1.1<"));
+        // The terrain model has no source rank: `balanced` leaves the bank a candidate, the
+        // group `slopes` set to the map moves it there; knolls belong to no group.
+        use crate::build::content::{Group, Place, Profile};
+        let mut content = ContentSettings::with_profile(Profile::Balanced);
+        let on_map = |dir: &Path| {
+            export_starter_project(dir, true).unwrap();
+            let map = std::fs::read_to_string(map_path(dir)).unwrap();
+            (map.contains(">1.4<"), map.contains(">1.1<"))
+        };
+        set_content(dir.path(), Some(content.clone())).unwrap();
+        assert_eq!(on_map(dir.path()), (false, false));
+        content.set(Group::Slopes, Some(Place::Map));
+        set_content(dir.path(), Some(content)).unwrap();
+        assert_eq!(on_map(dir.path()), (true, false));
     }
 
     #[test]

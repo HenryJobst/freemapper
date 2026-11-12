@@ -78,7 +78,7 @@ pub fn read_float_raster(path: &Path) -> Result<Raster<f32>, DeriveError> {
 
 /// Height gradient (dz/de, dz/dn) at a cell after Horn, with edge cells replicated and the
 /// spacing reduced accordingly; `None` if a height in the 3 × 3 window is missing.
-fn gradient(dtm: &Raster<f32>, x: u32, y: u32) -> Option<(f64, f64)> {
+pub(crate) fn gradient(dtm: &Raster<f32>, x: u32, y: u32) -> Option<(f64, f64)> {
     let (w, h) = (dtm.grid.width, dtm.grid.height);
     let (left, right) = (x.saturating_sub(1), (x + 1).min(w - 1));
     let (top, bottom) = (y.saturating_sub(1), (y + 1).min(h - 1));

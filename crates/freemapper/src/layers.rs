@@ -15,8 +15,8 @@ use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH,
-    NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, SLOPE_RELPATH, check_area,
-    check_size, map_crs, map_path,
+    NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH,
+    check_area, check_size, map_crs, map_path,
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
@@ -290,7 +290,7 @@ const DERIVE_STEP: &str = "freemapper derive or run (MCP: start_pipeline)";
 const FETCH_STEP: &str = "freemapper fetch or run (MCP: start_pipeline); Berlin only";
 
 /// Raster templates that have previews.
-const RASTER_LAYERS: [(&str, &str, &str); 5] = [
+const RASTER_LAYERS: [(&str, &str, &str); 6] = [
     (
         "orthophoto",
         ORTHOPHOTO_RELPATH,
@@ -305,6 +305,11 @@ const RASTER_LAYERS: [(&str, &str, &str); 5] = [
         "slope",
         SLOPE_RELPATH,
         "slope of the terrain: banks and ramps",
+    ),
+    (
+        "relief",
+        RELIEF_RELPATH,
+        "local relief: banks, knolls, hollows and ditches",
     ),
     (
         "ndsm",
@@ -1987,6 +1992,7 @@ mod tests {
                 "orthophoto",
                 "hillshade",
                 "slope",
+                "relief",
                 "ndsm",
                 "k5"
             ]
@@ -1999,7 +2005,10 @@ mod tests {
             .filter(|l| l.ready)
             .map(|l| l.name)
             .collect();
-        assert_eq!(ready, ["orthophoto", "hillshade", "slope", "ndsm"]);
+        assert_eq!(
+            ready,
+            ["orthophoto", "hillshade", "slope", "relief", "ndsm"]
+        );
     }
 
     #[test]

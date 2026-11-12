@@ -1,8 +1,10 @@
-//! Derived templates: orthophoto mosaic, hillshade, slope.
+//! Derived templates: orthophoto mosaic, hillshade, slope, local relief; terrain candidates.
 
 pub mod contours;
+pub mod landforms;
 pub mod ndsm;
 pub mod orthophoto;
+pub mod relief;
 pub mod terrain;
 
 use std::path::PathBuf;

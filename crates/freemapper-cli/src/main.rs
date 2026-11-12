@@ -125,7 +125,7 @@ enum Commands {
         #[command(flatten)]
         adapters: AdapterArgs,
     },
-    /// Compute the templates (orthophoto, hillshade, slope, nDSM) and contours from the fetched data.
+    /// Compute the templates (orthophoto, hillshade, slope, local relief, nDSM), contours and landforms from the fetched data.
     Derive {
         /// Project folder.
         dir: PathBuf,
