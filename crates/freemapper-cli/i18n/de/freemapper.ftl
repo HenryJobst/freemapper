@@ -79,7 +79,7 @@ cli-adapters-no-user-dir = Dieses System hat keinen Ordner für Ihre Adapter; FR
 
 ## adapters allow-host (ADR 0110)
 
-cli-allow-host-added = freemapper darf für { $name } jetzt auch { $host } anfragen. Der Eintrag steht in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` nimmt ihn zurück
+cli-allow-host-added = freemapper darf für { $name } jetzt auch { $host } anfragen. Der Eintrag steht in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` nimmt ihn zurück. Eine Gebietsseite oder ein KI-Assistent, der schon läuft, liest den Eintrag erst nach einem Neustart
 cli-allow-host-already = { $host } ist für { $name } schon freigegeben
 cli-allow-host-declared = Der Adapter für { $name } nennt { $host } selbst; es gibt nichts freizugeben
 cli-allow-host-refused = { $host } lässt sich nicht freigeben: { $reason }

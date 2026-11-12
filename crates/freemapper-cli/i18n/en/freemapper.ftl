@@ -79,7 +79,7 @@ cli-adapters-no-user-dir = This system has no folder for your adapters; FREEMAPP
 
 ## adapters allow-host (ADR 0110)
 
-cli-allow-host-added = freemapper may now also ask { $host } for { $name }. The entry is in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` takes it back
+cli-allow-host-added = freemapper may now also ask { $host } for { $name }. The entry is in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` takes it back. An area page or an AI assistant that is running reads the entry when it is started again
 cli-allow-host-already = { $host } is already allowed for { $name }
 cli-allow-host-declared = the adapter of { $name } names { $host } itself; nothing to allow
 cli-allow-host-refused = { $host } cannot be allowed: { $reason }

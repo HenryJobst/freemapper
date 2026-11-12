@@ -1,5 +1,8 @@
 use std::process::Command;
 
+mod isolation;
+use isolation::isolated;
+
 #[cfg(all(feature = "test-stub", debug_assertions))]
 mod support;
 #[cfg(all(unix, feature = "test-stub", debug_assertions))]
@@ -9,14 +12,14 @@ use support::{MANIFEST_PATH, UpdateStub, copied_program};
 
 /// The program with English texts, whatever language the machine that runs the tests has.
 fn freemapper() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command.env("FREEMAPPER_LANG", "en");
     command
 }
 
 /// The program with the language taken from `lang` alone.
 fn freemapper_in(lang: &[(&str, &str)]) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     for name in ["FREEMAPPER_LANG", "LC_ALL", "LC_MESSAGES", "LANG"] {
         command.env_remove(name);
     }
@@ -1087,7 +1090,7 @@ fn warnings_of_the_engine_follow_the_language() {
 
 /// `freemapper update` of `program` in English, without the update switches of the environment.
 fn update_of(program: &std::path::Path) -> Command {
-    let mut command = Command::new(program);
+    let mut command = isolated(Command::new(program));
     command
         .env("FREEMAPPER_LANG", "en")
         .env_remove("FREEMAPPER_UPDATE")
@@ -1457,12 +1460,12 @@ mod update_check {
 
     use freemapper_update::{RecordResult, load_record};
 
-    use super::{Command, MANIFEST_PATH, UpdateStub, copied_program};
+    use super::{Command, MANIFEST_PATH, UpdateStub, copied_program, isolated};
 
     /// `program` in English, talking to `stub`, without `CI` and the update switches of the
     /// environment, with its settings and its home folder (and so the default cache) in `dir`.
     fn checking(program: &Path, stub: &UpdateStub, dir: &Path) -> Command {
-        let mut command = Command::new(program);
+        let mut command = isolated(Command::new(program));
         command
             .env("FREEMAPPER_LANG", "en")
             .env_remove("CI")

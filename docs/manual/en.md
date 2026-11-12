@@ -949,6 +949,9 @@ left out with a warning that names the file and the line; the other adapters sti
 folder cannot replace a built-in one. If it lies on the ground of another adapter, the list names that one: a
 map there gets the objects of both.
 
+The area page and the AI assistant read the adapter folder when they start. If one of them is already running
+when you add or change an adapter, close it and start it again; until then it does not know the adapter.
+
 An adapter makes freemapper ask the servers it names, and no others. Still, read a manifest before you copy it
 into your adapter folder: `[net] hosts` lists every server.
 
@@ -963,8 +966,8 @@ services of the adapter for a small box inside its boundary (150 m by 150 m is e
 for each capability:
 
 ```sh
-freemapper adapters check ~/my-adapters/saarland
-freemapper adapters check ~/my-adapters/saarland --live --bbox 6.9930,49.2330,6.9952,49.2344
+freemapper adapters check ~/my-adapters/elbaue
+freemapper adapters check ~/my-adapters/elbaue --live --bbox 12.2430,51.8350,12.2452,51.8364
 ```
 
 The exit code is 0 when the adapter passes, 1 with findings and 2 when the check could not run.
@@ -985,9 +988,12 @@ itself:
 freemapper adapters allow-host hessen new-server.hessen.de
 ```
 
+The area page and the AI assistant read the allowed hosts when they start. If the fetch failed there, close
+the page (or quit the assistant) and start it again after the command; until then it refuses the host as before.
+
 Take the host from the message and check that it belongs to the agency of the state. Report the move (chapter
-16), so that the next version brings the host. The next command you then run in a terminal (other than `adapters
-list`) says in a warning that your entry is no longer needed and removes it. The area page and the AI assistant
+16), so that the next version brings the host. Once a new version brings the host, the next `find`, `init`,
+`fetch`, `derive`, `export` or `run` says in a warning that your entry is no longer needed and removes it. The area page and the AI assistant
 through MCP never change the file.
 
 The allowed hosts are in `allowed-hosts.toml` in your configuration folder (`freemapper` under
@@ -1174,7 +1180,7 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
 - `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <year>, dl-de/zero-2-0` (North Rhine-Westphalia; the licence requires neither attribution nor a change note, freemapper names the source anyway)
 - `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` and the licence link https://creativecommons.org/licenses/by/4.0/ (Lower Saxony; `<year>` is the download year)
 - `©GeoBasis-DE / LVermGeoRP<year>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]` and the licence note `Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0` (Rhineland-Palatinate; `<year>` is the download year, and the licence note goes only into the map notes and `ATTRIBUTION.txt`)
-- `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert` (Saarland; `<year>` is the download year)
+- `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert` and the same licence note as for Rhineland-Palatinate (Saarland; `<year>` is the download year, and the licence note goes only into `ATTRIBUTION.txt` and the map notes)
 - `Created with freemapper – https://github.com/HenryJobst/freemapper`
 
 Keep these lines on printed and published maps.

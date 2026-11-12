@@ -5,6 +5,9 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod isolation;
+use isolation::isolated;
+
 use serde_json::{Value, json};
 
 const FIXTURE: &str = concat!(
@@ -25,7 +28,7 @@ impl Selector {
     }
 
     fn start_with_env(dir: &Path, cache: &Path, extra: &[&str], env: &[(&str, &str)]) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let mut child = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .env_remove("CI")
             .envs(env.iter().copied())
@@ -362,7 +365,7 @@ fn save_changes_an_existing_area() {
     let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(&project)
@@ -408,7 +411,7 @@ fn page_on_a_project() -> (
     let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(&project)
@@ -729,7 +732,7 @@ fn save_into_a_project_with_a_map_says_so() {
         vec!["init", project.to_str().unwrap(), "--geojson", FIXTURE],
         vec!["export", project.to_str().unwrap()],
     ] {
-        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .args(&args)
             .stdout(Stdio::null())
@@ -755,7 +758,7 @@ fn busy_port_names_the_port() {
     let selector = Selector::start(&dir.path().join("a"), cache.path(), &[]);
     let (address, _) = selector.address_and_token();
     let port = address.rsplit(':').next().unwrap().to_string();
-    let output = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let output = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("select")
         .arg(dir.path().join("b"))
@@ -1045,7 +1048,7 @@ fn project_answer_carries_the_content_settings() {
         state["content_options"]["places"],
         json!(["map", "candidates", "off"])
     );
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(project.parent().unwrap().join("other"))
@@ -1294,7 +1297,7 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
     let freemapper = |args: &[&str]| {
-        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .args(args)
             .stdout(Stdio::null())

@@ -59,7 +59,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF** und
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz oder dem Saarland**. Bremen und weitere Länder folgen.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz oder dem Saarland**. Bremen und weitere Bundesländer folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -986,6 +986,10 @@ trotzdem. Was am Manifest nicht stimmt, steht in der Warnung auf Englisch, mit e
 Klammern. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen. Liegt er auf dem Gebiet eines anderen
 Adapters, nennt die Liste diesen: Eine Karte dort bekommt die Objekte beider.
 
+Die Gebietsseite und der KI-Assistent lesen den Adapterordner beim Start. Läuft eines von beiden schon, wenn
+Sie einen Adapter ergänzen oder ändern, schließen Sie es und starten Sie es neu; bis dahin kennt es den Adapter
+nicht.
+
 Ein Adapter lässt freemapper die Server anfragen, die er nennt, und keine anderen. Lesen Sie ein Manifest
 trotzdem, bevor Sie es in Ihren Adapterordner kopieren: `[net] hosts` zählt jeden Server auf.
 
@@ -1000,8 +1004,8 @@ zusätzlich die Dienste des Adapters für ein kleines Rechteck innerhalb seiner 
 genügen) und sagt je Fähigkeit, was ankam:
 
 ```sh
-freemapper adapters check ~/meine-adapter/saarland
-freemapper adapters check ~/meine-adapter/saarland --live --bbox 6.9930,49.2330,6.9952,49.2344
+freemapper adapters check ~/meine-adapter/elbaue
+freemapper adapters check ~/meine-adapter/elbaue --live --bbox 12.2430,51.8350,12.2452,51.8364
 ```
 
 Der Exit-Code ist 0, wenn der Adapter besteht, 1 bei Befunden und 2, wenn die Prüfung nicht laufen konnte.
@@ -1022,10 +1026,14 @@ einen Host frei, bis eine neue Version von freemapper ihn selbst kennt:
 freemapper adapters allow-host hessen neuer-server.hessen.de
 ```
 
+Die Gebietsseite und der KI-Assistent lesen die freigegebenen Hosts beim Start. Ist der Abruf dort
+gescheitert, schließen Sie die Seite (oder beenden Sie den Assistenten) und starten Sie sie nach dem Befehl neu;
+bis dahin lehnt sie den Host weiter ab.
+
 Nehmen Sie den Host aus der Meldung und prüfen Sie, dass er zum Amt des Bundeslands gehört. Melden Sie den Umzug
-(Kapitel 16), damit die nächste Version den Host mitbringt. Der nächste Befehl, den Sie danach im Terminal
-ausführen (außer `adapters list`), sagt dann in einer Warnung, dass Ihr Eintrag überflüssig ist, und entfernt
-ihn. Die Gebietsseite und der KI-Assistent über MCP ändern die Datei nie.
+(Kapitel 16), damit die nächste Version den Host mitbringt. Bringt eine neue Version den Host
+mit, sagt das nächste `find`, `init`, `fetch`, `derive`, `export` oder `run` in einer Warnung, dass Ihr Eintrag
+überflüssig ist, und entfernt ihn. Die Gebietsseite und der KI-Assistent über MCP ändern die Datei nie.
 
 Die freigegebenen Hosts stehen in `allowed-hosts.toml` in Ihrem Konfigurationsordner (`freemapper` unter
 `~/Library/Application Support`, `~/.config` oder `%APPDATA%`), und nur dort: Ein Projektordner, eine
@@ -1216,7 +1224,7 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 - `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <Jahr>, dl-de/zero-2-0` (Nordrhein-Westfalen; die Lizenz verlangt weder Namensnennung noch Änderungsvermerk, freemapper nennt die Quelle trotzdem)
 - `© GeoBasis-DE/LGLN <Jahr>, Daten geändert, CC BY 4.0` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Niedersachsen; `<Jahr>` ist das Jahr des Downloads)
 - `©GeoBasis-DE / LVermGeoRP<Jahr>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]` und der Lizenzhinweis `Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0` (Rheinland-Pfalz; `<Jahr>` ist das Jahr des Downloads, der Lizenzhinweis steht nur in den Kartennotizen und in `ATTRIBUTION.txt`)
-- `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert` (Saarland; `<Jahr>` ist das Jahr des Downloads)
+- `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert` und derselbe Lizenzhinweis wie bei Rheinland-Pfalz (Saarland; `<Jahr>` ist das Jahr des Downloads, der Lizenzhinweis steht nur in `ATTRIBUTION.txt` und in den Kartennotizen)
 - `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper`
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.

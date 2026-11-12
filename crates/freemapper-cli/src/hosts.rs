@@ -366,7 +366,8 @@ mod tests {
             line,
             format!(
                 "freemapper may now also ask cdn.example.net for Hesse. The entry is in {}; \
-                 `freemapper adapters disallow-host hessen cdn.example.net` takes it back",
+                 `freemapper adapters disallow-host hessen cdn.example.net` takes it back. An area \
+                 page or an AI assistant that is running reads the entry when it is started again",
                 path.display()
             )
         );

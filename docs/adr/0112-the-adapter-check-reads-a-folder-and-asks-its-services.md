@@ -5,7 +5,8 @@ Status: Accepted
 
 Part of stage E of [0082](0082-region-adapters-trait-and-manifests.md) (task E2). Builds on
 [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) and
-[0107](0107-adapter-manifests-format-1-as-built.md). Number 0108 is taken by work that is not on `main` yet.
+[0107](0107-adapter-manifests-format-1-as-built.md). First numbered 0109; renumbered when
+`main` took 0108 and 0109.
 
 ## Context
 

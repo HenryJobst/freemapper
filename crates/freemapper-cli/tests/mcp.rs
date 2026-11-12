@@ -3,6 +3,9 @@
 use std::io::{BufRead, BufReader, Read as _, Write};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 
+mod isolation;
+use isolation::isolated;
+
 use serde_json::{Value, json};
 
 #[cfg(all(feature = "test-stub", debug_assertions))]
@@ -31,7 +34,7 @@ impl Session {
 
     /// A server whose program language is `lang`.
     fn start_in(cache: &std::path::Path, lang: &str) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+        let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
         command
             .env("FREEMAPPER_LANG", lang)
             .env_remove("FREEMAPPER_UPDATE_TEST_BASE")
@@ -280,7 +283,7 @@ fn mcp_never_loads_the_adapters_of_a_project() {
     let user = tempfile::tempdir().unwrap();
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("p");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command
         .env("FREEMAPPER_ADAPTER_DIR", user.path())
         .env_remove("FREEMAPPER_UPDATE_TEST_BASE");
@@ -340,7 +343,7 @@ fn mcp_reads_the_allowed_hosts_and_never_writes_them() {
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     let stored = "[allow]\nhessen = [\"gds.hessen.de\", \"cdn.example.net\"]\n";
     std::fs::write(&file, stored).unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command
         .env("HOME", home.path())
         .env("XDG_CONFIG_HOME", home.path().join("xdg"))
@@ -691,7 +694,7 @@ fn mcp_describes_its_tools_in_the_program_language() {
 #[test]
 fn mcp_update_tools_in_a_source_build_say_how_to_update() {
     let cache = tempfile::tempdir().unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command.env_remove("FREEMAPPER_UPDATE_TEST_BASE");
     let mut session = Session::start_with(command, cache.path());
     let source_build = "This freemapper was built from source. Update it with git pull and cargo build --release --locked.";
@@ -722,12 +725,13 @@ mod update {
     use serde_json::json;
 
     use super::Session;
+    use super::isolated;
     use super::support::{MANIFEST_PATH, UpdateStub, copied_program};
 
     /// `program` as a server talking to `stub`, without `CI` and the update switches of the
     /// environment, with its settings in `dir`.
     fn checking(program: &Path, stub: &UpdateStub, dir: &Path) -> Command {
-        let mut command = Command::new(program);
+        let mut command = isolated(Command::new(program));
         command
             .env_remove("CI")
             .env_remove("FREEMAPPER_UPDATE")
