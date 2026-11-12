@@ -48,11 +48,12 @@ the tile proxy of the area page asked whatever address they were given.
 - With a policy (`HttpFetcher::with_policy`) the fetcher follows redirects by hand: at most three, and each target
   must pass the policy like the first URL. A redirect to another host, to `http` or to an IP address ends the
   request. A pinned host follows no redirect, as before.
-- An adapter that came from a folder has a policy of its own: the hosts of its manifest and no other
-  (`RegionAdapter::policy`). Whatever is asked for it goes through a fetcher bound to that policy
-  (`Fetcher::bound_to`, `policy::PolicyFetcher`): its ALKIS, its rasters, its NAS service and its tree
-  cadastres. A fetcher that cannot bind itself, a replay in a test, still has every URL checked before it is
-  asked.
+- Every adapter has a policy of its own: the hosts of its manifest and no other (`RegionAdapter::policy`). That
+  holds for the built-in states and for an adapter from a folder alike. Whatever is asked for an adapter goes
+  through a fetcher bound to its policy (`Fetcher::bound_to`, `policy::PolicyFetcher`): its ALKIS, its rasters,
+  its NAS service, its tree cadastres, and for Berlin the registers and the K5 map that the engine fetches
+  itself. The HTTP fetcher keeps one client per policy, so connections are reused. A fetcher that cannot bind
+  itself, a replay in a test, still has every URL checked before it is asked.
 - A request freemapper does not send is `FetchError::NotAllowed` with the URL and the reason. It is not asked
   again. The URL is shown without query and fragment, since a signed link carries its token there.
 - The self-update keeps its own, narrower rule: the hosts of `freemapper_update::ALLOWED_HOSTS`, each hop through
@@ -68,14 +69,19 @@ the tile proxy of the area page asked whatever address they were given.
 - A manifest cannot make freemapper ask the user's router, a service on the same computer or the metadata address
   of a cloud machine, neither by naming it nor through DNS nor through a redirect. Behind a proxy the part about
   DNS does not hold (see below).
-- The fetcher of a run has no host list of its own, so the built-in states ask as before: the address check
-  holds, and their redirects are followed as before. An adapter from a folder changes nothing for them. Their
-  manifests declare their hosts already, and a test compares the lists with the recorded requests. Holding them
-  to the lists waits for live runs of all states, because no recording shows a redirect.
-- The list of an adapter from a folder is its own. It cannot ask the host of another adapter, nor the hosts of
-  the OSM extracts and the place search, and a redirect cannot lead it there.
-- A service of such an adapter that redirects to a host its manifest does not list fails with a message that
-  names the host. The fix is one line in `[net] hosts`, which a reviewer sees.
+- The fetcher of a run has no host list of its own. It serves the requests that belong to no adapter (the OSM
+  extracts, the place search); those keep the address check and follow redirects as before.
+- The list of an adapter is its own. It cannot ask the host of another adapter, nor the hosts of the OSM
+  extracts and the place search, and a redirect cannot lead it there. An adapter from a folder adds no host to
+  a built-in state.
+- The built-in states were held to their lists only after the lists were checked three ways: a test compares
+  them with the recorded requests, the golden net replays every state behind its list, and on 2026-11-12 each
+  state was fetched live at two places with `adapters check --live`
+  ([0109](0109-the-adapter-check-reads-a-folder-and-asks-its-services.md)), 22 runs without a refused request.
+- A service that redirects to a host its manifest does not list fails with a message that names the host. The
+  fix is one line in `[net] hosts`, which a reviewer sees. For a built-in state that line comes with a release;
+  until then maps of that state fail where they worked before, if an agency moves its downloads behind a
+  redirect to a new host.
 - One request of an adapter does not pass the fetcher: the aerial photo on the map of the area page. The browser
   asks the WMS of `[preview]` itself, so the address check does not apply there, and a declared name that
   resolves into the local network is reachable from the page. Only adapters of the user's own folder reach the

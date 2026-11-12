@@ -567,15 +567,15 @@ and the code differ, the code and the ADRs hold:
   fetch says more than a table can.
 - D6: all eleven states switched in one commit; the golden net did not change. The adapter of a state keeps code
   for the credits of Brandenburg, Berlin and Saxony, for the estimate, for Berlin's ALKIS and for the boundary
-  (one parse for the adapter and the agency modules). The fetcher does not enforce the declared hosts for the
-  built-in adapters alone: that switch needs live runs of all states.
+  (one parse for the adapter and the agency modules). The declared hosts were not enforced for the built-in
+  adapters at that point; see the last item of stage E.
 - D7: `adapters list` also takes `--project <dir>`. `--adapters-from-project` is a switch of `init`, `fetch`,
   `derive`, `export` and `run`; `select` and `mcp` have none. The requests for an adapter from a folder (ALKIS, rasters,
-  NAS, tree cadastres) stay on its declared hosts, redirects included; the built-in states are not held to
-  theirs by it. A relative `FREEMAPPER_ADAPTER_DIR` is ignored. An adapter on the ground of another names it.
+  NAS, tree cadastres) stay on its declared hosts, redirects included; it changes nothing for the built-in
+  states. A relative `FREEMAPPER_ADAPTER_DIR` is ignored. An adapter on the ground of another names it.
 
-Left for later: the host policy for the built-in adapters alone (after live runs), the raster code and the WFS
-constants that the manifests made double, and the estimate inside the backends.
+Left for later: the raster code and the WFS constants that the manifests made double, and the estimate inside
+the backends.
 
 ## Stage E as built (2026-11-12)
 
@@ -587,6 +587,12 @@ constants that the manifests made double, and the estimate inside the backends.
   check fetches a project without the OSM extract (`project::fetch_project_sources`) with the checked adapter as
   the only one in the registry. "Boundary area plausible for the object-id prefix" became two warnings: an area
   under 1 km² or over 2 million km², and a prefix a built-in adapter has.
+- The host policy of the built-in states (D2 of the plan, left open in D6): on 2026-11-12 every state was
+  fetched live at two places with `adapters check --live`, held to its declared hosts, 22 runs without a
+  refused request. Since then `StateAdapter` asks through the policy of its manifest (ALKIS, also Berlin's code,
+  rasters, NAS, trees), and the engine asks Berlin's registers and K5 through Berlin's policy. The golden net
+  replays all eleven states behind their lists. `declared_policy()` (the union) is gone; `HttpFetcher` keeps
+  one client per policy.
 
 ---
 

@@ -61,7 +61,7 @@ The design sketched the format; building it against the eleven states changed so
 - A new state with standard services is a manifest, a boundary file and one line that registers it; a state with
   special rasters adds a backend. Folders outside the program are loaded by task D7.
 - A manifest states the hosts its state asks, and a test compares that list with the recorded requests of the
-  golden net. The fetcher does not enforce the list yet: a redirect to a host nobody listed would then fail, and
-  no golden sees redirects. That switch follows with live runs of all states.
+  golden net. When this was decided the list was not enforced for the built-in states, because no golden sees a
+  redirect. Since the live runs of 2026-11-12 every state is held to its list (0106).
 - Two things are said twice for now: the WFS constants in `freemapper-sources` beside the manifests, and the raster
   code of Saxony-Anhalt beside its tables. Tests hold them equal until the constants go.

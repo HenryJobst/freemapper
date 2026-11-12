@@ -26,8 +26,8 @@ pub trait RegionAdapter: Send + Sync {
     }
 
     /// The hosts every request for this adapter is held to, redirects included: an adapter
-    /// that came from a folder asks the hosts its manifest declares and no other. `None`: the
-    /// adapter is part of the program and asks as its code asks.
+    /// asks the hosts its manifest declares and no other, whether it is built into the program
+    /// or came from a folder. `None`: the adapter has no manifest and asks as its code asks.
     fn policy(&self) -> Option<&UrlPolicy> {
         None
     }

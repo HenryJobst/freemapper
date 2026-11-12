@@ -40,19 +40,20 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
     REGISTRY.set(registry)
 }
 
-/// The hosts the requests of a run may go to when they are held to what was declared: the hosts
-/// every adapter of the registry declares, and those of the requests that belong to no adapter
-/// (OSM extracts, the place search, the map tiles). No run is held to it yet: an adapter from a
-/// folder asks through its own policy ([`RegionAdapter::policy`]), and the built-in ones are
-/// held to their lists once live runs of all of them have shown the redirects (ADR 0106).
-pub fn declared_policy() -> freemapper_adapter_api::policy::UrlPolicy {
-    let hosts = registry()
-        .adapters()
-        .filter_map(|adapter| adapter.declared())
-        .flat_map(|declared| declared.hosts.iter().map(String::as_str));
-    freemapper_adapter_api::policy::UrlPolicy::core()
-        .with_hosts(hosts)
-        .expect("the hosts of a manifest are DNS names")
+/// What `work` comes to when it asks for the adapter `id` of the registry: through `fetcher`,
+/// behind the policy of the adapter ([`RegionAdapter::policy`]) when it has one. For what the
+/// engine fetches itself for one region (the registers and the K5 of Berlin).
+pub(crate) fn asking_for<T>(
+    id: &str,
+    fetcher: &dyn crate::fetch::Fetcher,
+    work: impl FnOnce(&dyn crate::fetch::Fetcher) -> T,
+) -> T {
+    match registry().get(id).and_then(|adapter| adapter.policy()) {
+        Some(policy) => work(&freemapper_adapter_api::policy::PolicyFetcher::new(
+            fetcher, policy,
+        )),
+        None => work(fetcher),
+    }
 }
 
 /// The names of the regions of the registry in its order, German with `german`, else English:
@@ -226,21 +227,19 @@ mod tests {
         assert!(trees::tree_datasets_for(&zwinger).is_empty());
     }
 
-    /// The declared hosts of the built-in states and the hosts of the program's own requests
-    /// pass the policy of all adapters; nothing else does.
+    /// Each built-in adapter is held to the hosts of its own manifest, not to those of
+    /// another state.
     #[test]
-    fn the_declared_policy_is_the_hosts_of_the_adapters_and_of_the_program() {
-        let policy = declared_policy();
-        for url in [
-            "https://isk.geobasis-bb.de/ows/alkis_vereinf_wfs",
-            "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf",
-            "https://nominatim.openstreetmap.org/search",
-        ] {
-            assert!(policy.check_url(url).is_ok(), "{url}");
-        }
-        assert!(policy.check_url("https://geo.example.org/wfs").is_err());
-        // A built-in adapter is held to no list of its own.
-        assert!(registry().adapters().all(|a| a.policy().is_none()));
+    fn every_built_in_adapter_has_the_policy_of_its_manifest() {
+        assert!(registry().adapters().all(|a| a.policy().is_some()));
+        let hamburg = registry().get("hamburg").unwrap().policy().unwrap();
+        assert!(hamburg.check_url("https://geodienste.hamburg.de/x").is_ok());
+        assert!(hamburg.check_url("https://isk.geobasis-bb.de/x").is_err());
+        assert!(
+            hamburg
+                .check_url("https://download.geofabrik.de/x")
+                .is_err()
+        );
     }
 
     /// The error for an area outside every region names the regions of the registry; with the

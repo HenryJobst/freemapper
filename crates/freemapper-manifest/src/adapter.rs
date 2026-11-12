@@ -247,10 +247,10 @@ impl ManifestAdapter {
     }
 
     /// The adapter with its requests kept on the hosts of `[net] hosts`, redirects included:
-    /// for an adapter from a folder, whose services may answer with addresses nobody declared.
-    /// Its ALKIS and its rasters ask through the policy here; the engine asks its NAS service
-    /// and its tree cadastres through [`RegionAdapter::policy`]. The built-in adapters are
-    /// reviewed code and ask what their code asks.
+    /// a service may answer with an address nobody declared. Its ALKIS and its rasters ask
+    /// through the policy here; the engine asks its NAS service and its tree cadastres through
+    /// [`RegionAdapter::policy`]. The adapters from a folder and the built-in states are made
+    /// this way.
     pub fn asking_declared_hosts_only(mut self) -> Self {
         let policy = UrlPolicy::new(self.manifest.hosts.iter().map(String::as_str))
             .expect("the validator accepts the hosts the policy accepts");

@@ -16,10 +16,12 @@ use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
 use freemapper_adapter_api::info::{Declared, RegionInfo};
+use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
+use freemapper_manifest::guard::GuardedAlkis;
 use freemapper_sources::trees::POTSDAM;
 use geo_types::MultiPolygon;
 
@@ -139,7 +141,7 @@ impl State {
     ];
 
     /// The id of the adapter of the state: its name in the project file.
-    pub fn id(self) -> &'static str {
+    pub const fn id(self) -> &'static str {
         match self {
             Self::Brandenburg => "brandenburg",
             Self::Berlin => "berlin",
@@ -321,6 +323,8 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
 /// the manifest declares) and the credit of the states whose credit is one line with a year.
 /// Code are the ALKIS of Berlin, the credits of Brandenburg, Berlin and Saxony (they depend on
 /// tiles, on the neighbour and on the layers that drew objects) and the download estimate.
+/// Whatever is asked for the state, by its manifest or by its code, stays on the hosts the
+/// manifest declares.
 pub struct StateAdapter {
     state: State,
     manifest: ManifestAdapter,
@@ -342,12 +346,25 @@ impl StateAdapter {
         };
         let manifest = freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
             .unwrap_or_else(|findings| broken(findings));
+        // A state asks the hosts of its manifest and no other, redirects included (ADR 0106):
+        // what the manifest declares, and what is code here.
         let manifest =
             ManifestAdapter::new(manifest, &StateFiles(state), Parse::OnFirstUse, backends)
-                .unwrap_or_else(|findings| broken(findings));
+                .unwrap_or_else(|findings| broken(findings))
+                .asking_declared_hosts_only();
+        let policy = manifest
+            .policy()
+            .expect("the manifest was just bound to its hosts")
+            .clone();
+        let alkis = manifest.alkis().is_none().then(|| {
+            Box::new(GuardedAlkis {
+                inner: alkis::source(state),
+                policy: Arc::new(policy),
+            }) as Box<dyn AlkisSource>
+        });
         Self {
             state,
-            alkis: manifest.alkis().is_none().then(|| alkis::source(state)),
+            alkis,
             manifest,
         }
     }
@@ -366,6 +383,10 @@ impl RegionAdapter for StateAdapter {
 
     fn declared(&self) -> Option<&Declared> {
         self.manifest.declared()
+    }
+
+    fn policy(&self) -> Option<&UrlPolicy> {
+        self.manifest.policy()
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {

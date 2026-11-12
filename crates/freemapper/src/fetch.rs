@@ -3,7 +3,7 @@
 use crate::note::{Note, note};
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use chrono::NaiveDate;
@@ -477,6 +477,9 @@ pub struct HttpFetcher {
     max_get_bytes: u64,
     /// What the fetcher was built with, for the one [`Fetcher::bound_to`] builds.
     built: Built,
+    /// The fetchers bound to a policy so far. Each is kept for the next request under the same
+    /// policy, so its open connections are used again.
+    bound: Mutex<Vec<(UrlPolicy, Arc<HttpFetcher>)>>,
     /// Tests: the server on this computer that answers in place of every `https://` host.
     #[cfg(test)]
     stub: Option<String>,
@@ -595,6 +598,7 @@ impl HttpFetcher {
                 body,
                 guard,
             },
+            bound: Mutex::new(Vec::new()),
             #[cfg(test)]
             stub: None,
         }
@@ -690,10 +694,49 @@ impl Default for HttpFetcher {
     }
 }
 
+/// A fetcher bound to a policy, shared with the fetcher that made it.
+struct Bound(Arc<HttpFetcher>);
+
+impl Fetcher for Bound {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        self.0.get(url)
+    }
+
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        self.0.last_modified(url)
+    }
+
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        self.0.get_range(url, range)
+    }
+
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(Note),
+    ) -> Result<(), FetchError> {
+        self.0.download_to(url, path, max_bytes, progress)
+    }
+
+    fn bound_to(&self, policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+        self.0.bound_to(policy)
+    }
+}
+
 impl Fetcher for HttpFetcher {
     /// This fetcher with `policy` in place of its own: the same timeouts and limits, and the
-    /// redirects followed by hand within the hosts of `policy`.
+    /// redirects followed by hand within the hosts of `policy`. The fetcher made for a policy
+    /// is kept and handed out again for the same policy.
     fn bound_to(&self, policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+        let mut known = self
+            .bound
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((_, bound)) = known.iter().find(|(held, _)| held == policy) {
+            return Some(Box::new(Bound(Arc::clone(bound))));
+        }
         let Built {
             connect,
             response,
@@ -706,7 +749,9 @@ impl Fetcher for HttpFetcher {
         {
             bound.stub = self.stub.clone();
         }
-        Some(Box::new(bound))
+        let bound = Arc::new(bound);
+        known.push((policy.clone(), Arc::clone(&bound)));
+        Some(Box::new(Bound(bound)))
     }
 
     /// Asks for `range` only; a server that answers with the whole file (not 206) is refused
@@ -3612,6 +3657,27 @@ mod tests {
             Err(FetchError::Cancelled)
         ));
         assert_eq!(asked.lock().unwrap().len(), 6);
+    }
+
+    /// A fetcher keeps the one it bound to a policy: the next binding to the same policy asks
+    /// through the same client and its open connections. Another policy gets another one.
+    #[test]
+    fn a_policy_is_bound_once() {
+        let plain = HttpFetcher::local();
+        let geo = UrlPolicy::new(["geo.example.org"]).unwrap();
+        let cdn = UrlPolicy::new(["cdn.example.org"]).unwrap();
+        for policy in [&geo, &geo, &cdn, &geo] {
+            let bound = plain.bound_to(policy).unwrap();
+            let refused = match policy == &geo {
+                true => "https://cdn.example.org/a",
+                false => "https://geo.example.org/a",
+            };
+            assert!(matches!(
+                bound.get(refused),
+                Err(FetchError::NotAllowed { .. })
+            ));
+        }
+        assert_eq!(plain.bound.lock().unwrap().len(), 2);
     }
 
     /// What the HTTP client reports for a refused address is worded without its "other: ".

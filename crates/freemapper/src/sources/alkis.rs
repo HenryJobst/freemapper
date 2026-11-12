@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn fetch_follows_next_links() {
         let fetcher = MapFetcher::default();
-        let second = "https://ogc-api.example/page2";
+        let second = "https://ogc-api.geobasis-bb.de/page2";
         let feature = |oid: &str| {
             building_feature(oid, "Gebäude", "Wohnhaus", [421_600.0, 5_821_700.0, 10.0])
         };
@@ -233,6 +233,26 @@ mod tests {
         assert_eq!(fetcher.calls.get(), 2);
         let oids = oids(&text);
         assert_eq!(oids, ["A", "B"]);
+    }
+
+    /// A next link that leaves the hosts Brandenburg declares is not followed: the fetch
+    /// fails and says which address it did not ask.
+    #[test]
+    fn a_next_link_off_the_declared_hosts_is_refused() {
+        let fetcher = MapFetcher::default();
+        let elsewhere = "https://ogc-api.example.net/page2?token=abc";
+        fetcher.insert(
+            &buildings_url(&BBOX),
+            page(&[wohnhaus("A")], Some(elsewhere)),
+        );
+        fetcher.insert(elsewhere, page(&[wohnhaus("B")], None));
+        let refused = fetch_buildings(&fetcher, &BBOX).unwrap_err();
+        let FetchError::NotAllowed { url, reason } = refused else {
+            panic!("{refused:?}");
+        };
+        assert_eq!(url, "https://ogc-api.example.net/page2");
+        assert_eq!(reason, "the host is not one of the declared hosts");
+        assert_eq!(fetcher.calls.get(), 1);
     }
 
     fn wohnhaus(oid: &str) -> String {
@@ -263,10 +283,16 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert(
             &buildings_url(&BBOX),
-            page(&[wohnhaus("A")], Some("https://x/p2")),
+            page(&[wohnhaus("A")], Some("https://ogc-api.geobasis-bb.de/p2")),
         );
-        fetcher.insert("https://x/p2", page(&[], Some("https://x/p3")));
-        fetcher.insert("https://x/p3", page(&[wohnhaus("C")], None));
+        fetcher.insert(
+            "https://ogc-api.geobasis-bb.de/p2",
+            page(&[], Some("https://ogc-api.geobasis-bb.de/p3")),
+        );
+        fetcher.insert(
+            "https://ogc-api.geobasis-bb.de/p3",
+            page(&[wohnhaus("C")], None),
+        );
         let text = fetch_buildings(&fetcher, &BBOX).unwrap();
         assert_eq!(fetcher.calls.get(), 2);
         assert_eq!(oids(&text), ["A"]);
@@ -277,9 +303,12 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert(
             &buildings_url(&BBOX),
-            page(&[wohnhaus("A")], Some("https://x/p2")),
+            page(&[wohnhaus("A")], Some("https://ogc-api.geobasis-bb.de/p2")),
         );
-        fetcher.insert("https://x/p2", page(&[wohnhaus("A"), wohnhaus("B")], None));
+        fetcher.insert(
+            "https://ogc-api.geobasis-bb.de/p2",
+            page(&[wohnhaus("A"), wohnhaus("B")], None),
+        );
         let text = fetch_buildings(&fetcher, &BBOX).unwrap();
         assert_eq!(oids(&text), ["A", "B"]);
     }

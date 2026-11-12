@@ -102,7 +102,7 @@ fn folder_adapters_load_after_the_built_ins_in_the_order_of_their_ids() {
     assert_eq!(zeta.rasters().unwrap().provider().id.as_str(), "zeta");
     assert!(!zeta.boundary().0.is_empty());
     // An adapter from a folder is held to the hosts it declares, the hosts of OSM and the
-    // place search not among them; one of the program is held to nothing.
+    // place search not among them; one made without that rule is held to nothing.
     let policy = zeta.policy().expect("a folder adapter has a policy");
     assert!(policy.check_url("https://geo.example.org/wfs").is_ok());
     assert!(policy.check_url("https://download.geofabrik.de/x").is_err());

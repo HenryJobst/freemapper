@@ -1,5 +1,5 @@
-//! An adapter from a folder asks its declared hosts and no other: the fetcher it is handed is
-//! put behind its policy, so a URL that a service's answer leads to (a `next` link, an address
+//! An adapter asks its declared hosts and no other: the fetcher it is handed is put behind
+//! its policy, so a URL that a service's answer leads to (a `next` link, an address
 //! in an index) and the target of a redirect are judged like the URLs of the manifest.
 
 use std::sync::Arc;

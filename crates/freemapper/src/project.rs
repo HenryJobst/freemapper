@@ -381,6 +381,8 @@ use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
 use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
+/// The id of the adapter whose registers and K5 the engine fetches itself.
+const BERLIN: &str = freemapper_adapters_de::states::State::Berlin.id();
 // The steps of a raster fetch that name no state, and the files they write.
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
@@ -1294,7 +1296,11 @@ fn fetch_k5_into(
         return;
     }
     progress(note!("progress-k-five-download"));
-    match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path) {
+    // The K5 is a service of Berlin: asked through the hosts Berlin declares.
+    let fetched = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
+        crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path)
+    });
+    match fetched {
         Ok(()) => {
             project.k5 = Some(WmsRecord {
                 flight: Some(K5_DATASET_DATE.to_string()),
@@ -1652,7 +1658,11 @@ fn fetch_berlin_layers_into(
         region_bbox.max_n.ceil(),
     ];
     let mut records = BTreeMap::new();
-    for fetched in berlin::fetch_extra_layers(fetcher, region_bbox, kind) {
+    // The registers are services of Berlin: asked through the hosts Berlin declares.
+    let layers = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
+        berlin::fetch_extra_layers(fetcher, region_bbox, kind)
+    });
+    for fetched in layers {
         let file = fetched.layer.file;
         let path = berlin_layer_path(dir, fetched.layer);
         let stored = fetched

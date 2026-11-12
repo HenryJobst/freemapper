@@ -46,7 +46,7 @@ and the second only from a map made in the region.
 ## Consequences
 
 - The manifest folders of the eleven built-in states pass the check; a test holds that. Run with `--live`, the
-  check holds a built-in state to its declared hosts, which the pipeline does not do yet. That makes it the tool
-  for the live runs 0106 waits for.
+  check holds a state to its declared hosts. The live runs that 0106 waited for were made with it, and the
+  pipeline holds the built-in states to their hosts since then.
 - A live check costs what a fetch of the box costs. For a state with tiles that is whole tiles in the cache.
 - An adapter is checked alone. An object at a border that needs the neighbour's service is not covered.

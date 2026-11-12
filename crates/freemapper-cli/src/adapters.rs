@@ -161,8 +161,8 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
 /// user's folder and, with `project` (a project folder), those of its folder `adapters`. What
 /// the folders had to say goes to stderr. Called once, before anything asks the registry.
 ///
-/// The fetcher of the run is the plain one. An adapter from a folder asks through its own
-/// policy (`RegionAdapter::policy`), so it changes nothing for the adapters of the program.
+/// The fetcher of the run is the plain one. Every adapter asks through its own policy
+/// (`RegionAdapter::policy`), so an adapter from a folder changes nothing for the others.
 pub fn install(project: Option<&Path>) {
     let user = user_dir();
     let project = project.map(project_dir);
@@ -438,30 +438,40 @@ land_use_type = "ave:NutzungFlurstueck"
         );
     }
 
-    /// An adapter from a folder is held to its hosts; the states of the program beside it are
-    /// held to nothing, with or without such an adapter.
+    /// Every adapter is held to the hosts of its own manifest. An adapter from a folder adds
+    /// no host to a state of the program, and a state adds none to it.
     #[test]
-    fn a_folder_adapter_does_not_bind_the_built_in_states() {
+    fn every_adapter_is_held_to_its_own_hosts() {
         let user = tempfile::tempdir().unwrap();
         write(user.path(), "useradapter", &manifest("useradapter"));
         let assembled = assemble(Some(user.path()), None);
-        let held: Vec<String> = assembled
-            .registry
-            .adapters()
-            .filter(|adapter| adapter.policy().is_some())
-            .map(|adapter| adapter.info().id.to_string())
-            .collect();
-        assert_eq!(held, ["useradapter"]);
-        let policy = assembled.registry.get("useradapter").unwrap().policy();
-        let policy = policy.unwrap();
         assert!(
-            policy
-                .check_url("https://geo.example.org/alkis/wfs")
-                .is_ok()
+            assembled
+                .registry
+                .adapters()
+                .all(|adapter| adapter.policy().is_some())
         );
-        // Not even the hosts of the program's own requests are the adapter's to ask.
-        assert!(policy.check_url("https://download.geofabrik.de/x").is_err());
-        assert!(policy.check_url("https://isk.geobasis-bb.de/x").is_err());
+        let policy = |id: &str| assembled.registry.get(id).unwrap().policy().unwrap();
+        let theirs = "https://geo.example.org/alkis/wfs";
+        let lgb = "https://isk.geobasis-bb.de/x";
+        assert!(policy("useradapter").check_url(theirs).is_ok());
+        assert!(policy("useradapter").check_url(lgb).is_err());
+        assert!(policy("brandenburg").check_url(lgb).is_ok());
+        assert!(policy("brandenburg").check_url(theirs).is_err());
+        // The hosts of the program's own requests are no adapter's to ask.
+        for id in ["useradapter", "brandenburg"] {
+            assert!(
+                policy(id)
+                    .check_url("https://download.geofabrik.de/x")
+                    .is_err()
+            );
+        }
+        // Without the folder a state has the same list.
+        let alone = assemble(None, None);
+        assert_eq!(
+            alone.registry.get("brandenburg").unwrap().policy(),
+            Some(policy("brandenburg"))
+        );
     }
 
     /// The adapters of the user's folder load always, those of a project only when its folder

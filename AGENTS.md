@@ -263,6 +263,11 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - macOS "cannot be opened" or "killed": remove the quarantine flag (install step 4).
 - A run fails with a download error: services of the states are sometimes down. Try again later; `offline` with
   data fetched before still works.
+- "freemapper does not send requests to this address: … the host is not one of the declared hosts": a service
+  of a state sent freemapper on to a server the state's adapter does not name. Do not work around it. For a
+  built-in state tell the person to report it (<https://github.com/HenryJobst/freemapper/issues>) and to update
+  once a release has the host; for an adapter of the person's own folder, the host belongs in `[net] hosts` of
+  its manifest.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
   folder. Wait for it, or use another folder.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.

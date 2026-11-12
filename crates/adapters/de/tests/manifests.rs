@@ -215,6 +215,37 @@ fn every_manifest_names_its_state() {
     assert_eq!(states::adapters().len(), 11);
 }
 
+/// A built-in state asks the hosts of its own manifest and no other: its policy lets every
+/// URL of its manifest pass and refuses the hosts of the program's own requests and of the
+/// other states.
+#[test]
+fn every_state_is_held_to_the_hosts_of_its_manifest() {
+    let mut backends = Registry::new();
+    states::register_backends(&mut backends).unwrap();
+    for state in State::ALL {
+        let built_in = StateAdapter::new(state, &backends);
+        let policy = built_in
+            .policy()
+            .unwrap_or_else(|| panic!("{} has no policy", state.id()));
+        let hosts = &built_in.declared().unwrap().hosts;
+        assert!(!hosts.is_empty(), "{}", state.id());
+        for host in hosts {
+            let url = format!("https://{host}/x");
+            assert!(policy.check_url(&url).is_ok(), "{}: {url}", state.id());
+        }
+        for other in [
+            "https://download.geofabrik.de/x",
+            "https://geo.example.org/x",
+        ] {
+            assert!(policy.check_url(other).is_err(), "{}: {other}", state.id());
+        }
+    }
+    // Hamburg does not ask the servers of Brandenburg.
+    let hamburg = StateAdapter::new(State::Hamburg, &backends);
+    let policy = hamburg.policy().unwrap();
+    assert!(policy.check_url("https://isk.geobasis-bb.de/x").is_err());
+}
+
 /// Saxony-Anhalt needs no code: the backend its manifest declares asks what `lvermgeo.rs` asks.
 mod saxony_anhalt {
     use std::path::{Path, PathBuf};
