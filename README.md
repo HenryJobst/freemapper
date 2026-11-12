@@ -315,8 +315,8 @@ Punkte in Sperrgebiet-Kandidaten fehlen. Weil auch unsichere Daten eingezeichnet
 im Gelände zu prüfen. Mit beiden Schaltern entstehen beide Dateien nebeneinander.
 
 Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, Flächen,
-Gewässern und Wegen, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen, Treppen und Bäume aus ALKIS, den
-Registern und der Straßenbefahrung sowie Mauern, Zäune, Hecken und Wasser auch aus OSM auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
+Gewässern und Wegen, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen und Treppen aus ALKIS, den Registern und der
+Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege und Gleise auch aus OSM auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
 `--content-set fences=candidates`; die Wahl steht in `freemapper.toml` und gilt auch im Browser und über MCP.
 
 ## Ausgangsstand für OCAD

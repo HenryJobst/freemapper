@@ -178,18 +178,21 @@ impl Group {
 
     /// The lowest rank of a source whose objects of this group the `balanced` profile puts on the
     /// map; `None` for a group it leaves as the build has it (contours, areas that shall not be
-    /// entered, street furniture, paths). OpenStreetMap maps walls, fences, hedges and water
-    /// well, so it counts there; the rest needs the cadastre, a register or the street survey.
+    /// entered, street furniture). OpenStreetMap counts for walls, fences, hedges, water, trees and
+    /// paths, where it is often the only source; the rest needs the cadastre, a register or the
+    /// street survey.
     fn balanced_from(self) -> Option<Rank> {
         match self {
-            Group::Walls | Group::Fences | Group::Hedges | Group::WaterFeatures => Some(Rank::Osm),
-            Group::Slopes
-            | Group::Stairs
+            Group::Walls
+            | Group::Fences
+            | Group::Hedges
+            | Group::WaterFeatures
             | Group::Trees
-            | Group::Monuments
-            | Group::Passages
-            | Group::Streets => Some(Rank::Survey),
-            Group::Furniture | Group::Contours | Group::OutOfBounds | Group::Paths => None,
+            | Group::Paths => Some(Rank::Osm),
+            Group::Slopes | Group::Stairs | Group::Monuments | Group::Passages | Group::Streets => {
+                Some(Rank::Survey)
+            }
+            Group::Furniture | Group::Contours | Group::OutOfBounds => None,
         }
     }
 }
@@ -379,6 +382,7 @@ pub fn route(
     // The edge of a paved area (501.1) of the street survey or the cadastre belongs to the
     // streets; one from OpenStreetMap is the outline of the map area.
     let edge_id = symbol_set.id_for_code("501.1");
+    let open_land_id = symbol_set.id_for_code("401");
     let tag = |o: &MapObject, key: &str| -> Option<String> {
         o.tags
             .iter()
@@ -392,6 +396,10 @@ pub fn route(
         if Some(o.symbol_id) == edge_id {
             return (rank(o) > Some(Rank::Osm)).then_some(Group::Streets);
         }
+        // The green strips along the streets, as the street survey measured them.
+        if Some(o.symbol_id) == open_land_id {
+            return (rank(o) == Some(Rank::Survey)).then_some(Group::Streets);
+        }
         group_of.get(&o.symbol_id).copied().or_else(|| {
             (area_id.contains_key(&o.symbol_id)
                 && tag(o, "freemapper:source").as_deref() == Some(GENERALIZATION_SOURCE))
@@ -403,7 +411,13 @@ pub fn route(
     for (on_map, list) in [(true, &mut *map), (false, &mut *candidates)] {
         let mut kept = Vec::with_capacity(list.len());
         for object in list.drain(..) {
-            let place = classify(&object).and_then(|g| settings.place(g, rank(&object)));
+            let group = classify(&object);
+            // A tree group is as good as the trees it was made of: OpenStreetMap at the least.
+            let source_rank = rank(&object).or_else(|| {
+                (group == Some(Group::Trees) && area_id.contains_key(&object.symbol_id))
+                    .then_some(Rank::Osm)
+            });
+            let place = group.and_then(|g| settings.place(g, source_rank));
             match place {
                 Some(Place::Off) => routed.dropped += 1,
                 Some(Place::Map) if !on_map => {
@@ -508,22 +522,27 @@ mod tests {
                 object(&f, "417", "geoportal-berlin/anlagenbaeume"),
                 object(&f, "501.5", "geoportal-berlin/sb-flaechen"),
                 object(&f, "501.1", "geoportal-berlin/sb-bordstein"),
-                // OpenStreetMap counts for walls, fences, hedges and water.
+                object(&f, "401", "geoportal-berlin/sb-gruenflaeche"),
+                // OpenStreetMap counts for walls, fences, hedges, water, trees and paths, and
+                // a tree group is as good as its trees.
                 object(&f, "515", "osm"),
                 object(&f, "518", "osm"),
                 object(&f, "301", "osm"),
-                // Not for trees or monuments, the outline of the map area is no street edge, and
-                // contours and furniture are left as they are.
-                object(&f, "417", "osm"),
+                object(&f, "418", "osm"),
+                object(&f, "505.1", "osm"),
+                object(&f, "405", GENERALIZATION_SOURCE),
+                // Not for monuments or open land, the outline of the map area is no street
+                // edge, and contours and furniture are left as they are.
                 object(&f, "526", "osm"),
+                object(&f, "401", "osm"),
                 object(&f, "501.1", "osm"),
                 object(&f, "101", "lgb-dgm1"),
                 object(&f, "531", "geoportal-berlin/beleuchtung"),
             ],
         );
-        assert_eq!(map.len(), 8, "{map:?}");
+        assert_eq!(map.len(), 12, "{map:?}");
         assert_eq!(cand.len(), 5);
-        assert_eq!(routed.to_map, 8);
+        assert_eq!(routed.to_map, 12);
     }
 
     #[test]
