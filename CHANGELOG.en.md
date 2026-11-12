@@ -14,6 +14,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- All twelve examples are rebuilt with the default profile `balanced`. Ten of them predated the content profiles; now contours, paths, stairs, walls and trees are on their maps, and the candidates are mostly out-of-bounds areas, control sites and earth banks. The [comparison page](examples/compare.en.md) shows one area, Cochem, in the three profiles `safe`, `balanced` and `full`, with a PDF each. The numbers in the examples overview and the manual are counted again.
 - MCP: what the server finds wrong with the person's adapter folders at its start (a folder left out, or one that loads with a caveat) now comes once as a note with the first tool result. Before, it went to stderr only, which neither the agent nor the person sees.
 - MCP: `preview_layer` with the layer `map` shows the image of the map objects that the last run wrote next to the map (without the candidates). Before the first run the message names `freemapper export` or `run`.
 - Two adapters share ground when their common area is more than a hundredth of the smaller region. Before, one inner point of each was tested, so an adapter that reached a third of the way into a state went unnoticed. `adapters list`, `adapters check` and the warning about the adapters of a project use the new measure. All three now name the regions by name, not by id; the JSON of `adapters list` keeps the ids.

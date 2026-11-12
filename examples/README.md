@@ -4,62 +4,71 @@
 
 Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem freemapper besonders viel ableiten kann
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
-Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --pdf-candidates --ocad`. Das PDF jedes
-Beispiels ist die Trainingskarte mit allen Kandidaten, denn sie zeigt, was freemapper ableiten kann. Die Karte allein
-ist viel schlichter; wie sich beide unterscheiden und warum, zeigt die [Gegenüberstellung](vergleich.md).
+Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --pdf-candidates --ocad` und dem
+Standard-Inhaltsprofil `balanced`. Das PDF jedes Beispiels ist die Trainingskarte mit allen Kandidaten, denn sie zeigt,
+was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in den drei Inhaltsprofilen zeigt die
+[Gegenüberstellung](vergleich.md).
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 443 | 1981 | 30 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 769 | 2263 | 36 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 1226 | 1376 | 35 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
-| Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 1642 | 1111 | 33 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 1780 | 755 | 29 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
-| Hessen | [Altstadt und Landgrafenschloss Marburg](hessen-marburg/): steile Oberstadt mit Treppengassen, Schlossberg | 1541 | 1065 | 31 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
-| Schleswig-Holstein | [Altstadt Lübeck mit Holstentor](schleswig-holstein-luebeck/): mittelalterliche Altstadtinsel mit Gängen und Höfen | 2292 | 1766 | 32 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Altstadt Wismar](mecklenburg-vorpommern-wismar/): Welterbe-Altstadt mit Georgenkirche und Marktplatz | 2486 | 1757 | 30 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
-| Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 993 | 851 | 32 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
-| Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 287 | 2142 | 33 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 1323 | 894 | 34 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1465 | 249 | 32 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 2676 | 318 | 34 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 3443 | 470 | 43 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
+| Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 2527 | 988 | 39 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
+| Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 2947 | 585 | 38 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 1780 | 992 | 31 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
+| Hessen | [Altstadt und Landgrafenschloss Marburg](hessen-marburg/): steile Oberstadt mit Treppengassen, Schlossberg | 3051 | 1015 | 35 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
+| Schleswig-Holstein | [Altstadt Lübeck mit Holstentor](schleswig-holstein-luebeck/): mittelalterliche Altstadtinsel mit Gängen und Höfen | 3345 | 1365 | 35 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Altstadt Wismar](mecklenburg-vorpommern-wismar/): Welterbe-Altstadt mit Georgenkirche und Marktplatz | 3396 | 1416 | 35 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
+| Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 2456 | 527 | 37 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
+| Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 2400 | 333 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 2862 | 505 | 40 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1465 | 336 | 35 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
-**Kartenobjekte** sind die sicheren Objekte der OOM-Karte (ALKIS-Gebäude, -Flächen und -Gewässer, Überdachungen und
-Carports). **Kandidaten** liegen als eigene Vorlage bei (`templates/candidates.omap`). Das PDF `<name>-candidates.pdf` zeichnet sie mit; `<name>.pdf` aus `--pdf` zeigt nur die Kartenobjekte. Sie kommen aus OSM, aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin,
-in Potsdam aus den Bäumen der Stadtkarte. **Symbole** zählt die verschiedenen Symbole in beiden zusammen.
+**Kartenobjekte** sind die Objekte der OOM-Karte. Mit `balanced` sind das die Objekte aus Kataster, Registern und
+Straßenbefahrung (Gebäude, Straßen mit Bordsteinen, Gewässer, Parks, Wald, Überdachungen und Durchfahrten), dazu
+Mauern, Zäune, Hecken, Bäume, Treppen und Wege auch aus OSM und die Höhenlinien. **Kandidaten** sind, was unsicher
+bleibt, vor allem Sperrflächen (520) und Kontrollstandorte (531), dazu Böschungen, Felswände und Kuppen aus dem
+Geländemodell (Gruppe `landforms`). Sie liegen als eigene Vorlage bei (`templates/candidates.omap`). Das PDF
+`<name>-candidates.pdf` zeichnet sie mit; `<name>.pdf` aus `--pdf` zeigt nur die Kartenobjekte. Beide kommen aus OSM,
+aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin, in Potsdam aus den Bäumen der
+Stadtkarte. Die Gruppe `vegetation` ist in jedem Profil aus, kein Beispiel nutzt sie. **Symbole** zählt die
+verschiedenen Symbole in beiden zusammen. Höhenlinien und Nordlinien enden an Wegen und zählen deshalb in Stücken.
 
 Flüsse, Kanäle, Teiche und Hafenbecken aus ALKIS stehen als unpassierbares Gewässer (301.1) mit Uferlinie (301.6) in
-der Karte. Teiche, Brunnen, Quellen, Bäche und Brücken aus OSM sind Kandidaten. Im Wasser gibt es keine Höhenlinien
-und keine Brunnenpunkte, denn die wären meist Fontänen in einem Becken. Wo ALKIS eine Brücke als
-Straßenfläche führt, endet das Gewässer an der Brücke mit einer Uferlinie quer zum Fluss; diese Linie entfernen Sie
-in OOM.
+der Karte. Teiche, Brunnen, Quellen und Bäche aus OSM kommen mit `balanced` ebenfalls in die Karte, Brücken aus OSM
+bleiben Kandidaten. Im Wasser gibt es keine Höhenlinien und keine Brunnenpunkte, denn die wären meist Fontänen in
+einem Becken. Wo ALKIS eine Brücke als Straßenfläche führt, endet das Gewässer an der Brücke mit einer Uferlinie
+quer zum Fluss; diese Linie entfernen Sie in OOM.
 
-Überdachungen und Carports aus ALKIS stehen in jedem Bundesland als 522 in der Karte, Durchfahrten und Arkaden in Gebäuden
-als 522-Kandidaten. Lübeck hat 93 Überdachungen und 221 Durchfahrten und Arkaden, Wismar 113 Überdachungen und
-Carports. In Sachsen und Sachsen-Anhalt führt ALKIS weder Überdachungen noch Durchfahrten, die beiden Beispiele haben
-deshalb keine.
+Überdachungen und Carports aus ALKIS stehen in jedem Bundesland als 522 in der Karte, mit `balanced` auch die
+Durchfahrten und Arkaden in Gebäuden. Nur Durchgänge, die niemand erreicht, bleiben Kandidaten. Lübeck hat 93
+Überdachungen und 185 Durchfahrten und Arkaden aus ALKIS, Wismar 113 Überdachungen und Carports. In Sachsen und
+Sachsen-Anhalt führt ALKIS weder Überdachungen noch Durchfahrten. Die Überdachungen dort kommen nur aus OSM, in
+Bautzen 26, in Quedlinburg 15.
 
-In Brandenburg lädt freemapper zusätzlich das vollständige ALKIS (NAS) der LGB. In Sanssouci ergibt das 281 Mauerlinien
-(515), 123 Zäune (518), 149 Hecken (410.1) und 125 Böschungsoberkanten (104), alle als Kandidaten.
+In Brandenburg lädt freemapper zusätzlich das vollständige ALKIS (NAS) der LGB. In Sanssouci ergibt das 270 Mauerlinien
+(515), 107 Zäune (518), 133 Hecken (410.1) und 125 Böschungsoberkanten (104), mit `balanced` alle in der Karte.
 ALKIS führt oft beide Kanten einer Mauer. Liegen sie näher als 0,55 mm auf dem Papier und einander zugewandt, macht
 freemapper daraus eine Linie in der Mitte; in Sanssouci sind das 14 Mittellinien. Dickere Mauern und Kanten, die in
 dieselbe Richtung schauen, bleiben doppelt; die zweite Linie löschen Sie in OOM. Hat OSM dieselbe Mauer, Hecke oder
 denselben Zaun, bleibt nur die ALKIS-Linie und nennt die OSM-Linie in `freemapper:also`. Läuft eine Linie mit anderem
 Symbol parallel und zu nah daneben, etwa eine OSM-Stützmauer auf einer Terrassenmauer oder ein Zaun neben einer Mauer,
 verliert die schwächere Linie dieses Stück. Mauerstücke am Gebäudeumriss und Bäume bis 1 m neben einer Hecke, Mauer
-oder einem Zaun fallen weg. So sinken in Sanssouci die parallelen Linienpaare unter 1 m Abstand von 162 auf 4. Die
-Bäume der Stadtkarte Potsdam sind ein Baumkataster wie in Berlin. Von ihnen bleiben 774 als Punkt, 676 liegen in
-Baumgruppenflächen, und OSM-Bäume näher als 2 m an einem Katasterbaum fallen weg.
+oder einem Zaun fallen weg. So bleiben in Sanssouci nur wenige parallele Linienpaare unter 1 m Abstand. Die
+Bäume der Stadtkarte Potsdam sind ein Baumkataster wie in Berlin. Von ihnen bleiben 773 als Punkt: 658 stehen in der
+Karte, 115 liegen in Sperrflächen (520) und bleiben Kandidaten. Die übrigen liegen in Baumgruppenflächen oder fallen
+beim Ausdünnen weg. OSM-Bäume näher als 2 m an einem Katasterbaum fallen weg.
 
 In Berlin lädt freemapper weitere Ebenen aus dem Geoportal Berlin. Treppen, Mauern, Zäune, Böschungskanten, Denkmäler
-und Durchfahrten sind Kandidaten, ebenso die Bäume aus dem Baumkataster, im Viktoriapark 1926 Stück. Dazu kommt die
-Karte von Berlin 1:5000 (K5) als Vorlage `templates/k5.png`.
+und Durchfahrten kommen mit `balanced` in die Karte, ebenso die Bäume aus dem Baumkataster, im Viktoriapark 1926
+Stück. Dazu kommt die Karte von Berlin 1:5000 (K5) als Vorlage `templates/k5.png`.
 
 Dazu kommen die Straßenbefahrung (aufgenommen 2014 bis 2016), die Register für Beleuchtung, Zierbrunnen und
-Trinkwasserbrunnen und die Gebäudehöhen aus dem Umweltatlas. Die Karte selbst ändert sich dadurch kaum. Im
-Viktoriapark schneidet freemapper nur fünf kleine Grünstreifen am Bordstein aus einer ALKIS-Straßenfläche aus. Bei den
-Kandidaten kommen 77 Bordsteine (501.1) und 80 vermessene befestigte Flächen (501.5) hinzu. Das sind fast alles Gehwege
-und die befestigten Wege im Park, die erst das PDF mit Kandidaten zeigt. Neu sind außerdem Schutzgitter (518), Mauern (515),
-Wartehallen (522), Litfaßsäulen (531) sowie Straßenbrunnen und Zierbrunnen (311). Liegt ein Schutzgitter der
+Trinkwasserbrunnen und die Gebäudehöhen aus dem Umweltatlas. Mit `balanced` stehen ihre Objekte in der Karte. Im
+Viktoriapark sind das 76 Bordsteine (501.1), 73 vermessene befestigte Flächen (501.5) und fünf kleine Grünstreifen am
+Bordstein, die freemapper aus einer ALKIS-Straßenfläche ausschneidet. Die Flächen sind fast alles Gehwege und die
+befestigten Wege im Park. Dazu kommen Schutzgitter (518), Mauern (515), Wartehallen (522) sowie Straßenbrunnen und
+Zierbrunnen (311). Litfaßsäulen und Laternen bleiben als Kontrollstandorte (531) Kandidaten. Liegt ein Schutzgitter der
 Befahrung auf einem OSM-Zaun, bleibt nur das Gitter und nennt den Zaun in `freemapper:also`. Von den 602 Gebäuden
 tragen 599 die Grundrissaktualität aus den Gebäudehöhen von 2022 als `freemapper:currency`.
 
@@ -72,8 +81,8 @@ beieinander oder berühren sich ihre Kronen fast, macht freemapper daraus eine F
 Kronendeckung, sonst offenes Gelände mit einzelnen Bäumen (402), auf Pflaster ab 9 Bäumen 501.3. Wege und Pflaster
 bleiben frei. Baumreihen an Straßen und Alleen bleiben Punkte. In Sanssouci werden so 38 Flächen 402, denn die
 Potsdamer Bäume kennen keine Krone, und 5 m Krone decken die Gruppen nicht zur Hälfte. Im Viktoriapark mit seinen
-gemessenen Kronen werden es 41 Wälder 405 und 3 Flächen 402. Von den 1926 Katasterbäumen bleiben dort 1128 als
-Punkt, 634 liegen in Baumgruppenflächen.
+gemessenen Kronen werden es 42 Wälder 405 und 3 Flächen 402. Von den 1926 Katasterbäumen bleiben dort 1179 als
+Punkt, die übrigen liegen in Baumgruppenflächen oder fallen beim Ausdünnen weg.
 
 Parks sind gelbes offenes Gelände (401). Parks, Grünanlagen und Grünland aus ALKIS sind Kartenobjekte, in Sanssouci
 27 Flächen, im Viktoriapark 5. Wald aus ALKIS wird 405, in Monschau 153 Flächen. Unter allem liegt die belaufbare
@@ -83,7 +92,7 @@ zeigt. Punkte in einer Kandidatenfläche 520 zeichnet das PDF mit Kandidaten nic
 
 Im Viktoriapark führen die Treppen am Sockel des Nationaldenkmals auf das Denkmal zu. Breite Treppen wie die
 Tribünen am Stadion erscheinen als parallele Linien 532.9 mit dem Tag `freemapper:size=wide`. Zäune und Mauern, die
-ALKIS und OSM beide haben, stehen nur einmal in den Kandidaten: als ALKIS-Linie, die die OSM-Linie im Tag
+ALKIS und OSM beide haben, stehen nur einmal in der Karte: als ALKIS-Linie, die die OSM-Linie im Tag
 `freemapper:also` nennt.
 
 ## Inhalt eines Beispiels
@@ -91,11 +100,11 @@ ALKIS und OSM beide haben, stehen nur einmal in den Kandidaten: als ALKIS-Linie,
 | Datei | Inhalt |
 |---|---|
 | `<name>.omap` | das OOM-Startprojekt (OpenOrienteering Mapper) |
-| `templates/candidates.omap` | die OSM-Kandidaten als Vorlage |
+| `templates/candidates.omap` | die Kandidaten als Vorlage |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | der OCAD-Ausgangsstand (OCAD 12) |
 | `<name>-candidates.pdf` | die Trainingskarte: Kartenobjekte und alle Kandidaten, ohne Maßstabsleiste |
 | `preview.webp` | Vorschau dieses PDFs |
-| `<name>.pdf`, `preview-map.webp` | nur in Cochem und Blankenese: die Karte allein, ohne Kandidaten, und ihre Vorschau, siehe [Gegenüberstellung](vergleich.md) |
+| `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | nur in Cochem: dasselbe Gebiet in den drei Inhaltsprofilen, ohne Kandidaten, und die Vorschauen, siehe [Gegenüberstellung](vergleich.md) |
 | `freemapper.toml` | das Projekt: Gebiet, Maßstab und die abgerufenen Datenstände |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 
@@ -116,9 +125,10 @@ Schlossanlagen. Gezählt wurden die verschiedenen Symbole und die Objekte; die b
 Bundeslandes wurden dann an der Trainingskarte verglichen. Gewonnen haben die Gebiete, die das meiste zeigen:
 abwechslungsreiche Bebauung, Relief und viele OSM-Kandidaten.
 
-In Niedersachsen hat der Große Garten gewonnen, obwohl die Karte nur 275 Kartenobjekte hat. Seine Hecken,
-Parterres, Baumreihen und Fontänen ergeben 2142 Kandidaten, das sind 7,8 je Kartenobjekt, mehr als in jedem anderen
-Beispiel.
+In Niedersachsen hat der Große Garten gewonnen, obwohl seine Karte vor den Inhaltsprofilen die wenigsten
+Kartenobjekte hatte. Seine Hecken, Parterres, Baumreihen und Fontänen ergaben die meisten Kandidaten je Kartenobjekt.
+Mit `balanced` stehen sie in der Karte, darunter 368 Hecken (410.1), 1124 Bäume (418) und 17 Brunnen (311), und es
+bleiben 333 Kandidaten.
 
 In Rheinland-Pfalz liefen acht Rechtecke: Koblenz am Deutschen Eck, Trier, Speyer, Mainz, Bad Kreuznach und Cochem.
 Bad Kreuznach und Cochem liefen zweimal, denn das erste Rechteck in Bad Kreuznach verfehlte die Nahe, das in Cochem
@@ -127,11 +137,10 @@ zeigt: dichte Höhenlinien am Burgberg und an den Talhängen, dazu die Mosel und
 Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und hat kaum Relief.
 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
-Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis ist das jüngste Beispiel und mit dem
-Inhaltsprofil `balanced` entstanden, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet:
-Die Karte selbst hat deshalb 30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben nur 249 Kandidaten.
-Blankenese ist seitdem mit demselben Profil neu gebaut: Höhenlinien, Wege und 110 Treppen aus OpenStreetMap stehen
-dort jetzt in der Karte. Die übrigen zehn Beispiele stammen aus der Zeit vor den Inhaltsprofilen.
+Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis war das erste Beispiel mit dem
+Inhaltsprofil `balanced`, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet. Seine Karte hat
+30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben 336 Kandidaten. Seitdem sind alle Beispiele mit
+diesem Profil neu gebaut.
 
 ## Lizenzen
 

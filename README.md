@@ -106,8 +106,8 @@ OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
-der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Wie die Karte mit und ohne Kandidaten aussieht, zeigt die
-[Gegenüberstellung](https://github.com/HenryJobst/freemapper/blob/main/examples/vergleich.md).
+der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dasselbe Gebiet in den drei Inhaltsprofilen
+`safe`, `balanced` und `full` zeigt die [Gegenüberstellung](https://github.com/HenryJobst/freemapper/blob/main/examples/vergleich.md).
 
 ## Gebiet im Browser wählen
 
