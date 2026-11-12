@@ -26,3 +26,10 @@ tiles through the local server.
    "Aus" are still chosen, the other groups say "Wie im Profil". Change only the profile to "Sicher" and click
    "Karte erzeugen" with a mocked `api/run`: the page saves first (`api/save` carries `content`) and the
    exception stays.
+10. Layer list: the control at the top right of the map lists "OpenStreetMap" and ten aerial photos, one per
+    agency ("Luftbild Brandenburg/Berlin (LGB)" … "Luftbild Rheinland-Pfalz (LVermGeo RP)"); with `--lang en` they
+    read "Aerial photo …". Choose each of the ten once: its tiles load (`.leaflet-tile-pane img` with an `https`
+    source, `naturalWidth > 0`), the credit at the bottom right names the agency, and `console` stays empty. A
+    blocked or misspelled service shows as tiles that never load. Repeat one layer with `set-color-scheme dark`:
+    the control turns dark, the map stays light. Then answer `api/adapters` with status 500 (`route`) and reload:
+    the page starts, shows the project folder, lists OpenStreetMap only and says why in its message line.

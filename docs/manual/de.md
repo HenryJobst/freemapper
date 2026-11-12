@@ -321,8 +321,9 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
   - *Rechteck:* zwei Ecken anklicken.
   - *Polygon:* Ecken nacheinander anklicken. Zum Schließen die erste Ecke anklicken oder doppelklicken.
   - Esc bricht ab, die Rücktaste nimmt die letzte Ecke zurück.
-- **Hintergrund:** Oben rechts wählen Sie OpenStreetMap oder das Luftbild (LGB für Brandenburg und
-  Berlin, GeoSN für Sachsen).
+- **Hintergrund:** Oben rechts wählen Sie OpenStreetMap oder das Luftbild eines Bundeslands. Die
+  Liste nennt jedes unterstützte Bundesland mit seiner Behörde, zum Beispiel „Luftbild
+  Brandenburg/Berlin (LGB)“ oder „Luftbild Sachsen (GeoSN)“.
 - **Rechts** sehen Sie:
   - die Größe mit Puffer;
   - die Datenkacheln, die geladen werden (dünne Linien in der Karte);

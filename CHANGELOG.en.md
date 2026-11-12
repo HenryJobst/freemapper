@@ -6,6 +6,15 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: the states are region adapters now (ADR 0082, stages B and C; ADR 0102). A state supplies its boundary, its OSM extracts, its ALKIS service, its raster sources, its credit lines and its download estimate through one trait; the engine asks the registry and names no state itself. The enums `Region` and `Provider` are gone. The code of the eleven states lives in the new crate `freemapper-adapters-de`, the generic service readers in `freemapper-sources`, the shared types in `freemapper-adapter-api`. Nothing changes for users: the golden net confirms the same requests and byte-identical files for all eleven states, and `freemapper.toml` is read and written as before.
+- The area page, its content security policy, the message for an area outside the supported states and the MCP instructions take the list of the states from the registry (ADR 0103). The aerial photo layers of the page come from the new endpoint `api/adapters`; their names are the same. When the endpoint fails, the page still starts, shows OpenStreetMap only and says why.
+
+### Fixed
+
+- When a project file names a provider or a state this freemapper does not know, the error says so and names the id. Before, it was a parser message about an unknown value.
+
 ## [0.13.0] - 2026-11-12
 
 ### Added
