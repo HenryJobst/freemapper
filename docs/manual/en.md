@@ -583,9 +583,10 @@ The group `vegetation` is off in every profile, `full` included, because the poi
 160 MB per square kilometre tile, and a park usually needs two to four tiles. Only `--content-set
 vegetation=candidates` (or the area page) makes the next `fetch` load them into the shared cache. `derive` writes
 `data/vegetation.geojson` from them, and the export puts the areas into the candidates map. There are none at
-buildings or in water. Where the map already has a park or a wood from ALKIS, the candidate shows only the part
-of another class. The thresholds come from forest maps and are not tuned for parks yet: building edges and reeds
-sometimes come out as 410. Check the areas against the orthophoto and in the terrain. When space is short, the
+buildings, in water or on paved areas; roofs that ALKIS no longer has are recognised by their laser echoes too.
+Where the map already has a park or a wood from ALKIS, the candidate shows only the part of another class. So far
+this is tuned on one park (Sanssouci); reeds at a shore come out as 410. The point cloud can be some years older
+than the orthophoto. Check the areas against the orthophoto and in the terrain. When space is short, the
 point clouds are the first part left out. The other states have no point-cloud source yet.
 
 ### What goes straight onto the map

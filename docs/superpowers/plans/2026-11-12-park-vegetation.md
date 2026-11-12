@@ -53,4 +53,5 @@
 
 ### Task 4: Check on real parks
 
-- [ ] One park per state with a source (Sanssouci, Viktoriapark, a park in NRW); compare with the orthophoto and the nDSM; tune `OPEN_SHARE`, the index thresholds and the undergrowth shares; record the values in ADR 0105.
+- [x] Sanssouci (2026-11-12): building mask, single-echo rule for roofs, cut at paved areas; the other thresholds stay. Recorded in ADR 0105.
+- [ ] Viktoriapark and a park in NRW once Berlin and NRW have point-cloud backends.

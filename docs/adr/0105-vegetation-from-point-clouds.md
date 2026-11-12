@@ -27,8 +27,18 @@ the crowns, so it does not help.
   single cells and thin lines go and a block of four stays. Areas are traced at the cell edges, simplified at
   1.5 m, and patches and holes smaller than 1.5 mm × 1.5 mm on paper are left out (36 m² at 1:4000, like
   karttapullautin's minimum).
-- `read_tile` reads classified LAS/LAZ tiles chunk by chunk and leaves out buildings, noise and water. `CellCounts` counts
-  every return in its cell as it is read, so a dense tile (Berlin has about 10 points per m²) never sits in memory.
+- `read_tile` reads classified LAS/LAZ tiles chunk by chunk and leaves out buildings, noise and water; a tile whose
+  header bounds miss the area is not read. `CellCounts` counts every return in its cell as it is read, so a dense
+  tile (Berlin has about 10 points per m²) never sits in memory.
+- LGB's classes are only ground (2), the early echoes of a pulse with several (0, nearly all crowns), the other
+  last echoes above ground (20: roofs, walls, trunks, undergrowth) and a few low objects (1, mostly cars); there
+  is no building and no vegetation class. So the class filter does not catch walls and eaves, and two rules do:
+  - returns on an ALKIS building or within 1 m of it are left out (`BuildingMask`, all buildings, canopies too);
+  - a cell where at least 60 % of the returns above 2.5 m are single echoes is a roof or a wall and gets no
+    class. In Sanssouci roofs have 70 to 100 % single echoes, crowns up to 30 %. This also catches buildings
+    that the scan still has and the cadastre no longer (the 2021 scan against the 2025 ALKIS).
+- The export also cuts the areas at the paved areas (501.5) of the map: parked cars give returns at the
+  heights of bushes.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
   Rhine-Westphalia, Brandenburg, Saxony, Thuringia, Berlin, Saarland). A region adapter offers them through
   `PointCloudBackend` (`freemapper-adapter-api`), next to its rasters and agreed with stage D of the adapters:
@@ -65,6 +75,12 @@ the crowns, so it does not help.
 - A first real run (Sanssouci, 2026-11-12): four tiles of 137 to 164 MB (2021 scan), 16 minutes to download;
   `derive` stayed below 210 MB of memory and took 10 minutes in a debug build. Lawns, paths and the vineyard
   terraces came out open, the tree stands runnable forest, the hedges of the parterres 410. Building edges and
-  the reeds of a pond also came out 410: the export cuts at the ALKIS buildings, the rest is for task 4.
+  the reeds of a pond also came out 410.
+- Tuning on a 450 m square around the Friedenskirche (same day): the Friedenskirche and its cloister were
+  almost wholly 410 before the building mask, and a cleared building plot (roofs in the 2021 scan, gone in the
+  2025 cadastre) was a large 410 area before the single-echo rule. With both, the exported 410 areas went from
+  13 to 1 (reeds at a pond edge), 405 from 159 to 112; the crowns stayed runnable forest. The other thresholds
+  (open share, green index, undergrowth) look right on this park and stay; Berlin and the other states have no
+  point-cloud source yet, so no second park was checked.
 - Parks get the green shades first; the forest map kind reuses the module with its own cell size and minimum
   areas.

@@ -62,7 +62,7 @@ use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
 use crate::derive::vegetation::{
-    CELL_M as VEGETATION_CELL_M, CellCounts, vegetation_areas, vegetation_to_geojson,
+    BuildingMask, CELL_M as VEGETATION_CELL_M, CellCounts, vegetation_areas, vegetation_to_geojson,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
@@ -2749,11 +2749,19 @@ pub fn derive_project_cancellable(
         None
     } else {
         progress(note!("progress-writing", path = VEGETATION_RELPATH));
+        // The point clouds do not tell walls from bushes: the returns at buildings are left out.
+        // Without stored buildings (or with a damaged file, which the export reports) there is
+        // no mask.
+        let footprints = export::read_stored_buildings(dir)
+            .ok()
+            .flatten()
+            .map_or_else(Vec::new, |b| b.all_footprints());
+        let mask = BuildingMask::new(&footprints, &bbox);
         let mut counts = CellCounts::new(GridSpec::covering(&bbox, VEGETATION_CELL_M));
         for (tile, path) in &point_clouds {
             stop_if(cancelled)?;
             // A damaged file costs only its tile, not the whole derive.
-            if let Err(e) = counts.add_tile(path, &dtm) {
+            if let Err(e) = counts.add_tile(path, &dtm, Some(&mask)) {
                 progress(note!(
                     "warning-point-cloud-unreadable",
                     tile = tile,
@@ -12947,7 +12955,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
-    fn vegetation_candidates_leave_buildings_water_and_the_drawn_park() {
+    fn vegetation_candidates_leave_buildings_water_paving_and_the_drawn_park() {
         use crate::build::berlin::object_polygon;
         use crate::build::out_of_bounds::area_object;
         use crate::derive::vegetation::{VegetationClass, vegetation_to_geojson};
@@ -12999,13 +13007,22 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &georef,
         )
         .unwrap();
+        // A car park along the north edge of the thicket.
+        let paved = area_object(
+            &rect(421_595.0, 5_821_745.0, 30.0, 5.0),
+            symbol_set.id_for_code("501.5").unwrap(),
+            Vec::new(),
+            &georef,
+        )
+        .unwrap();
+        let map_objects = [park, paved];
         let build = |project: &ProjectFile| {
             export::stored_vegetation_objects(
                 dir.path(),
                 project,
                 std::slice::from_ref(&building),
                 &water,
-                std::slice::from_ref(&park),
+                &map_objects,
                 &georef,
                 &symbol_set,
             )
@@ -13022,7 +13039,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .map(|p| p.unsigned_area() * m2_per_unit)
                 .sum()
         };
-        assert!((area_of("410") - 750.0).abs() < 2.0, "{}", area_of("410"));
+        assert!((area_of("410") - 600.0).abs() < 2.0, "{}", area_of("410"));
         assert!((area_of("401") - 200.0).abs() < 2.0, "{}", area_of("401"));
         let tags = &objects[0].tags;
         for (key, value) in [

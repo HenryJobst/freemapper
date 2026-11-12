@@ -609,10 +609,12 @@ Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, 
 Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß: etwa 160 MB je
 Quadratkilometer-Kachel, für einen Park meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
 (oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
-schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden
-und im Wasser gibt es keine. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat nur
-den Teil mit anderer Klasse. Die Schwellen stammen von Waldkarten und sind an Parks noch nicht abgestimmt:
-Gebäudekanten und Schilf erscheinen manchmal als 410. Prüfen Sie die Flächen am Luftbild und im Gelände.
+schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
+im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
+freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
+nur den Teil mit anderer Klasse. Abgestimmt ist das bisher an einem Park (Sanssouci); Schilf am Ufer erscheint
+als 410. Die Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und
+im Gelände.
 Ist der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
 Punktwolken-Quelle.
 

@@ -12,6 +12,7 @@ use geo::{Area as _, Contains as _, Simplify as _};
 
 use super::DeriveError;
 use super::contours::contour_lines;
+use crate::crs::BoundingBox;
 use crate::raster::{GridSpec, Raster};
 
 /// Cell of the classification.
@@ -48,10 +49,80 @@ pub struct VegetationPoint {
     pub height_m: f64,
     /// Classified as ground (LAS class 2).
     pub ground: bool,
+    /// The only echo of its pulse: a roof or a wall gives one, a crown several.
+    pub single: bool,
 }
+
+/// Returns higher than this decide whether a cell is a structure.
+const STRUCTURE_ABOVE_M: f64 = 2.5;
+/// From this share of single echoes among them, a cell is a roof or a wall, not a crown: in
+/// Sanssouci (LGB 2021) 70 to 100 % on roofs, up to 30 % in crowns.
+const STRUCTURE_SINGLE_SHARE: f64 = 0.6;
 
 /// Points read per chunk.
 const CHUNK_POINTS: u64 = 1_000_000;
+
+/// Returns this close to a building are left out: walls, eaves and roof edges, which LGB does not
+/// tell from vegetation (its classes are only ground, first echoes and last echoes).
+const BUILDING_MARGIN_M: f64 = 1.0;
+/// The cell of [`BuildingMask`].
+const MASK_CELL_M: f64 = 0.5;
+
+/// Where the returns are left out: on the buildings and within [`BUILDING_MARGIN_M`] of them.
+pub struct BuildingMask {
+    grid: GridSpec,
+    data: Vec<bool>,
+}
+
+impl BuildingMask {
+    /// The mask of `footprints` over `bbox`, both in the map's CRS.
+    pub fn new(footprints: &[geo_types::Polygon<f64>], bbox: &BoundingBox) -> Self {
+        use geo::{BoundingRect as _, Distance as _, Euclidean};
+        let grid = GridSpec::covering(bbox, MASK_CELL_M);
+        let mut data = vec![false; grid.width as usize * grid.height as usize];
+        for footprint in footprints {
+            let Some(rect) = footprint.bounding_rect() else {
+                continue;
+            };
+            let col = |e: f64| ((e - grid.west) / grid.pixel_size).floor();
+            let row = |n: f64| ((grid.north - n) / grid.pixel_size).floor();
+            let clamp = |v: f64, max: u32| v.clamp(0.0, f64::from(max) - 1.0) as u32;
+            let (x0, x1) = (
+                clamp(col(rect.min().x - BUILDING_MARGIN_M), grid.width),
+                clamp(col(rect.max().x + BUILDING_MARGIN_M), grid.width),
+            );
+            let (y0, y1) = (
+                clamp(row(rect.max().y + BUILDING_MARGIN_M), grid.height),
+                clamp(row(rect.min().y - BUILDING_MARGIN_M), grid.height),
+            );
+            for y in y0..=y1 {
+                for x in x0..=x1 {
+                    let cell = &mut data[y as usize * grid.width as usize + x as usize];
+                    if *cell {
+                        continue;
+                    }
+                    let centre = geo_types::Point::new(
+                        grid.west + (f64::from(x) + 0.5) * grid.pixel_size,
+                        grid.north - (f64::from(y) + 0.5) * grid.pixel_size,
+                    );
+                    *cell = Euclidean.distance(&centre, footprint) <= BUILDING_MARGIN_M;
+                }
+            }
+        }
+        Self { grid, data }
+    }
+
+    /// Whether a return at `(e, n)` is left out.
+    pub fn contains(&self, e: f64, n: f64) -> bool {
+        let x = ((e - self.grid.west) / self.grid.pixel_size).floor();
+        let y = ((self.grid.north - n) / self.grid.pixel_size).floor();
+        x >= 0.0
+            && y >= 0.0
+            && x < f64::from(self.grid.width)
+            && y < f64::from(self.grid.height)
+            && self.data[y as usize * self.grid.width as usize + x as usize]
+    }
+}
 
 /// Hands every return of a classified LAS/LAZ tile over `dtm` to `each`, with its height above
 /// it, chunk by chunk. Buildings, noise and water are left out, and so is every return over a
@@ -65,6 +136,15 @@ pub fn read_tile(
     let grid = dtm.grid;
     let las_error = |e: las::Error| DeriveError::Image(format!("{}: {e}", path.display()));
     let mut reader = las::Reader::from_path(path).map_err(las_error)?;
+    // A tile beside the area is not read at all.
+    let bounds = reader.header().bounds();
+    if bounds.max.x < grid.west
+        || bounds.min.x > grid.west + f64::from(grid.width) * grid.pixel_size
+        || bounds.max.y < grid.north - f64::from(grid.height) * grid.pixel_size
+        || bounds.min.y > grid.north
+    {
+        return Ok(());
+    }
     let mut points = las::PointDataBuilder::new()
         .for_header(reader.header())
         .build();
@@ -102,6 +182,7 @@ pub fn read_tile(
                 n: point.y,
                 height_m: point.z - f64::from(ground),
                 ground: point.classification == Classification::Ground,
+                single: point.number_of_returns <= 1,
             });
         }
     }
@@ -155,6 +236,9 @@ impl VegetationClass {
 struct Counts {
     all: usize,
     low: usize,
+    /// Returns above [`STRUCTURE_ABOVE_M`], and those of them that were single echoes.
+    high: usize,
+    high_single: usize,
     ground: f64,
     undergrowth: f64,
     vegetation: f64,
@@ -188,6 +272,10 @@ impl CellCounts {
         if p.height_m < OPEN_BELOW_M || p.ground {
             c.low += 1;
         }
+        if !p.ground && p.height_m > STRUCTURE_ABOVE_M {
+            c.high += 1;
+            c.high_single += usize::from(p.single);
+        }
         if p.ground || p.height_m < GROUND_BELOW_M {
             c.ground += 1.0;
         } else if p.height_m < UNDERGROWTH_BELOW_M {
@@ -200,13 +288,18 @@ impl CellCounts {
         }
     }
 
-    /// Counts the returns of a tile ([`read_tile`]).
+    /// Counts the returns of a tile ([`read_tile`]) outside `mask`.
     pub fn add_tile(
         &mut self,
         path: &std::path::Path,
         dtm: &Raster<f32>,
+        mask: Option<&BuildingMask>,
     ) -> Result<(), DeriveError> {
-        read_tile(path, dtm, &mut |p| self.add(p))
+        read_tile(path, dtm, &mut |p| {
+            if !mask.is_some_and(|m| m.contains(p.e, p.n)) {
+                self.add(p);
+            }
+        })
     }
 
     /// The class of every cell; `None` where too few returns fell.
@@ -232,6 +325,11 @@ pub fn classify(
 
 fn cell_class(c: &Counts) -> Option<VegetationClass> {
     if c.all < MIN_RETURNS {
+        return None;
+    }
+    // A roof, also one the buildings of the cadastre no longer have (the scan can be years
+    // older): no vegetation.
+    if c.high >= MIN_RETURNS && c.high_single as f64 >= STRUCTURE_SINGLE_SHARE * c.high as f64 {
         return None;
     }
     if c.low as f64 >= OPEN_SHARE * c.all as f64 {
@@ -475,6 +573,7 @@ mod tests {
                 n: g.north - (f64::from(y) + 0.5) * CELL_M,
                 height_m: h,
                 ground: h == 0.0,
+                single: false,
             })
             .collect()
     }
@@ -610,13 +709,47 @@ mod tests {
         };
         let dtm = Raster::filled(g, 30.0f32);
         let mut counts = CellCounts::new(g);
-        counts.add_tile(&path, &dtm).unwrap();
+        counts.add_tile(&path, &dtm, None).unwrap();
         let classes = counts.classes();
         assert_eq!(classes.get(0, 0), Some(VegetationClass::Open));
         assert_eq!(classes.get(1, 0), Some(VegetationClass::Impassable));
         let mut points = Vec::new();
         read_tile(&path, &dtm, &mut |p| points.push(p)).unwrap();
         assert_eq!(classify(points, g).data, classes.data);
+        // A tile beside the area gives nothing (and is not read).
+        let beside = Raster::filled(GridSpec { west: 1000.0, ..g }, 30.0f32);
+        let mut none = 0;
+        read_tile(&path, &beside, &mut |_| none += 1).unwrap();
+        assert_eq!(none, 0);
+        // A building just east of the bushes takes them out: within a metre of it, a return is a
+        // wall or an eave.
+        let building = geo_types::Polygon::new(
+            geo_types::LineString::from(vec![
+                (2.0 * CELL_M + 0.5, 0.0),
+                (2.0 * CELL_M + 5.0, 0.0),
+                (2.0 * CELL_M + 5.0, CELL_M),
+                (2.0 * CELL_M + 0.5, CELL_M),
+                (2.0 * CELL_M + 0.5, 0.0),
+            ]),
+            vec![],
+        );
+        let bbox = BoundingBox {
+            min_e: 0.0,
+            min_n: 0.0,
+            max_e: 2.0 * CELL_M,
+            max_n: CELL_M,
+        };
+        let mask = BuildingMask::new(&[building], &bbox);
+        assert!(mask.contains(2.0 * CELL_M - 0.2, 1.5) && !mask.contains(CELL_M + 0.5, 1.5));
+        let mut counts = CellCounts::new(g);
+        counts.add_tile(&path, &dtm, Some(&mask)).unwrap();
+        let classes = counts.classes();
+        assert_eq!(classes.get(0, 0), Some(VegetationClass::Open));
+        assert_eq!(
+            classes.get(1, 0),
+            Some(VegetationClass::Impassable),
+            "the west part of the cell is still counted"
+        );
     }
 
     #[test]
@@ -658,6 +791,23 @@ mod tests {
         assert!(
             vegetation_from_geojson(r#"{"features":[{"properties":{"code":"999"}}]}"#).is_err()
         );
+    }
+
+    #[test]
+    fn a_roof_is_no_vegetation_but_a_crown_is() {
+        let g = grid(2);
+        let mut points = Vec::new();
+        for (x, single) in [(0, true), (1, false)] {
+            let mut cell = cell_points(x, 0, &[7.0; 12], &g);
+            cell.extend(cell_points(x, 0, &[0.0; 4], &g));
+            for p in &mut cell {
+                p.single = single && !p.ground;
+            }
+            points.extend(cell);
+        }
+        let classes = classify(points, g);
+        assert_eq!(classes.get(0, 0), None, "a roof");
+        assert_eq!(classes.get(1, 0), Some(VegetationClass::Forest), "a crown");
     }
 
     #[test]

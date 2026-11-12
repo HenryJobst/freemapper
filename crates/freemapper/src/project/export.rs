@@ -28,6 +28,14 @@ impl StoredBuildings {
             .flat_map(|b| b.footprint.0.iter().cloned())
             .collect()
     }
+
+    /// The footprints of every building, canopies and the other non-map buildings included.
+    pub(super) fn all_footprints(&self) -> Vec<geo_types::Polygon<f64>> {
+        self.buildings
+            .iter()
+            .flat_map(|b| b.footprint.0.iter().cloned())
+            .collect()
+    }
 }
 
 /// The stored ALKIS buildings; none when no buildings were fetched.
@@ -292,8 +300,9 @@ const CLIFF_TRAFFIC_M: f64 = 3.0;
 const CLIFF_BUILDING_M: f64 = 5.0;
 
 /// The vegetation areas from `derive` (ADR 0105) as candidates, while the content settings ask
-/// for them: cut at the buildings and the water, and where the map already has an area of the
-/// same symbol (an ALKIS park, a wood) only the part that differs. Patches smaller than the
+/// for them: cut at the buildings, the water and the paved areas of the map (parked cars look like
+/// bushes), and where the map already has an area of the same symbol (an ALKIS park, a wood) only
+/// the part that differs. Patches smaller than the
 /// minimum area of the scale go; a class the symbol set lacks is left out.
 pub(super) fn stored_vegetation_objects(
     dir: &Path,
@@ -308,6 +317,8 @@ pub(super) fn stored_vegetation_objects(
     use crate::build::content::POINT_CLOUD_KEY;
     use crate::build::out_of_bounds::area_object;
     use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
+    /// The paved area of ISSprOM.
+    const PAVED_AREA_CODE: &str = "501.5";
     use geo::{Area as _, BooleanOps as _, MapCoords as _};
     let path = dir.join(VEGETATION_RELPATH);
     if !project.wants_vegetation() || !path.exists() {
@@ -328,7 +339,6 @@ pub(super) fn stored_vegetation_objects(
         .iter()
         .filter_map(|r| r.published)
         .max();
-    let blocked = geo::unary_union(footprints.iter().chain(&water.0));
     let min_area = min_area_m2(project.scale_denominator);
     let projected = |polygon: geo_types::Polygon<f64>| {
         polygon.map_coords(|c| {
@@ -339,17 +349,25 @@ pub(super) fn stored_vegetation_objects(
             geo_types::coord! { x: p.easting, y: p.northing }
         })
     };
+    let areas_of = |code: &str| -> Vec<geo_types::Polygon<f64>> {
+        let Some(id) = symbol_set.id_for_code(code) else {
+            return Vec::new();
+        };
+        map_objects
+            .iter()
+            .filter(|o| o.symbol_id == id)
+            .filter_map(object_polygon)
+            .map(projected)
+            .collect()
+    };
+    let paved = areas_of(PAVED_AREA_CODE);
+    let blocked = geo::unary_union(footprints.iter().chain(&water.0).chain(&paved));
     let mut objects = Vec::new();
     for (class, area) in areas {
         let Some(symbol_id) = symbol_set.id_for_code(class.code()) else {
             continue;
         };
-        let drawn: Vec<geo_types::Polygon<f64>> = map_objects
-            .iter()
-            .filter(|o| o.symbol_id == symbol_id)
-            .filter_map(object_polygon)
-            .map(projected)
-            .collect();
+        let drawn = areas_of(class.code());
         let mut rest = area.difference(&blocked);
         if !drawn.is_empty() {
             rest = rest.difference(&geo::unary_union(&drawn));
