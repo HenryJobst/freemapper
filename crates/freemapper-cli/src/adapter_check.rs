@@ -19,7 +19,6 @@ use freemapper::sources::osm::{extracts_for, parse_state_date};
 use freemapper_manifest::ManifestError;
 use freemapper_manifest::check::{Checked, check_folder, covers};
 use freemapper_manifest::loader::Loaded;
-use freemapper_manifest::model::Version;
 
 use crate::text::{n, text, v};
 
@@ -233,11 +232,6 @@ impl Report {
     }
 }
 
-/// The version of this freemapper, which a manifest may ask for as its oldest.
-fn running() -> Version {
-    Version::parse(env!("CARGO_PKG_VERSION")).expect("the version of the package is x.y.z")
-}
-
 /// The static part of the check: the report, and the adapter with its registry if it loads.
 fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>) {
     // The folder as it was named, without following a link: the name is the id.
@@ -250,7 +244,13 @@ fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>
         warnings: Vec::new(),
         live: None,
     };
-    match check_folder(&folder, backends(), &builtin(), running(), today) {
+    match check_folder(
+        &folder,
+        backends(),
+        &builtin(),
+        crate::adapters::running(),
+        today,
+    ) {
         Ok(checked) => {
             let names = &checked.adapter().info().names;
             report.name = if german { &names.de } else { &names.en }.clone();

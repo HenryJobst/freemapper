@@ -17,6 +17,8 @@ Folder adapters are read by freemapper 0.14.0 and later.
 - It holds at most 64 files. The folder and the files freemapper reads must be real ones; a link is not
   followed.
 - A `rules.toml` in the folder is not read (warning `adapter.rules-not-read`); the adapter still loads.
+- In the adapter folder, beside the folders of the adapters, plain files and anything whose name starts with
+  a dot (`.git`, the folder of a sync tool) are passed over.
 
 ## Rules that hold everywhere
 
@@ -285,7 +287,7 @@ Warnings:
 | `check.built-in-id` | An adapter with this id is built into the program; from an adapter folder this one does not load. |
 | `check.prefix-shared` | A built-in adapter has the same `object_id_prefix`. |
 | `check.boundary-area` | The boundary encloses under 1 km² or over 2 000 000 km²: probably the wrong unit. |
-| `check.shares-ground` | The adapter lies on the ground of another one. A map there gets the objects of both. |
+| `check.shares-ground` | The adapter lies on the ground of another one: the two have more than a hundredth of the smaller region in common. A map there gets the objects of both. |
 
 ## Complete examples
 

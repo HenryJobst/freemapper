@@ -73,9 +73,10 @@ pub fn project_dir(project: &Path) -> PathBuf {
     project.join("adapters")
 }
 
-/// The version of this freemapper, which a manifest may ask for as its oldest.
-fn running() -> Version {
-    Version::parse(env!("CARGO_PKG_VERSION")).expect("the version of the package is x.y.z")
+/// The version of this freemapper, which a manifest may ask for as its oldest. A build before
+/// a release (`x.y.z-rc.1`) counts as that release.
+pub(crate) fn running() -> Version {
+    Version::of_program(env!("CARGO_PKG_VERSION")).expect("the version of the package is x.y.z")
 }
 
 /// The adapters of a run and what the folders had to say.
@@ -158,11 +159,22 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
             ],
         ));
         if !adapter.overlaps.is_empty() {
+            // The regions by their names in the language of the run, as a person knows them.
+            let german = crate::text::lang().code() == "de";
+            let others: Vec<&str> = adapter
+                .overlaps
+                .iter()
+                .map(|id| match assembled.registry.get(id) {
+                    Some(other) if german => other.info().names.de.as_str(),
+                    Some(other) => other.info().names.en.as_str(),
+                    None => id.as_str(),
+                })
+                .collect();
             lines.push(text(
                 "cli-adapter-overlaps",
                 &[
                     ("adapter", v(&adapter.id)),
-                    ("others", v(adapter.overlaps.join(", "))),
+                    ("others", v(others.join(", "))),
                 ],
             ));
         }
@@ -585,8 +597,8 @@ land_use_type = "ave:NutzungFlurstueck"
             [
                 "warning: the adapter projectadapter from the project folder is in use; it may \
                  ask these hosts: geo.example.org",
-                "warning: the adapter projectadapter also covers ground of brandenburg, \
-                 useradapter; its objects go onto maps there"
+                "warning: the adapter projectadapter also covers ground of Brandenburg, \
+                 Sample useradapter; its objects go onto maps there"
             ]
         );
         // Neither folder: the twelve states.

@@ -185,6 +185,40 @@ fn the_recorded_hosts_are_those_of_the_traces() {
     assert!(recorded > 0, "the net records no state");
 }
 
+/// No two states share ground. The borders of neighbours were simplified apart and overlap by
+/// strips, and Lower Saxony and Schleswig-Holstein both hold the mouth of the Elbe (89 km² of
+/// water, 0.55 % of Schleswig-Holstein, the largest common area of two states). The measure of
+/// the loader must take none of that for shared ground.
+#[test]
+fn no_two_states_share_ground() {
+    use geo::{Area, BooleanOps};
+    let mut registry = Registry::new();
+    states::register(&mut registry).unwrap();
+    let mut largest: f64 = 0.0;
+    for state in State::ALL {
+        let adapter = registry.get(state.id()).unwrap();
+        let others: Vec<String> = freemapper_manifest::loader::sharing_ground(&registry, adapter)
+            .into_iter()
+            .filter(|other| other != state.id())
+            .collect();
+        assert!(
+            others.is_empty(),
+            "{} shares ground with {others:?}",
+            state.id()
+        );
+        for other in State::ALL {
+            let theirs = registry.get(other.id()).unwrap().boundary();
+            let mine = adapter.boundary();
+            if other != state {
+                let smaller = mine.unsigned_area().min(theirs.unsigned_area());
+                largest = largest.max(mine.intersection(theirs).unsigned_area() / smaller);
+            }
+        }
+    }
+    // Room below the hundredth the loader allows: a boundary that changes this is looked at.
+    assert!((0.005..0.007).contains(&largest), "{largest}");
+}
+
 /// Every built-in manifest passes the validator, its boundary files are valid geometries, its
 /// folder holds the files it names and no other, and it declares every host its state asks.
 #[test]

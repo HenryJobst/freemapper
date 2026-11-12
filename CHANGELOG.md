@@ -8,8 +8,16 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Zwei Adapter teilen sich Gebiet, wenn ihre gemeinsame Fläche mehr als ein Hundertstel der kleineren Region ausmacht. Bisher wurde je ein Innenpunkt geprüft; ein Adapter, der ein Drittel weit in ein Bundesland hineinreichte, blieb so unbemerkt. `adapters list`, `adapters check` und die Warnung zu den Adaptern eines Projekts nutzen das neue Maß. Die Warnung nennt die Regionen jetzt mit ihrem Namen statt mit der Kennung.
+- Die Meldung zu einem Adapter, den das Programm nicht hat, sagt, dass ein neueres freemapper ihn vielleicht mitbringt.
 - Das Beispiel [Treppenviertel Blankenese](examples/hamburg-blankenese/) ist neu gebaut, mit dem Standardprofil `balanced`: Höhenlinien, Wege und 110 Treppen aus OpenStreetMap stehen jetzt in der Karte (1780 Kartenobjekte, 755 Kandidaten). Die [Gegenüberstellung](examples/vergleich.md) sagt, welche Beispiele vor den Inhaltsprofilen entstanden sind, und nennt die Messwerte für Blankenese und Saarlouis.
 - Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf. Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
+
+### Behoben
+
+- Saarland: Ein Landkreis-Archiv, das sich nicht lesen lässt (umbenannt, oder der Server ist kurz nicht erreichbar), stoppt den Abruf nicht mehr, wenn die Kacheln des Gebiets in anderen Archiven liegen. Fällt ein Archiv aus, gilt sein Verzeichnis vom letzten Lauf; Karten, deren Kacheln schon im Zwischenspeicher liegen, entstehen weiter. Beides meldet eine Warnung mit der Adresse des Archivs. Ein Abbruch, eine nicht erlaubte Adresse oder ein Schreibfehler auf diesem Rechner beenden den Abruf weiterhin sofort.
+- Ein Ordner im Adapterordner, dessen Name mit einem Punkt beginnt (`.git`), löst nicht mehr bei jedem Befehl eine Warnung aus.
+- Eine Vorabversion des Programms (`x.y.z-rc.1`) bricht beim Laden der Adapter nicht mehr ab; sie zählt als ihre Release-Version.
 
 ## [0.14.0] - 2026-11-12
 

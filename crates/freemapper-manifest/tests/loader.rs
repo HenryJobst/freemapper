@@ -162,6 +162,40 @@ fn an_adapter_on_the_ground_of_another_names_it() {
     );
 }
 
+/// Sharing ground is measured, not sampled: an adapter that reaches a third of the way into
+/// another one shares its ground, although the middle of neither lies inside the other. Two
+/// neighbours whose simplified borders overlap by a strip of a few metres do not.
+#[test]
+fn ground_is_shared_by_area_not_by_the_middle_of_a_region() {
+    let dir = tempfile::tempdir().unwrap();
+    let square = |min_e: u32, max_e: u32| {
+        format!(
+            r#"{{"type":"Feature","properties":{{}},"geometry":{{"type":"Polygon","coordinates":
+            [[[{min_e},5800000],[{max_e},5800000],[{max_e},5801000],[{min_e},5801000],[{min_e},5800000]]]}}}}"#
+        )
+    };
+    // `sample` is the square from 400 000 to 401 000. `partly` reaches 300 m into it from the
+    // west, `strip` 5 m from the east.
+    for (id, min_e, max_e) in [("partly", 399_500, 400_300), ("strip", 400_995, 402_000)] {
+        let folder = write(dir.path(), id, &manifest(id));
+        std::fs::write(folder.join("boundary.geojson"), square(min_e, max_e)).unwrap();
+    }
+    let mut registry = Registry::new();
+    registry
+        .add(built_in("sample", &manifest("sample"), &Registry::new()))
+        .unwrap();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let overlaps: Vec<(&str, Vec<&str>)> = loaded
+        .iter()
+        .map(|adapter| {
+            let others = adapter.overlaps.iter().map(String::as_str).collect();
+            (adapter.id.as_str(), others)
+        })
+        .collect();
+    assert_eq!(overlaps, [("partly", vec!["sample"]), ("strip", vec![])]);
+}
+
 /// Review focus 4: an id is taken once. A folder cannot replace an adapter the program has,
 /// nor one loaded before it.
 #[test]
@@ -351,6 +385,38 @@ fn an_adapter_for_a_newer_freemapper_is_skipped() {
     let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), Version(0, 14, 0));
     assert_eq!(loaded.len(), 2);
     assert!(warnings.is_empty());
+}
+
+/// A person may keep their adapter folder under version control or in a synced folder. What
+/// such tools put there (`.git`, `.stfolder`) starts with a dot and is nobody's adapter: it is
+/// passed over without a warning.
+#[test]
+fn a_dot_folder_in_the_adapter_folder_is_passed_over() {
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), "current", &manifest("current"));
+    std::fs::create_dir_all(dir.path().join(".git/objects")).unwrap();
+    std::fs::write(dir.path().join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+    let mut registry = Registry::new();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert_eq!(
+        loaded.iter().map(|l| l.id.as_str()).collect::<Vec<_>>(),
+        ["current"]
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+}
+
+/// The version of a program built before its release (`0.15.0-rc.1`) counts as that release.
+#[test]
+fn a_prerelease_of_the_program_counts_as_its_release() {
+    assert_eq!(Version::of_program("0.15.0"), Some(Version(0, 15, 0)));
+    assert_eq!(Version::of_program("0.15.0-rc.1"), Some(Version(0, 15, 0)));
+    assert_eq!(
+        Version::of_program("0.15.0+build.7"),
+        Some(Version(0, 15, 0))
+    );
+    assert_eq!(Version::of_program("0.15"), None);
+    // A manifest states a release, never a prerelease.
+    assert_eq!(Version::parse("0.15.0-rc.1"), None);
 }
 
 /// A manifest written for a newer freemapper may use keys and kinds this one does not know.

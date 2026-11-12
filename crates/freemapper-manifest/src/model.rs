@@ -40,6 +40,12 @@ impl Version {
         let version = Self(parts.next()??, parts.next()??, parts.next()??);
         parts.next().is_none().then_some(version)
     }
+
+    /// The release a program version belongs to: `0.15.0-rc.1` and `0.15.0+build.7` count as
+    /// `0.15.0`. For the version of the running program, which may be built before its release.
+    pub fn of_program(text: &str) -> Option<Self> {
+        Self::parse(text.split(['-', '+']).next()?)
+    }
 }
 
 impl std::fmt::Display for Version {
