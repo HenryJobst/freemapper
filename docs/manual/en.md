@@ -561,14 +561,16 @@ From the terrain model come further candidates the contours miss:
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 
-None come at buildings, in water, or next to walls, fences and banks that are already drawn. Knolls and
+None come at buildings, in water, or next to walls, fences and banks that are already drawn; a bank is left
+out only when most of it lies at a building. Knolls and
 depressions do not come on residential, mixed, commercial and traffic land or in allotments, where they are
 mostly heaps, garden mounds, courtyards or ramps; depressions not within 8 m of a building either. A cliff along
-a street or a building is mostly a retaining wall and is offered as a bank. The terrain
+a street or a building is mostly a retaining wall and is offered as an impassable wall (515). A bent or
+kinked step is split into pieces that follow it. The terrain
 model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
-as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Banks and cliffs belong to the group `slopes`,
-knolls and depressions to the group `landforms` (see below): with `full`, `--content-set slopes=map` or
-`landforms=map` they go straight onto the map.
+as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Everything from the terrain model belongs to the group
+`landforms` (see below), banks, cliffs and retaining walls too: with `full` or `--content-set landforms=map` they
+go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap.
 
 ### What goes straight onto the map
 

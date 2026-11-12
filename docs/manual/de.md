@@ -587,15 +587,17 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.
 
-An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine. Kuppen und
+An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine; eine
+Böschung entfällt nur, wenn sie überwiegend an einem Gebäude liegt. Kuppen und
 Senken entstehen nicht auf Wohn-, Misch-, Gewerbe- und Verkehrsflächen und in Kleingärten, denn dort sind es
 meist Schüttgut, Gartenhügel, Höfe oder Rampen; Senken auch nicht näher als 8 m an Gebäuden. Eine Felswand
-entlang einer Straße oder eines Gebäudes ist meist eine Stützmauer und wird als Böschung angeboten. Das
+entlang einer Straße oder eines Gebäudes ist meist eine Stützmauer und wird als nicht passierbare Mauer
+(515) angeboten. Eine gebogene oder geknickte Geländestufe wird in Stücke geteilt, die ihr folgen. Das
 Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa einen Meter sind, übersieht es,
 und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
-Mauer herausstellen, eine Felswand als Treppe. Böschungen und Felswände gehören zur Gruppe `slopes`, Kuppen
-und Senken zur Gruppe `landforms` (siehe unten): Mit `full` oder `--content-set slopes=map` bzw.
-`landforms=map` kommen sie direkt auf die Karte.
+Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell gehört zur Gruppe `landforms`
+(siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
+kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap.
 
 ### Was direkt auf die Karte kommt
 

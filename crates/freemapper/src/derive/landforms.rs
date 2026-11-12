@@ -47,6 +47,13 @@ const BANK_SIMPLIFY_M: f64 = 0.5;
 const BANK_SMOOTH_BINS: usize = 2;
 /// From this drop on a height jump is an impassable cliff (201), below an earth bank (104).
 const CLIFF_DROP_M: f64 = 3.0;
+/// A bank's cells lie at most this far from its line; a patch with cells farther off bends and is
+/// split (ground metres).
+const MAX_OFF_LINE_M: f64 = 2.0;
+/// From this share of cells rising to each side of the axis, a patch is two banks back to back.
+const TWO_SIDED_SHARE: f64 = 0.3;
+/// How often a patch is split at most.
+const MAX_SPLIT_DEPTH: u32 = 6;
 
 /// What a landform candidate is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -312,8 +319,7 @@ pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64
         .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
         .collect();
     let min_length_m = (MIN_BANK_MM * f64::from(scale_denominator) / 1000.0).max(MIN_BANK_M);
-    // The height `distance` metres from the cell centre along the unit vector, `None` off the
-    // raster or on a cell without data.
+    // The height at a point, `None` off the raster or on a cell without data.
     let height_at = |(e, n): (f64, f64)| -> Option<f64> {
         let x = ((e - grid.west) / px).floor();
         let y = ((grid.north - n) / px).floor();
@@ -335,12 +341,12 @@ pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64
         }
         let mut drops = Vec::new();
         let mut shares = Vec::new();
-        let mut uphill = (0.0, 0.0);
+        let mut uphill = Vec::with_capacity(cells.len());
         for &c in &cells {
             let (dz_de, dz_dn) = gradients[c].expect("steep cells have a gradient");
             let length = dz_de.hypot(dz_dn);
             let u = (dz_de / length, dz_dn / length);
-            uphill = (uphill.0 + u.0, uphill.1 + u.1);
+            uphill.push((c, u));
             let p = cell_centre(&grid, (c % w) as i64, (c / w) as i64);
             let at = |d: f64| height_at((p.0 + u.0 * d, p.1 + u.1 * d));
             let (Some(high), Some(low), Some(far_high), Some(far_low)) = (
@@ -364,28 +370,29 @@ pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64
         if drop < min_height_m || median(&mut shares) < MIN_DROP_SHARE {
             continue;
         }
-        let Some(points) = centre_line(&cells, &grid, min_length_m) else {
-            continue;
-        };
-        // The ticks sit on the right of the line and point down: the low side on the right.
-        let (first, last) = (points[0], points[points.len() - 1]);
-        let direction = (last.0 - first.0, last.1 - first.1);
-        let right = (direction.1, -direction.0);
-        let points = if right.0 * uphill.0 + right.1 * uphill.1 > 0.0 {
-            points.into_iter().rev().collect()
-        } else {
-            points
-        };
-        jumps.push(Landform {
-            kind: if drop >= CLIFF_DROP_M {
-                LandformKind::Cliff
+        let mut pieces = Vec::new();
+        bank_pieces(&uphill, &grid, min_length_m, 0, &mut pieces);
+        for (points, uphill) in pieces {
+            // The ticks sit on the right of the line and point down: the low side on the right.
+            let (first, last) = (points[0], points[points.len() - 1]);
+            let direction = (last.0 - first.0, last.1 - first.1);
+            let right = (direction.1, -direction.0);
+            let points = if right.0 * uphill.0 + right.1 * uphill.1 > 0.0 {
+                points.into_iter().rev().collect()
             } else {
-                LandformKind::Bank
-            },
-            points,
-            rotation_deg: 0.0,
-            height_m: drop,
-        });
+                points
+            };
+            jumps.push(Landform {
+                kind: if drop >= CLIFF_DROP_M {
+                    LandformKind::Cliff
+                } else {
+                    LandformKind::Bank
+                },
+                points,
+                rotation_deg: 0.0,
+                height_m: drop,
+            });
+        }
     }
     jumps
 }
@@ -418,6 +425,81 @@ fn component(start: usize, w: usize, h: usize, steep: &[bool], seen: &mut [bool]
 fn median(values: &mut [f64]) -> f64 {
     values.sort_by(f64::total_cmp);
     values[values.len() / 2]
+}
+
+/// A bank's centre line and the uphill vectors of its cells, summed.
+type BankPiece = (Vec<(f64, f64)>, (f64, f64));
+
+/// The pieces of a steep patch (`cells` with the unit uphill vector of each) that each make one
+/// bank with one low side, as `(centre line, summed uphill vector)`. A patch that falls to both
+/// sides of its axis (a dyke, a ditch) is split by side; one whose cells lie farther than
+/// [`MAX_OFF_LINE_M`] from its centre line (a corner, a curve) is split across its axis at the
+/// cell farthest off. Pieces too short for a bank are left out.
+fn bank_pieces(
+    cells: &[(usize, (f64, f64))],
+    grid: &GridSpec,
+    min_length_m: f64,
+    depth: u32,
+    out: &mut Vec<BankPiece>,
+) {
+    use geo::{Distance as _, Euclidean};
+    if cells.len() < 3 {
+        return;
+    }
+    let w = grid.width as usize;
+    let centre = |c: usize| cell_centre(grid, (c % w) as i64, (c / w) as i64);
+    let points: Vec<(f64, f64)> = cells.iter().map(|&(c, _)| centre(c)).collect();
+    let (_, axis_deg) = principal_axes(&points);
+    let axis = (axis_deg.to_radians().cos(), axis_deg.to_radians().sin());
+    let normal = (-axis.1, axis.0);
+    let deeper = depth < MAX_SPLIT_DEPTH;
+    let split = |keep: &dyn Fn(usize) -> bool, out: &mut Vec<_>| {
+        let (a, b): (Vec<_>, Vec<_>) = (0..cells.len()).partition(|&i| keep(i));
+        if a.is_empty() || b.is_empty() {
+            return false;
+        }
+        for part in [a, b] {
+            let part: Vec<_> = part.into_iter().map(|i| cells[i]).collect();
+            bank_pieces(&part, grid, min_length_m, depth + 1, out);
+        }
+        true
+    };
+    let side = |i: usize| cells[i].1.0 * normal.0 + cells[i].1.1 * normal.1;
+    let rising = (0..cells.len()).filter(|&i| side(i) > 0.0).count();
+    let falling = cells.len() - rising;
+    if deeper
+        && rising.min(falling) as f64 >= TWO_SIDED_SHARE * cells.len() as f64
+        && split(&|i| side(i) > 0.0, out)
+    {
+        return;
+    }
+    let ids: Vec<usize> = cells.iter().map(|&(c, _)| c).collect();
+    let Some(line) = centre_line(&ids, grid, min_length_m) else {
+        return;
+    };
+    let path = geo_types::LineString::from(line.clone());
+    let (worst, off) = points
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (i, Euclidean.distance(&geo_types::Point::from(*p), &path)))
+        .fold(
+            (0, 0.0),
+            |best, item| if item.1 > best.1 { item } else { best },
+        );
+    if deeper && off > MAX_OFF_LINE_M {
+        let along = |p: &(f64, f64)| p.0 * axis.0 + p.1 * axis.1;
+        let cut = along(&points[worst]);
+        if split(&|i| along(&points[i]) < cut, out) {
+            return;
+        }
+    }
+    if off > MAX_OFF_LINE_M {
+        return;
+    }
+    let uphill = cells
+        .iter()
+        .fold((0.0, 0.0), |s, &(_, u)| (s.0 + u.0, s.1 + u.1));
+    out.push((line, uphill));
 }
 
 /// The line along the long axis of the patch: the mean of its cells per pixel along the axis,
@@ -690,6 +772,84 @@ mod tests {
             points.iter().all(|p| (p.0 - 31.0).abs() < 0.8),
             "{points:?}"
         );
+    }
+
+    /// A stretch of an edge, from one end to the other.
+    type Edge = ((f64, f64), (f64, f64));
+
+    /// Every point of `jumps` lies within 2.5 m of `edges`, and the lines cover at least
+    /// `share` of their length.
+    fn follow(jumps: &[Landform], edges: &[Edge], share: f64) {
+        use geo::{Distance as _, Euclidean, Length as _};
+        let edges: Vec<geo_types::Line<f64>> = edges
+            .iter()
+            .map(|&(a, b)| geo_types::Line::new(a, b))
+            .collect();
+        for jump in jumps {
+            for p in &jump.points {
+                let off = edges
+                    .iter()
+                    .map(|l| Euclidean.distance(&geo_types::Point::from(*p), l))
+                    .fold(f64::MAX, f64::min);
+                assert!(off < 2.5, "{p:?} is {off} m off: {jumps:?}");
+            }
+        }
+        let drawn: f64 = jumps
+            .iter()
+            .map(|j| Euclidean.length(&geo_types::LineString::from(j.points.clone())))
+            .sum();
+        let total: f64 = edges.iter().map(|l| Euclidean.length(l)).sum();
+        assert!(drawn >= share * total, "{drawn} of {total} m: {jumps:?}");
+    }
+
+    /// A terrace raised by 1.5 m wherever `inside` says, its edge spread over two metres.
+    fn terrace(inside: impl Fn(f64, f64) -> f64) -> impl Fn(f64, f64) -> f64 {
+        move |e, n| 40.0 + 1.5 * ((inside(e, n) + 1.0) / 2.0).clamp(0.0, 1.0)
+    }
+
+    #[test]
+    fn an_l_shaped_step_gives_banks_along_both_arms() {
+        // The south-west quarter is raised: one edge runs north from (30, 0), one east from
+        // (0, 30), and they meet at a corner.
+        let jumps = height_jumps(
+            &dtm(60, terrace(|e, n| (30.0 - e).min(30.0 - n))),
+            SPRINT,
+            1.0,
+        );
+        follow(
+            &jumps,
+            &[((30.0, 0.0), (30.0, 30.0)), ((0.0, 30.0), (30.0, 30.0))],
+            0.6,
+        );
+    }
+
+    #[test]
+    fn a_u_shaped_step_follows_its_three_sides_with_the_low_side_inside() {
+        // A channel 20 m wide sunk into a terrace, open to the south.
+        let jumps = height_jumps(
+            &dtm(60, terrace(|e, n| (20.0 - e).max(e - 40.0).max(n - 35.0))),
+            SPRINT,
+            1.0,
+        );
+        follow(
+            &jumps,
+            &[
+                ((20.0, 0.0), (20.0, 35.0)),
+                ((40.0, 0.0), (40.0, 35.0)),
+                ((20.0, 35.0), (40.0, 35.0)),
+            ],
+            0.6,
+        );
+        // The low side (the channel) is on the right of every bank.
+        for jump in &jumps {
+            let (a, b) = (jump.points[0], jump.points[jump.points.len() - 1]);
+            let mid = ((a.0 + b.0) / 2.0, (a.1 + b.1) / 2.0);
+            let right = (b.1 - a.1, a.0 - b.0);
+            let norm = right.0.hypot(right.1);
+            let probe = (mid.0 + 3.0 * right.0 / norm, mid.1 + 3.0 * right.1 / norm);
+            let inside = (20.0..40.0).contains(&probe.0) && probe.1 < 35.0;
+            assert!(inside, "{jump:?}");
+        }
     }
 
     #[test]

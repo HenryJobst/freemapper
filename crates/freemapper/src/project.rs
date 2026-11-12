@@ -12752,11 +12752,21 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             let start = format!(r#"<object type="{object_type}" symbol="{id}""#);
             assert!(candidates.contains(&start), "{code}");
         }
+        // The elongated knoll runs north–south, as symbol 110 does unturned: it turns only by the
+        // grivation (a few degrees), not by a quarter.
+        let id_110 = symbol_set.id_for_code("110").unwrap();
+        let start = format!(r#"<object type="0" symbol="{id_110}" rotation=""#);
+        let at = candidates.find(&start).unwrap() + start.len();
+        let rotation: f64 = candidates[at..at + candidates[at..].find('"').unwrap()]
+            .parse()
+            .unwrap();
+        assert!(rotation.abs() < 0.2, "{rotation}");
         // The map itself stays without them.
         let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
         assert!(!map.contains(">1.1<"));
         // The terrain model has no source rank: `balanced` leaves the bank and the knoll
-        // candidates, the groups `slopes` and `landforms` set to the map move them there.
+        // candidates. They are the group `landforms` whatever their symbol: `slopes` set to the
+        // map (the ALKIS and OSM banks) leaves them, `landforms` set to the map moves them.
         use crate::build::content::{Group, Place, Profile};
         let mut content = ContentSettings::with_profile(Profile::Balanced);
         let on_map = |dir: &Path| {
@@ -12768,7 +12778,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(on_map(dir.path()), (false, false));
         content.set(Group::Slopes, Some(Place::Map));
         set_content(dir.path(), Some(content.clone())).unwrap();
-        assert_eq!(on_map(dir.path()), (true, false));
+        assert_eq!(on_map(dir.path()), (false, false));
         content.set(Group::Landforms, Some(Place::Map));
         set_content(dir.path(), Some(content)).unwrap();
         assert_eq!(on_map(dir.path()), (true, true));
@@ -12816,7 +12826,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             // 5 m east of the school building (421 605 to 421 615 E): a light well.
             point(LandformKind::Depression, (421_620.0, 5_821_735.0), 1.3),
             point(LandformKind::Depression, (421_632.0, 5_821_720.0), 1.4),
-            // Along the north edge of the street: a retaining wall, offered as a bank.
+            // Along the north edge of the street: a retaining wall, offered as an impassable wall (515).
             line((421_620.0, 5_821_671.0), (421_640.0, 5_821_671.0), 3.5),
             line((421_580.0, 5_821_720.0), (421_598.0, 5_821_720.0), 3.6),
         ];
@@ -12830,7 +12840,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         let symbol_set = ProjectFile::load(dir.path()).unwrap().map_kind.symbol_set();
         let code_of = |id: &str| {
-            ["104", "109", "111", "201"]
+            ["104", "109", "111", "201", "515"]
                 .into_iter()
                 .find(|c| symbol_set.id_for_code(c).unwrap().to_string() == id)
         };
@@ -12854,7 +12864,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             [
                 ("1.2".to_string(), "109"),
                 ("1.4".to_string(), "111"),
-                ("3.5".to_string(), "104"),
+                ("3.5".to_string(), "515"),
                 ("3.6".to_string(), "201"),
             ]
         );

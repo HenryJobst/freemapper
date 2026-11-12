@@ -18,6 +18,10 @@ use crate::build::dedup::{Rank, rank};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 
+/// The tag of a landform from the terrain model (knoll, depression, bank, cliff, retaining wall);
+/// its value is the kind. Such objects belong to the group `landforms` whatever their symbol.
+pub const LANDFORM_KEY: &str = "freemapper:landform";
+
 /// The ALKIS land use whose areas that shall not be entered `balanced` always puts on the map.
 const RAILWAY_LAND_USE: &str = "Bahnverkehr";
 
@@ -104,7 +108,9 @@ pub enum Group {
     Passages,
     /// Contours (101, 102).
     Contours,
-    /// Knolls, elongated knolls and depressions (109 to 111), from the terrain model.
+    /// Everything `derive` finds in the terrain model: knolls, elongated knolls and depressions
+    /// (109 to 111), and the banks, cliffs and retaining walls known by their tag
+    /// (`LANDFORM_KEY`), which ALKIS and OpenStreetMap draw with the same symbols.
     Landforms,
     /// Areas that shall not be entered (520).
     OutOfBounds,
@@ -414,6 +420,9 @@ pub fn route(
     let classify = |o: &MapObject| -> Option<Group> {
         if o.tags.iter().any(|(k, _)| k == HIDDEN_KEY) {
             return None;
+        }
+        if o.tags.iter().any(|(k, _)| k == LANDFORM_KEY) {
+            return Some(Group::Landforms);
         }
         if Some(o.symbol_id) == edge_id {
             return (rank(o) > Some(Rank::Osm)).then_some(Group::Streets);

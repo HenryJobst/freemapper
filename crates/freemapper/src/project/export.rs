@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
-use crate::build::content::route;
+use crate::build::content::{LANDFORM_KEY, route};
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
 use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
 use crate::build::points::way_footprints;
@@ -254,9 +254,14 @@ const LANDFORM_CODES: [(LandformKind, &str); 5] = [
     (LandformKind::Bank, "104"),
     (LandformKind::Cliff, "201"),
 ];
-/// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks,
-/// cliffs, walls and fences.
-const DRAWN_JUMP_CODES: [&str; 7] = ["104", "104.1", "201", "513.1", "513.2", "515", "518"];
+/// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks and
+/// walls, cliffs, walls and fences.
+const DRAWN_JUMP_CODES: [&str; 9] = [
+    "104", "104.1", "105", "201", "513.1", "513.2", "515", "516", "518",
+];
+/// A cliff along roads and buildings is offered as an impassable wall: it is mostly a retaining
+/// wall, and an earth bank would show something impassable as passable.
+const RETAINING_WALL_CODE: &str = "515";
 /// A landform this close to a building, or a bank this close to the water or to a drawn line,
 /// is left out (ground metres): DGM1 is interpolated under buildings, and a wall or shore
 /// already shows the jump.
@@ -282,12 +287,13 @@ const TRAFFIC_LAND_USE: [&str; 6] = [
 ];
 const ALLOTMENT_LAND_USE: &str = "Kleingarten";
 /// A cliff that runs mostly this close to a traffic area, or to a building, is a retaining wall
-/// or a road edge more often than a cliff: it is offered as an earth bank (ground metres).
+/// more often than a cliff: it is offered as [`RETAINING_WALL_CODE`] (ground metres).
 const CLIFF_TRAFFIC_M: f64 = 3.0;
 const CLIFF_BUILDING_M: f64 = 5.0;
 
 /// Candidate objects for the landforms from `derive` (knolls 109, 110, depressions 111, banks
-/// 104, cliffs 201); none when there are none. `drawn` are the objects of the map and of the
+/// 104, cliffs 201, retaining walls 515), each tagged [`LANDFORM_KEY`] so the content settings
+/// place them as the group `landforms`; none when there are none. `drawn` are the objects of the map and of the
 /// candidates map so far.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn stored_landform_objects(
@@ -331,10 +337,10 @@ pub(super) fn stored_landform_objects(
         })
         .collect();
     let map_area = area.projected_polygon_in(project.crs());
-    let near_buildings = |g: &geo_types::Geometry<f64>| {
+    let near_building = |p: &geo_types::Point<f64>| {
         footprints
             .iter()
-            .any(|f| geo::Euclidean.distance(g, f) <= LANDFORM_CLEARANCE_M)
+            .any(|f| geo::Euclidean.distance(p, f) <= LANDFORM_CLEARANCE_M)
     };
     let land = |keep: &dyn Fn(&LandUse) -> bool| -> Vec<&geo_types::MultiPolygon<f64>> {
         land_use
@@ -382,19 +388,19 @@ pub(super) fn stored_landform_objects(
     };
     let mut objects = Vec::new();
     for form in &forms {
-        let mut landform = form.kind;
-        if landform == LandformKind::Cliff
-            && along_roads(&geo_types::LineString::from(form.points.clone()))
-        {
-            landform = LandformKind::Bank;
-        }
-        let Some(code) = LANDFORM_CODES
+        let landform = form.kind;
+        let Some(mut code) = LANDFORM_CODES
             .iter()
             .find(|(k, _)| *k == landform)
             .map(|(_, code)| *code)
         else {
             continue;
         };
+        if landform == LandformKind::Cliff
+            && along_roads(&geo_types::LineString::from(form.points.clone()))
+        {
+            code = RETAINING_WALL_CODE;
+        }
         let Some(symbol_id) = symbol_set.id_for_code(code) else {
             continue;
         };
@@ -403,12 +409,13 @@ pub(super) fn stored_landform_objects(
         } else {
             geo_types::LineString::from(form.points.clone()).into()
         };
-        if geo::Euclidean.distance(&geometry, &map_area) > project.buffer_m
-            || near_buildings(&geometry)
-        {
+        if geo::Euclidean.distance(&geometry, &map_area) > project.buffer_m {
             continue;
         }
         match &geometry {
+            geo_types::Geometry::Point(p) if near_building(p) => continue,
+            // A line goes only when most of it is at a building: a terrace bank may end there.
+            geo_types::Geometry::LineString(l) if mostly(l, &near_building) => continue,
             geo_types::Geometry::Point(p) if geo::Euclidean.distance(p, water) == 0.0 => continue,
             geo_types::Geometry::Point(p) if built.iter().any(|b| b.contains(p)) => continue,
             geo_types::Geometry::Point(p)
@@ -442,8 +449,10 @@ pub(super) fn stored_landform_objects(
                 easting: e + r.cos(),
                 northing: n + r.sin(),
             })?;
+            // Symbol 110 is long along its own y axis, so it turns a quarter less than its axis.
             let rotation_rad = if form.kind == LandformKind::ElongatedKnoll {
                 f64::from(coords[0].y - ahead.y).atan2(f64::from(ahead.x - coords[0].x))
+                    - std::f64::consts::FRAC_PI_2
             } else {
                 0.0
             };
@@ -457,6 +466,7 @@ pub(super) fn stored_landform_objects(
                 "freemapper:height".to_string(),
                 format!("{:.1}", form.height_m),
             ),
+            (LANDFORM_KEY.to_string(), form.kind.name().to_string()),
         ];
         if let Some(currency) = &currency {
             tags.push(("freemapper:currency".to_string(), currency.clone()));

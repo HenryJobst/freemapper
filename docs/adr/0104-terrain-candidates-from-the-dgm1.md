@@ -20,24 +20,28 @@ three that work on the DGM1 every state publishes.
   - small knolls (109), small elongated knolls (110) and small depressions (111). The terrain is smoothed with
     σ 1 m and traced at 0.25 m steps around each top. The outline is the lowest closed ring that lies at least
     1 m (sprint) or 0.5 m (schoolyard) below the top, is between 2 m and 5 mm on paper (at least 10 m) across, and
-    rises at least 0.15 m per metre of its radius. Of two tops in one ring the higher stays. An outline with axes
+    rises at least 0.15 m per metre of its radius. Of two tops in one ring the one that stands out more (the
+    greater height above its outline) stays. An outline with axes
     of 1.5 : 1 or more is elongated and gets its direction. Depressions are found the same way on the negated
     terrain.
   - earth banks (104) and impassable cliffs (201, from 3 m). A cell is steep from a gradient of 0.5, because DGM1
     blurs a 45° bank of 1.5 m to about 30°. A patch of steep cells is a bank when its median drop over ±3 m along
     the slope reaches the minimum height and holds at least 70 % of the drop over ±6 m (a plain slope holds half),
     and when it is at least twice as long as wide and at least 2 mm on paper (4 m on the ground) long. The line
-    follows the long axis with the low side on the right, so the ticks point down.
-- The export leaves out a landform within 2 m of a building (DGM1 is interpolated there), a knoll or depression
+    follows the long axis with the low side on the right, so the ticks point down. A patch that falls to both
+    sides of its axis (a dyke, a ditch) is split by side, and one with cells more than 2 m off its line (a
+    corner, a curve) is split across the axis at the cell farthest off, up to six times; a piece still that far
+    off is left out.
+- The export leaves out a knoll or depression within 2 m of a building and a bank or cliff that runs mostly
+  within 2 m of one (DGM1 is interpolated there), a knoll or depression
   in the drawn water, and a bank or cliff that runs mostly within 2 m of the water or of a drawn earth bank, cliff,
   wall or fence. Everything is a candidate with `freemapper:source` (the terrain model), `freemapper:height`
-  (0.1 m) and `freemapper:currency`. The landforms are added before the content routing (ADR 0100): banks
-  and cliffs belong to the group `slopes`, so `full` or `slopes=map` puts them on the map and `slopes=off`
-  drops them; `balanced` leaves them candidates, because the terrain model has no source rank. Knolls and
-  depressions get their own group `landforms` (109 to 111), so `full` and `landforms=map` reach them too;
-  `balanced` leaves the group as the build has it. `balanced` would take the knolls at a hit rate of about
-  80 %; banks and depressions stay candidates, cliffs always, because a wrong impassable cliff forbids a way
-  in a sprint race.
+  (0.1 m), `freemapper:currency` and `freemapper:landform` (the kind). The landforms are added before the
+  content routing (ADR 0100). All of them belong to the group `landforms`, by that tag and not by their symbol:
+  ALKIS and OpenStreetMap draw banks with the same 104, and a person who sets `slopes=map` for those must not
+  get every bank and impassable cliff of the terrain model on the map too. `full` and `landforms=map` put them
+  on the map; `balanced` leaves them candidates, because the terrain model has no source rank and a wrong
+  impassable cliff forbids a way in a sprint race.
 - Measured on 2026-11-12 in Viktoriapark, Sanssouci and Marburg (examples), against the orthophoto, the
   relief and the hillshade: 7 knolls, all in Viktoriapark, none clearly a knoll of the terrain (4 heaps of
   bulk material in a builders' yard, 2 heaps in allotments, 1 unclear); 12 depressions, about 1 real (the
@@ -48,7 +52,8 @@ three that work on the DGM1 every state publishes.
   and commercial land, traffic areas or allotments of the ALKIS land use (heaps, garden mounds, courtyards,
   ramps; land of `Fläche besonderer funktionaler Prägung` stays open, because schoolyard maps lie there); no
   depression within 8 m of a building (light wells, basement stairs); a cliff that runs mostly within 3 m of a
-  traffic area or 5 m of a building is offered as an earth bank (retaining walls, road edges). In `derive` the
+  traffic area or 5 m of a building is offered as an impassable wall, 515 (retaining walls; first an earth bank,
+  changed after the review because a bank shows something impassable as passable). In `derive` the
   centre line of a bank or cliff is averaged over ±2 m before it is simplified, so it no longer zigzags.
   Measured again in the three areas: no knoll is left (all seven were heaps), 1 depression (the real hollow in
   Viktoriapark), 9 cliffs (3 in Marburg became banks), 162 banks. The question whether `balanced` takes the
