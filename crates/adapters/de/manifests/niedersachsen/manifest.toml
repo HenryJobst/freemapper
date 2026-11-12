@@ -1,4 +1,4 @@
-# Lower Saxony: every source is a standard service (WFS, WMS, WCS, STAC for the dates).
+# Lower Saxony: LGLN's WFS; WMS, WCS and the STAC dates through code, which also says how old the images are.
 format = 1
 
 [adapter]
@@ -39,32 +39,13 @@ land_use_type = "ave:NutzungFlurstueck"
 square_bez = "ohne Unterart (Niedersachsen)"
 
 [orthophoto]
-kind = "wms"
-label = "orthophoto (LGLN WMS)"
-url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
-layer = "ni_dop20"
-crs = 25832
-max_px = 4000
-date = { kind = "stac-newest", url = "https://dop.stac.lgln.niedersachsen.de" }
+backend = "lgln"
 
 [terrain]
-kind = "wcs"
-label = "terrain model (LGLN DGM1)"
-url = "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs"
-coverage = "ni_dgm1"
-envelope = [341000, 5681992, 676040, 5973000]
-max_m = 2000
-date = { kind = "stac-newest", url = "https://dgm.stac.lgln.niedersachsen.de" }
-source_label = "lgln-dgm1"
+backend = "lgln"
 
 [surface]
-kind = "wcs"
-label = "surface model (LGLN DOM1)"
-url = "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs"
-coverage = "ni_dom1"
-envelope = [341000, 5681992, 676040, 5973000]
-max_m = 2000
-date = { kind = "stac-newest", url = "https://dom.stac.lgln.niedersachsen.de" }
+backend = "lgln"
 
 [preview]
 wms = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"

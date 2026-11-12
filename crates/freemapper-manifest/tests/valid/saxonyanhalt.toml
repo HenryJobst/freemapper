@@ -9,6 +9,7 @@ min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEST"
 names = { en = "Saxony-Anhalt", de = "Sachsen-Anhalt" }
+agency = "LVermGeo"
 maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 licence_of_manifest = "GPL-3.0-or-later"

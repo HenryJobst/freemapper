@@ -82,25 +82,14 @@ fn valid_manifests_parse() {
     assert_eq!(fallback.name, "LGV ALKIS (WFS)");
     assert_eq!(fallback.crs, Crs::Utm32);
     assert_eq!(fallback.square_bez, None);
-    let Some(Orthophoto::Wms {
-        layer,
-        params,
-        max_px,
-        date,
-        ..
-    }) = &hamburg.orthophoto
-    else {
-        panic!("{:?}", hamburg.orthophoto);
-    };
-    assert_eq!(layer, "dop_zeitreihe_unbelaubt");
-    assert_eq!(params, &[("TIME".to_string(), "2026".to_string())]);
-    assert_eq!(*max_px, 4000);
+    // One backend fetches the three rasters.
     assert_eq!(
-        date,
-        &DateSource::Backend {
+        hamburg.orthophoto,
+        Some(Orthophoto::Backend {
             name: "lgv".to_string()
-        }
+        })
     );
+    assert_eq!(hamburg.adapter.agency, "Hamburg");
     let backend = HeightModel::Backend {
         name: "lgv".to_string(),
     };
@@ -134,16 +123,6 @@ fn valid_manifests_parse() {
         wfs.square_bez.as_deref(),
         Some("ohne Unterart (Nordrhein-Westfalen)")
     );
-    let Some(Orthophoto::Wms { date, .. }) = &nrw.orthophoto else {
-        panic!("{:?}", nrw.orthophoto);
-    };
-    assert_eq!(
-        date,
-        &DateSource::WmsFeatureInfo {
-            layer: "nw_dop_utm_info".to_string(),
-            field: "Bildflugdatum".to_string()
-        }
-    );
     // `kind = "backend"` and a bare `backend` say the same.
     assert_eq!(nrw.terrain, nrw.surface);
 
@@ -153,6 +132,7 @@ fn valid_manifests_parse() {
         Some("GPL-3.0-or-later")
     );
     assert_eq!(st.attribution.short.as_deref(), Some("LVermGeo ST"));
+    assert_eq!(st.adapter.agency, "LVermGeo");
     let Some(Orthophoto::Wms { date, params, .. }) = &st.orthophoto else {
         panic!("{:?}", st.orthophoto);
     };
@@ -338,7 +318,7 @@ fn a_manifest_holds_at_most_64_urls() {
         }
         text
     };
-    // Two URLs of the sample and 56 of seven cadastres.
+    // Three URLs of the sample and 56 of seven cadastres.
     let manifest = parse(&trees(7), Path::new("sample")).unwrap();
     assert_eq!(manifest.trees.len(), 7);
     assert_eq!(manifest.trees[6].endpoints.len(), 8);
@@ -374,8 +354,6 @@ fn a_nas_service_is_read() {
 /// Defects beside those of the files: one change to the sample each, and the code it gives.
 #[test]
 fn further_defects_have_their_codes() {
-    let wcs = "\n[terrain]\nkind = \"wcs\"\nurl = \"https://geo.example.org/dgm\"\n\
-               coverage = \"dgm1\"\nenvelope = [600000, 5600000, 700000, 5700000]\nmax_m = 4000\n";
     let cases: [(&str, &str, &str); 14] = [
         // A placeholder other than {year} in the credit.
         (
@@ -415,21 +393,15 @@ fn further_defects_have_their_codes() {
         ("revision = 1", "revision = 0", "manifest.value"),
         // The date of a height model cannot come from the feature info of a WMS.
         (
-            "max_px = 4000\n",
-            "max_px = 4000\n\n[terrain]\nkind = \"wcs\"\nurl = \"https://geo.example.org/dgm\"\n\
-             coverage = \"dgm1\"\nenvelope = [600000, 5600000, 700000, 5700000]\nmax_m = 4000\n\
-             date = { kind = \"wms-featureinfo\", layer = \"info\", field = \"date\" }\n",
+            "max_m = 4000\n",
+            "max_m = 4000\ndate = { kind = \"wms-featureinfo\", layer = \"info\", field = \"date\" }\n",
             "manifest.date-kind",
         ),
         // A height model comes from a WCS or a backend, never from a WMS.
+        ("kind = \"wcs\"", "kind = \"wms\"", "manifest.kind"),
         (
-            "max_px = 4000\n",
-            "max_px = 4000\n\n[terrain]\nkind = \"wms\"\n",
-            "manifest.kind",
-        ),
-        (
-            "max_px = 4000\n",
-            "max_px = 4000\n\n[surface]\nbackend = \"X\"\n",
+            "max_m = 4000\n",
+            "max_m = 4000\n\n[surface]\nbackend = \"X\"\n",
             "manifest.value",
         ),
     ];
@@ -445,19 +417,31 @@ fn further_defects_have_their_codes() {
         parse(&upper, Path::new("sample")).unwrap().hosts,
         ["geo.example.org"]
     );
-    // A height model from a WCS, and what only the terrain has.
-    let terrain = parse(&format!("{}{wcs}", sample()), Path::new("sample")).unwrap();
+    // The feature info of the orthophoto's WMS as its date, and the terrain model of the sample.
+    let dated = sample().replace(
+        "max_px = 4000\n",
+        "max_px = 4000\ndate = { kind = \"wms-featureinfo\", layer = \"info\", field = \"date\" }\n",
+    );
+    let dated = parse(&dated, Path::new("sample")).unwrap();
     assert!(matches!(
-        terrain.terrain,
+        dated.orthophoto,
+        Some(Orthophoto::Wms {
+            date: DateSource::WmsFeatureInfo { .. },
+            ..
+        })
+    ));
+    assert!(matches!(
+        dated.terrain,
         Some(HeightModel::Wcs {
             multipart: false,
             ..
         })
     ));
+    // What only the terrain has.
     let surface = format!(
-        "{}{}source_label = \"sample-dgm1\"\n",
-        sample(),
-        wcs.replace("[terrain]", "[surface]")
+        "{}\n[surface]\nkind = \"wcs\"\nurl = \"https://geo.example.org/dom\"\ncoverage = \"dom1\"\n\
+         envelope = [600000, 5600000, 700000, 5700000]\nmax_m = 4000\nsource_label = \"sample-dgm1\"\n",
+        sample()
     );
     assert_eq!(
         codes(&parse(&surface, Path::new("sample")).unwrap_err()),

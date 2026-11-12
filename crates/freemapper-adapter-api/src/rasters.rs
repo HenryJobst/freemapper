@@ -9,9 +9,10 @@ use freemapper_georef::tiles::TileId;
 use crate::cache::CacheDir;
 use crate::env::AdapterEnv;
 use crate::error::AdapterError;
+use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::fetch::FetchedTile;
 use crate::project::RasterProject;
-use crate::records::{AdapterId, NdsmRecord, TileRecord, WcsRecord, WmsRecord};
+use crate::records::{AdapterId, EstimateItem, NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use crate::registry::Registry;
 use crate::trust::TrustAnchors;
 
@@ -136,6 +137,12 @@ pub trait RasterBackend: Send + Sync {
     /// `None`: every host is verified against the default roots.
     fn trust(&self) -> Option<&TrustAnchors> {
         None
+    }
+
+    /// The downloads of a map of `area` (what, MB, cached, part, store), in the order they are
+    /// listed. The default lists none.
+    fn estimate(&self, _area: &EstimateArea, _env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+        Vec::new()
     }
 
     /// What `derive` reads for `area`. The default is that of a per-area provider.

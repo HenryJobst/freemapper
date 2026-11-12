@@ -43,15 +43,10 @@ buildings_type = "ave:GebaeudeBauwerk"
 land_use_type = "ave:NutzungFlurstueck"
 
 [orthophoto]
-kind = "wms"
-url = "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"
-layer = "dop_zeitreihe_unbelaubt"
-crs = 25832
-params = { TIME = "2026" }
-max_px = 4000
-date = { backend = "lgv" }
+backend = "lgv"
 
 [terrain]
+kind = "backend"
 backend = "lgv"
 
 [surface]

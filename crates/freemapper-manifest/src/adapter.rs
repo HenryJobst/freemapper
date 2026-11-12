@@ -6,7 +6,7 @@
 
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
@@ -16,13 +16,15 @@ use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
+use freemapper_adapter_api::registry::Registry;
 use freemapper_georef::crs::BoundingBox;
 use geo::BoundingRect as _;
 use geo_types::MultiPolygon;
 
 use crate::boundary::parse_boundary;
 use crate::error::ManifestError;
-use crate::model::{BoundaryCrs, Manifest};
+use crate::model::{BoundaryCrs, Manifest, Orthophoto};
+use crate::rasters::DeclaredRasters;
 
 /// The files a manifest names, by their plain name in the folder of the adapter.
 pub trait AdapterFiles {
@@ -105,17 +107,21 @@ pub struct ManifestAdapter {
     /// The boundary of each OSM extract that has one, in the order of the extracts.
     extracts: Vec<Option<BoundaryFile>>,
     alkis: Option<Box<dyn AlkisSource>>,
+    rasters: Option<Arc<dyn RasterBackend>>,
     nas: Option<NasService>,
     trees: Vec<TreeDataset>,
 }
 
 impl ManifestAdapter {
-    /// The adapter of `manifest` with the files it names, read through `files`. A file that is
-    /// missing is a finding; with [`Parse::Now`] a file that is no valid boundary is one too.
+    /// The adapter of `manifest` with the files it names, read through `files`, and the raster
+    /// backend it names, taken from `backends`. A file that is missing is a finding, and so is a
+    /// backend the program does not have; with [`Parse::Now`] a file that is no valid boundary
+    /// is one too.
     pub fn new(
         manifest: Manifest,
         files: &dyn AdapterFiles,
         parse: Parse,
+        backends: &Registry,
     ) -> Result<Self, Vec<ManifestError>> {
         let folder = Path::new(&manifest.adapter.id).to_path_buf();
         let crs = manifest.boundary.crs;
@@ -167,12 +173,52 @@ impl ManifestAdapter {
                     .and_then(|name| read(name, "osm.extract.boundary"))
             })
             .collect();
+        let manifest_path = folder.join(crate::MANIFEST_FILE);
+        let finding = |code: &'static str, key: &str, message: String| ManifestError {
+            code,
+            path: manifest_path.clone(),
+            line: 0,
+            key: key.to_string(),
+            message,
+        };
+        let rasters: Option<Arc<dyn RasterBackend>> = match &manifest.orthophoto {
+            None => None,
+            Some(Orthophoto::Backend { name }) => match backends.backend(name) {
+                Some(backend) if backend.provider().id.as_str() == manifest.adapter.provider => {
+                    Some(backend)
+                }
+                Some(backend) => {
+                    let message = format!(
+                        "the backend `{name}` fetches for the provider `{}`, the manifest says `{}`",
+                        backend.provider().id,
+                        manifest.adapter.provider
+                    );
+                    findings.push(finding("manifest.value", "adapter.provider", message));
+                    None
+                }
+                None => {
+                    let message = format!(
+                        "this freemapper has no raster backend `{name}`; a backend is code of an \
+                         adapter crate, which a build of freemapper includes by a Cargo feature"
+                    );
+                    findings.push(finding(
+                        "manifest.backend-missing",
+                        "orthophoto.backend",
+                        message,
+                    ));
+                    None
+                }
+            },
+            Some(_) => DeclaredRasters::new(&manifest)
+                .map(|declared| Arc::new(declared) as Arc<dyn RasterBackend>),
+        };
         let (Some(boundary), true) = (boundary, findings.is_empty()) else {
             return Err(findings);
         };
         let info = info_of(&manifest);
         Ok(Self {
             alkis: manifest.alkis.as_ref().map(crate::alkis::alkis_source),
+            rasters,
             nas: manifest
                 .nas
                 .first()
@@ -284,11 +330,15 @@ impl RegionAdapter for ManifestAdapter {
     }
 
     fn rasters(&self) -> Option<&dyn RasterBackend> {
-        None
+        self.rasters.as_deref()
     }
 
-    fn estimate(&self, _area: &EstimateArea, _env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
-        Vec::new()
+    /// The raster downloads, as the backend of the rasters estimates them.
+    fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+        self.rasters
+            .as_ref()
+            .map(|rasters| rasters.estimate(area, env))
+            .unwrap_or_default()
     }
 
     fn bounds(&self) -> BoundingBox {

@@ -59,6 +59,9 @@ pub struct Adapter {
     /// The oldest freemapper that reads the manifest.
     pub min_freemapper: Version,
     pub names: Names,
+    /// The short name of who serves the data, in messages; the English name of the region
+    /// when the manifest gives none.
+    pub agency: String,
     /// The CRS of a map whose centre lies in the region.
     pub crs: Crs,
     pub object_id_prefix: Option<String>,
@@ -222,8 +225,6 @@ pub enum DateSource {
     StacNewest { url: String },
     /// GetFeatureInfo on a layer of the orthophoto's WMS.
     WmsFeatureInfo { layer: String, field: String },
-    /// Code of an adapter crate, by name.
-    Backend { name: String },
 }
 
 /// How a service writes a date.

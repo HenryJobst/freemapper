@@ -43,6 +43,7 @@ pub(crate) struct RawAdapter {
     pub crs: Spanned<i64>,
     pub object_id_prefix: Option<Text>,
     pub names: RawNames,
+    pub agency: Option<Text>,
     #[serde(default)]
     pub maintainers: Vec<Text>,
     pub last_verified: Option<Text>,
@@ -152,7 +153,6 @@ pub(crate) struct RawRaster {
 #[serde(deny_unknown_fields)]
 pub(crate) struct RawDate {
     pub kind: Option<Text>,
-    pub backend: Option<Text>,
     pub url: Option<Text>,
     pub layer: Option<Text>,
     pub field: Option<Text>,

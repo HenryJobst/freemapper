@@ -38,6 +38,41 @@ impl AdapterFiles for Files {
     }
 }
 
+/// A backend that only says who it is, for the manifests that name one.
+struct Named(freemapper_adapter_api::rasters::ProviderInfo);
+
+impl freemapper_adapter_api::rasters::RasterBackend for Named {
+    fn provider(&self) -> &freemapper_adapter_api::rasters::ProviderInfo {
+        &self.0
+    }
+
+    fn fetch(
+        &self,
+        _: &mut freemapper_adapter_api::env::AdapterEnv<'_>,
+        _: &mut dyn freemapper_adapter_api::project::RasterProject,
+        _: &freemapper_georef::crs::BoundingBox,
+    ) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+        unreachable!("the test fetches nothing")
+    }
+}
+
+/// The backends the sample manifests name.
+fn backends() -> freemapper_adapter_api::registry::Registry {
+    let mut registry = freemapper_adapter_api::registry::Registry::new();
+    for (name, provider) in [("lgv", "lgv"), ("geobasis-nrw", "geobasisnrw")] {
+        let info = freemapper_adapter_api::rasters::ProviderInfo {
+            id: provider.parse().unwrap(),
+            cache_dir: None,
+            terrain_source: format!("{provider}-dgm1"),
+            kind: freemapper_adapter_api::rasters::RasterKind::PerArea,
+        };
+        registry
+            .add_backend(name, std::sync::Arc::new(Named(info)))
+            .unwrap();
+    }
+    registry
+}
+
 fn hamburg_files() -> Files {
     Files(vec![(
         "boundary.geojson",
@@ -188,7 +223,13 @@ fn a_boundary_file_has_at_most_2_mib() {
 
 #[test]
 fn geofabrik_urls_equal_the_osm_rs_constants_for_hamburg_and_hessen() {
-    let adapter = ManifestAdapter::new(manifest("hamburg"), &hamburg_files(), Parse::Now).unwrap();
+    let adapter = ManifestAdapter::new(
+        manifest("hamburg"),
+        &hamburg_files(),
+        Parse::Now,
+        &backends(),
+    )
+    .unwrap();
     let info = adapter.info();
     assert_eq!(info.osm.len(), 1);
     let extract = &info.osm[0];
@@ -215,6 +256,7 @@ fn geofabrik_urls_equal_the_osm_rs_constants_for_hamburg_and_hessen() {
         parse(&hessen, Path::new("hamburg")).unwrap(),
         &hamburg_files(),
         Parse::Now,
+        &backends(),
     )
     .unwrap();
     assert_eq!(
@@ -227,7 +269,13 @@ fn geofabrik_urls_equal_the_osm_rs_constants_for_hamburg_and_hessen() {
 /// What the manifest says about the region is what the adapter answers.
 #[test]
 fn the_adapter_has_the_facts_of_its_manifest() {
-    let adapter = ManifestAdapter::new(manifest("hamburg"), &hamburg_files(), Parse::Now).unwrap();
+    let adapter = ManifestAdapter::new(
+        manifest("hamburg"),
+        &hamburg_files(),
+        Parse::Now,
+        &backends(),
+    )
+    .unwrap();
     let info = adapter.info();
     assert_eq!(info.id.as_str(), "hamburg");
     assert_eq!(info.provider.as_str(), "lgv");
@@ -264,8 +312,13 @@ fn the_adapter_has_the_facts_of_its_manifest() {
     assert!(adapter.extract_boundary(0).is_none());
     assert_eq!(adapter.manifest().adapter.revision, 1);
     // A manifest read on first use gives the same.
-    let lazy =
-        ManifestAdapter::new(manifest("hamburg"), &hamburg_files(), Parse::OnFirstUse).unwrap();
+    let lazy = ManifestAdapter::new(
+        manifest("hamburg"),
+        &hamburg_files(),
+        Parse::OnFirstUse,
+        &backends(),
+    )
+    .unwrap();
     assert_eq!(lazy.boundary(), adapter.boundary());
     assert_eq!(lazy.info(), adapter.info());
     let st = manifest("saxonyanhalt");
@@ -273,7 +326,7 @@ fn the_adapter_has_the_facts_of_its_manifest() {
         "boundary.geojson",
         repo("assets/regions/saxony-anhalt.geojson"),
     )]);
-    let st = ManifestAdapter::new(st, &files, Parse::Now).unwrap();
+    let st = ManifestAdapter::new(st, &files, Parse::Now, &backends()).unwrap();
     assert_eq!(st.info().credit_short.as_deref(), Some("LVermGeo ST"));
 }
 
@@ -298,8 +351,13 @@ fn each_extract_has_its_boundary() {
             repo(&format!("assets/regions/osm/nrw-{district}.geojson")),
         ));
     }
-    let adapter =
-        ManifestAdapter::new(manifest("nordrheinwestfalen"), &Files(files), Parse::Now).unwrap();
+    let adapter = ManifestAdapter::new(
+        manifest("nordrheinwestfalen"),
+        &Files(files),
+        Parse::Now,
+        &backends(),
+    )
+    .unwrap();
     assert_eq!(adapter.info().osm.len(), 5);
     assert_eq!(adapter.info().osm[4].prefix, "nrw-muenster_");
     assert_eq!(
@@ -317,7 +375,12 @@ fn each_extract_has_its_boundary() {
 /// A folder that lacks a file, or holds a broken one, gives no adapter; every file is named.
 #[test]
 fn missing_and_broken_files_are_findings() {
-    let missing = ManifestAdapter::new(manifest("hamburg"), &Files(Vec::new()), Parse::Now);
+    let missing = ManifestAdapter::new(
+        manifest("hamburg"),
+        &Files(Vec::new()),
+        Parse::Now,
+        &backends(),
+    );
     let findings = missing.err().unwrap();
     assert_eq!(code(&findings), ["manifest.file-missing"]);
     assert_eq!(
@@ -325,10 +388,15 @@ fn missing_and_broken_files_are_findings() {
         Path::new("hamburg").join("boundary.geojson")
     );
     // On first use the file is still read when the adapter is made.
-    let lazy = ManifestAdapter::new(manifest("hamburg"), &Files(Vec::new()), Parse::OnFirstUse);
+    let lazy = ManifestAdapter::new(
+        manifest("hamburg"),
+        &Files(Vec::new()),
+        Parse::OnFirstUse,
+        &backends(),
+    );
     assert_eq!(code(&lazy.err().unwrap()), ["manifest.file-missing"]);
     let broken = Files(vec![("boundary.geojson", "{".to_string())]);
-    let findings = ManifestAdapter::new(manifest("hamburg"), &broken, Parse::Now)
+    let findings = ManifestAdapter::new(manifest("hamburg"), &broken, Parse::Now, &backends())
         .err()
         .unwrap();
     assert_eq!(code(&findings), ["boundary.format"]);
@@ -337,9 +405,14 @@ fn missing_and_broken_files_are_findings() {
         ("boundary.geojson", "{".to_string()),
         ("osm-arnsberg.geojson", "[]".to_string()),
     ]);
-    let findings = ManifestAdapter::new(manifest("nordrheinwestfalen"), &files, Parse::Now)
-        .err()
-        .unwrap();
+    let findings = ManifestAdapter::new(
+        manifest("nordrheinwestfalen"),
+        &files,
+        Parse::Now,
+        &backends(),
+    )
+    .err()
+    .unwrap();
     assert_eq!(
         code(&findings),
         [
@@ -361,7 +434,13 @@ fn day(year: i32) -> NaiveDate {
 /// fetch in place of `{year}`.
 #[test]
 fn credit_text_substitutes_year_once() {
-    let adapter = ManifestAdapter::new(manifest("hamburg"), &hamburg_files(), Parse::Now).unwrap();
+    let adapter = ManifestAdapter::new(
+        manifest("hamburg"),
+        &hamburg_files(),
+        Parse::Now,
+        &backends(),
+    )
+    .unwrap();
     assert!(adapter.attribution(&UsedSources::default()).is_empty());
     let alkis = |region: &str, year| AlkisUse {
         regions: vec![region.parse().unwrap()],
@@ -397,6 +476,7 @@ fn credit_text_substitutes_year_once() {
         parse(&text, Path::new("hamburg")).unwrap(),
         &hamburg_files(),
         Parse::Now,
+        &backends(),
     )
     .unwrap();
     assert_eq!(

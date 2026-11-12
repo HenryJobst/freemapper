@@ -33,6 +33,8 @@ use std::path::PathBuf;
 /// | `manifest.params` | a request parameter the manifest may not set |
 /// | `manifest.too-many-urls` | more than [`crate::MAX_URLS`] URLs |
 /// | `manifest.empty` | neither `[alkis]` nor `[orthophoto]` |
+/// | `manifest.rasters` | raster tables that do not fit together |
+/// | `manifest.backend-missing` | a raster backend this program does not have |
 /// | `manifest.file-missing` | a file the manifest names is not there or cannot be read |
 /// | `boundary.too-large` | a boundary file over 2 MiB or with more than a million vertices |
 /// | `boundary.format` | a boundary file that is not GeoJSON with one polygon feature |

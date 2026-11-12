@@ -38,6 +38,41 @@ fn codes(findings: &[ManifestError]) -> Vec<&'static str> {
     findings.iter().map(|finding| finding.code).collect()
 }
 
+/// A backend that only says who it is, for the manifests that name one.
+struct Named(freemapper_adapter_api::rasters::ProviderInfo);
+
+impl freemapper_adapter_api::rasters::RasterBackend for Named {
+    fn provider(&self) -> &freemapper_adapter_api::rasters::ProviderInfo {
+        &self.0
+    }
+
+    fn fetch(
+        &self,
+        _: &mut freemapper_adapter_api::env::AdapterEnv<'_>,
+        _: &mut dyn freemapper_adapter_api::project::RasterProject,
+        _: &freemapper_georef::crs::BoundingBox,
+    ) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+        unreachable!("the test fetches nothing")
+    }
+}
+
+/// The backends the sample manifests name.
+fn backends() -> freemapper_adapter_api::registry::Registry {
+    let mut registry = freemapper_adapter_api::registry::Registry::new();
+    for (name, provider) in [("lgv", "lgv"), ("geobasis-nrw", "geobasisnrw")] {
+        let info = freemapper_adapter_api::rasters::ProviderInfo {
+            id: provider.parse().unwrap(),
+            cache_dir: None,
+            terrain_source: format!("{provider}-dgm1"),
+            kind: freemapper_adapter_api::rasters::RasterKind::PerArea,
+        };
+        registry
+            .add_backend(name, std::sync::Arc::new(Named(info)))
+            .unwrap();
+    }
+    registry
+}
+
 /// One boundary for every file a manifest names.
 struct Square;
 
@@ -240,19 +275,18 @@ fn declared_rasters_are_estimated_by_area() {
     let items =
         estimate::declared_items(&parse(&other, Path::new("saxonyanhalt")).unwrap(), &area());
     assert_eq!(items[1].megabytes, 9.0);
-    // Hamburg: the orthophoto is a WMS, the heights come from a backend.
+    // Hamburg: a backend fetches the three rasters, so the manifest declares none to estimate.
     let hamburg = parse(&valid("hamburg"), Path::new("hamburg")).unwrap();
-    let items = estimate::declared_items(&hamburg, &area());
-    assert_eq!(items.len(), 1);
-    assert_eq!(
-        (items[0].what.as_str(), items[0].megabytes),
-        ("orthophoto (Hamburg WMS)", 48.0)
-    );
+    assert!(estimate::declared_items(&hamburg, &area()).is_empty());
     // Without a label of its own a raster is named after the region and its service.
     let plain = parse(&sample(), Path::new("sample")).unwrap();
     assert_eq!(
         estimate::declared_items(&plain, &area())[0].what,
         "orthophoto (Sample WMS)"
+    );
+    assert_eq!(
+        estimate::declared_items(&plain, &area())[1].what,
+        "terrain model (Sample WCS)"
     );
 }
 
@@ -262,7 +296,7 @@ fn declared_rasters_are_estimated_by_area() {
 fn the_adapter_offers_the_services_of_its_manifest() {
     let text = format!("{}{NAS}{TREES}", sample());
     let manifest = parse(&text, Path::new("sample")).unwrap();
-    let adapter = ManifestAdapter::new(manifest, &Square, Parse::Now).unwrap();
+    let adapter = ManifestAdapter::new(manifest, &Square, Parse::Now, &backends()).unwrap();
     assert!(adapter.alkis().is_some());
     assert_eq!(adapter.nas().unwrap().region.as_str(), "sample");
     assert_eq!(adapter.tree_datasets().len(), 1);
@@ -299,7 +333,7 @@ fn the_adapter_offers_the_services_of_its_manifest() {
     assert_eq!(adapter.attribution(&none).len(), 1);
     // A manifest without these tables offers none of it.
     let hamburg = parse(&valid("hamburg"), Path::new("hamburg")).unwrap();
-    let hamburg = ManifestAdapter::new(hamburg, &Square, Parse::Now).unwrap();
+    let hamburg = ManifestAdapter::new(hamburg, &Square, Parse::Now, &backends()).unwrap();
     assert!(hamburg.alkis().is_some());
     assert!(hamburg.nas().is_none() && hamburg.tree_datasets().is_empty());
 }

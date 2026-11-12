@@ -67,12 +67,7 @@ land_use_type = "ave:NutzungFlurstueck"
 square_bez = "ohne Unterart (Nordrhein-Westfalen)"
 
 [orthophoto]
-kind = "wms"
-url = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
-layer = "nw_dop_rgb"
-crs = 25832
-max_px = 4000
-date = { kind = "wms-featureinfo", layer = "nw_dop_utm_info", field = "Bildflugdatum" }
+backend = "geobasis-nrw"
 
 [terrain]
 kind = "backend"

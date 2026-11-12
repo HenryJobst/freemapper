@@ -36,3 +36,10 @@ kind = "wms"
 url = "https://192.168.0.10/dop/wms"
 layer = "dop20"
 max_px = 4000
+
+[terrain]
+kind = "wcs"
+url = "https://geo.example.org/dgm/wcs"
+coverage = "dgm1"
+envelope = [600000, 5600000, 700000, 5700000]
+max_m = 4000

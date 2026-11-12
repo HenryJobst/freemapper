@@ -569,6 +569,10 @@ impl Check<'_> {
             None => Some(None),
         };
         let estimate = self.estimate(&raw.estimate);
+        if let (Some(orthophoto), Some(terrain), Some(surface)) = (&orthophoto, &terrain, &surface)
+        {
+            self.rasters_fit(orthophoto.as_ref(), terrain.as_ref(), surface.as_ref());
+        }
         if raw.alkis.is_none() && raw.orthophoto.is_none() {
             self.fail_whole(
                 "manifest.empty",
@@ -591,6 +595,45 @@ impl Check<'_> {
             preview: preview?,
             estimate: estimate?,
         })
+    }
+
+    /// The raster tables as a whole: an orthophoto and a terrain model, with or without a
+    /// surface model, all of them services or all of them one backend. A backend fetches the
+    /// three together, so a table cannot go its own way.
+    fn rasters_fit(
+        &mut self,
+        orthophoto: Option<&Orthophoto>,
+        terrain: Option<&HeightModel>,
+        surface: Option<&HeightModel>,
+    ) {
+        if orthophoto.is_none() && terrain.is_none() && surface.is_none() {
+            return;
+        }
+        let (Some(orthophoto), Some(terrain)) = (orthophoto, terrain) else {
+            self.fail_whole(
+                "manifest.rasters",
+                if orthophoto.is_none() { "orthophoto" } else { "terrain" },
+                "an adapter with rasters has `[orthophoto]` and `[terrain]`; `[surface]` may follow",
+            );
+            return;
+        };
+        // The backend each table names; `None` for a service.
+        let of_model = |model: &HeightModel| match model {
+            HeightModel::Backend { name } => Some(name.clone()),
+            HeightModel::Wcs { .. } => None,
+        };
+        let first = match orthophoto {
+            Orthophoto::Backend { name } => Some(name.clone()),
+            Orthophoto::Wms { .. } | Orthophoto::Wcs { .. } => None,
+        };
+        let others = [Some(terrain), surface].into_iter().flatten().map(of_model);
+        if others.into_iter().any(|backend| backend != first) {
+            self.fail_whole(
+                "manifest.rasters",
+                "terrain",
+                "the raster tables are all services, or they all name the same backend",
+            );
+        }
     }
 
     /// `[net] hosts`: DNS names, in lower case, each once.
@@ -712,6 +755,10 @@ impl Check<'_> {
             }
             None => Some(None),
         };
+        let agency = match &raw.agency {
+            Some(agency) => self.text(agency, "adapter.agency", "manifest.value", 40),
+            None => en.clone(),
+        };
         let licence_of_manifest = self.optional_text(
             raw.licence_of_manifest.as_ref(),
             "adapter.licence_of_manifest",
@@ -724,6 +771,7 @@ impl Check<'_> {
             revision: u32::try_from(revision?).ok()?,
             min_freemapper: min_freemapper?,
             names: Names { en: en?, de: de? },
+            agency: agency?,
             crs: crs?,
             object_id_prefix: object_id_prefix?,
             maintainers: maintainers?,
@@ -1444,33 +1492,25 @@ impl Check<'_> {
         let raw = raw.get_ref();
         let key = |name: &str| format!("{table}.{name}");
         let kinds = ["none", "wfs-geojson", "stac-newest", "wms-featureinfo"];
-        let kind = match (raw.kind.as_ref(), raw.backend.as_ref()) {
-            // A table without `kind` and `backend` has a place, unlike a missing table.
-            (None, None) => {
-                self.fail(
-                    "manifest.missing-key",
-                    &at,
-                    &key("kind"),
-                    "a date lookup says its `kind` or names a `backend`",
-                );
-                return None;
-            }
-            (kind, backend) => self.kind_of(kind, backend, &table, "manifest.date-kind", &kinds)?,
+        let Some(kind) = raw.kind.as_ref() else {
+            // A table without `kind` has a place, unlike a missing table.
+            self.fail(
+                "manifest.missing-key",
+                &at,
+                &key("kind"),
+                "a date lookup says its `kind`",
+            );
+            return None;
         };
-        let kind = match kind {
-            Ok(kind) => kind,
-            Err(name) => {
-                let fine = [
-                    self.absent(raw.url.as_ref(), &key("url"), "a backend"),
-                    self.absent(raw.layer.as_ref(), &key("layer"), "a backend"),
-                    self.absent(raw.field.as_ref(), &key("field"), "a backend"),
-                    self.absent(raw.format.as_ref(), &key("format"), "a backend"),
-                ]
-                .iter()
-                .all(Option::is_some);
-                return fine.then_some(DateSource::Backend { name });
-            }
-        };
+        if !kinds.contains(&kind.get_ref().as_str()) {
+            self.fail(
+                "manifest.date-kind",
+                &kind.span(),
+                &key("kind"),
+                format!("the kind of a date lookup is one of {}", kinds.join(", ")),
+            );
+            return None;
+        }
         let at = kind.span();
         let name = kind.get_ref().as_str();
         let of_kind = format!("kind `{name}`");

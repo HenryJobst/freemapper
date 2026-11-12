@@ -23,4 +23,6 @@ toml.workspace = true
 workspace = true
 
 [dev-dependencies]
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
+freemapper-sources = { workspace = true, features = ["testing"] }
 tempfile.workspace = true
