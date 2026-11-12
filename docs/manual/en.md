@@ -572,6 +572,22 @@ as banks. Check each one in the terrain. A bank may turn out to be a wall, a cli
 `landforms` (see below), banks, cliffs and retaining walls too: with `full` or `--content-set landforms=map` they
 go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap.
 
+### Vegetation from laser point clouds
+
+In Brandenburg freemapper can derive the vegetation from the classified laser point clouds of LGB: open land
+(401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
+3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
+shows more than the nDSM, which only sees the crowns.
+
+The group `vegetation` is off in every profile, `full` included, because the point clouds are large: about
+160 MB per square kilometre tile, and a park usually needs two to four tiles. Only `--content-set
+vegetation=candidates` (or the area page) makes the next `fetch` load them into the shared cache. `derive` writes
+`data/vegetation.geojson` from them, and the export puts the areas into the candidates map. There are none at
+buildings or in water. Where the map already has a park or a wood from ALKIS, the candidate shows only the part
+of another class. The thresholds come from forest maps and are not tuned for parks yet: building edges and reeds
+sometimes come out as 410. Check the areas against the orthophoto and in the terrain. When space is short, the
+point clouds are the first part left out. The other states have no point-cloud source yet.
+
 ### What goes straight onto the map
 
 Not everything freemapper finds is equally reliable. What was surveyed officially (ALKIS, the Berlin
@@ -585,7 +601,8 @@ stays a candidate and appears only in the template. You set how this is divided 
 | `full` | Everything goes onto the map, as in the training map. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
-`monuments`, `furniture`, `passages`, `contours`, `landforms`, `out-of-bounds`, `paths`, `streets`, each `map`, `candidates` or `off`.
+`monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`, `paths`, `streets`,
+each `map`, `candidates` or `off`. `vegetation` is always off without a choice of its own (see above).
 
 ```sh
 freemapper run <folder> --content balanced --content-set fences=candidates --content-set contours=map

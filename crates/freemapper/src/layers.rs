@@ -80,7 +80,14 @@ pub fn estimate_download(
     check_area(&bbox)?;
     let alkis_cached = dir.join(BUILDINGS_RELPATH).exists() && dir.join(LAND_USE_RELPATH).exists();
     let map_bbox = project.bbox()?;
-    let mut estimate = estimate_area(&bbox, &map_bbox, cache, today, alkis_cached);
+    let mut estimate = estimate_area(
+        &bbox,
+        &map_bbox,
+        cache,
+        today,
+        alkis_cached,
+        project.wants_vegetation(),
+    );
     crate::project::mark_stored(&mut estimate, dir, &project, &map_bbox);
     Ok(estimate)
 }
@@ -105,12 +112,14 @@ fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
 }
 
 /// `bbox` is the map area plus buffer in EPSG:25833, `map_bbox` the same in the map's CRS.
+/// `point_clouds`: the project asks for the vegetation, so its point clouds count.
 pub(crate) fn estimate_area(
     bbox: &BoundingBox,
     map_bbox: &BoundingBox,
     cache: &Cache,
     today: NaiveDate,
     alkis_cached: bool,
+    point_clouds: bool,
 ) -> DownloadEstimate {
     let (tiles, _) = area_tiles(bbox);
     let area = EstimateArea {
@@ -122,7 +131,7 @@ pub(crate) fn estimate_area(
         let env = EstimateEnv { cache };
         let mut items = adapter.estimate(&area, &env);
         // The point clouds for the vegetation candidates, where the state publishes them.
-        if let Some(backend) = adapter.point_cloud() {
+        if let Some(backend) = adapter.point_cloud().filter(|_| point_clouds) {
             items.extend(backend.estimate(&area, &env));
         }
         items
@@ -254,7 +263,7 @@ pub fn preview_area(area: &MapArea, buffer_m: f64, cache: &Cache, today: NaiveDa
             in_place: Vec::new(),
         }
     } else {
-        estimate_area(&bbox, &map_bbox, cache, today, false)
+        estimate_area(&bbox, &map_bbox, cache, today, false, false)
     };
     AreaPreview {
         tiles: outlines,
@@ -1661,7 +1670,7 @@ mod tests {
             max_n: 5_821_000.0,
         };
         let km2 = 1.5;
-        let estimate = estimate_area(&mitte, &mitte, &cache, today(), false);
+        let estimate = estimate_area(&mitte, &mitte, &cache, today(), false, false);
         let find = |what: &str| estimate.items.iter().find(|i| i.what == what).cloned();
         // +12 MB per km² for the vector layers (4 plus-1 layers, 5 street survey and point
         // layers, 3 building heights; the centre), +15 MB per km² for the K5 template (live runs
@@ -1693,7 +1702,7 @@ mod tests {
             max_e: 422_000.0,
             max_n: 5_822_000.0,
         };
-        let estimate = estimate_area(&strausberg, &strausberg, &cache, today(), false);
+        let estimate = estimate_area(&strausberg, &strausberg, &cache, today(), false, false);
         assert!(
             estimate
                 .items
@@ -1706,7 +1715,8 @@ mod tests {
     fn nas_estimate_and_disk_part() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let estimate_of = |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false);
+        let estimate_of =
+            |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false, false);
         let strausberg = BoundingBox {
             min_e: 421_000.0,
             min_n: 5_821_000.0,
@@ -1768,7 +1778,8 @@ mod tests {
     fn trees_estimate() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        let estimate_of = |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false);
+        let estimate_of =
+            |bbox: &BoundingBox| estimate_area(bbox, bbox, &cache, today(), false, false);
         let item = |estimate: &DownloadEstimate| {
             estimate
                 .items

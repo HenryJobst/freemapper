@@ -599,6 +599,23 @@ Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell geh�
 (siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
 kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap.
 
+### Vegetation aus Laserpunktwolken
+
+In Brandenburg kann freemapper die Vegetation aus den klassifizierten Laserpunktwolken der LGB ableiten:
+offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
+409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
+Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
+
+Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß: etwa 160 MB je
+Quadratkilometer-Kachel, für einen Park meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
+(oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
+schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden
+und im Wasser gibt es keine. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat nur
+den Teil mit anderer Klasse. Die Schwellen stammen von Waldkarten und sind an Parks noch nicht abgestimmt:
+Gebäudekanten und Schilf erscheinen manchmal als 410. Prüfen Sie die Flächen am Luftbild und im Gelände.
+Ist der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
+Punktwolken-Quelle.
+
 ### Was direkt auf die Karte kommt
 
 Nicht alles, was freemapper findet, ist gleich verlässlich. Was amtlich vermessen ist (ALKIS, die Berliner
@@ -612,8 +629,9 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 | `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
 
 Einzelne Gruppen lassen sich abweichend einstellen: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`,
-`water-features`, `monuments`, `furniture`, `passages`, `contours`, `landforms`, `out-of-bounds`, `paths`, `streets`, je nach `map`
-(Karte), `candidates` (Kandidat) oder `off` (weglassen).
+`water-features`, `monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`,
+`paths`, `streets`, je nach `map` (Karte), `candidates` (Kandidat) oder `off` (weglassen). `vegetation` ist
+ohne eigene Wahl immer aus (siehe oben).
 
 ```sh
 freemapper run <Ordner> --content balanced --content-set fences=candidates --content-set contours=map

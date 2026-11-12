@@ -1,7 +1,6 @@
 estimate: orthophoto (DOP20) tile 33366-5807 | Orthophoto | 8.000 MB | cached: false
 estimate: terrain model (DGM1) tile 33366-5807 | Terrain | 1.300 MB | cached: false
 estimate: nDSM tile 33366-5807 | Surface | 15.000 MB | cached: false
-estimate: LGB point cloud 33366-5807 | PointCloud | 160.000 MB | cached: false
 estimate: OSM extract Brandenburg (shared by all projects) | MapData | 300.000 MB | cached: false
 estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
 estimate: full ALKIS structures (NAS) | StateLayers | 0.132 MB | cached: false
@@ -23,8 +22,6 @@ GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUE
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
-GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv
-warning: the laser point clouds are unavailable (download of https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv failed: http status: 404 (not in the recording)); the vegetation candidates use the cached tiles, if any
 GET https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt
 GET https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf [to file]
 result: fetched

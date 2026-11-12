@@ -22,6 +22,9 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 /// its value is the kind. Such objects belong to the group `landforms` whatever their symbol.
 pub const LANDFORM_KEY: &str = "freemapper:landform";
 
+/// The tag of an object made from a point cloud; its value is the product (`lgb-als`).
+pub const POINT_CLOUD_KEY: &str = "freemapper:point-cloud";
+
 /// The ALKIS land use whose areas that shall not be entered `balanced` always puts on the map.
 const RAILWAY_LAND_USE: &str = "Bahnverkehr";
 
@@ -112,6 +115,9 @@ pub enum Group {
     /// (109 to 111), and the banks, cliffs and retaining walls known by their tag
     /// (`LANDFORM_KEY`), which ALKIS and OpenStreetMap draw with the same symbols.
     Landforms,
+    /// The vegetation areas from the laser point clouds (401, 405 to 410; ADR 0105). Off in
+    /// every profile: only a choice of its own fetches the point clouds.
+    Vegetation,
     /// Areas that shall not be entered (520).
     OutOfBounds,
     /// Paths and tracks (501.6 to 501.9, 505, 506, 509).
@@ -121,7 +127,7 @@ pub enum Group {
 }
 
 impl Group {
-    pub const ALL: [Group; 15] = [
+    pub const ALL: [Group; 16] = [
         Group::Walls,
         Group::Fences,
         Group::Hedges,
@@ -134,6 +140,7 @@ impl Group {
         Group::Passages,
         Group::Contours,
         Group::Landforms,
+        Group::Vegetation,
         Group::OutOfBounds,
         Group::Paths,
         Group::Streets,
@@ -154,6 +161,7 @@ impl Group {
             Group::Passages => "passages",
             Group::Contours => "contours",
             Group::Landforms => "landforms",
+            Group::Vegetation => "vegetation",
             Group::OutOfBounds => "out-of-bounds",
             Group::Paths => "paths",
             Group::Streets => "streets",
@@ -179,6 +187,9 @@ impl Group {
             Group::Passages => &["522"],
             Group::Contours => &["101", "102"],
             Group::Landforms => &["109", "110", "111"],
+            // Known by their tag (`POINT_CLOUD_KEY`), not their codes: ALKIS and OpenStreetMap
+            // draw open land and forest with the same symbols.
+            Group::Vegetation => &[],
             Group::OutOfBounds => &["520"],
             Group::Paths => &[
                 "501.6", "501.7", "501.8", "501.9", "505.1", "505.2", "506", "507", "509.1",
@@ -211,7 +222,11 @@ impl Group {
             | Group::Paths
             | Group::Stairs => Some(Rank::Osm),
             Group::Streets => Some(Rank::Survey),
-            Group::Furniture | Group::OutOfBounds | Group::Contours | Group::Landforms => None,
+            Group::Furniture
+            | Group::OutOfBounds
+            | Group::Contours
+            | Group::Landforms
+            | Group::Vegetation => None,
         }
     }
 }
@@ -246,6 +261,8 @@ pub struct ContentSettings {
     pub contours: Option<Place>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub landforms: Option<Place>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vegetation: Option<Place>,
     #[serde(rename = "out-of-bounds", skip_serializing_if = "Option::is_none")]
     pub out_of_bounds: Option<Place>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -278,6 +295,7 @@ impl ContentSettings {
             Group::Passages => self.passages,
             Group::Contours => self.contours,
             Group::Landforms => self.landforms,
+            Group::Vegetation => self.vegetation,
             Group::OutOfBounds => self.out_of_bounds,
             Group::Paths => self.paths,
             Group::Streets => self.streets,
@@ -299,6 +317,7 @@ impl ContentSettings {
             Group::Passages => &mut self.passages,
             Group::Contours => &mut self.contours,
             Group::Landforms => &mut self.landforms,
+            Group::Vegetation => &mut self.vegetation,
             Group::OutOfBounds => &mut self.out_of_bounds,
             Group::Paths => &mut self.paths,
             Group::Streets => &mut self.streets,
@@ -354,11 +373,21 @@ impl ContentSettings {
         parts.join(", ")
     }
 
+    /// Whether the user chose to have the vegetation areas: only then does a fetch load the point
+    /// clouds (about 160 MB per km² in Brandenburg) and `derive` read them.
+    pub fn wants_vegetation(&self) -> bool {
+        matches!(self.vegetation, Some(Place::Map | Place::Candidates))
+    }
+
     /// Where an object of `group` with the source `rank` goes: `None` leaves it where the build
     /// put it. `railway` marks an area that shall not be entered around railway tracks.
     fn place(&self, group: Group, rank: Option<Rank>, railway: bool) -> Option<Place> {
         if let Some(choice) = self.choice(group) {
             return Some(choice);
+        }
+        // Not fetched unless chosen; an area left from an earlier choice goes.
+        if group == Group::Vegetation {
+            return Some(Place::Off);
         }
         match self.profile {
             Profile::Safe => None,
@@ -423,6 +452,9 @@ pub fn route(
         }
         if o.tags.iter().any(|(k, _)| k == LANDFORM_KEY) {
             return Some(Group::Landforms);
+        }
+        if o.tags.iter().any(|(k, _)| k == POINT_CLOUD_KEY) {
+            return Some(Group::Vegetation);
         }
         if Some(o.symbol_id) == edge_id {
             return (rank(o) > Some(Rank::Osm)).then_some(Group::Streets);
@@ -547,7 +579,7 @@ mod tests {
             let f = fixture(kind);
             for g in Group::ALL {
                 let known = g.codes().iter().any(|c| f.set.id_for_code(c).is_some());
-                assert!(known, "{kind:?} {}", g.name());
+                assert!(known || g == Group::Vegetation, "{kind:?} {}", g.name());
             }
         }
     }
@@ -680,6 +712,58 @@ mod tests {
         assert_eq!((map.len(), cand.len()), (0, 2));
         assert_eq!(routed.dropped, 1);
         assert_eq!(routed.to_candidates, 1);
+    }
+
+    #[test]
+    fn vegetation_is_off_until_chosen_and_goes_by_its_tag() {
+        let f = fixture(MapKind::Sprint);
+        let vegetation = |code: &str| {
+            let mut o = object(&f, code, "lgb-als");
+            o.tags
+                .push((POINT_CLOUD_KEY.to_string(), "lgb-als".to_string()));
+            o
+        };
+        // ALKIS parks and forests with the same symbols are no vegetation from a point cloud.
+        let alkis = || {
+            vec![
+                object(&f, "401", "alkis-nutzung"),
+                object(&f, "405", "alkis-nutzung"),
+            ]
+        };
+        for profile in Profile::ALL {
+            let settings = ContentSettings::with_profile(profile);
+            assert!(!settings.wants_vegetation());
+            let (map, cand, routed) = run(
+                &f,
+                &settings,
+                alkis(),
+                vec![vegetation("410"), vegetation("401")],
+            );
+            assert_eq!(
+                (map.len(), cand.len(), routed.dropped),
+                (2, 0, 2),
+                "{profile:?}"
+            );
+        }
+        for (place, on_map) in [(Place::Candidates, 0), (Place::Map, 2)] {
+            let mut settings = ContentSettings::with_profile(Profile::Safe);
+            settings.set(Group::Vegetation, Some(place));
+            assert!(settings.wants_vegetation());
+            let (map, cand, _) = run(
+                &f,
+                &settings,
+                alkis(),
+                vec![vegetation("410"), vegetation("401")],
+            );
+            assert_eq!(
+                (map.len(), cand.len()),
+                (2 + on_map, 2 - on_map),
+                "{place:?}"
+            );
+        }
+        let mut off = ContentSettings::default();
+        off.set(Group::Vegetation, Some(Place::Off));
+        assert!(!off.wants_vegetation());
     }
 
     #[test]

@@ -131,6 +131,11 @@ impl VegetationClass {
         Self::Impassable,
     ];
 
+    /// The class of an ISSprOM symbol of [`Self::code`].
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.code() == code)
+    }
+
     /// The ISSprOM symbol.
     pub fn code(self) -> &'static str {
         match self {
@@ -292,6 +297,12 @@ pub fn majority(classes: &Raster<Option<VegetationClass>>) -> Raster<Option<Vege
     out
 }
 
+/// The smallest area in ground m² at 1:`scale_denominator`: 1.5 mm × 1.5 mm on paper.
+pub fn min_area_m2(scale_denominator: u32) -> f64 {
+    let metres_per_mm = f64::from(scale_denominator) / 1000.0;
+    MIN_AREA_MM2 * metres_per_mm * metres_per_mm
+}
+
 /// The areas of every class, after the majority filter, simplified, without patches and holes
 /// smaller than 1.5 mm × 1.5 mm on paper.
 pub fn vegetation_areas(
@@ -299,8 +310,7 @@ pub fn vegetation_areas(
     scale_denominator: u32,
 ) -> Vec<(VegetationClass, geo_types::MultiPolygon<f64>)> {
     let smoothed = majority(classes);
-    let metres_per_mm = f64::from(scale_denominator) / 1000.0;
-    let min_area_m2 = MIN_AREA_MM2 * metres_per_mm * metres_per_mm;
+    let min_area_m2 = min_area_m2(scale_denominator);
     VegetationClass::ALL
         .into_iter()
         .filter_map(|class| {
@@ -334,6 +344,47 @@ pub fn vegetation_to_geojson(areas: &[(VegetationClass, geo_types::MultiPolygon<
         })
         .collect();
     serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
+}
+
+/// Reads the areas written by [`vegetation_to_geojson`].
+pub fn vegetation_from_geojson(
+    text: &str,
+) -> Result<Vec<(VegetationClass, geo_types::MultiPolygon<f64>)>, String> {
+    let collection: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    let features = collection["features"].as_array().ok_or("no features")?;
+    let ring = |r: &serde_json::Value| -> Result<geo_types::LineString<f64>, String> {
+        r.as_array()
+            .ok_or("a ring is no array")?
+            .iter()
+            .map(|c| match (c[0].as_f64(), c[1].as_f64()) {
+                (Some(e), Some(n)) => Ok((e, n)),
+                _ => Err("a coordinate is no pair of numbers".to_string()),
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map(geo_types::LineString::from)
+    };
+    features
+        .iter()
+        .map(|f| {
+            let code = f["properties"]["code"].as_str().unwrap_or_default();
+            let class = VegetationClass::from_code(code)
+                .ok_or_else(|| format!("unknown vegetation code `{code}`"))?;
+            let polygons = f["geometry"]["coordinates"]
+                .as_array()
+                .ok_or("no MultiPolygon")?
+                .iter()
+                .map(|p| {
+                    let rings = p.as_array().ok_or("a polygon is no array")?;
+                    let (outer, holes) = rings.split_first().ok_or("a polygon without rings")?;
+                    Ok(geo_types::Polygon::new(
+                        ring(outer)?,
+                        holes.iter().map(ring).collect::<Result<_, String>>()?,
+                    ))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            Ok((class, geo_types::MultiPolygon(polygons)))
+        })
+        .collect()
 }
 
 /// The cells of `class` as polygons: the 0.5 contour of a 0/1 raster padded by one empty cell,
@@ -600,6 +651,13 @@ mod tests {
         assert_eq!(features[0]["geometry"]["type"], "MultiPolygon");
         assert_eq!(polygon.as_array().unwrap().len(), 2, "outline and hole");
         assert_eq!(polygon[1][0], serde_json::json!([10.0, 10.0]));
+        let back = vegetation_from_geojson(&text).unwrap();
+        assert_eq!(back.len(), 2);
+        assert_eq!(back[0].0, VegetationClass::Impassable);
+        assert_eq!(back[0].1.0[0].interiors().len(), 1);
+        assert!(
+            vegetation_from_geojson(r#"{"features":[{"properties":{"code":"999"}}]}"#).is_err()
+        );
     }
 
     #[test]

@@ -64,6 +64,9 @@ Orienteering Maps 2019 (IOF).
 | Erdböschung | earth bank | Steiler Geländeabsatz (ISSprOM 104); ab 3 m Höhe aus dem DGM als nicht begehbare Felswand (201) vorgeschlagen. | `LandformKind::Bank`, `LandformKind::Cliff` |
 | Geländeform-Kandidat | landform candidate | Kuppe, Senke, Böschung oder Felswand, die `derive` aus dem DGM findet; nur in der Kandidatenkarte. | `Landform`, `data/landforms.geojson` |
 | Höhensprung | height jump | Schmaler, langer, steiler Streifen im DGM, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut; Grundlage der Böschungs- und Felswand-Kandidaten. | `height_jumps` |
+| Grünabstufung | green shade | Vegetation, die das Laufen bremst: langsam belaufbar (406), schwer belaufbar (408), nicht belaufbar (410). Kandidat aus der Punktwolke nach dem Anteil der Rückstrahlungen in 0,8 bis 3 m Höhe. | `VegetationClass::SlowRunning`, `Walk`, `Impassable` |
+| Unterwuchs | undergrowth | Gute Sicht, aber gebremstes Laufen unter Bäumen (407, 409). Kandidat aus dem Anteil der Rückstrahlungen in 0,2 bis 0,8 m Höhe. | `VegetationClass::SlowRunningGoodVisibility`, `WalkGoodVisibility` |
+| Vegetations-Kandidat | vegetation candidate | Fläche aus der Punktwolke (401, 405 bis 410) in `data/vegetation.geojson`; Gruppe `vegetation`, ohne eigene Wahl aus. | `CellCounts`, `stored_vegetation_objects` |
 | Gebäude | building | Gebäudeumriss (ISSprOM 521). | `Building` |
 | Überdachung | canopy | Überdachte, begehbare Fläche, z. B. Arkade (ISSprOM 522). Nicht Baumkrone! In Berlin werden die ALKIS-Bauwerke `Überdachung` und `Carport` zu Kartenobjekten. | `Canopy`, `canopy_objects` |
 | Treppe | stairway | Treppe als Linie in Laufrichtung (ISSprOM 532.6 bis 532.9); in Berlin Kandidaten aus den ALKIS-Bauwerken `Treppe` und `Freitreppe`, im vollständigen ALKIS aus den Flächen mit `bauwerksfunktion` 1620/1621. | `stair_objects` |

@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis, the Brandenburg source, fetch and derive); the export follows
+Status: Accepted (analysis, the Brandenburg source, fetch, derive and export); tuning on real parks open
 
 ## Context
 
@@ -36,17 +36,26 @@ the crowns, so it does not help.
   and download estimate (part `PointCloud`, optional like the surface model). Brandenburg is the first: LGB
   serves a zip of 135 to 165 MB per km tile, of which only the LAZ file is kept. A tile that fails falls back to
   the cache or is left out with a warning, because the vegetation is only a candidate.
+- The content group `vegetation` (ADR 0100) switches it on: it is off in every profile, `full` included, and
+  only a choice of its own (`candidates` or `map`) makes the fetch load the point clouds. A tile has about
+  160 MB, a park needs two to four; a profile must not cost that unasked, and the classes are not tuned for parks
+  yet. The objects are known by the tag `freemapper:point-cloud`, not by their symbols, which ALKIS and
+  OpenStreetMap use too.
 - The engine fetches the point clouds after the other optional parts and records the tiles in
-  `freemapper.toml` (`point_clouds`; bookkeeping, so not part of the map fingerprint). Without a backend for the
-  region nothing is asked for and the records go; a full disk or a failed fetch keeps the recorded tiles that are
-  still cached. The download estimate and the disk check count the backend's items. `derive` counts the returns of
-  the recorded tiles over the DTM on a 3 m grid over the map area plus buffer and writes the class areas to
-  `data/vegetation.geojson` (property `code`, a MultiPolygon in the map's CRS); without records it removes the
-  file. Only maps in UTM zone 33 read point clouds, because the backends serve EPSG:25833.
-- The golden net does not record the point clouds (a tile has about 160 MB): its Brandenburg fetch gets no answer
-  for the currency list and goes on with a warning, so G4 covers the vegetation step only once a store version
-  holds a tile.
-- The candidates in `export` follow; the plan is `docs/superpowers/plans/2026-11-12-park-vegetation.md`.
+  `freemapper.toml` (`point_clouds`; bookkeeping, so not part of the map fingerprint). Without the choice or a
+  backend for the region nothing is asked for and the records go; a full disk or a failed fetch keeps the
+  recorded tiles that are still cached. The download estimate and the disk check count the backend's items for
+  a project with the choice (the area page's estimate before saving does not know it). `derive` counts the
+  returns of the recorded tiles over the DTM on a 3 m grid over the map area plus buffer and writes the class
+  areas to `data/vegetation.geojson` (property `code`, a MultiPolygon in the map's CRS); without records or
+  choice it removes the file. Only maps in UTM zone 33 read point clouds, because the backends serve
+  EPSG:25833.
+- The export cuts the areas at the ALKIS buildings and the water and, where the map already has an area of the
+  same symbol (an ALKIS park 401, a wood 405), keeps only the part that differs; patches below 1.5 mm × 1.5 mm
+  go. Tags: `freemapper:source` and `freemapper:point-cloud` (the product, `lgb-als`), `freemapper:currency`
+  (the newest publication date of the tiles).
+- The golden net does not record the point clouds (a tile has about 160 MB), and its projects do not choose
+  the group, so it is unchanged; the vegetation step is covered by tests on a synthetic LAZ tile.
 - No code is copied from omapmaker; karttapullautin is not a dependency (see ADR 0104).
 
 ## Consequences

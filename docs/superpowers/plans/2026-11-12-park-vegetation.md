@@ -45,9 +45,11 @@
 
 ### Task 3: Export step
 
-- [ ] `stored_vegetation_objects` in `project/export.rs`: area objects with the class symbol, tags `freemapper:source` (the point-cloud product) and `freemapper:currency`; cut at building footprints and drawn water.
-- [ ] Where an ALKIS park (401) or wood (405) is a map object, the candidate shows only where the class differs.
-- [ ] Manual DE/EN, changelog, glossary rows (Grünabstufung / green shade, Unterwuchs / undergrowth).
+- [x] `stored_vegetation_objects` in `project/export.rs`: area objects with the class symbol, tags `freemapper:source` (the point-cloud product) and `freemapper:currency`; cut at building footprints and drawn water.
+- [x] Where an ALKIS park (401) or wood (405) is a map object, the candidate shows only where the class differs.
+- [x] Manual DE/EN, changelog, glossary rows (Grünabstufung / green shade, Unterwuchs / undergrowth).
+
+- [x] Opt-in (user 2026-11-12, decided by me after "Auf was wartest du?"): content group `vegetation`, off in every profile; the choice gates fetch, estimate, derive and export.
 
 ### Task 4: Check on real parks
 

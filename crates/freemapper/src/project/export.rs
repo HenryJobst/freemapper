@@ -291,6 +291,83 @@ const ALLOTMENT_LAND_USE: &str = "Kleingarten";
 const CLIFF_TRAFFIC_M: f64 = 3.0;
 const CLIFF_BUILDING_M: f64 = 5.0;
 
+/// The vegetation areas from `derive` (ADR 0105) as candidates, while the content settings ask
+/// for them: cut at the buildings and the water, and where the map already has an area of the
+/// same symbol (an ALKIS park, a wood) only the part that differs. Patches smaller than the
+/// minimum area of the scale go; a class the symbol set lacks is left out.
+pub(super) fn stored_vegetation_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    footprints: &[geo_types::Polygon<f64>],
+    water: &geo_types::MultiPolygon<f64>,
+    map_objects: &[MapObject],
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    use crate::build::berlin::object_polygon;
+    use crate::build::content::POINT_CLOUD_KEY;
+    use crate::build::out_of_bounds::area_object;
+    use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
+    use geo::{Area as _, BooleanOps as _, MapCoords as _};
+    let path = dir.join(VEGETATION_RELPATH);
+    if !project.wants_vegetation() || !path.exists() {
+        return Ok(Vec::new());
+    }
+    let Some(backend) = point_cloud_backend(&project.region_bbox()?) else {
+        return Ok(Vec::new());
+    };
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let areas =
+        vegetation_from_geojson(&text).map_err(|message| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message,
+        })?;
+    let source = backend.info().source.clone();
+    let currency = project
+        .point_clouds
+        .iter()
+        .filter_map(|r| r.published)
+        .max();
+    let blocked = geo::unary_union(footprints.iter().chain(&water.0));
+    let min_area = min_area_m2(project.scale_denominator);
+    let projected = |polygon: geo_types::Polygon<f64>| {
+        polygon.map_coords(|c| {
+            let p = georef.map_to_projected(crate::omap::coord::MapCoord::new(
+                c.x.round() as i32,
+                c.y.round() as i32,
+            ));
+            geo_types::coord! { x: p.easting, y: p.northing }
+        })
+    };
+    let mut objects = Vec::new();
+    for (class, area) in areas {
+        let Some(symbol_id) = symbol_set.id_for_code(class.code()) else {
+            continue;
+        };
+        let drawn: Vec<geo_types::Polygon<f64>> = map_objects
+            .iter()
+            .filter(|o| o.symbol_id == symbol_id)
+            .filter_map(object_polygon)
+            .map(projected)
+            .collect();
+        let mut rest = area.difference(&blocked);
+        if !drawn.is_empty() {
+            rest = rest.difference(&geo::unary_union(&drawn));
+        }
+        for piece in rest.0.iter().filter(|p| p.unsigned_area() >= min_area) {
+            let mut tags = vec![
+                ("freemapper:source".to_string(), source.clone()),
+                (POINT_CLOUD_KEY.to_string(), source.clone()),
+            ];
+            if let Some(currency) = currency {
+                tags.push(("freemapper:currency".to_string(), currency.to_string()));
+            }
+            objects.push(area_object(piece, symbol_id, tags, georef)?);
+        }
+    }
+    Ok(objects)
+}
+
 /// Candidate objects for the landforms from `derive` (knolls 109, 110, depressions 111, banks
 /// 104, cliffs 201, retaining walls 515), each tagged [`LANDFORM_KEY`] so the content settings
 /// place them as the group `landforms`; none when there are none. `drawn` are the objects of the map and of the
@@ -1645,6 +1722,17 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &symbol_set,
     )?;
     candidates.parts[0].objects.extend(landforms);
+    // The vegetation from the point clouds, where the user chose it (group `vegetation`).
+    let vegetation = stored_vegetation_objects(
+        dir,
+        &project,
+        &footprints,
+        &water.union,
+        &map_objects,
+        &georef,
+        &symbol_set,
+    )?;
+    candidates.parts[0].objects.extend(vegetation);
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());

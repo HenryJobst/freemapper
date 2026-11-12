@@ -276,6 +276,7 @@ page-content-group-furniture = Street furniture and lamps
 page-content-group-passages = Passages
 page-content-group-contours = Contours
 page-content-group-landforms = Knolls, depressions, banks and cliffs from the terrain model
+page-content-group-vegetation = Vegetation from laser point clouds (Brandenburg only; off until you choose it; downloads about 160 MB per km²)
 page-content-group-out-of-bounds = Areas that shall not be entered
 page-content-group-paths = Paths and railways
 page-content-group-streets = Streets and squares
@@ -703,9 +704,9 @@ mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }
 help-arg-content = What goes straight onto the map: `safe` leaves every object where the build puts it, `balanced` (default) puts the objects of the cadastre and the registers on the map, `full` puts everything on the map. The choice is saved in freemapper.toml
-help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g. `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, out-of-bounds, paths, streets. Saved in freemapper.toml
+help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g. `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Saved in freemapper.toml
 mcp-param-create-project-content = What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the project. balanced puts the objects of the cadastre and the registers on the map, full puts everything on it.
-mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, out-of-bounds, paths, streets.
+mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-error-content = Cannot read the content setting: { $detail }
