@@ -21,7 +21,7 @@ ist viel schlichter; wie sich beide unterscheiden und warum, zeigt die [Gegenüb
 | Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 993 | 851 | 32 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
 | Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 287 | 2142 | 33 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 1323 | 894 | 34 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1444 | 249 | 28 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1465 | 249 | 32 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die sicheren Objekte der OOM-Karte (ALKIS-Gebäude, -Flächen und -Gewässer, Überdachungen und
 Carports). **Kandidaten** liegen als eigene Vorlage bei (`templates/candidates.omap`). Das PDF `<name>-candidates.pdf` zeichnet sie mit; `<name>.pdf` aus `--pdf` zeigt nur die Kartenobjekte. Sie kommen aus OSM, aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Berlin,
@@ -129,7 +129,7 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
 Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis ist das jüngste Beispiel und mit dem
 Inhaltsprofil `balanced` entstanden, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet:
-Die Karte selbst hat deshalb 26 Symbole, und es bleiben nur 249 Kandidaten. Die älteren Beispiele stammen aus der Zeit davor.
+Die Karte selbst hat deshalb 30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben nur 249 Kandidaten. Die älteren Beispiele stammen aus der Zeit davor.
 
 ## Lizenzen
 

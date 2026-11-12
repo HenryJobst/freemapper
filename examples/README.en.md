@@ -21,7 +21,7 @@ shows how the two differ and why.
 | North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 993 | 851 | 32 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 287 | 2142 | 33 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1323 | 894 | 34 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1444 | 249 | 28 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1465 | 249 | 32 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the reliable objects of the OOM map (ALKIS buildings, areas and water, canopies and carports).
 **Candidates** come as a separate template (`templates/candidates.omap`); the PDF `<name>-candidates.pdf` draws them too; `<name>.pdf` from `--pdf` shows only the map objects. They come from OSM,
@@ -123,7 +123,7 @@ little relief.
 In Saarland two rectangles ran, both in Saarlouis. The second lies 180 m further west and takes in the Vauban
 island in the old arm of the Saar and the ramparts in the Stadtgarten. Saarlouis is the newest example and was
 made with the content profile `balanced`, which draws the objects of the cadastre and the registers straight
-onto the map: the map itself therefore has 26 symbols, and only 249 candidates are left. The older examples date from before.
+onto the map: the map itself therefore has 30 symbols, among them 21 stairs from OpenStreetMap, and only 249 candidates are left. The older examples date from before.
 
 ## Licences
 

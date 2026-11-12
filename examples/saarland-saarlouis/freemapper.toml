@@ -28,7 +28,7 @@ regions = ["saarland"]
 [osm]
 extract = "2026-11-11"
 area = [49.31205084, 6.741811, 49.31844916, 6.755189]
-count = 733
+count = 754
 
 [orthophoto]
 flight = "10.05.2025"

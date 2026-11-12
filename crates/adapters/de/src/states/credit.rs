@@ -201,8 +201,12 @@ pub fn tree_attribution(registers: &[&str]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use chrono::NaiveDate;
+    use freemapper_adapter_api::adapter::RegionAdapter as _;
     use freemapper_adapter_api::credit::{AlkisUse, lines_with_licences};
     use freemapper_adapter_api::records::{AdapterId, WcsRecord, WmsRecord};
+    use freemapper_adapter_api::registry::Registry;
+
+    use crate::states::StateAdapter;
 
     use super::*;
 
@@ -270,5 +274,30 @@ mod tests {
             lines_with_licences(&lines(State::Saarland, &both)),
             [line(2026), DL_DE_BY_LICENCE_NOTE.to_string()]
         );
+    }
+
+    /// The credit of a state is said twice: here, and in its manifest, which is what a project
+    /// gets for every state but Brandenburg, Berlin and Saxony. The two say the same, text and
+    /// licence note.
+    #[test]
+    fn the_credit_of_each_manifest_is_the_one_written_here() {
+        let mut backends = Registry::new();
+        crate::states::register_backends(&mut backends).unwrap();
+        for state in State::ALL {
+            let alkis = UsedSources {
+                alkis: vec![AlkisUse {
+                    regions: vec![AdapterId::built_in(state.id())],
+                    fetched: day(2026),
+                }],
+                ..UsedSources::default()
+            };
+            let adapter = StateAdapter::new(state, &backends);
+            let from_manifest = adapter.manifest.attribution(&alkis);
+            assert_eq!(from_manifest.len(), 1, "{}", state.id());
+            if !matches!(state, State::Brandenburg | State::Berlin | State::Saxony) {
+                assert_eq!(from_manifest, lines(state, &alkis), "{}", state.id());
+                assert_eq!(adapter.attribution(&alkis), from_manifest, "{}", state.id());
+            }
+        }
     }
 }
