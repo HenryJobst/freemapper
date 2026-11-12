@@ -77,7 +77,7 @@ first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of 
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
 and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
-[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Planned: permits and contacts. For every map area freemapper should also show who has to be asked: for forest maps the protected areas it touches (nature reserves, landscape protection, FFH, national parks) and the responsible forest authority; for sprint maps the municipality or borough, the road traffic and parks departments, heritage and palace administrations and, where open data allows, public landowners. The result would be a report `permits.md` next to the map, each entry with its source and data date. It is a pointer, not legal advice, and owners of private land are not in open data. The research is in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
@@ -100,12 +100,12 @@ file and the PDF. Two of them here; clicking a picture opens the PDF:
 
 | State | Area | Preview |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
-[examples overview](examples/README.en.md). How the map looks with and without candidates is on the
-[comparison page](examples/compare.en.md).
+[examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). How the map looks with and without candidates is on the
+[comparison page](https://github.com/HenryJobst/freemapper/blob/main/examples/compare.en.md).
 
 ## Choosing the area in the browser
 
@@ -177,7 +177,7 @@ Shared code of the suite comes step by step from
 through git, so the first build fetches it from GitHub. To change it alongside freemapper, check
 freemapper-core out next to freemapper and use it during development through a local `[patch]`, which comes
 out again before the merge. The freemapper-core README and
-[ADR 0067](docs/adr/0067-shared-crates-from-freemapper-core.md) have the details.
+[ADR 0067](https://github.com/HenryJobst/freemapper/blob/main/docs/adr/0067-shared-crates-from-freemapper-core.md) have the details.
 
 ## Usage
 
@@ -293,7 +293,7 @@ In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objec
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the
 [user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas). One example project per state is in
-[`examples/`](examples/README.en.md).
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md).
 
 ## Map as PDF
 

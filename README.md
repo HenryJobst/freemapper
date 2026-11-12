@@ -79,7 +79,7 @@ und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für 
 Reste in den deutschen Programmtexten (`--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen,
 Bayern). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
-[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
+[`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Geplant: Genehmigungen und Ansprechpartner. Zu jedem Kartenbereich soll freemapper künftig auch zeigen, wer gefragt werden muss: bei Waldkarten die berührten Schutzgebiete (Naturschutz, Landschaftsschutz, FFH, Nationalpark) und die zuständige Forstverwaltung, bei Sprintkarten Gemeinde oder Bezirk, Straßenverkehrs- und Grünflächenamt, Denkmal- und Schlösserverwaltungen und, wo offene Daten es hergeben, die Grundstückseigentümer der öffentlichen Hand. Das Ergebnis wäre ein Bericht `permits.md` neben der Karte, jeweils mit Quelle und Datenstand. Er ist ein Hinweis und keine Rechtsauskunft, und Eigentümer privater Flächen stehen nicht in offenen Daten. Die Recherche dazu steht in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
@@ -102,12 +102,12 @@ OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
-der [Beispielübersicht](examples/README.md). Wie die Karte mit und ohne Kandidaten aussieht, zeigt die
-[Gegenüberstellung](examples/vergleich.md).
+der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Wie die Karte mit und ohne Kandidaten aussieht, zeigt die
+[Gegenüberstellung](https://github.com/HenryJobst/freemapper/blob/main/examples/vergleich.md).
 
 ## Gebiet im Browser wählen
 
@@ -183,7 +183,7 @@ Gemeinsamer Code der Suite kommt nach und nach aus
 einem festen Release-Tag ein, deshalb lädt der erste Build ihn von GitHub. Wer dort mitändert, legt
 freemapper-core neben freemapper ab und bindet es während der Entwicklung über einen lokalen `[patch]` ein,
 der vor dem Merge wieder herauskommt. Die Einzelheiten stehen in der README von freemapper-core und in
-[ADR 0067](docs/adr/0067-shared-crates-from-freemapper-core.md).
+[ADR 0067](https://github.com/HenryJobst/freemapper/blob/main/docs/adr/0067-shared-crates-from-freemapper-core.md).
 
 ## Benutzung
 
@@ -302,7 +302,7 @@ In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachun
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide
 OSM-Auszüge; Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
 [Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Bundesland liegt unter
-[`examples/`](examples/).
+[`examples/`](https://github.com/HenryJobst/freemapper/tree/main/examples/).
 
 ## Karte als PDF
 
