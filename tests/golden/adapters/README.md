@@ -1,18 +1,26 @@
 # The golden net of the adapter work
 
-The region adapters (ADR 0082) replace the `Region` and `Provider` enums by a trait, a registry and
-manifests. All eleven states must produce the same output afterwards. The files in this folder
-record what v0.12.0 does; the tests in `crates/freemapper/tests/adapters_golden.rs` compare the
-current code with them.
+The region adapters (ADR 0082) replaced the `Region` and `Provider` enums by a trait, a registry and
+manifests. All eleven states of that time had to produce the same output afterwards. The files in
+this folder recorded what v0.12.0 did; the tests in `crates/freemapper/tests/adapters_golden.rs`
+compare the current code with them.
+
+The migration is done (2026-11-12), and the net is smaller since: G1, G2 and G5 still cover the
+eleven states, because they need nothing but the repository. G3 and G4 record four states, one of
+each kind of fetch: Brandenburg (tiles in the cache), Berlin (the code adapter), Saxony-Anhalt
+(per-area services, declared by its manifest alone) and Hesse (archives read by range requests).
+The other seven were recorded to prove the migration; every later change to one of their requests
+would have paid for them with a new recording. Saarland, added after the migration, was never
+recorded: it has unit tests with synthetic archives and `adapters check --live`.
 
 | Layer | Records | Files | Needs |
 |---|---|---|---|
-| G1 | every fact the enums answer per region; the service constants; the credit lines of the project notes and the map sheet per state, year and record combination, and for neighbouring states in one map | `g1-regions.json`, `g1-services.txt`, `g1-credits.json` | the repository |
+| G1 | every fact the enums answer per region; the service constants; the credit lines of the project notes and the map sheet per state, year and record combination, and for neighbouring states in one map; the hosts each state asked when all eleven were recorded | `g1-regions.json`, `g1-services.txt`, `g1-credits.json`, `g1-hosts.txt` | the repository |
 | G2 | what the region functions answer for 211 boxes on borders and in the example areas; the download estimate of a new project per state | `g2-boxes.json`, `g2-geometry.json`, `g2-estimates.json` | the repository |
-| G3 | the estimate, the requests and the warnings of an online fetch per state | `<id>/index.toml`, `<id>/trace.txt` | the fixture store |
+| G3 | the estimate, the requests and the warnings of an online fetch per recorded state | `<id>/index.toml`, `<id>/trace.txt` | the fixture store |
 | G3 | nine fetches that lose the network halfway (three states, three places): the requests, the warnings and the project file left behind | `g3-interrupted.json` | the fixture store |
-| G3 | the download estimate per state after its fetch: what is cached, what is stored in place | `g3-estimates.json` | the fixture store |
-| G4 | the SHA-256 of every file the pipeline leaves in the project folder, per state | `<id>/expected.sha256` | the fixture store |
+| G3 | the download estimate per recorded state after its fetch: what is cached, what is stored in place | `g3-estimates.json` | the fixture store |
+| G4 | the SHA-256 of every file the pipeline leaves in the project folder, per recorded state | `<id>/expected.sha256` | the fixture store |
 | G5 | that a project file is read and written back unchanged | the example projects | the repository |
 
 G1, G2 and G5 run with every `cargo test`. G3 and G4 are `#[ignore]`d, because they need the
@@ -50,10 +58,14 @@ another folder, for the script and for the tests.
 
 A published version is never changed. A new recording is a new version.
 
-Version 0 was the pilot (Saxony-Anhalt and Hesse, 8.5 MB). Version 1 holds all eleven states:
-206 MB as an archive, 234 MB unpacked. Most of it is whole tiles: Schleswig-Holstein 108 MB (one
-surface model tile), Berlin 47 MB, Brandenburg and Saxony 31 MB each; the other seven states
-have 7 MB or less each.
+Version 0 was the pilot (Saxony-Anhalt and Hesse, 8.5 MB). Version 1 held all eleven states:
+206 MB as an archive, 234 MB unpacked, most of it whole tiles (Schleswig-Holstein alone 108 MB for
+one surface model tile). Version 2 holds the four recorded states, with the answers of version 1
+unchanged: 79 MB as an archive, 82 MB unpacked, of which Berlin has 47 MB and Brandenburg 31 MB.
+
+`g1-hosts.txt` keeps the hosts of the seven states that left the net: every built-in manifest
+declares at least the hosts its state asked then (`crates/adapters/de/tests/manifests.rs`). A
+state that is still recorded must ask exactly the hosts the file names.
 
 To look at the outputs of a run, or to compare them with another system's, set
 `FREEMAPPER_GOLDEN_KEEP=1`: G4 then copies every file to `target/golden-outputs/<id>/`. A failing
@@ -79,7 +91,8 @@ A commit that adds or changes a request needs new answers. Recording talks to th
 
 1. Raise `version` in `store.lock` and copy the unpacked store of the old version to
    `target/golden-adapters/<new version>/`, so the states that stay keep their answers.
-2. `scripts/golden.sh record <id>` for each state concerned. It fetches the golden area (about
+2. `scripts/golden.sh record <id>` for each state concerned. A state that is not recorded yet
+   also joins `RECORDED` and the two `per_state!` lists of the tests. It fetches the golden area (about
    150 m square around the centre of the state's example, moved a little in four states so that
    it needs one tile, see `golden_centre`) into an empty folder with an empty cache, keeps every answer, and then writes `trace.txt` and `expected.sha256` from a replay.
    The maintainer's cached OSM extract is used if there is one, so no extract is downloaded.

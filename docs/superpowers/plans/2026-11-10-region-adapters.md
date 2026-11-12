@@ -671,11 +671,11 @@ Not a task of this plan but a gate: before F1, one state of stage G (Saarland or
   releases confirmed the number.
 - F2, done: manual, README, changelog, glossary, AGENTS.md, ADR 0082 Accepted. The release archive ships
   `docs/adapters` and `docs/glossary.md`; links that leave the archive are GitHub addresses.
-- F2, moved: shrinking the golden net is a pull request of its own after merge 3, because it publishes a new
-  fixture store and should not hold this branch up. Keep Hesse beside the three states the task names: the
-  test of the interrupted fetches needs a state that reads archives by range requests. The hosts test of
-  `crates/adapters/de/tests/manifests.rs` reads the traces of all eleven states and needs another source for
-  the states that leave the net.
+- F2, the net: shrunk in a pull request of its own after merge 3, because it publishes a new fixture store.
+  G3 and G4 record Brandenburg, Berlin, Saxony-Anhalt and Hesse; Hesse stays beside the three the task names
+  because the test of the interrupted fetches needs a state that reads archives by range requests. Store
+  version 2 has 79 MB (version 1: 206 MB). `g1-hosts.txt` keeps the hosts all eleven states asked, for the
+  hosts test of `crates/adapters/de/tests/manifests.rs`, which read the traces before.
 - The weekly live workflow stays deferred. The guide says that there is no scheduled check yet.
 
 ## Stage F: documentation
