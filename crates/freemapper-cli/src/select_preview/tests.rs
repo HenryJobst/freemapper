@@ -355,3 +355,20 @@ async fn a_queued_live_preview_gives_up_its_turn_to_a_newer_one() {
     // Alone, a request gets its turn.
     assert!(images.turn().await.is_some());
 }
+
+#[tokio::test]
+async fn an_overtaken_live_preview_says_so_for_the_page() {
+    // Another tab asked for a newer preview: the page that waited for this one keeps its image
+    // and says nothing, so the answer marks itself.
+    let response = superseded_response(&Lang::english());
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(body["superseded"], true, "{body}");
+    assert_eq!(
+        body["error"],
+        "A newer preview was asked for meanwhile, so this one was not computed."
+    );
+}
