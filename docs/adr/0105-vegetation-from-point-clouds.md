@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis, the Brandenburg and North Rhine-Westphalia sources, fetch, derive and export, checked on two parks)
+Status: Accepted (analysis, the Brandenburg, North Rhine-Westphalia and Rhineland-Palatinate sources, fetch, derive and export, checked on two parks)
 
 ## Context
 
@@ -46,6 +46,14 @@ the crowns, so it does not help.
   the same AdV scheme as LGB's, with more of them: 2 ground, 20 last echoes above ground, 1 intermediate echoes,
   and the synthetic fill points 26 (ground), 21 (buildings) and 9 (water), the cellar points 24 and the bridges
   17. `read_tile` leaves out every synthetic point (LAS flag), class 24 and bridges.
+- Rhineland-Palatinate is the third source (`lvermgeo_rp_las`): LVermGeo RP serves every tile as
+  `lpolpg_32_<E>_<N>_1_rp.laz` (1 km, EPSG:25832, 21 000 tiles, median 231 MB, up to 1.2 GB) and lists them in
+  one Metalink of the state (about 6 MB) with size and SHA-256; a download must match both. The `name` of a
+  Metalink entry differs from its file, so the tile comes from the URL. The day of the scan comes from the
+  metadata of the tile (`<stem>_meta.xml`, about 70 KB, the date of type `creation`); it names the cache file,
+  so a fetch with the tile cached asks only the metadata, and the Metalink only when a tile has to be
+  downloaded. A tile without metadata (404) is not published. The LAS header names no CRS; the backend sets
+  25832. A tile of Mainz has only the classes 2 and 20.
 - A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS
   and passes it the map area plus buffer in that CRS.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
@@ -99,5 +107,9 @@ the crowns, so it does not help.
   for the whole run in a debug build. The lawns came out open (and stay out of the export, where ALKIS has the
   park), the tree stands runnable forest, the shrubs around the pond 410 and those on the railway embankment 406
   and 408; buildings stayed free. No value was changed for it.
+- The Stadtpark in Mainz (Rhineland-Palatinate, scan 2023-03-15) with the same values: four tiles of 81 to
+  152 MB, every hash matching. The crowns came out runnable forest, the lawns and the railway land open,
+  scattered shrubs 406 and 408, 13 small areas 410; houses stayed free. Returns on the Rhine come out open in
+  `derive`, and the export cuts them at the water. No value was changed for it.
 - Parks get the green shades first; the forest map kind reuses the module with its own cell size and minimum
   areas.

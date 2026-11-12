@@ -766,6 +766,7 @@ dependencies = [
  "image",
  "las",
  "serde_json",
+ "sha2",
  "tempfile",
  "tiff",
  "zip",

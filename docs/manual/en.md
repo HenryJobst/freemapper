@@ -574,20 +574,21 @@ go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStr
 
 ### Vegetation from laser point clouds
 
-In Brandenburg and North Rhine-Westphalia freemapper can derive the vegetation from the classified laser point
-clouds of LGB and Geobasis NRW: open land
+In Brandenburg, North Rhine-Westphalia and Rhineland-Palatinate freemapper can derive the vegetation from the
+classified laser point clouds of LGB, Geobasis NRW and LVermGeo RP: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
 shows more than the nDSM, which only sees the crowns.
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large: per square
-kilometre tile about 160 MB in Brandenburg and mostly 50 to 165 MB in North Rhine-Westphalia, and a park usually
+kilometre tile about 160 MB in Brandenburg, mostly 50 to 165 MB in North Rhine-Westphalia and mostly 110 to
+500 MB in Rhineland-Palatinate, and a park usually
 needs two to four tiles. Only `--content-set
 vegetation=candidates` (or the area page) makes the next `fetch` load them into the shared cache. `derive` writes
 `data/vegetation.geojson` from them, and the export puts the areas into the candidates map. There are none at
 buildings, in water or on paved areas; roofs that ALKIS no longer has are recognised by their laser echoes too.
 Where the map already has a park or a wood from ALKIS, the candidate shows only the part of another class. It is
-checked on Sanssouci and the Volksgarten in Cologne; reeds and shrubs at a shore come out as 410. The point cloud can be some years older
+checked on Sanssouci, the Volksgarten in Cologne and the Stadtpark in Mainz; reeds and shrubs at a shore come out as 410. The point cloud can be some years older
 than the orthophoto. Check the areas against the orthophoto and in the terrain. When space is short, the
 point clouds are the first part left out. The other states have no point-cloud source yet.
 

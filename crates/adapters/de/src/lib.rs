@@ -17,6 +17,7 @@ pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
+pub mod lvermgeo_rp_las;
 pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod nrw_3dm;

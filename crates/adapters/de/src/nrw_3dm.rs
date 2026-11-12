@@ -4,7 +4,7 @@
 //! (26, 21, 9), cellar points (24) and bridges (17), which `derive` leaves out.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use chrono::NaiveDate;
@@ -19,7 +19,10 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
-use crate::las_files::{cached_las, check_las_file, las_path};
+use crate::las_files::{
+    cached_las, download_las, las_path, parse_utm32_tile_name as parse_tile_name,
+    utm32_tile_name as tile_name,
+};
 use crate::note::{Arg, note};
 use crate::tiles::{TileId, tiles_covering_grid};
 
@@ -33,23 +36,6 @@ const DIR: &str = "3dm";
 /// A tile has 80 MB in the median and less than 165 MB in nine of ten cases (2026); the estimate
 /// counts this much per tile.
 pub const MB_PER_TILE: f64 = 120.0;
-/// A tile the index says is larger is no tile of Geobasis NRW (the largest has 553 MB).
-const MAX_TILE_BYTES: u64 = 2 << 30;
-
-/// The name of `tile` in the project file and the cache: `32356-5644`, in zone 32.
-fn tile_name(tile: TileId) -> String {
-    format!("32{:03}-{:04}", tile.east_km, tile.north_km)
-}
-
-/// The tile of a [`tile_name`].
-fn parse_tile_name(name: &str) -> Option<TileId> {
-    let (east, north) = name.strip_prefix("32")?.split_once('-')?;
-    (east.len() == 3 && north.len() == 4).then_some(())?;
-    Some(TileId {
-        east_km: east.parse().ok()?,
-        north_km: north.parse().ok()?,
-    })
-}
 
 /// URL of the tile file `name` (from the index).
 pub fn tile_url(name: &str) -> String {
@@ -230,7 +216,7 @@ impl PointCloudBackend for Nrw3dmBackend {
                 continue;
             }
             (env.progress)(note!("progress-downloading", url = &url));
-            match download_tile(env, &url, entry.bytes, &path) {
+            match download_las(env, &url, entry.bytes, None, &path) {
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.into_iter().filter(|(_, p)| *p != path) {
@@ -280,49 +266,6 @@ impl PointCloudBackend for Nrw3dmBackend {
             })
             .collect()
     }
-}
-
-/// Streams the tile to a partial file next to `path`, checks that it has the size the index
-/// gives and is a complete point cloud, then moves it to `path`. A broken file is not left
-/// behind.
-fn download_tile(
-    env: &mut AdapterEnv<'_>,
-    url: &str,
-    bytes: u64,
-    path: &Path,
-) -> Result<(), FetchError> {
-    if bytes > MAX_TILE_BYTES {
-        return Err(FetchError::TooLarge {
-            url: url.to_string(),
-            limit_mb: MAX_TILE_BYTES >> 20,
-        });
-    }
-    let part = path.with_extension("laz.part");
-    let _ = std::fs::remove_file(&part);
-    let result = env
-        .fetcher
-        .download_to(url, &part, bytes, env.progress)
-        .and_then(|()| {
-            let got = std::fs::metadata(&part)
-                .map_err(|e| FetchError::Io(part.clone(), e))?
-                .len();
-            if got == bytes {
-                Ok(())
-            } else {
-                Err(FetchError::CorruptArchive {
-                    url: url.to_string(),
-                    message: format!("{got} bytes, the index says {bytes}"),
-                })
-            }
-        })
-        .and_then(|()| check_las_file(url, &part))
-        .and_then(|()| {
-            std::fs::rename(&part, path).map_err(|e| FetchError::Io(path.to_path_buf(), e))
-        });
-    if result.is_err() {
-        let _ = std::fs::remove_file(&part);
-    }
-    result
 }
 
 #[cfg(test)]
