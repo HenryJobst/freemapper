@@ -365,6 +365,7 @@ pub(super) fn write_starter_project(
     }
     write_document(dir, candidates, &dir.join(CANDIDATES_RELPATH))?;
     if map_force.is_some() {
+        forget_map_preview(dir)?;
         write_document(dir, map, &map_path)?;
     }
     let attribution = format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n");
@@ -757,6 +758,24 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect())
+}
+
+/// Removes the record of the preview, then the preview, before the map is replaced: if the new
+/// preview then fails, the folder has none, never the old one claiming to show the new map.
+/// Without its record an image is no preview of any map, so the image goes on a best-effort
+/// basis; the record must go.
+fn forget_map_preview(dir: &Path) -> Result<(), ProjectError> {
+    let record = dir.join(MAP_PREVIEW_RECORD_RELPATH);
+    if freemapper_fs::stays_inside(dir, &record) {
+        match std::fs::remove_file(&record) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(ProjectError::Io(record, e));
+            }
+            _ => {}
+        }
+    }
+    freemapper_fs::remove_inside(dir, &map_preview_path(dir));
+    Ok(())
 }
 
 /// The record of the preview in `dir`; none when there is none or it does not read.

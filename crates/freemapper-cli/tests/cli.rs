@@ -213,6 +213,25 @@ fn init_then_export_creates_starter_project() {
 }
 
 #[test]
+fn export_whose_preview_fails_leaves_no_preview_of_the_old_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("clara-zetkin-schule");
+    init_and_export(&project);
+    // A folder where the new image goes: the map is written, its preview is not.
+    let preview = project.join("clara-zetkin-schule-preview.webp");
+    std::fs::remove_file(&preview).unwrap();
+    std::fs::create_dir(&preview).unwrap();
+    std::fs::write(preview.join("keep"), "").unwrap();
+    let export = freemapper()
+        .args(["export", project.to_str().unwrap(), "--force"])
+        .output()
+        .unwrap();
+    assert_eq!(export.status.code(), Some(1));
+    assert!(project.join("clara-zetkin-schule.omap.bak").exists());
+    assert!(!project.join("data/map-preview.json").exists());
+}
+
+#[test]
 fn init_refuses_existing_project() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("p");

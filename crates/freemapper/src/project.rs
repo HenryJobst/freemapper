@@ -5982,6 +5982,42 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(read_map_preview_record(dir.path()), Some(written));
     }
 
+    #[test]
+    fn a_failed_preview_leaves_no_preview_of_the_old_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        run(dir.path(), &fetcher, &cache, true);
+        assert!(read_map_preview_record(dir.path()).is_some());
+        let map = map_path(dir.path());
+        std::fs::write(&map, "edited in OOM").unwrap();
+        // The next preview cannot be written: a folder stands where the image goes.
+        let preview = map_preview_path(dir.path());
+        std::fs::remove_file(&preview).unwrap();
+        std::fs::create_dir(&preview).unwrap();
+        std::fs::write(preview.join("keep"), "").unwrap();
+
+        let failed = run_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            true,
+            &mut |_| {},
+        );
+        assert!(failed.is_err());
+        assert_ne!(
+            std::fs::read_to_string(&map).unwrap(),
+            "edited in OOM",
+            "the map was replaced"
+        );
+        assert!(read_map_preview_record(dir.path()).is_none());
+        assert!(!dir.path().join("data/map-preview.json").exists());
+    }
+
     fn hex(text: &str) -> String {
         text.bytes().map(|b| format!("{b:02X}")).collect()
     }
