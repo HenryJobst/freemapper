@@ -16,7 +16,7 @@
 - Only per-area downloads; never a statewide bulk file (Berlin's 8 regional ZIPs of about 200 GB need range reads or stay out).
 - Verify checksums where the service gives them (Metalink SHA-256 in Rhineland-Palatinate).
 - The disk check (ADR 0045) counts the point-cloud tiles in the estimate.
-- Everything is a candidate; no vegetation enters the map itself.
+- Everything is a candidate by default; the group `vegetation` is off in every profile, and only `vegetation=map` puts the areas on the map (decided 2026-11-12).
 
 ## Review Focus
 
@@ -41,7 +41,7 @@
 
 - [x] Change `read_points` to count per cell while reading (no `Vec` of all points), then `classify` and `vegetation_areas` with the project's `scale_denominator`.
 - [x] Write `data/vegetation.geojson` (class code and polygon per feature); no file where no point cloud is recorded.
-- [x] Test with a synthetic LAZ under a fixture project; golden re-blessed (G2/G3 for Brandenburg: the estimate item and the unanswered currency list; G4 unchanged, the store holds no point cloud).
+- [x] Test with a synthetic LAZ under a fixture project; golden: unchanged in the end, because the golden projects do not choose the group (an earlier bless for the estimate item was taken back with the opt-in).
 - [x] The fetch step: after the K5 map, records `point_clouds` in the project file, keeps the cached records on a full disk or a failing service.
 
 ### Task 3: Export step

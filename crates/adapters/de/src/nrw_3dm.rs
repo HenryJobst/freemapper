@@ -170,12 +170,28 @@ impl PointCloudBackend for Nrw3dmBackend {
         bbox: &BoundingBox,
     ) -> Result<Vec<PointCloudTile>, AdapterError> {
         let dir = self.dir(env.cache);
-        let index = match env.mode {
-            FetchMode::Online => {
-                (env.progress)(note!("progress-downloading", url = INDEX_URL));
-                parse_index(&env.fetcher.get(INDEX_URL)?)?
+        // Without the index the cached tiles serve, as offline.
+        let mut offline = env.mode == FetchMode::Offline;
+        let index = if offline {
+            HashMap::new()
+        } else {
+            (env.progress)(note!("progress-downloading", url = INDEX_URL));
+            match env
+                .fetcher
+                .get(INDEX_URL)
+                .and_then(|bytes| parse_index(&bytes))
+            {
+                Ok(index) => index,
+                Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
+                Err(e) => {
+                    (env.progress)(note!(
+                        "warning-point-clouds-unavailable",
+                        reason = Arg::error(e)
+                    ));
+                    offline = true;
+                    HashMap::new()
+                }
             }
-            FetchMode::Offline => HashMap::new(),
         };
         let mut fetched = Vec::new();
         for tile in tiles_covering_grid(bbox, self.info.grid_km) {
@@ -189,7 +205,7 @@ impl PointCloudBackend for Nrw3dmBackend {
                 path,
             };
             let name = format!("3dm_32_{}_{}_1_nw.laz", tile.east_km, tile.north_km);
-            if env.mode == FetchMode::Offline {
+            if offline {
                 match cached.into_iter().next() {
                     Some(newest) => fetched.push(found(tile_url(&name), newest)),
                     None => (env.progress)(note!(
@@ -215,6 +231,7 @@ impl PointCloudBackend for Nrw3dmBackend {
             }
             (env.progress)(note!("progress-downloading", url = &url));
             match download_tile(env, &url, entry.bytes, &path) {
+                Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.into_iter().filter(|(_, p)| *p != path) {
                         let _ = std::fs::remove_file(older);
@@ -540,6 +557,44 @@ mod tests {
         let (offline, _) = fetch(&silent, &cache, FetchMode::Offline);
         assert_eq!(offline.len(), 1);
         assert_eq!(silent.calls.get(), 0, "offline asks nothing");
+    }
+
+    #[test]
+    fn without_the_index_the_cached_tiles_serve_and_a_cancel_stops() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, laz(10), "2023-07-19T07:30:49");
+        fetch(&fetcher, &cache, FetchMode::Online);
+        let down = MapFetcher::default();
+        down.failing.borrow_mut().push(INDEX_URL.to_string());
+        let (tiles, notes) = fetch(&down, &cache, FetchMode::Online);
+        assert_eq!(tiles.len(), 1, "the cached tile");
+        assert!(
+            notes
+                .iter()
+                .any(|n| n.starts_with("warning: the laser point clouds are unavailable")),
+            "{notes:?}"
+        );
+        // A stop asked for is no failing service: it ends the fetch.
+        struct Stopped;
+        impl crate::fetch::Fetcher for Stopped {
+            fn get(&self, _url: &str) -> Result<Vec<u8>, FetchError> {
+                Err(FetchError::Cancelled)
+            }
+        }
+        let registry = registry();
+        let stopped = Stopped;
+        let mut env = AdapterEnv {
+            fetcher: &stopped,
+            regions: &registry,
+            cache: &cache,
+            mode: FetchMode::Online,
+            today: "2026-11-12".parse().unwrap(),
+            skip_surface: false,
+            progress: &mut |_| {},
+        };
+        assert!(Nrw3dmBackend::new().fetch(&mut env, &BBOX).is_err());
     }
 
     #[test]

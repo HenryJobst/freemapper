@@ -300,7 +300,8 @@ const CLIFF_TRAFFIC_M: f64 = 3.0;
 const CLIFF_BUILDING_M: f64 = 5.0;
 
 /// The vegetation areas from `derive` (ADR 0105) as candidates, while the content settings ask
-/// for them: cut at the buildings, the water and the paved areas of the map (parked cars look like
+/// for them, within the buffer around the map area: cut at the buildings, the water and the paved
+/// areas of the map (parked cars look like
 /// bushes), and where the map already has an area of the same symbol (an ALKIS park, a wood) only
 /// the part that differs. Patches smaller than the
 /// minimum area of the scale go; a class the symbol set lacks is left out.
@@ -319,7 +320,7 @@ pub(super) fn stored_vegetation_objects(
     use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
     /// The paved area of ISSprOM.
     const PAVED_AREA_CODE: &str = "501.5";
-    use geo::{Area as _, BooleanOps as _, MapCoords as _};
+    use geo::{Area as _, BooleanOps as _, Buffer as _, MapCoords as _};
     let path = dir.join(VEGETATION_RELPATH);
     if !path.exists() {
         return Ok(Vec::new());
@@ -361,6 +362,10 @@ pub(super) fn stored_vegetation_objects(
             .collect()
     };
     let paved = areas_of(PAVED_AREA_CODE);
+    let reach = project
+        .area()?
+        .projected_polygon_in(project.crs())
+        .buffer(project.buffer_m);
     let blocked = geo::unary_union(footprints.iter().chain(&water.0).chain(&paved));
     let mut objects = Vec::new();
     for (class, area) in areas {
@@ -368,7 +373,9 @@ pub(super) fn stored_vegetation_objects(
             continue;
         };
         let drawn = areas_of(class.code());
-        let mut rest = area.difference(&blocked);
+        // Like the other candidates, only within the buffer around the map area: the derive
+        // classifies the whole box around it.
+        let mut rest = area.intersection(&reach).difference(&blocked);
         if !drawn.is_empty() {
             rest = rest.difference(&geo::unary_union(&drawn));
         }

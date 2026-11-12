@@ -202,7 +202,8 @@ Or choose the area in the browser, see [Choosing the area in the browser](#choos
 - `freemapper derive <dir>` – computes orthophoto, hillshade, slope, local relief and nDSM (height above
   ground: hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
   1 m, sprint 2 m; every fifth an index contour), small knolls, depressions, earth banks and cliffs as
-  candidates.
+  candidates; with `--content-set vegetation=candidates` in Brandenburg and North Rhine-Westphalia also
+  the vegetation from laser point clouds.
 - `freemapper export <dir>` – writes the OOM map with the buildings as finished map objects (symbol 521,
   with provenance: ALKIS object id and data currency). Buildings up to the buffer around the map area
   are included; underground parts, structures such as chimneys and very small buildings are left out,
@@ -230,6 +231,8 @@ Result in the project folder:
   data sources and the freemapper credit line
 - `data/osm-candidates.geojson` – the OSM features of the map area the candidates come from
 - `data/contours.geojson` – the contour lines from `derive`
+- `data/landforms.geojson`, `data/vegetation.geojson` – landforms and, when chosen, vegetation from
+  `derive`
 - `data/alkis-land-use.geojson` – the fetched ALKIS land use per parcel part
 - `data/alkis-buildings.geojson` – the fetched ALKIS buildings (for `--offline` and later reconciliation)
 - `ATTRIBUTION.txt` – attribution of the data sources

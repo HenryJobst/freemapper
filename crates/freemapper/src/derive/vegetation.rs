@@ -8,7 +8,7 @@
 //! own. A surface model cannot do this: it shows the crowns, not whether one can run below them.
 //! Everything here is a candidate (spec §4.5).
 
-use geo::{Area as _, Contains as _, Simplify as _};
+use geo::{Area as _, BoundingRect as _, Contains as _, Simplify as _};
 
 use super::DeriveError;
 use super::contours::contour_lines;
@@ -64,6 +64,8 @@ const CELLAR_CLASS: u8 = 24;
 
 /// Points read per chunk.
 const CHUNK_POINTS: u64 = 1_000_000;
+/// A chunk takes at most this much memory, whatever record length the file's header claims.
+const MAX_CHUNK_BYTES: u64 = 64 << 20;
 
 /// Returns this close to a building are left out: walls, eaves and roof edges, which LGB does not
 /// tell from vegetation (its classes are only ground, first echoes and last echoes).
@@ -151,16 +153,15 @@ pub fn read_tile(
     let mut points = las::PointDataBuilder::new()
         .for_header(reader.header())
         .build();
-    while reader
-        .fill_points(CHUNK_POINTS, &mut points)
-        .map_err(las_error)?
-        > 0
-    {
+    let record_len = u64::from(reader.header().point_format().len()).max(1);
+    let chunk = CHUNK_POINTS.min(MAX_CHUNK_BYTES / record_len).max(1);
+    while reader.fill_points(chunk, &mut points).map_err(las_error)? > 0 {
         for point in points.points() {
             let point = point.map_err(las_error)?;
-            // Synthetic fill points (under bridges and in dense forest), cellar points (24 of the
-            // AdV scheme) and bridges are no returns of what grows there.
+            // Synthetic fill points (under bridges and in dense forest), withheld points, cellar
+            // points (24 of the AdV scheme) and bridges are no returns of what grows there.
             if point.is_synthetic
+                || point.is_withheld
                 || matches!(
                     point.classification,
                     Classification::Building
@@ -191,7 +192,8 @@ pub fn read_tile(
                 n: point.y,
                 height_m: point.z - f64::from(ground),
                 ground: point.classification == Classification::Ground,
-                single: point.number_of_returns <= 1,
+                // 0 says nothing about the pulse: not counted as a single echo.
+                single: point.number_of_returns == 1,
             });
         }
     }
@@ -533,13 +535,19 @@ fn outlines(
         .collect();
     // Rings do not cross, so a ring lies inside another when one of its vertices does (an
     // interior point would not do: that of an outline can lie in its own hole).
+    // The bounding boxes go first: most rings are far from each other.
     let vertex = |p: &geo_types::Polygon<f64>| geo_types::Point::from(p.exterior().0[0]);
+    let boxes: Vec<Option<geo_types::Rect<f64>>> =
+        rings.iter().map(|r| r.bounding_rect()).collect();
+    let around = |j: usize, p: &geo_types::Point<f64>| {
+        boxes[j].is_some_and(|b| {
+            (b.min().x..=b.max().x).contains(&p.x()) && (b.min().y..=b.max().y).contains(&p.y())
+        }) && rings[j].contains(p)
+    };
     let depth = |i: usize| {
         let inside = vertex(&rings[i]);
-        rings
-            .iter()
-            .enumerate()
-            .filter(|(j, other)| *j != i && other.contains(&inside))
+        (0..rings.len())
+            .filter(|&j| j != i && around(j, &inside))
             .count()
     };
     let depths: Vec<usize> = (0..rings.len()).map(depth).collect();
@@ -549,7 +557,7 @@ fn outlines(
             let holes = rings
                 .iter()
                 .enumerate()
-                .filter(|(j, hole)| depths[*j] == depths[i] + 1 && ring.contains(&vertex(hole)))
+                .filter(|(j, hole)| depths[*j] == depths[i] + 1 && around(i, &vertex(hole)))
                 .map(|(_, hole)| hole.exterior().clone())
                 .collect();
             polygons.push(geo_types::Polygon::new(ring.exterior().clone(), holes));

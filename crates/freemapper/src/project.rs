@@ -610,7 +610,6 @@ impl ProjectFile {
         Ok(area.projected_bbox().buffered(self.buffer_m))
     }
 
-    /// Forgets everything fetched for another CRS, and deletes the stored data of it.
     /// Whether the content settings ask for the vegetation areas, and so for the point clouds.
     pub fn wants_vegetation(&self) -> bool {
         self.content
@@ -618,6 +617,7 @@ impl ProjectFile {
             .is_some_and(ContentSettings::wants_vegetation)
     }
 
+    /// Forgets everything fetched for another CRS, and deletes the stored data of it.
     fn drop_fetched(&mut self, dir: &Path) {
         for relpath in [
             BUILDINGS_RELPATH,
@@ -1335,6 +1335,10 @@ fn fetch_point_clouds_into(
     progress: &mut dyn FnMut(Note),
 ) {
     let Some(backend) = point_cloud_backend(project, &area.region_bbox) else {
+        // The choice has no effect here: say so once rather than leave the map maker waiting.
+        if project.wants_vegetation() {
+            progress(note!("progress-no-point-clouds"));
+        }
         project.point_clouds.clear();
         return;
     };
@@ -1378,12 +1382,15 @@ fn point_cloud_files(
     cache: &Cache,
     progress: &mut dyn FnMut(Note),
 ) -> Vec<(String, PathBuf)> {
-    if project.point_clouds.is_empty() {
-        return Vec::new();
-    }
     let Some(backend) = point_cloud_backend(project, region_bbox) else {
         return Vec::new();
     };
+    if project.point_clouds.is_empty() {
+        // Chosen after the last fetch (on the page, with `export --content-set`): the point
+        // clouds still have to be loaded.
+        progress(note!("warning-point-clouds-not-fetched"));
+        return Vec::new();
+    }
     project
         .point_clouds
         .iter()
@@ -7317,7 +7324,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
-    /// A state without point clouds: nothing is asked for, nothing is said, no vegetation file.
+    /// A state without point clouds: nothing is asked for, no vegetation file, and a line only
+    /// when the vegetation is chosen.
     #[test]
     fn a_state_without_point_clouds_has_no_vegetation_step() {
         let fetcher = MapFetcher::default();
@@ -7337,6 +7345,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .any(|m| m.contains("laser point cloud") || m.contains("vegetation")),
             "{messages:?}"
         );
+        // Chosen there, the vegetation cannot come: the fetch says so once.
+        want_vegetation(dir.path());
+        let (_, messages) = fetch(dir.path(), &fetcher, &cache);
+        let said = messages
+            .iter()
+            .filter(|m| m.contains("no laser point clouds for the vegetation here yet"))
+            .count();
+        assert_eq!(said, 1, "{messages:?}");
     }
 
     #[test]
@@ -12990,8 +13006,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             6,
             "no vegetation among the written files"
         );
+        // The choice is still made: derive says the point clouds have to be fetched.
         assert!(
-            !messages.iter().any(|m| m.contains("point cloud")),
+            messages
+                .iter()
+                .any(|m| m.contains("no point clouds are loaded; run `freemapper fetch`")),
             "{messages:?}"
         );
     }
@@ -13046,7 +13065,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
-    fn vegetation_candidates_leave_buildings_water_paving_and_the_drawn_park() {
+    fn vegetation_candidates_stay_near_the_area_and_leave_buildings_water_paving_and_the_park() {
         use crate::build::berlin::object_polygon;
         use crate::build::out_of_bounds::area_object;
         use crate::derive::vegetation::{VegetationClass, vegetation_to_geojson};
@@ -13084,6 +13103,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 (
                     VegetationClass::Open,
                     MultiPolygon(vec![rect(421_570.0, 5_821_680.0, 20.0, 20.0)]),
+                ),
+                // A thicket 800 m east, far beyond the map area and its buffer.
+                (
+                    VegetationClass::Walk,
+                    MultiPolygon(vec![rect(422_400.0, 5_821_700.0, 20.0, 20.0)]),
                 ),
             ]),
         )
@@ -13132,6 +13156,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         };
         assert!((area_of("410") - 600.0).abs() < 2.0, "{}", area_of("410"));
         assert!((area_of("401") - 200.0).abs() < 2.0, "{}", area_of("401"));
+        assert_eq!(area_of("408"), 0.0, "nothing beyond the buffer");
         let tags = &objects[0].tags;
         for (key, value) in [
             ("freemapper:source", "lgb-als"),

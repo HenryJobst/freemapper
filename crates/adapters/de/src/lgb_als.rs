@@ -11,7 +11,6 @@ use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
-use freemapper_adapter_api::geometry::provider_tiles_in;
 use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
@@ -92,21 +91,34 @@ impl PointCloudBackend for LgbAlsBackend {
         bbox: &BoundingBox,
     ) -> Result<Vec<PointCloudTile>, AdapterError> {
         let dir = self.dir(env.cache);
-        let tiles = provider_tiles_in(env.regions, bbox, &self.info.cache_dir, 1);
+        // The tiles the estimate counts; one outside Brandenburg is simply not published.
+        let tiles = tiles_covering_grid(bbox, 1);
         let csv_path = dir.join("currency.csv");
-        let csv = match env.mode {
-            FetchMode::Online => {
-                (env.progress)(note!("progress-downloading", url = ALS_CURRENCY_CSV));
-                env.fetcher.get(ALS_CURRENCY_CSV)?
+        // Without the list the cached tiles serve, as offline.
+        let mut offline = env.mode == FetchMode::Offline;
+        let csv = if offline {
+            std::fs::read(&csv_path).unwrap_or_default()
+        } else {
+            (env.progress)(note!("progress-downloading", url = ALS_CURRENCY_CSV));
+            match env.fetcher.get(ALS_CURRENCY_CSV) {
+                Ok(csv) => csv,
+                Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
+                Err(e) => {
+                    (env.progress)(note!(
+                        "warning-point-clouds-unavailable",
+                        reason = Arg::error(e)
+                    ));
+                    offline = true;
+                    std::fs::read(&csv_path).unwrap_or_default()
+                }
             }
-            FetchMode::Offline => std::fs::read(&csv_path).unwrap_or_default(),
         };
         let table = if csv.is_empty() {
             Default::default()
         } else {
             parse_currency_csv(&String::from_utf8_lossy(&csv)).map_err(FetchError::from)?
         };
-        if env.mode == FetchMode::Online {
+        if !offline {
             write_cache_file(&csv_path, &csv)?;
         }
         let mut fetched = Vec::new();
@@ -122,7 +134,7 @@ impl PointCloudBackend for LgbAlsBackend {
                 path,
             };
             let currency: Option<&TileCurrency> = table.get(&tile);
-            if env.mode == FetchMode::Offline {
+            if offline {
                 match cached.into_iter().next() {
                     Some(newest) => fetched.push(found(newest)),
                     None => {
@@ -146,6 +158,7 @@ impl PointCloudBackend for LgbAlsBackend {
             }
             (env.progress)(note!("progress-downloading", url = &url));
             match download_tile(env, &url, tile, &path) {
+                Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.into_iter().filter(|(_, p)| *p != path) {
                         let _ = std::fs::remove_file(older);

@@ -74,6 +74,12 @@ the crowns, so it does not help.
   (the newest publication date of the tiles).
 - The golden net does not record the point clouds (a tile has about 160 MB), and its projects do not choose
   the group, so it is unchanged; the vegetation step is covered by tests on a synthetic LAZ tile.
+- After the review (2026-11-12): the export keeps the areas within the buffer around the map area, as the
+  other candidates; the fetch says once when the group is chosen but the state has no point clouds (or none in
+  the map's CRS), and `derive` when the group is chosen but nothing is fetched yet. A failing currency list or
+  index falls back to the cached tiles; a stop asked for ends the fetch instead of counting as a failing tile.
+  Withheld points are left out, a return count of 0 is no single echo, and a chunk is capped at 64 MB whatever
+  record length a header claims. The large tiles already use the two-hour body timeout of `download_to`.
 - No code is copied from omapmaker; karttapullautin is not a dependency (see ADR 0104).
 
 ## Consequences
