@@ -2,7 +2,7 @@
 //! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs. One
 //! function, so the three callers cannot drift apart (ADR 0090).
 
-use crate::text::{n, text, v};
+use crate::text::{Lang, TEXTS, n, text, v};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -47,13 +47,14 @@ pub struct RunRequest {
 }
 
 /// Checks a request and fills in the defaults of the command line.
-pub fn parse(request: RunRequest) -> Result<RunOptions, String> {
+pub fn parse(request: RunRequest, lang: &Lang) -> Result<RunOptions, String> {
     let pdf_sources = match request.pdf_sources.as_deref() {
         None | Some("auto") => PdfSources::Auto,
         Some("full") => PdfSources::Full,
         Some("credit-only") => PdfSources::CreditOnly,
         Some(other) => {
-            return Err(text(
+            return Err(TEXTS.text(
+                lang,
                 "cli-pdf-sources-invalid",
                 &[("value", v(format!("{other:?}")))],
             ));
@@ -517,7 +518,7 @@ mod tests {
     use super::*;
 
     fn all_off() -> RunOptions {
-        parse(RunRequest::default()).unwrap()
+        parse(RunRequest::default(), &Lang::english()).unwrap()
     }
 
     #[test]
@@ -531,13 +532,18 @@ mod tests {
 
     #[test]
     fn parse_refuses_unknown_pdf_sources() {
-        let request = RunRequest {
+        let request = || RunRequest {
             pdf_sources: Some("x".into()),
             ..RunRequest::default()
         };
         assert_eq!(
-            parse(request).unwrap_err(),
+            parse(request(), &Lang::english()).unwrap_err(),
             "pdf_sources must be auto, full or credit-only, not \"x\""
+        );
+        let german = crate::text::TEXTS.parse_lang_arg("de").unwrap();
+        assert_eq!(
+            parse(request(), &german).unwrap_err(),
+            "pdf_sources muss auto, full oder credit-only sein, nicht \"x\""
         );
         for (name, expected) in [
             ("full", PdfSources::Full),
@@ -547,7 +553,10 @@ mod tests {
                 pdf_sources: Some(name.into()),
                 ..RunRequest::default()
             };
-            assert_eq!(parse(request).unwrap().pdf_sources, expected);
+            assert_eq!(
+                parse(request, &Lang::english()).unwrap().pdf_sources,
+                expected
+            );
         }
     }
 

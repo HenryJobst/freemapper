@@ -510,7 +510,7 @@ impl FreemapperServer {
             let dir = project_dir(&req.dir)?;
             let today = chrono::Local::now().date_naive();
             let estimate = estimate_download(&dir, &cache, today).map_err(|e| describe(&e))?;
-            Ok(estimate_json(&estimate, &cache, &dir))
+            Ok(estimate_json(&estimate, &cache, &dir, &crate::text::lang()))
         })
         .await;
         match estimate {
@@ -552,15 +552,18 @@ impl FreemapperServer {
         ) {
             return failure(e);
         }
-        let options = match pipeline::parse(pipeline::RunRequest {
-            force: req.force,
-            offline: req.offline,
-            ocad: req.ocad,
-            pdf: req.pdf,
-            pdf_candidates: req.pdf_candidates,
-            pdf_scale_bar: req.pdf_scale_bar,
-            pdf_sources: req.pdf_sources,
-        }) {
+        let options = match pipeline::parse(
+            pipeline::RunRequest {
+                force: req.force,
+                offline: req.offline,
+                ocad: req.ocad,
+                pdf: req.pdf,
+                pdf_candidates: req.pdf_candidates,
+                pdf_scale_bar: req.pdf_scale_bar,
+                pdf_sources: req.pdf_sources,
+            },
+            &crate::text::lang(),
+        ) {
             Ok(options) => options,
             Err(e) => return failure(e),
         };
@@ -657,15 +660,18 @@ impl FreemapperServer {
             Ok(kind) => kind,
             Err(e) => return failure(e),
         };
-        let run = match pipeline::parse(pipeline::RunRequest {
-            offline: req.offline,
-            ocad: req.ocad,
-            pdf: req.pdf,
-            pdf_candidates: req.pdf_candidates,
-            pdf_scale_bar: req.pdf_scale_bar,
-            pdf_sources: req.pdf_sources,
-            ..Default::default()
-        }) {
+        let run = match pipeline::parse(
+            pipeline::RunRequest {
+                offline: req.offline,
+                ocad: req.ocad,
+                pdf: req.pdf,
+                pdf_candidates: req.pdf_candidates,
+                pdf_scale_bar: req.pdf_scale_bar,
+                pdf_sources: req.pdf_sources,
+                ..Default::default()
+            },
+            &crate::text::lang(),
+        ) {
             Ok(run) => run,
             Err(e) => return failure(e),
         };

@@ -492,7 +492,7 @@ fn area_of(body: &Value, lang: &Lang) -> Result<MapArea, String> {
     Ok(area)
 }
 
-fn preview_json(preview: &AreaPreview, cache: &Cache, dir: &Path) -> Value {
+fn preview_json(preview: &AreaPreview, cache: &Cache, dir: &Path, lang: &Lang) -> Value {
     let tiles: Vec<Value> = preview
         .tiles
         .iter()
@@ -510,7 +510,7 @@ fn preview_json(preview: &AreaPreview, cache: &Cache, dir: &Path) -> Value {
         "too_large": preview.too_large,
         "outside_coverage": preview.outside_coverage,
         "max_side_m": MAX_AREA_SIDE_M,
-        "estimate": estimate_json(&preview.estimate, cache, dir),
+        "estimate": estimate_json(&preview.estimate, cache, dir, lang),
     })
 }
 
@@ -536,7 +536,7 @@ async fn preview(
             },
         };
         let preview = preview_area(&area, buffer_m, &state.cache, today);
-        Ok(preview_json(&preview, &state.cache, &state.dir))
+        Ok(preview_json(&preview, &state.cache, &state.dir, &lang))
     })
     .await;
     match answer {

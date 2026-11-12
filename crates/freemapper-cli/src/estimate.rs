@@ -7,12 +7,20 @@ use freemapper::layers::DownloadEstimate;
 use freemapper::space::RESERVE_BYTES;
 use serde_json::{Value, json};
 
+use crate::errors::Localize;
+use crate::text::{Lang, TEXTS, v};
+
 /// The download estimate as the page and the MCP tool show it: each download with its size,
 /// whether it is cached and whether it fits on the disk, and under `disk` the free space of the
 /// volumes of the cache and of the project folder `dir` with what the fetch needs there, the
 /// messages for what does not fit and whether the fetch stops; `error` when the free space
-/// cannot be read.
-pub(crate) fn estimate_json(estimate: &DownloadEstimate, cache: &Cache, dir: &Path) -> Value {
+/// cannot be read. The messages and the error are in `lang`.
+pub(crate) fn estimate_json(
+    estimate: &DownloadEstimate,
+    cache: &Cache,
+    dir: &Path,
+    lang: &Lang,
+) -> Value {
     let plan = freemapper::space::plan(estimate, cache.root(), dir, cache.disk_space());
     let items: Vec<Value> = estimate
         .items
@@ -38,12 +46,16 @@ pub(crate) fn estimate_json(estimate: &DownloadEstimate, cache: &Cache, dir: &Pa
                     "needed_megabytes": megabytes(v.needed),
                 })
             }).collect::<Vec<_>>(),
-            "messages": plan.short.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            "messages": plan.short.iter().map(|s| s.localize(lang)).collect::<Vec<_>>(),
             // A part the run needs does not fit: the fetch stops before it downloads anything.
             "stops": plan.missing().is_some(),
         }),
         Err((path, e)) => json!({
-            "error": format!("cannot read the free disk space of {} ({e})", path.display()),
+            "error": TEXTS.text(
+                lang,
+                "cli-estimate-disk-unreadable",
+                &[("path", v(path.display())), ("message", v(e))],
+            ),
         }),
     };
     json!({
@@ -62,6 +74,12 @@ mod tests {
 
     use freemapper::layers::EstimateItem;
     use freemapper::space::{DiskSpace, Part, Store, Volume};
+
+    use crate::text::TEXTS;
+
+    fn german() -> Lang {
+        TEXTS.parse_lang_arg("de").unwrap()
+    }
 
     /// The cache on one volume with `cache_mb` free, everything else on another with
     /// `project_mb`.
@@ -111,7 +129,12 @@ mod tests {
             cache_mb: 1024 + 400,
             project_mb: 5000,
         }));
-        let json = estimate_json(&estimate, &cache, Path::new("/usb/school"));
+        let json = estimate_json(
+            &estimate,
+            &cache,
+            Path::new("/usb/school"),
+            &Lang::english(),
+        );
         let disk = &json["disk"];
         assert_eq!(disk["reserve_megabytes"], 1024);
         assert_eq!(
@@ -142,7 +165,7 @@ mod tests {
             cache_mb: 1024 + 100,
             project_mb: 5000,
         }));
-        let json = estimate_json(&estimate, &full, Path::new("/usb/school"));
+        let json = estimate_json(&estimate, &full, Path::new("/usb/school"), &Lang::english());
         assert_eq!(json["disk"]["stops"], true);
         assert!(
             json["disk"]["messages"][0]
@@ -169,10 +192,49 @@ mod tests {
             in_place: Vec::new(),
         };
         let cache = Cache::new(PathBuf::from("/net/cache")).with_disk_space(Arc::new(Unreadable));
-        let json = estimate_json(&estimate, &cache, Path::new("/net/school"));
+        let json = estimate_json(
+            &estimate,
+            &cache,
+            Path::new("/net/school"),
+            &Lang::english(),
+        );
         assert_eq!(
             json["disk"]["error"],
             "cannot read the free disk space of /net/cache (not supported)"
+        );
+        let json = estimate_json(&estimate, &cache, Path::new("/net/school"), &german());
+        assert_eq!(
+            json["disk"]["error"],
+            "Der freie Speicherplatz von /net/cache lässt sich nicht lesen (not supported)"
+        );
+    }
+
+    /// The selection page asks in its own language, which need not be the program's.
+    #[test]
+    fn estimate_speaks_the_language_it_is_given() {
+        let estimate = DownloadEstimate {
+            tiles: Vec::new(),
+            items: vec![EstimateItem {
+                what: "surface model".to_string(),
+                megabytes: 200.0,
+                cached: false,
+                part: Part::Surface,
+                store: Store::Cache,
+            }],
+            total_megabytes: 200.0,
+            in_place: Vec::new(),
+        };
+        let cache = Cache::new(PathBuf::from("/ssd/cache")).with_disk_space(Arc::new(TwoDisks {
+            cache: PathBuf::from("/ssd"),
+            cache_mb: 1024 + 100,
+            project_mb: 5000,
+        }));
+        let json = estimate_json(&estimate, &cache, Path::new("/usb/school"), &german());
+        let message = json["disk"]["messages"][0].as_str().unwrap();
+        assert!(
+            message.starts_with("Aus Platzmangel lässt freemapper ")
+                && message.contains("/ssd/cache"),
+            "{message}"
         );
     }
 }

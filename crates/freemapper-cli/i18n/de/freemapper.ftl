@@ -486,6 +486,7 @@ help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neue
 
 cli-internal-error = Interner Fehler: { $message }
 cli-pdf-sources-invalid = pdf_sources muss auto, full oder credit-only sein, nicht { $value }
+cli-estimate-disk-unreadable = Der freie Speicherplatz von { $path } lässt sich nicht lesen ({ $message })
 cli-summary-wrote-map = Karte { $path } geschrieben
 cli-summary-kept-map = Die vorhandene Karte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten)
 cli-summary-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Starten Sie die Pipeline mit force, um sie zu ersetzen; die alte bleibt als .omap.bak erhalten.
