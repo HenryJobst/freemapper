@@ -545,6 +545,63 @@ Deferred on 2026-11-11: build it only when a new state or a contributor needs it
 - [ ] **Step 3:** Run the suite. Expected: PASS; no existing state uses the kind, so goldens are unchanged.
 - [ ] **Step 4:** Commit.
 
+### Stage D as built (2026-11-12)
+
+Done on the branch `region-adapters` (D1 to D7); [ADR 0106](../../adr/0106-requests-go-to-public-addresses-and-declared-hosts.md)
+and [ADR 0107](../../adr/0107-adapter-manifests-format-1-as-built.md) record the decisions. Where the tasks above
+and the code differ, the code and the ADRs hold:
+
+- D1: the URL rules are `freemapper_adapter_api::policy`, written with D1. The schema differs from the sketches
+  of the spec: `kind` may be left out beside `backend`; `date` has a `url`; new keys `[adapter] agency`,
+  `[alkis] name`, `[[osm.extract]] cache_prefix`, `[terrain] source_label`, `label` of a raster, `[preview]
+  agency`; no `page_count`; a manifest URL has no query. A byte order mark is read like CRLF.
+- D2: the address check sits in the resolver of the HTTP client and, for a target written as an address, in the
+  first connector of every agent. The fetcher of a run has no host list; an adapter from a folder asks
+  through a fetcher bound to the hosts of its own manifest (`Fetcher::bound_to`, `RegionAdapter::policy`). `UrlPolicy::update()` was not built: the self-update keeps the host rule of freemapper-core. New
+  `FetchError::NotAllowed`, with its reasons in both catalogs. Two reviews by the session that owns the
+  self-update and the tile proxy are built in.
+- D3: an adapter's own `rules.toml` is not read; a folder that has one loads with a warning.
+- D4 and D5: the three raster tables are all services or all name one backend, and an orthophoto comes with a
+  terrain model. A date is asked of a service, never of code. `RasterBackend::estimate` and the backends by name
+  in the registry are new. Saxony-Anhalt is the one state without raster code; Lower Saxony keeps its code, whose
+  fetch says more than a table can.
+- D6: all eleven states switched in one commit; the golden net did not change. The adapter of a state keeps code
+  for the credits of Brandenburg, Berlin and Saxony, for the estimate, for Berlin's ALKIS and for the boundary
+  (one parse for the adapter and the agency modules). The declared hosts were not enforced for the built-in
+  adapters at that point; see the last item of stage E.
+- D7: `adapters list` also takes `--project <dir>`. `--adapters-from-project` is a switch of `init`, `fetch`,
+  `derive`, `export` and `run`; `select` and `mcp` have none. The requests for an adapter from a folder (ALKIS, rasters,
+  NAS, tree cadastres) stay on its declared hosts, redirects included; it changes nothing for the built-in
+  states. A relative `FREEMAPPER_ADAPTER_DIR` is ignored. An adapter on the ground of another names it.
+
+Left for later: the raster code and the WFS constants that the manifests made double, and the estimate inside
+the backends.
+
+## Stage E as built (2026-11-12)
+
+- E1: `freemapper_sources::replay` holds the replay and the recording fetcher; `docs/adapters/fixtures.md`
+  describes the format.
+- E2 (ADR 0112, first numbered 0109): the command is `adapters check <dir>`, with `adapter` as an alias of `adapters`, since D7 named
+  the group `adapters`. Static checks and `--live --bbox` are built, `--json` too. `--fixtures` is not: no folder
+  has a recording and `adapter record` is deferred. The static checks are `freemapper_manifest::check`; the live
+  check fetches a project without the OSM extract (`project::fetch_project_sources`) with the checked adapter as
+  the only one in the registry. "Boundary area plausible for the object-id prefix" became two warnings: an area
+  under 1 km² or over 2 million km², and a prefix a built-in adapter has.
+- The host policy of the built-in states (D2 of the plan, left open in D6): on 2026-11-12 every state was
+  fetched live at two places with `adapters check --live`, held to its declared hosts, 22 runs without a
+  refused request. Since then `StateAdapter` asks through the policy of its manifest (ALKIS, also Berlin's code,
+  rasters, NAS, trees), and the engine asks Berlin's registers and K5 through Berlin's policy. The golden net
+  replays all eleven states behind their lists. `declared_policy()` (the union) is gone; `HttpFetcher` keeps
+  one client per policy.
+- E5, the gate (ADR 0111, plan `2026-11-12-saarland.md`): the user chose Saarland. It came in as a manifest
+  folder plus the backend `lvgl`, with two additions outside the crate of the states (the WFS reader, the
+  manifest key `sorted`). What it needed against the hope of "one registration line" is in the ADR and as D36
+  in the spec; the guide of stage F builds on it.
+- The way out the user asked for (ADR 0110): `adapters allow-host <adapter> <host>` and `disallow-host` keep
+  single extra hosts for built-in states in `<config>/freemapper/allowed-hosts.toml`; the engine takes them as
+  a parameter (`adapters::builtin_with_hosts`). A host an adapter does not name is its own error
+  (`FetchError::HostNotNamed`) whose message ends with the command.
+
 ---
 
 ## Stage E: tooling
@@ -602,6 +659,24 @@ Deferred on 2026-11-11 like E3. The new state of stage E5 writes its manifest an
 Not a task of this plan but a gate: before F1, one state of stage G (Saarland or Bremen, whichever has the simpler services after the research) gets its own plan and is added as a manifest folder, plus a backend only if its heights need one. Measure against the stage-G rule: if it needs a file outside `crates/adapters/` and the registration line, write the finding back into the spec and fix the design before the guide describes it. The state also brings the house-rule parts (example project, manual row, README row, changelog in German and English).
 
 ---
+
+## Stage F as built (2026-11-12)
+
+- F1: `docs/adapters/` holds the guide (`en.md`, `de.md`), the tutorial (`tutorial.en.md`, `tutorial.de.md`) and
+  the reference (`manifest-v1.en.md`, `manifest-v1.de.md`). The tutorial's region is made up, its services are
+  those of Saxony-Anhalt, so that it ends with a live check that passes; every output block was replayed from
+  the documents against the built program, in both languages. Sections 3, 4 and 8 of the guide describe the
+  steps Saarland took by hand, since `adapter new`, `adapter boundary` and `adapter record` are deferred.
+- The documents say `0.14.0` for the first freemapper that reads folder adapters; the session that owns the
+  releases confirmed the number.
+- F2, done: manual, README, changelog, glossary, AGENTS.md, ADR 0082 Accepted. The release archive ships
+  `docs/adapters` and `docs/glossary.md`; links that leave the archive are GitHub addresses.
+- F2, moved: shrinking the golden net is a pull request of its own after merge 3, because it publishes a new
+  fixture store and should not hold this branch up. Keep Hesse beside the three states the task names: the
+  test of the interrupted fetches needs a state that reads archives by range requests. The hosts test of
+  `crates/adapters/de/tests/manifests.rs` reads the traces of all eleven states and needs another source for
+  the states that leave the net.
+- The weekly live workflow stays deferred. The guide says that there is no scheduled check yet.
 
 ## Stage F: documentation
 

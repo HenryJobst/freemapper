@@ -8,8 +8,8 @@ use freemapper_adapter_api::estimate::{
 use freemapper_adapter_api::records::{EstimateItem, Part, Store};
 
 use crate::boundaries::{
-    BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles,
-    states_touching, tile_touches,
+    BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAARLAND, SAXONY, SCHLESWIG_HOLSTEIN,
+    provider_tiles, states_touching, tile_touches,
 };
 use crate::crs::BoundingBox;
 use crate::sources::lgb::{Product, ProductTiles as _};
@@ -55,6 +55,7 @@ pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<Es
         Agency::GeobasisNrw => nrw_items(bbox, cache),
         Agency::Lgln => lgln_items(bbox),
         Agency::LvermGeoRp => rp_items(bbox, &area.map_bbox, cache),
+        Agency::Lvgl => lvgl_items(bbox, cache),
     }
 }
 
@@ -139,6 +140,39 @@ pub fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
         max_e: fold(|p| p.easting, f64::NEG_INFINITY, f64::max),
         max_n: fold(|p| p.northing, f64::NEG_INFINITY, f64::max),
     })
+}
+
+/// LVGL: the WMS orthophoto and the height model tiles of the area, read out of the district
+/// archives (≈2 MB DGM1 and ≈2.5 MB DOM1 per 1 km tile touched, those already cached left out).
+fn lvgl_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
+    use crate::lvgl::Model;
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, SAARLAND))
+        .collect();
+    let model_item = |model: Model, mb_per_tile: f64, part: Part| {
+        let open = tiles
+            .iter()
+            .filter(|t| !model.tile_cache_file(cache, **t).exists())
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * mb_per_tile,
+            cached: open == 0,
+            part,
+            store: Store::Cache,
+        }
+    };
+    vec![
+        per_km2_item(
+            bbox,
+            "orthophoto (LVGL WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, 2.0, Part::Terrain),
+        model_item(Model::Dom1, 2.5, Part::Surface),
+    ]
 }
 
 /// LGV: the WMS orthophoto and the height model tiles of the area, read out of the statewide
@@ -414,4 +448,71 @@ pub fn lgb_items(tiles: &[TileId], cache: &CacheDir) -> Vec<EstimateItem> {
         });
     }
     items
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crs::{Crs, ProjectedPoint};
+    use crate::lvgl::Model;
+
+    /// Saarland: the orthophoto by the area, and 2 MB (DGM1) and 2.5 MB (DOM1) per 1 km tile
+    /// of the area that is not in the cache yet.
+    #[test]
+    fn saarland_counts_the_tiles_that_are_not_cached() {
+        // 100 m in Saarbrücken, inside the tile 353/5455 of zone 32.
+        let corner = |easting: f64, northing: f64| {
+            Crs::Utm33
+                .reproject(Crs::Utm32, ProjectedPoint { easting, northing })
+                .unwrap()
+        };
+        let (low, high) = (
+            corner(353_400.0, 5_455_400.0),
+            corner(353_500.0, 5_455_500.0),
+        );
+        let bbox = BoundingBox {
+            min_e: low.easting.min(high.easting),
+            min_n: low.northing.min(high.northing),
+            max_e: low.easting.max(high.easting),
+            max_n: low.northing.max(high.northing),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let sizes = |items: &[EstimateItem]| -> Vec<(String, f64, bool)> {
+            items
+                .iter()
+                .map(|item| (item.what.clone(), item.megabytes, item.cached))
+                .collect()
+        };
+        let items = lvgl_items(&bbox, &cache);
+        assert_eq!(
+            items.iter().map(|item| item.part).collect::<Vec<_>>(),
+            [Part::Orthophoto, Part::Terrain, Part::Surface]
+        );
+        assert_eq!(
+            sizes(&items)[1..],
+            [
+                ("terrain model (LVGL DGM1 2025)".to_string(), 2.0, false),
+                ("surface model (LVGL DOM1 2025)".to_string(), 2.5, false),
+            ]
+        );
+        assert_eq!(items[0].what, "orthophoto (LVGL WMS)");
+        assert!(!items[0].cached && items[0].megabytes >= 0.1);
+
+        // The terrain tile is in the cache: nothing left to download of it.
+        let tile = TileId {
+            east_km: 353,
+            north_km: 5455,
+        };
+        let file = Model::Dgm1.tile_cache_file(&cache, tile);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"tile").unwrap();
+        assert_eq!(
+            sizes(&lvgl_items(&bbox, &cache))[1..],
+            [
+                ("terrain model (LVGL DGM1 2025)".to_string(), 0.0, true),
+                ("surface model (LVGL DOM1 2025)".to_string(), 2.5, false),
+            ]
+        );
+    }
 }

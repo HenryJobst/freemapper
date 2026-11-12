@@ -1,0 +1,55 @@
+# Rhineland-Palatinate: the WFS of LVermGeo RP; rasters from Metalink lists through code.
+format = 1
+
+[adapter]
+id = "rheinlandpfalz"
+provider = "lvermgeorp"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DERP"
+names = { en = "Rhineland-Palatinate", de = "Rheinland-Pfalz" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["geo5.service24.rlp.de", "geo4.service24.rlp.de", "geobasis-rlp.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/rheinland-pfalz"
+megabytes = 275
+label = "Rhineland-Palatinate"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+
+[alkis]
+kind = "wfs"
+name = "LVermGeo RP ALKIS"
+crs = 25832
+url = "https://geo5.service24.rlp.de/wfs/alkis_rp.fcgi"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:Nutzung"
+square_bez = "ohne Unterart (Rheinland-Pfalz)"
+
+[orthophoto]
+backend = "lvermgeo-rp"
+
+[terrain]
+backend = "lvermgeo-rp"
+
+[surface]
+backend = "lvermgeo-rp"
+
+[preview]
+wms = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"
+layer = "rp_dop20"
+format = "image/jpeg"
+attribution = "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de"
+agency = "LVermGeo RP"

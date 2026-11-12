@@ -708,6 +708,11 @@ fn again(e: &FetchError) -> FetchError {
         }
         FetchError::OsmExtractMissing => FetchError::OsmExtractMissing,
         FetchError::Cancelled => FetchError::Cancelled,
+        FetchError::NotAllowed { url, reason } => FetchError::NotAllowed {
+            url: url.clone(),
+            reason: reason.clone(),
+        },
+        FetchError::HostNotNamed(refused) => FetchError::HostNotNamed(refused.clone()),
         FetchError::CurrencyCsv(_) | FetchError::Alkis(_) => refused(REST_URL, e.to_string()),
     }
 }

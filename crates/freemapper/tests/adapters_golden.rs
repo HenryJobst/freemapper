@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 #[path = "support/replay.rs"]
 mod replay;
 
-use replay::{CutOff, RecordingFetcher, ReplayFetcher};
+use replay::CutOff;
 
 /// `tests/golden/adapters/` at the repository root.
 fn golden_dir() -> PathBuf {
@@ -132,7 +132,7 @@ fn g1_credit_lines_match_for_all_year_and_record_combinations() {
             "sheet": lines.sheet,
         }));
     };
-    for region in regions::ALL {
+    for region in regions::LEGACY {
         for year in [2025, 2026] {
             for held in [Held::Rasters, Held::Alkis, Held::Both] {
                 row(std::slice::from_ref(&region), year, held);
@@ -390,7 +390,7 @@ impl Sequence {
 }
 
 fn region_at(easting: f64, northing: f64) -> Option<AdapterId> {
-    regions::ALL
+    regions::LEGACY
         .into_iter()
         .find(|region| contains_point(region, easting, northing))
 }
@@ -428,16 +428,20 @@ fn generated_boxes() -> Vec<GoldenBox> {
     names.sort();
     let mut boxes: Vec<GoldenBox> = names
         .iter()
-        .map(|name| {
+        .filter_map(|name| {
             let project = ProjectFile::load(&examples_dir().join(name)).unwrap();
             let bbox = project.region_bbox().unwrap();
-            GoldenBox {
+            // The net covers the states that were code before: the example of a state added
+            // since (Saarland) is no box of it.
+            let legacy =
+                raster_region(&bbox).is_some_and(|region| regions::LEGACY.contains(&region));
+            legacy.then(|| GoldenBox {
                 name: format!("example:{name}"),
                 min_e: bbox.min_e.floor() as i64,
                 min_n: bbox.min_n.floor() as i64,
                 max_e: bbox.max_e.ceil() as i64,
                 max_n: bbox.max_n.ceil() as i64,
-            }
+            })
         })
         .collect();
     let mut sequence = Sequence(0x0082);
@@ -540,7 +544,7 @@ fn names(tiles: impl IntoIterator<Item = TileId>) -> Vec<String> {
 fn geometry_of(golden: &GoldenBox) -> Geometry {
     let bbox = golden.bbox();
     let mut providers: Vec<AdapterId> = Vec::new();
-    for region in regions::ALL {
+    for region in regions::LEGACY {
         if !providers.contains(&region.provider()) {
             providers.push(region.provider());
         }
@@ -720,7 +724,7 @@ fn replay_returns_recorded_bytes_and_logs_requests() {
         ),
     )
     .unwrap();
-    let fetcher = ReplayFetcher::new(&index, &store);
+    let fetcher = replay::replay(&index, &store);
     assert_eq!(
         fetcher.get("https://example.invalid/a").unwrap(),
         b"the whole answer"
@@ -811,7 +815,7 @@ fn golden_noon() -> chrono::NaiveDateTime {
 }
 
 fn region_of(id: &str) -> AdapterId {
-    regions::ALL
+    regions::LEGACY
         .into_iter()
         .find(|region| id_of(region) == id)
         .unwrap_or_else(|| panic!("no region {id:?}"))
@@ -892,7 +896,7 @@ fn replayed_fetch_until(id: &str, cut: Option<&str>) -> Replayed {
     let root = tempfile::tempdir().unwrap();
     let (dir, cache_dir) = (root.path().join(id), root.path().join("cache"));
     let cache = Cache::new(cache_dir.clone());
-    let fetcher = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+    let fetcher = replay::replay(&golden_dir().join(id).join("index.toml"), &store);
     let log = fetcher.log();
     let add = |line: String| log.lock().unwrap().push(line);
     clock::with_fixed(golden_noon(), || {
@@ -1038,7 +1042,7 @@ fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
 /// stay.
 #[test]
 fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
-    let rows: Vec<serde_json::Value> = regions::ALL
+    let rows: Vec<serde_json::Value> = regions::LEGACY
         .into_iter()
         .map(|region| {
             let root = tempfile::tempdir().unwrap();
@@ -1061,7 +1065,7 @@ fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
 #[test]
 #[ignore = "needs the fixture store: scripts/golden.sh test"]
 fn g3_estimates_after_the_fetch_are_unchanged() {
-    let rows: Vec<serde_json::Value> = regions::ALL
+    let rows: Vec<serde_json::Value> = regions::LEGACY
         .into_iter()
         .map(|region| {
             let id = id_of(region);
@@ -1179,7 +1183,7 @@ fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
         let project_file = dir.join("freemapper.toml");
         let before = std::fs::read(&project_file).unwrap();
         let store = fetched_store();
-        let offline = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+        let offline = replay::replay(&golden_dir().join(id).join("index.toml"), &store);
         fetch_project(dir, &offline, &replayed.cache, FetchMode::Offline, quiet).unwrap();
         assert_eq!(
             offline.trace(),
@@ -1330,7 +1334,7 @@ fn record_state() {
     let dir = root.path().join(&id);
     let cache = Cache::new(root.path().join("cache"));
     let index = golden_dir().join(&id).join("index.toml");
-    let recorder = RecordingFetcher::new(HttpFetcher::new(), &index, &store);
+    let recorder = replay::record(HttpFetcher::new(), &index, &store);
     clock::with_fixed(golden_noon(), || {
         init_golden_project(&dir, &region);
         seed_extracts(&region, &cache);
@@ -1341,7 +1345,7 @@ fn record_state() {
             eprintln!("the fetch failed and is recorded as it is: {e}");
         }
     });
-    recorder.save();
+    recorder.save().unwrap();
     // The candidates of the real extract: G4 puts them in place of the empty extract's.
     let candidates = dir.join("data/osm-candidates.geojson");
     if candidates.is_file() {
@@ -1388,7 +1392,7 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 11, "one example per state");
+    assert_eq!(checked, 12, "one example per state");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the

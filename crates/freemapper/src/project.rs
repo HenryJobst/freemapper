@@ -111,7 +111,7 @@ pub enum ProjectError {
     /// The project file names a provider or a region this program has no adapter for: it was
     /// made with adapters that are not installed here.
     #[error(
-        "the project file names the adapter \"{0}\", which this freemapper does not have; a newer version may have it"
+        "the project file names the adapter \"{0}\", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project on the command line, from the folder `adapters` of the project (only for a project you trust)"
     )]
     UnknownAdapter(String),
     #[error(transparent)]
@@ -381,6 +381,8 @@ use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
 use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
+/// The id of the adapter whose registers and K5 the engine fetches itself.
+const BERLIN: &str = freemapper_adapters_de::states::State::Berlin.id();
 // The steps of a raster fetch that name no state, and the files they write.
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
@@ -877,6 +879,19 @@ pub fn fetch_project(
     fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
 }
 
+/// [`fetch_project`] without the OSM extract: what the services of the adapters deliver for
+/// the map area. The check of an adapter asks this; an extract has 50 to 500 MB and is the
+/// same for every adapter of its region.
+pub fn fetch_project_sources(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(Note),
+) -> Result<ProjectFile, ProjectError> {
+    fetch_project_parts(dir, fetcher, cache, mode, progress, &|| false, false)
+}
+
 /// A project file with its folder, as the raster fetch of an adapter sees it.
 struct ProjectDir<'a> {
     dir: &'a Path,
@@ -965,7 +980,7 @@ pub fn fetch_project_cancellable(
     };
     // A failure after the stop was asked for is the stop (a refused request surfaces as many
     // kinds of error).
-    fetch_project_parts(dir, &guarded, cache, mode, progress, cancelled).map_err(|e| {
+    fetch_project_parts(dir, &guarded, cache, mode, progress, cancelled, true).map_err(|e| {
         if cancelled() {
             ProjectError::Cancelled
         } else {
@@ -974,6 +989,7 @@ pub fn fetch_project_cancellable(
     })
 }
 
+/// `osm`: whether the OSM extract is fetched and read as well.
 fn fetch_project_parts(
     dir: &Path,
     fetcher: &dyn Fetcher,
@@ -981,6 +997,7 @@ fn fetch_project_parts(
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
+    osm: bool,
 ) -> Result<ProjectFile, ProjectError> {
     stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
@@ -1117,6 +1134,9 @@ fn fetch_project_parts(
     );
     stop_if(cancelled)?;
     project.save(dir)?;
+    if !osm {
+        return Ok(project);
+    }
     let skip_update = skips(Part::OsmUpdate);
     let osm = fetch_osm_into(dir, fetcher, cache, mode, skip_update, &project, progress)?;
     stop_if(cancelled)?;
@@ -1276,7 +1296,11 @@ fn fetch_k5_into(
         return;
     }
     progress(note!("progress-k-five-download"));
-    match crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path) {
+    // The K5 is a service of Berlin: asked through the hosts Berlin declares.
+    let fetched = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
+        crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path)
+    });
+    match fetched {
         Ok(()) => {
             project.k5 = Some(WmsRecord {
                 flight: Some(K5_DATASET_DATE.to_string()),
@@ -1634,7 +1658,11 @@ fn fetch_berlin_layers_into(
         region_bbox.max_n.ceil(),
     ];
     let mut records = BTreeMap::new();
-    for fetched in berlin::fetch_extra_layers(fetcher, region_bbox, kind) {
+    // The registers are services of Berlin: asked through the hosts Berlin declares.
+    let layers = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
+        berlin::fetch_extra_layers(fetcher, region_bbox, kind)
+    });
+    for fetched in layers {
         let file = fetched.layer.file;
         let path = berlin_layer_path(dir, fetched.layer);
         let stored = fetched
@@ -4636,6 +4664,30 @@ mod tests {
         .unwrap();
         assert_eq!(project.terrain.unwrap().fetched, earlier);
         assert_eq!(project.surface.unwrap().fetched, earlier);
+    }
+
+    /// The fetch for the check of an adapter brings what the services of the adapters deliver
+    /// and leaves the OSM extract alone.
+    #[test]
+    fn the_sources_of_a_project_come_without_the_osm_extract() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        let project =
+            fetch_project_sources(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+                .unwrap();
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert!(project.buildings.is_some() && project.land_use.is_some());
+        assert!(project.osm.is_none());
+        assert!(!dir.path().join(OSM_CANDIDATES_RELPATH).exists());
+        let asked = fetcher.log.borrow();
+        assert!(!asked.is_empty());
+        assert!(
+            asked.iter().all(|url| !url.contains("geofabrik")),
+            "{asked:?}"
+        );
+        // The same project fetched whole reads the extract.
+        drop(asked);
+        assert!(fetch(dir.path(), &fetcher, &cache).0.osm.is_some());
     }
 
     #[test]
@@ -10471,7 +10523,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn serve_potsdam_trees(fetcher: &MapFetcher) {
         use crate::sources::trees::{POTSDAM, test_support};
         fetcher.insert_prefix(
-            POTSDAM.endpoints[0],
+            &POTSDAM.endpoints[0],
             test_support::POTSDAM.as_bytes().to_vec(),
         );
         for endpoint in &POTSDAM.endpoints[1..] {

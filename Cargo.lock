@@ -758,6 +758,7 @@ dependencies = [
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-manifest",
  "freemapper-sources",
  "geo",
  "geo-types",
@@ -782,6 +783,7 @@ dependencies = [
  "dirs",
  "freemapper",
  "freemapper-fs",
+ "freemapper-manifest",
  "freemapper-text",
  "freemapper-update",
  "freemapper-web",
@@ -794,6 +796,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "tokio",
+ "toml",
  "ureq",
 ]
 
@@ -822,6 +825,23 @@ version = "0.21.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.1#46ce8c67bd15fc66f4ffed3093eb95672eb2cef3"
 
 [[package]]
+name = "freemapper-manifest"
+version = "0.13.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-fs",
+ "freemapper-georef",
+ "freemapper-sources",
+ "geo",
+ "geo-types",
+ "geojson",
+ "serde",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "freemapper-omap"
 version = "0.21.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.1#46ce8c67bd15fc66f4ffed3093eb95672eb2cef3"
@@ -845,10 +865,13 @@ dependencies = [
  "image",
  "miniz_oxide 0.9.1",
  "quick-xml",
+ "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.21",
  "tiff",
+ "toml",
  "weezl",
  "zip",
 ]

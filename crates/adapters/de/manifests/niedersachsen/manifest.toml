@@ -1,0 +1,55 @@
+# Lower Saxony: LGLN's WFS; WMS, WCS and the STAC dates through code, which also says how old the images are.
+format = 1
+
+[adapter]
+id = "niedersachsen"
+provider = "lgln"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DENI"
+names = { en = "Lower Saxony", de = "Niedersachsen" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["opendata.lgln.niedersachsen.de", "opendata.geoservices.lgln.niedersachsen.de", "dop.stac.lgln.niedersachsen.de", "dgm.stac.lgln.niedersachsen.de", "dom.stac.lgln.niedersachsen.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/niedersachsen"
+megabytes = 510
+label = "Lower Saxony"
+
+[attribution]
+licence = "cc-by-4.0"
+text = "© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[alkis]
+kind = "wfs"
+name = "LGLN ALKIS"
+crs = 25832
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Niedersachsen)"
+
+[orthophoto]
+backend = "lgln"
+
+[terrain]
+backend = "lgln"
+
+[surface]
+backend = "lgln"
+
+[preview]
+wms = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
+layer = "ni_dop20"
+format = "image/jpeg"
+attribution = "© GeoBasis-DE/LGLN, CC BY 4.0"
+agency = "LGLN"

@@ -11,8 +11,8 @@ request an OCAD starting point and printable PDFs. Map kinds: `schoolyard` (1:10
 1:4000 or 1:5000).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
-Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate. Bremen, Thuringia, Bavaria,
-Baden-Württemberg and Saarland have no data sources yet; an area there fails with a message that says so. Tell the
+Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and, from the version after
+0.13.0 on, Saarland. Bremen, Thuringia, Bavaria and Baden-Württemberg have no data sources yet; an area there fails with a message that says so. Tell the
 user before you start if the place lies outside these states.
 
 ## Install
@@ -104,11 +104,28 @@ freemapper run <dir> --pdf
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
+| `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
+| `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
+| `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
+| `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
+
+`adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
+(warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`
+(each with `severity`, `code`, `file`, `line`, `key`, `message`), `live` and `live_warnings`. `--live --bbox
+minLon,minLat,maxLon,maxLat` also fetches for that box from the servers the manifest names; run it only when the
+person asks for it.
+
+`init`, `fetch`, `derive`, `export` and `run` take `--adapters-from-project`: it also loads the region adapters in
+the folder `adapters` of the project folder, which can make freemapper ask other servers. Pass it only when the
+person asks for it; the MCP server and the area page never load such adapters. Each one loaded is named in a
+line `warning: the adapter <id> from the project folder is in use; it may ask these hosts: …`. A line `warning:
+the adapter in <folder> is left out: …` means a folder in the person's adapter folder has a mistake; pass it on.
+`FREEMAPPER_ADAPTER_DIR` names another adapter folder and must be an absolute path.
 
 Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
 passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
@@ -200,6 +217,9 @@ states such as `running` or `finished` are the same in both languages. This file
 Rules:
 
 - Paths must be absolute or start with `~`. Relative paths and the home folder itself are refused.
+- The server reads the person's adapter folder and their allowed hosts once, when it starts. After `adapters
+  allow-host`, or after an adapter was put into the adapter folder or changed there, restart the server; until
+  then it answers as before.
 - One pipeline runs at a time per server, and one run per project folder across all processes. A second run on
   the same folder fails until the first ends; a lock left by a crashed run is taken over after 60 seconds.
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
@@ -251,6 +271,20 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - macOS "cannot be opened" or "killed": remove the quarantine flag (install step 4).
 - A run fails with a download error: services of the states are sometimes down. Try again later; `offline` with
   data fetched before still works.
+- "freemapper does not send requests to this address: the adapter of <state> does not name the host <host>":
+  a service of that state moved to a server its adapter does not name yet, or sent freemapper there by a
+  redirect. The message ends with the command that allows the host, `freemapper adapters allow-host <adapter>
+  <host>`. Do not run it on your own. Show the person the message, say that it lets freemapper ask that server
+  for that state, and run the command only after they agreed, with the host exactly as the message names it;
+  never guess a host. Then run the failed command again and ask the person to report the change at
+  <https://github.com/HenryJobst/freemapper/issues>. Through MCP there is no tool for this; the person runs the
+  command in a terminal. The MCP server reads the allowed hosts when it starts: restart it (or ask the person
+  to restart the assistant) after the command and before you call `start_pipeline` again, or the run fails
+  with the same message. The same holds for an area page that is open: it is closed and started again. For an
+  adapter of the person's own folder the message names the manifest instead: the
+  host belongs in its `[net] hosts`.
+- "freemapper does not send requests to this address" with another reason (an address of this computer or of
+  the local network, not https, more than 3 redirects): nothing to allow. Report it if it is a built-in state.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
   folder. Wait for it, or use another folder.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
@@ -291,3 +325,5 @@ This section is for coding agents in a clone of the repository, not for using th
 - Decisions are recorded in [`docs/adr/`](docs/adr/README.md); every change gets a changelog entry in
   `CHANGELOG.md` and `CHANGELOG.en.md`.
 - Shared code comes from [freemapper-core](https://github.com/HenryJobst/freemapper-core), pinned by tag.
+- A new state or region is a region adapter: [`docs/adapters/en.md`](docs/adapters/en.md) is the guide,
+  [`docs/adapters/manifest-v1.en.md`](docs/adapters/manifest-v1.en.md) the reference of the manifest.

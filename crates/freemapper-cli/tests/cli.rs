@@ -1,5 +1,8 @@
 use std::process::Command;
 
+mod isolation;
+use isolation::isolated;
+
 #[cfg(all(feature = "test-stub", debug_assertions))]
 mod support;
 #[cfg(all(unix, feature = "test-stub", debug_assertions))]
@@ -9,14 +12,14 @@ use support::{MANIFEST_PATH, UpdateStub, copied_program};
 
 /// The program with English texts, whatever language the machine that runs the tests has.
 fn freemapper() -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command.env("FREEMAPPER_LANG", "en");
     command
 }
 
 /// The program with the language taken from `lang` alone.
 fn freemapper_in(lang: &[(&str, &str)]) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     for name in ["FREEMAPPER_LANG", "LC_ALL", "LC_MESSAGES", "LANG"] {
         command.env_remove(name);
     }
@@ -1087,7 +1090,7 @@ fn warnings_of_the_engine_follow_the_language() {
 
 /// `freemapper update` of `program` in English, without the update switches of the environment.
 fn update_of(program: &std::path::Path) -> Command {
-    let mut command = Command::new(program);
+    let mut command = isolated(Command::new(program));
     command
         .env("FREEMAPPER_LANG", "en")
         .env_remove("FREEMAPPER_UPDATE")
@@ -1457,12 +1460,12 @@ mod update_check {
 
     use freemapper_update::{RecordResult, load_record};
 
-    use super::{Command, MANIFEST_PATH, UpdateStub, copied_program};
+    use super::{Command, MANIFEST_PATH, UpdateStub, copied_program, isolated};
 
     /// `program` in English, talking to `stub`, without `CI` and the update switches of the
     /// environment, with its settings and its home folder (and so the default cache) in `dir`.
     fn checking(program: &Path, stub: &UpdateStub, dir: &Path) -> Command {
-        let mut command = Command::new(program);
+        let mut command = isolated(Command::new(program));
         command
             .env("FREEMAPPER_LANG", "en")
             .env_remove("CI")
@@ -1813,5 +1816,498 @@ mod update_check {
         assert_eq!(output.status.code(), Some(0), "{output:?}");
         assert!(!stale.exists());
         assert!(stub.paths().is_empty());
+    }
+}
+
+/// A valid adapter folder `id` in `dir`: a WFS on `geo.example.org` and a square boundary.
+fn write_adapter(dir: &std::path::Path, id: &str) {
+    let folder = dir.join(id);
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("manifest.toml"),
+        format!(
+            "format = 1\n\n[adapter]\nid = \"{id}\"\nrevision = 2\nmin_freemapper = \"0.13.0\"\ncrs = 25832\n\
+             names = {{ en = \"Sample\", de = \"Beispiel\" }}\n\n[net]\nhosts = [\"geo.example.org\"]\n\n\
+             [boundary]\nfile = \"boundary.geojson\"\ncrs = 25833\n\n[[osm.extract]]\n\
+             geofabrik = \"europe/germany/hamburg\"\nmegabytes = 54\nlabel = \"Sample\"\n\n[attribution]\n\
+             licence = \"dl-de/by-2-0\"\ntext = \"© Sample {{year}}\"\n\n[alkis]\nkind = \"wfs\"\n\
+             url = \"https://geo.example.org/wfs\"\nbuildings_type = \"ave:GebaeudeBauwerk\"\n\
+             land_use_type = \"ave:NutzungFlurstueck\"\n"
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+    )
+    .unwrap();
+}
+
+/// `adapters list` shows the states built into the program, then the adapters of the folder
+/// `FREEMAPPER_ADAPTER_DIR` names and, with `--project`, those of a project; a folder with a
+/// defect is a warning on stderr and the list goes on.
+#[test]
+fn adapters_list_shows_built_in_user_and_project_adapters() {
+    let user = tempfile::tempdir().unwrap();
+    write_adapter(user.path(), "mine");
+    std::fs::create_dir(user.path().join("broken")).unwrap();
+    let project = tempfile::tempdir().unwrap();
+    write_adapter(&project.path().join("adapters"), "theirs");
+    let list = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .args(["adapters", "list"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        (
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let (out, err) = list(&["--json"]);
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let adapters = json["adapters"].as_array().unwrap();
+    assert_eq!(adapters.len(), 13, "{out}");
+    assert_eq!(adapters[0]["id"], "brandenburg");
+    assert_eq!(adapters[0]["source"], "built-in");
+    assert_eq!(adapters[12]["id"], "mine");
+    assert_eq!(adapters[12]["source"], "user");
+    assert_eq!(adapters[12]["revision"], 2);
+    assert_eq!(json["warnings"][0]["skipped"], true);
+    assert_eq!(
+        json["warnings"][0]["findings"][0]["code"],
+        "manifest.file-missing"
+    );
+    assert!(err.is_empty(), "{err}");
+    // The project's adapters only when asked for.
+    let (out, _) = list(&["--json", "--project", project.path().to_str().unwrap()]);
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["adapters"][13]["id"], "theirs");
+    assert_eq!(json["adapters"][13]["source"], "project");
+    // As text, with the warning on stderr.
+    let (out, err) = list(&[]);
+    let lines: Vec<&str> = out.lines().collect();
+    assert_eq!(lines.len(), 14, "{out}");
+    assert!(
+        lines[0].starts_with("brandenburg  Brandenburg  built in  revision 1  "),
+        "{out}"
+    );
+    assert_eq!(
+        lines[12],
+        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: brandenburg"
+    );
+    assert!(
+        lines[13].starts_with("Your adapters are read from "),
+        "{out}"
+    );
+    assert!(err.starts_with("warning: the adapter in "), "{err}");
+    assert!(err.contains("[manifest.file-missing]"), "{err}");
+    let (out, err) = list(&["--lang", "de"]);
+    assert!(out.contains("  eingebaut  Revision 1  "), "{out}");
+    assert!(err.starts_with("Warnung: Der Adapter in "), "{err}");
+}
+
+/// `adapters check` reads the folder of one adapter: exit code 0 when it would load, 1 with
+/// findings, 2 when the check cannot run. `adapter check` is the same command.
+#[test]
+fn adapters_check_passes_fails_and_refuses() {
+    let hamburg = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../adapters/de/manifests/hamburg"
+    );
+    let check = |args: &[&str]| {
+        let output = freemapper().args(args).output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    // The folder of a built-in state passes, with the warning that its id is built in.
+    let (code, out, err) = check(&["adapters", "check", hamburg]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(
+        lines[0].starts_with("adapter hamburg (Hamburg), revision 1, hosts: "),
+        "{out}"
+    );
+    assert!(lines[1].contains("[check.built-in-id]"), "{out}");
+    assert!(
+        lines[2].ends_with("passes the check, with one warning"),
+        "{out}"
+    );
+    assert!(err.is_empty(), "{err}");
+    let (code, out, _) = check(&["adapter", "check", hamburg, "--json"]);
+    assert_eq!(code, Some(0), "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["passed"], true);
+    assert_eq!(json["adapter"]["id"], "hamburg");
+    assert_eq!(json["findings"][0]["code"], "check.built-in-id");
+    assert_eq!(json["findings"][0]["severity"], "warning");
+    let (_, out, _) = check(&["adapters", "check", hamburg, "--lang", "de"]);
+    assert!(
+        out.starts_with("Adapter hamburg (Hamburg), Revision 1, Hosts: "),
+        "{out}"
+    );
+    assert!(
+        out.contains("besteht die Prüfung, mit einer Warnung"),
+        "{out}"
+    );
+
+    // A folder with a defect: every finding, and exit code 1.
+    let dir = tempfile::tempdir().unwrap();
+    write_adapter(dir.path(), "mine");
+    let mine = dir.path().join("mine");
+    std::fs::write(
+        mine.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[9.7,53.4],[10.3,53.4],[10.3,53.7],[9.7,53.7],[9.7,53.4]]]}}"#,
+    )
+    .unwrap();
+    let (code, out, _) = check(&["adapters", "check", mine.to_str().unwrap()]);
+    assert_eq!(code, Some(1), "{out}");
+    assert!(out.starts_with("error: "), "{out}");
+    assert!(out.contains("[boundary.crs]"), "{out}");
+    assert!(out.trim_end().ends_with("fails the check"), "{out}");
+    let (code, out, _) = check(&["adapters", "check", mine.to_str().unwrap(), "--json"]);
+    assert_eq!(code, Some(1), "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["passed"], false);
+    assert_eq!(json["findings"][0]["code"], "boundary.crs");
+
+    // What cannot run: no folder, a live check without a box, a box outside the boundary.
+    let nowhere = dir.path().join("nowhere");
+    let (code, out, err) = check(&["adapters", "check", nowhere.to_str().unwrap()]);
+    assert_eq!(code, Some(2), "{out}{err}");
+    assert!(err.starts_with("error: there is no folder "), "{err}");
+    let (code, _, err) = check(&["adapters", "check", hamburg, "--live"]);
+    assert_eq!(code, Some(2), "{err}");
+    assert!(err.contains("--bbox"), "{err}");
+    let cache = dir.path().join("cache");
+    let (code, out, err) = check(&[
+        "adapters",
+        "check",
+        hamburg,
+        "--live",
+        "--bbox",
+        "13.84,52.53,13.85,52.54",
+        "--cache-dir",
+        cache.to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(2), "{out}{err}");
+    assert_eq!(
+        err.trim_end(),
+        "error: the box does not lie inside the boundary of the adapter hamburg; a live check \
+         asks the services for a place the adapter covers"
+    );
+    assert!(out.is_empty(), "{out}");
+    assert!(!cache.exists());
+}
+
+/// The file of the allowed hosts in the configuration folder that `home` stands for.
+#[cfg(unix)]
+fn allowed_hosts_file(home: &std::path::Path) -> std::path::PathBuf {
+    let config = if cfg!(target_os = "macos") {
+        home.join("Library").join("Application Support")
+    } else {
+        home.join("xdg")
+    };
+    config.join("freemapper").join("allowed-hosts.toml")
+}
+
+/// freemapper with `home` as the home folder of the person, so its configuration folder is
+/// a folder of the test.
+#[cfg(unix)]
+fn freemapper_at(home: &std::path::Path) -> Command {
+    let mut command = freemapper();
+    command
+        .env("HOME", home)
+        .env("XDG_CONFIG_HOME", home.join("xdg"))
+        .env("FREEMAPPER_ADAPTER_DIR", home.join("no-adapters"));
+    command
+}
+
+/// `adapters allow-host` allows a built-in state one more host in the person's configuration
+/// folder, `adapters list` shows it, and `disallow-host` takes it back. An address or a name
+/// of the local network is refused when it is entered. Nothing else adds a host: not a file
+/// in a project folder, not the variables that name other folders of freemapper.
+#[cfg(unix)]
+#[test]
+fn a_host_is_allowed_in_the_persons_configuration_only() {
+    let home = tempfile::tempdir().unwrap();
+    let run = |command: &mut Command| {
+        let output = command.output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let allowed_with = |command: &mut Command, id: &str, more: &[&str]| -> serde_json::Value {
+        let (code, out, err) = run(command.args(["adapters", "list", "--json"]).args(more));
+        assert_eq!(code, Some(0), "{err}");
+        let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let adapters = json["adapters"].as_array().unwrap();
+        let adapter = adapters.iter().find(|a| a["id"] == id).unwrap();
+        adapter["allowed_hosts"].clone()
+    };
+    let allowed = |command: &mut Command, id: &str| allowed_with(command, id, &[]);
+    let at = || freemapper_at(home.path());
+    assert_eq!(allowed(&mut at(), "hessen"), serde_json::json!([]));
+
+    let (code, out, err) = run(at().args(["adapters", "allow-host", "hessen", "cdn.example.net"]));
+    assert_eq!(code, Some(0), "{err}");
+    assert!(
+        out.starts_with("freemapper may now also ask cdn.example.net for Hesse. "),
+        "{out}"
+    );
+    let file = allowed_hosts_file(home.path());
+    assert!(file.exists(), "{out}");
+    assert_eq!(
+        allowed(&mut at(), "hessen"),
+        serde_json::json!(["cdn.example.net"])
+    );
+    assert_eq!(allowed(&mut at(), "hamburg"), serde_json::json!([]));
+    let (_, out, _) = run(at().args(["adapters", "list"]));
+    let hessen = out
+        .lines()
+        .find(|line| line.starts_with("hessen "))
+        .unwrap();
+    assert!(
+        hessen.ends_with("  allowed by you: cdn.example.net"),
+        "{hessen}"
+    );
+    let (_, out, _) = run(at().args(["adapters", "list", "--lang", "de"]));
+    assert!(
+        out.contains("  von Ihnen freigegeben: cdn.example.net"),
+        "{out}"
+    );
+
+    // What is no public name is refused when it is entered, in the language of the run.
+    for (host, reason) in [
+        ("192.168.0.1", "an IP address, not a DNS name"),
+        ("localhost", "a name of this computer or without a domain"),
+        ("fritz.box", "a name of the local network"),
+    ] {
+        let (code, _, err) = run(at().args(["adapters", "allow-host", "hessen", host]));
+        assert_eq!(code, Some(1), "{host}");
+        assert_eq!(
+            err.trim_end(),
+            format!("error: {host} cannot be allowed: {reason}")
+        );
+    }
+    let (code, _, err) = run(at().args([
+        "adapters",
+        "allow-host",
+        "hessen",
+        "10.0.0.1",
+        "--lang",
+        "de",
+    ]));
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        err.trim_end(),
+        "Fehler: 10.0.0.1 lässt sich nicht freigeben: eine IP-Adresse, kein DNS-Name"
+    );
+    assert_eq!(
+        allowed(&mut at(), "hessen"),
+        serde_json::json!(["cdn.example.net"])
+    );
+
+    // A project that was passed on brings a file of the same name, in every place one might
+    // look: it allows nothing, with the switch for its adapters or without.
+    let project = tempfile::tempdir().unwrap();
+    let theirs = "[allow]\nhamburg = [\"evil.example.net\"]\n";
+    for folder in ["", "freemapper", "adapters", "adapters/freemapper"] {
+        let folder = project.path().join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("allowed-hosts.toml"), theirs).unwrap();
+    }
+    let dir = project.path().to_str().unwrap();
+    assert_eq!(
+        allowed_with(
+            at().current_dir(project.path()),
+            "hamburg",
+            &["--project", dir]
+        ),
+        serde_json::json!([])
+    );
+    // Nor do the variables that name other folders of freemapper move the file.
+    assert_eq!(
+        allowed(
+            at().env("FREEMAPPER_ADAPTER_DIR", project.path())
+                .env("FREEMAPPER_CONFIG_DIR", project.path())
+                .env(
+                    "FREEMAPPER_ALLOWED_HOSTS",
+                    project.path().join("allowed-hosts.toml")
+                ),
+            "hamburg"
+        ),
+        serde_json::json!([])
+    );
+
+    let (code, out, _) = run(at().args(["adapters", "disallow-host", "hessen", "cdn.example.net"]));
+    assert_eq!(code, Some(0));
+    assert_eq!(
+        out.trim_end(),
+        "freemapper no longer asks cdn.example.net for Hesse"
+    );
+    assert_eq!(allowed(&mut at(), "hessen"), serde_json::json!([]));
+    assert!(!file.exists());
+}
+
+/// An entry for a host that a release made part of the adapter is said to be redundant by
+/// the next command, taken out of the file and not mentioned again.
+#[cfg(unix)]
+#[test]
+fn a_redundant_allowed_host_is_said_once_and_removed() {
+    let home = tempfile::tempdir().unwrap();
+    let file = allowed_hosts_file(home.path());
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "[allow]\nhessen = [\"gds.hessen.de\"]\n").unwrap();
+    let project = home.path().join("nothing-here");
+    let fetch = || {
+        let output = freemapper_at(home.path())
+            .arg("fetch")
+            .arg(&project)
+            .arg("--offline")
+            .output()
+            .unwrap();
+        String::from_utf8(output.stderr).unwrap()
+    };
+    let first = fetch();
+    assert!(
+        first.starts_with(
+            "warning: gds.hessen.de is now one of the hosts the adapter of Hesse names; your entry in "
+        ),
+        "{first}"
+    );
+    assert!(!file.exists());
+    assert!(!fetch().contains("gds.hessen.de"));
+}
+
+/// A command loads the adapters of its project folder only with `--adapters-from-project`,
+/// and then says which adapter asks which hosts.
+#[test]
+fn project_adapters_need_the_flag() {
+    let user = tempfile::tempdir().unwrap();
+    let project = tempfile::tempdir().unwrap();
+    write_adapter(&project.path().join("adapters"), "theirs");
+    let fetch = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("fetch")
+            .arg(project.path())
+            .arg("--offline")
+            .args(args)
+            .output()
+            .unwrap();
+        // The folder holds no project file, so the fetch itself fails either way.
+        assert_eq!(output.status.code(), Some(1), "{output:?}");
+        String::from_utf8(output.stderr).unwrap()
+    };
+    let line = "warning: the adapter theirs from the project folder is in use; it may ask these \
+                hosts: geo.example.org";
+    assert!(!fetch(&[]).contains("theirs"));
+    assert!(fetch(&["--adapters-from-project"]).contains(line));
+}
+
+/// A project whose file names an adapter of its own folder `adapters` is read only with the
+/// switch; without it the adapter is one this freemapper does not have.
+#[test]
+fn a_project_that_names_its_own_adapter_is_read_only_with_the_flag() {
+    let user = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let init = freemapper()
+        .env("FREEMAPPER_ADAPTER_DIR", user.path())
+        .arg("init")
+        .arg(&project)
+        .args(["--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    assert!(init.status.success(), "{init:?}");
+    write_adapter(&project.join("adapters"), "theirs");
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("provider = \"lgb\""), "{text}");
+    std::fs::write(
+        &file,
+        text.replace("provider = \"lgb\"", "provider = \"theirs\""),
+    )
+    .unwrap();
+    let export = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("export")
+            .arg(&project)
+            .args(args)
+            .output()
+            .unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let unknown = "error: the project file names the adapter \"theirs\", which this freemapper \
+                   does not have";
+    let (code, without) = export(&[]);
+    assert_eq!(code, Some(1), "{without}");
+    assert!(without.contains(unknown), "{without}");
+    assert!(
+        without.contains("(only for a project you trust)"),
+        "{without}"
+    );
+    assert!(!without.contains("is in use"), "{without}");
+    // With the switch the project is read, and the person is told about the adapter first.
+    let (code, with) = export(&["--adapters-from-project"]);
+    assert_eq!(code, Some(0), "{with}");
+    assert!(
+        with.starts_with("warning: the adapter theirs from the project folder is in use; "),
+        "{with}"
+    );
+}
+
+/// A manifest in a project folder whose hosts are an address or a wildcard is left out with a
+/// warning; nothing panics, and the command goes on to its own error.
+#[test]
+fn a_project_adapter_with_a_hostile_host_list_is_left_out() {
+    let user = tempfile::tempdir().unwrap();
+    for host in ["127.0.0.1", "*", "localhost"] {
+        let project = tempfile::tempdir().unwrap();
+        let adapters = project.path().join("adapters");
+        write_adapter(&adapters, "theirs");
+        let manifest = adapters.join("theirs").join("manifest.toml");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace(
+                "hosts = [\"geo.example.org\"]",
+                &format!("hosts = [\"geo.example.org\", \"{host}\"]"),
+            ),
+        )
+        .unwrap();
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("fetch")
+            .arg(project.path())
+            .args(["--offline", "--adapters-from-project"])
+            .output()
+            .unwrap();
+        // No project file: the fetch fails with its own error, after the warning.
+        assert_eq!(output.status.code(), Some(1), "{host}: {output:?}");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let first = stderr.lines().next().unwrap_or_default();
+        assert!(
+            first.starts_with("warning: the adapter in "),
+            "{host}: {stderr}"
+        );
+        assert!(first.contains(" is left out: "), "{host}: {stderr}");
+        assert!(first.contains("[policy.host]"), "{host}: {stderr}");
+        assert!(!stderr.contains("is in use"), "{host}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{host}: {stderr}");
     }
 }

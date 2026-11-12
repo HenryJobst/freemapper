@@ -379,7 +379,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("o.jpg");
         let fetcher =
-            crate::fetch::HttpFetcher::with_timeout(std::time::Duration::from_millis(300));
+            crate::fetch::HttpFetcher::local_with_timeout(std::time::Duration::from_millis(300));
         let (sender, receiver) = std::sync::mpsc::channel();
         let path = out.clone();
         std::thread::spawn(move || {

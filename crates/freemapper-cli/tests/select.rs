@@ -5,6 +5,9 @@ use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod isolation;
+use isolation::isolated;
+
 use serde_json::{Value, json};
 
 const FIXTURE: &str = concat!(
@@ -25,7 +28,7 @@ impl Selector {
     }
 
     fn start_with_env(dir: &Path, cache: &Path, extra: &[&str], env: &[(&str, &str)]) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let mut child = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .env_remove("CI")
             .envs(env.iter().copied())
@@ -188,7 +191,7 @@ fn page_and_assets_are_served() {
 /// The page gets the supported regions and their aerial photos from the registry, and the
 /// content security policy lets the page load images from exactly those services.
 #[test]
-fn adapters_endpoint_lists_eleven_with_previews() {
+fn adapters_endpoint_lists_the_states_with_previews() {
     let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let selector = Selector::start(&dir.path().join("school"), cache.path(), &[]);
@@ -213,7 +216,8 @@ fn adapters_endpoint_lists_eleven_with_previews() {
             "mecklenburgvorpommern",
             "nordrheinwestfalen",
             "niedersachsen",
-            "rheinlandpfalz"
+            "rheinlandpfalz",
+            "saarland"
         ]
     );
     assert_eq!(
@@ -235,7 +239,7 @@ fn adapters_endpoint_lists_eleven_with_previews() {
         }
     }
     assert_eq!(adapters[0]["preview"], adapters[1]["preview"]);
-    assert_eq!(services.len(), 10);
+    assert_eq!(services.len(), 11);
     assert_eq!(adapters[4]["preview"]["params"], json!({ "time": "2026" }));
     assert!(
         adapters[10]["preview"]["attribution"]
@@ -243,7 +247,7 @@ fn adapters_endpoint_lists_eleven_with_previews() {
             .unwrap()
             .contains("LVermGeoRP{year},")
     );
-    // The policy names the hosts of those ten services, in that order, and no other.
+    // The policy names the hosts of those eleven services, in that order, and no other.
     let response = selector.agent.get(&selector.url).call().unwrap();
     let policy = response
         .headers()
@@ -259,7 +263,8 @@ fn adapters_endpoint_lists_eleven_with_previews() {
          https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de \
          https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de \
          https://www.geodaten-mv.de https://www.wms.nrw.de \
-         https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de; \
+         https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de \
+         https://geoportal.saarland.de; \
          frame-ancestors 'none'"
     );
     for service in services {
@@ -360,7 +365,7 @@ fn save_changes_an_existing_area() {
     let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(&project)
@@ -406,7 +411,7 @@ fn page_on_a_project() -> (
     let dir = tempfile::tempdir().unwrap();
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(&project)
@@ -605,6 +610,98 @@ fn area_outside_brandenburg_is_refused() {
     assert!(!project.exists());
 }
 
+/// Puts the adapter `theirs` into the folder `adapters` of `project` and makes the project
+/// file name it as the provider of its rasters: a project that was passed on with a source of
+/// its own.
+fn bring_an_adapter_along(project: &std::path::Path) {
+    let folder = project.join("adapters").join("theirs");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("manifest.toml"),
+        "format = 1\n\n[adapter]\nid = \"theirs\"\nrevision = 2\nmin_freemapper = \"0.13.0\"\ncrs = 25832\n\
+         names = { en = \"Sample\", de = \"Beispiel\" }\n\n[net]\nhosts = [\"geo.example.org\"]\n\n\
+         [boundary]\nfile = \"boundary.geojson\"\ncrs = 25833\n\n[[osm.extract]]\n\
+         geofabrik = \"europe/germany/hamburg\"\nmegabytes = 54\nlabel = \"Sample\"\n\n[attribution]\n\
+         licence = \"dl-de/by-2-0\"\ntext = \"© Sample {year}\"\n\n[alkis]\nkind = \"wfs\"\n\
+         url = \"https://geo.example.org/wfs\"\nbuildings_type = \"ave:GebaeudeBauwerk\"\n\
+         land_use_type = \"ave:NutzungFlurstueck\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+    )
+    .unwrap();
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("provider = \"lgb\""), "{text}");
+    std::fs::write(
+        &file,
+        text.replace("provider = \"lgb\"", "provider = \"theirs\""),
+    )
+    .unwrap();
+}
+
+/// The area page never loads the adapters of a project folder (ADR 0082): a project that
+/// names an adapter it brought along is one whose adapter is not installed, for the page and
+/// for a run started from it.
+#[test]
+fn page_never_loads_the_adapters_of_a_project() {
+    let (_dir, _cache, project, first) = page_on_a_project();
+    drop(first);
+    bring_an_adapter_along(&project);
+    let cache = tempfile::tempdir().unwrap();
+    let user = tempfile::tempdir().unwrap();
+    let selector = Selector::start_with_env(
+        &project,
+        cache.path(),
+        &[],
+        &[("FREEMAPPER_ADAPTER_DIR", user.path().to_str().unwrap())],
+    );
+    let unknown =
+        "the project file names the adapter \\\"theirs\\\", which this freemapper does not have";
+    let (status, body) = selector.get("api/project");
+    assert_eq!(status, 400, "{body}");
+    assert!(body.contains(unknown), "{body}");
+    let (status, answer) = selector.post("api/run", json!({ "offline": true }));
+    assert!((400..500).contains(&status), "{status}: {answer}");
+    assert!(answer.to_string().contains(unknown), "{answer}");
+}
+
+/// The area page reads the hosts the person allowed and never writes the file: an entry that
+/// a release made redundant stays for a command of the person to remove.
+#[cfg(unix)]
+#[test]
+fn page_reads_the_allowed_hosts_and_never_writes_them() {
+    let home = tempfile::tempdir().unwrap();
+    let config = if cfg!(target_os = "macos") {
+        home.path().join("Library").join("Application Support")
+    } else {
+        home.path().join("xdg")
+    };
+    let file = config.join("freemapper").join("allowed-hosts.toml");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let stored = "[allow]\nhessen = [\"gds.hessen.de\", \"cdn.example.net\"]\n";
+    std::fs::write(&file, stored).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let xdg = home.path().join("xdg");
+    let selector = Selector::start_with_env(
+        &dir.path().join("school"),
+        cache.path(),
+        &[],
+        &[
+            ("HOME", home.path().to_str().unwrap()),
+            ("XDG_CONFIG_HOME", xdg.to_str().unwrap()),
+        ],
+    );
+    let (status, body) = selector.get("api/adapters");
+    assert_eq!(status, 200, "{body}");
+    drop(selector);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), stored);
+}
+
 #[test]
 fn broken_project_file_is_reported() {
     let dir = tempfile::tempdir().unwrap();
@@ -635,7 +732,7 @@ fn save_into_a_project_with_a_map_says_so() {
         vec!["init", project.to_str().unwrap(), "--geojson", FIXTURE],
         vec!["export", project.to_str().unwrap()],
     ] {
-        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .args(&args)
             .stdout(Stdio::null())
@@ -661,7 +758,7 @@ fn busy_port_names_the_port() {
     let selector = Selector::start(&dir.path().join("a"), cache.path(), &[]);
     let (address, _) = selector.address_and_token();
     let port = address.rsplit(':').next().unwrap().to_string();
-    let output = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let output = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("select")
         .arg(dir.path().join("b"))
@@ -951,7 +1048,7 @@ fn project_answer_carries_the_content_settings() {
         state["content_options"]["places"],
         json!(["map", "candidates", "off"])
     );
-    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+    let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
         .env("FREEMAPPER_LANG", "en")
         .arg("init")
         .arg(project.parent().unwrap().join("other"))
@@ -1200,7 +1297,7 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     let cache = tempfile::tempdir().unwrap();
     let project = dir.path().join("school");
     let freemapper = |args: &[&str]| {
-        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        let status = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")))
             .env("FREEMAPPER_LANG", "en")
             .args(args)
             .stdout(Stdio::null())

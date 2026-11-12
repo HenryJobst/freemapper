@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,798](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C798-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,836](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C836-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -22,8 +22,8 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Use it from the command line, through a page in the browser where you choose the map area and create the
   map with all options (see [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or
   through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate (open data from LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN and LVermGeo RP);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and, from the next version on, Saarland (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP and LVGL);
   schoolyard maps 1:1000 and sprint maps 1:4000.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
@@ -51,7 +51,7 @@ The current version is [v0.13.0](https://github.com/HenryJobst/freemapper/releas
 12 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
-Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
+Rhineland-Palatinate. Saarland joins with the next version. All maps show water, and the colours follow the IOF printing definitions of
 2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF map
 (`--pdf`, with candidates `--pdf-candidates`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
@@ -67,11 +67,13 @@ of the city map; the two edges of a wall become one line in the middle. Point sy
 asks for, and dense tree groups become areas that show. Parks are yellow, and the walkable area in brown lies under the sprint map. Where walls, fences and hedges overlap on
 paper, the stronger line stays.
 
-freemapper is still under development. Next, the region adapters are rebuilt so that other developers
-can contribute adapters for their own country. Then come more detailed sprint maps for further states,
+freemapper is still under development. From the next version on, a further state whose services are
+standard ones can be added as a folder with a manifest, without Rust; the
+[guide for contributors](docs/adapters/en.md) describes the way. Next come more detailed sprint maps for
+further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
-and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria, Saarland). Thuringia follows once its height-data server is
+and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -279,6 +281,7 @@ freemapper run vorstadt
 | North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |
 | Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; Bremen not included yet |
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
+| Saarland | LVGL | DOM1 − DGM1, 1 m (laser scan of 2025) | from the next version on; map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the district archives; templates empty beyond the state border |
 
 In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the

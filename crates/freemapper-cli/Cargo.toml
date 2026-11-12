@@ -20,6 +20,7 @@ test-stub = []
 [dependencies]
 freemapper.workspace = true
 freemapper-fs.workspace = true
+freemapper-manifest.workspace = true
 freemapper-update.workspace = true
 freemapper-web.workspace = true
 freemapper-text.workspace = true
@@ -34,7 +35,9 @@ rust-embed.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
+toml.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]
@@ -42,7 +45,6 @@ ureq.workspace = true
 freemapper-web = { workspace = true, features = ["page-rules"] }
 minisign-verify.workspace = true
 sha2.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

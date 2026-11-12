@@ -1,8 +1,10 @@
 //! The adapters a program knows, in the order the region functions go through them.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::adapter::RegionAdapter;
+use crate::rasters::RasterBackend;
 use crate::records::AdapterId;
 
 /// The list of region adapters. The order decides ties: where two regions both hold a point,
@@ -11,7 +13,14 @@ use crate::records::AdapterId;
 #[derive(Default, Clone)]
 pub struct Registry {
     adapters: Vec<Arc<dyn RegionAdapter>>,
+    /// The raster backends of the adapter crates, by the name a manifest calls them.
+    backends: BTreeMap<String, Arc<dyn RasterBackend>>,
 }
+
+/// A second raster backend with a name the registry holds already.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("a raster backend with the name {0} is registered already")]
+pub struct DuplicateBackend(pub String);
 
 /// A second adapter with an id the registry holds already.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -32,6 +41,30 @@ impl Registry {
         }
         self.adapters.push(adapter);
         Ok(())
+    }
+
+    /// Makes the raster backend `backend` known as `name`: the code of an adapter crate that
+    /// a manifest names in a raster table (`backend = "<name>"`). A name is taken once.
+    pub fn add_backend(
+        &mut self,
+        name: &str,
+        backend: Arc<dyn RasterBackend>,
+    ) -> Result<(), DuplicateBackend> {
+        if self.backends.contains_key(name) {
+            return Err(DuplicateBackend(name.to_string()));
+        }
+        self.backends.insert(name.to_string(), backend);
+        Ok(())
+    }
+
+    /// The raster backend with this name.
+    pub fn backend(&self, name: &str) -> Option<Arc<dyn RasterBackend>> {
+        self.backends.get(name).cloned()
+    }
+
+    /// The names of the raster backends, sorted.
+    pub fn backend_names(&self) -> impl Iterator<Item = &str> {
+        self.backends.keys().map(String::as_str)
     }
 
     /// The adapters in their order.

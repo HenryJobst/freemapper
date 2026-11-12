@@ -3,6 +3,9 @@
 use std::io::{BufRead, BufReader, Read as _, Write};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 
+mod isolation;
+use isolation::isolated;
+
 use serde_json::{Value, json};
 
 #[cfg(all(feature = "test-stub", debug_assertions))]
@@ -31,7 +34,7 @@ impl Session {
 
     /// A server whose program language is `lang`.
     fn start_in(cache: &std::path::Path, lang: &str) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+        let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
         command
             .env("FREEMAPPER_LANG", lang)
             .env_remove("FREEMAPPER_UPDATE_TEST_BASE")
@@ -236,6 +239,130 @@ fn mcp_creates_a_project_and_lists_layers() {
     );
     assert!(error);
     assert!(text.contains("start_pipeline"), "{text}");
+}
+
+/// Puts the adapter `theirs` into the folder `adapters` of `project` and makes the project
+/// file name it as the provider of its rasters: a project that was passed on with a source of
+/// its own.
+fn bring_an_adapter_along(project: &std::path::Path) {
+    let folder = project.join("adapters").join("theirs");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("manifest.toml"),
+        "format = 1\n\n[adapter]\nid = \"theirs\"\nrevision = 2\nmin_freemapper = \"0.13.0\"\ncrs = 25832\n\
+         names = { en = \"Sample\", de = \"Beispiel\" }\n\n[net]\nhosts = [\"geo.example.org\"]\n\n\
+         [boundary]\nfile = \"boundary.geojson\"\ncrs = 25833\n\n[[osm.extract]]\n\
+         geofabrik = \"europe/germany/hamburg\"\nmegabytes = 54\nlabel = \"Sample\"\n\n[attribution]\n\
+         licence = \"dl-de/by-2-0\"\ntext = \"© Sample {year}\"\n\n[alkis]\nkind = \"wfs\"\n\
+         url = \"https://geo.example.org/wfs\"\nbuildings_type = \"ave:GebaeudeBauwerk\"\n\
+         land_use_type = \"ave:NutzungFlurstueck\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+    )
+    .unwrap();
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("provider = \"lgb\""), "{text}");
+    std::fs::write(
+        &file,
+        text.replace("provider = \"lgb\"", "provider = \"theirs\""),
+    )
+    .unwrap();
+}
+
+/// The server never loads the adapters of a project folder (ADR 0082): a project that names
+/// an adapter it brought along is refused by the tools that read its file, as one whose
+/// adapter is not installed, and nothing says an adapter of the project is in use.
+#[test]
+fn mcp_never_loads_the_adapters_of_a_project() {
+    let cache = tempfile::tempdir().unwrap();
+    let user = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
+    command
+        .env("FREEMAPPER_ADAPTER_DIR", user.path())
+        .env_remove("FREEMAPPER_UPDATE_TEST_BASE");
+    let mut session = Session::start_with(command, cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE }),
+    );
+    assert!(!error, "{text}");
+    bring_an_adapter_along(&project);
+    let unknown =
+        "the project file names the adapter \"theirs\", which this freemapper does not have";
+    for (tool, arguments) in [
+        ("start_pipeline", json!({ "dir": project, "offline": true })),
+        ("estimate_download", json!({ "dir": project })),
+    ] {
+        let (error, mut text) = session.call(tool, arguments);
+        if tool == "start_pipeline" && !error {
+            // The job was started: its end says why it failed.
+            let job: Value = serde_json::from_str(&text).unwrap();
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+            text = loop {
+                assert!(std::time::Instant::now() < deadline, "job still running");
+                let (_, status) =
+                    session.call("project_status", json!({ "job_id": job["job_id"] }));
+                let status: Value = serde_json::from_str(&status).unwrap();
+                if status["state"] != "running" {
+                    assert_eq!(status["state"], "failed", "{status}");
+                    break status["error"].as_str().unwrap().to_string();
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            };
+        } else {
+            assert!(error, "{tool}: {text}");
+        }
+        assert!(text.contains(unknown), "{tool}: {text}");
+    }
+    let (stderr, _) = session.close();
+    assert!(!stderr.contains("theirs"), "{stderr}");
+    assert!(!stderr.contains("project folder"), "{stderr}");
+}
+
+/// The server reads the hosts the person allowed and never writes the file: an entry that a
+/// release made redundant stays for a command of the person to remove, and no tool allows a
+/// host.
+#[cfg(unix)]
+#[test]
+fn mcp_reads_the_allowed_hosts_and_never_writes_them() {
+    let cache = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let config = if cfg!(target_os = "macos") {
+        home.path().join("Library").join("Application Support")
+    } else {
+        home.path().join("xdg")
+    };
+    let file = config.join("freemapper").join("allowed-hosts.toml");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let stored = "[allow]\nhessen = [\"gds.hessen.de\", \"cdn.example.net\"]\n";
+    std::fs::write(&file, stored).unwrap();
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
+    command
+        .env("HOME", home.path())
+        .env("XDG_CONFIG_HOME", home.path().join("xdg"))
+        .env("FREEMAPPER_ADAPTER_DIR", home.path().join("no-adapters"))
+        .env_remove("FREEMAPPER_UPDATE_TEST_BASE");
+    let mut session = Session::start_with(command, cache.path());
+    let tools = session.request("tools/list", json!({}));
+    let names: Vec<&str> = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    assert!(names.iter().all(|name| !name.contains("host")), "{names:?}");
+    let (error, text) = session.call("list_layers", json!({ "dir": home.path().join("p") }));
+    assert!(error || !text.is_empty());
+    let (stderr, _) = session.close();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), stored);
+    assert!(!stderr.contains("gds.hessen.de"), "{stderr}");
 }
 
 #[test]
@@ -567,7 +694,7 @@ fn mcp_describes_its_tools_in_the_program_language() {
 #[test]
 fn mcp_update_tools_in_a_source_build_say_how_to_update() {
     let cache = tempfile::tempdir().unwrap();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
     command.env_remove("FREEMAPPER_UPDATE_TEST_BASE");
     let mut session = Session::start_with(command, cache.path());
     let source_build = "This freemapper was built from source. Update it with git pull and cargo build --release --locked.";
@@ -598,12 +725,13 @@ mod update {
     use serde_json::json;
 
     use super::Session;
+    use super::isolated;
     use super::support::{MANIFEST_PATH, UpdateStub, copied_program};
 
     /// `program` as a server talking to `stub`, without `CI` and the update switches of the
     /// environment, with its settings in `dir`.
     fn checking(program: &Path, stub: &UpdateStub, dir: &Path) -> Command {
-        let mut command = Command::new(program);
+        let mut command = isolated(Command::new(program));
         command
             .env_remove("CI")
             .env_remove("FREEMAPPER_UPDATE")

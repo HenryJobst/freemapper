@@ -46,7 +46,7 @@ On request freemapper also writes the **print-ready map as a PDF** and a **train
 - An internet connection for the first download.
 - Free disk space:
   - The first time, freemapper downloads the OSM extract of the state: about 300 MB for Brandenburg
-    and Berlin, about 270 MB for Saxony, about 180 MB for Saxony-Anhalt, about 55 MB for Hamburg, about 350 MB for Hesse, about 160 MB for Schleswig-Holstein (without Hamburg), about 130 MB for Mecklenburg-Vorpommern, about 510 MB for Lower Saxony (with Bremen), about 275 MB for Rhineland-Palatinate. In North Rhine-Westphalia these are the extracts of the Regierungsbezirke, 140 to 225 MB each, two of them for an area on a district border. The extract
+    and Berlin, about 270 MB for Saxony, about 180 MB for Saxony-Anhalt, about 55 MB for Hamburg, about 350 MB for Hesse, about 160 MB for Schleswig-Holstein (without Hamburg), about 130 MB for Mecklenburg-Vorpommern, about 510 MB for Lower Saxony (with Bremen), about 275 MB for Rhineland-Palatinate, about 55 MB for Saarland. In North Rhine-Westphalia these are the extracts of the Regierungsbezirke, 140 to 225 MB each, two of them for an area on a district border. The extract
     is reused by all projects.
   - On top of that, each map usually needs 10–100 MB.
   - Before each download freemapper checks the free space of the cache and the project folder. When
@@ -55,7 +55,7 @@ On request freemapper also writes the **print-ready map as a PDF** and a **train
     OSM extract is cached, the update of that extract. It warns for each part it leaves out. Every map
     needs the map data, the terrain model and the orthophoto. If those do not fit, freemapper stops
     before it downloads anything.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony or Rhineland-Palatinate**. Bremen and more states will follow.
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate or Saarland**. Bremen and more states will follow.
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -533,7 +533,7 @@ in the map part "default part". Break them in OOM where they hide small objects,
 or wall corners.
 
 The example projects in the repository show what the result looks like, one per state:
-[`examples/`](../../examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF.
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF.
 
 ## 8. What the templates show
 
@@ -775,6 +775,7 @@ version yet; feedback is welcome (chapter 16).
 | North Rhine-Westphalia | Geobasis NRW (Bezirksregierung Köln) | Zone 32 (EPSG:25832) for the whole state; the state reaches far west, but the map never uses zone 33. The orthophoto comes from the WMS service, because the tiles exist only as JPEG 2000. Flown in 2022 and 2024 to 2026, partly leaf-off, partly leaf-on; the flight date is per tile. Terrain and surface: DGM1 and DOM1 at 1 m from 1 km laser tiles, both from the same flight; names and dates come from the tile list, not from the directory. The laser survey is paused until winter 2026/27, the newest data is from February 2025; the nDSM is DOM1 − DGM1. ALKIS from the WFS with the LGB spellings and a more detailed land-use value, school buildings are called "Allgemein bildende Schule". OSM from the extracts of the five Regierungsbezirke (Arnsberg, Detmold, Düsseldorf, Köln, Münster) instead of the 917 MB statewide one; an area on a district border reads both. At the Hesse border freemapper reads the ALKIS of both states; the rasters come from the state holding the centre of the map area |
 | Lower Saxony | LGLN | Zone 32 (EPSG:25832) for the whole state. The orthophoto comes from the map service (WMS), terrain and surface (DGM1 and DOM1 at 1 m) come from the WCS service. The WCS service delivers the height models in pieces of 2 km. A 4 km area therefore takes four requests per model and, with the orthophoto, a few minutes to fetch. The LGLN STAC search gives the data currency: the flight date of the newest orthophoto and the date of the newest height model at the centre of the map area. Flown 2024 to 2026, three quarters in spring (February to April, leaf-off), the rest from May to October (leaf-on). freemapper reports with the flight date whether the trees were in leaf; Hannover-Südstadt, for example, was flown leaf-off on 06.03.2025. The nDSM is DOM1 − DGM1 from the laser scan, both models from the same flight. The scan is mostly from 2016 or 2017 (2025 at the coast and along the Elbe and Weser), so it is often 5 to 9 years older than the orthophoto (Hannover-Südstadt: scan 18.04.2016). If the DOM1 is more than two years older, freemapper warns with both dates, because new buildings and young trees can be missing from the nDSM. ALKIS from the WFS with the LGB spellings; freemapper recognises underground garages by their position below ground; squares without `bez` only as candidates; school buildings are called "Allgemein bildende Schule", school parcels "Bildung und Wissenschaft". Bremen and Bremerhaven are not included yet. freemapper refuses an area whose centre lies in Bremen. If an area in Lower Saxony reaches into Bremen, the orthophoto is white there and ALKIS gives no buildings there; freemapper warns. The Lower Saxony OSM extract includes Bremen. At the Hamburg border freemapper reads the ALKIS and OSM extract of both sides; the rasters come from the state holding the centre of the map area |
 | Rhineland-Palatinate | LVermGeo RP | Zone 32 (EPSG:25832) for the whole state. The orthophoto comes from the map service (WMS), because the tiles exist only as JPEG 2000 of 105 to 155 MB per 2 km block. The service ends at the state border, and beyond it the orthophoto is white. The service gives no flight date, only a date of creation per block. freemapper takes it as the flight date, because all these dates fall between May and September, mostly on consecutive days, and the images show trees in leaf. So the project entry labels the date "Aktualität (Erstellung)", and the messages say `date of creation`. Flown 2022 to 2025, every two years, always in summer and so leaf-on; the Görres-Gymnasium in Koblenz, for example, on 25.08.2025. Terrain and surface: DGM1 and DOM1 at 1 m from 1 km laser tiles, both from the same flight. The scans are from 2022 to 2025, each flown from February to April, leaf-off. The file name of each tile contains the year of the scan. freemapper reads it from the LVermGeo RP laser-scan flight index `Laserbefliegung`, which gives the flight days per tile; the last flight day is the date in the project entry (Koblenz: 06.04.2024). 14 tiles north of Trier have no flight year there (as of November 2026). For them freemapper reads the state's Metalink file (about 11 MB per model), but only if the area contains such a tile. freemapper keeps the file and reuses it online for 30 days, then downloads it again. Offline it uses the kept file at any age. A tile that stays without a name stays empty, and freemapper says why. If the server answers 404 for a tile of the index, freemapper reports it as missing and asks again only after 30 days. The size estimate counts 1.5 MB per DGM1 tile and 3 MB per DOM1 tile, plus the Metalink file when it is needed. The nDSM is DOM1 − DGM1. Scan and orthophoto are at most three years apart, and in a quarter of the tiles the scan is the newer one. Because the scan was flown without leaves, the crowns of deciduous trees can come out lower in the nDSM than in the orthophoto. ALKIS from the WFS with the LGB spellings; the land use has finer subtypes, for example Wohnbaufläche "Offen" and "Geschlossen". freemapper recognises underground garages by their position below ground; squares without `bez` only as candidates; a building with several names has them joined by `;` in one field. School buildings are called "Allgemein bildende Schule", school parcels "Bildung und Wissenschaft". At the Hesse border (Mainz and Wiesbaden) freemapper reads the ALKIS and OSM extract of both states; Wiesbaden and Mainz-Kastel belong to Hesse and are not in the Rhineland-Palatinate OSM extract. The rasters come from the state holding the centre of the map area. If it lies in Mainz, the orthophoto is white across the Rhine, but the height models reach over |
+| Saarland | LVGL | Zone 32 (EPSG:25832) for the whole state. The orthophoto (flown in 2025) comes from the map service (WMS); the date the service gives per 2 km block as its update ("Aktualisierung") counts as the flight date. Terrain and surface: DGM1 and DOM1 at 1 m from the laser scan of 2025. The LVGL publishes them as six archives, one per district (0.6 to 1.3 GB); freemapper reads only the 1 km tiles of the area out of them, about 2 MB each, and keeps them in the cache. Beyond the state border the templates stay empty. The cadastre comes from the service "ALKIS Vereinfacht" of the Geoportal Saarland. freemapper does not use the products the LVGL charges for (bDOM20, DOM025, older orthophotos). |
 
 **Canopies and passages in every state.** ALKIS records canopies and carports as structures next to the
 buildings, and building passages and arcades as building parts. freemapper reads them from the buildings it
@@ -918,7 +919,7 @@ und Erholungsfläche" with `bez` "Kleingarten". Parks, sports grounds and playgr
 open.
 
 **Coordinate system:** Brandenburg, Berlin, Saxony and Mecklenburg-Vorpommern deliver in UTM zone 33, Saxony-Anhalt, Hamburg,
-Hesse, Schleswig-Holstein, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate in zone 32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
+Hesse, Schleswig-Holstein, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and Saarland in zone 32. Each map gets the zone of the state holding its centre; OOM and OCAD show it in the
 georeferencing. If you move a map area across the zone line or into another state, freemapper fetches
 everything again.
 
@@ -927,6 +928,82 @@ orthophoto and terrain come from the state holding the centre of the map area. I
 across the border, the templates on the other side stay empty where that state's orthophoto and height
 models end. Some services reach further: the LGLN orthophoto and height models also cover the Hamburg
 corner at Harburg, and the LVermGeo RP height models reach across the Rhine at Mainz. freemapper tells you when an area crosses a border.
+
+### Adapters of your own
+
+The states above are built into the program. A further state or country can be added as a folder, if its
+services are standard ones: a WFS or an OGC API Features service for the cadastre, a WMS and a WCS for the
+orthophoto and the height models. The folder has the name of the adapter's id and holds a `manifest.toml` and a
+boundary file. freemapper reads such folders from your adapter folder:
+
+| System | Adapter folder |
+|---|---|
+| macOS | `~/Library/Application Support/freemapper/adapters` |
+| Linux | `~/.config/freemapper/adapters` |
+| Windows | `%APPDATA%\freemapper\adapters` |
+
+The variable `FREEMAPPER_ADAPTER_DIR` names another folder by its absolute path; a relative path is ignored
+with a warning. `freemapper adapters list` shows every adapter with where it comes from, the day it was last
+checked and the servers it asks, and names your adapter folder in its last line. A folder with a mistake is
+left out with a warning that names the file and the line; the other adapters still load. An adapter from a
+folder cannot replace a built-in one. If it lies on the ground of another adapter, the list names that one: a
+map there gets the objects of both.
+
+The area page and the AI assistant read the adapter folder when they start. If one of them is already running
+when you add or change an adapter, close it and start it again; until then it does not know the adapter.
+
+An adapter makes freemapper ask the servers it names, and no others. Still, read a manifest before you copy it
+into your adapter folder: `[net] hosts` lists every server.
+
+A project folder can bring adapters along in its folder `adapters`. freemapper loads them only when you say so,
+with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each in a warning
+with the servers it may ask. The area page and the AI assistant never load them. Use the switch for a project of
+your own.
+
+`freemapper adapters check <folder>` checks the folder of an adapter without asking a server: whether it would
+load, and what its author should know. With `--live --bbox minLon,minLat,maxLon,maxLat` it also asks the
+services of the adapter for a small box inside its boundary (150 m by 150 m is enough) and says what arrived
+for each capability:
+
+```sh
+freemapper adapters check ~/my-adapters/elbaue
+freemapper adapters check ~/my-adapters/elbaue --live --bbox 12.2430,51.8350,12.2452,51.8364
+```
+
+The exit code is 0 when the adapter passes, 1 with findings and 2 when the check could not run.
+
+How to write an adapter is in the [guide for contributors](../adapters/en.md), with a
+[tutorial](../adapters/tutorial.en.md) that builds one step by step and a
+[reference](../adapters/manifest-v1.en.md) of every key of the manifest. The manifests of the built-in states in
+`crates/adapters/de/manifests/` are examples.
+
+### When a service moves
+
+For a built-in state freemapper asks only the servers its adapter names. When an agency moves a service to
+another server, the fetch fails with a message that starts with the refused address, names the state and ends
+with a command. With that command you allow the state the one host until a new version of freemapper knows it
+itself:
+
+```sh
+freemapper adapters allow-host hessen new-server.hessen.de
+```
+
+The area page and the AI assistant read the allowed hosts when they start. If the fetch failed there, close
+the page (or quit the assistant) and start it again after the command; until then it refuses the host as before.
+
+Take the host from the message and check that it belongs to the agency of the state. Report the move (chapter
+16), so that the next version brings the host. Once a new version brings the host, the next `find`, `init`,
+`fetch`, `derive`, `export` or `run` says in a warning that your entry is no longer needed and removes it. The area page and the AI assistant
+through MCP never change the file.
+
+The allowed hosts are in `allowed-hosts.toml` in your configuration folder (`freemapper` under
+`~/Library/Application Support`, `~/.config` or `%APPDATA%`), and nowhere else: a project folder, an environment
+variable of freemapper, a switch of a run or the AI assistant through MCP cannot add a host. Where the
+configuration folder is, the system says, on Linux and macOS through `HOME` and `XDG_CONFIG_HOME`; whoever sets
+those for freemapper, the configuration of an MCP client for example, picks the file with them. A host must be a
+DNS name; an IP address, `localhost`, a name of the local network, a wildcard or a port is refused. For an
+allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
+allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
 
 ## 13. Working on later
 
@@ -962,7 +1039,7 @@ language. The most important messages, in their English wording:
 
 | Message (start) | Meaning | What to do |
 |---|---|---|
-| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony or Rhineland-Palatinate. Bremen is not included yet. | Choose another area; more states will follow. |
+| `the map area lies outside the supported states` | The area is not in Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate or Saarland. Bremen is not included yet. | Choose another area; more states will follow. |
 | `another freemapper run is using this folder (since …` | A second freemapper (a terminal, an AI assistant or the area page) works in this project folder. The file `.freemapper-run.lock` in the folder shows it. | Wait until the other run is done, or stop it. A run that was killed leaves the file behind; after a minute without a sign of life it is replaced automatically. |
 | `map area plus buffer is … more than 4000 m per side` | The area is too large. | Draw it smaller or split it into several maps. |
 | `no area found for …` | The place was not found, or its grounds are several parts in OSM. | Spell it differently, draw the area in the browser, or pick a part with `--osm <id> --part <n>`. |
@@ -974,13 +1051,15 @@ language. The most important messages, in their English wording:
 | `warning: no ALKIS buildings found in the map area` | There are no buildings in the area, e.g. in a forest. | Nothing, if that is right. Otherwise fetch again later. |
 | `warning: the map is written, but its preview is missing: …` | The map was written, but `<name>-preview.webp` could not be written, for example because the disk is full or a folder of that name is in the way. The OCAD files and PDFs are still written. | Make room or remove what is in the way, then run again with "Replace the existing map" (`--force`). |
 | `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. The orthophoto and height models come from the state holding the centre, ALKIS and OSM from both states. | The templates stay empty where that state's orthophoto and height models end. Draw that part by hand. |
-| `warning: part of the map area lies outside the supported states` | Part of the area lies outside every supported state: abroad, at sea or in a German state freemapper does not support yet. Those states are Bremen, Thuringia, Bavaria, Baden-Württemberg and Saarland. The sea includes the Baltic off Schleswig-Holstein and Mecklenburg-Vorpommern and the Schleswig-Holstein Wadden Sea, for example between Föhr and Dagebüll. The boundaries of these two states leave that water out. There are no state data there, the orthophoto can be white, and ALKIS gives no buildings or land use. freemapper reports this when it fetches, not in the size estimate. A strip of up to 50 m beyond the border does not trigger the warning. | Draw that part by hand or move the area. |
+| `warning: part of the map area lies outside the supported states` | Part of the area lies outside every supported state: abroad, at sea or in a German state freemapper does not support yet. Those states are Bremen, Thuringia, Bavaria and Baden-Württemberg. The sea includes the Baltic off Schleswig-Holstein and Mecklenburg-Vorpommern and the Schleswig-Holstein Wadden Sea, for example between Föhr and Dagebüll. The boundaries of these two states leave that water out. There are no state data there, the orthophoto can be white, and ALKIS gives no buildings or land use. freemapper reports this when it fetches, not in the size estimate. A strip of up to 50 m beyond the border does not trigger the warning. | Draw that part by hand or move the area. |
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | Area selection: "access blocked" / 403 from OpenStreetMap, or the base map stays grey | The base map comes from `tile.openstreetmap.org`. Its tile policy asks for an identifiable application (`User-Agent`) or a valid `Referer`; the browser sends no `Referer` here. Up to 0.9.1 the browser loaded the tiles itself and got 403. Since 0.9.2 the local server fetches the tiles with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and passes them to the browser. | Update freemapper. The computer needs internet access. If the server answers 502, the reason is in the response (for example HTTP 403 or no connection). The state aerial images are not affected. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
+| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 16). See "When a service moves" in chapter 12. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: …` with another reason | freemapper never connects to an address of this computer or of the local network, follows at most three redirects in a row and no redirect to `http`. | Nothing to allow. For a built-in state, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
 | `download of … is larger than … MB; stopped` | A server (the OSM extract, the Downloadportal of Schleswig-Holstein, the full ALKIS or the Potsdam tree cadastre) sends far more than the file can be; freemapper stops and removes the partial download. For the trees it stands in the brackets of `warning: potsdam tree cadastre unavailable`. | Try again later, otherwise report a bug. |
-| `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Hesse: the Downloadcenter may have changed. Schleswig-Holstein and Mecklenburg-Vorpommern: the Downloadportal may have changed. North Rhine-Westphalia: the tile list of Geobasis NRW names no tile for the area. Rhineland-Palatinate: after the colon follows the reason for each tile, for example `not on the server (404)`, `not in LVermGeo RP's tile list` or `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Report a bug. |
+| `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Saarland: none of the district archives has a tile for the area; the LVGL probably replaced them with a newer survey. Hesse: the Downloadcenter may have changed. Schleswig-Holstein and Mecklenburg-Vorpommern: the Downloadportal may have changed. North Rhine-Westphalia: the tile list of Geobasis NRW names no tile for the area. Rhineland-Palatinate: after the colon follows the reason for each tile, for example `not on the server (404)`, `not in LVermGeo RP's tile list` or `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Report a bug. |
 | `warning: the … has no tile(s) … inside Hamburg` | Single tiles are missing from the archive. | The templates stay empty there. |
 | `warning: the … has no tile(s) … inside Hesse` | Single tiles are missing from the municipality's Downloadcenter archive. | The templates stay empty there. |
 | `warning: the Downloadcenter has no file for "…"` | The Downloadcenter has no file for the place (e.g. an unincorporated area). The tiles it names after `;` (if any) stayed empty because no other municipality's file holds them. | Tiles taken from neighbouring municipalities need no action; the named tiles stay empty. |
@@ -1101,6 +1180,7 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
 - `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <year>, dl-de/zero-2-0` (North Rhine-Westphalia; the licence requires neither attribution nor a change note, freemapper names the source anyway)
 - `© GeoBasis-DE/LGLN <year>, Daten geändert, CC BY 4.0` and the licence link https://creativecommons.org/licenses/by/4.0/ (Lower Saxony; `<year>` is the download year)
 - `©GeoBasis-DE / LVermGeoRP<year>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]` and the licence note `Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0` (Rhineland-Palatinate; `<year>` is the download year, and the licence note goes only into the map notes and `ATTRIBUTION.txt`)
+- `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert` and the same licence note as for Rhineland-Palatinate (Saarland; `<year>` is the download year, and the licence note goes only into `ATTRIBUTION.txt` and the map notes)
 - `Created with freemapper – https://github.com/HenryJobst/freemapper`
 
 Keep these lines on printed and published maps.

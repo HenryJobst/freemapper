@@ -68,6 +68,80 @@ pub enum FetchError {
     /// The caller asked to stop; no request was made.
     #[error("cancelled")]
     Cancelled,
+    /// freemapper does not send this request: the URL, the address its host resolves to or a
+    /// redirect is against the rules for where requests go. Asking again does not help.
+    /// `url` has no query and no fragment.
+    #[error("{url}: freemapper does not send requests to this address: {reason}")]
+    NotAllowed { url: String, reason: String },
+    /// freemapper does not send this request: the adapter it was made for does not name the
+    /// host. The message says what the person can do. Asking again does not help.
+    #[error("{0}")]
+    HostNotNamed(Box<HostNotNamed>),
+}
+
+/// A request that was not sent because its host is not one the adapter names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostNotNamed {
+    /// The address that was not asked, without query and fragment.
+    pub target: String,
+    /// Its host.
+    pub host: String,
+    /// The address that redirected to `target`, without query and fragment.
+    pub from: Option<String>,
+    /// The id of the adapter the request was made for.
+    pub adapter: String,
+    /// The English name of its region.
+    pub name: String,
+    pub remedy: Remedy,
+}
+
+/// What a person can do when an adapter does not name a host its service leads to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Remedy {
+    /// The adapter is part of the program: the person allows the host for it
+    /// (`freemapper adapters allow-host`) and reports the change.
+    AllowHost,
+    /// The adapter is a folder of the person: the host goes into its manifest.
+    Manifest,
+}
+
+/// Where a change of a built-in adapter's services is reported.
+pub const ISSUES_URL: &str = "https://github.com/HenryJobst/freemapper/issues";
+
+impl std::fmt::Display for HostNotNamed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            target,
+            host,
+            from,
+            adapter,
+            name,
+            remedy,
+        } = self;
+        write!(
+            f,
+            "{target}: freemapper does not send requests to this address: "
+        )?;
+        match remedy {
+            Remedy::AllowHost => write!(f, "the adapter of {name} does not name the host {host}")?,
+            Remedy::Manifest => write!(f, "the adapter {adapter} does not name the host {host}")?,
+        }
+        if let Some(from) = from {
+            write!(f, " ({from} redirects there)")?;
+        }
+        match remedy {
+            Remedy::AllowHost => write!(
+                f,
+                ". If the service has moved there, allow the host with `freemapper adapters \
+                 allow-host {adapter} {host}` and report it at {ISSUES_URL}"
+            ),
+            Remedy::Manifest => write!(
+                f,
+                ". If the service has moved there, add the host to `[net] hosts` of the \
+                 adapter's manifest"
+            ),
+        }
+    }
 }
 
 /// What a raster fetch can end with. Each variant stands for one error of the engine, which

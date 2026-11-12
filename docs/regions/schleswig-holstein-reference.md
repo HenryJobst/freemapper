@@ -488,7 +488,7 @@ The school parcel's `bez` is **"Öffentliche Zwecke"** (as in Saxony-Anhalt), no
 
 ---
 
-## 10. State boundary (for `assets/regions/schleswig-holstein.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/schleswigholstein/boundary.geojson`)
 
 - **Polygon source (recommended):** the VwG WFS, `ave:VerwaltungsEinheit` filtered on `art = Bundesland`, directly in 25833:
   ```
@@ -510,7 +510,7 @@ The school parcel's `bez` is **"Öffentliche Zwecke"** (as in Saxony-Anhalt), no
     dropped: the 25 degenerate holes, a 98 m² islet near Helgoland (54.182°N 7.914°E) and a 742 m² 144-vertex sliver near Kiel
     (54.391°N 10.194°E).
   - Extent E 34,838–260,730, N 5,921,411–6,120,909: **positive eastings**.
-- **Shared border with `assets/regions/hamburg.geojson`** (both 25 m simplified from ALKIS):
+- **Shared border with `crates/adapters/de/manifests/hamburg/boundary.geojson`** (both 25 m simplified from ALKIS):
   - shared length ≈131 km; distance between the two simplified lines: p50 0.0 m, p90 0.0 m, **p99 2.7 m**, max 95 m (the max is
     where the lines approach without being shared, e.g. across the Elbe);
   - by 5 m grid sampling within 125 m of the Hamburg line: **overlap ≈2,350 m²**, gap ≈20,100 m² (cells outside both within

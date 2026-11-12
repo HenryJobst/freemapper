@@ -16,11 +16,11 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries};
+use crate::fetch::{FetchError, FetchMode, Fetcher};
 use crate::note::{Arg, note};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::write_float_raster;
-use crate::sources::wcs::{WcsService, exception_text};
+use crate::sources::wcs::WcsService;
 use crate::sources::wms::WmsService;
 
 /// The orthophoto WMS (TrueDOP20, newest flight).
@@ -116,40 +116,21 @@ pub fn surface_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String>
 }
 
 fn index_date(fetcher: &dyn Fetcher, layer: &str, bbox: &BoundingBox) -> Option<String> {
-    let (e, n) = (
-        (bbox.min_e + bbox.max_e) / 2.0,
-        (bbox.min_n + bbox.max_n) / 2.0,
-    );
-    let url = format!(
-        "{INDEX_URL}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
-         &TYPENAMES=atkis_geobasis_bestand:{layer}&OUTPUTFORMAT=GEOJSON\
-         &BBOX={},{},{},{},urn:ogc:def:crs:EPSG::25832",
-        (e - 10.0).floor(),
-        (n - 10.0).floor(),
-        (e + 10.0).ceil(),
-        (n + 10.0).ceil()
-    );
-    // A failed index costs a re-download of the orthophoto, so it gets the usual retries.
-    get_with_retries(fetcher, &url, |bytes| {
-        let text = String::from_utf8_lossy(bytes);
-        serde_json::from_str::<serde_json::Value>(&text)
-            .ok()
-            .filter(|answer| answer["features"].is_array())
-            .map(|_| parse_index_date(&text))
-            .ok_or_else(|| FetchError::Http {
-                url: url.clone(),
-                message: format!("not a tile index answer: {}", exception_text(bytes)),
-            })
-    })
-    .ok()
-    .flatten()
+    freemapper_sources::dates::wfs_feature_date(
+        fetcher,
+        (
+            INDEX_URL,
+            &format!("atkis_geobasis_bestand:{layer}"),
+            "BFDATUM",
+        ),
+        Crs::Utm32,
+        bbox,
+    )
 }
 
 /// The flight date (`BFDATUM`, e.g. `29.04.2026`) of the first feature in a tile index answer.
 pub fn parse_index_date(json: &str) -> Option<String> {
-    let answer: serde_json::Value = serde_json::from_str(json).ok()?;
-    let date = answer["features"].get(0)?["properties"]["BFDATUM"].as_str()?;
-    (!date.is_empty()).then(|| date.to_string())
+    freemapper_sources::dates::parse_feature_field(json, "BFDATUM")
 }
 
 /// The provider id of the adapters.

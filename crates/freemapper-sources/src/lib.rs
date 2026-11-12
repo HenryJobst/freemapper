@@ -5,6 +5,7 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod alkis_source;
+pub mod dates;
 pub mod float_tiff;
 pub mod height_model;
 pub mod metalink;
@@ -12,6 +13,7 @@ pub mod nas;
 pub mod ogc_api;
 pub mod raster;
 pub mod raster_fetch;
+pub mod replay;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;

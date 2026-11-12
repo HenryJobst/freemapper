@@ -23,6 +23,9 @@ pub struct WfsService {
     /// so it stays a candidate instead of becoming a paved map object. `None` where the
     /// state's OGC API keeps squares without `bez` as they are (the WFS then does the same).
     pub square_bez: Option<Cow<'static, str>>,
+    /// Whether the pages are asked sorted by `oid`. `false` for a service that refuses
+    /// `SORTBY` (Saarland's ArcGIS server): its pages are read in the order it gives them.
+    pub sorted: bool,
 }
 
 /// GeoSN, Saxony (EPSG:25833; land use per parcel part).
@@ -33,6 +36,7 @@ pub const GEOSN: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm33,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Sachsen)")),
+    sorted: true,
 };
 
 /// LVermGeo, Saxony-Anhalt (EPSG:25832; land use objects, not split by parcel).
@@ -45,6 +49,7 @@ pub const LVERMGEO: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:Nutzung"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Sachsen-Anhalt)")),
+    sorted: true,
 };
 
 /// HVBG, Hesse (EPSG:25832; land use per parcel part). `ave:Nutzung` carries no `nutzart` in
@@ -56,6 +61,7 @@ pub const HVBG: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Hessen)")),
+    sorted: true,
 };
 
 /// Geobasis NRW, Nordrhein-Westfalen (EPSG:25832; land use per parcel part). Same schema and
@@ -67,6 +73,7 @@ pub const GEOBASIS_NRW: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Nordrhein-Westfalen)")),
+    sorted: true,
 };
 
 /// LGLN, Niedersachsen (EPSG:25832; land use per parcel part). Same schema and LGB spellings as
@@ -79,6 +86,7 @@ pub const LGLN: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Niedersachsen)")),
+    sorted: true,
 };
 
 /// LVermGeo RP, Rheinland-Pfalz (EPSG:25832; MapServer). Land use is `ave:Nutzung` (per object, with
@@ -91,6 +99,7 @@ pub const LVERMGEO_RP: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:Nutzung"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Rheinland-Pfalz)")),
+    sorted: true,
 };
 
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
@@ -103,6 +112,7 @@ pub const LVERMGEO_SH: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: Some(Cow::Borrowed("ohne Unterart (Schleswig-Holstein)")),
+    sorted: true,
 };
 
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
@@ -115,6 +125,7 @@ pub const LGV: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm32,
     square_bez: None,
+    sorted: true,
 };
 
 /// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833; land use per parcel part): the classic WFS beside
@@ -127,6 +138,7 @@ pub const LAIV_MV: WfsService = WfsService {
     land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
     crs: Crs::Utm33,
     square_bez: None,
+    sorted: true,
 };
 
 /// Features per page; GeoSN returns at most 20 000 per request.
@@ -139,8 +151,9 @@ impl WfsService {
     /// URL of the page of `type_name` features in `bbox` (in [`WfsService::crs`]) starting at
     /// feature `start`.
     pub fn wfs_url(&self, type_name: &str, bbox: &BoundingBox, start: usize) -> String {
+        let sort = if self.sorted { "&SORTBY=oid" } else { "" };
         format!(
-            "{}&SORTBY=oid&COUNT={PAGE_COUNT}&STARTINDEX={start}",
+            "{}{sort}&COUNT={PAGE_COUNT}&STARTINDEX={start}",
             self.query_url(type_name, bbox)
         )
     }
@@ -245,6 +258,11 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
             Event::GeneralRef(r) => text_buf.extend(crate::xml::resolve_entity(r.as_ref())),
             Event::End(_) => {
                 let Some(name) = path.pop() else { continue };
+                let name = if path.len() == 2 {
+                    attribute(&name)
+                } else {
+                    name
+                };
                 if let Some(f) = feature.as_mut() {
                     match path.len() {
                         // The end of the feature element itself.
@@ -254,14 +272,18 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                             }
                         }
                         // LVermGeo RP wraps the date: `<aktualit><gml:timePosition>…` (a `TimeInstant` may sit between).
-                        depth if depth >= 3 && name == "timePosition" && path[2] == "aktualit" => {
+                        depth
+                            if depth >= 3
+                                && name == "timePosition"
+                                && attribute(&path[2]) == "aktualit" =>
+                        {
                             let value = text_buf.trim();
                             if !value.is_empty() {
-                                f.properties.insert(path[2].clone(), Value::from(value));
+                                f.properties.insert(attribute(&path[2]), Value::from(value));
                             }
                         }
                         // A direct child of the feature element: an attribute.
-                        2 if name != "geometrie" && name != "identifier" => {
+                        2 if !is_geometry(&name) && name != "identifier" => {
                             let value = text_buf.trim();
                             if !value.is_empty() {
                                 f.properties.insert(name, Value::from(value));
@@ -317,7 +339,7 @@ struct GmlFeature {
 impl GmlFeature {
     /// Whether the element opened at `path` lies inside the feature's `geometrie`.
     fn in_geometry(&self, path: &[String]) -> bool {
-        path.len() >= 3 && path[2] == "geometrie"
+        path.len() >= 3 && is_geometry(&path[2])
     }
 
     fn into_geojson(self) -> Value {
@@ -335,13 +357,31 @@ impl GmlFeature {
     }
 }
 
+/// The name of an attribute as the simplified schema writes it. A server that writes the
+/// names all in upper case (`OID`, `AKTUALIT`; Saarland's ArcGIS server) means the same
+/// attributes; a name with a lower-case letter is taken as it stands.
+fn attribute(name: &str) -> String {
+    if name.bytes().any(|byte| byte.is_ascii_lowercase()) {
+        name.to_string()
+    } else {
+        name.to_lowercase()
+    }
+}
+
+/// Whether the child `name` of a feature holds its geometry: `geometrie` in the schema,
+/// `SHAPE` from an ArcGIS server.
+fn is_geometry(name: &str) -> bool {
+    matches!(attribute(name).as_str(), "geometrie" | "shape")
+}
+
 /// The element name without its namespace prefix.
 fn local(name: &str) -> String {
     name.rsplit(':').next().unwrap_or_default().to_string()
 }
 
 /// All features of `type_name` in `bbox`, page by page; a feature repeated on a later page
-/// (same `oid`) is kept once, and a page without new features ends the paging.
+/// (same `oid`) is kept once, and a page without new features ends the paging. The features
+/// come in the order of their `oid`: from the service, or sorted here when it does not sort.
 pub fn fetch_wfs(
     fetcher: &dyn Fetcher,
     service: &WfsService,
@@ -398,6 +438,13 @@ pub fn fetch_wfs(
             "{name} returned {} of {matched} features in the area; run `freemapper fetch` again",
             features.len()
         ))));
+    }
+    if !service.sorted {
+        // The order the service did not give: two runs over one area write the same.
+        features.sort_by(|a, b| {
+            let oid = |feature: &Value| feature["properties"]["oid"].as_str().map(str::to_string);
+            oid(a).cmp(&oid(b))
+        });
     }
     Ok(features)
 }
@@ -460,6 +507,11 @@ pub mod test_support {
         include_str!("../../../tests/fixtures/rheinland-pfalz-buildings.gml");
     pub const RP_LAND_USE: &str =
         include_str!("../../../tests/fixtures/rheinland-pfalz-land-use.gml");
+    /// Two buildings and two land use areas at Saarbrücken, from the WFS of the Saarland
+    /// geoportal (an ArcGIS server): attribute names in upper case, the geometry in `SHAPE`.
+    pub const SL_BUILDINGS: &str =
+        include_str!("../../../tests/fixtures/saarland-wfs-gebaeude.gml");
+    pub const SL_LAND_USE: &str = include_str!("../../../tests/fixtures/saarland-wfs-nutzung.gml");
 }
 
 #[cfg(test)]
@@ -468,6 +520,164 @@ mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
     use crate::ogc_api::{parse_buildings, parse_land_use};
+
+    /// The answer of a server that writes the attributes of the simplified schema in upper
+    /// case and calls the geometry `SHAPE`, with the names of the schema put in by hand.
+    fn lowered(gml: &str) -> String {
+        let mut text = gml.replace("ALKIS_ALKIS_WFS_ohne_Eig:SHAPE>", "ave:geometrie>");
+        for name in [
+            "OID",
+            "AKTUALIT",
+            "GEBNUTZBEZ",
+            "FUNKTION",
+            "GFKZSHH",
+            "GMDSCHL",
+            "LAGEBEZTXT",
+            "NUTZART",
+            "BEZ",
+            "FID",
+        ] {
+            text = text.replace(
+                &format!("ALKIS_ALKIS_WFS_ohne_Eig:{name}>"),
+                &format!("ave:{}>", name.to_lowercase()),
+            );
+        }
+        text
+    }
+
+    /// Saarland's server writes the attribute names of the simplified schema in upper case.
+    /// The reader stores them under the names of the schema, with the geometry of `SHAPE`.
+    #[test]
+    fn saarland_buildings_parse_like_the_lower_case_schema() {
+        let features = parse_gml(SL_BUILDINGS).unwrap();
+        assert_eq!(features.len(), 2);
+        let first = &features[0];
+        assert_eq!(first["id"], "DESLALKI4T001GlcBL");
+        let properties = &first["properties"];
+        assert_eq!(properties["oid"], "DESLALKI4T001GlcBL");
+        assert_eq!(
+            properties["funktion"],
+            "Gebäude für Wirtschaft oder Gewerbe"
+        );
+        assert_eq!(properties["gebnutzbez"], "Gebäude");
+        assert_eq!(properties["aktualit"], "2026-04-16Z");
+        assert!(properties.get("OID").is_none() && properties.get("shape").is_none());
+        assert_eq!(first["geometry"]["type"], "MultiPolygon");
+        let ring = first["geometry"]["coordinates"][0][0].as_array().unwrap();
+        assert_eq!(ring.len(), 28);
+        assert_eq!(
+            ring[0],
+            serde_json::json!([353_919.482_999_8, 5_455_359.592_999_94])
+        );
+        assert_eq!(features, parse_gml(&lowered(SL_BUILDINGS)).unwrap());
+        // The buildings are what the build reads from every state.
+        let parsed = parse_buildings(
+            &serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string(),
+        )
+        .unwrap();
+        assert_eq!(parsed.buildings.len(), 2);
+        assert_eq!(parsed.buildings[0].oid, "DESLALKI4T001GlcBL");
+    }
+
+    #[test]
+    fn saarland_land_use_parses_like_the_lower_case_schema() {
+        let features = parse_gml(SL_LAND_USE).unwrap();
+        assert_eq!(features.len(), 2);
+        let properties = &features[0]["properties"];
+        assert_eq!(properties["oid"], "DESLALKI1Bv000ABTN");
+        assert_eq!(properties["nutzart"], "Industrie- und Gewerbefläche");
+        assert_eq!(properties["bez"], "Handel und Dienstleistung");
+        assert_eq!(
+            features[0]["geometry"]["coordinates"][0][0]
+                .as_array()
+                .unwrap()
+                .len(),
+            30
+        );
+        assert_eq!(features, parse_gml(&lowered(SL_LAND_USE)).unwrap());
+    }
+
+    /// A name with a lower-case letter is an attribute as the service writes it: only names
+    /// all in upper case are those of the schema.
+    #[test]
+    fn mixed_case_attribute_names_stay_as_they_are() {
+        let features = parse_gml(SL_BUILDINGS).unwrap();
+        assert_eq!(features[0]["properties"]["Shape_Area"], "1615.21775350");
+        assert_eq!(features[0]["properties"]["fid"], "344581");
+    }
+
+    /// A service that refuses `SORTBY` (Saarland's ArcGIS server answers it with an
+    /// exception) is paged in the order it gives, and its features are sorted by `oid` here;
+    /// the others are sorted by the service as before.
+    #[test]
+    fn an_unsorted_service_is_paged_without_sortby() {
+        let bbox = BoundingBox {
+            min_e: 353_875.0,
+            min_n: 5_455_271.0,
+            max_e: 354_075.0,
+            max_n: 5_455_471.0,
+        };
+        let unsorted = WfsService {
+            url: "https://geoportal.saarland.de/registry/wfs/414".into(),
+            sorted: false,
+            ..LVERMGEO_RP
+        };
+        assert_eq!(
+            unsorted.wfs_url("ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk", &bbox, 4),
+            format!(
+                "https://geoportal.saarland.de/registry/wfs/414?SERVICE=WFS&VERSION=2.0.0\
+                 &REQUEST=GetFeature&TYPENAMES=ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk\
+                 &SRSNAME=urn:ogc:def:crs:EPSG::25832\
+                 &BBOX=353875,5455271,354075,5455471,urn:ogc:def:crs:EPSG::25832\
+                 &COUNT={PAGE_COUNT}&STARTINDEX=4"
+            )
+        );
+        let sorted = LVERMGEO_RP.wfs_url("ave:GebaeudeBauwerk", &bbox, 0);
+        assert!(sorted.contains("&SORTBY=oid&COUNT="), "{sorted}");
+        // Paging goes on without the sort: two pages, each feature once.
+        let fetcher = MapFetcher::default();
+        let members: Vec<&str> = SL_BUILDINGS
+            .split("<wfs:member>")
+            .skip(1)
+            .map(|rest| rest.split("</wfs:member>").next().unwrap())
+            .collect();
+        let head = SL_BUILDINGS.split("<wfs:member>").next().unwrap();
+        let page = |members: &[&str]| {
+            let body: String = members
+                .iter()
+                .map(|member| format!("<wfs:member>{member}</wfs:member>"))
+                .collect();
+            format!("{head}{body}</wfs:FeatureCollection>").into_bytes()
+        };
+        let type_name = "ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk";
+        fetcher.insert_prefix(
+            &format!("{}&RESULTTYPE=hits", unsorted.query_url(type_name, &bbox)),
+            format!(
+                "{}</wfs:FeatureCollection>",
+                head.replace("numberMatched=\"44\"", "numberMatched=\"3\"")
+            )
+            .into_bytes(),
+        );
+        fetcher.insert(&unsorted.wfs_url(type_name, &bbox, 0), page(&members));
+        fetcher.insert(
+            &unsorted.wfs_url(type_name, &bbox, PAGE_COUNT),
+            page(&[&members[1].replace("DESLALKI4T0019CcBL", "DESLALKI4T00third")]),
+        );
+        let features = fetch_wfs(&fetcher, &unsorted, type_name, &bbox).unwrap();
+        let oids: Vec<&str> = features
+            .iter()
+            .map(|feature| feature["properties"]["oid"].as_str().unwrap())
+            .collect();
+        // In the order of the `oid`, as a sorted service gives them: two runs write the same.
+        assert_eq!(
+            oids,
+            [
+                "DESLALKI4T0019CcBL",
+                "DESLALKI4T001GlcBL",
+                "DESLALKI4T00third"
+            ]
+        );
+    }
 
     /// Evangelisches Kreuzgymnasium Dresden.
     const SCHOOL: BoundingBox = BoundingBox {

@@ -504,7 +504,7 @@ as in Brandenburg, unlike Hesse's generalised values.
 
 ---
 
-## 10. State boundary (for `assets/regions/nordrhein-westfalen.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/nordrheinwestfalen/boundary.geojson`)
 
 - **Source:** the ALKIS WFS `ave:VerwaltungsEinheit`, `art = Bundesland`, oid **`DE05`**, `name Nordrhein-Westfalen`,
   `ags 05`, `aktualit 2026-09-30Z`. Fetched by a tiny bbox inside NRW (returns Gemeinde DE05315000, Kreis DE05315,
@@ -531,7 +531,7 @@ as in Brandenburg, unlike Hesse's generalised values.
     `check_validation`; not run.
   - Area 34,312.32 km² (full 34,312.55), symmetric difference 7.53 km², Hausdorff 29.7 m.
   - Extent E −139634 … 118732, N 5608984 … 5839628: **negative eastings**, like the Hesse asset.
-- **Against `assets/regions/hessen.geojson`** (`scripts/border_check.py`, `scripts/gap_border.py`):
+- **Against `crates/adapters/de/manifests/hessen/boundary.geojson`** (`scripts/border_check.py`, `scripts/gap_border.py`):
   - The shared border is 273.5 km, from the NRW–Hesse–RLP tripoint (50.6857°N 8.1250°E) to the NRW–Hesse–Lower Saxony
     tripoint (51.6506°N 9.4401°E).
   - The full-resolution NRW polygon and the full Hesse polygon (HVBG ALKIS DE06) overlap by only **381 m²**: the two states'

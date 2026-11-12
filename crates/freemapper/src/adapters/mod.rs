@@ -9,15 +9,32 @@ use std::sync::OnceLock;
 pub use freemapper_adapter_api::adapter::RegionAdapter;
 pub use freemapper_adapter_api::registry::Registry;
 
-/// The adapters built into the program: the German states of `freemapper-adapters-de`, in the
-/// order the region functions always went through them.
+/// The adapters built into the program: the German states of `freemapper-adapters-de` with
+/// their raster backends, in the order the region functions always went through them.
 pub fn builtin() -> Registry {
+    builtin_with_hosts(&ExtraHosts::new())
+}
+
+/// The hosts a person allowed for built-in adapters besides those of their manifests, by the
+/// id of the adapter (ADR 0110).
+pub type ExtraHosts = std::collections::BTreeMap<String, Vec<String>>;
+
+/// [`builtin`] with the hosts of `extra` allowed for the adapters it names. A host that is no
+/// DNS name as a manifest's hosts are is left out; the check of the address a connection goes
+/// to holds for these hosts as for all.
+pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
     let mut registry = Registry::new();
-    for adapter in freemapper_adapters_de::states::adapters() {
-        registry
-            .add(adapter)
-            .expect("the built-in states have distinct ids");
-    }
+    freemapper_adapters_de::states::register_with_hosts(&mut registry, extra)
+        .expect("the built-in states have distinct ids and backends");
+    registry
+}
+
+/// A registry with the raster backends of the program and no adapter: what the manifest of an
+/// adapter that is checked on its own may name.
+pub fn backends() -> Registry {
+    let mut registry = Registry::new();
+    freemapper_adapters_de::states::register_backends(&mut registry)
+        .expect("the built-in backends have distinct names");
     registry
 }
 
@@ -34,6 +51,22 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
     REGISTRY.set(registry)
 }
 
+/// What `work` comes to when it asks for the adapter `id` of the registry: through `fetcher`,
+/// behind the policy of the adapter ([`RegionAdapter::policy`]) when it has one. For what the
+/// engine fetches itself for one region (the registers and the K5 of Berlin).
+pub(crate) fn asking_for<T>(
+    id: &str,
+    fetcher: &dyn crate::fetch::Fetcher,
+    work: impl FnOnce(&dyn crate::fetch::Fetcher) -> T,
+) -> T {
+    match registry().get(id).and_then(|adapter| adapter.policy()) {
+        Some(policy) => work(&freemapper_adapter_api::policy::PolicyFetcher::new(
+            fetcher, policy,
+        )),
+        None => work(fetcher),
+    }
+}
+
 /// The names of the regions of the registry in its order, German with `german`, else English:
 /// the list of what freemapper supports, for messages.
 pub fn region_names(german: bool) -> Vec<&'static str> {
@@ -48,6 +81,109 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::Arc;
+
+    use freemapper_adapter_api::extras::{NasService, TreeDataset};
+    use freemapper_adapter_api::info::{Names, RegionInfo};
+    use freemapper_adapter_api::policy::UrlPolicy;
+    use freemapper_adapter_api::records::AdapterId;
+
+    use super::*;
+
+    /// The id of the region of [`square`].
+    pub(crate) const SQUARE: AdapterId = AdapterId::built_in("square");
+
+    /// A square region with a NAS service and the hosts its requests are held to, as an
+    /// adapter from a folder has them.
+    struct Square {
+        info: RegionInfo,
+        boundary: geo_types::MultiPolygon<f64>,
+        nas: Option<NasService>,
+        policy: Option<UrlPolicy>,
+    }
+
+    impl RegionAdapter for Square {
+        fn info(&self) -> &RegionInfo {
+            &self.info
+        }
+
+        fn policy(&self) -> Option<&UrlPolicy> {
+            self.policy.as_ref()
+        }
+
+        fn boundary(&self) -> &geo_types::MultiPolygon<f64> {
+            &self.boundary
+        }
+
+        fn alkis(&self) -> Option<&dyn freemapper_adapter_api::alkis::AlkisSource> {
+            None
+        }
+
+        fn nas(&self) -> Option<&NasService> {
+            self.nas.as_ref()
+        }
+
+        fn tree_datasets(&self) -> &[TreeDataset] {
+            &[]
+        }
+
+        fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
+            None
+        }
+
+        fn attribution(
+            &self,
+            _used: &freemapper_adapter_api::credit::UsedSources<'_>,
+        ) -> Vec<freemapper_adapter_api::credit::CreditLine> {
+            Vec::new()
+        }
+
+        fn estimate(
+            &self,
+            _area: &freemapper_adapter_api::estimate::EstimateArea,
+            _env: &freemapper_adapter_api::estimate::EstimateEnv<'_>,
+        ) -> Vec<freemapper_adapter_api::records::EstimateItem> {
+            Vec::new()
+        }
+    }
+
+    /// A registry with the one region [`SQUARE`], E and N from 0 to 10 km (EPSG:25833), with
+    /// the NAS service `nas`. `hosts`: the hosts its requests are held to, as for an adapter
+    /// from a folder; `None`: it asks as a built-in adapter does.
+    pub(crate) fn square(nas: Option<NasService>, hosts: Option<&[&str]>) -> Registry {
+        let mut registry = Registry::new();
+        registry
+            .add(Arc::new(Square {
+                info: RegionInfo {
+                    id: SQUARE,
+                    provider: SQUARE,
+                    names: Names {
+                        en: "Square".to_string(),
+                        de: "Quadrat".to_string(),
+                    },
+                    crs: crate::crs::Crs::Utm33,
+                    object_id_prefix: None,
+                    osm: Vec::new(),
+                    credit_short: None,
+                    preview: None,
+                },
+                boundary: geo_types::MultiPolygon(vec![
+                    geo_types::Rect::new(
+                        geo_types::coord! { x: 0.0, y: 0.0 },
+                        geo_types::coord! { x: 10_000.0, y: 10_000.0 },
+                    )
+                    .to_polygon(),
+                ]),
+                nas,
+                policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
+            }))
+            .unwrap();
+        registry
+    }
 }
 
 #[cfg(test)]
@@ -102,6 +238,44 @@ mod tests {
         assert!(trees::tree_datasets_for(&zwinger).is_empty());
     }
 
+    /// Each built-in adapter is held to the hosts of its own manifest, not to those of
+    /// another state.
+    #[test]
+    fn every_built_in_adapter_has_the_policy_of_its_manifest() {
+        assert!(registry().adapters().all(|a| a.policy().is_some()));
+        let hamburg = registry().get("hamburg").unwrap().policy().unwrap();
+        assert!(hamburg.check_url("https://geodienste.hamburg.de/x").is_ok());
+        assert!(hamburg.check_url("https://isk.geobasis-bb.de/x").is_err());
+        assert!(
+            hamburg
+                .check_url("https://download.geofabrik.de/x")
+                .is_err()
+        );
+    }
+
+    /// What the engine fetches itself for one region goes through that region's hosts: a
+    /// request off them is not sent, one on them reaches the fetcher, and an id the registry
+    /// does not have is asked plainly.
+    #[test]
+    fn asking_for_an_adapter_keeps_to_its_hosts() {
+        use crate::fetch::FetchError;
+        use crate::fetch::test_support::MapFetcher;
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", b"ok".to_vec());
+        let elsewhere = "https://geo.example.org/wms?token=abc";
+        let refused = asking_for("berlin", &fetcher, |fetcher| fetcher.get(elsewhere));
+        let Err(FetchError::HostNotNamed(refused)) = refused else {
+            panic!("{refused:?}");
+        };
+        assert_eq!(refused.target, "https://geo.example.org/wms");
+        assert_eq!(refused.adapter, "berlin");
+        assert_eq!(fetcher.calls.get(), 0);
+        let own = "https://gdi.berlin.de/services/wms/k5";
+        assert!(asking_for("berlin", &fetcher, |fetcher| fetcher.get(own)).is_ok());
+        assert!(asking_for("nowhere", &fetcher, |fetcher| fetcher.get(elsewhere)).is_ok());
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
     /// The error for an area outside every region names the regions of the registry; with the
     /// built-in states it reads as it always did.
     #[test]
@@ -110,21 +284,37 @@ mod tests {
             crate::project::ProjectError::OutsideCoverage.to_string(),
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
-             North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has data \
-             sources for those only so far"
+             North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland); freemapper \
+             has data sources for those only so far"
         );
         assert_eq!(region_names(true)[2], "Sachsen");
     }
 
+    /// The backends alone: no adapter, and every backend a built-in manifest names.
     #[test]
-    fn registry_lists_the_eleven_in_legacy_order() {
+    fn the_backends_come_without_an_adapter() {
+        let backends = backends();
+        assert_eq!(backends.len(), 0);
+        for name in ["lgb", "geosn", "lgv", "hvbg", "lgln"] {
+            assert!(backends.backend(name).is_some(), "{name}");
+        }
+        assert!(backends.backend("lvermgeo").is_none());
+    }
+
+    #[test]
+    fn registry_lists_the_twelve() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
-        let legacy: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
-        assert_eq!(ids, legacy);
-        assert_eq!(ids.len(), 11);
+        let all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
+        assert_eq!(ids, all);
+        assert_eq!(ids.len(), 12);
+        // The eleven that were code first, in the order the region functions always went
+        // through them; a state added since comes after them.
+        let legacy: Vec<String> = regions::LEGACY.iter().map(ToString::to_string).collect();
+        assert_eq!(ids[..11], legacy);
+        assert_eq!(ids[11], "saarland");
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 11);
+        assert_eq!(registry().len(), 12);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.
@@ -136,7 +326,8 @@ mod tests {
             serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
         let recorded = recorded.as_array().unwrap();
         let registry = builtin();
-        assert_eq!(recorded.len(), registry.len());
+        // The eleven of v0.12.0 come first in the registry; what was added since is not in G1.
+        assert_eq!(recorded.len(), regions::LEGACY.len());
         for (facts, adapter) in recorded.iter().zip(registry.adapters()) {
             let info = adapter.info();
             assert_eq!(facts["id"], info.id.as_str());

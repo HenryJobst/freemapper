@@ -24,8 +24,9 @@ pub const BERLIN_SURVEY_ATTRIBUTION: &str =
 /// The building heights (footprint dates), once their layer has features.
 pub const BERLIN_HEIGHTS_ATTRIBUTION: &str =
     "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
-/// The licence the LVermGeo RP line refers to (added to the project notes only).
-pub const RP_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
+/// The licence text the dl-de/by-2-0 credits of Rhineland-Palatinate and Saarland refer to
+/// (added to the project notes only).
+pub const DL_DE_BY_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
 /// Niedersachsen) refer to (added to the project notes only).
@@ -94,7 +95,15 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
                 format!(
                     "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
                 ),
-                RP_LICENCE_NOTE,
+                DL_DE_BY_LICENCE_NOTE,
+            )
+        }),
+        // The source note of the LVGL's records, `© GeoBasis DE/LVGL-SL (Jahr)`, with the year
+        // in its parentheses, the note of changes and the licence.
+        State::Saarland => year().map(|year| {
+            CreditLine::with_licence(
+                format!("© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"),
+                DL_DE_BY_LICENCE_NOTE,
             )
         }),
     };
@@ -187,4 +196,108 @@ pub fn tree_attribution(registers: &[&str]) -> Vec<String> {
         .filter(|d| registers.contains(&d.id.as_ref()))
         .map(|d| d.attribution.to_string())
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use freemapper_adapter_api::adapter::RegionAdapter as _;
+    use freemapper_adapter_api::credit::{AlkisUse, lines_with_licences};
+    use freemapper_adapter_api::records::{AdapterId, WcsRecord, WmsRecord};
+    use freemapper_adapter_api::registry::Registry;
+
+    use crate::states::StateAdapter;
+
+    use super::*;
+
+    fn day(year: i32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(year, 6, 15).unwrap()
+    }
+
+    /// The source note of the LVGL's records, `© GeoBasis DE/LVGL-SL (Jahr)`, with the year of
+    /// the newest fetch, the licence and the note of changes; the notes of the project add the
+    /// address of the licence text.
+    #[test]
+    fn saarland_names_the_lvgl_the_year_and_the_licence() {
+        let line =
+            |year: i32| format!("© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert");
+        let nothing = UsedSources::default();
+        assert!(lines(State::Saarland, &nothing).is_empty());
+
+        let alkis = UsedSources {
+            alkis: vec![AlkisUse {
+                regions: vec![AdapterId::built_in("saarland")],
+                fetched: day(2025),
+            }],
+            ..UsedSources::default()
+        };
+        let texts = |used: &UsedSources<'_>| -> Vec<String> {
+            lines(State::Saarland, used)
+                .into_iter()
+                .map(|line| line.text)
+                .collect()
+        };
+        assert_eq!(texts(&alkis), [line(2025)]);
+
+        let terrain = WcsRecord {
+            fetched: day(2026),
+            bbox: [0.0; 4],
+            date: None,
+        };
+        let orthophoto = WmsRecord {
+            flight: None,
+            flight_label: None,
+            fetched: day(2026),
+            bbox: [0.0; 4],
+        };
+        let rasters = UsedSources {
+            raster_provider: Some(AdapterId::built_in("lvgl")),
+            terrain: Some(&terrain),
+            orthophoto: Some(&orthophoto),
+            ..UsedSources::default()
+        };
+        assert_eq!(texts(&rasters), [line(2026)]);
+        // Both: one line, with the newer year.
+        let both = UsedSources {
+            alkis: alkis.alkis.clone(),
+            ..rasters.clone()
+        };
+        assert_eq!(texts(&both), [line(2026)]);
+        // Rasters of another provider are not the LVGL's.
+        let other = UsedSources {
+            raster_provider: Some(AdapterId::built_in("lvermgeorp")),
+            ..rasters.clone()
+        };
+        assert!(lines(State::Saarland, &other).is_empty());
+
+        assert_eq!(
+            lines_with_licences(&lines(State::Saarland, &both)),
+            [line(2026), DL_DE_BY_LICENCE_NOTE.to_string()]
+        );
+    }
+
+    /// The credit of a state is said twice: here, and in its manifest, which is what a project
+    /// gets for every state but Brandenburg, Berlin and Saxony. The two say the same, text and
+    /// licence note.
+    #[test]
+    fn the_credit_of_each_manifest_is_the_one_written_here() {
+        let mut backends = Registry::new();
+        crate::states::register_backends(&mut backends).unwrap();
+        for state in State::ALL {
+            let alkis = UsedSources {
+                alkis: vec![AlkisUse {
+                    regions: vec![AdapterId::built_in(state.id())],
+                    fetched: day(2026),
+                }],
+                ..UsedSources::default()
+            };
+            let adapter = StateAdapter::new(state, &backends);
+            let from_manifest = adapter.manifest.attribution(&alkis);
+            assert_eq!(from_manifest.len(), 1, "{}", state.id());
+            if !matches!(state, State::Brandenburg | State::Berlin | State::Saxony) {
+                assert_eq!(from_manifest, lines(state, &alkis), "{}", state.id());
+                assert_eq!(adapter.attribution(&alkis), from_manifest, "{}", state.id());
+            }
+        }
+    }
 }

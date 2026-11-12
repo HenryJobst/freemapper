@@ -220,6 +220,21 @@ mod tests {
             ("product", v("p")),
             ("status", v(404)),
             ("detail", v("d")),
+            ("reason", v("r")),
+            ("hosts", v("geo.example.org")),
+            ("folder", v("/adapters/x")),
+            ("finding", v("f")),
+            ("others", v("berlin")),
+            ("capability", v("rasters")),
+            ("host", v("cdn.example.net")),
+            ("file", v("/config/freemapper/allowed-hosts.toml")),
+            ("from", v("")),
+            ("adapters", v("brandenburg, berlin")),
+            ("layers", n(6)),
+            ("source", v("built in")),
+            ("revision", v(1)),
+            ("checked", v("2026-11-12")),
+            ("target", v("https://x.example.org/y: r")),
             ("label", v("l")),
             ("range", v("0-1")),
             ("line", v(1)),
@@ -292,6 +307,9 @@ mod tests {
             include_str!("lock.rs"),
             include_str!("select.rs"),
             include_str!("select_run.rs"),
+            include_str!("adapters.rs"),
+            include_str!("adapter_check.rs"),
+            include_str!("hosts.rs"),
             include_str!("select_preview.rs"),
             include_str!("errors.rs"),
             include_str!("find.rs"),
@@ -316,6 +334,9 @@ mod tests {
             include_str!("lock.rs"),
             include_str!("select.rs"),
             include_str!("select_run.rs"),
+            include_str!("adapters.rs"),
+            include_str!("adapter_check.rs"),
+            include_str!("hosts.rs"),
             include_str!("select_preview.rs"),
             include_str!("errors.rs"),
             include_str!("find.rs"),
@@ -351,18 +372,20 @@ mod tests {
         assert_eq!(
             states(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
-             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate"
+             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
+             Saarland"
         );
         assert_eq!(
             states_in_a_sentence(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
-             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and \
-             Rhineland-Palatinate"
+             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate \
+             and Saarland"
         );
         assert_eq!(
             states_in_a_sentence(&german),
             "Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, \
-             Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz"
+             Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und \
+             Saarland"
         );
         let instructions = TEXTS.text(
             &english,
@@ -371,7 +394,7 @@ mod tests {
         );
         assert!(
             instructions.contains("geodata of Brandenburg, Berlin, Saxony,")
-                && instructions.contains("Lower Saxony and Rhineland-Palatinate, and from OSM"),
+                && instructions.contains("Rhineland-Palatinate and Saarland, and from OSM"),
             "{instructions}"
         );
     }

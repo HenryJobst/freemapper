@@ -143,9 +143,28 @@ pub mod ids {
         pub const NORDRHEIN_WESTFALEN: AdapterId = AdapterId::built_in("nordrheinwestfalen");
         pub const NIEDERSACHSEN: AdapterId = AdapterId::built_in("niedersachsen");
         pub const RHEINLAND_PFALZ: AdapterId = AdapterId::built_in("rheinlandpfalz");
+        pub const SAARLAND: AdapterId = AdapterId::built_in("saarland");
 
         /// All regions, in the order of the registry.
-        pub const ALL: [AdapterId; 11] = [
+        pub const ALL: [AdapterId; 12] = [
+            BRANDENBURG,
+            BERLIN,
+            SAXONY,
+            SAXONY_ANHALT,
+            HAMBURG,
+            HESSEN,
+            SCHLESWIG_HOLSTEIN,
+            MECKLENBURG_VORPOMMERN,
+            NORDRHEIN_WESTFALEN,
+            NIEDERSACHSEN,
+            RHEINLAND_PFALZ,
+            SAARLAND,
+        ];
+
+        /// The eleven regions that were code before they became adapters: the regions of the
+        /// golden net, which proves that the move changed nothing. A state added since
+        /// (Saarland) has no recording there.
+        pub const LEGACY: [AdapterId; 11] = [
             BRANDENBURG,
             BERLIN,
             SAXONY,
@@ -179,6 +198,7 @@ pub mod ids {
         pub const GEOBASIS_NRW: AdapterId = AdapterId::built_in("geobasisnrw");
         pub const LGLN: AdapterId = AdapterId::built_in("lgln");
         pub const LVERM_GEO_RP: AdapterId = AdapterId::built_in("lvermgeorp");
+        pub const LVGL: AdapterId = AdapterId::built_in("lvgl");
     }
 
     /// What the registry says about the region or the provider with an id.
@@ -303,6 +323,7 @@ pub mod golden {
             "nordrheinwestfalen" => ("DENW", 6.24, 50.555),
             "niedersachsen" => ("DENI", 9.6971, 52.388),
             "rheinlandpfalz" => ("DERP", 7.165, 50.1443),
+            "saarland" => ("DESL", 6.7515, 49.3155),
             other => panic!("no built-in region {other}"),
         }
     }
@@ -332,6 +353,7 @@ pub mod golden {
             "geobasisnrw" => "geobasis_nrw",
             "lvermgeorp" => "lvermgeo_rp",
             "laivmv" => "laiv_mv",
+            "lvgl" => "lvgl",
             "lvermgeo" | "lgln" => return None,
             other => panic!("no built-in provider {other}"),
         };
@@ -341,9 +363,9 @@ pub mod golden {
         Some(name.to_string())
     }
 
-    /// The facts of the eleven regions in [`regions::ALL`] order.
+    /// The facts of the eleven regions of [`regions::LEGACY`], in its order.
     pub fn legacy_facts() -> Vec<RegionFacts> {
-        regions::ALL
+        regions::LEGACY
             .into_iter()
             .map(|region| {
                 let (prefix, lon, lat) = constants(&region);
@@ -1072,6 +1094,32 @@ mod tests {
             region_of_object_id("DENW37AL0000AbCd"),
             Some(regions::NORDRHEIN_WESTFALEN)
         );
+    }
+
+    /// Saarland, the first state added as an adapter: Saarbrücken and Merzig lie in it, in
+    /// zone 32, with rasters fetched per area by the LVGL; Zweibrücken next door is
+    /// Rhineland-Palatinate.
+    #[test]
+    fn saarbruecken_lies_in_saarland_and_merzig_too() {
+        for (lat, lon) in [(49.2337, 6.9941), (49.4430, 6.6370), (49.3155, 6.7515)] {
+            let place = around_lonlat(lat, lon, 200.0);
+            assert_eq!(regions_for(&place), vec![regions::SAARLAND], "{lat} {lon}");
+            assert_eq!(raster_region(&place), Some(regions::SAARLAND));
+            assert_eq!(crate::project::map_crs(&place), crate::crs::Crs::Utm32);
+        }
+        assert_eq!(regions::SAARLAND.provider(), providers::LVGL);
+        assert!(providers::LVGL.per_area());
+        assert_eq!(regions::SAARLAND.object_id_prefix(), "DESL");
+        assert_eq!(
+            region_of_object_id("DESLALKI4T001GlcBL"),
+            Some(regions::SAARLAND)
+        );
+        let zweibruecken = around_lonlat(49.2490, 7.3630, 200.0);
+        assert_eq!(regions_for(&zweibruecken), vec![regions::RHEINLAND_PFALZ]);
+        // On the border both states are asked, as at every border.
+        let homburg_edge = around_lonlat(49.3170, 7.3990, 400.0);
+        let both = regions_for(&homburg_edge);
+        assert!(both.contains(&regions::SAARLAND), "{both:?}");
     }
 
     #[test]

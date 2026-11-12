@@ -524,7 +524,7 @@ The Tiefgarage `…LFomBL` lies exactly under the Platz `…dWfbTN` (Görresplat
 
 ---
 
-## 10. State boundary (for `assets/regions/rheinland-pfalz.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/rheinlandpfalz/boundary.geojson`)
 
 - **Source:** the Verwaltungsgrenzen WFS, type **`vermkv:landesgrenze_rlp`**, **from the origin** (the registry 314 answers
   "No wfs_conf data …"):
@@ -555,7 +555,7 @@ The Tiefgarage `…LFomBL` lies exactly under the Platz `…dWfbTN` (Görresplat
 
   | Neighbour asset | Shared border | Overlap (asset ∩ asset) | Gap between them (within 60 m of the border) | True border → RP asset p99 / max | → neighbour asset p99 |
   |---|---|---|---|---|---|
-  | `assets/regions/hessen.geojson` (repo) | 277.3 km | 162,163 m², 70 pieces, max width 24.5 m | 180,476 m², 82 pieces | 20.9 / 24.4 m | 21.2 m |
+  | `crates/adapters/de/manifests/hessen/boundary.geojson` (repo) | 277.3 km | 162,163 m², 70 pieces, max width 24.5 m | 180,476 m², 82 pieces | 20.9 / 24.4 m | 21.2 m |
   | `nrw/probe/boundary/nordrhein-westfalen_simplified25m.geojson` (scratchpad) | 316.9 km | 35,474 m², 42 pieces, max width 25.8 m | 73,178 m², 40 pieces | 21.0 / 24.5 m | 21.0 m |
 
   - The wide gap pieces are at tripoints: 67.5 m near 49.583°N 8.423°E (Hesse/Baden-Württemberg/RP at Worms–Lampertheim; the

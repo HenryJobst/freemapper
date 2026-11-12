@@ -546,7 +546,7 @@ Note the trailing blank in `"Sporthalle "`.
 
 ---
 
-## 10. State boundary (for `assets/regions/niedersachsen.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/niedersachsen/boundary.geojson`)
 
 - **Source:** the ALKIS WFS `ave:VerwaltungsEinheit` with `art = Bundesland`, directly in 25833:
   ```

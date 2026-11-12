@@ -10,7 +10,7 @@ use std::path::Path;
 
 use freemapper::area::AreaError;
 use freemapper::derive::DeriveError;
-use freemapper::fetch::FetchError;
+use freemapper::fetch::{FetchError, Remedy};
 use freemapper::georef::GeorefError;
 use freemapper::ocd::file::OcdBuildError;
 use freemapper::omap::OmapError;
@@ -261,6 +261,83 @@ impl Localize for Product {
     }
 }
 
+/// The reasons of the rules for where requests go, with the id of each in the catalog.
+const POLICY_REASONS: [(&str, &str); 12] = [
+    ("not a host name", "error-reason-not-a-host-name"),
+    (
+        "a name outside ASCII must be written in its xn-- form",
+        "error-reason-not-ascii",
+    ),
+    ("not a DNS name", "error-reason-not-a-dns-name"),
+    (
+        "a name of this computer or without a domain",
+        "error-reason-no-domain",
+    ),
+    ("a name of the local network", "error-reason-local-name"),
+    ("an IP address, not a DNS name", "error-reason-ip-address"),
+    ("unexpected character", "error-reason-unexpected-character"),
+    ("not https", "error-reason-not-https"),
+    ("user info", "error-reason-user-info"),
+    ("a port other than 443", "error-reason-port"),
+    (
+        "the host is not one of the declared hosts",
+        "error-reason-host-not-declared",
+    ),
+    (
+        "an address of this computer or of the local network, not of a server on the internet",
+        "error-reason-local-address",
+    ),
+];
+
+/// Why freemapper did not send a request, in the language of the run. The library gives the
+/// reason in English: one of the reasons of the rules, alone or after what it is about
+/// (`127.0.0.1: an address …`), or one of the three about redirects.
+pub(crate) fn not_allowed_reason(lang: &Lang, reason: &str) -> String {
+    let worded = |english: &str| {
+        POLICY_REASONS
+            .iter()
+            .find(|(known, _)| *known == english)
+            .map(|(_, id)| text(lang, id, &[]))
+    };
+    if let Some(target) = reason.strip_prefix("a redirect to ") {
+        return text(
+            lang,
+            "error-reason-redirect-to",
+            &[("target", v(not_allowed_reason(lang, target)))],
+        );
+    }
+    if let Some(count) = reason
+        .strip_prefix("more than ")
+        .and_then(|rest| rest.strip_suffix(" redirects"))
+    {
+        return text(
+            lang,
+            "error-reason-too-many-redirects",
+            &[("count", v(count))],
+        );
+    }
+    if let Some(status) = reason
+        .strip_prefix("a redirect (HTTP ")
+        .and_then(|rest| rest.strip_suffix(") to nowhere"))
+    {
+        return text(
+            lang,
+            "error-reason-redirect-nowhere",
+            &[("status", v(status))],
+        );
+    }
+    if let Some(text) = worded(reason) {
+        return text;
+    }
+    match reason.rsplit_once(": ") {
+        Some((subject, why)) => match worded(why) {
+            Some(text) => format!("{subject}: {text}"),
+            None => reason.to_string(),
+        },
+        None => reason.to_string(),
+    }
+}
+
 impl Localize for FetchError {
     fn localize(&self, lang: &Lang) -> String {
         let url = |url: &String| ("url", v(url));
@@ -338,6 +415,36 @@ impl Localize for FetchError {
                 &[url(from), ("range", v(range)), ("status", v(status))],
             ),
             FetchError::Cancelled => text(lang, "error-cancelled", &[]),
+            FetchError::NotAllowed { url: from, reason } => text(
+                lang,
+                "error-fetch-not-allowed",
+                &[url(from), ("reason", v(not_allowed_reason(lang, reason)))],
+            ),
+            FetchError::HostNotNamed(refused) => {
+                // The region in the language of the run; the error carries the English name.
+                let name = freemapper::adapters::registry()
+                    .get(&refused.adapter)
+                    .filter(|_| lang.code() == "de")
+                    .map_or(&refused.name, |adapter| &adapter.info().names.de);
+                let from = refused.from.as_ref().map_or_else(String::new, |from| {
+                    text(lang, "error-fetch-host-redirected-from", &[url(from)])
+                });
+                let id = match refused.remedy {
+                    Remedy::AllowHost => "error-fetch-host-not-named-allow",
+                    Remedy::Manifest => "error-fetch-host-not-named-manifest",
+                };
+                text(
+                    lang,
+                    id,
+                    &[
+                        ("target", v(&refused.target)),
+                        ("host", v(&refused.host)),
+                        ("adapter", v(&refused.adapter)),
+                        ("name", v(name)),
+                        ("from", v(from)),
+                    ],
+                )
+            }
         }
     }
 }
@@ -589,7 +696,27 @@ mod tests {
                 status: 200,
             },
             FetchError::Cancelled,
+            FetchError::NotAllowed {
+                url: url(),
+                reason: "more than 3 redirects".into(),
+            },
+            host_not_named(Remedy::AllowHost, None),
+            host_not_named(Remedy::AllowHost, Some("https://www.gds.hessen.de/a")),
+            host_not_named(Remedy::Manifest, None),
+            host_not_named(Remedy::Manifest, Some("https://www.gds.hessen.de/a")),
         ]
+    }
+
+    /// A request for Hesse that was not sent because Hesse's adapter does not name the host.
+    fn host_not_named(remedy: Remedy, from: Option<&str>) -> FetchError {
+        FetchError::HostNotNamed(Box::new(freemapper::fetch::HostNotNamed {
+            target: "https://cdn.example.net/x".to_string(),
+            host: "cdn.example.net".to_string(),
+            from: from.map(str::to_string),
+            adapter: "hessen".to_string(),
+            name: "Hesse".to_string(),
+            remedy,
+        }))
     }
 
     fn area_errors() -> Vec<AreaError> {
@@ -801,5 +928,78 @@ mod tests {
         let none = Cancelled { kept: Vec::new() };
         assert_eq!(none.localize(&de()), "abgebrochen");
         assert_eq!(none.localize(&Lang::english()), none.to_string());
+    }
+
+    /// A request freemapper does not send says why in the language of the run: every reason of
+    /// the rules has its text in both catalogs, alone, after what it is about, and inside the
+    /// three sentences about redirects.
+    #[test]
+    fn the_reason_of_a_request_not_sent_is_worded_in_the_language() {
+        let (english, german) = (Lang::english(), TEXTS.parse_lang_arg("de").unwrap());
+        assert_eq!(
+            POLICY_REASONS.map(|(reason, _)| reason),
+            freemapper_adapter_api_reasons()
+        );
+        for (reason, _) in POLICY_REASONS {
+            assert_eq!(not_allowed_reason(&english, reason), reason);
+            assert_ne!(not_allowed_reason(&german, reason), reason, "{reason}");
+        }
+        let said = |reason: &str| not_allowed_reason(&german, reason);
+        assert_eq!(
+            said(
+                "127.0.0.1: an address of this computer or of the local network, not of a server on the internet"
+            ),
+            "127.0.0.1: eine Adresse dieses Rechners oder des lokalen Netzes, nicht die eines Servers im Internet"
+        );
+        assert_eq!(
+            said(
+                "a redirect to https://evil.example.net/x: the host is not one of the declared hosts"
+            ),
+            "eine Weiterleitung auf https://evil.example.net/x: der Host gehört nicht zu den erklärten Hosts"
+        );
+        assert_eq!(said("more than 3 redirects"), "mehr als 3 Weiterleitungen");
+        assert_eq!(
+            said("a redirect (HTTP 302) to nowhere"),
+            "eine Weiterleitung (HTTP 302) ohne Ziel"
+        );
+        // A reason this table does not know stays as it is.
+        assert_eq!(said("something new"), "something new");
+        let error = FetchError::NotAllowed {
+            url: "https://geo.example.org/a".to_string(),
+            reason: "more than 3 redirects".to_string(),
+        };
+        assert_eq!(
+            error.localize(&german),
+            "https://geo.example.org/a: freemapper sendet keine Anfragen an diese Adresse: mehr als 3 Weiterleitungen"
+        );
+        assert_eq!(error.localize(&english), error.to_string());
+    }
+
+    /// A host an adapter does not name: the refused address first, the state in the language
+    /// of the run, then the command that allows the host and where to report it.
+    #[test]
+    fn a_host_an_adapter_does_not_name_is_told_with_the_command_in_german() {
+        let german = TEXTS.parse_lang_arg("de").unwrap();
+        assert_eq!(
+            host_not_named(Remedy::AllowHost, Some("https://www.gds.hessen.de/a"))
+                .localize(&german),
+            "https://cdn.example.net/x: freemapper sendet keine Anfragen an diese Adresse: Der \
+             Adapter für Hessen nennt den Host cdn.example.net nicht \
+             (https://www.gds.hessen.de/a leitet dorthin weiter). Ist der Dienst dorthin \
+             umgezogen, geben Sie den Host mit `freemapper adapters allow-host hessen \
+             cdn.example.net` frei und melden Sie es unter \
+             https://github.com/HenryJobst/freemapper/issues"
+        );
+        assert_eq!(
+            host_not_named(Remedy::Manifest, None).localize(&german),
+            "https://cdn.example.net/x: freemapper sendet keine Anfragen an diese Adresse: Der \
+             Adapter hessen nennt den Host cdn.example.net nicht. Ist der Dienst dorthin \
+             umgezogen, tragen Sie den Host in `[net] hosts` seines Manifests ein"
+        );
+    }
+
+    /// The reasons as the library lists them.
+    fn freemapper_adapter_api_reasons() -> [&'static str; 12] {
+        freemapper::fetch::POLICY_REASONS
     }
 }

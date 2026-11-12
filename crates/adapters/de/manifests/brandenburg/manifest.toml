@@ -1,0 +1,74 @@
+# Brandenburg: LGB's OGC API, tiles of 1 km through code, the full ALKIS (NAS) and the trees of Potsdam.
+format = 1
+
+[adapter]
+id = "brandenburg"
+provider = "lgb"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25833
+object_id_prefix = "DEBB"
+names = { en = "Brandenburg", de = "Brandenburg" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["ogc-api.geobasis-bb.de", "data.geobasis-bb.de", "isk.geobasis-bb.de", "opendata.potsdam.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/brandenburg"
+megabytes = 300
+label = "Brandenburg"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "© GeoBasis-DE/LGB {year}, dl-de/by-2-0, Daten geändert"
+
+[alkis]
+kind = "ogc-api-features"
+crs = 25833
+buildings = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items"
+land_use = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items"
+
+[orthophoto]
+backend = "lgb"
+
+[terrain]
+backend = "lgb"
+
+[surface]
+backend = "lgb"
+
+[[extra.nas]]
+name = "LGB ALKIS (NAS)"
+url = "https://isk.geobasis-bb.de/ows/alkis_nas_wfs"
+max_count = 100000
+max_bytes = 268435456
+
+[[extra.trees]]
+id = "potsdam"
+name = "Potsdam tree cadastre"
+crs = 25833
+envelope = [359000, 5801000, 375000, 5820000]
+format = "ods-geojson-export"
+geo_field = "geo_point_2d"
+endpoints = [
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson",
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson",
+    "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson",
+]
+fields = { kind = "ggartbez", id = "pktnr", date = "datum" }
+skipped_kinds = ["Baumstumpf"]
+attribution = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"
+max_bytes = 268435456
+
+[preview]
+wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
+layer = "bebb_dop20c"
+format = "image/png"
+attribution = "© GeoBasis-DE/LGB, dl-de/by-2-0"
+agency = "LGB"

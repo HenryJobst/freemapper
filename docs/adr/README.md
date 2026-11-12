@@ -127,7 +127,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0079](0079-firm-gravel-paths-are-map-objects-again.md) | Firm gravel paths are map objects again | Accepted, amends ADR 0073 | 2026-11-10 |
 | [0080](0080-map-pdf-without-candidates-by-default.md) | The PDF is the map without candidates, the scale bar is optional | Accepted, amends ADR 0002 | 2026-11-10 |
 | [0081](0081-pdf-source-block-shortened-when-needed.md) | The source block of the PDF is shortened when needed and can be switched to the credit line | Accepted, extends ADR 0080 | 2026-11-10 |
-| [0082](0082-region-adapters-trait-and-manifests.md) | Region adapters: a trait, TOML manifests and adapter crates | Proposed | 2026-11-10 |
+| [0082](0082-region-adapters-trait-and-manifests.md) | Region adapters: a trait, TOML manifests and adapter crates | Accepted | 2026-11-10 |
 | [0083](0083-power-lines-pipelines-and-towers-from-osm.md) | Power lines, pipelines and towers from OSM | Accepted | 2026-11-10 |
 | [0084](0084-map-area-checked-on-every-path.md) | The map area is checked on every path | Accepted | 2026-11-10 |
 | [0085](0085-allowed-map-scales-per-kind.md) | Allowed map scales per kind | Accepted | 2026-11-10 |
@@ -149,5 +149,10 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0101](0101-content-profiles-on-the-area-page.md) | Content profiles on the area page | Accepted | 2026-11-12 |
 | [0102](0102-region-adapters-crates-trait-and-registry-as-built.md) | Region adapters, stages B and C: crates, trait and registry as built | Accepted | 2026-11-12 |
 | [0103](0103-the-area-page-takes-the-regions-from-the-registry.md) | The area page and the texts take the regions from the registry | Accepted | 2026-11-12 |
+| [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) | Requests go to public addresses, and with a policy to declared hosts only | Accepted | 2026-11-12 |
+| [0107](0107-adapter-manifests-format-1-as-built.md) | Adapter manifests, format 1, as built | Accepted | 2026-11-12 |
 | [0108](0108-map-preview.md) | A preview of the map: file, live image and routes | Accepted | 2026-11-12 |
 | [0109](0109-osm-stairs-are-stairway-candidates.md) | OSM stairs are stairway candidates | Accepted | 2026-11-12 |
+| [0110](0110-a-person-can-allow-a-state-one-more-host.md) | A person can allow a built-in state one more host | Accepted | 2026-11-12 |
+| [0111](0111-saarland-the-first-state-on-the-adapter-scheme.md) | Saarland, the first state on the adapter scheme, and what it needed | Accepted | 2026-11-12 |
+| [0112](0112-the-adapter-check-reads-a-folder-and-asks-its-services.md) | The adapter check reads a folder and, when asked, its services | Accepted | 2026-11-12 |

@@ -50,7 +50,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF** und
 - Internet für das erste Laden.
 - Freien Speicherplatz:
   - Beim ersten Mal lädt freemapper den OSM-Auszug des Bundeslandes, für Brandenburg und Berlin etwa 300 MB,
-    für Sachsen etwa 270 MB, für Sachsen-Anhalt etwa 180 MB, für Hamburg etwa 55 MB, für Hessen etwa 350 MB, für Schleswig-Holstein etwa 160 MB (ohne Hamburg), für Mecklenburg-Vorpommern etwa 130 MB, für Niedersachsen etwa 510 MB (mit Bremen), für Rheinland-Pfalz etwa 275 MB. In Nordrhein-Westfalen sind es die Auszüge der Regierungsbezirke mit je 140 bis 225 MB, bei einem Gebiet an einer Bezirksgrenze zwei davon. Der Auszug wird für
+    für Sachsen etwa 270 MB, für Sachsen-Anhalt etwa 180 MB, für Hamburg etwa 55 MB, für Hessen etwa 350 MB, für Schleswig-Holstein etwa 160 MB (ohne Hamburg), für Mecklenburg-Vorpommern etwa 130 MB, für Niedersachsen etwa 510 MB (mit Bremen), für Rheinland-Pfalz etwa 275 MB, für das Saarland etwa 55 MB. In Nordrhein-Westfalen sind es die Auszüge der Regierungsbezirke mit je 140 bis 225 MB, bei einem Gebiet an einer Bezirksgrenze zwei davon. Der Auszug wird für
     alle Projekte wiederverwendet.
   - Dazu kommen je Karte meist 10–100 MB.
   - Vor jedem Laden prüft freemapper den freien Platz im Zwischenspeicher und im Projektordner. Liegen
@@ -59,7 +59,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF** und
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen oder Rheinland-Pfalz**. Bremen und weitere Länder folgen.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz oder dem Saarland**. Bremen und weitere Bundesländer folgen.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -558,7 +558,7 @@ gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie
 verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Bundesland:
-[`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
 
 ## 8. Was die Vorlagen zeigen
 
@@ -802,6 +802,7 @@ geprüft. Rückmeldungen sind willkommen (Kapitel 16).
 | Nordrhein-Westfalen | Geobasis NRW (Bezirksregierung Köln) | Zone 32 (EPSG:25832) für das ganze Bundesland; das Bundesland reicht weit nach Westen, aber die Karte nutzt nie Zone 33. Das Luftbild kommt aus dem WMS-Dienst, weil die Kacheln nur als JPEG 2000 vorliegen. Beflogen 2022 und 2024 bis 2026, teils unbelaubt, teils belaubt; das Flugdatum gilt je Kachel. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus Laserkacheln von 1 km, beide vom selben Flug; Namen und Daten kommen aus der Kachelliste, nicht aus dem Verzeichnis. Der Laserscan pausiert bis Winter 2026/27, der neueste Stand ist Februar 2025; das nDOM ist DOM1 − DGM1. ALKIS aus dem WFS mit den Schreibweisen der LGB und genauerer Nutzungsangabe, Schulgebäude heißen „Allgemein bildende Schule“. OSM aus den Auszügen der fünf Regierungsbezirke (Arnsberg, Detmold, Düsseldorf, Köln, Münster) statt des 917 MB großen Landesauszugs; ein Gebiet an einer Bezirksgrenze liest beide. An der Grenze zu Hessen liest freemapper ALKIS beider Bundesländer; die Rasterdaten kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt |
 | Niedersachsen | LGLN | Zone 32 (EPSG:25832) für das ganze Bundesland. Das Luftbild kommt aus dem Kartendienst (WMS), Gelände und Oberfläche (DGM1 und DOM1 mit 1 m) kommen aus dem WCS-Dienst. Der WCS-Dienst liefert die Höhenmodelle in Stücken von 2 km. Ein Gebiet von 4 km braucht damit vier Anfragen je Modell und lädt mit dem Luftbild zusammen einige Minuten. Den Datenstand nennt die STAC-Suche des LGLN: das Flugdatum des neuesten Luftbilds und das Datum des neuesten Höhenmodells in der Mitte des Kartengebiets. Beflogen 2024 bis 2026, zu drei Vierteln im Frühjahr (Februar bis April, unbelaubt), sonst von Mai bis Oktober (belaubt). freemapper meldet mit dem Flugdatum, ob die Bäume belaubt waren; Hannover-Südstadt z. B. wurde am 06.03.2025 unbelaubt beflogen. Das nDOM ist DOM1 − DGM1 aus dem Laserscan, beide Modelle vom selben Flug. Der Scan stammt meist von 2016 oder 2017 (an der Küste, an Elbe und Weser von 2025) und ist damit oft 5 bis 9 Jahre älter als das Luftbild (Hannover-Südstadt: Scan 18.04.2016). Ist das DOM1 mehr als zwei Jahre älter, warnt freemapper mit beiden Daten, denn Neubauten und junge Bäume können im nDOM fehlen. ALKIS aus dem WFS mit den Schreibweisen der LGB; Tiefgaragen erkennt freemapper an ihrer Lage unter der Erdoberfläche; Plätze ohne `bez` nur als Kandidaten; Schulgebäude heißen „Allgemein bildende Schule“, Schulflächen „Bildung und Wissenschaft“. Bremen und Bremerhaven gehören noch nicht dazu. Ein Gebiet mit der Mitte in Bremen lehnt freemapper ab. Reicht ein Gebiet aus Niedersachsen nach Bremen hinein, ist das Luftbild dort weiß und ALKIS liefert dort keine Gebäude; freemapper warnt. Der OSM-Auszug Niedersachsen enthält Bremen. An der Hamburger Grenze liest freemapper ALKIS und OSM-Auszug beider Seiten; die Rasterdaten kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt |
 | Rheinland-Pfalz | LVermGeo RP | Zone 32 (EPSG:25832) für das ganze Bundesland. Das Luftbild kommt aus dem Kartendienst (WMS), denn die Kacheln gibt es nur als JPEG 2000 mit 105 bis 155 MB je 2-km-Block. Der Dienst endet an der Grenze des Bundeslandes, dahinter ist das Luftbild weiß. Ein Bildflugdatum nennt der Dienst nicht, nur je Block ein Erstellungsdatum. freemapper nimmt es als Flugdatum, denn alle diese Daten liegen zwischen Mai und September, gehäuft an aufeinanderfolgenden Tagen, und die Bilder zeigen belaubte Bäume. Im Projekteintrag steht deshalb „Aktualität (Erstellung)“ beim Datum, in den Meldungen `date of creation`. Beflogen 2022 bis 2025, alle zwei Jahre, immer im Sommer und damit belaubt; das Görres-Gymnasium in Koblenz z. B. am 25.08.2025. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus Laserkacheln von 1 km, beide vom selben Flug. Gescannt wurde 2022 bis 2025, jeweils von Februar bis April ohne Laub. Der Dateiname jeder Kachel enthält das Jahr des Scans. freemapper liest es aus der Befliegungsübersicht `Laserbefliegung` des LVermGeo RP, die je Kachel die Flugtage nennt; der letzte Flugtag ist das Datum im Projekteintrag (Koblenz: 06.04.2024). 14 Kacheln nördlich von Trier haben dort kein Flugjahr (Stand November 2026). Für sie liest freemapper die Metalink-Datei des Bundeslandes (etwa 11 MB je Modell), aber nur, wenn das Gebiet eine solche Kachel enthält. freemapper behält die Datei und nutzt sie online 30 Tage lang weiter; danach lädt es sie neu. Offline nutzt es die gespeicherte Datei in jedem Alter. Bleibt eine Kachel ohne Namen, bleibt sie leer, und freemapper sagt, warum. Antwortet der Server für eine Kachel der Übersicht mit 404, meldet freemapper sie als fehlend und fragt erst nach 30 Tagen wieder. Die Größenschätzung rechnet mit 1,5 MB je DGM1- und 3 MB je DOM1-Kachel und zählt die Metalink-Datei mit, wenn sie nötig ist. Das nDOM ist DOM1 − DGM1. Scan und Luftbild liegen höchstens drei Jahre auseinander, in einem Viertel der Kacheln ist der Scan sogar neuer. Weil der Scan ohne Laub geflogen wurde, können die Kronen von Laubbäumen im nDOM niedriger erscheinen als im Luftbild. ALKIS aus dem WFS mit den Schreibweisen der LGB; die Nutzung hat genauere Unterarten, z. B. Wohnbaufläche „Offen“ und „Geschlossen“. Tiefgaragen erkennt freemapper an ihrer Lage unter der Erdoberfläche; Plätze ohne `bez` nur als Kandidaten; hat ein Gebäude mehrere Namen, stehen sie mit `;` verbunden in einem Feld. Schulgebäude heißen „Allgemein bildende Schule“, Schulflächen „Bildung und Wissenschaft“. An der Grenze zu Hessen (Mainz und Wiesbaden) liest freemapper ALKIS und OSM-Auszug beider Bundesländer; Wiesbaden und Mainz-Kastel gehören zu Hessen und fehlen im OSM-Auszug Rheinland-Pfalz. Die Rasterdaten kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt. Liegt sie in Mainz, ist das Luftbild jenseits des Rheins weiß, die Höhenmodelle reichen aber hinüber |
+| Saarland | LVGL | Zone 32 (EPSG:25832) für das ganze Bundesland. Das Luftbild (Befliegung 2025) kommt aus dem Kartendienst (WMS); als Flugdatum gilt das Datum, das der Dienst je 2-km-Block als „Aktualisierung“ nennt. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus dem Laserscan von 2025. Das LVGL stellt sie als sechs Archive je Landkreis bereit (0,6 bis 1,3 GB); freemapper liest daraus nur die 1-km-Kacheln des Gebiets, je etwa 2 MB, und hebt sie im Cache auf. Jenseits der Landesgrenze bleiben die Vorlagen leer. Das Kataster kommt aus dem Dienst „ALKIS Vereinfacht“ des Geoportals Saarland. Die kostenpflichtigen Produkte des LVGL (bDOM20, DOM025, ältere Luftbilder) verwendet freemapper nicht. |
 
 **Überdachungen und Durchfahrten in jedem Bundesland.** ALKIS führt Überdachungen und Carports als Bauwerke neben
 den Gebäuden, Durchfahrten und Arkaden als Bauteile. freemapper liest sie aus den Gebäuden, die es ohnehin
@@ -953,7 +954,7 @@ km²), sonst löscht es die Datei. Die Platzprüfung vor dem Laden rechnet die D
 und Erholungsfläche“ mit `bez` „Kleingarten“. Parks, Sportanlagen und Spielplätze derselben Nutzung bleiben
 offen.
 
-**Koordinatensystem:** Brandenburg, Berlin, Sachsen und Mecklenburg-Vorpommern liefern in UTM-Zone 33, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz in Zone 32.
+**Koordinatensystem:** Brandenburg, Berlin, Sachsen und Mecklenburg-Vorpommern liefern in UTM-Zone 33, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und das Saarland in Zone 32.
 Jede Karte bekommt die Zone des Bundeslandes, in dem ihre Mitte liegt; OOM und OCAD zeigen sie in der
 Georeferenz an. Verschieben Sie ein Kartengebiet über die Zonengrenze oder in ein anderes Bundesland, lädt freemapper alles
 neu.
@@ -963,6 +964,86 @@ Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebi
 weit über die Grenze, bleiben die Vorlagen jenseits davon leer, soweit Luftbild und Höhenmodelle dieses
 Bundeslandes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
 Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei Mainz über den Rhein. freemapper meldet, wenn ein Gebiet über eine Grenze reicht.
+
+### Eigene Adapter
+
+Die Bundesländer oben sind ins Programm eingebaut. Ein weiteres Bundesland oder Land lässt sich als Ordner
+ergänzen, wenn seine Dienste Standarddienste sind: ein WFS oder ein Dienst nach OGC API Features für das
+Kataster, ein WMS und ein WCS für Luftbild und Höhenmodelle. Der Ordner heißt wie die Kennung des Adapters und
+enthält eine `manifest.toml` und eine Grenzdatei. freemapper liest solche Ordner aus Ihrem Adapterordner:
+
+| System | Adapterordner |
+|---|---|
+| macOS | `~/Library/Application Support/freemapper/adapters` |
+| Linux | `~/.config/freemapper/adapters` |
+| Windows | `%APPDATA%\freemapper\adapters` |
+
+Die Variable `FREEMAPPER_ADAPTER_DIR` nennt einen anderen Ordner, mit absolutem Pfad; ein relativer Pfad wird
+mit einer Warnung ignoriert. `freemapper adapters list` zeigt jeden Adapter mit Herkunft, dem Tag der letzten
+Prüfung und den Servern, die er anfragt, und nennt in der letzten Zeile Ihren Adapterordner. Ein Ordner mit
+einem Fehler wird ausgelassen, mit einer Warnung, die Datei und Zeile nennt; die anderen Adapter laden
+trotzdem. Was am Manifest nicht stimmt, steht in der Warnung auf Englisch, mit einem festen Code in eckigen
+Klammern. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen. Liegt er auf dem Gebiet eines anderen
+Adapters, nennt die Liste diesen: Eine Karte dort bekommt die Objekte beider.
+
+Die Gebietsseite und der KI-Assistent lesen den Adapterordner beim Start. Läuft eines von beiden schon, wenn
+Sie einen Adapter ergänzen oder ändern, schließen Sie es und starten Sie es neu; bis dahin kennt es den Adapter
+nicht.
+
+Ein Adapter lässt freemapper die Server anfragen, die er nennt, und keine anderen. Lesen Sie ein Manifest
+trotzdem, bevor Sie es in Ihren Adapterordner kopieren: `[net] hosts` zählt jeden Server auf.
+
+Ein Projektordner kann Adapter in seinem Ordner `adapters` mitbringen. freemapper lädt sie nur, wenn Sie es
+sagen, mit `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` oder `run`, und nennt dann jeden in
+einer Warnung mit den Servern, die er anfragen darf. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen
+Sie den Schalter für ein eigenes Projekt.
+
+`freemapper adapters check <Ordner>` prüft den Ordner eines Adapters, ohne einen Server anzufragen: ob er laden
+würde und was sein Autor wissen sollte. Mit `--live --bbox minLon,minLat,maxLon,maxLat` fragt der Befehl
+zusätzlich die Dienste des Adapters für ein kleines Rechteck innerhalb seiner Grenze an (150 m mal 150 m
+genügen) und sagt je Fähigkeit, was ankam:
+
+```sh
+freemapper adapters check ~/meine-adapter/elbaue
+freemapper adapters check ~/meine-adapter/elbaue --live --bbox 12.2430,51.8350,12.2452,51.8364
+```
+
+Der Exit-Code ist 0, wenn der Adapter besteht, 1 bei Befunden und 2, wenn die Prüfung nicht laufen konnte.
+
+Wie man einen Adapter schreibt, steht in der [Anleitung für Beitragende](../adapters/de.md), mit einem
+[Tutorial](../adapters/tutorial.de.md), das einen Schritt für Schritt baut, und einer
+[Referenz](../adapters/manifest-v1.de.md) aller Schlüssel des Manifests. Die Manifeste der eingebauten
+Bundesländer in `crates/adapters/de/manifests/` sind Beispiele.
+
+### Wenn ein Dienst umzieht
+
+Für ein eingebautes Bundesland fragt freemapper nur die Server an, die dessen Adapter nennt. Zieht ein Amt einen
+Dienst auf einen anderen Server um, scheitert der Abruf mit einer Meldung, die mit der abgelehnten Adresse
+beginnt, das Bundesland nennt und mit einem Kommando endet. Mit diesem Kommando geben Sie dem Bundesland den
+einen Host frei, bis eine neue Version von freemapper ihn selbst kennt:
+
+```sh
+freemapper adapters allow-host hessen neuer-server.hessen.de
+```
+
+Die Gebietsseite und der KI-Assistent lesen die freigegebenen Hosts beim Start. Ist der Abruf dort
+gescheitert, schließen Sie die Seite (oder beenden Sie den Assistenten) und starten Sie sie nach dem Befehl neu;
+bis dahin lehnt sie den Host weiter ab.
+
+Nehmen Sie den Host aus der Meldung und prüfen Sie, dass er zum Amt des Bundeslands gehört. Melden Sie den Umzug
+(Kapitel 16), damit die nächste Version den Host mitbringt. Bringt eine neue Version den Host
+mit, sagt das nächste `find`, `init`, `fetch`, `derive`, `export` oder `run` in einer Warnung, dass Ihr Eintrag
+überflüssig ist, und entfernt ihn. Die Gebietsseite und der KI-Assistent über MCP ändern die Datei nie.
+
+Die freigegebenen Hosts stehen in `allowed-hosts.toml` in Ihrem Konfigurationsordner (`freemapper` unter
+`~/Library/Application Support`, `~/.config` oder `%APPDATA%`), und nur dort: Ein Projektordner, eine
+Umgebungsvariable von freemapper, ein Schalter eines Laufs oder der KI-Assistent über MCP können keinen Host
+hinzufügen. Wo der Konfigurationsordner liegt, bestimmt das System, unter Linux und macOS über `HOME` und
+`XDG_CONFIG_HOME`; wer diese Variablen für freemapper setzt, etwa die Konfiguration eines MCP-Clients, wählt
+damit die Datei. Ein Host muss ein DNS-Name sein; eine IP-Adresse, `localhost`, ein Name des lokalen Netzes, ein
+Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host gilt: freemapper verbindet sich
+nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
+adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
 ## 13. Später weiterarbeiten
 
@@ -1002,7 +1083,7 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 
 | Meldung (Anfang) | Bedeutung | Was tun |
 |---|---|---|
-| `Das Kartengebiet liegt außerhalb der unterstützten Bundesländer` (englisch: `the map area lies outside the supported states`) | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen oder Rheinland-Pfalz. Bremen gehört noch nicht dazu. | Ein anderes Gebiet wählen; weitere Länder folgen. |
+| `Das Kartengebiet liegt außerhalb der unterstützten Bundesländer` (englisch: `the map area lies outside the supported states`) | Das Gebiet liegt nicht in Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz oder dem Saarland. Bremen gehört noch nicht dazu. | Ein anderes Gebiet wählen; weitere Länder folgen. |
 | `Ein anderer freemapper-Lauf verwendet diesen Ordner (seit …` (englisch: `another freemapper run is using this folder`) | Ein zweites freemapper (ein Terminal, ein KI-Assistent oder die Gebietsseite) arbeitet in diesem Projektordner. Die Datei `.freemapper-run.lock` im Ordner zeigt es an. | Warten Sie, bis der andere Lauf fertig ist, oder beenden Sie ihn. Ein abgebrochener Lauf lässt die Datei zurück; nach einer Minute ohne Lebenszeichen wird sie von selbst ersetzt. |
 | `Das Kartengebiet mit Puffer misst … m, mehr als 4000 m je Seite` (englisch: `map area plus buffer is … more than 4000 m per side`) | Das Gebiet ist zu groß. | Kleiner zeichnen oder in mehrere Karten teilen. |
 | `Zu „…“ gibt es kein Gebiet` (englisch: `no area found for …`) | Der Ort wurde nicht gefunden, oder das Gelände besteht in OSM aus mehreren Teilen. | Anders schreiben, das Gebiet im Browser zeichnen, oder mit `--osm <id> --part <n>` einen Teil wählen. |
@@ -1014,13 +1095,15 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Warnung: Im Kartengebiet wurden keine ALKIS-Gebäude gefunden` (englisch: `warning: no ALKIS buildings found in the map area`) | Im Gebiet gibt es keine Gebäude, z. B. im Wald. | Nichts, wenn das stimmt. Sonst später erneut laden. |
 | `Warnung: Die Karte ist geschrieben, ihre Vorschau fehlt aber: …` (englisch: `warning: the map is written, but its preview is missing: …`) | Die Karte wurde geschrieben, `<name>-preview.webp` aber nicht, etwa weil die Platte voll ist oder ein Ordner dieses Namens im Weg steht. OCAD-Dateien und PDFs entstehen trotzdem. | Platz schaffen oder das Hindernis entfernen, dann noch einmal mit „Vorhandene Karte ersetzen“ (`--force`) laufen lassen. |
 | `Das Kartengebiet reicht über die Grenze des Bundeslands hinaus` (englisch: `the map area reaches beyond the state border`) | Ein Teil des Gebiets liegt im Nachbarbundesland. Luftbild und Höhenmodelle kommen aus dem Bundesland der Gebietsmitte, ALKIS und OSM aus beiden Bundesländern. | Die Vorlagen bleiben leer, wo Luftbild und Höhenmodelle dieses Bundeslandes enden. Den Teil von Hand zeichnen. |
-| `Warnung: Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer` (englisch: `warning: part of the map area lies outside the supported states`) | Ein Teil des Gebiets liegt außerhalb aller unterstützten Bundesländer: im Ausland, auf dem Meer oder in einem Bundesland, das freemapper noch nicht unterstützt. Das sind Bremen, Thüringen, Bayern, Baden-Württemberg und das Saarland. Zum Meer gehören die Ostsee vor Schleswig-Holstein und Mecklenburg-Vorpommern und das schleswig-holsteinische Wattenmeer, etwa zwischen Föhr und Dagebüll. Die Landesgrenzen dieser beiden Bundesländer lassen dieses Wasser aus. Dort gibt es keine Landesdaten, das Luftbild kann weiß sein, und ALKIS liefert weder Gebäude noch Nutzung. freemapper meldet das beim Laden, nicht schon bei der Größenschätzung. Ein Streifen bis 50 m hinter der Grenze löst die Warnung nicht aus. | Den Teil von Hand zeichnen oder das Gebiet verschieben. |
+| `Warnung: Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer` (englisch: `warning: part of the map area lies outside the supported states`) | Ein Teil des Gebiets liegt außerhalb aller unterstützten Bundesländer: im Ausland, auf dem Meer oder in einem Bundesland, das freemapper noch nicht unterstützt. Das sind Bremen, Thüringen, Bayern und Baden-Württemberg. Zum Meer gehören die Ostsee vor Schleswig-Holstein und Mecklenburg-Vorpommern und das schleswig-holsteinische Wattenmeer, etwa zwischen Föhr und Dagebüll. Die Landesgrenzen dieser beiden Bundesländer lassen dieses Wasser aus. Dort gibt es keine Landesdaten, das Luftbild kann weiß sein, und ALKIS liefert weder Gebäude noch Nutzung. freemapper meldet das beim Laden, nicht schon bei der Größenschätzung. Ein Streifen bis 50 m hinter der Grenze löst die Warnung nicht aus. | Den Teil von Hand zeichnen oder das Gebiet verschieben. |
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | Gebietsauswahl: „access blocked“ / 403 von OpenStreetMap, oder die Hintergrundkarte bleibt grau | Die Hintergrundkarte kommt von `tile.openstreetmap.org`. Dessen Kachelrichtlinie verlangt eine erkennbare Anwendung (`User-Agent`) oder ein gültiges `Referer`; der Browser schickt hier keinen `Referer`. Bis 0.9.1 lud der Browser die Kacheln selbst und bekam deshalb 403. Seit 0.9.2 holt der lokale Server die Kacheln mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)` und gibt sie an den Browser weiter. | freemapper aktualisieren. Der Rechner braucht Internet. Antwortet der Server mit 502, steht der Grund in der Antwort (z. B. HTTP 403 oder keine Verbindung). Die Luftbilder der Bundesländer sind nicht betroffen. |
 | `…: Der Server hat die Anfrage abgelehnt (HTTP 400)` (englisch: `… refused the request (HTTP 400)`) | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 16). Siehe „Wenn ein Dienst umzieht“ in Kapitel 12. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: …` mit einem anderen Grund (englisch: `… freemapper does not send requests to this address: …`) | freemapper verbindet sich nie mit einer Adresse dieses Rechners oder des lokalen Netzes, folgt höchstens drei Weiterleitungen in Folge und keiner Weiterleitung auf `http`. | Nichts freizugeben. Bei einem eingebauten Bundesland einen Fehler melden. |
 | `…: Der Server hat den Bytebereich … nicht beachtet` (englisch: `… ignored the byte range`) | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
 | `Die Datei von … ist größer als … MB; abgebrochen` (englisch: `download of … is larger than … MB; stopped`) | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |
-| `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein und Mecklenburg-Vorpommern: Das Downloadportal hat sich vermutlich geändert. Nordrhein-Westfalen: Die Kachelliste von Geobasis NRW nennt keine Kachel für das Gebiet. Rheinland-Pfalz: Nach dem Doppelpunkt steht für jede Kachel der Grund, z. B. `not on the server (404)`, `not in LVermGeo RP's tile list` oder `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Einen Fehler melden. |
+| `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Saarland: Keines der Landkreis-Archive enthält eine Kachel für das Gebiet; vermutlich hat das LVGL sie durch eine neuere Befliegung ersetzt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein und Mecklenburg-Vorpommern: Das Downloadportal hat sich vermutlich geändert. Nordrhein-Westfalen: Die Kachelliste von Geobasis NRW nennt keine Kachel für das Gebiet. Rheinland-Pfalz: Nach dem Doppelpunkt steht für jede Kachel der Grund, z. B. `not on the server (404)`, `not in LVermGeo RP's tile list` oder `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Einen Fehler melden. |
 | `Warnung: …: In Hamburg fehlt die Kachel …` (englisch: `warning: the … has no tile(s) … inside Hamburg`) | Im Archiv fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `Warnung: …: In Hessen fehlt die Kachel …` (englisch: `warning: the … has no tile(s) … inside Hesse`) | Im Downloadcenter-Archiv der Gemeinde fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `Warnung: Das Downloadcenter hat keine Datei für "…"` (englisch: `warning: the Downloadcenter has no file for "…"`) | Für den Ort (z. B. ein gemeindefreies Gebiet) gibt es im Downloadcenter keine Datei. Die Kacheln, die danach nach einem Semikolon genannt werden (falls vorhanden), blieben leer, weil keine andere Gemeinde sie enthält. | Kacheln aus Nachbargemeinden brauchen nichts; die genannten Kacheln bleiben leer. |
@@ -1141,6 +1224,7 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 - `Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) <Jahr>, dl-de/zero-2-0` (Nordrhein-Westfalen; die Lizenz verlangt weder Namensnennung noch Änderungsvermerk, freemapper nennt die Quelle trotzdem)
 - `© GeoBasis-DE/LGLN <Jahr>, Daten geändert, CC BY 4.0` und der Lizenzlink https://creativecommons.org/licenses/by/4.0/ (Niedersachsen; `<Jahr>` ist das Jahr des Downloads)
 - `©GeoBasis-DE / LVermGeoRP<Jahr>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]` und der Lizenzhinweis `Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0` (Rheinland-Pfalz; `<Jahr>` ist das Jahr des Downloads, der Lizenzhinweis steht nur in den Kartennotizen und in `ATTRIBUTION.txt`)
+- `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert` und derselbe Lizenzhinweis wie bei Rheinland-Pfalz (Saarland; `<Jahr>` ist das Jahr des Downloads, der Lizenzhinweis steht nur in `ATTRIBUTION.txt` und in den Kartennotizen)
 - `Erstellt mit freemapper – https://github.com/HenryJobst/freemapper`
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.

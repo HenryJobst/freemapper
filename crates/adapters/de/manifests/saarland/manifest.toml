@@ -1,0 +1,58 @@
+# Saarland: the WFS of the geoportal for ALKIS (an ArcGIS server: upper-case attribute names, no
+# SORTBY), a WMS orthophoto, heights from the district archives of the open-data share through code.
+format = 1
+
+[adapter]
+id = "saarland"
+provider = "lvgl"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DESL"
+names = { en = "Saarland", de = "Saarland" }
+agency = "LVGL"
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["geoportal.saarland.de", "www.shop.lvgl.saarland.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/saarland"
+megabytes = 53
+label = "Saarland"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"
+note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+
+[alkis]
+kind = "wfs"
+name = "LVGL ALKIS"
+crs = 25832
+url = "https://geoportal.saarland.de/registry/wfs/414"
+buildings_type = "ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk"
+land_use_type = "ALKIS_ALKIS_WFS_ohne_Eig:Nutzung"
+square_bez = "ohne Unterart (Saarland)"
+sorted = false
+
+[orthophoto]
+backend = "lvgl"
+
+[terrain]
+backend = "lvgl"
+
+[surface]
+backend = "lvgl"
+
+[preview]
+wms = "https://geoportal.saarland.de/freewms/dop2025"
+layer = "sl_dop20_rgb"
+format = "image/jpeg"
+attribution = "© GeoBasis DE/LVGL-SL, dl-de/by-2-0"
+agency = "LVGL"

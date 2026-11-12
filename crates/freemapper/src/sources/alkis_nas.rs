@@ -3,12 +3,13 @@
 
 pub use freemapper_sources::nas::*;
 
-use crate::adapters::registry;
+use crate::adapters::{Registry, registry};
 use crate::crs::BoundingBox;
 use crate::fetch::Fetcher;
 use crate::project::MapKind;
 use crate::sources::alkis::FetchArea;
 use crate::sources::region::regions_for_in;
+use freemapper_adapter_api::policy::PolicyFetcher;
 
 /// The NAS layers `kind` uses.
 pub fn nas_layers(kind: MapKind) -> impl Iterator<Item = &'static NasLayer> {
@@ -32,13 +33,36 @@ pub fn fetch_nas_layers(
     kind: MapKind,
     part: PartFile,
 ) -> Vec<FetchedNasLayer> {
-    fetch_layers_from(
-        fetcher,
-        &nas_services_for(&area.region_bbox),
-        area,
-        kind.contract(),
-        part,
-    )
+    fetch_nas_layers_in(registry(), fetcher, area, kind, part)
+}
+
+/// [`fetch_nas_layers`] with the adapters of `registry`. The service of an adapter that is held
+/// to its declared hosts ([`crate::adapters::RegionAdapter::policy`]) is asked through that policy.
+fn fetch_nas_layers_in(
+    registry: &Registry,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    kind: MapKind,
+    part: PartFile,
+) -> Vec<FetchedNasLayer> {
+    let adapters: Vec<(&NasService, Option<PolicyFetcher<'_>>)> =
+        regions_for_in(registry, &area.region_bbox)
+            .into_iter()
+            .filter_map(|adapter| {
+                let held = adapter
+                    .policy()
+                    .map(|policy| PolicyFetcher::new(fetcher, policy));
+                Some((adapter.nas()?, held))
+            })
+            .collect();
+    let services: Vec<(&NasService, &dyn Fetcher)> = adapters
+        .iter()
+        .map(|(service, held)| {
+            let through = held.as_ref().map_or(fetcher, |held| held as &dyn Fetcher);
+            (*service, through)
+        })
+        .collect();
+    fetch_layers_through(&services, area, kind.contract(), part)
 }
 
 #[cfg(test)]
@@ -126,5 +150,46 @@ mod tests {
                 assert_eq!(files(kind, bbox), (Vec::new(), 0));
             }
         }
+    }
+
+    /// The NAS service of an adapter from a folder is asked through the adapter's policy: off
+    /// the hosts it declares, no request leaves. A service of the program is asked as before.
+    #[test]
+    fn the_nas_service_of_a_folder_adapter_is_held_to_its_hosts() {
+        use crate::adapters::test_support::{SQUARE, square};
+        let service = NasService {
+            url: "https://elsewhere.example.net/nas".into(),
+            region: SQUARE,
+            ..LGB_NAS
+        };
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 4_000.0,
+                min_n: 4_000.0,
+                max_e: 5_000.0,
+                max_n: 5_000.0,
+            },
+            Crs::Utm33,
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.gml.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        // What each layer came to, and the requests it took.
+        let fetched = |hosts: Option<&[&str]>| {
+            let registry = square(Some(service.clone()), hosts);
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix("https://", EMPTY.as_bytes().to_vec());
+            let layers = fetch_nas_layers_in(&registry, &fetcher, &area, MapKind::Sprint, &part);
+            assert_eq!(layers.len(), 6);
+            let refused = layers
+                .iter()
+                .filter(|layer| matches!(layer.features, Err(FetchError::NotAllowed { .. })))
+                .count();
+            let fine = layers.iter().filter(|l| l.features.is_ok()).count();
+            (refused, fine, fetcher.calls.get())
+        };
+        assert_eq!(fetched(Some(&["geo.example.org"])), (6, 0, 0));
+        assert_eq!(fetched(Some(&["elsewhere.example.net"])), (0, 6, 6));
+        assert_eq!(fetched(None), (0, 6, 6));
     }
 }

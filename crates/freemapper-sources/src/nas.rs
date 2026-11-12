@@ -38,6 +38,18 @@ pub const LGB_NAS: NasService = NasService {
     namespaces: None,
 };
 
+/// The files in the layer list of `service` that name no NAS layer. A misspelled file would
+/// drop that layer for the state silently, so a list is checked before it is used.
+pub fn unknown_layers(service: &NasService) -> Vec<&str> {
+    service
+        .layers
+        .iter()
+        .flat_map(|files| files.iter())
+        .map(|file| file.as_ref())
+        .filter(|file| !NAS_LAYERS.iter().any(|layer| layer.file == *file))
+        .collect()
+}
+
 /// One AdV feature type, stored as `data/alkis-nas/<file>.geojson` for the map kinds that use it.
 #[derive(Debug, PartialEq)]
 pub struct NasLayer {
@@ -598,16 +610,29 @@ pub fn fetch_layers_from(
     kind: MapKind,
     part: PartFile,
 ) -> Vec<FetchedNasLayer> {
+    let services: Vec<(&NasService, &dyn Fetcher)> =
+        services.iter().map(|service| (*service, fetcher)).collect();
+    fetch_layers_through(&services, area, kind, part)
+}
+
+/// [`fetch_layers_from`] with a fetcher per service: the services of adapters that are held to
+/// different hosts are each asked through their own.
+pub fn fetch_layers_through(
+    services: &[(&NasService, &dyn Fetcher)],
+    area: &FetchArea,
+    kind: MapKind,
+    part: PartFile,
+) -> Vec<FetchedNasLayer> {
     nas_layers(kind)
         .filter_map(|layer| {
-            let serving: Vec<&NasService> = services
+            let serving: Vec<(&NasService, &dyn Fetcher)> = services
                 .iter()
                 .copied()
-                .filter(|s| s.serves(layer.file))
+                .filter(|(service, _)| service.serves(layer.file))
                 .collect();
             (!serving.is_empty()).then(|| FetchedNasLayer {
                 layer,
-                features: fetch_layer(fetcher, &serving, layer, area, part),
+                features: fetch_layer(&serving, layer, area, part),
             })
         })
         .collect()
@@ -615,8 +640,7 @@ pub fn fetch_layers_from(
 
 /// `layer` from each of `services`, reprojected into the map's CRS.
 fn fetch_layer(
-    fetcher: &dyn Fetcher,
-    services: &[&NasService],
+    services: &[(&NasService, &dyn Fetcher)],
     layer: &NasLayer,
     area: &FetchArea,
     part: PartFile,
@@ -627,7 +651,7 @@ fn fetch_layer(
         skipped: Vec::new(),
         regions: Vec::new(),
     };
-    for service in services {
+    for &(service, fetcher) in services {
         let request = Request {
             fetcher,
             service,
@@ -1223,9 +1247,8 @@ mod tests {
     #[test]
     fn nas_service_asks_only_its_layers() {
         // A state whose service lacks most types, and needs the prefix declared.
-        static ONLY_WALLS: [&str; 1] = ["sonstiges-bauwerk"];
         let service = NasService {
-            layers: Some(&ONLY_WALLS),
+            layers: Some(Cow::Borrowed(&[Cow::Borrowed("sonstiges-bauwerk")])),
             namespaces: Some(Cow::Borrowed(
                 "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)",
             )),
@@ -1297,24 +1320,15 @@ mod tests {
         assert_eq!(fetcher.calls.get(), 0);
     }
 
-    /// The files in the layer list of `service` that name no NAS layer.
-    fn unknown_layers(service: &NasService) -> Vec<&'static str> {
-        service
-            .layers
-            .unwrap_or_default()
-            .iter()
-            .copied()
-            .filter(|file| !NAS_LAYERS.iter().any(|l| l.file == *file))
-            .collect()
-    }
-
     #[test]
     fn nas_service_layer_lists_name_known_layers() {
         // A misspelled file in a service's list would drop that layer for the state silently.
         assert_eq!(unknown_layers(&LGB_NAS), Vec::<&str>::new());
-        static MISSPELLED: [&str; 2] = ["sonstiges-bauwerk", "vegetationsmerkmale"];
         let service = NasService {
-            layers: Some(&MISSPELLED),
+            layers: Some(Cow::Borrowed(&[
+                Cow::Borrowed("sonstiges-bauwerk"),
+                Cow::Borrowed("vegetationsmerkmale"),
+            ])),
             ..LGB_NAS
         };
         assert_eq!(unknown_layers(&service), ["vegetationsmerkmale"]);

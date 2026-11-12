@@ -15,7 +15,7 @@ Samples (tiny test responses only) are in `work/<state>/` next to this file; all
 | Baden-Wuerttemberg | partly | medium-high | DOP/DGM1/DOM1/nDOM1 open as 2 km zip tiles (stored, range-able) and DOP WMS; buildings only as INSPIRE `bu-core2d` WFS; land use only a 2.4 GB GPKG (the land-cover WFS is paid) |
 | Bayern | partly | high | DOP20/DGM1/DOM20 open, but buildings (Hausumringe) and land use (TN) only as bulk downloads (Shape per Regierungsbezirk, 5 GB GPKG); no WFS |
 | Bremen | partly | medium | DOP20 WMS and Hausumringe WFS open; DGM1 only as 1.09 GB XYZ zip; DOM1 only as rendered WMS; no land-use service found |
-| Saarland | blocked (unverified) | high | Only rendered WMS (DOP20 2022-2025, DGM) reachable; geoportal host and all WFS paths returned HTTP 503; catalogue hints that DOP20 use beyond viewing needs a contract |
+| Saarland | done 2026-11-12 (ADR 0111, `saarland-reference.md`) | medium | All services answered on 2026-11-12. DOP20, DGM1, DOM1 and ALKIS simplified are dl-de/by-2-0 by the LVGL catalogue; heights come as district zips with 1 km tiles (range requests), ALKIS from a WFS with upper-case attribute names. The line of 2026-11-08 below is kept as found then |
 
 Recommended order: NRW, Niedersachsen, Rheinland-Pfalz, Baden-Wuerttemberg, Bremen, Bayern, Saarland.
 

@@ -34,7 +34,7 @@ Samples (all under `mv/`; treat them as untrusted data):
 
 | Path | Content |
 |---|---|
-| **`mecklenburg-vorpommern.geojson`** (= `probe/boundary/mecklenburg-vorpommern_simplified25m.geojson`) | **the asset candidate** for `assets/regions/mecklenburg-vorpommern.geojson` (§10) |
+| **`mecklenburg-vorpommern.geojson`** (= `probe/boundary/mecklenburg-vorpommern_simplified25m.geojson`) | **the asset candidate** for `crates/adapters/de/manifests/mecklenburgvorpommern/boundary.geojson` (§10) |
 | `dl/dgm1/dgm1_33_312_5996_2_gtiff.tif`, `dl/dom1/dom1_33_312_5996_2_gtiff.tif`, `dl/ndom/ndom_33_312_5996_2_gtiff.tif` | the school's 2 km DGM1, DOM1 and nDOM tiles from the ATOM download endpoints |
 | `dl/dop/dop20rgb_33_312_5996_2_mv.tif` | the school's 2 km DOP20 RGB tile (**256-colour palette**, 141.6 MB) |
 | `dl/rgbihead/rgbi_head.bin` | the first 1.06 MB of the RGBI tile (header + first 512 px internal tile; the full file is 419 MB) |
@@ -542,7 +542,7 @@ Schweriner Schloss, Mecklenburgisches Staatstheater, also "Fahrstuhl", "Tunnel")
 
 ---
 
-## 10. State boundary (for `assets/regions/mecklenburg-vorpommern.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/mecklenburgvorpommern/boundary.geojson`)
 
 - **Source:** the ALKIS WFS, `ave:VerwaltungsEinheit` filtered on `art = Bundesland`, directly in 25833:
   ```
@@ -567,7 +567,7 @@ Schweriner Schloss, Mecklenburgisches Staatstheater, also "Fahrstuhl", "Tunnel")
   (+0.0012 %). Extent E 206,889–460,853, N 5,890,646–6,060,820. The original vertices of the kept polygons are within
   p50 4.7 m / p99 22.7 m of the simplified outline. The file is about twice the size of the Brandenburg asset (82.9 KB) because
   of the Bodden coast and islands; a 50 m tolerance would roughly halve it (not tested).
-- **Shared border with `assets/regions/brandenburg.geojson`** (both 25 m simplified):
+- **Shared border with `crates/adapters/de/manifests/brandenburg/boundary.geojson`** (both 25 m simplified):
   - shared length **439 km**; distance from the MV line to the BB line along it: p50 0.0 m, p90 1.2 m, **p99 12.5 m**;
   - **overlap 0.11 km²** (1,441 slivers, largest 18,387 m² at E 301498 / N 5912606), **gap 0.17 km²** (cells within 30 m of
     both lines covered by neither; largest 23,136 m² at E 308616 / N 5915168) — i.e. well under 1 m average width;
@@ -578,7 +578,7 @@ Schweriner Schloss, Mecklenburgisches Staatstheater, also "Fahrstuhl", "Tunnel")
   p99 15.5 m, overlap 0.055 km², gap 0.048 km². **That SH candidate is not a valid geometry**: shapely reports
   "Self-intersection[91512.316 6058719.524]" (25833, North Frisia); it was compared after `make_valid`. It was simplified with
   plain Douglas–Peucker per ring; redo it topology-preserving before it goes into `assets/`. All six current assets in
-  `assets/regions/` are valid.
+  the folders of the manifests (`crates/adapters/de/manifests/`) are valid.
 - Neighbours: Brandenburg (freemapper region), Schleswig-Holstein, Lower Saxony (Elbe, short), Poland.
 
 ---

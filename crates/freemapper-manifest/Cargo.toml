@@ -1,0 +1,28 @@
+[package]
+name = "freemapper-manifest"
+description = "The adapter manifest of freemapper: schema, parser and validator of format 1"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+freemapper-adapter-api.workspace = true
+freemapper-fs.workspace = true
+freemapper-georef.workspace = true
+freemapper-sources.workspace = true
+geo.workspace = true
+geo-types.workspace = true
+geojson.workspace = true
+serde.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
+freemapper-sources = { workspace = true, features = ["testing"] }
+tempfile.workspace = true

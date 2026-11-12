@@ -1,9 +1,12 @@
 //! `freemapper` command line interface.
 
+mod adapter_check;
+mod adapters;
 mod errors;
 mod estimate;
 mod find;
 mod help;
+mod hosts;
 mod jobs;
 mod lock;
 mod mcp;
@@ -73,6 +76,8 @@ enum Commands {
         title: Option<String>,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        adapters: AdapterArgs,
     },
     /// Write the starter project (OOM map, templates, attribution) into a project folder.
     Export {
@@ -105,6 +110,8 @@ enum Commands {
         pdf_sources: SourcesArg,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        adapters: AdapterArgs,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -115,6 +122,8 @@ enum Commands {
         offline: bool,
         #[command(flatten)]
         cache: CacheArgs,
+        #[command(flatten)]
+        adapters: AdapterArgs,
     },
     /// Compute the templates (orthophoto, hillshade, slope, nDSM) and contours from the fetched data.
     Derive {
@@ -122,6 +131,8 @@ enum Commands {
         dir: PathBuf,
         #[command(flatten)]
         cache: CacheArgs,
+        #[command(flatten)]
+        adapters: AdapterArgs,
     },
     /// Fetch, derive and export in one go.
     Run {
@@ -155,6 +166,8 @@ enum Commands {
         content: ContentArgs,
         #[command(flatten)]
         cache: CacheArgs,
+        #[command(flatten)]
+        adapters: AdapterArgs,
     },
     /// Choose the map area in the browser by drawing it or picking a place. Saving writes
     /// freemapper.toml and creates the project folder if needed.
@@ -211,6 +224,12 @@ enum Commands {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Show the region adapters: the states and countries freemapper has data sources for.
+    #[command(alias = "adapter")]
+    Adapters {
+        #[command(subcommand)]
+        command: AdaptersCommand,
+    },
     /// Install a newer freemapper from the GitHub releases, after asking. A build from source says
     /// how to update it instead.
     Update {
@@ -231,6 +250,73 @@ enum Commands {
         #[arg(long, value_enum, conflicts_with_all = ["check", "yes", "version", "rollback"])]
         mode: Option<UpdateMode>,
     },
+}
+
+#[derive(Subcommand)]
+enum AdaptersCommand {
+    /// List the adapters with where each comes from (built in, your folder, a project), its
+    /// revision, the day it was last checked and the hosts it asks.
+    List {
+        /// Print the list as JSON.
+        #[arg(long)]
+        json: bool,
+        /// Also read the adapters in the folder `adapters` of this project folder, as
+        /// --adapters-from-project would.
+        #[arg(long, value_name = "DIR")]
+        project: Option<PathBuf>,
+    },
+    /// Check the folder of an adapter before it is used or passed on: whether it would load,
+    /// what its author should know, and with --live whether its services answer. Exit code 0:
+    /// it passes; 1: it has findings; 2: the check could not run.
+    Check {
+        /// The folder of the adapter; its name is the id of the adapter.
+        dir: PathBuf,
+        /// Also ask the services of the adapter for the box --bbox names and say what each
+        /// delivers. The requests stay on the hosts the manifest declares.
+        #[arg(long, requires = "bbox")]
+        live: bool,
+        /// The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies
+        /// inside the boundary of the adapter; 150 m by 150 m is enough.
+        #[arg(
+            long,
+            value_name = "BOX",
+            requires = "live",
+            allow_hyphen_values = true
+        )]
+        bbox: Option<adapter_check::LiveBox>,
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Allow a built-in adapter one more host: for a state whose service moved to a server
+    /// its adapter does not name yet. The message about the refused address says which host.
+    /// The host is checked like a host of a manifest, and freemapper still connects to
+    /// servers on the internet only.
+    AllowHost {
+        /// The id of the built-in adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The host to allow: a DNS name, no address, no port.
+        host: String,
+    },
+    /// Take back a host that allow-host allowed.
+    DisallowHost {
+        /// The id of the built-in adapter.
+        adapter: String,
+        /// The host to take back.
+        host: String,
+    },
+}
+
+/// Whether the adapters a project brings along are loaded.
+#[derive(clap::Args)]
+struct AdapterArgs {
+    /// Also load the adapters in the folder `adapters` of the project folder. freemapper names
+    /// each of them with the hosts it asks. Use it for a project you trust: an adapter makes
+    /// freemapper ask the servers it names.
+    #[arg(long)]
+    adapters_from_project: bool,
 }
 
 /// Where the map area comes from: exactly one of these.
@@ -309,6 +395,23 @@ impl CacheArgs {
 }
 
 impl Commands {
+    /// The project folder whose adapters this command loads: the folder of a command that got
+    /// `--adapters-from-project`. The area page and the MCP server have no such switch.
+    fn project_adapters(&self) -> Option<&std::path::Path> {
+        match self {
+            Commands::Init { dir, adapters, .. }
+            | Commands::Export { dir, adapters, .. }
+            | Commands::Fetch { dir, adapters, .. }
+            | Commands::Derive { dir, adapters, .. }
+            | Commands::Run { dir, adapters, .. }
+                if adapters.adapters_from_project =>
+            {
+                Some(dir)
+            }
+            _ => None,
+        }
+    }
+
     /// The cache folder and `--offline` of a command after which the daily update check runs:
     /// the ones that use the network anyway (spec 3.3). `init` and `find` have no `--cache-dir`
     /// and record in the default cache folder.
@@ -324,6 +427,7 @@ impl Commands {
             Commands::Export { .. }
             | Commands::Derive { .. }
             | Commands::Mcp { .. }
+            | Commands::Adapters { .. }
             | Commands::Update { .. } => None,
         }
     }
@@ -613,6 +717,16 @@ fn main() -> std::process::ExitCode {
 
 /// Runs the command; an error comes back for `main` to word in the language of the run.
 fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
+    // The adapters of this run, before anything asks the registry. The list of the adapters
+    // assembles its own, and an update asks none.
+    if !matches!(
+        cli.command,
+        Commands::Adapters { .. } | Commands::Update { .. }
+    ) {
+        // The MCP server and the area page read the person's settings and never write them.
+        let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
+        adapters::install(cli.command.project_adapters(), may_write);
+    }
     match cli.command {
         Commands::Init {
             dir,
@@ -622,6 +736,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             scale,
             title,
             content,
+            adapters: _,
         } => {
             let area = area.area(part.map(|p| p as usize))?;
             let today = chrono::Local::now().date_naive();
@@ -644,6 +759,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_scale_bar,
             pdf_sources,
             content,
+            adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
@@ -688,6 +804,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             dir,
             offline,
             cache,
+            adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
             let project = fetch_project(
@@ -702,7 +819,11 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 text("cli-fetched-tiles", &[("count", n(project.tiles.len()))])
             );
         }
-        Commands::Derive { dir, cache } => {
+        Commands::Derive {
+            dir,
+            cache,
+            adapters: _,
+        } => {
             let _lock = lock_folder(&dir)?;
             for path in derive_project(&dir, &cache.cache()?, &mut report_note)? {
                 wrote(&path);
@@ -719,6 +840,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_sources,
             content,
             cache,
+            adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
@@ -804,6 +926,27 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             })?;
         }
         Commands::Find { query, json } => find::run(&query, json)?,
+        Commands::Adapters {
+            command: AdaptersCommand::List { json, project },
+        } => adapters::list(json, project.as_deref()),
+        Commands::Adapters {
+            command:
+                AdaptersCommand::Check {
+                    dir,
+                    live,
+                    bbox,
+                    json,
+                    cache,
+                },
+        } => {
+            return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
+        }
+        Commands::Adapters {
+            command: AdaptersCommand::AllowHost { adapter, host },
+        } => adapters::change_allowed_host(&adapter, &host, true)?,
+        Commands::Adapters {
+            command: AdaptersCommand::DisallowHost { adapter, host },
+        } => adapters::change_allowed_host(&adapter, &host, false)?,
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;
@@ -870,5 +1013,88 @@ mod tests {
         };
         assert!(!ocad);
         assert_eq!(PdfSources::from(pdf_sources), PdfSources::Auto);
+    }
+
+    /// `--adapters-from-project` belongs to the commands that work on a project folder from
+    /// the terminal. It names the folder whose adapters are loaded.
+    #[test]
+    fn project_adapters_are_loaded_only_with_the_switch() {
+        let project = |args: &[&str]| {
+            let cli = Cli::try_parse_from(args).unwrap();
+            cli.command
+                .project_adapters()
+                .map(std::path::Path::to_path_buf)
+        };
+        for command in ["export", "fetch", "derive", "run"] {
+            assert_eq!(
+                project(&["freemapper", command, "/tmp/p"]),
+                None,
+                "{command}"
+            );
+            assert_eq!(
+                project(&["freemapper", command, "/tmp/p", "--adapters-from-project"]),
+                Some(PathBuf::from("/tmp/p")),
+                "{command}"
+            );
+        }
+        let init = ["freemapper", "init", "/tmp/p", "--osm", "way/1"];
+        assert_eq!(project(&init), None);
+        assert_eq!(
+            project(&[&init[..], &["--adapters-from-project"]].concat()),
+            Some(PathBuf::from("/tmp/p"))
+        );
+    }
+
+    /// The MCP server works for an agent on folders the agent names: it never loads the
+    /// adapters of a project, and has no switch that would.
+    #[test]
+    fn mcp_ignores_project_adapters() {
+        let cli = Cli::try_parse_from(["freemapper", "mcp"]).unwrap();
+        assert_eq!(cli.command.project_adapters(), None);
+        assert!(Cli::try_parse_from(["freemapper", "mcp", "--adapters-from-project"]).is_err());
+    }
+
+    /// A run started from the area page is like one of the MCP server: no project adapters.
+    #[test]
+    fn page_run_ignores_project_adapters() {
+        let cli = Cli::try_parse_from(["freemapper", "select", "/tmp/p"]).unwrap();
+        assert_eq!(cli.command.project_adapters(), None);
+        assert!(
+            Cli::try_parse_from(["freemapper", "select", "/tmp/p", "--adapters-from-project"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn adapters_list_takes_json_and_a_project() {
+        let cli = Cli::try_parse_from(["freemapper", "adapters", "list"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Commands::Adapters {
+                command: AdaptersCommand::List {
+                    json: false,
+                    project: None
+                }
+            }
+        ));
+        let cli = Cli::try_parse_from([
+            "freemapper",
+            "adapters",
+            "list",
+            "--json",
+            "--project",
+            "/tmp/p",
+        ])
+        .unwrap();
+        let Commands::Adapters {
+            command: AdaptersCommand::List { json, project },
+        } = cli.command
+        else {
+            panic!("not adapters list");
+        };
+        assert!(json);
+        assert_eq!(project, Some(PathBuf::from("/tmp/p")));
+        // `adapters` alone asks for a subcommand.
+        assert!(Cli::try_parse_from(["freemapper", "adapters"]).is_err());
     }
 }

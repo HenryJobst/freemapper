@@ -59,6 +59,83 @@ cli-find-hint = Projekt anlegen mit: freemapper init <ordner> --osm { $id }
 cli-find-no-area = Keiner dieser Orte hat eine Fläche, die ein Kartengebiet sein kann. Zeichnen Sie das Gebiet mit: freemapper select <ordner>
 cli-find-nothing = Zu „{ $query }“ wurde kein Ort gefunden. Versuchen Sie einen anderen Namen oder zeichnen Sie das Gebiet mit: freemapper select <ordner>
 
+## adapters (ADR 0082). Ein Befund eines Manifests kommt in `{ $finding }` mit Datei, Zeile, Schlüssel
+## und Code an, auf Englisch.
+
+cli-adapter-skipped = Warnung: Der Adapter in { $folder } wird ausgelassen: { $finding }
+cli-adapter-note = Warnung: Der Adapter in { $folder } lädt, aber: { $finding }
+cli-adapter-from-project = Warnung: Der Adapter { $adapter } aus dem Projektordner wird verwendet; er darf diese Hosts anfragen: { $hosts }
+cli-adapter-overlaps = Warnung: Der Adapter { $adapter } deckt auch Gebiet von { $others } ab; seine Objekte kommen dort auf die Karten
+cli-adapter-dir-relative = Warnung: FREEMAPPER_ADAPTER_DIR ist kein absoluter Pfad ({ $path }) und wird ignoriert
+cli-adapters-no-project = Warnung: { $path } ist kein Ordner; es wurden keine Adapter eines Projekts gelesen
+cli-adapters-overlaps = teilt Gebiet mit: { $others }
+cli-adapters-line = { $adapter }  { $name }  { $source }  Revision { $revision }  geprüft { $checked }  Hosts: { $hosts }
+cli-adapters-source-built-in = eingebaut
+cli-adapters-source-user = aus Ihrem Ordner
+cli-adapters-source-project = aus dem Projekt
+cli-adapters-never-checked = nie
+cli-adapters-user-dir = Ihre Adapter werden aus { $path } gelesen
+cli-adapters-no-user-dir = Dieses System hat keinen Ordner für Ihre Adapter; FREEMAPPER_ADAPTER_DIR nennt einen
+
+## adapters allow-host (ADR 0110)
+
+cli-allow-host-added = freemapper darf für { $name } jetzt auch { $host } anfragen. Der Eintrag steht in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` nimmt ihn zurück. Eine Gebietsseite oder ein KI-Assistent, der schon läuft, liest den Eintrag erst nach einem Neustart
+cli-allow-host-already = { $host } ist für { $name } schon freigegeben
+cli-allow-host-declared = Der Adapter für { $name } nennt { $host } selbst; es gibt nichts freizugeben
+cli-allow-host-refused = { $host } lässt sich nicht freigeben: { $reason }
+cli-allow-host-unknown-adapter = Es gibt keinen eingebauten Adapter { $adapter }; die eingebauten Adapter sind: { $adapters }
+cli-allow-host-folder-adapter = { $adapter } ist ein Adapter aus Ihrem Adapterordner; tragen Sie den Host stattdessen in `[net] hosts` seines Manifests ein
+cli-allow-host-no-config = Dieses System hat keinen Konfigurationsordner für freigegebene Hosts
+cli-allow-host-write = { $file } ließ sich nicht schreiben: { $detail }
+cli-allow-host-unreadable = { $file } lässt sich nicht lesen ({ $detail }); berichtigen oder entfernen Sie die Datei zuerst; es wurde nichts geändert
+cli-disallow-host-removed = freemapper fragt { $host } für { $name } nicht mehr an
+cli-disallow-host-absent = { $host } war für { $name } nicht freigegeben; es gibt nichts zurückzunehmen
+cli-allowed-hosts-unreadable = Warnung: { $file } ließ sich nicht lesen ({ $detail }); es sind keine zusätzlichen Hosts freigegeben
+cli-allowed-hosts-ignored = Warnung: { $file }: Der Eintrag { $host } für { $adapter } wird ignoriert: { $reason }
+cli-allowed-hosts-no-adapter = freemapper hat keinen eingebauten Adapter dieses Namens
+cli-allowed-host-redundant = Warnung: { $host } gehört jetzt zu den Hosts, die der Adapter für { $name } nennt; Ihr Eintrag in { $file } wurde entfernt
+cli-adapters-allowed = von Ihnen freigegeben: { $hosts }
+
+## adapters check. Ein Befund kommt in `{ $finding }` wie in den Zeilen oben. `{ $capability }` ist
+## ein festes Wort (`rasters`, `alkis-buildings`, `nas`, `osm`), in jeder Sprache dasselbe.
+
+cli-check-adapter = Adapter { $adapter } ({ $name }), Revision { $revision }, Hosts: { $hosts }
+cli-check-error = Fehler: { $finding }
+cli-check-warning = Warnung: { $finding }
+cli-check-passed = { $folder } besteht die Prüfung
+cli-check-passed-warnings = { $folder } besteht die Prüfung, mit { $count ->
+        [one] einer Warnung
+       *[other] { $count } Warnungen
+    }
+cli-check-failed = { $folder } besteht die Prüfung nicht
+cli-check-no-folder = Es gibt keinen Ordner { $folder }
+cli-check-live-ok = { $capability } in Ordnung: { $detail }
+cli-check-live-failed = { $capability } FEHLGESCHLAGEN: { $detail }
+cli-check-live-not-asked = { $capability } nicht angefragt: { $detail }
+cli-check-live-box-outside = Das Rechteck liegt nicht innerhalb der Grenze des Adapters { $adapter }; eine Live-Prüfung fragt die Dienste für einen Ort an, den der Adapter abdeckt
+cli-check-live-cannot = Die Live-Prüfung kann nicht laufen: { $detail }
+cli-check-detail-not-declared = der Adapter erklärt keine
+cli-check-detail-stopped = ein früherer Teil ist fehlgeschlagen
+cli-check-detail-see-warnings = siehe die Warnungen
+cli-check-detail-outside-dataset = das Rechteck liegt außerhalb des Datensatzes
+cli-check-detail-objects = { $count ->
+        [one] ein Objekt
+       *[other] { $count } Objekte
+    }
+cli-check-detail-layers = { $layers } Ebenen, { $count } Objekte
+cli-check-detail-trees = { $count ->
+        [one] ein Baum
+       *[other] { $count } Bäume
+    }
+cli-check-detail-extract = { $label }, Datenstand { $date }
+cli-check-raster-orthophoto = Luftbild
+cli-check-raster-terrain = Geländemodell
+cli-check-raster-surface = Oberflächenmodell
+cli-check-raster-tiles = { $product }: { $count ->
+        [one] eine Kachel
+       *[other] { $count } Kacheln
+    }
+
 ## Aufzählungen im Satz
 
 # Eine Aufzählung im Satz: das letzte Glied nach den anderen, die Kommas verbinden.
@@ -344,7 +421,7 @@ error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $
 word-kind-schoolyard = Schulhofkarten
 word-kind-sprint = Sprintkarten
 error-project-toml = ungültige Projektdatei: { $message }
-error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; eine neuere Version kann ihn haben
+error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; Adapter kommen mit dem Programm, aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project auf der Kommandozeile, aus dem Ordner `adapters` des Projekts (nur für ein Projekt, dem Sie vertrauen)
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
@@ -395,6 +472,25 @@ error-fetch-refused-detail = { $url }: Der Server hat die Anfrage abgelehnt (HTT
 error-fetch-too-large = Die Datei von { $url } ist größer als { $limit } MB; abgebrochen
 error-fetch-not-stored = Für dieses Kartengebiet ist nichts gespeichert ({ $label }): { $path } fehlt, lässt sich nicht lesen oder deckt das Gebiet nicht ab; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
 error-fetch-range-ignored = { $url }: Der Server hat den Bytebereich { $range } nicht beachtet (HTTP { $status })
+error-fetch-not-allowed = { $url }: freemapper sendet keine Anfragen an diese Adresse: { $reason }
+error-fetch-host-not-named-allow = { $target }: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für { $name } nennt den Host { $host } nicht{ $from }. Ist der Dienst dorthin umgezogen, geben Sie den Host mit `freemapper adapters allow-host { $adapter } { $host }` frei und melden Sie es unter https://github.com/HenryJobst/freemapper/issues
+error-fetch-host-not-named-manifest = { $target }: freemapper sendet keine Anfragen an diese Adresse: Der Adapter { $adapter } nennt den Host { $host } nicht{ $from }. Ist der Dienst dorthin umgezogen, tragen Sie den Host in `[net] hosts` seines Manifests ein
+error-fetch-host-redirected-from = {" "}({ $url } leitet dorthin weiter)
+error-reason-not-a-host-name = kein Hostname
+error-reason-not-ascii = ein Name außerhalb von ASCII muss in seiner „xn--“-Form stehen
+error-reason-not-a-dns-name = kein DNS-Name
+error-reason-no-domain = ein Name dieses Rechners oder ohne Domain
+error-reason-local-name = ein Name des lokalen Netzes
+error-reason-ip-address = eine IP-Adresse, kein DNS-Name
+error-reason-unexpected-character = unerwartetes Zeichen
+error-reason-not-https = kein https
+error-reason-user-info = Benutzerangabe in der Adresse
+error-reason-port = ein anderer Port als 443
+error-reason-host-not-declared = der Host gehört nicht zu den erklärten Hosts
+error-reason-local-address = eine Adresse dieses Rechners oder des lokalen Netzes, nicht die eines Servers im Internet
+error-reason-redirect-to = eine Weiterleitung auf { $target }
+error-reason-too-many-redirects = mehr als { $count } Weiterleitungen
+error-reason-redirect-nowhere = eine Weiterleitung (HTTP { $status }) ohne Ziel
 error-fetch-currency-csv = Aktualitäts-CSV, Zeile { $line }: { $message }
 error-alkis = ungültige ALKIS-Daten: { $message }
 error-osm = OSM-Daten: { $message }
@@ -501,6 +597,22 @@ help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Te
 help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
 help-update-rollback = Zur Version zurückkehren, die die letzte Aktualisierung ersetzt hat
 help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
+help-adapters = Die Regionsadapter zeigen: die Bundesländer und Länder, für die freemapper Datenquellen hat
+help-adapters-list = Die Adapter auflisten, jeweils mit Herkunft (eingebaut, Ihr Ordner, ein Projekt), Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt
+help-adapters-list-json = Die Liste als JSON ausgeben
+help-adapters-list-project = Auch die Adapter im Ordner `adapters` dieses Projektordners lesen, wie es --adapters-from-project täte
+help-adapters-check = Den Ordner eines Adapters prüfen, bevor er benutzt oder weitergegeben wird: ob er laden würde, was sein Autor wissen sollte und, mit --live, ob seine Dienste antworten. Exit-Code 0: bestanden; 1: Befunde; 2: Die Prüfung konnte nicht laufen
+help-adapters-check-dir = Der Ordner des Adapters; sein Name ist die Kennung des Adapters
+help-adapters-check-live = Auch die Dienste des Adapters für das Rechteck aus --bbox anfragen und sagen, was jeder liefert. Die Anfragen bleiben auf den Hosts, die das Manifest erklärt
+help-adapters-check-bbox = Das Rechteck der Live-Prüfung in Grad, als minLon,minLat,maxLon,maxLat. Es liegt innerhalb der Grenze des Adapters; 150 m mal 150 m genügen
+help-adapters-check-json = Das Ergebnis als JSON ausgeben
+help-adapters-allow-host = Einem eingebauten Adapter einen weiteren Host freigeben: für ein Bundesland, dessen Dienst auf einen Server umgezogen ist, den sein Adapter noch nicht nennt. Die Meldung zur abgelehnten Adresse nennt den Host. Der Host wird geprüft wie ein Host eines Manifests, und freemapper verbindet sich weiterhin nur mit Servern im Internet
+help-adapters-allow-host-adapter = Die Kennung des eingebauten Adapters, wie `adapters list` sie zeigt
+help-adapters-allow-host-host = Der freizugebende Host: ein DNS-Name, keine Adresse, kein Port
+help-adapters-disallow-host = Einen Host zurücknehmen, den allow-host freigegeben hat
+help-adapters-disallow-host-adapter = Die Kennung des eingebauten Adapters
+help-adapters-disallow-host-host = Der Host, der zurückgenommen wird
+help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 
