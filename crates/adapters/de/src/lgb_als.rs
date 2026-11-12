@@ -603,9 +603,9 @@ mod tests {
 
     #[test]
     fn brandenburg_and_north_rhine_westphalia_have_point_clouds() {
-        for state in State::ALL {
-            let adapter = crate::states::StateAdapter::new(state);
-            let backend = freemapper_adapter_api::adapter::RegionAdapter::point_cloud(&adapter);
+        // The adapters come in the order of the states.
+        for (state, adapter) in State::ALL.into_iter().zip(crate::states::adapters()) {
+            let backend = adapter.point_cloud();
             assert_eq!(
                 backend.map(|b| b.info().epsg),
                 match state {

@@ -1353,16 +1353,23 @@ fn fetch_point_clouds_into(
         project.point_clouds = still_cached(&project.point_clouds);
         return;
     }
-    let mut env = AdapterEnv {
-        fetcher,
-        regions: registry(),
-        cache,
-        mode,
-        today: crate::clock::today(),
-        skip_surface: false,
-        progress: &mut *progress,
-    };
-    match backend.fetch(&mut env, &area.bbox) {
+    // Like every request for a state, only to the hosts its manifest declares.
+    let region = raster_region_in(registry(), &area.region_bbox)
+        .map(|adapter| adapter.info().id.as_str().to_string())
+        .unwrap_or_default();
+    let fetched = crate::adapters::asking_for(&region, fetcher, |fetcher| {
+        let mut env = AdapterEnv {
+            fetcher,
+            regions: registry(),
+            cache,
+            mode,
+            today: crate::clock::today(),
+            skip_surface: false,
+            progress: &mut *progress,
+        };
+        backend.fetch(&mut env, &area.bbox)
+    });
+    match fetched {
         Ok(tiles) => project.point_clouds = tiles.into_iter().map(|t| t.record).collect(),
         Err(e) => {
             progress(note!(

@@ -18,8 +18,8 @@ use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
 use freemapper_adapter_api::info::{Declared, RegionInfo};
-use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::pointcloud::PointCloudBackend;
+use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
