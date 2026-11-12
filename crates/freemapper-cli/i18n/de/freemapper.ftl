@@ -97,6 +97,7 @@ cli-map-image-gone = Diese Vorschau gibt es nicht mehr.
 cli-map-image-running = Für dieses Projekt läuft gerade ein Lauf. Die Vorschau lässt sich berechnen, sobald er fertig ist.
 cli-map-image-stale = Das gespeicherte Projekt passt nicht mehr zur erzeugten Karte, etwa weil sich Gebiet, Kartenart oder Maßstab geändert haben. Starten Sie zuerst einen neuen Lauf.
 cli-map-image-bad-content = Die Inhaltseinstellungen sind ungültig.
+cli-map-image-bad-request = Die Anfrage für die Vorschau ist ungültig. Erwartet wird ein JSON-Objekt, gegebenenfalls mit den Inhaltseinstellungen.
 
 ## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
 ## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine

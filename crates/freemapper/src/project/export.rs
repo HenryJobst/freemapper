@@ -677,23 +677,22 @@ pub fn map_preview_path(dir: &Path) -> PathBuf {
 
 /// The preview of the map in `documents`: the base part and the map part as the map PDF draws
 /// them, clipped to the map area on paper (in paper orientation), without the sheet and without
-/// any candidate. Texts are left out (see [`crate::render::raster`]).
+/// any candidate. Texts are left out (see [`crate::render::raster`]). The map area is the one
+/// the documents were built for (`documents.content`, the rectangle of the project's bounding
+/// box on paper), not a new read of `freemapper.toml`: a save meanwhile cannot mix two areas.
+/// `dir` only names the file in an error.
 pub fn map_preview_webp(
     documents: &StarterDocuments,
     dir: &Path,
 ) -> Result<MapImage, ProjectError> {
     use crate::render::{draw, raster, symbols::RenderSymbols};
-    let project = ProjectFile::load(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
     let (map, _) = pdf_objects(documents, false);
     let primitives: Vec<draw::Primitive> = map
         .iter()
         .flat_map(|o| draw::primitives(o, &symbols))
         .collect();
-    let clip = paper_box(&PaperRect::of_bbox(
-        &project.bbox()?,
-        &documents.map.georef,
-    )?);
+    let clip = paper_box(&documents.content);
     let image = raster::rasterize(
         &primitives,
         clip,
@@ -745,12 +744,14 @@ pub fn export_map_preview_from(
 }
 
 /// SHA-256 (hex) of the project file the library writes for `project` without its `[content]`
-/// table: equal for two projects that differ only in their content settings, so the stored data
-/// and a preview still fit the project.
+/// table and its title: equal for two projects that differ only in their content settings or
+/// title, so the stored data and a preview still fit the project. The title changes only the
+/// sheet, which the preview never draws.
 pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError> {
     use sha2::Digest as _;
     let without_content = ProjectFile {
         content: None,
+        title: None,
         ..project.clone()
     };
     let text = toml::to_string(&without_content).map_err(|e| ProjectError::Toml(e.to_string()))?;

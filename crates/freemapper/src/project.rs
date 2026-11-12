@@ -5916,7 +5916,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
-    fn project_fingerprint_leaves_out_only_the_content() {
+    fn project_fingerprint_leaves_out_only_the_content_and_the_title() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let project = ProjectFile::load(dir.path()).unwrap();
@@ -5930,6 +5930,16 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             ..project.clone()
         };
         assert_eq!(project_fingerprint(&with_content).unwrap(), fingerprint);
+        // The title is drawn on the sheet only, never in the preview.
+        for title in ["Clara-Zetkin-Schule", "Another title"] {
+            let title = Some(title.to_string());
+            assert_ne!(project.title, title);
+            let other_title = ProjectFile {
+                title,
+                ..project.clone()
+            };
+            assert_eq!(project_fingerprint(&other_title).unwrap(), fingerprint);
+        }
         let other_area = ProjectFile {
             map_area: serde_json::json!({
                 "type": "Polygon",

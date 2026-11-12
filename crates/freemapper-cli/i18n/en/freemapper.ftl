@@ -97,6 +97,7 @@ cli-map-image-gone = This preview is no longer available.
 cli-map-image-running = A run is going on for this project. The preview can be computed once it has finished.
 cli-map-image-stale = The saved project no longer matches the generated map, for example because the area, map kind or scale changed. Start a new run first.
 cli-map-image-bad-content = The content settings are not valid.
+cli-map-image-bad-request = The request for a preview is not valid. Send a JSON object, with the content settings if any.
 
 ## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
 ## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has

@@ -124,35 +124,31 @@ fn the_build_is_kept_until_the_stored_data_changes() {
     let lang = Lang::english();
     let mut builds = Builds::default();
     let full = ContentSettings::with_profile(Profile::Full);
-    let first = compute(&project, &mut builds, Some(full.clone()), &lang).unwrap();
+    let first = compute(&project, &mut builds, Some(full.clone()), &lang, &|| false).unwrap();
     assert_eq!(first.content, full);
     assert_eq!(builds.built, 1);
     // Other settings, the same build.
-    compute(&project, &mut builds, None, &lang).unwrap();
+    compute(&project, &mut builds, None, &lang, &|| false).unwrap();
     assert_eq!(builds.built, 1);
     // Saved content settings are not part of the stamp, and a request without settings uses
     // them.
     let safe = ContentSettings::with_profile(Profile::Safe);
     set_content(&project, Some(safe.clone())).unwrap();
-    let computed = compute(&project, &mut builds, None, &lang).unwrap();
+    let computed = compute(&project, &mut builds, None, &lang, &|| false).unwrap();
     assert_eq!(computed.content, safe);
     assert_eq!(builds.built, 1);
     // New data (a fetch, a derive or an export) builds again, once.
     std::fs::write(project.join("data").join("new.geojson"), "{}").unwrap();
-    compute(&project, &mut builds, None, &lang).unwrap();
-    compute(&project, &mut builds, None, &lang).unwrap();
+    compute(&project, &mut builds, None, &lang, &|| false).unwrap();
+    compute(&project, &mut builds, None, &lang, &|| false).unwrap();
     assert_eq!(builds.built, 2);
     std::fs::create_dir_all(project.join("templates")).unwrap();
     std::fs::write(project.join("templates").join("t.png"), "x").unwrap();
-    compute(&project, &mut builds, None, &lang).unwrap();
+    compute(&project, &mut builds, None, &lang, &|| false).unwrap();
     assert_eq!(builds.built, 3);
     // Another area: the data is not that area's, and nothing is built.
-    let moved = MapArea::from_geojson(
-        r#"{"type":"Polygon","coordinates":[[[13.843,52.539],[13.846,52.539],[13.846,52.541],[13.843,52.541],[13.843,52.539]]]}"#,
-    )
-    .unwrap();
-    set_map_area(&project, &moved).unwrap();
-    match compute(&project, &mut builds, None, &lang) {
+    set_map_area(&project, &moved_area()).unwrap();
+    match compute(&project, &mut builds, None, &lang, &|| false) {
         Err(Refusal::Conflict(e)) => assert!(e.contains("Start a new run first."), "{e}"),
         other => panic!("{:?}", other.map(|c| c.content)),
     }
@@ -163,7 +159,7 @@ fn the_build_is_kept_until_the_stored_data_changes() {
 fn without_a_record_there_is_no_preview() {
     let dir = tempfile::tempdir().unwrap();
     let lang = Lang::english();
-    let refused = |dir: &Path| match compute(dir, &mut Builds::default(), None, &lang) {
+    let refused = |dir: &Path| match compute(dir, &mut Builds::default(), None, &lang, &|| false) {
         Err(Refusal::Conflict(e)) => e,
         other => panic!("{:?}", other.map(|c| c.content)),
     };
@@ -196,4 +192,132 @@ fn the_files_stamp_follows_changes_under_data_and_templates() {
     let now = FilesStamp::of(dir.path());
     std::fs::write(dir.path().join("x.omap"), "map").unwrap();
     assert_eq!(FilesStamp::of(dir.path()), now);
+}
+
+/// Another area, close to the school.
+fn moved_area() -> MapArea {
+    MapArea::from_geojson(
+        r#"{"type":"Polygon","coordinates":[[[13.843,52.539],[13.846,52.539],[13.846,52.541],[13.843,52.541],[13.843,52.539]]]}"#,
+    )
+    .unwrap()
+}
+
+/// The conflict sentence of a refused computation.
+fn conflict(result: Result<Computed, Refusal>) -> String {
+    match result {
+        Err(Refusal::Conflict(e)) => e,
+        other => panic!("{:?}", other.map(|c| c.content)),
+    }
+}
+
+#[test]
+fn a_run_that_starts_during_a_live_preview_is_not_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project_in(dir.path(), true);
+    let lang = Lang::english();
+    let mut builds = Builds::default();
+    // A terminal starts a run while the page builds: it gets the folder.
+    let mut run = None;
+    let refused = conflict(compute_with(
+        &project,
+        &mut builds,
+        None,
+        &lang,
+        &|| false,
+        &mut || {
+            run = Some(crate::lock::acquire(&project, crate::lock::Who::Cli).unwrap());
+        },
+    ));
+    assert!(
+        refused.contains("another freemapper run is using this folder"),
+        "{refused}"
+    );
+    // What was built may have read half-written data: it is not kept.
+    assert!(builds.cached.is_none());
+    drop(run);
+    compute(&project, &mut builds, None, &lang, &|| false).unwrap();
+    assert_eq!(builds.built, 2);
+    // The page's own run, started meanwhile, is named as such.
+    let started = std::cell::Cell::new(false);
+    let refused = conflict(compute_with(
+        &project,
+        &mut builds,
+        None,
+        &lang,
+        &|| started.get(),
+        &mut || started.set(true),
+    ));
+    assert!(
+        refused.starts_with("A run is going on for this project."),
+        "{refused}"
+    );
+    assert!(builds.cached.is_none());
+}
+
+#[test]
+fn a_save_during_a_live_preview_is_not_mixed_into_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project_in(dir.path(), true);
+    let lang = Lang::english();
+    let mut builds = Builds::default();
+    let mut saved = false;
+    let refused = conflict(compute_with(
+        &project,
+        &mut builds,
+        None,
+        &lang,
+        &|| false,
+        &mut || {
+            if !saved {
+                set_map_area(&project, &moved_area()).unwrap();
+                saved = true;
+            }
+        },
+    ));
+    assert!(refused.contains("Start a new run first."), "{refused}");
+    assert!(builds.cached.is_none());
+}
+
+#[test]
+fn new_data_during_a_live_preview_is_built_once_more() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project_in(dir.path(), true);
+    let lang = Lang::english();
+    let mut builds = Builds::default();
+    let mut writes = 0;
+    let computed = compute_with(&project, &mut builds, None, &lang, &|| false, &mut || {
+        if writes == 0 {
+            std::fs::write(project.join("data").join("new.geojson"), "{}").unwrap();
+        }
+        writes += 1;
+    });
+    assert!(computed.is_ok());
+    assert_eq!((writes, builds.built), (2, 2));
+    // Data that keeps changing: the second change is refused, nothing is kept.
+    let refused = conflict(compute_with(
+        &project,
+        &mut builds,
+        None,
+        &lang,
+        &|| false,
+        &mut || {
+            writes += 1;
+            std::fs::write(project.join("data").join("new.geojson"), "x".repeat(writes)).unwrap();
+        },
+    ));
+    assert!(
+        refused.starts_with("A run is going on for this project."),
+        "{refused}"
+    );
+    assert!(builds.cached.is_none());
+}
+
+#[test]
+fn the_preview_is_clipped_to_the_area_it_was_built_for() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project_in(dir.path(), false);
+    let documents = starter_documents(&project).unwrap();
+    let before = map_preview_webp(&documents, &project).unwrap();
+    set_map_area(&project, &moved_area()).unwrap();
+    assert_eq!(map_preview_webp(&documents, &project).unwrap(), before);
 }

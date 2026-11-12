@@ -416,14 +416,18 @@ fn content_options_json() -> Value {
     })
 }
 
-/// The `content` of a save request: none when the page sends none (the stored settings stay), an
-/// error sentence when it is not a valid choice.
-fn content_of(body: &Value, lang: &Lang) -> Result<Option<ContentSettings>, SaveError> {
+/// The `content` of a request: none when the page sends none (the stored settings stay or are
+/// used), the sentence `refusal` in `lang` when it is not a valid choice.
+pub(crate) fn content_of(
+    body: &Value,
+    lang: &Lang,
+    refusal: &str,
+) -> Result<Option<ContentSettings>, String> {
     match body.get("content") {
         None | Some(Value::Null) => Ok(None),
         Some(value) => serde_json::from_value(value.clone())
             .map(Some)
-            .map_err(|_| SaveError::Refused(TEXTS.text(lang, "cli-save-bad-content", &[]))),
+            .map_err(|_| TEXTS.text(lang, refusal, &[])),
     }
 }
 
@@ -658,7 +662,8 @@ async fn save(
         {
             return Err(SaveError::Stale(current));
         }
-        let content = content_of(&body, &lang)?;
+        let content =
+            content_of(&body, &lang, "cli-save-bad-content").map_err(SaveError::Refused)?;
         let area = area_of(&body, &lang)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;

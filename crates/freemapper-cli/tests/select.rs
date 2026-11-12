@@ -1275,8 +1275,13 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     assert_eq!(status, 200);
     assert!(is_webp(&live));
     for path in ["api/map-image/live/0", "api/map-image/live/x"] {
-        let (status, ..) = get_bytes(&selector, path);
-        assert!(status == 404 || status == 400, "{path}: {status}");
+        let (status, body) = selector.get(path);
+        assert_eq!(status, 404, "{path}: {body}");
+        assert_eq!(
+            serde_json::from_str::<Value>(&body).unwrap()["error"],
+            "This preview is no longer available.",
+            "{path}"
+        );
     }
 
     // Settings that are no valid choice: 422 with one sentence, nothing computed.
@@ -1290,6 +1295,38 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
         assert_eq!(status, 422, "{answer}");
         assert_eq!(answer, "Die Inhaltseinstellungen sind ungültig.");
     }
+    // A body that is no JSON object: 400 in the page's language, nothing computed either.
+    for body in ["[]", "\"x\"", "1", "{"] {
+        let mut response = selector
+            .agent
+            .post(&format!("{}api/map-image", selector.url))
+            .header("Content-Type", "application/json")
+            .header(
+                "Origin",
+                selector
+                    .url
+                    .split('/')
+                    .take(3)
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            )
+            .header("Accept-Language", "de")
+            .send(body)
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 400, "{body}");
+        let answer: Value =
+            serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+        assert!(
+            answer["error"]
+                .as_str()
+                .unwrap()
+                .starts_with("Die Anfrage für die Vorschau ist ungültig."),
+            "{body}: {answer}"
+        );
+    }
+    // The newest live image is still the one before.
+    let (status, ..) = get_bytes(&selector, &format!("api/map-image/live/{second_id}"));
+    assert_eq!(status, 200);
 
     // A save of the same area with other content settings, as the page makes it, keeps the
     // stored data fitting: the preview stays fresh and still names the settings it shows.
@@ -1307,6 +1344,8 @@ fn map_image_routes_serve_the_stored_and_live_previews() {
     let (status, answer) = post_in(&selector, "api/map-image", json!({}), "en");
     assert_eq!(status, 200, "{answer}");
     assert_eq!(answer["content"], json!({ "profile": "full" }));
+    // The refused requests took no number.
+    assert_eq!(answer["id"].as_u64().unwrap(), second_id + 1, "{answer}");
 
     // Another area saved: the stored data is not that area's any more, so a new run is needed.
     let (status, saved) = selector.save(json!({ "area": rectangle(13.843, 52.539) }));

@@ -5,6 +5,10 @@
 //! `data/map-preview.json` is the authority: an image without a record is no preview, and a
 //! record whose fingerprint differs from the saved project's belongs to another area, kind or
 //! scale, so the stored data cannot show the saved project and a live preview is refused.
+//!
+//! A live preview never takes the folder lock: a run must not fail because the page computes a
+//! picture. It looks at the lock and the jobs before and after, and throws its result away when
+//! anything changed in between.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -23,8 +27,7 @@ use freemapper::project::{
 use serde_json::{Value, json};
 
 use crate::errors::message;
-use crate::jobs::JobState;
-use crate::select::{AppState, page_lang};
+use crate::select::{AppState, content_of, page_lang};
 use crate::text::{Lang, TEXTS};
 
 /// The live previews of one page: the cached build and the newest image.
@@ -131,7 +134,7 @@ fn error_response(status: StatusCode, message: String) -> Response {
 }
 
 /// Whether `record` describes `project`: the export that wrote it used the same project file,
-/// apart from the content settings.
+/// apart from the content settings and the title ([`project_fingerprint`]).
 fn fits(record_fingerprint: &str, project: &ProjectFile) -> bool {
     project_fingerprint(project).is_ok_and(|fingerprint| fingerprint == record_fingerprint)
 }
@@ -157,22 +160,26 @@ pub(crate) async fn stored(State(state): State<Arc<AppState>>, headers: HeaderMa
 }
 
 /// `GET api/map-image/state`: `{ stored, fresh, content }`. `stored`: the folder has a preview;
-/// `fresh`: it was exported for the saved project (apart from the content settings), so live
-/// previews work; `content`: the settings the stored preview shows, or null.
+/// `fresh`: it was exported for the saved project (apart from the content settings and the
+/// title), so live previews work; `content`: the settings the stored preview shows, or null.
 pub(crate) async fn stored_state(State(state): State<Arc<AppState>>) -> Response {
-    let dir = &state.dir;
-    let record = read_map_preview_record(dir).filter(|_| map_preview_path(dir).is_file());
-    let fresh = record.as_ref().is_some_and(|record| {
-        ProjectFile::load(dir).is_ok_and(|project| fits(&record.fingerprint, &project))
-    });
-    Json(json!({
-        "stored": record.is_some(),
-        "fresh": fresh,
-        "content": record.map_or(Value::Null, |record| {
-            serde_json::to_value(record.content).unwrap_or(Value::Null)
-        }),
-    }))
-    .into_response()
+    let dir = state.dir.clone();
+    let answer = tokio::task::spawn_blocking(move || {
+        let record = read_map_preview_record(&dir).filter(|_| map_preview_path(&dir).is_file());
+        let fresh = record.as_ref().is_some_and(|record| {
+            ProjectFile::load(&dir).is_ok_and(|project| fits(&record.fingerprint, &project))
+        });
+        json!({
+            "stored": record.is_some(),
+            "fresh": fresh,
+            "content": record.map_or(Value::Null, |record| {
+                serde_json::to_value(record.content).unwrap_or(Value::Null)
+            }),
+        })
+    })
+    .await
+    .unwrap_or_else(|_| json!({ "stored": false, "fresh": false, "content": null }));
+    Json(answer).into_response()
 }
 
 /// `POST api/map-image` with `{ "content"?: <settings> }` (the shape of `api/save`; absent means
@@ -181,23 +188,24 @@ pub(crate) async fn stored_state(State(state): State<Arc<AppState>>) -> Response
 pub(crate) async fn live(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<Value>,
+    body: Bytes,
 ) -> Response {
     let lang = page_lang(&headers);
-    let content = match body.get("content") {
-        None | Some(Value::Null) => None,
-        Some(value) => match serde_json::from_value::<ContentSettings>(value.clone()) {
-            Ok(content) => Some(content),
-            Err(_) => {
-                return freemapper_web::refused(&TEXTS.text(
-                    &lang,
-                    "cli-map-image-bad-content",
-                    &[],
-                ));
-            }
-        },
+    let body = match crate::select_run::body_value(&body) {
+        Ok(body @ Value::Object(_)) => body,
+        _ => {
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                TEXTS.text(&lang, "cli-map-image-bad-request", &[]),
+            );
+        }
     };
-    if running(&state) {
+    let content = match content_of(&body, &lang, "cli-map-image-bad-content") {
+        Ok(content) => content,
+        Err(e) => return freemapper_web::refused(&e),
+    };
+    // Answered at once; checked again once it is this request's turn.
+    if state.hub.running_for(&state.dir) {
         return error_response(
             StatusCode::CONFLICT,
             TEXTS.text(&lang, "cli-map-image-running", &[]),
@@ -209,7 +217,8 @@ pub(crate) async fn live(
     let task_lang = lang.clone();
     let answer = tokio::task::spawn_blocking(move || -> Result<Value, Refusal> {
         let (state, lang) = (task_state, task_lang);
-        let computed = compute(&state.dir, &mut builds, content, &lang)?;
+        let running = || state.hub.running_for(&state.dir);
+        let computed = compute(&state.dir, &mut builds, content, &lang, &running)?;
         builds.last_id += 1;
         let id = builds.last_id;
         *state
@@ -266,30 +275,41 @@ pub(crate) async fn live_image(
     }
 }
 
-/// Whether this page's run of the folder is going on (a run of another process holds the folder
-/// lock instead).
-fn running(state: &AppState) -> bool {
-    state
-        .hub
-        .current_for(&state.dir)
-        .is_some_and(|job| job.state == JobState::Running)
+/// What the checks before a computation found: the saved settings and what the build must be
+/// made from.
+struct Checked {
+    saved_content: ContentSettings,
+    stamp: Stamp,
 }
 
-/// A live preview of the project in `dir` with `content` (none: the saved project's), from the
-/// cached build in `builds`, which is built again when its stamp is out of date. The stored data
-/// is read under the folder lock only, so no run of another process writes it meanwhile.
-fn compute(
-    dir: &Path,
-    builds: &mut Builds,
-    content: Option<ContentSettings>,
-    lang: &Lang,
-) -> Result<Computed, Refusal> {
+/// Why the folder no longer looks as it did before the computation.
+enum Moved {
+    /// A run started or another process holds the folder: the refusal that says so.
+    Refused(Refusal),
+    /// The project file or the stored data changed: compute again.
+    Changed,
+}
+
+/// Whether a run of this page (`running`) or of another process (the folder lock, only looked
+/// at, never taken, so a run that starts now is not refused) uses the folder.
+fn check_runs(dir: &Path, lang: &Lang, running: &dyn Fn() -> bool) -> Result<(), Refusal> {
+    if running() {
+        return Err(Refusal::Conflict(TEXTS.text(
+            lang,
+            "cli-map-image-running",
+            &[],
+        )));
+    }
+    crate::lock::check_free(dir).map_err(|e| Refusal::Conflict(message(&e, lang)))
+}
+
+/// The checks before a computation: no run, a project, a preview record that fits it.
+fn check_before(dir: &Path, lang: &Lang, running: &dyn Fn() -> bool) -> Result<Checked, Refusal> {
     let text = |id: &str| TEXTS.text(lang, id, &[]);
     if !dir.join("freemapper.toml").is_file() {
         return Err(Refusal::Conflict(text("cli-map-image-none")));
     }
-    let lock = crate::lock::acquire(dir, crate::lock::Who::Page)
-        .map_err(|e| Refusal::Conflict(message(&e, lang)))?;
+    check_runs(dir, lang, running)?;
     let project = ProjectFile::load(dir).map_err(|e| Refusal::Failed(message(&e, lang)))?;
     let record = read_map_preview_record(dir)
         .filter(|_| map_preview_path(dir).is_file())
@@ -297,38 +317,110 @@ fn compute(
     if !fits(&record.fingerprint, &project) {
         return Err(Refusal::Conflict(text("cli-map-image-stale")));
     }
-    let stamp = Stamp {
-        fingerprint: record.fingerprint,
-        files: FilesStamp::of(dir),
-    };
-    // The old build goes before the new one is made: two may not fit in memory.
-    if builds
-        .cached
-        .as_ref()
-        .is_some_and(|(known, _)| *known != stamp)
-    {
-        builds.cached = None;
-    }
-    let built = match &mut builds.cached {
-        Some((_, built)) => built,
-        slot @ None => {
-            let built = build_project(dir).map_err(|e| Refusal::Failed(message(&e, lang)))?;
-            builds.built += 1;
-            &slot.insert((stamp, built)).1
-        }
-    };
-    // Placing reads no stored data.
-    drop(lock);
-    let content = content.unwrap_or_else(|| project.content.clone().unwrap_or_default());
-    let documents = place(built, &content).map_err(|e| Refusal::Failed(message(&e, lang)))?;
-    let image =
-        map_preview_webp(&documents, dir).map_err(|e| Refusal::Failed(message(&e, lang)))?;
-    Ok(Computed {
-        webp: image.webp,
-        width: image.width,
-        height: image.height,
-        content,
+    Ok(Checked {
+        saved_content: project.content.unwrap_or_default(),
+        stamp: Stamp {
+            fingerprint: record.fingerprint,
+            files: FilesStamp::of(dir),
+        },
     })
+}
+
+/// The checks after a computation: still no run, and the project file and the stored data as
+/// they were before it, so the build read neither half-written data nor another area.
+fn check_after(
+    dir: &Path,
+    lang: &Lang,
+    running: &dyn Fn() -> bool,
+    before: &Stamp,
+) -> Result<(), Moved> {
+    check_runs(dir, lang, running).map_err(Moved::Refused)?;
+    let unchanged = ProjectFile::load(dir).is_ok_and(|project| fits(&before.fingerprint, &project))
+        && FilesStamp::of(dir) == before.files;
+    if unchanged {
+        Ok(())
+    } else {
+        Err(Moved::Changed)
+    }
+}
+
+/// A live preview of the project in `dir` with `content` (none: the saved project's), from the
+/// cached build in `builds`, which is built again when its stamp is out of date.
+///
+/// Nothing is locked while it computes, so a run that starts meanwhile is never refused. Instead
+/// the folder is checked before and after: a run that started, a save or new data in between
+/// throw the result away. A change without a run is computed once more (the checks before then
+/// say what happened, for example that the area changed); a second change is refused.
+fn compute(
+    dir: &Path,
+    builds: &mut Builds,
+    content: Option<ContentSettings>,
+    lang: &Lang,
+    running: &dyn Fn() -> bool,
+) -> Result<Computed, Refusal> {
+    compute_with(dir, builds, content, lang, running, &mut || {})
+}
+
+/// [`compute`] with `meanwhile` called between the computation and the checks after it, where
+/// tests change the folder.
+fn compute_with(
+    dir: &Path,
+    builds: &mut Builds,
+    content: Option<ContentSettings>,
+    lang: &Lang,
+    running: &dyn Fn() -> bool,
+    meanwhile: &mut dyn FnMut(),
+) -> Result<Computed, Refusal> {
+    for _ in 0..2 {
+        let checked = check_before(dir, lang, running)?;
+        let stamp = checked.stamp;
+        // The old build goes before the new one is made: two may not fit in memory.
+        if builds
+            .cached
+            .as_ref()
+            .is_some_and(|(known, _)| *known != stamp)
+        {
+            builds.cached = None;
+        }
+        let built = match &mut builds.cached {
+            Some((_, built)) => built,
+            slot @ None => {
+                let built = build_project(dir).map_err(|e| Refusal::Failed(message(&e, lang)))?;
+                builds.built += 1;
+                &slot.insert((stamp.clone(), built)).1
+            }
+        };
+        // The build reads the project file itself: it must be the one checked.
+        let computed = if built.fingerprint() == stamp.fingerprint {
+            let content = content.clone().unwrap_or(checked.saved_content);
+            let documents =
+                place(built, &content).map_err(|e| Refusal::Failed(message(&e, lang)))?;
+            let image = map_preview_webp(&documents, dir)
+                .map_err(|e| Refusal::Failed(message(&e, lang)))?;
+            Some(Computed {
+                webp: image.webp,
+                width: image.width,
+                height: image.height,
+                content,
+            })
+        } else {
+            None
+        };
+        meanwhile();
+        match (computed, check_after(dir, lang, running, &stamp)) {
+            (Some(computed), Ok(())) => return Ok(computed),
+            (_, Err(Moved::Refused(refusal))) => {
+                builds.cached = None;
+                return Err(refusal);
+            }
+            _ => builds.cached = None,
+        }
+    }
+    Err(Refusal::Conflict(TEXTS.text(
+        lang,
+        "cli-map-image-running",
+        &[],
+    )))
 }
 
 #[cfg(test)]
