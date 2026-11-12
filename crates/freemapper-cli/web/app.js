@@ -152,6 +152,10 @@ const drawLayer = L.layerGroup().addTo(map);
 let project = null;
 // The chosen area: GeoJSON polygon geometry and the OSM object it came from (or null).
 let area = null;
+// The area exactly as it came in (from the project, the search or the drawing). A save sends this
+// back, not `area`: the saved project's fingerprint (the preview's "is it still current") would
+// otherwise depend on how this page writes the shape.
+let areaInput = null;
 let sourceId = null;
 let sourceName = null;
 let preview = null;
@@ -183,6 +187,11 @@ function savedSignatureOf(project) {
 /** Tells the run panel that the area, the preview or the project changed. */
 function notifyRun() {
   if (window.freemapperRun) window.freemapperRun.refresh();
+}
+
+/** Tells the preview that the content settings on the page changed. */
+function notifyContent() {
+  if (window.freemapperRun) window.freemapperRun.contentChanged();
 }
 
 /** The enabled state of every control that a run locks. */
@@ -239,6 +248,7 @@ function showArea(fit) {
 
 async function chooseArea(geojson, id, name, fit) {
   area = geometryOf(geojson);
+  areaInput = geojson;
   sourceId = id;
   sourceName = name;
   showArea(fit);
@@ -530,6 +540,7 @@ $("finish-polygon").addEventListener("click", finishPolygon);
 $("clear").addEventListener("click", () => {
   setMode(null);
   area = null;
+  areaInput = null;
   sourceId = null;
   preview = null;
   areaLayer.clearLayers();
@@ -575,6 +586,7 @@ function showConflict(text) {
     content = contentOf(project);
     loadedContent = contentOf(project);
     showContent();
+    notifyContent();
   } else {
     // The person changed it and sees it: their choice stays; open the section so they see what
     // "Save" will write.
@@ -592,7 +604,7 @@ async function saveArea(explicit = false) {
   clearBanner();
   $("save").disabled = true;
   try {
-    const body = { area, source_id: sourceId };
+    const body = { area: areaInput || area, source_id: sourceId };
     // Only a choice that differs from the file; without one the stored settings stay as they are.
     if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
     if (!project.exists) {
@@ -642,12 +654,20 @@ async function saveArea(explicit = false) {
   } finally {
     updateControls();
     notifyRun();
+    if (window.freemapperRun) window.freemapperRun.projectSaved();
   }
 }
 
 /** True when the shown area and content settings are the ones in freemapper.toml. */
 function isSaved() {
   return !!project && project.exists && signature() === savedSignature;
+}
+
+/** True when the shown area is the one in freemapper.toml, whatever the content settings. */
+function areaIsSaved() {
+  if (!project || !project.exists || savedSignature === null) return false;
+  const saved = JSON.parse(savedSignature);
+  return JSON.stringify({ area, sourceId }) === JSON.stringify({ area: saved.area, sourceId: saved.sourceId });
 }
 
 /**
@@ -704,9 +724,18 @@ window.freemapperPage = {
   getPreview: () => preview,
   hasArea: () => !!area,
   isSaved,
+  areaIsSaved,
   ensureSaved,
   setBusy,
   reloadProject,
+  // For the map preview: the content settings as the server takes them, and whether two of them
+  // (this page's choice, a body that the server sent) are the same choice.
+  contentBody: () => contentBody(content),
+  sameContent: (body) => contentKey(content) === contentKey(contentOf({
+    content_options: project.content_options,
+    content: body,
+  })),
+  contentIsSaved: () => contentKey(content) === contentKey(contentOf(project)),
 };
 
 // --- Content profiles (ADR 0100, 0101) --------------------------------------------------------
@@ -784,6 +813,7 @@ function buildContent(options) {
     radio.addEventListener("change", () => {
       content.profile = name;
       notifyRun();
+      notifyContent();
     });
     const text = document.createElement("span");
     text.textContent = nameId ? t(nameId) : name;
@@ -811,6 +841,7 @@ function buildContent(options) {
       if (select.value) content.groups[group] = select.value;
       else delete content.groups[group];
       notifyRun();
+      notifyContent();
     });
     label.append(text, select);
     groups.append(label);

@@ -246,6 +246,31 @@ draw = "line"
 corridor_m = 3.0
 sprint = "522"
 
+# OSM stairs (sprint only, ADR 0101). ISSprOM 4.5, 532: a stairway is a line that runs uphill; the
+# footprint symbol follows the width: 532.6 (1.6 m) to 532.9 (4 m at 1:4000). Closed, covered,
+# underground and indoor stairs fall through to the rules above and below. `build/candidates.rs`
+# turns a way tagged `incline=down` round; `build/dedup.rs` lets an official stair of the same
+# symbol win.
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=3.5"]
+draw = "line"
+sprint = "532.9"
+
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=2.5"]
+draw = "line"
+sprint = "532.8"
+
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes", "width>=1.8"]
+draw = "line"
+sprint = "532.7"
+
+[[rule]]
+when = ["highway=steps", "tunnel!=*", "covered!=yes", "indoor!=yes", "area!=yes"]
+draw = "line"
+sprint = "532.6"
+
 # Firm and paved ways (sprint only, ADR 0073, amended by ADR 0079 and 0098). ISSprOM 4.5, 501: a
 # paved area is "an area with a firm surface such as asphalt, hard gravel, tiles, concrete"; 505 is
 # a way "without a smooth, hard surface". `compacted`, `fine_gravel` and the paved surfaces

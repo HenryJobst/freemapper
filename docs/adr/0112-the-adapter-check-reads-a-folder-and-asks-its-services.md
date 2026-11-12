@@ -1,4 +1,4 @@
-# 0109. The adapter check reads a folder and, when asked, its services
+# 0112. The adapter check reads a folder and, when asked, its services
 
 Date: 2026-11-12
 Status: Accepted

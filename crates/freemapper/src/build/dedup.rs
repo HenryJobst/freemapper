@@ -68,9 +68,12 @@ const LINE_DEDUP_SHARE: f64 = 0.8;
 const LINE_DEDUP_M: f64 = 1.5;
 /// The losing line is measured in pieces of at most this length (ground metres).
 const LINE_DEDUP_STEP_M: f64 = 0.5;
-/// Wall, retaining wall, fence, hedge, brook, ditch, kerb and embankment top: the line symbols
+/// Wall, retaining wall, fence, hedge, brook, ditch, kerb, embankment top and stairway: the line symbols
 /// several sources give.
-const LINE_DEDUP_CODES: [&str; 8] = ["515", "513.2", "518", "410.1", "305", "306", "501.1", "104"];
+const LINE_DEDUP_CODES: [&str; 12] = [
+    "515", "513.2", "518", "410.1", "305", "306", "501.1", "104", "532.6", "532.7", "532.8",
+    "532.9",
+];
 /// The tree symbols (large and small tree): every source draws its trees as one of them.
 const TREE_CODES: [&str; 2] = ["417", "418"];
 

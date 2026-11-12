@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,577](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C577-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,836](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C836-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -212,6 +212,8 @@ Result in the project folder:
 
 - `freemapper.toml` – map area, map kind, scale, declination date, tiles used with their data currency
 - `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
+- `clara-zetkin-schule-preview.webp` – an image of the map objects, written with the map; the area page
+  shows it
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – templates behind the map,
   each with a world file (`.jgw`/`.pgw`); hillshade, slope and nDSM can be switched on in OOM. nDSM
   colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m

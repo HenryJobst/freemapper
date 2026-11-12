@@ -21,7 +21,7 @@ although a wall of the cadastre is as reliable as a building.
 - A profile gives the default. `safe` leaves every object where the build put it (the state before this ADR).
   `balanced`, the default, sends to the map the objects of the cadastre, the registers and the street survey (rank
   survey or higher, `build/dedup.rs`) of every group but furniture, contours and out-of-bounds, and for walls, fences, hedges, water, trees (and the tree
-  groups made of them) and paths also those of OpenStreetMap, which is often the only source there (no register
+  groups made of them), stairs (ADR 0109) and paths also those of OpenStreetMap, which is often the only source there (no register
   outside a few cities). The contours go to the map too (user decision 2026-11-12: a park map without relief looks empty; they are cut at
   ways, ADR 0097). The areas that shall not be entered around railway tracks (520 from the ALKIS land use `Bahnverkehr`) go to the map
   and take the points inside them with them, as in `generalize_points` (user decision 2026-11-12). Other 520 (a

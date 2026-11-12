@@ -68,8 +68,9 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 6] = [
+const FILE_KINDS: [&str; 7] = [
     "map",
+    "preview",
     "template",
     "ocad",
     "ocad-candidates",
@@ -512,4 +513,47 @@ fn content_section_is_in_the_run_panel_before_the_start_button() {
     let script = asset("app.js");
     assert!(script.contains("label.append(radio, text)"));
     assert!(script.contains("label.append(text, select)"));
+}
+
+#[test]
+fn preview_section_is_in_the_run_panel_below_the_result() {
+    let html = asset("index.html");
+    let run = html.find(r#"<section id="run""#).unwrap();
+    let result = html.find(r#"id="run-result""#).unwrap();
+    let section = html.find(r#"<details id="preview-section""#).unwrap();
+    let end = html[run..].find("</section>").unwrap() + run;
+    assert!(run < result && result < section && section < end);
+    for id in ["preview-state", "preview-image", "preview-open"] {
+        assert!(html.contains(&format!(r#"id="{id}""#)), "{id}");
+    }
+    // The page asks the server for the images through its own routes only (the policy allows
+    // nothing else), and the link opens in a new tab without giving the page away.
+    let link = &html[html.find(r#"<a id="preview-open""#).unwrap()..];
+    let link = &link[..link.find('>').unwrap()];
+    assert!(link.contains(r#"rel="noopener""#), "{link}");
+}
+
+#[test]
+fn preview_uses_only_the_pages_own_image_routes() {
+    let run = asset("run.js");
+    assert!(run.contains("api/map-image/state"));
+    assert!(run.contains("api/map-image/live/"));
+    assert!(!run.contains("blob:") && !run.contains("createObjectURL"));
+    // A live image is not asked for while a run starts or goes on (a page opened meanwhile shows
+    // the stored one), nor while the drawn area is not saved: both branches end before the
+    // request.
+    let during_run = run
+        .find("if (running || starting) {\n    if (previewImage().hidden) {\n      previewShowStored(\"page-preview-run\");")
+        .expect("the branch for a run");
+    let unsaved_area = run
+        .find("if (!page().areaIsSaved()) {\n    previewShowStored(\"page-preview-area-unsaved\");\n    return;\n  }")
+        .expect("the branch for an unsaved area");
+    let request = run.find("await requestLivePreview();").unwrap();
+    assert!(during_run < unsaved_area && unsaved_area < request);
+}
+
+#[test]
+fn a_save_sends_the_area_as_it_came_in() {
+    let app = asset("app.js");
+    assert!(app.contains("area: areaInput || area"));
 }

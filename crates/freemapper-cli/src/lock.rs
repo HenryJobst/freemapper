@@ -208,6 +208,16 @@ pub fn acquire_for_command(dir: &Path, who: Who) -> Result<FolderLock, LockError
     Ok(lock)
 }
 
+/// Whether another run holds the lock of `dir`, without taking it: a reader that must not keep
+/// a run from starting looks only. A stale lock or something that is no lock file counts as free,
+/// as [`acquire`] would take its place.
+pub fn check_free(dir: &Path) -> Result<(), LockError> {
+    match inspect(&dir.join(LOCK_NAME), &SystemTime::now)? {
+        Seen::Live { who, since_seconds } => Err(LockError::Held { who, since_seconds }),
+        Seen::Gone | Seen::Junk | Seen::Stale => Ok(()),
+    }
+}
+
 /// What is at the lock path.
 enum Seen {
     Gone,
@@ -390,6 +400,27 @@ mod tests {
             !message.contains(&dir.path().display().to_string()),
             "no path in the message: {message}"
         );
+    }
+
+    #[test]
+    fn check_free_looks_without_taking() {
+        let dir = tempfile::tempdir().unwrap();
+        check_free(dir.path()).unwrap();
+        assert!(!lock_path(dir.path()).exists());
+        let held = acquire(dir.path(), Who::Cli).unwrap();
+        let error = check_free(dir.path()).unwrap_err();
+        assert!(
+            matches!(&error, LockError::Held { who, .. } if who == "cli"),
+            "{error:?}"
+        );
+        drop(held);
+        check_free(dir.path()).unwrap();
+        // A lock left by a crashed run counts as free and stays where it is for `acquire`.
+        foreign_lock(dir.path(), "mcp");
+        assert!(check_free(dir.path()).is_err());
+        age_it(&lock_path(dir.path()), STALE_AFTER.as_secs() + 5);
+        check_free(dir.path()).unwrap();
+        assert!(lock_path(dir.path()).exists());
     }
 
     #[test]

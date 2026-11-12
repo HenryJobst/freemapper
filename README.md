@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 1.577 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.577%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 1.836 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.836%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -219,6 +219,8 @@ Ergebnis im Projektordner:
 - `freemapper.toml` – Kartengebiet, Kartenart, Maßstab, Datum der Missweisung, verwendete Kacheln mit
   Datenstand
 - `clara-zetkin-schule.omap` – georeferenzierte OOM-Karte (EPSG:25833, 1:1000, IOF-Schulsymbolsatz 2019)
+- `clara-zetkin-schule-preview.webp` – ein Bild der Kartenobjekte, mit der Karte geschrieben; die
+  Gebietsseite zeigt es
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – Vorlagen hinter der Karte,
   jeweils mit Weltdatei (`.jgw`/`.pgw`); Schummerung, Hangneigung und nDOM lassen sich in OOM
   einblenden. nDOM-Farben: gelb 0,3–1 m, orange 1–2,5 m, hellgrün 2,5–8 m, dunkelgrün über 8 m

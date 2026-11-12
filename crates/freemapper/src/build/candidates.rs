@@ -465,7 +465,12 @@ pub fn osm_objects(
                 continue;
             }
             (OsmGeometry::Line(points), Draw::Line) => {
-                let coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
+                let mut coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
+                // A stairway runs uphill; OSM's `incline=down` counts along the way.
+                if found.code.starts_with("532.") && value(&feature.tags, "incline") == Some("down")
+                {
+                    coords.reverse();
+                }
                 let closed = coords.len() > 3 && coords.first() == coords.last();
                 let coords = if closed {
                     // A ring (fence or hedge around a yard) stays closed in OOM.
@@ -1321,6 +1326,38 @@ mod tests {
             sprint_way(&[("highway", "residential"), ("surface", "asphalt")]),
             None
         );
+    }
+
+    #[test]
+    fn osm_stairs_are_stairway_candidates_by_width() {
+        // ISSprOM 4.5, 532 (ADR 0109): the footprint follows the width, the stair is a candidate.
+        for (extra, code) in [
+            (&[("highway", "steps")][..], "532.6"),
+            (&[("highway", "steps"), ("width", "2")], "532.7"),
+            (&[("highway", "steps"), ("width", "3")], "532.8"),
+            (&[("highway", "steps"), ("width", "5")], "532.9"),
+        ] {
+            assert_eq!(
+                sprint_way(extra),
+                Some((code.to_string(), Target::Candidates)),
+                "{extra:?}"
+            );
+        }
+        // Closed, covered, underground and indoor stairs are no stairway.
+        for extra in [
+            &[("highway", "steps"), ("access", "private")][..],
+            &[("highway", "steps"), ("covered", "yes")],
+            &[("highway", "steps"), ("tunnel", "yes")],
+            &[("highway", "steps"), ("indoor", "yes")],
+        ] {
+            let found = sprint_way(extra);
+            assert!(
+                found
+                    .as_ref()
+                    .is_none_or(|(code, _)| !code.starts_with("532")),
+                "{extra:?}: {found:?}"
+            );
+        }
     }
 
     #[test]

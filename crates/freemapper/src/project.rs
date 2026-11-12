@@ -2705,6 +2705,9 @@ pub enum MapOutcome {
 pub struct RunOutcome {
     pub templates: Vec<PathBuf>,
     pub map: MapOutcome,
+    /// The preview written with the map (`<name>-preview.webp`); none when the map was kept, or
+    /// when the preview failed (the run then warns, `warning-map-preview-failed`).
+    pub preview: Option<PathBuf>,
 }
 
 /// The step [`run_project_steps`] is about to start.
@@ -2786,6 +2789,7 @@ pub fn run_project_steps_cancellable(
     stop_if(cancelled)?;
     stage(RunStage::Map);
     let existing = map_path(dir);
+    let mut preview = None;
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
@@ -2797,9 +2801,17 @@ pub fn run_project_steps_cancellable(
             map: existing,
         }
     } else {
-        MapOutcome::Written(export_starter_project(dir, force)?)
+        // The preview goes with the map, from the same documents; never next to a kept map.
+        let documents = starter_documents(dir)?;
+        let map = export_starter_project_from(dir, &documents, force)?;
+        preview = export_map_preview_or_warn(dir, &documents, progress);
+        MapOutcome::Written(map)
     };
-    Ok(RunOutcome { templates, map })
+    Ok(RunOutcome {
+        templates,
+        map,
+        preview,
+    })
 }
 
 /// Checks that a template image and its world file form the grid `derive` would write for
@@ -5896,6 +5908,515 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         // The tartan pitch is a candidate: only the candidates PDF paints it.
         assert!(!contains(&a, b"0.1 0.35 0.5 0 k"));
         assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
+    }
+
+    #[test]
+    fn map_preview_is_a_webp_of_the_map_area_with_its_content_record() {
+        use crate::build::content::{Group, Place, Profile};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let mut content = ContentSettings::with_profile(Profile::Full);
+        content.set(Group::Fences, Some(Place::Off));
+        let project = set_content(dir.path(), Some(content.clone())).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        assert_eq!(documents.content_settings, content);
+
+        let path = export_map_preview_from(dir.path(), &documents).unwrap();
+        assert_eq!(path, map_preview_path(dir.path()));
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let stem = map_path(dir.path())
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(name, format!("{stem}-preview.webp"));
+        let bytes = std::fs::read(&path).unwrap();
+        let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::WebP)
+            .unwrap()
+            .to_rgba8();
+        let rect = PaperRect::of_bbox(&project.bbox().unwrap(), &documents.map.georef).unwrap();
+        let clip = crate::render::pdf::PaperBox {
+            min: (
+                f64::from(rect.min_x) / 1000.0,
+                f64::from(rect.min_y) / 1000.0,
+            ),
+            max: (
+                f64::from(rect.max_x) / 1000.0,
+                f64::from(rect.max_y) / 1000.0,
+            ),
+        };
+        let px_per_mm = crate::render::raster::preview_px_per_mm(&clip);
+        let expected = (
+            (clip.max.0 - clip.min.0) * px_per_mm,
+            (clip.max.1 - clip.min.1) * px_per_mm,
+        );
+        assert!(
+            (f64::from(image.width()) - expected.0).abs() <= 1.0
+                && (f64::from(image.height()) - expected.1).abs() <= 1.0,
+            "{:?} for {expected:?}",
+            image.dimensions()
+        );
+        assert!(expected.0.max(expected.1) <= 2049.0);
+        let white = image
+            .pixels()
+            .filter(|p| p.0 == [255, 255, 255, 255])
+            .count();
+        assert!(
+            white > 0 && white < image.pixels().count(),
+            "something is drawn"
+        );
+
+        let record = read_map_preview_record(dir.path()).expect("record");
+        assert_eq!(record.content, content);
+        assert_eq!(
+            record.fingerprint,
+            project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        );
+        assert!(dir.path().join("data/map-preview.json").exists());
+    }
+
+    #[test]
+    fn project_fingerprint_counts_only_what_decides_the_build() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let fingerprint = project_fingerprint(&project).unwrap();
+        assert_eq!(fingerprint.len(), 64);
+        assert!(fingerprint.chars().all(|c| c.is_ascii_hexdigit()));
+        let with_content = ProjectFile {
+            content: Some(ContentSettings::with_profile(
+                crate::build::content::Profile::Safe,
+            )),
+            ..project.clone()
+        };
+        assert_eq!(project_fingerprint(&with_content).unwrap(), fingerprint);
+        // The records of a fetch: every online fetch dates them anew.
+        let day = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
+        let record = AlkisRecord {
+            bbox: [0.0, 0.0, 1.0, 1.0],
+            fetched: day,
+            latest_update: None,
+            count: 3,
+            regions: Vec::new(),
+        };
+        let fetched = ProjectFile {
+            tiles: vec![TileRecord {
+                product: Product::Dtm,
+                tile: "33421-5821".into(),
+                url: "https://example.org/t.zip".into(),
+                currency: day,
+                published: day,
+            }],
+            buildings: Some(record.clone()),
+            land_use: Some(record.clone()),
+            berlin_layers: BTreeMap::from([("a.geojson".to_string(), record.clone())]),
+            nas_layers: BTreeMap::from([("b.geojson".to_string(), record.clone())]),
+            tree_layers: BTreeMap::from([("c".to_string(), record)]),
+            osm: Some(OsmRecord {
+                extract: day,
+                area: [52.0, 13.0, 52.1, 13.1],
+                count: 7,
+            }),
+            ..project.clone()
+        };
+        assert_eq!(project_fingerprint(&fetched).unwrap(), fingerprint);
+        // The title is drawn on the sheet only, never in the preview.
+        for title in ["Clara-Zetkin-Schule", "Another title"] {
+            let title = Some(title.to_string());
+            assert_ne!(project.title, title);
+            let other_title = ProjectFile {
+                title,
+                ..project.clone()
+            };
+            assert_eq!(project_fingerprint(&other_title).unwrap(), fingerprint);
+        }
+        let other_area = ProjectFile {
+            map_area: serde_json::json!({
+                "type": "Polygon",
+                "coordinates": [[[13.0, 52.0], [13.001, 52.0], [13.001, 52.001], [13.0, 52.0]]]
+            }),
+            ..project.clone()
+        };
+        assert_ne!(project_fingerprint(&other_area).unwrap(), fingerprint);
+        let other_scale = ProjectFile {
+            scale_denominator: 2000,
+            ..project.clone()
+        };
+        assert_ne!(project_fingerprint(&other_scale).unwrap(), fingerprint);
+        // Every other field that decides the build counts too.
+        let changed = [
+            ProjectFile {
+                map_kind: MapKind::Sprint,
+                ..project.clone()
+            },
+            ProjectFile {
+                declination_date: NaiveDate::from_ymd_opt(2020, 1, 1).unwrap(),
+                ..project.clone()
+            },
+            ProjectFile {
+                buffer_m: project.buffer_m + 5.0,
+                ..project.clone()
+            },
+            ProjectFile {
+                map_area_source_id: Some("way/1".into()),
+                ..project.clone()
+            },
+            ProjectFile {
+                crs: 25832,
+                ..project.clone()
+            },
+            ProjectFile {
+                provider: Some(AdapterId::built_in("hvbg")),
+                ..project.clone()
+            },
+        ];
+        for other in changed {
+            assert_ne!(
+                project_fingerprint(&other).unwrap(),
+                fingerprint,
+                "{other:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn run_writes_the_preview_only_with_the_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let preview = map_preview_path(dir.path());
+        // The map export alone writes no preview (the golden net hashes its files).
+        let map = export_starter_project(dir.path(), false).unwrap();
+        assert!(!preview.exists());
+        std::fs::write(&map, "edited in OOM").unwrap();
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+
+        let kept = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(kept.map, MapOutcome::Kept { .. }));
+        assert_eq!(kept.preview, None);
+        assert!(!preview.exists(), "a kept map gets no preview");
+        assert!(read_map_preview_record(dir.path()).is_none());
+
+        let written = run(dir.path(), &fetcher, &cache, true);
+        assert_eq!(written.preview.as_ref(), Some(&preview));
+        assert!(preview.exists());
+        let written = read_map_preview_record(dir.path()).expect("record");
+        assert_eq!(
+            written.content,
+            ContentSettings::with_profile(crate::build::content::Profile::Safe),
+            "the settings the test build places with"
+        );
+
+        // Another content and the map kept: the record still names the settings of its export.
+        let off = ContentSettings::with_profile(crate::build::content::Profile::Full);
+        set_content(dir.path(), Some(off)).unwrap();
+        let before = std::fs::read(&preview).unwrap();
+        run(dir.path(), &fetcher, &cache, false);
+        assert_eq!(std::fs::read(&preview).unwrap(), before);
+        assert_eq!(read_map_preview_record(dir.path()), Some(written));
+    }
+
+    #[test]
+    fn a_failed_preview_leaves_no_preview_of_the_old_map() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        run(dir.path(), &fetcher, &cache, true);
+        assert!(read_map_preview_record(dir.path()).is_some());
+        let map = map_path(dir.path());
+        std::fs::write(&map, "edited in OOM").unwrap();
+        // The next preview cannot be written: a folder stands where the image goes.
+        let preview = map_preview_path(dir.path());
+        std::fs::remove_file(&preview).unwrap();
+        std::fs::create_dir(&preview).unwrap();
+        std::fs::write(preview.join("keep"), "").unwrap();
+
+        // The map is written, so the run ends well and says that the preview is missing.
+        let mut notes = Vec::new();
+        let outcome = run_project(
+            dir.path(),
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            true,
+            &mut |note| notes.push(note),
+        )
+        .unwrap();
+        assert_eq!(outcome.map, MapOutcome::Written(map.clone()));
+        assert_eq!(outcome.preview, None);
+        let warnings: Vec<String> = notes
+            .iter()
+            .filter(|n| n.is_warning())
+            .map(ToString::to_string)
+            .collect();
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.starts_with("warning: the map is written, but its preview is missing: ")),
+            "{warnings:?}"
+        );
+        assert_ne!(
+            std::fs::read_to_string(&map).unwrap(),
+            "edited in OOM",
+            "the map was replaced"
+        );
+        assert!(read_map_preview_record(dir.path()).is_none());
+        assert!(!dir.path().join("data/map-preview.json").exists());
+    }
+
+    /// The day after the export, a run that keeps the map fetches again and dates the records
+    /// anew: the preview still belongs to the saved project, so live previews go on. A new area
+    /// does not fit it.
+    #[test]
+    fn a_kept_map_on_a_later_day_keeps_its_preview_fresh() {
+        let at = |day| {
+            NaiveDate::from_ymd_opt(2026, 11, day)
+                .unwrap()
+                .and_hms_opt(12, 0, 0)
+                .unwrap()
+        };
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let fresh = || {
+            let record = stored_map_preview_record(dir.path()).expect("a stored preview");
+            record.fingerprint
+                == project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        };
+        let exported = crate::clock::with_fixed(at(12), || run(dir.path(), &fetcher, &cache, true));
+        assert!(exported.preview.is_some());
+        assert!(fresh());
+        let before = std::fs::read_to_string(&file).unwrap();
+
+        let kept = crate::clock::with_fixed(at(13), || run(dir.path(), &fetcher, &cache, false));
+        assert!(matches!(kept.map, MapOutcome::Kept { .. }));
+        assert_ne!(
+            std::fs::read_to_string(&file).unwrap(),
+            before,
+            "the fetch dated its records anew"
+        );
+        assert!(fresh(), "a later fetch keeps the preview fresh");
+        // A fetch alone on yet another day, too.
+        crate::clock::with_fixed(at(14), || fetch(dir.path(), &fetcher, &cache));
+        assert!(fresh());
+
+        set_map_area(dir.path(), &fixture_area()).unwrap();
+        assert!(!fresh(), "another area needs a run that replaces the map");
+    }
+
+    /// The stored preview and its record are read only as files of the project folder: a link
+    /// in their place, or a linked `data/` folder, is no preview.
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_preview_or_record_is_no_preview() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        export_map_preview_from(dir.path(), &documents).unwrap();
+        let image = map_preview_path(dir.path());
+        let record = dir.path().join("data/map-preview.json");
+        assert!(stored_map_preview_record(dir.path()).is_some());
+        assert_eq!(
+            read_map_preview(dir.path()),
+            Some(std::fs::read(&image).unwrap())
+        );
+        let outside = tempfile::tempdir().unwrap();
+        let elsewhere = |name: &str, from: &Path| {
+            let target = outside.path().join(name);
+            std::fs::rename(from, &target).unwrap();
+            std::os::unix::fs::symlink(&target, from).unwrap();
+            target
+        };
+
+        // The image is a link to a file elsewhere.
+        let target = elsewhere("image.webp", &image);
+        assert!(read_map_preview_record(dir.path()).is_some());
+        assert_eq!(stored_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
+        std::fs::remove_file(&image).unwrap();
+        std::fs::rename(&target, &image).unwrap();
+        assert!(read_map_preview(dir.path()).is_some());
+
+        // The record is a link.
+        let target = elsewhere("record.json", &record);
+        assert_eq!(read_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
+        std::fs::remove_file(&record).unwrap();
+        std::fs::rename(&target, &record).unwrap();
+        assert!(read_map_preview(dir.path()).is_some());
+
+        // The whole `data/` folder lies elsewhere.
+        let data = dir.path().join("data");
+        elsewhere("data", &data);
+        assert_eq!(read_map_preview_record(dir.path()), None);
+        assert_eq!(stored_map_preview_record(dir.path()), None);
+        assert_eq!(read_map_preview(dir.path()), None);
+    }
+
+    /// The bytes of the map and of the candidates map as written to the `.omap` files.
+    fn omap_bytes(documents: &StarterDocuments) -> (Vec<u8>, Vec<u8>) {
+        let bytes = |doc: &MapDocument| {
+            let mut out = Vec::new();
+            write_map(doc, &mut out, XmlFormat::Compact).unwrap();
+            out
+        };
+        (bytes(&documents.map), bytes(&documents.candidates))
+    }
+
+    /// A sprint project with the school building, a carriageway (on the map) and a way (a
+    /// candidate) of the land use, and an OSM fence, a track and a path.
+    fn sprint_with_paving_and_fence(
+        fetcher: &MapFetcher,
+    ) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, cache_dir) = sprint_with_ways(fetcher);
+        store_traffic_areas(dir.path());
+        let c = fixture_area().centroid();
+        let at = |dlat: f64, dlon: f64| LatLon {
+            lat: c.lat + dlat,
+            lon: c.lon + dlon,
+        };
+        let way = |id: &str, tags: &[(&str, &str)], points: Vec<LatLon>| {
+            crate::sources::osm::OsmFeature {
+                id: id.to_string(),
+                tags: tags
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+                geometry: crate::sources::osm::OsmGeometry::Line(points),
+            }
+        };
+        let features = [
+            way(
+                "way/1",
+                &[("highway", "track"), ("surface", "gravel")],
+                vec![at(0.0, 0.0), at(0.0003, 0.0003)],
+            ),
+            way(
+                "way/2",
+                &[("highway", "path")],
+                vec![at(0.0, 0.0), at(0.0003, 0.0003)],
+            ),
+            way(
+                "way/3",
+                &[("barrier", "fence")],
+                vec![at(-0.0002, -0.0003), at(-0.0002, 0.0003)],
+            ),
+        ];
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+        (dir, cache_dir)
+    }
+
+    #[test]
+    fn placing_the_built_project_gives_the_starter_documents() {
+        use crate::build::content::Profile;
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let content = ContentSettings::with_profile(Profile::Balanced);
+        set_content(dir.path(), Some(content.clone())).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        // What the fixture holds: a building, paving with its border, a fence.
+        let set = MapKind::Sprint.symbol_set();
+        let all: Vec<&MapObject> = documents
+            .map
+            .parts
+            .iter()
+            .chain(&documents.candidates.parts)
+            .flat_map(|p| &p.objects)
+            .collect();
+        let has = |code: &str| {
+            let id = set.id_for_code(code).unwrap();
+            all.iter().any(|o| o.symbol_id == id)
+        };
+        assert!(has("521") && has("501.5") && has("518"));
+        let edge = set.id_for_code("501.1").unwrap();
+        assert!(all.iter().any(|o| {
+            o.symbol_id == edge
+                && o.tags
+                    .iter()
+                    .any(|(k, v)| k == "freemapper:source" && v == GENERALIZATION_SOURCE)
+        }));
+
+        let built = build_project(dir.path()).unwrap();
+        assert_eq!(
+            built.fingerprint(),
+            project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        );
+        let placed = place(&built, &content).unwrap();
+        assert!(omap_bytes(&placed) == omap_bytes(&documents), "same files");
+        assert_eq!(placed.attribution_text, documents.attribution_text);
+        assert_eq!(placed.content, documents.content);
+        assert_eq!(placed.info, documents.info);
+        assert_eq!(placed.content_settings, content);
+    }
+
+    #[test]
+    fn the_built_project_is_placed_by_any_content_settings() {
+        use crate::build::content::{Group, Place, Profile};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let built = build_project(dir.path()).unwrap();
+        let map_part = |d: &StarterDocuments| {
+            d.map
+                .parts
+                .iter()
+                .find(|p| p.name == "default part")
+                .unwrap()
+                .objects
+                .len()
+        };
+        let with = |profile, group: Option<(Group, Place)>| {
+            let mut settings = ContentSettings::with_profile(profile);
+            if let Some((group, place)) = group {
+                settings.set(group, Some(place));
+            }
+            settings
+        };
+        // The build computed the borders for the project's own settings (`safe` in tests).
+        assert_eq!(built.borders_computed(), 1);
+        let walls_off = with(Profile::Safe, Some((Group::Walls, Place::Off)));
+        for settings in [ContentSettings::with_profile(Profile::Safe), walls_off] {
+            place(&built, &settings).unwrap();
+            assert_eq!(
+                built.borders_computed(),
+                1,
+                "{settings:?} has the same streets"
+            );
+        }
+        let streets_off = with(Profile::Safe, Some((Group::Streets, Place::Off)));
+        place(&built, &streets_off).unwrap();
+        assert_eq!(built.borders_computed(), 2);
+        place(&built, &streets_off).unwrap();
+        assert_eq!(built.borders_computed(), 2, "computed once per input");
+        let safe = place(&built, &ContentSettings::with_profile(Profile::Safe)).unwrap();
+        let full = place(&built, &ContentSettings::with_profile(Profile::Full)).unwrap();
+        assert_ne!(map_part(&safe), map_part(&full));
+
+        // Each placement equals a build from scratch with those settings saved, also where the
+        // streets move (their borders are computed again) and when asked twice.
+        for settings in [
+            with(Profile::Balanced, None),
+            with(Profile::Full, None),
+            with(Profile::Balanced, Some((Group::Streets, Place::Off))),
+            with(Profile::Safe, Some((Group::Streets, Place::Candidates))),
+            with(Profile::Full, Some((Group::Fences, Place::Off))),
+            with(Profile::Safe, None),
+            with(Profile::Full, None),
+        ] {
+            set_content(dir.path(), Some(settings.clone())).unwrap();
+            let fresh = starter_documents(dir.path()).unwrap();
+            let placed = place(&built, &settings).unwrap();
+            assert!(omap_bytes(&placed) == omap_bytes(&fresh), "{settings:?}");
+            assert_eq!(placed.content_settings, settings);
+        }
     }
 
     fn hex(text: &str) -> String {
@@ -10176,6 +10697,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 contour_interval_m: 5,
                 attribution: Vec::new(),
             },
+            content_settings: ContentSettings::default(),
         };
         let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);

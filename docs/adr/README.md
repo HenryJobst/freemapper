@@ -151,6 +151,8 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0103](0103-the-area-page-takes-the-regions-from-the-registry.md) | The area page and the texts take the regions from the registry | Accepted | 2026-11-12 |
 | [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) | Requests go to public addresses, and with a policy to declared hosts only | Accepted | 2026-11-12 |
 | [0107](0107-adapter-manifests-format-1-as-built.md) | Adapter manifests, format 1, as built | Accepted | 2026-11-12 |
-| [0109](0109-the-adapter-check-reads-a-folder-and-asks-its-services.md) | The adapter check reads a folder and, when asked, its services | Accepted | 2026-11-12 |
+| [0108](0108-map-preview.md) | A preview of the map: file, live image and routes | Accepted | 2026-11-12 |
+| [0109](0109-osm-stairs-are-stairway-candidates.md) | OSM stairs are stairway candidates | Accepted | 2026-11-12 |
 | [0110](0110-a-person-can-allow-a-state-one-more-host.md) | A person can allow a built-in state one more host | Accepted | 2026-11-12 |
 | [0111](0111-saarland-the-first-state-on-the-adapter-scheme.md) | Saarland, the first state on the adapter scheme, and what it needed | Accepted | 2026-11-12 |
+| [0112](0112-the-adapter-check-reads-a-folder-and-asks-its-services.md) | The adapter check reads a folder and, when asked, its services | Accepted | 2026-11-12 |

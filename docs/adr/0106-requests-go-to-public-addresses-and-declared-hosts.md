@@ -77,7 +77,7 @@ the tile proxy of the area page asked whatever address they were given.
 - The built-in states were held to their lists only after the lists were checked three ways: a test compares
   them with the recorded requests, the golden net replays every state behind its list, and on 2026-11-12 each
   state was fetched live at two places with `adapters check --live`
-  ([0109](0109-the-adapter-check-reads-a-folder-and-asks-its-services.md)), 22 runs without a refused request.
+  ([0112](0112-the-adapter-check-reads-a-folder-and-asks-its-services.md)), 22 runs without a refused request.
 - A service that redirects to a host its manifest does not list fails with a message that names the host. The
   fix is one line in `[net] hosts`, which a reviewer sees. For a built-in state that line comes with a release;
   until then maps of that state fail where they worked before, if an agency moves its downloads behind a

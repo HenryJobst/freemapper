@@ -206,7 +206,7 @@ fn error_response(status: StatusCode, message: String) -> Response {
 }
 
 /// The JSON object of a request body; no body at all is an empty object.
-fn body_value(body: &[u8]) -> Result<Value, String> {
+pub(crate) fn body_value(body: &[u8]) -> Result<Value, String> {
     if body.iter().all(u8::is_ascii_whitespace) {
         return Ok(json!({}));
     }

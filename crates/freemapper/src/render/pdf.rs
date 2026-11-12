@@ -15,8 +15,8 @@ const PT_PER_MM: f64 = 72.0 / 25.4;
 const MARGIN_MM: f64 = 5.0;
 /// Page sizes tried, smallest first (mm, portrait).
 const PAGES: [(f64, f64); 2] = [(210.0, 297.0), (297.0, 420.0)];
-/// OOM's miter limit for PDF (reference §2.1).
-const MITER_LIMIT: f32 = 2.236_068;
+/// OOM's miter limit for PDF (reference §2.1); the raster preview uses it too.
+pub(super) const MITER_LIMIT: f32 = 2.236_068;
 
 /// An axis-parallel rectangle on paper (mm, y down).
 #[derive(Debug, Clone, Copy, PartialEq)]
