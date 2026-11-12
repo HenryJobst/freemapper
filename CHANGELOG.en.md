@@ -6,6 +6,19 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Two adapters share ground when their common area is more than a hundredth of the smaller region. Before, one inner point of each was tested, so an adapter that reached a third of the way into a state went unnoticed. `adapters list`, `adapters check` and the warning about the adapters of a project use the new measure. The warning now names the regions by name, not by id.
+- The message about an adapter the program does not have says that a newer freemapper may bring it.
+
+### Fixed
+
+- Saarland: a district archive that cannot be read (renamed, or its server down for a moment) no longer stops the fetch when the tiles of the area are in other archives. When an archive is down, its directory from the last run is used; maps whose tiles are in the cache already are still made.
+- A folder in the adapter folder whose name starts with a dot (`.git`) no longer causes a warning on every command.
+- A pre-release version of the program (`x.y.z-rc.1`) no longer aborts while loading the adapters; it counts as its release.
+
+## [0.14.0] - 2026-11-12
+
 ### Added
 
 - Saarland is the twelfth state (ADR 0111). The orthophoto of 2025 comes from the free map service of the LVGL, the terrain and the surface model of the 2025 laser scan from the district archives of its open-data share (freemapper reads only the 1 km tiles of the area out of archives of up to 1.3 GB), buildings and land use from the service "ALKIS Vereinfacht" of the Geoportal Saarland. All of it is dl-de/by-2-0; maps carry `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert`. The example is [Saarlouis old town and fortress](examples/saarland-saarlouis/). Saarland is the first state added as an adapter: a manifest folder and one raster backend.

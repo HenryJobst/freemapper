@@ -6,6 +6,19 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Zwei Adapter teilen sich Gebiet, wenn ihre gemeinsame Fläche mehr als ein Hundertstel der kleineren Region ausmacht. Bisher wurde je ein Innenpunkt geprüft; ein Adapter, der ein Drittel weit in ein Bundesland hineinreichte, blieb so unbemerkt. `adapters list`, `adapters check` und die Warnung zu den Adaptern eines Projekts nutzen das neue Maß. Die Warnung nennt die Regionen jetzt mit ihrem Namen statt mit der Kennung.
+- Die Meldung zu einem Adapter, den das Programm nicht hat, sagt, dass ein neueres freemapper ihn vielleicht mitbringt.
+
+### Behoben
+
+- Saarland: Ein Landkreis-Archiv, das sich nicht lesen lässt (umbenannt, oder der Server ist kurz nicht erreichbar), stoppt den Abruf nicht mehr, wenn die Kacheln des Gebiets in anderen Archiven liegen. Fällt ein Archiv aus, gilt sein Verzeichnis vom letzten Lauf; Karten, deren Kacheln schon im Zwischenspeicher liegen, entstehen weiter.
+- Ein Ordner im Adapterordner, dessen Name mit einem Punkt beginnt (`.git`), löst nicht mehr bei jedem Befehl eine Warnung aus.
+- Eine Vorabversion des Programms (`x.y.z-rc.1`) bricht beim Laden der Adapter nicht mehr ab; sie zählt als ihre Release-Version.
+
+## [0.14.0] - 2026-11-12
+
 ### Hinzugefügt
 
 - Das Saarland ist das zwölfte Bundesland (ADR 0111). Das Luftbild von 2025 kommt aus dem freien Kartendienst des LVGL, Gelände- und Oberflächenmodell des Laserscans von 2025 aus den Landkreis-Archiven seiner Open-Data-Ablage (freemapper liest aus Archiven von bis zu 1,3 GB nur die 1-km-Kacheln des Gebiets), Gebäude und Nutzung aus dem Dienst „ALKIS Vereinfacht“ des Geoportals Saarland. Alles steht unter dl-de/by-2-0; Karten tragen `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert`. Das Beispiel ist [Altstadt und Festung Saarlouis](examples/saarland-saarlouis/). Das Saarland ist das erste Bundesland, das als Adapter dazukam: ein Manifest-Ordner und ein Raster-Backend.
