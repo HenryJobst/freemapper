@@ -151,6 +151,20 @@ fn error_response(status: StatusCode, message: String) -> Response {
     (status, Json(json!({ "error": message }))).into_response()
 }
 
+/// The 409 for a live preview that gave up its turn to a newer one, marked `superseded`. The
+/// page that asked for the newer one dropped this request already; a page in another tab gets
+/// the answer and keeps the image it shows.
+fn superseded_response(lang: &Lang) -> Response {
+    (
+        StatusCode::CONFLICT,
+        Json(json!({
+            "error": TEXTS.text(lang, "cli-map-image-superseded", &[]),
+            "superseded": true,
+        })),
+    )
+        .into_response()
+}
+
 /// Whether `record` describes `project`: the export that wrote it used a project file with the
 /// same fields that decide the build ([`project_fingerprint`]).
 fn fits(record_fingerprint: &str, project: &ProjectFile) -> bool {
@@ -228,11 +242,7 @@ pub(crate) async fn live(
     }
     // Owned, so it stays held until the computation ends, also when the page stops waiting.
     let Some(mut builds) = state.map_images.turn().await else {
-        // The page dropped this request when it asked for the newer one.
-        return error_response(
-            StatusCode::CONFLICT,
-            TEXTS.text(&lang, "cli-map-image-superseded", &[]),
-        );
+        return superseded_response(&lang);
     };
     let task_state = Arc::clone(&state);
     let task_lang = lang.clone();
