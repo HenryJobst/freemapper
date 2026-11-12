@@ -48,33 +48,12 @@ const WMS_INFO_LAYER: &str = "nw_dop_utm_info";
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
 /// GetFeatureInfo on the metadata layer; `None` outside the coverage or when the answer has none.
 pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
-    let (e, n) = (
-        (bbox.min_e + bbox.max_e) / 2.0,
-        (bbox.min_n + bbox.max_n) / 2.0,
-    );
-    let url = format!(
-        "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
-         &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
-         &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
-        WMS.url,
-        WMS.crs.epsg(),
-        crate::sources::wms::mm(e - 100.0),
-        crate::sources::wms::mm(n - 100.0),
-        crate::sources::wms::mm(e + 100.0),
-        crate::sources::wms::mm(n + 100.0),
-    );
-    let bytes = get_with_retries(fetcher, &url, |b| Ok(b.to_vec())).ok()?;
-    parse_flight_date(&String::from_utf8_lossy(&bytes))
-}
-
-/// `Bildflugdatum = 'DD.MM.YYYY'` of a GetFeatureInfo text answer.
-fn parse_flight_date(text: &str) -> Option<String> {
-    let rest = text.split("Bildflugdatum").nth(1)?;
-    let value = rest.split('\'').nth(1)?;
-    let parts: Vec<&str> = value.split('.').collect();
-    let [d, m, y] = parts[..] else { return None };
-    let digits = |s: &str, n| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
-    (digits(d, 2) && digits(m, 2) && digits(y, 4)).then(|| format!("{d}.{m}.{y}"))
+    freemapper_sources::dates::feature_info_date(
+        fetcher,
+        (&WMS.url, WMS_INFO_LAYER, "Bildflugdatum"),
+        WMS.crs,
+        bbox,
+    )
 }
 
 /// The tiles among `tiles` that need no download: the newest kept tile list names them and their

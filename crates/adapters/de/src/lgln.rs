@@ -19,10 +19,9 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use chrono::{Datelike as _, NaiveDate};
-use serde_json::Value;
 
-use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
-use crate::fetch::{FetchError, FetchMode, Fetcher, get_with_retries, one_line};
+use crate::crs::{BoundingBox, Crs};
+use crate::fetch::{FetchError, FetchMode, Fetcher};
 use crate::raster::{GridSpec, Raster};
 use crate::sources::float_tiff::{require_stored, write_float_raster};
 use crate::sources::height_model::HeightModel;
@@ -76,10 +75,6 @@ pub const DOM1_WCS: WcsService = WcsService {
 /// only once the whole image is ready (2 km: 18 s, 4 km: 49 s), so 2 km pieces stay well inside
 /// the response timeout.
 const WCS_MAX_M: f64 = 2000.0;
-/// Items per STAC page (the server caps `limit` at 1000).
-const STAC_LIMIT: u32 = 100;
-/// Pages of one STAC search; a search at one point finds a dozen items.
-const STAC_MAX_PAGES: usize = 10;
 
 /// A height model served by the WCS at 1 m.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,118 +109,21 @@ impl Model {
     }
 }
 
-/// A STAC item: its id and the date of its `datetime`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct StacItem {
-    pub id: String,
-    pub date: NaiveDate,
-}
+pub use freemapper_sources::dates::StacItem;
 
-/// The STAC search of `host` at the centre of `bbox` (EPSG:25832): a box of ±10 m around it in
-/// lon/lat, which the search wants; `None` when a corner has no lon/lat.
+/// The STAC search of `host` at the centre of `bbox` (EPSG:25832).
 pub fn stac_search_url(host: &str, bbox: &BoundingBox) -> Option<String> {
-    let (e, n) = (
-        (bbox.min_e + bbox.max_e) / 2.0,
-        (bbox.min_n + bbox.max_n) / 2.0,
-    );
-    let corners: Vec<_> = [(-10.0, -10.0), (10.0, -10.0), (-10.0, 10.0), (10.0, 10.0)]
-        .into_iter()
-        .map(|(de, dn)| {
-            Crs::Utm32.inverse(ProjectedPoint {
-                easting: e + de,
-                northing: n + dn,
-            })
-        })
-        .collect::<Option<Vec<LatLon>>>()?;
-    let min = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MAX, f64::min);
-    let max = |f: fn(&LatLon) -> f64| corners.iter().map(f).fold(f64::MIN, f64::max);
-    Some(format!(
-        "{host}/search?bbox={:.6},{:.6},{:.6},{:.6}&limit={STAC_LIMIT}",
-        min(|p| p.lon),
-        min(|p| p.lat),
-        max(|p| p.lon),
-        max(|p| p.lat)
-    ))
+    freemapper_sources::dates::stac_search_url(host, bbox, Crs::Utm32)
 }
 
-/// The newest item (by `datetime`) of the STAC search at the centre of `bbox`, following the
-/// `next` links (on `host` only, up to 10 pages); `None` when the search finds nothing. Items
-/// without a readable `datetime` are passed over; paging ends at an empty page or a page read
-/// before.
+/// The newest item (by `datetime`) of the STAC search of `host` at the centre of `bbox`
+/// (EPSG:25832); `None` when the search finds nothing.
 pub fn newest_item(
     fetcher: &dyn Fetcher,
     host: &str,
     bbox: &BoundingBox,
 ) -> Result<Option<StacItem>, FetchError> {
-    let mut newest: Option<StacItem> = None;
-    let mut visited: Vec<String> = Vec::new();
-    let first = stac_search_url(host, bbox).ok_or_else(|| FetchError::Http {
-        url: format!("{host}/search"),
-        message: "the centre of the map area has no lon/lat".to_string(),
-    })?;
-    let mut next = Some(first);
-    while let Some(url) = next.take() {
-        if visited.len() == STAC_MAX_PAGES {
-            return Err(FetchError::Http {
-                url,
-                message: format!("the STAC search has more than {STAC_MAX_PAGES} pages"),
-            });
-        }
-        let page = get_with_retries(fetcher, &url, |bytes| {
-            serde_json::from_slice::<Value>(bytes)
-                .ok()
-                .filter(|page| page["features"].is_array())
-                .ok_or_else(|| FetchError::Http {
-                    url: url.clone(),
-                    message: format!(
-                        "not a STAC search answer: {}",
-                        one_line(&String::from_utf8_lossy(bytes), 80)
-                    ),
-                })
-        })?;
-        let features = page["features"]
-            .as_array()
-            .map(Vec::as_slice)
-            .unwrap_or_default();
-        for item in features.iter().filter_map(stac_item) {
-            if newest.as_ref().is_none_or(|n| item.date > n.date) {
-                newest = Some(item);
-            }
-        }
-        visited.push(url);
-        if features.is_empty() {
-            break;
-        }
-        let Some(href) = page["links"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .find(|link| link["rel"] == "next")
-            .and_then(|link| link["href"].as_str())
-        else {
-            break;
-        };
-        if !href.starts_with(&format!("{host}/")) {
-            return Err(FetchError::Http {
-                url: visited.pop().unwrap_or_default(),
-                message: format!("the STAC next link leaves {host}: {}", one_line(href, 120)),
-            });
-        }
-        next = Some(href.to_string()).filter(|href| !visited.contains(href));
-    }
-    Ok(newest)
-}
-
-/// The id and `properties.datetime` (`YYYY-MM-DDT00:00:00Z`) of a STAC item.
-fn stac_item(feature: &Value) -> Option<StacItem> {
-    let datetime = feature["properties"]["datetime"].as_str()?;
-    let date = chrono::DateTime::parse_from_rfc3339(datetime)
-        .ok()?
-        .date_naive();
-    Some(StacItem {
-        id: feature["id"].as_str().unwrap_or_default().to_string(),
-        date,
-    })
+    freemapper_sources::dates::newest_stac_item(fetcher, host, bbox, Crs::Utm32)
 }
 
 /// The date of the newest orthophoto at the centre of `bbox`, from one DOP STAC search: the
@@ -499,6 +397,8 @@ mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
     use crate::sources::float_tiff::decode_float_tiff;
+    use freemapper_sources::dates::STAC_MAX_PAGES;
+    use serde_json::Value;
 
     /// The live WCS sample: 200 × 50 m at the Kaiser-Wilhelm- und Ratsgymnasium, Hannover.
     const SAMPLE: BoundingBox = BoundingBox {
