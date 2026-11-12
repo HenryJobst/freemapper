@@ -1055,6 +1055,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         terrain: _,
         surface: _,
         ndsm_tiles: _,
+        point_clouds: _,
         content: _,
     } = project;
     let counted = Counted {

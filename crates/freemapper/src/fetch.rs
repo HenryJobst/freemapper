@@ -976,6 +976,7 @@ pub(crate) mod test_support {
                 tile_zip(product, tile, &raster, &world),
             );
         }
+        serve_synthetic_point_cloud(fetcher, tile);
         let school = building_feature(
             "DEBBAL0100000001",
             "Gebäude",
@@ -1571,6 +1572,75 @@ pub(crate) mod test_support {
         let url = crate::sources::lgb::ndsm_tile_url(tile);
         fetcher.insert(&url, std::fs::read(&path).unwrap());
         fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
+    }
+
+    /// The thicket of [`serve_synthetic_point_cloud`]: west, south, side in metres.
+    pub const SCHOOL_THICKET: [f64; 3] = [421_630.0, 5_821_680.0, 30.0];
+    /// The lawn of [`serve_synthetic_point_cloud`], west of the school.
+    pub const SCHOOL_LAWN: [f64; 3] = [421_570.0, 5_821_680.0, 30.0];
+
+    /// A point-cloud tile like LGB's (a zip with the LAZ file) and its currency row, published
+    /// 2024-06-12: dense bushes about 1.6 m above the terrain of [`serve_synthetic_tile`] on
+    /// [`SCHOOL_THICKET`], ground returns on [`SCHOOL_LAWN`].
+    pub fn serve_synthetic_point_cloud(fetcher: &MapFetcher, tile: TileId) {
+        use freemapper_adapters_de::lgb_als::{ALS_CURRENCY_CSV, als_tile_url};
+        use las::point::Classification;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("als.laz");
+        let mut builder = las::Builder::from((1, 2));
+        builder.point_format.is_compressed = true;
+        let transform = |offset| las::Transform {
+            scale: 0.01,
+            offset,
+        };
+        builder.transforms = las::Vector {
+            x: transform(400_000.0),
+            y: transform(5_800_000.0),
+            z: transform(0.0),
+        };
+        let mut writer = las::Writer::from_path(&path, builder.into_header().unwrap()).unwrap();
+        // The synthetic terrain rises 1 m per 10 m east from the tile's west edge.
+        let terrain = |e: f64| (e - tile.bounds().min_e) / 10.0 - 0.25;
+        for ([west, south, side], above, class) in [
+            (SCHOOL_THICKET, 1.6, Classification::MediumVegetation),
+            (SCHOOL_LAWN, 0.0, Classification::Ground),
+        ] {
+            for i in 0..(side * 2.0) as u32 {
+                for j in 0..(side * 2.0) as u32 {
+                    let (e, n) = (
+                        west + 0.25 + f64::from(i) * 0.5,
+                        south + 0.25 + f64::from(j) * 0.5,
+                    );
+                    // Every tenth return of the thicket reaches the ground.
+                    let ground = class == Classification::Ground || (i + j) % 10 == 0;
+                    writer
+                        .write_point(las::Point {
+                            x: e,
+                            y: n,
+                            z: terrain(e) + if ground { 0.0 } else { above },
+                            classification: if ground {
+                                Classification::Ground
+                            } else {
+                                class
+                            },
+                            ..Default::default()
+                        })
+                        .unwrap();
+                }
+            }
+        }
+        writer.close().unwrap();
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file(format!("als_{}.laz", tile.name()), options)
+            .unwrap();
+        zip.write_all(&std::fs::read(&path).unwrap()).unwrap();
+        fetcher.insert(&als_tile_url(tile), zip.finish().unwrap().into_inner());
+        let mut csv =
+            "sheetnr;sheetname;creationdate;revisiondate;publicationdate;processstepdate\n"
+                .to_string();
+        csv.push_str(&format!("{};;2023-04-01;;2024-06-12;\n", tile.name()));
+        fetcher.insert(ALS_CURRENCY_CSV, csv.into_bytes());
     }
 
     /// An OSM node for [`osm_pbf`]: id, latitude, longitude, tags.

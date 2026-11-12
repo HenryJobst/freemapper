@@ -5,6 +5,7 @@
       "orthophoto (DOP20) tile 33366-5807 | 8.000 MB | cached: true | Orthophoto | Cache",
       "terrain model (DGM1) tile 33366-5807 | 1.300 MB | cached: true | Terrain | Cache",
       "nDSM tile 33366-5807 | 15.000 MB | cached: true | Surface | Cache",
+      "LGB point cloud 33366-5807 | 160.000 MB | cached: false | PointCloud | Cache",
       "OSM extract Brandenburg (shared by all projects) | 300.000 MB | cached: true | MapData | Cache",
       "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project",
       "full ALKIS structures (NAS) | 0.132 MB | cached: true | StateLayers | Project",
@@ -14,7 +15,7 @@
     "tiles": [
       "33366-5807"
     ],
-    "total_megabytes": "-0.000"
+    "total_megabytes": "160.000"
   },
   {
     "in_place": [],

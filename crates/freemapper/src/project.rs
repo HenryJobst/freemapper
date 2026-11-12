@@ -61,6 +61,9 @@ use crate::derive::relief::{RELIEF_SPAN_M, local_relief, relief_shade};
 use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
+use crate::derive::vegetation::{
+    CELL_M as VEGETATION_CELL_M, CellCounts, vegetation_areas, vegetation_to_geojson,
+};
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
@@ -388,6 +391,10 @@ pub struct ProjectFile {
     /// nDSM point clouds used by the last `fetch`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ndsm_tiles: Vec<NdsmRecord>,
+    /// The point-cloud tiles of the last `fetch`, for the vegetation candidates (ADR 0105);
+    /// empty where the state publishes none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub point_clouds: Vec<PointCloudRecord>,
     /// What goes straight onto the map and what stays a candidate (ADR 0100); the `balanced`
     /// profile when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -398,6 +405,7 @@ pub struct ProjectFile {
 use freemapper_adapter_api::cache::CacheDir;
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::pointcloud::{PointCloudBackend, PointCloudRecord};
 use freemapper_adapter_api::project::{RasterProject, RasterRecords};
 use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
@@ -626,6 +634,7 @@ impl ProjectFile {
         }
         self.tiles.clear();
         self.ndsm_tiles.clear();
+        self.point_clouds.clear();
         self.buildings = None;
         self.land_use = None;
         for key in self.berlin_layers.keys() {
@@ -724,6 +733,7 @@ pub fn init_project_with_content(
         terrain: None,
         surface: None,
         ndsm_tiles: Vec::new(),
+        point_clouds: Vec::new(),
         content,
     };
     // Always write a title: the PDF, freemapper-print and freemapper-courseplan then read the
@@ -765,6 +775,8 @@ const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// Knolls, depressions, banks and cliffs from `derive` (GeoJSON in the map's CRS), input of the
 /// export.
 const LANDFORMS_RELPATH: &str = "data/landforms.geojson";
+/// The vegetation areas from the point clouds (ADR 0105), in the map's CRS.
+const VEGETATION_RELPATH: &str = "data/vegetation.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
 const OSM_CANDIDATES_RELPATH: &str = "data/osm-candidates.geojson";
 /// ALKIS land use around the map area (GeoJSON in the map's CRS), input of the export.
@@ -1160,6 +1172,17 @@ fn fetch_project_parts(
     );
     stop_if(cancelled)?;
     project.save(dir)?;
+    fetch_point_clouds_into(
+        fetcher,
+        cache,
+        mode,
+        skips(Part::PointCloud),
+        &mut project,
+        &area.region_bbox,
+        progress,
+    );
+    stop_if(cancelled)?;
+    project.save(dir)?;
     if !osm {
         return Ok(project);
     }
@@ -1269,6 +1292,89 @@ fn check_space(
         progress(note!("warning-error", error = Arg::error(skipped.clone())));
     }
     Ok(Some(plan))
+}
+
+/// The point-cloud backend of a map of `region_bbox`, as [`raster_backend`] finds the region;
+/// `None` where the state publishes no point clouds.
+fn point_cloud_backend(region_bbox: &BoundingBox) -> Option<&'static dyn PointCloudBackend> {
+    raster_region_in(registry(), region_bbox).and_then(|adapter| adapter.point_cloud())
+}
+
+/// The point-cloud tiles under `region_bbox` (EPSG:25833) for the vegetation candidates (ADR
+/// 0105), recorded in `project`. Optional like the K5 map: a full disk (`skip`) or a failed
+/// fetch keeps the recorded tiles that are still cached, the latter with a warning; where the
+/// state publishes none, nothing is requested and the records go.
+fn fetch_point_clouds_into(
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    skip: bool,
+    project: &mut ProjectFile,
+    region_bbox: &BoundingBox,
+    progress: &mut dyn FnMut(Note),
+) {
+    let Some(backend) = point_cloud_backend(region_bbox) else {
+        project.point_clouds.clear();
+        return;
+    };
+    let still_cached = |records: &[PointCloudRecord]| -> Vec<PointCloudRecord> {
+        records
+            .iter()
+            .filter(|record| backend.cached(cache, record).is_some())
+            .cloned()
+            .collect()
+    };
+    if skip {
+        project.point_clouds = still_cached(&project.point_clouds);
+        return;
+    }
+    let mut env = AdapterEnv {
+        fetcher,
+        regions: registry(),
+        cache,
+        mode,
+        today: crate::clock::today(),
+        skip_surface: false,
+        progress: &mut *progress,
+    };
+    match backend.fetch(&mut env, region_bbox) {
+        Ok(tiles) => project.point_clouds = tiles.into_iter().map(|t| t.record).collect(),
+        Err(e) => {
+            progress(note!(
+                "warning-point-clouds-unavailable",
+                reason = Arg::error(e)
+            ));
+            project.point_clouds = still_cached(&project.point_clouds);
+        }
+    }
+}
+
+/// The cached files of the recorded point-cloud tiles with their tile names. A tile no longer
+/// cached, or one that cannot be opened, is left out with a warning. None outside UTM zone 33:
+/// the backends serve EPSG:25833.
+fn point_cloud_files(
+    project: &ProjectFile,
+    region_bbox: &BoundingBox,
+    cache: &Cache,
+    progress: &mut dyn FnMut(Note),
+) -> Vec<(String, PathBuf)> {
+    if project.point_clouds.is_empty() || project.crs() != Crs::Utm33 {
+        return Vec::new();
+    }
+    let Some(backend) = point_cloud_backend(region_bbox) else {
+        return Vec::new();
+    };
+    project
+        .point_clouds
+        .iter()
+        .filter_map(|record| {
+            let Some(path) = backend.cached(cache, record) else {
+                progress(note!("warning-point-cloud-no-cached", tile = &record.tile));
+                return None;
+            };
+            Some((record.tile.clone(), path))
+        })
+        .collect()
 }
 
 /// The raster backend of a map of `region_bbox`: that of the region its centre lies in.
@@ -2617,6 +2723,35 @@ pub fn derive_project_cancellable(
         &landforms_path,
         landforms_to_geojson(&landforms).as_bytes(),
     )?;
+    // The vegetation candidates (ADR 0105), where the fetch recorded point clouds.
+    let vegetation_path = dir.join(VEGETATION_RELPATH);
+    let point_clouds = point_cloud_files(&project, &region_bbox, cache, progress);
+    let vegetation = if point_clouds.is_empty() {
+        freemapper_fs::remove_inside(dir, &vegetation_path);
+        None
+    } else {
+        progress(note!("progress-writing", path = VEGETATION_RELPATH));
+        let mut counts = CellCounts::new(GridSpec::covering(&bbox, VEGETATION_CELL_M));
+        for (tile, path) in &point_clouds {
+            stop_if(cancelled)?;
+            // A damaged file costs only its tile, not the whole derive.
+            if let Err(e) = counts.add_tile(path, &dtm) {
+                progress(note!(
+                    "warning-point-cloud-unreadable",
+                    tile = tile,
+                    error = Arg::error(e),
+                    path = path.display().to_string()
+                ));
+            }
+        }
+        let areas = vegetation_areas(&counts.classes(), project.scale_denominator);
+        write_inside(
+            dir,
+            &vegetation_path,
+            vegetation_to_geojson(&areas).as_bytes(),
+        )?;
+        Some(vegetation_path)
+    };
 
     let mut written = vec![orthophoto, hillshade_path, slope_path, relief_path];
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
@@ -2698,6 +2833,7 @@ pub fn derive_project_cancellable(
     }
     written.push(contours_path);
     written.push(landforms_path);
+    written.extend(vegetation);
     Ok(written)
 }
 
@@ -3092,6 +3228,7 @@ pub mod golden {
             terrain: None,
             surface: None,
             ndsm_tiles: Vec::new(),
+            point_clouds: Vec::new(),
             content: None,
         };
         let bbox = [0.0, 0.0, 1.0, 1.0];
@@ -5472,6 +5609,11 @@ mod tests {
                 url: "https://example.org/ndom.laz".to_string(),
                 published: NaiveDate::from_ymd_opt(2025, 3, 3),
             }],
+            point_clouds: vec![PointCloudRecord {
+                tile: "33421-5821".to_string(),
+                url: "https://example.org/als.zip".to_string(),
+                published: NaiveDate::from_ymd_opt(2024, 6, 12),
+            }],
             content: Some({
                 let mut c = ContentSettings::with_profile(crate::build::content::Profile::Full);
                 c.set(
@@ -5611,7 +5753,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 templates.join("slope.png"),
                 templates.join("relief.png"),
                 dir.path().join("data/contours.geojson"),
-                dir.path().join("data/landforms.geojson")
+                dir.path().join("data/landforms.geojson"),
+                dir.path().join(VEGETATION_RELPATH)
             ]
         );
         for file in ["orthophoto.jgw", "hillshade.pgw", "slope.pgw", "relief.pgw"] {
@@ -5690,8 +5833,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(
             outcome.templates.len(),
-            6,
-            "four images, the contours and the landforms"
+            7,
+            "four images, the contours, the landforms and the vegetation"
         );
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
     }
@@ -5807,7 +5950,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         .unwrap_err();
         let outcome = run(dir.path(), &fetcher, &cache, false);
         assert_eq!(outcome.map, MapOutcome::Written(map_path(dir.path())));
-        assert_eq!(outcome.templates.len(), 6);
+        assert_eq!(outcome.templates.len(), 7);
         assert!(part_files(dir.path()).is_empty());
     }
 
@@ -5861,7 +6004,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             derive_project(dir.path(), &cache, &mut |_| {})
                 .unwrap()
                 .len(),
-            6
+            7
         );
     }
 
@@ -6950,9 +7093,20 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     /// next fetch of the project in `dir`: its downloads, the files derived from them and the
     /// reserve.
     fn cache_short_of(dir: &Path, cache: &Cache, short: u64) -> Cache {
+        cache_short_of_kept(dir, cache, short, |_| true)
+    }
+
+    /// [`cache_short_of`] the parts `kept` says: the others do not fit at all.
+    fn cache_short_of_kept(
+        dir: &Path,
+        cache: &Cache,
+        short: u64,
+        kept: impl Fn(Part) -> bool,
+    ) -> Cache {
         use crate::space::test_support::FixedSpace;
         let today = chrono::Local::now().date_naive();
-        let estimate = crate::layers::estimate_download(dir, cache, today).unwrap();
+        let mut estimate = crate::layers::estimate_download(dir, cache, today).unwrap();
+        estimate.items.retain(|item| kept(item.part));
         let roomy = FixedSpace::everywhere("disk", u64::MAX / 2);
         let needed = crate::space::plan(&estimate, cache.root(), dir, &roomy)
             .unwrap()
@@ -7002,10 +7156,10 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             let (whole, _) = fetch(dir.path(), &fetcher, &cache);
             assert_eq!(whole.provider, Some(provider.clone()));
             let all: Vec<String> = fetcher.log.borrow().clone();
-            // One byte short: the surface model is the first part to go.
+            // One byte short: the surface model is the first part to go after the point clouds.
             let fetcher = MapFetcher::default();
             let (dir, _cache_dir, cache) = school(&fetcher);
-            let cache = cache_short_of(dir.path(), &cache, 1);
+            let cache = cache_short_of_kept(dir.path(), &cache, 1, |p| p != Part::PointCloud);
             let (project, messages) = fetch(dir.path(), &fetcher, &cache);
             assert!(
                 messages
@@ -7136,6 +7290,28 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
+    /// A state without point clouds: nothing is asked for, nothing is said, no vegetation file.
+    #[test]
+    fn a_state_without_point_clouds_has_no_vegetation_step() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = dresden_school(&fetcher);
+        let (project, mut messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(project.point_clouds.is_empty());
+        assert!(
+            !fetcher.log.borrow().iter().any(|url| url.contains("/als/")),
+            "{:?}",
+            fetcher.log.borrow()
+        );
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(!dir.path().join(VEGETATION_RELPATH).exists());
+        assert!(
+            !messages
+                .iter()
+                .any(|m| m.contains("laser point cloud") || m.contains("vegetation")),
+            "{messages:?}"
+        );
+    }
+
     #[test]
     fn parts_that_do_not_fit_are_skipped_with_a_warning() {
         let fetcher = MapFetcher::default();
@@ -7144,8 +7320,21 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         school_project(dir.path());
         serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
         crate::fetch::test_support::serve_synthetic_ndsm(&fetcher, school_tile());
-        let cache = cache_short_of(dir.path(), &Cache::new(cache_dir.path().to_path_buf()), 1);
+        // The point clouds go first; one byte short of the rest, the surface model goes too.
+        let cache = cache_short_of_kept(
+            dir.path(),
+            &Cache::new(cache_dir.path().to_path_buf()),
+            1,
+            |part| part != Part::PointCloud,
+        );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert!(
+            messages.iter().any(|m| m.starts_with(
+                "warning: freemapper skips the laser point clouds for the vegetation candidates"
+            )),
+            "{messages:?}"
+        );
+        assert!(project.point_clouds.is_empty());
         let warning = messages
             .iter()
             .find(|m| {
@@ -12570,6 +12759,113 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project.ndsm_tiles.len(), 1);
         assert_eq!(project.ndsm_tiles[0].published, "2025-03-03".parse().ok());
+    }
+
+    /// The codes of `data/vegetation.geojson` with the centre of their first outline.
+    fn vegetation_codes(dir: &Path) -> Vec<(String, f64, f64)> {
+        let text = std::fs::read_to_string(dir.join(VEGETATION_RELPATH)).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        json["features"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| {
+                let ring = f["geometry"]["coordinates"][0][0].as_array().unwrap();
+                let mean = |k: usize| {
+                    ring.iter().map(|c| c[k].as_f64().unwrap()).sum::<f64>() / ring.len() as f64
+                };
+                (
+                    f["properties"]["code"].as_str().unwrap().to_string(),
+                    mean(0),
+                    mean(1),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn derive_writes_vegetation_from_the_point_clouds() {
+        use crate::fetch::test_support::{SCHOOL_LAWN, SCHOOL_THICKET};
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.point_clouds.len(), 1);
+        assert_eq!(project.point_clouds[0].tile, "33421-5821");
+        assert_eq!(project.point_clouds[0].published, "2024-06-12".parse().ok());
+        let codes = vegetation_codes(dir.path());
+        let inside = |[w, s, side]: [f64; 3], e: f64, n: f64| {
+            (w..w + side).contains(&e) && (s..s + side).contains(&n)
+        };
+        assert!(
+            codes
+                .iter()
+                .any(|(c, e, n)| c == "410" && inside(SCHOOL_THICKET, *e, *n)),
+            "{codes:?}"
+        );
+        assert!(
+            codes
+                .iter()
+                .any(|(c, e, n)| c == "401" && inside(SCHOOL_LAWN, *e, *n)),
+            "{codes:?}"
+        );
+    }
+
+    #[test]
+    fn vegetation_goes_with_the_point_cloud_records() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        assert!(dir.path().join(VEGETATION_RELPATH).exists());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.point_clouds.clear();
+        project.save(dir.path()).unwrap();
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(!dir.path().join(VEGETATION_RELPATH).exists());
+        assert!(
+            !messages.iter().any(|m| m.contains("point cloud")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn a_point_cloud_record_with_a_path_as_tile_reads_nothing() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        // A tampered project file pointing outside the cache.
+        project.point_clouds[0].tile = "../../../../etc/passwd".to_string();
+        project.save(dir.path()).unwrap();
+        let mut messages = Vec::new();
+        derive_project(dir.path(), &cache, &mut |m| messages.push(m.to_string())).unwrap();
+        assert!(!dir.path().join(VEGETATION_RELPATH).exists());
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("no cached point cloud for tile ../../../../etc/passwd")),
+            "{messages:?}"
+        );
+    }
+
+    #[test]
+    fn a_failing_point_cloud_service_keeps_the_cached_tiles() {
+        let (dir, _cache_dir, cache) = derived_school_with_ndsm();
+        let fetcher = MapFetcher::default();
+        crate::fetch::test_support::serve_synthetic_ndsm(&fetcher, school_tile());
+        crate::fetch::test_support::serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        fetcher
+            .failing
+            .borrow_mut()
+            .push(freemapper_adapters_de::lgb_als::ALS_CURRENCY_CSV.to_string());
+        let mut messages = Vec::new();
+        fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |m| {
+            messages.push(m.to_string())
+        })
+        .unwrap();
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("the laser point clouds are unavailable")),
+            "{messages:?}"
+        );
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.point_clouds.len(), 1, "the cached tile stays");
     }
 
     #[test]

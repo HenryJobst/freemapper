@@ -119,7 +119,13 @@ pub(crate) fn estimate_area(
         today,
     };
     let mut items = raster_region_in(registry(), bbox).map_or_else(Vec::new, |adapter| {
-        adapter.estimate(&area, &EstimateEnv { cache })
+        let env = EstimateEnv { cache };
+        let mut items = adapter.estimate(&area, &env);
+        // The point clouds for the vegetation candidates, where the state publishes them.
+        if let Some(backend) = adapter.point_cloud() {
+            items.extend(backend.estimate(&area, &env));
+        }
+        items
     });
     // The estimate stays quiet; the fetch prints any extract warning.
     for source in extracts_for(bbox, &mut |_| {}) {

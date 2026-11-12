@@ -25,11 +25,12 @@ use crate::states::State;
 use crate::tiles::{TileId, tiles_covering_grid};
 
 const ALS_URL: &str = "https://data.geobasis-bb.de/geobasis/daten/als/laz";
-const ALS_CURRENCY_CSV: &str = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv";
+pub const ALS_CURRENCY_CSV: &str = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv";
 /// The folder of the point clouds below the LGB folder of the cache.
 const ALS_DIR: &str = "als";
-/// A zip of one tile is about 100 MB (2026); the estimate counts this much per tile.
-pub const ALS_MB_PER_TILE: f64 = 110.0;
+/// The LAZ file of one tile, and its zip, has 135 to 165 MB (Potsdam, 2026); the estimate counts
+/// this much per tile.
+pub const ALS_MB_PER_TILE: f64 = 160.0;
 /// A tile zip larger than this is no tile of LGB.
 const MAX_ZIP_BYTES: u64 = 2 << 30;
 /// The LAZ file of a tile hardly shrinks in the zip: more than this unpacked is no tile of LGB
@@ -611,14 +612,14 @@ mod tests {
             [
                 (
                     "LGB point cloud 33421-5821",
-                    110.0,
+                    ALS_MB_PER_TILE,
                     true,
                     Part::PointCloud,
                     Store::Cache
                 ),
                 (
                     "LGB point cloud 33422-5821",
-                    110.0,
+                    ALS_MB_PER_TILE,
                     false,
                     Part::PointCloud,
                     Store::Cache

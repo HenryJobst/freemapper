@@ -34,13 +34,14 @@
 - [x] Brandenburg: `crates/adapters/de/src/lgb_als.rs` (zip per km tile streamed into the cache, only the LAZ file kept and checked to its last point, currency from `bb_laserscandaten_aktualitaet.csv`, older publications removed, a failing tile falls back to the cache or is left out with a warning).
 - [ ] North Rhine-Westphalia (index.json, LAZ), Rhineland-Palatinate (Metalink with SHA-256), Saxony, Thuringia, Bavaria, Saarland; Berlin only with range reads.
 - [ ] `[pointcloud]` in the manifests once stage D has named backends (D5).
-- [ ] The engine counts the estimate items in `estimate_download` and the disk check (Task 2, beside the fetch step).
+- [x] The engine counts the estimate items in `estimate_download` and the disk check (Task 2, beside the fetch step).
 
 ### Task 2: Derive step
 
-- [ ] Change `read_points` to count per cell while reading (no `Vec` of all points), then `classify` and `vegetation_areas` with the project's `scale_denominator`.
-- [ ] Write `data/vegetation.geojson` (class code and polygon per feature); no file where no point cloud is recorded.
-- [ ] Test with a synthetic LAZ under a fixture project; golden G4 re-blessed.
+- [x] Change `read_points` to count per cell while reading (no `Vec` of all points), then `classify` and `vegetation_areas` with the project's `scale_denominator`.
+- [x] Write `data/vegetation.geojson` (class code and polygon per feature); no file where no point cloud is recorded.
+- [x] Test with a synthetic LAZ under a fixture project; golden re-blessed (G2/G3 for Brandenburg: the estimate item and the unanswered currency list; G4 unchanged, the store holds no point cloud).
+- [x] The fetch step: after the K5 map, records `point_clouds` in the project file, keeps the cached records on a full disk or a failing service.
 
 ### Task 3: Export step
 

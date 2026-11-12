@@ -53,62 +53,59 @@ pub struct VegetationPoint {
 /// Points read per chunk.
 const CHUNK_POINTS: u64 = 1_000_000;
 
-/// The returns of classified LAS/LAZ tiles over `dtm`, with their height above it. Buildings,
-/// noise and water are left out, and so is every return over a cell of the DTM without data.
-pub fn read_points(
-    tiles: &[std::path::PathBuf],
+/// Hands every return of a classified LAS/LAZ tile over `dtm` to `each`, with its height above
+/// it, chunk by chunk. Buildings, noise and water are left out, and so is every return over a
+/// cell of the DTM without data.
+pub fn read_tile(
+    path: &std::path::Path,
     dtm: &Raster<f32>,
-) -> Result<Vec<VegetationPoint>, DeriveError> {
+    each: &mut dyn FnMut(VegetationPoint),
+) -> Result<(), DeriveError> {
     use las::point::Classification;
     let grid = dtm.grid;
-    let las_error = |path: &std::path::Path, e: las::Error| {
-        DeriveError::Image(format!("{}: {e}", path.display()))
-    };
-    let mut out = Vec::new();
-    for path in tiles {
-        let mut reader = las::Reader::from_path(path).map_err(|e| las_error(path, e))?;
-        let mut points = las::PointDataBuilder::new()
-            .for_header(reader.header())
-            .build();
-        while reader
-            .fill_points(CHUNK_POINTS, &mut points)
-            .map_err(|e| las_error(path, e))?
-            > 0
-        {
-            for point in points.points() {
-                let point = point.map_err(|e| las_error(path, e))?;
-                if matches!(
-                    point.classification,
-                    Classification::Building
-                        | Classification::LowPoint
-                        | Classification::Water
-                        | Classification::HighNoise
-                ) {
-                    continue;
-                }
-                let col = ((point.x - grid.west) / grid.pixel_size).floor();
-                let row = ((grid.north - point.y) / grid.pixel_size).floor();
-                if col < 0.0
-                    || row < 0.0
-                    || col >= f64::from(grid.width)
-                    || row >= f64::from(grid.height)
-                {
-                    continue;
-                }
-                let ground = dtm.get(col as u32, row as u32);
-                if ground.is_nan() {
-                    continue;
-                }
-                out.push(VegetationPoint {
-                    e: point.x,
-                    n: point.y,
-                    height_m: point.z - f64::from(ground),
-                    ground: point.classification == Classification::Ground,
-                });
+    let las_error = |e: las::Error| DeriveError::Image(format!("{}: {e}", path.display()));
+    let mut reader = las::Reader::from_path(path).map_err(las_error)?;
+    let mut points = las::PointDataBuilder::new()
+        .for_header(reader.header())
+        .build();
+    while reader
+        .fill_points(CHUNK_POINTS, &mut points)
+        .map_err(las_error)?
+        > 0
+    {
+        for point in points.points() {
+            let point = point.map_err(las_error)?;
+            if matches!(
+                point.classification,
+                Classification::Building
+                    | Classification::LowPoint
+                    | Classification::Water
+                    | Classification::HighNoise
+            ) {
+                continue;
             }
+            let col = ((point.x - grid.west) / grid.pixel_size).floor();
+            let row = ((grid.north - point.y) / grid.pixel_size).floor();
+            if col < 0.0
+                || row < 0.0
+                || col >= f64::from(grid.width)
+                || row >= f64::from(grid.height)
+            {
+                continue;
+            }
+            let ground = dtm.get(col as u32, row as u32);
+            if ground.is_nan() {
+                continue;
+            }
+            each(VegetationPoint {
+                e: point.x,
+                n: point.y,
+                height_m: point.z - f64::from(ground),
+                ground: point.classification == Classification::Ground,
+            });
         }
     }
-    Ok(out)
+    Ok(())
 }
 
 /// What a cell is, from open to impassable.
@@ -158,20 +155,30 @@ struct Counts {
     vegetation: f64,
 }
 
-/// The class of every cell of `grid`; `None` where too few returns fall.
-pub fn classify(
-    points: impl IntoIterator<Item = VegetationPoint>,
+/// The returns per cell of a grid, counted as the tiles are read: a dense tile is never held in
+/// memory, only these counts.
+pub struct CellCounts {
     grid: GridSpec,
-) -> Raster<Option<VegetationClass>> {
-    let (w, h) = (grid.width as usize, grid.height as usize);
-    let mut counts = vec![Counts::default(); w * h];
-    for p in points {
+    counts: Vec<Counts>,
+}
+
+impl CellCounts {
+    pub fn new(grid: GridSpec) -> Self {
+        Self {
+            grid,
+            counts: vec![Counts::default(); grid.width as usize * grid.height as usize],
+        }
+    }
+
+    /// Counts `p` in its cell; a return outside the grid is left out.
+    pub fn add(&mut self, p: VegetationPoint) {
+        let grid = self.grid;
         let x = ((p.e - grid.west) / grid.pixel_size).floor();
         let y = ((grid.north - p.n) / grid.pixel_size).floor();
-        if x < 0.0 || y < 0.0 || x >= w as f64 || y >= h as f64 {
-            continue;
+        if x < 0.0 || y < 0.0 || x >= f64::from(grid.width) || y >= f64::from(grid.height) {
+            return;
         }
-        let c = &mut counts[y as usize * w + x as usize];
+        let c = &mut self.counts[y as usize * grid.width as usize + x as usize];
         c.all += 1;
         if p.height_m < OPEN_BELOW_M || p.ground {
             c.low += 1;
@@ -187,10 +194,35 @@ pub fn classify(
             c.vegetation += weight;
         }
     }
-    Raster {
-        grid,
-        data: counts.iter().map(cell_class).collect(),
+
+    /// Counts the returns of a tile ([`read_tile`]).
+    pub fn add_tile(
+        &mut self,
+        path: &std::path::Path,
+        dtm: &Raster<f32>,
+    ) -> Result<(), DeriveError> {
+        read_tile(path, dtm, &mut |p| self.add(p))
     }
+
+    /// The class of every cell; `None` where too few returns fell.
+    pub fn classes(&self) -> Raster<Option<VegetationClass>> {
+        Raster {
+            grid: self.grid,
+            data: self.counts.iter().map(cell_class).collect(),
+        }
+    }
+}
+
+/// The class of every cell of `grid`; `None` where too few returns fall.
+pub fn classify(
+    points: impl IntoIterator<Item = VegetationPoint>,
+    grid: GridSpec,
+) -> Raster<Option<VegetationClass>> {
+    let mut counts = CellCounts::new(grid);
+    for p in points {
+        counts.add(p);
+    }
+    counts.classes()
 }
 
 fn cell_class(c: &Counts) -> Option<VegetationClass> {
@@ -276,6 +308,32 @@ pub fn vegetation_areas(
             (!areas.0.is_empty()).then_some((class, areas))
         })
         .collect()
+}
+
+/// The areas as a GeoJSON FeatureCollection in the map's CRS, one feature per class with its
+/// ISSprOM `code`.
+pub fn vegetation_to_geojson(areas: &[(VegetationClass, geo_types::MultiPolygon<f64>)]) -> String {
+    let ring = |r: &geo_types::LineString<f64>| r.0.iter().map(|c| [c.x, c.y]).collect::<Vec<_>>();
+    let features: Vec<serde_json::Value> = areas
+        .iter()
+        .map(|(class, area)| {
+            let polygons: Vec<Vec<Vec<[f64; 2]>>> = area
+                .0
+                .iter()
+                .map(|p| {
+                    std::iter::once(ring(p.exterior()))
+                        .chain(p.interiors().iter().map(ring))
+                        .collect()
+                })
+                .collect();
+            serde_json::json!({
+                "type": "Feature",
+                "properties": { "code": class.code() },
+                "geometry": { "type": "MultiPolygon", "coordinates": polygons }
+            })
+        })
+        .collect();
+    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
 }
 
 /// The cells of `class` as polygons: the 0.5 contour of a 0/1 raster padded by one empty cell,
@@ -426,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn read_points_measures_above_the_dtm_and_skips_buildings() {
+    fn read_tile_measures_above_the_dtm_and_skips_buildings() {
         use las::point::Classification;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile.laz");
@@ -459,10 +517,89 @@ mod tests {
             },
             30.0f32,
         );
-        let points = read_points(&[path], &dtm).unwrap();
+        let mut points = Vec::new();
+        read_tile(&path, &dtm, &mut |p| points.push(p)).unwrap();
         assert_eq!(points.len(), 2, "{points:?}");
         assert!(points[0].ground && points[0].height_m == 0.0);
         assert!(!points[1].ground && (points[1].height_m - 1.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn counting_a_tile_gives_the_classes_of_its_points() {
+        use las::point::Classification;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tile.laz");
+        let header = las::Builder::from((1, 2)).into_header().unwrap();
+        let mut writer = las::Writer::from_path(&path, header).unwrap();
+        // Cell (0, 0): a lawn; cell (1, 0): dense bushes.
+        for i in 0..20 {
+            let x = 0.1 + 0.1 * f64::from(i);
+            for (e, z, classification) in [
+                (x, 30.0, Classification::Ground),
+                (CELL_M + x, 31.2, Classification::MediumVegetation),
+            ] {
+                writer
+                    .write_point(las::Point {
+                        x: e,
+                        y: 1.5,
+                        z,
+                        classification,
+                        ..Default::default()
+                    })
+                    .unwrap();
+            }
+        }
+        writer.close().unwrap();
+        let g = GridSpec {
+            west: 0.0,
+            north: CELL_M,
+            pixel_size: CELL_M,
+            width: 2,
+            height: 1,
+        };
+        let dtm = Raster::filled(g, 30.0f32);
+        let mut counts = CellCounts::new(g);
+        counts.add_tile(&path, &dtm).unwrap();
+        let classes = counts.classes();
+        assert_eq!(classes.get(0, 0), Some(VegetationClass::Open));
+        assert_eq!(classes.get(1, 0), Some(VegetationClass::Impassable));
+        let mut points = Vec::new();
+        read_tile(&path, &dtm, &mut |p| points.push(p)).unwrap();
+        assert_eq!(classify(points, g).data, classes.data);
+    }
+
+    #[test]
+    fn the_geojson_has_one_feature_per_class_with_its_holes() {
+        let square = |w: f64, s: f64, side: f64| {
+            geo_types::LineString::from(vec![
+                (w, s),
+                (w + side, s),
+                (w + side, s + side),
+                (w, s + side),
+                (w, s),
+            ])
+        };
+        let thicket = geo_types::MultiPolygon(vec![geo_types::Polygon::new(
+            square(0.0, 0.0, 30.0),
+            vec![square(10.0, 10.0, 6.0)],
+        )]);
+        let lawn = geo_types::MultiPolygon(vec![geo_types::Polygon::new(
+            square(40.0, 0.0, 9.0),
+            vec![],
+        )]);
+        let text = vegetation_to_geojson(&[
+            (VegetationClass::Impassable, thicket),
+            (VegetationClass::Open, lawn),
+        ]);
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let features = json["features"].as_array().unwrap();
+        assert_eq!(features.len(), 2);
+        assert_eq!(features[0]["properties"]["code"], "410");
+        assert_eq!(features[1]["properties"]["code"], "401");
+        let polygon = &features[0]["geometry"]["coordinates"][0];
+        assert_eq!(features[0]["geometry"]["type"], "MultiPolygon");
+        assert_eq!(polygon.as_array().unwrap().len(), 2, "outline and hole");
+        assert_eq!(polygon[1][0], serde_json::json!([10.0, 10.0]));
     }
 
     #[test]
