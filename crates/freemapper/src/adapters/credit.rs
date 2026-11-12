@@ -6,7 +6,7 @@ use chrono::Datelike as _;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 
 use crate::project::BERLIN_REGISTERS;
-use crate::sources::lgb::{ProductTiles as _, attribution, attribution_with_berlin};
+use crate::sources::lgb::{ProductTiles as _, TileProvider, attribution, attribution_with_berlin};
 use crate::sources::region::{Provider, Region};
 use crate::sources::trees;
 
@@ -110,7 +110,7 @@ fn lgb(used: &UsedSources<'_>) -> Option<String> {
     let tile_year = used
         .tiles
         .iter()
-        .filter(|t| t.product.provider() == Provider::Lgb)
+        .filter(|t| t.product.provider() == TileProvider::Lgb)
         .map(|t| t.published.year())
         .max();
     let alkis_year = used
@@ -134,7 +134,7 @@ fn lgb(used: &UsedSources<'_>) -> Option<String> {
 fn geosn(used: &UsedSources<'_>) -> bool {
     used.tiles
         .iter()
-        .any(|t| t.product.provider() == Provider::GeoSn)
+        .any(|t| t.product.provider() == TileProvider::GeoSn)
         || (used.orthophoto.is_some() && used.rasters_from(Provider::GeoSn.id()))
         || used.has_alkis_of(Region::Saxony.id())
 }

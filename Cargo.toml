@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+# `crates/adapters` holds the adapter crates and is no crate itself, so `crates/*` cannot be used.
+members = ["crates/freemapper*", "crates/adapters/*"]
 
 [workspace.package]
 version = "0.12.0"
@@ -12,6 +13,7 @@ rust-version = "1.88"
 [workspace.dependencies]
 freemapper = { path = "crates/freemapper" }
 freemapper-adapter-api = { path = "crates/freemapper-adapter-api" }
+freemapper-adapters-de = { path = "crates/adapters/de" }
 freemapper-sources = { path = "crates/freemapper-sources" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.

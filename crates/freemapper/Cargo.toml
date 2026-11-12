@@ -18,6 +18,7 @@ chrono.workspace = true
 contour.workspace = true
 dirs.workspace = true
 freemapper-adapter-api.workspace = true
+freemapper-adapters-de.workspace = true
 freemapper-fs.workspace = true
 freemapper-sources.workspace = true
 freemapper-georef.workspace = true
@@ -54,6 +55,7 @@ workspace = true
 [dev-dependencies]
 freemapper = { workspace = true, features = ["golden"] }
 freemapper-adapter-api = { workspace = true, features = ["testing"] }
+freemapper-adapters-de = { workspace = true, features = ["testing"] }
 freemapper-sources = { workspace = true, features = ["testing"] }
 freemapper-contract = { workspace = true, features = ["fixtures"] }
 quick-xml.workspace = true

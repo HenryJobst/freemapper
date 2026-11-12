@@ -7777,7 +7777,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             project
                 .tiles
                 .iter()
-                .all(|r| r.product.provider() == crate::sources::region::Provider::Lgb)
+                .all(|r| r.product.provider() == crate::sources::lgb::TileProvider::Lgb)
         );
         assert!(
             !attribution_lines(&project, &[])

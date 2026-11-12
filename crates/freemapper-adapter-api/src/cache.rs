@@ -2,6 +2,10 @@
 //! provider. How much room the volume has left is the engine's business, not the adapter's.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+/// Partial files older than this are left over from interrupted runs.
+pub const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 
 /// The folder of the shared cache.
 #[derive(Debug, Clone, PartialEq, Eq)]
