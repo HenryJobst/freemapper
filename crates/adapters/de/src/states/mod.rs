@@ -1,5 +1,11 @@
-//! The German states as region adapters: for each state its identity, boundary, OSM extracts,
-//! ALKIS service, credit lines, raster backend and download estimate.
+//! The German states as region adapters. Each state is its manifest
+//! (`manifests/<id>/manifest.toml` with its boundary file) plus what no manifest says: the
+//! raster code of its agency, the credit lines that depend on more than a year, the ALKIS of
+//! Berlin and the download estimate.
+
+use std::borrow::Cow;
+use std::path::Path;
+use std::sync::Arc;
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
@@ -7,17 +13,18 @@ use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
-use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
+#[cfg(test)]
+use freemapper_adapter_api::info::PreviewInfo;
+use freemapper_adapter_api::info::RegionInfo;
 use freemapper_adapter_api::rasters::RasterBackend;
-use freemapper_adapter_api::records::{AdapterId, EstimateItem};
+use freemapper_adapter_api::records::EstimateItem;
+use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
+use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
+use freemapper_sources::trees::POTSDAM;
 use geo_types::MultiPolygon;
 
+use crate::boundaries::{StateOutline, boundary_text, outline};
 use crate::crs::{BoundingBox, Crs};
-use std::sync::{Arc, OnceLock};
-
-use crate::boundaries::{StateOutline, outline, parse_boundary};
-use freemapper_sources::nas::LGB_NAS;
-use freemapper_sources::trees::POTSDAM;
 
 pub mod alkis;
 pub mod credit;
@@ -195,262 +202,158 @@ impl State {
     }
 }
 
-/// The adapter of one state.
-pub struct StateAdapter {
-    state: State,
-    info: RegionInfo,
-    alkis: Box<dyn AlkisSource>,
-    nas: Option<NasService>,
-    tree_datasets: Vec<TreeDataset>,
-    rasters: Box<dyn RasterBackend>,
-}
-
-/// The names of a state in English and German.
-fn names(state: State) -> Names {
-    let (en, de) = match state {
-        State::Brandenburg => ("Brandenburg", "Brandenburg"),
-        State::Berlin => ("Berlin", "Berlin"),
-        State::Saxony => ("Saxony", "Sachsen"),
-        State::SaxonyAnhalt => ("Saxony-Anhalt", "Sachsen-Anhalt"),
-        State::Hamburg => ("Hamburg", "Hamburg"),
-        State::Hessen => ("Hesse", "Hessen"),
-        State::SchleswigHolstein => ("Schleswig-Holstein", "Schleswig-Holstein"),
-        State::MecklenburgVorpommern => ("Mecklenburg-Vorpommern", "Mecklenburg-Vorpommern"),
-        State::NordrheinWestfalen => ("North Rhine-Westphalia", "Nordrhein-Westfalen"),
-        State::Niedersachsen => ("Lower Saxony", "Niedersachsen"),
-        State::RheinlandPfalz => ("Rhineland-Palatinate", "Rheinland-Pfalz"),
-    };
-    Names {
-        en: en.to_string(),
-        de: de.to_string(),
-    }
-}
-
-/// The aerial photo of a state for the map of the area page.
-fn preview(state: State) -> PreviewInfo {
-    let jpeg = "image/jpeg";
-    let (wms, layer, format, params, attribution, agency): (_, _, _, &[(&str, &str)], _, _) =
-        match state {
-            // The map proxy of LGB serves Brandenburg and Berlin.
-            State::Brandenburg | State::Berlin => (
-                "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",
-                "bebb_dop20c",
-                "image/png",
-                &[],
-                "© GeoBasis-DE/LGB, dl-de/by-2-0",
-                "LGB",
-            ),
-            State::Saxony => (
-                "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest",
-                "sn_dop_020",
-                jpeg,
-                &[],
-                "Quelle: GeoSN, dl-de/by-2-0",
-                "GeoSN",
-            ),
-            State::SaxonyAnhalt => (
-                "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
-                "lsa_lvermgeo_dop20_2",
-                jpeg,
-                &[],
-                "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0",
-                "LVermGeo",
-            ),
-            // The open 2026 vintage; 2023 is a closed-licence satellite image.
-            State::Hamburg => (
-                "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt",
-                "dop_zeitreihe_unbelaubt",
-                jpeg,
-                &[("time", "2026")],
-                "Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0",
-                "LGV",
-            ),
-            // `he_dop_rgb` is served at all scales (`he_dop20_rgb` only below 1:9000, blank when
-            // zoomed out).
-            State::Hessen => (
-                "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows",
-                "he_dop_rgb",
-                jpeg,
-                &[],
-                "Geobasisdaten © HVBG, dl-de/zero-2-0",
-                "HVBG",
-            ),
-            // The current DOP20 mosaic (EPSG:3857 is among the layer's CRS).
-            State::SchleswigHolstein => (
-                "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
-                "sh_dop20_rgb",
-                jpeg,
-                &[],
-                "© GeoBasis-DE/LVermGeo SH/CC BY 4.0",
-                "LVermGeo SH",
-            ),
-            // The ADV DOP20 mosaic (EPSG:3857 is offered); the WMS stamps a watermark, fine for
-            // a preview.
-            State::MecklenburgVorpommern => (
-                "https://www.geodaten-mv.de/dienste/adv_dop",
-                "mv_dop",
-                jpeg,
-                &[],
-                "©GeoBasis-DE/MV/CC BY 4.0",
-                "LAiV M-V",
-            ),
-            // The current DOP mosaic (EPSG:3857 is among the layer's CRS).
-            State::NordrheinWestfalen => (
-                "https://www.wms.nrw.de/geobasis/wms_nw_dop",
-                "nw_dop_rgb",
-                jpeg,
-                &[],
-                "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0",
-                "Geobasis NRW",
-            ),
-            // The newest DOP20 (EPSG:3857 is among the service's CRS); Bremen is left white.
-            State::Niedersachsen => (
-                "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
-                "ni_dop20",
-                jpeg,
-                &[],
-                "© GeoBasis-DE/LGLN, CC BY 4.0",
-                "LGLN",
-            ),
-            // The current DOP20 (EPSG:3857 is among the layer's CRS); white beyond the state
-            // border. The credit carries the year without a blank, as the licence page asks.
-            State::RheinlandPfalz => (
-                "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi",
-                "rp_dop20",
-                jpeg,
-                &[],
-                "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de",
-                "LVermGeo RP",
-            ),
-        };
-    PreviewInfo {
-        wms: wms.to_string(),
-        layer: layer.to_string(),
-        format: format.to_string(),
-        params: params
-            .iter()
-            .map(|(name, value)| (name.to_string(), value.to_string()))
-            .collect(),
-        attribution: attribution.to_string(),
-        agency: agency.to_string(),
-    }
-}
-
-/// The government districts (Regierungsbezirke) of North Rhine-Westphalia: Geofabrik's slug, the
-/// size of the extract in MB (Geofabrik, 2026-11-08) and the name. Geofabrik serves each as its
-/// own extract, so a map reads one or two of them instead of the 917 MB state extract.
-const NRW_DISTRICTS: [(&str, f64, &str); 5] = [
-    ("arnsberg", 195.2, "Arnsberg"),
-    ("detmold", 137.3, "Detmold"),
-    ("duesseldorf", 217.2, "Düsseldorf"),
-    ("koeln", 225.2, "Köln"),
-    ("muenster", 140.9, "Münster"),
+/// The manifests of the states, in the order of [`State::ALL`]. A manifest holds what a state
+/// declares: who it is, its OSM extracts, its ALKIS service, its credit, its preview and which
+/// code fetches its rasters.
+const MANIFESTS: [&str; 11] = [
+    include_str!("../../manifests/brandenburg/manifest.toml"),
+    include_str!("../../manifests/berlin/manifest.toml"),
+    include_str!("../../manifests/saxony/manifest.toml"),
+    include_str!("../../manifests/saxonyanhalt/manifest.toml"),
+    include_str!("../../manifests/hamburg/manifest.toml"),
+    include_str!("../../manifests/hessen/manifest.toml"),
+    include_str!("../../manifests/schleswigholstein/manifest.toml"),
+    include_str!("../../manifests/mecklenburgvorpommern/manifest.toml"),
+    include_str!("../../manifests/nordrheinwestfalen/manifest.toml"),
+    include_str!("../../manifests/niedersachsen/manifest.toml"),
+    include_str!("../../manifests/rheinlandpfalz/manifest.toml"),
 ];
 
-/// The extract boundary of the NRW district `index`: Geofabrik's `<district>-regbez.poly` in
-/// EPSG:25833, simplified 25 m (ODbL), parsed once. Neighbouring boundaries overlap by a few
-/// hundred metres, as the extracts do.
-fn nrw_district_boundary(index: usize) -> Option<&'static MultiPolygon<f64>> {
-    static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 5] = [
-        OnceLock::new(),
-        OnceLock::new(),
-        OnceLock::new(),
-        OnceLock::new(),
-        OnceLock::new(),
-    ];
-    const TEXTS: [&str; 5] = [
-        include_str!("../../../../../assets/regions/osm/nrw-arnsberg.geojson"),
-        include_str!("../../../../../assets/regions/osm/nrw-detmold.geojson"),
-        include_str!("../../../../../assets/regions/osm/nrw-duesseldorf.geojson"),
-        include_str!("../../../../../assets/regions/osm/nrw-koeln.geojson"),
-        include_str!("../../../../../assets/regions/osm/nrw-muenster.geojson"),
-    ];
-    Some(
-        BOUNDARIES
-            .get(index)?
-            .get_or_init(|| parse_boundary(TEXTS[index])),
-    )
+/// The boundaries of the five OSM extracts of North Rhine-Westphalia: Geofabrik's
+/// `<district>-regbez.poly` in EPSG:25833, simplified 25 m (ODbL). Neighbouring boundaries
+/// overlap by a few hundred metres, as the extracts do.
+const NRW_EXTRACT_BOUNDARIES: [(&str, &str); 5] = [
+    (
+        "osm-arnsberg.geojson",
+        include_str!("../../manifests/nordrheinwestfalen/osm-arnsberg.geojson"),
+    ),
+    (
+        "osm-detmold.geojson",
+        include_str!("../../manifests/nordrheinwestfalen/osm-detmold.geojson"),
+    ),
+    (
+        "osm-duesseldorf.geojson",
+        include_str!("../../manifests/nordrheinwestfalen/osm-duesseldorf.geojson"),
+    ),
+    (
+        "osm-koeln.geojson",
+        include_str!("../../manifests/nordrheinwestfalen/osm-koeln.geojson"),
+    ),
+    (
+        "osm-muenster.geojson",
+        include_str!("../../manifests/nordrheinwestfalen/osm-muenster.geojson"),
+    ),
+];
+
+/// The text of the manifest of `state`.
+pub fn manifest_text(state: State) -> &'static str {
+    let index = State::ALL
+        .iter()
+        .position(|other| *other == state)
+        .expect("every state is listed");
+    MANIFESTS[index]
 }
 
-/// The Geofabrik extracts of a state: the path on the server, the size in MB, the English label
-/// and what the cached file's name starts with. Berlin reads the extract of Brandenburg, which
-/// holds it; the extract of Niedersachsen holds Bremen.
-fn extracts(state: State) -> Vec<OsmExtractInfo> {
-    let one = |path: &str, megabytes: f64, label: &str, prefix: &str| {
-        vec![OsmExtractInfo {
-            geofabrik_path: format!("europe/germany/{path}"),
-            megabytes,
-            label: label.to_string(),
-            prefix: prefix.to_string(),
-        }]
-    };
-    match state {
-        State::Brandenburg | State::Berlin => {
-            one("brandenburg", 300.0, "Brandenburg", "brandenburg_")
-        }
-        State::Saxony => one("sachsen", 270.0, "Saxony", "sachsen_"),
-        State::SaxonyAnhalt => one("sachsen-anhalt", 177.0, "Saxony-Anhalt", "sachsen-anhalt_"),
-        State::Hamburg => one("hamburg", 54.0, "Hamburg", "hamburg_"),
-        State::Hessen => one("hessen", 348.0, "Hesse", "hessen_"),
-        State::SchleswigHolstein => one(
-            "schleswig-holstein",
-            159.0,
-            "Schleswig-Holstein",
-            "schleswig-holstein_",
-        ),
-        State::MecklenburgVorpommern => one(
-            "mecklenburg-vorpommern",
-            128.8,
-            "Mecklenburg-Vorpommern",
-            "mecklenburg-vorpommern_",
-        ),
-        State::Niedersachsen => one("niedersachsen", 510.0, "Lower Saxony", "niedersachsen_"),
-        State::RheinlandPfalz => one(
-            "rheinland-pfalz",
-            275.0,
-            "Rhineland-Palatinate",
-            "rheinland-pfalz_",
-        ),
-        State::NordrheinWestfalen => NRW_DISTRICTS
-            .iter()
-            .map(|(slug, megabytes, name)| OsmExtractInfo {
-                geofabrik_path: format!("europe/germany/nordrhein-westfalen/{slug}-regbez"),
-                megabytes: *megabytes,
-                label: format!("North Rhine-Westphalia, {name}"),
-                prefix: format!("nrw-{slug}_"),
-            })
-            .collect(),
+/// The files the manifest of a state names, embedded in the program.
+pub struct StateFiles(pub State);
+
+impl AdapterFiles for StateFiles {
+    fn read(&self, name: &str) -> Result<Cow<'static, str>, String> {
+        let text = match name {
+            "boundary.geojson" => boundary_text(self.0.id()),
+            _ if self.0 == State::NordrheinWestfalen => NRW_EXTRACT_BOUNDARIES
+                .iter()
+                .find(|(file, _)| *file == name)
+                .map(|(_, text)| *text),
+            _ => None,
+        };
+        text.map(Cow::Borrowed)
+            .ok_or_else(|| "the file is not built in".to_string())
     }
+}
+
+/// The name a manifest calls the raster backend of `agency` by; `None` for LVermGeo, whose
+/// rasters the manifest of Saxony-Anhalt declares as services.
+pub fn backend_name(agency: Agency) -> Option<&'static str> {
+    match agency {
+        Agency::Lgb => Some("lgb"),
+        Agency::GeoSn => Some("geosn"),
+        Agency::LvermGeo => None,
+        Agency::Lgv => Some("lgv"),
+        Agency::Hvbg => Some("hvbg"),
+        Agency::LvermGeoSh => Some("lvermgeo-sh"),
+        Agency::LaivMv => Some("laiv-mv"),
+        Agency::GeobasisNrw => Some("geobasis-nrw"),
+        Agency::Lgln => Some("lgln"),
+        Agency::LvermGeoRp => Some("lvermgeo-rp"),
+    }
+}
+
+/// The agencies whose rasters code of this crate fetches, in the order of the states.
+const AGENCIES: [Agency; 10] = [
+    Agency::Lgb,
+    Agency::GeoSn,
+    Agency::LvermGeo,
+    Agency::Lgv,
+    Agency::Hvbg,
+    Agency::LvermGeoSh,
+    Agency::LaivMv,
+    Agency::GeobasisNrw,
+    Agency::Lgln,
+    Agency::LvermGeoRp,
+];
+
+/// Adds the raster backends of this crate to `registry`, each under the name the manifests
+/// call it by.
+pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
+    for agency in AGENCIES {
+        if let Some(name) = backend_name(agency) {
+            registry.add_backend(name, Arc::from(rasters::backend(agency)))?;
+        }
+    }
+    Ok(())
+}
+
+/// The adapter of one state: its manifest, and what no manifest says.
+///
+/// From the manifest come the identity, the OSM extracts and their boundaries, the ALKIS
+/// service, the full ALKIS and the tree cadastres, the raster backend (by name, or the services
+/// the manifest declares) and the credit of the states whose credit is one line with a year.
+/// Code are the ALKIS of Berlin, the credits of Brandenburg, Berlin and Saxony (they depend on
+/// tiles, on the neighbour and on the layers that drew objects) and the download estimate.
+pub struct StateAdapter {
+    state: State,
+    manifest: ManifestAdapter,
+    /// The ALKIS source where the manifest declares none (Berlin).
+    alkis: Option<Box<dyn AlkisSource>>,
 }
 
 impl StateAdapter {
-    pub fn new(state: State) -> Self {
-        let info = RegionInfo {
-            id: AdapterId::built_in(state.id()),
-            provider: AdapterId::built_in(state.agency().id()),
-            names: names(state),
-            crs: state.crs(),
-            object_id_prefix: Some(state.object_id_prefix().to_string()),
-            osm: extracts(state),
-            credit_short: None,
-            preview: Some(preview(state)),
+    /// The adapter of `state`, with its raster backend taken from `backends`
+    /// ([`register_backends`]).
+    pub fn new(state: State, backends: &Registry) -> Self {
+        let broken = |findings: Vec<freemapper_manifest::ManifestError>| -> ! {
+            let lines: Vec<String> = findings.iter().map(ToString::to_string).collect();
+            panic!(
+                "the built-in manifest of {}: {}",
+                state.id(),
+                lines.join("; ")
+            )
         };
+        let manifest = freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
+            .unwrap_or_else(|findings| broken(findings));
+        let manifest =
+            ManifestAdapter::new(manifest, &StateFiles(state), Parse::OnFirstUse, backends)
+                .unwrap_or_else(|findings| broken(findings));
         Self {
             state,
-            info,
-            alkis: alkis::source(state),
-            // The full ALKIS of LGB and the tree cadastre of Potsdam are Brandenburg's.
-            nas: (state == State::Brandenburg).then_some(LGB_NAS),
-            tree_datasets: if state == State::Brandenburg {
-                vec![POTSDAM]
-            } else {
-                Vec::new()
-            },
-            rasters: rasters::backend(state.agency()),
+            alkis: manifest.alkis().is_none().then(|| alkis::source(state)),
+            manifest,
         }
     }
 
-    /// The outline of the state, from the embedded boundary.
+    /// The outline of the state, from the embedded boundary: parsed once for the adapter and
+    /// for the modules of the agencies, which ask about their own state.
     fn outline(&self) -> &'static StateOutline {
         outline(self.state.id()).expect("every state has a boundary")
     }
@@ -458,7 +361,7 @@ impl StateAdapter {
 
 impl RegionAdapter for StateAdapter {
     fn info(&self) -> &RegionInfo {
-        &self.info
+        self.manifest.info()
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {
@@ -466,23 +369,26 @@ impl RegionAdapter for StateAdapter {
     }
 
     fn alkis(&self) -> Option<&dyn AlkisSource> {
-        Some(&*self.alkis)
+        self.alkis.as_deref().or_else(|| self.manifest.alkis())
     }
 
     fn nas(&self) -> Option<&NasService> {
-        self.nas.as_ref()
+        self.manifest.nas()
     }
 
     fn tree_datasets(&self) -> &[TreeDataset] {
-        &self.tree_datasets
+        self.manifest.tree_datasets()
     }
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
-        credit::lines(self.state, used)
+        match self.state {
+            State::Brandenburg | State::Berlin | State::Saxony => credit::lines(self.state, used),
+            _ => self.manifest.attribution(used),
+        }
     }
 
     fn rasters(&self) -> Option<&dyn RasterBackend> {
-        Some(&*self.rasters)
+        self.manifest.rasters()
     }
 
     fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
@@ -490,10 +396,7 @@ impl RegionAdapter for StateAdapter {
     }
 
     fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {
-        match self.state {
-            State::NordrheinWestfalen => nrw_district_boundary(index),
-            _ => None,
-        }
+        self.manifest.extract_boundary(index)
     }
 
     fn bounds(&self) -> BoundingBox {
@@ -501,11 +404,24 @@ impl RegionAdapter for StateAdapter {
     }
 }
 
+/// Adds the raster backends and the adapters of the states to `registry`, the adapters in the
+/// order the region functions go through them.
+pub fn register(registry: &mut Registry) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    register_backends(registry)?;
+    for state in State::ALL {
+        let adapter = StateAdapter::new(state, registry);
+        registry.add(Arc::new(adapter))?;
+    }
+    Ok(())
+}
+
 /// The adapters of the states, in the order the region functions go through them.
 pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
+    let mut backends = Registry::new();
+    register_backends(&mut backends).expect("the backends have distinct names");
     State::ALL
         .into_iter()
-        .map(|state| Arc::new(StateAdapter::new(state)) as Arc<dyn RegionAdapter>)
+        .map(|state| Arc::new(StateAdapter::new(state, &backends)) as Arc<dyn RegionAdapter>)
         .collect()
 }
 
@@ -523,7 +439,17 @@ mod tests {
     /// show it twice.
     #[test]
     fn states_that_share_a_preview_share_all_of_it() {
-        let previews: Vec<PreviewInfo> = State::ALL.into_iter().map(preview).collect();
+        let adapters = adapters();
+        let previews: Vec<&PreviewInfo> = adapters
+            .iter()
+            .map(|adapter| {
+                adapter
+                    .info()
+                    .preview
+                    .as_ref()
+                    .expect("every state has one")
+            })
+            .collect();
         let mut services = Vec::new();
         for (index, one) in previews.iter().enumerate() {
             for other in &previews[index + 1..] {
@@ -538,5 +464,44 @@ mod tests {
         }
         assert_eq!(services.len(), 10);
         assert_eq!(previews[0], previews[1]);
+    }
+
+    /// Saxony-Anhalt has no raster code: its manifest declares the services. Every other
+    /// state names a backend of this crate, and Brandenburg and Berlin name the same.
+    #[test]
+    fn every_state_has_its_rasters() {
+        let adapters = adapters();
+        for (state, adapter) in State::ALL.into_iter().zip(&adapters) {
+            let provider = adapter
+                .rasters()
+                .expect("every state has rasters")
+                .provider();
+            assert_eq!(provider.id.as_str(), state.agency().id(), "{}", state.id());
+            assert_eq!(
+                provider.terrain_source,
+                state.agency().terrain_source(),
+                "{}",
+                state.id()
+            );
+        }
+        let mut registry = Registry::new();
+        register(&mut registry).unwrap();
+        assert_eq!(registry.len(), 11);
+        assert_eq!(
+            registry.backend_names().collect::<Vec<_>>(),
+            [
+                "geobasis-nrw",
+                "geosn",
+                "hvbg",
+                "laiv-mv",
+                "lgb",
+                "lgln",
+                "lgv",
+                "lvermgeo-rp",
+                "lvermgeo-sh"
+            ]
+        );
+        // A second registration is refused: a name is taken once.
+        assert!(register(&mut registry).is_err());
     }
 }

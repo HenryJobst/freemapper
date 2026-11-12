@@ -1,5 +1,6 @@
 //! The boundaries of the states: the outline every question of "does this lie in the state"
-//! is asked of. Each is embedded GeoJSON in EPSG:25833, simplified to 25 m, parsed on first use.
+//! is asked of. Each is the boundary file of the state's manifest (`manifests/<id>/boundary.geojson`),
+//! embedded GeoJSON in EPSG:25833, simplified to 25 m, parsed on first use.
 
 use std::sync::OnceLock;
 
@@ -26,42 +27,39 @@ pub const NIEDERSACHSEN: &str = "niedersachsen";
 pub const RHEINLAND_PFALZ: &str = "rheinlandpfalz";
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
-const BRANDENBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/brandenburg.geojson");
+const BRANDENBURG_BOUNDARY: &str = include_str!("../manifests/brandenburg/boundary.geojson");
 /// Berlin boundary from ALKIS `alkis:land` (EPSG:25833, simplified 25 m; dl-de/zero-2-0).
-const BERLIN_BOUNDARY: &str = include_str!("../../../../assets/regions/berlin.geojson");
+const BERLIN_BOUNDARY: &str = include_str!("../manifests/berlin/boundary.geojson");
 /// Saxony from GeoSN ALKIS `VerwaltungsEinheit` DE14 (dl-de/by-2-0).
-const SAXONY_BOUNDARY: &str = include_str!("../../../../assets/regions/saxony.geojson");
+const SAXONY_BOUNDARY: &str = include_str!("../manifests/saxony/boundary.geojson");
 /// Saxony-Anhalt from LVermGeo DVG `VerwaltungsEinheit` DE15 (dl-de/by-2-0), in EPSG:25833 like
 /// the others.
-const SAXONY_ANHALT_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/saxony-anhalt.geojson");
+const SAXONY_ANHALT_BOUNDARY: &str = include_str!("../manifests/saxonyanhalt/boundary.geojson");
 /// Hamburg from LGV `app:landesgrenze` (dl-de/by-2-0), with Neuwerk and Scharhörn.
-const HAMBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/hamburg.geojson");
+const HAMBURG_BOUNDARY: &str = include_str!("../manifests/hamburg/boundary.geojson");
 /// Hesse from HVBG ALKIS vereinfacht `VerwaltungsEinheit` DE06 (dl-de/zero-2-0). In EPSG:25833 it
 /// has negative eastings (Hesse reaches from about -17 km to 167 km).
-const HESSEN_BOUNDARY: &str = include_str!("../../../../assets/regions/hessen.geojson");
+const HESSEN_BOUNDARY: &str = include_str!("../manifests/hessen/boundary.geojson");
 /// Schleswig-Holstein from LVermGeo SH ALKIS (simplified 25 m, EPSG:25833; dl-de/by-2-0). It shares
 /// about 131 km of border with Hamburg.
 const SCHLESWIG_HOLSTEIN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/schleswig-holstein.geojson");
+    include_str!("../manifests/schleswigholstein/boundary.geojson");
 /// Mecklenburg-Vorpommern from LAiV M-V ALKIS (simplified 25 m, EPSG:25833; CC BY 4.0). It shares
 /// its southern border with Brandenburg, and stays in UTM zone 33 like it.
 const MECKLENBURG_VORPOMMERN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/mecklenburg-vorpommern.geojson");
+    include_str!("../manifests/mecklenburgvorpommern/boundary.geojson");
 /// North Rhine-Westphalia from Geobasis NRW ALKIS vereinfacht `VerwaltungsEinheit` DE05
 /// (simplified 25 m, EPSG:25833; dl-de/zero-2-0), with the five Vennbahn exclaves. In EPSG:25833 it
 /// has negative eastings (from about -140 km to 119 km).
 const NORDRHEIN_WESTFALEN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/nordrhein-westfalen.geojson");
+    include_str!("../manifests/nordrheinwestfalen/boundary.geojson");
 /// Lower Saxony from LGLN ALKIS vereinfacht `VerwaltungsEinheit` DE03 (simplified 25 m, EPSG:25833;
 /// CC BY 4.0). Bremen and Bremerhaven are holes: they are not Niedersachsen.
-const NIEDERSACHSEN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/niedersachsen.geojson");
+const NIEDERSACHSEN_BOUNDARY: &str = include_str!("../manifests/niedersachsen/boundary.geojson");
 /// Rhineland-Palatinate from the LVermGeo RP WFS `Verwaltungsgrenzen` (simplified 25 m, EPSG:25833;
 /// dl-de/by-2-0). In EPSG:25833 it has negative eastings (84.5 % of the state). Wiesbaden and
 /// Mainz-Kastel are Hesse, not part of it.
-const RHEINLAND_PFALZ_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/rheinland-pfalz.geojson");
+const RHEINLAND_PFALZ_BOUNDARY: &str = include_str!("../manifests/rheinlandpfalz/boundary.geojson");
 
 /// The states in the order of the registry, each with its boundary.
 const STATES: [(&str, &str); 11] = [

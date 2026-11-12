@@ -1,0 +1,45 @@
+# Berlin: the rasters come from LGB with Brandenburg's; ALKIS and the layers of the Geoportal Berlin are code.
+format = 1
+
+[adapter]
+id = "berlin"
+provider = "lgb"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25833
+object_id_prefix = "DEBE"
+names = { en = "Berlin", de = "Berlin" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["gdi.berlin.de", "data.geobasis-bb.de", "isk.geobasis-bb.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/brandenburg"
+megabytes = 300
+label = "Brandenburg"
+
+[attribution]
+licence = "dl-de/zero-2-0"
+text = "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+
+[orthophoto]
+backend = "lgb"
+
+[terrain]
+backend = "lgb"
+
+[surface]
+backend = "lgb"
+
+[preview]
+wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
+layer = "bebb_dop20c"
+format = "image/png"
+attribution = "© GeoBasis-DE/LGB, dl-de/by-2-0"
+agency = "LGB"

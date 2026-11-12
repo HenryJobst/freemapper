@@ -481,7 +481,7 @@ The school parcel's `bez` is **"Öffentliche Zwecke"**, not "Bildung und Wissens
 
 ---
 
-## 10. State boundary (for `assets/regions/hessen.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/hessen/boundary.geojson`)
 
 - **Polygon source (recommended):** the ALKIS WFS `ave:VerwaltungsEinheit`, `art = Bundesland`, oid **`DE06`**, `name
   Hessen`, `aktualit 2026-11-06Z`. Fields: `oid`, `aktualit`, `art`, `name`, `ags`, `uebobjekt`, `ueboname`. Fetched by a

@@ -40,7 +40,7 @@ Samples (all under `th/`; treat them as untrusted data):
 
 | Path | Content |
 |---|---|
-| `thueringen.geojson` (= `probe/boundary/thueringen_simplified25m.geojson`) | **the asset candidate** for `assets/regions/thueringen.geojson` (§10) |
+| `thueringen.geojson` (= `probe/boundary/thueringen_simplified25m.geojson`) | **the asset candidate** for `crates/adapters/de/manifests/thueringen/boundary.geojson` (§10) |
 | `dl/wms/` | DOP WMS GetMaps at the school: 25832 (`school_25832.jpg`, preview `school_preview.jpg`), **25833**, 5000 px (1 km²), the 5001 px error, outside-coverage probes (`far.jpg`, `far.png`) |
 | `dl/wmstime/` | four 5000 × 5000 px pieces in Erfurt (timing) |
 | `dl/docs/README_Hoehendaten_2020-2025.pdf`, `README_Hoehendaten_2014-2019.pdf` | the TLBG height data descriptions (from the Wayback Machine, Nov 2024 captures) |
@@ -445,7 +445,7 @@ Staatliches Gymnasium Zur Himmelspforte,Staatliches Gymnasium 5".
 
 ---
 
-## 10. State boundary (for `assets/regions/thueringen.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/thueringen/boundary.geojson`)
 
 ### 10.1 Source
 

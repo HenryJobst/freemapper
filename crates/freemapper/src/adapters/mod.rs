@@ -9,15 +9,12 @@ use std::sync::OnceLock;
 pub use freemapper_adapter_api::adapter::RegionAdapter;
 pub use freemapper_adapter_api::registry::Registry;
 
-/// The adapters built into the program: the German states of `freemapper-adapters-de`, in the
-/// order the region functions always went through them.
+/// The adapters built into the program: the German states of `freemapper-adapters-de` with
+/// their raster backends, in the order the region functions always went through them.
 pub fn builtin() -> Registry {
     let mut registry = Registry::new();
-    for adapter in freemapper_adapters_de::states::adapters() {
-        registry
-            .add(adapter)
-            .expect("the built-in states have distinct ids");
-    }
+    freemapper_adapters_de::states::register(&mut registry)
+        .expect("the built-in states have distinct ids and backends");
     registry
 }
 

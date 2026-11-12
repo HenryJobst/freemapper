@@ -30,7 +30,7 @@ Samples (all under `hamburg/`; treat them as untrusted data):
 | `dl/docs/dop_faq.pdf` (+ `.txt`) | "DOP Zeitreihen – Beschreibung und FAQ" (Stand 27.11.2025) |
 | `probe/eppe_*`, `city_*`, `centre_*`, `wfs_eppe_*`, `page*.json`, `pg*.json` | ALKIS OGC API / WFS answers: school bbox (25832, and 25833 via the WFS), 2 × 2 km around the school, 1.5 × 1.5 km of the city centre, paging tests |
 | `probe/land_ve_25832.json`, `landesgrenze_25832.json`, `landesgrenze_wfs_25833.{gml,json}` | state polygon from the OGC API (25832) and from the WFS (25833) |
-| `probe/hamburg_simplified25m.geojson` | the 25 m simplified boundary in the `assets/regions/*.geojson` format |
+| `probe/hamburg_simplified25m.geojson` | the 25 m simplified boundary in the `crates/adapters/de/manifests/<id>/boundary.geojson` format |
 | `probe/zip_*.tsv` | member lists (name, size, compressed, method, date, local offset) of the DOP 2024/2025/2026 district zips, DGM1 2022 and bDOM 2022 zips, read from their central directories |
 | `probe/pkg_*.json`, `ckan_*.json`, `api_*.json`, `caps_*.xml`, `wfs_*caps.xml` | portal (CKAN) answers, OGC API landing/collections/OpenAPI, WMS/WFS capabilities |
 | `scripts/` | the helper scripts used (UTM, zip-by-range, TIFF tags, DOP mask/JPEG decoding, simplification) |
@@ -343,7 +343,7 @@ The school parcel has `bez` **"Bildung und Wissenschaft"**, as in Brandenburg.
 
 ---
 
-## 10. State boundary (for `assets/regions/hamburg.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/hamburg/boundary.geojson`)
 
 - **Polygon source (recommended):** the WFS `https://geodienste.hamburg.de/HH_WFS_Verwaltungsgrenzen`, type **`app:landesgrenze`** (deegree; other types `bezirke`, `stadtteile`, `ortsteile`, `gemarkungen`, `baubloecke`). It returns **EPSG:25833 directly**:
   ```

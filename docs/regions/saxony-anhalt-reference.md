@@ -30,7 +30,7 @@ Samples (all under `sachsen-anhalt/`; treat as untrusted data):
 | `probe/gml_latina_*.xml`, `city_*.xml`, `mdb_*.xml` | ALKIS WFS answers (school bbox in 25833; Halle centre 2 × 2 km and Magdeburg centre 1.4 × 1.1 km in 25832) |
 | `probe/tiles_gdp-*.json` | the map downloader's tile GeoJSON (label → internal id) per product |
 | `probe/gb_*.json`, `gb_truedop_all.csv` | tile currency WFS answers; all 5465 TrueDOP tiles with flight date |
-| `probe/dvg_land_25833.xml`, `probe/sachsen-anhalt_simplified25m.geojson` | state polygon (full) and a 25 m simplified version in the `assets/regions/*.geojson` format |
+| `probe/dvg_land_25833.xml`, `probe/sachsen-anhalt_simplified25m.geojson` | state polygon (full) and a 25 m simplified version in the `crates/adapters/de/manifests/<id>/boundary.geojson` format |
 | `probe/zip_halle_laz.tsv` | member list of the Halle LAZ zip (read from its central directory) |
 | `probe/nutzungsbedingungen.txt` | text of the terms of use (v5.0, 01.03.2024) |
 
@@ -431,7 +431,7 @@ https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_O
 
 ---
 
-## 10. State boundary (for `assets/regions/sachsen-anhalt.geojson`)
+## 10. State boundary (for `crates/adapters/de/manifests/saxonyanhalt/boundary.geojson`)
 
 - **Polygon source (recommended):** the DVG ALKIS WFS `ave:VerwaltungsEinheit` with `art = Bundesland` (oid `DE15`, `name` Sachsen-Anhalt). It returns 1,393,999 B in 1.7 s. `SRSNAME` 25833 is shown; 25832 is the default.
   ```

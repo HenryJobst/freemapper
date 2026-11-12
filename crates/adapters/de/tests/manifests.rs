@@ -5,12 +5,14 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use freemapper_adapter_api::adapter::RegionAdapter;
+use freemapper_adapter_api::registry::Registry;
 use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
-use freemapper_adapters_de::states::{State, StateAdapter};
+use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
 use freemapper_adapters_de::{lgv, states};
 use freemapper_georef::crs::Crs;
+use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
 use freemapper_manifest::{Manifest, adapter, alkis, extras, parse};
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis};
@@ -29,20 +31,6 @@ fn manifest(id: &str) -> Manifest {
         panic!("{}", lines.join("\n"))
     })
 }
-
-/// The states that have a manifest so far (Berlin follows with its code adapter).
-const WITH_MANIFEST: [State; 10] = [
-    State::Brandenburg,
-    State::Saxony,
-    State::SaxonyAnhalt,
-    State::Hamburg,
-    State::Hessen,
-    State::SchleswigHolstein,
-    State::MecklenburgVorpommern,
-    State::NordrheinWestfalen,
-    State::Niedersachsen,
-    State::RheinlandPfalz,
-];
 
 /// The WFS of a manifest: its ALKIS service, or the fallback of its OGC API.
 fn wfs_of(manifest: &Manifest) -> WfsService {
@@ -121,7 +109,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     assert_eq!(brandenburg.nas.len(), 1);
     assert_eq!(extras::nas_service(&brandenburg.nas[0], &region), LGB_NAS);
     // No other state has such sources.
-    for state in WITH_MANIFEST {
+    for state in State::ALL {
         if state != State::Brandenburg {
             let manifest = manifest(state.id());
             assert!(
@@ -133,20 +121,98 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     }
 }
 
-/// What a manifest says about its state is what the adapter of the state answers today: ids,
-/// names, CRS, object-id prefix, the extracts and the preview.
+/// The hosts a fetch of `state` asked when the golden net was recorded, without Geofabrik's
+/// (the OSM extracts belong to no adapter).
+fn hosts_of_the_trace(state: State) -> Vec<String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../tests/golden/adapters")
+        .join(state.id())
+        .join("trace.txt");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let mut hosts: Vec<String> = text
+        .lines()
+        .filter_map(|line| line.strip_prefix("GET https://"))
+        .filter_map(|rest| rest.split(['/', '?', ' ']).next())
+        .filter(|host| *host != "download.geofabrik.de")
+        .map(str::to_string)
+        .collect();
+    hosts.sort();
+    hosts.dedup();
+    hosts
+}
+
+/// Every built-in manifest passes the validator, its boundary files are valid geometries, its
+/// folder holds the files it names and no other, and it declares every host its state asks.
+#[test]
+fn builtin_manifests_pass_the_validator_and_policy() {
+    let mut backends = Registry::new();
+    states::register_backends(&mut backends).unwrap();
+    for state in State::ALL {
+        let id = state.id();
+        let manifest = manifest(id);
+        assert_eq!(manifest.adapter.id, id);
+        assert_eq!(manifest.adapter.provider, state.agency().id(), "{id}");
+        // The text built into the program is the file.
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("manifests")
+            .join(id);
+        let file = std::fs::read_to_string(folder.join("manifest.toml")).unwrap();
+        assert_eq!(states::manifest_text(state), file, "{id}");
+        let asked = hosts_of_the_trace(state);
+        assert!(!asked.is_empty(), "{id}");
+        for host in &asked {
+            assert!(
+                manifest.hosts.contains(host),
+                "{id} does not declare {host}"
+            );
+        }
+        let mut expected: Vec<String> = std::iter::once(manifest.boundary.file.clone())
+            .chain(
+                manifest
+                    .osm
+                    .iter()
+                    .filter_map(|extract| extract.boundary.clone()),
+            )
+            .chain(std::iter::once("manifest.toml".to_string()))
+            .collect();
+        expected.sort();
+        let mut present: Vec<String> = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        present.sort();
+        assert_eq!(present, expected, "{id}");
+        // Parsed now, a boundary that is no valid geometry is a finding.
+        let adapter = ManifestAdapter::new(manifest, &StateFiles(state), Parse::Now, &backends)
+            .unwrap_or_else(|findings| panic!("{id}: {findings:?}"));
+        assert!(!adapter.boundary().0.is_empty(), "{id}");
+        assert!(adapter.rasters().is_some(), "{id}");
+        assert_eq!(adapter.alkis().is_some(), state != State::Berlin, "{id}");
+    }
+}
+
+/// The adapter of a state answers the facts of its manifest, and the boundary the modules of
+/// the agencies ask is the boundary of the manifest's file.
 #[test]
 fn every_manifest_names_its_state() {
-    for state in WITH_MANIFEST {
-        let today = StateAdapter::new(state);
+    let mut backends = Registry::new();
+    states::register_backends(&mut backends).unwrap();
+    for state in State::ALL {
+        let built_in = StateAdapter::new(state, &backends);
+        let manifest = manifest(state.id());
         assert_eq!(
-            &adapter::info_of(&manifest(state.id())),
-            today.info(),
+            &adapter::info_of(&manifest),
+            built_in.info(),
             "{}",
             state.id()
         );
+        let from_file =
+            ManifestAdapter::new(manifest, &StateFiles(state), Parse::Now, &backends).unwrap();
+        assert_eq!(from_file.boundary(), built_in.boundary(), "{}", state.id());
+        assert_eq!(from_file.bounds(), built_in.bounds(), "{}", state.id());
+        assert!(built_in.alkis().is_some(), "{}", state.id());
     }
-    assert_eq!(states::adapters().len(), WITH_MANIFEST.len() + 1);
+    assert_eq!(states::adapters().len(), 11);
 }
 
 /// Saxony-Anhalt needs no code: the backend its manifest declares asks what `lvermgeo.rs` asks.

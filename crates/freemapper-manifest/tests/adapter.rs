@@ -76,7 +76,7 @@ fn backends() -> freemapper_adapter_api::registry::Registry {
 fn hamburg_files() -> Files {
     Files(vec![(
         "boundary.geojson",
-        repo("assets/regions/hamburg.geojson"),
+        repo("crates/adapters/de/manifests/hamburg/boundary.geojson"),
     )])
 }
 
@@ -120,7 +120,7 @@ fn vertices(boundary: &MultiPolygon<f64>) -> Vec<(f64, f64)> {
 #[test]
 fn boundary_in_4326_equals_the_25833_boundary_within_1_m() {
     let path = Path::new("hamburg/boundary.geojson");
-    let text = repo("assets/regions/hamburg.geojson");
+    let text = repo("crates/adapters/de/manifests/hamburg/boundary.geojson");
     let utm = parse_boundary(&text, BoundaryCrs::Utm33, path).unwrap();
     assert!(vertices(&utm).len() > 100);
     // The same file with every position in degrees.
@@ -298,7 +298,7 @@ fn the_adapter_has_the_facts_of_its_manifest() {
     );
     // The boundary is the one of the file, and the box around it is kept.
     let boundary = parse_boundary(
-        &repo("assets/regions/hamburg.geojson"),
+        &repo("crates/adapters/de/manifests/hamburg/boundary.geojson"),
         BoundaryCrs::Utm33,
         Path::new("x"),
     )
@@ -324,7 +324,7 @@ fn the_adapter_has_the_facts_of_its_manifest() {
     let st = manifest("saxonyanhalt");
     let files = Files(vec![(
         "boundary.geojson",
-        repo("assets/regions/saxony-anhalt.geojson"),
+        repo("crates/adapters/de/manifests/saxonyanhalt/boundary.geojson"),
     )]);
     let st = ManifestAdapter::new(st, &files, Parse::Now, &backends()).unwrap();
     assert_eq!(st.info().credit_short.as_deref(), Some("LVermGeo ST"));
@@ -336,7 +336,7 @@ fn each_extract_has_its_boundary() {
     let districts = ["arnsberg", "detmold", "duesseldorf", "koeln", "muenster"];
     let mut files = vec![(
         "boundary.geojson",
-        repo("assets/regions/nordrhein-westfalen.geojson"),
+        repo("crates/adapters/de/manifests/nordrheinwestfalen/boundary.geojson"),
     )];
     let names = [
         "osm-arnsberg.geojson",
@@ -348,7 +348,9 @@ fn each_extract_has_its_boundary() {
     for (name, district) in names.into_iter().zip(districts) {
         files.push((
             name,
-            repo(&format!("assets/regions/osm/nrw-{district}.geojson")),
+            repo(&format!(
+                "crates/adapters/de/manifests/nordrheinwestfalen/osm-{district}.geojson"
+            )),
         ));
     }
     let adapter = ManifestAdapter::new(

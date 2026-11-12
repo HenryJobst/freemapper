@@ -18,6 +18,7 @@ freemapper-adapter-api.workspace = true
 freemapper-contract.workspace = true
 freemapper-fs.workspace = true
 freemapper-georef.workspace = true
+freemapper-manifest.workspace = true
 freemapper-sources.workspace = true
 geo.workspace = true
 geo-types.workspace = true
@@ -30,7 +31,6 @@ zip.workspace = true
 workspace = true
 
 [dev-dependencies]
-freemapper-manifest.workspace = true
 # The live tests of the state modules (ignored unless asked for) use the HTTP client of the engine.
 freemapper.workspace = true
 image.workspace = true
