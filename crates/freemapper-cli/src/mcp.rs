@@ -7,10 +7,11 @@ use std::sync::{Arc, Mutex};
 
 use base64::Engine;
 use freemapper::area::MapArea;
+use freemapper::build::content::ContentSettings;
 use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
-use freemapper::project::{MapKind, ProjectFile, init_project};
+use freemapper::project::{MapKind, ProjectFile, init_project, set_content};
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
@@ -42,6 +43,22 @@ struct FindPlace {
     query: String,
 }
 
+/// Saves the content setting a call asks for in the project of `dir` (nothing when it asks for
+/// none); an error is the sentence for the user.
+fn save_content(
+    dir: &std::path::Path,
+    profile: Option<&str>,
+    sets: &[String],
+) -> Result<(), String> {
+    let existing = ProjectFile::load(dir).map_err(|e| describe(&e))?;
+    let settings = ContentSettings::from_request(profile, sets, existing.content.as_ref())
+        .map_err(|detail| t("mcp-error-content", &[("detail", v(detail))]))?;
+    if settings.is_some() {
+        set_content(dir, settings).map_err(|e| describe(&e))?;
+    }
+    Ok(())
+}
+
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct CreateProject {
     /// New project folder (absolute path or starting with ~).
@@ -59,6 +76,14 @@ struct CreateProject {
     scale: Option<u32>,
     /// Map title for the peripheral information (default: the folder name).
     title: Option<String>,
+    /// What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the
+    /// project. balanced puts the objects of the cadastre and the registers on the map, full puts
+    /// everything on it.
+    content: Option<String>,
+    /// Groups sent somewhere else than the profile says, as "group=place" with place map,
+    /// candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees,
+    /// water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+    content_set: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -92,6 +117,12 @@ struct StartPipeline {
     /// line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on).
     /// ATTRIBUTION.txt always lists every source.
     pdf_sources: Option<String>,
+    /// Change what goes straight onto the map before the run: "safe", "balanced" or "full".
+    /// Saved in the project. Default: the project's setting, else balanced.
+    content: Option<String>,
+    /// Groups sent somewhere else than the profile says, as "group=place" with place map,
+    /// candidates or off, e.g. "fences=candidates". Saved in the project.
+    content_set: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -435,6 +466,13 @@ impl FreemapperServer {
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
+                if let Err(e) = save_content(
+                    &dir,
+                    req.content.as_deref(),
+                    req.content_set.as_deref().unwrap_or_default(),
+                ) {
+                    return failure(e);
+                }
                 let kind = kind.name();
                 let args = [
                     ("path", v(dir.display())),
@@ -506,6 +544,13 @@ impl FreemapperServer {
             .is_some_and(Selector::is_running);
         if page_open {
             return failure(t("mcp-error-page-open", &[]));
+        }
+        if let Err(e) = save_content(
+            &dir,
+            req.content.as_deref(),
+            req.content_set.as_deref().unwrap_or_default(),
+        ) {
+            return failure(e);
         }
         let options = match pipeline::parse(pipeline::RunRequest {
             force: req.force,

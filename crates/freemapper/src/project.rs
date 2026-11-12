@@ -22,6 +22,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::content::ContentSettings;
 use crate::build::dedup::{
     drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
     drop_points_near_registers, drop_trees_by_rank,
@@ -361,6 +362,10 @@ pub struct ProjectFile {
     /// nDSM point clouds used by the last `fetch`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ndsm_tiles: Vec<NdsmRecord>,
+    /// What goes straight onto the map and what stays a candidate (ADR 0100); the `balanced`
+    /// profile when absent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<ContentSettings>,
 }
 
 // The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
@@ -648,6 +653,7 @@ pub fn init_project(
         terrain: None,
         surface: None,
         ndsm_tiles: Vec::new(),
+        content: None,
     };
     // Always write a title: the PDF, freemapper-print and freemapper-courseplan then read the
     // same one instead of each deriving its own from the folder name.
@@ -756,6 +762,20 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<AreaSaved, ProjectErro
         zone_changed,
         provider_changed,
     })
+}
+
+/// Sets what goes straight onto the map and what stays a candidate (ADR 0100) for the project in
+/// `dir`, keeping every other setting; `None` takes the project back to the default. The map is
+/// written by the next `export`.
+pub fn set_content(
+    dir: &Path,
+    content: Option<ContentSettings>,
+) -> Result<ProjectFile, ProjectError> {
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    project.content = content;
+    project.save(dir)?;
+    Ok(project)
 }
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
@@ -3788,6 +3808,7 @@ pub mod golden {
             terrain: None,
             surface: None,
             ndsm_tiles: Vec::new(),
+            content: None,
         };
         let bbox = [0.0, 0.0, 1.0, 1.0];
         let alkis = |regions: Vec<Region>| AlkisRecord {
@@ -6022,6 +6043,35 @@ mod tests {
     }
 
     #[test]
+    fn content_is_written_only_when_set() {
+        let dir = tempfile::tempdir().unwrap();
+        init_project(
+            dir.path(),
+            &fixture_area(),
+            MapKind::Sprint,
+            None,
+            NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
+            None,
+        )
+        .unwrap();
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(!text.contains("[content]"), "{text}");
+        let mut content = ContentSettings::default();
+        content.set(
+            crate::build::content::Group::Fences,
+            Some(crate::build::content::Place::Off),
+        );
+        let saved = set_content(dir.path(), Some(content.clone())).unwrap();
+        assert_eq!(saved.content, Some(content));
+        let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(
+            text.contains("[content]") && text.contains("fences = \"off\""),
+            "{text}"
+        );
+        assert_eq!(set_content(dir.path(), None).unwrap().content, None);
+    }
+
+    #[test]
     fn project_file_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let file = ProjectFile {
@@ -6106,6 +6156,14 @@ mod tests {
                 url: "https://example.org/ndom.laz".to_string(),
                 published: NaiveDate::from_ymd_opt(2025, 3, 3),
             }],
+            content: Some({
+                let mut c = ContentSettings::with_profile(crate::build::content::Profile::Full);
+                c.set(
+                    crate::build::content::Group::Walls,
+                    Some(crate::build::content::Place::Candidates),
+                );
+                c
+            }),
         };
         file.save(dir.path()).unwrap();
         assert!(dir.path().join(PROJECT_FILE_NAME).exists());
@@ -11859,6 +11917,30 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
         assert_eq!(symbols_of(&candidates, "way/10"), [pond]);
         assert_eq!(symbols_of(&candidates, "way/11"), [pond]);
+    }
+
+    #[test]
+    fn the_default_content_puts_an_osm_pond_on_the_map() {
+        // ADR 0100: `balanced` takes OpenStreetMap water; `safe` (what the other export tests
+        // run with) leaves the pond among the candidates.
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
+        store_lake_and_ponds(dir.path());
+        store_traffic_areas(dir.path());
+        set_content(
+            dir.path(),
+            Some(ContentSettings::with_profile(
+                crate::build::content::Profile::Balanced,
+            )),
+        )
+        .unwrap();
+        export_starter_project(dir.path(), false).unwrap();
+        let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
+        assert_eq!(symbols_of(&map, "way/10"), [pond]);
+        assert!(symbols_of(&candidates, "way/10").is_empty());
     }
 
     #[test]

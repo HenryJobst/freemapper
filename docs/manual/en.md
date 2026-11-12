@@ -531,6 +531,38 @@ The candidates map also holds the **contours**: every 1 m on schoolyard maps, ev
 every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
 
+### What goes straight onto the map
+
+Not everything freemapper finds is equally reliable. What was surveyed officially (ALKIS, the Berlin
+registers) goes straight onto the map. What is guessed from OpenStreetMap, the street survey or the terrain
+stays a candidate and appears only in the template. You set how this is divided before the map is made:
+
+| Profile | Effect |
+|---|---|
+| `safe` | Every object stays where the build puts it: buildings, areas, water and paths on the map, everything else a candidate. |
+| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs, banks, stairs, trees, towers, passages. Walls, fences, hedges and water also come from OpenStreetMap. Other OSM objects, contours, areas that shall not be entered and street furniture stay candidates. |
+| `full` | Everything goes onto the map, as in the training map. |
+
+Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
+`monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, each `map`, `candidates` or `off`.
+
+```sh
+freemapper run <folder> --content balanced --content-set fences=candidates --content-set contours=map
+```
+
+The choice is stored in the project, in `freemapper.toml`:
+
+```toml
+[content]
+profile = "balanced"
+fences = "candidates"
+contours = "map"
+```
+
+`init`, `export` and `run` take `--content` and `--content-set`; an assistant through MCP sets `content` and
+`content_set` on `create_project` and `start_pipeline`. A new `--content` replaces earlier exceptions,
+`--content-set` alone adds to them. You see the result after `export --force`.
+
 ## 9. What to check in the terrain
 
 freemapper saves you drawing the base, not the walk through the terrain. Check above all:

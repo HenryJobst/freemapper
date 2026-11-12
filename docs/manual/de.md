@@ -554,6 +554,39 @@ Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten all
 alle 2 m, jede fünfte als Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
 
+### Was direkt auf die Karte kommt
+
+Nicht alles, was freemapper findet, ist gleich verlässlich. Was amtlich vermessen ist (ALKIS, die Berliner
+Register), kommt direkt auf die Karte. Was aus OpenStreetMap, der Straßenbefahrung oder dem Gelände geschätzt
+ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stellen Sie vor der Erzeugung ein:
+
+| Profil | Wirkung |
+|---|---|
+| `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, Flächen, Wasser und Wege auf der Karte, alles andere Kandidat. |
+| `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen, Böschungen, Treppen, Bäume, Türme, Durchgänge. Mauern, Zäune, Hecken und Wasser kommen auch aus OpenStreetMap auf die Karte. Andere OSM-Objekte, Höhenlinien, Sperrgebiete und Ausstattung bleiben Kandidat. |
+| `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
+
+Einzelne Gruppen lassen sich abweichend einstellen: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`,
+`water-features`, `monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, je nach `map`
+(Karte), `candidates` (Kandidat) oder `off` (weglassen).
+
+```sh
+freemapper run <Ordner> --content balanced --content-set fences=candidates --content-set contours=map
+```
+
+Die Wahl steht danach im Projekt, in `freemapper.toml`:
+
+```toml
+[content]
+profile = "balanced"
+fences = "candidates"
+contours = "map"
+```
+
+`init`, `export` und `run` nehmen `--content` und `--content-set`; ein Assistent über MCP setzt `content` und
+`content_set` bei `create_project` und `start_pipeline`. Ein neues `--content` ersetzt frühere Ausnahmen,
+`--content-set` allein ergänzt sie. Das Ergebnis sehen Sie nach `export --force`.
+
 ## 9. Was im Gelände zu prüfen ist
 
 freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfen Sie vor allem:

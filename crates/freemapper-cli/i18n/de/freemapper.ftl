@@ -550,3 +550,13 @@ mcp-param-start-pipeline-pdf = Zusätzlich <name>.pdf schreiben, die druckfertig
 mcp-param-start-pipeline-pdf-candidates = Zusätzlich <name>-candidates.pdf schreiben, die Trainingskarte (die Karte und jeder Kandidat als Kartenobjekt; im Gelände prüfen). Standard false.
 mcp-param-start-pipeline-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen. Standard false (deutsche Karten haben meist keine; die Maßstabszahl bleibt im Titelblock).
 mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Standard; die ganze Liste, gekürzt nur, wenn sie mehr als 5 Zeilen braucht), "full" (nie gekürzt) oder "credit-only" (nur die freemapper-Zeile; ODbL und dl-de/by-2-0 verlangen dann, die Quellen zu nennen, wenn die Karte weitergegeben wird). ATTRIBUTION.txt nennt immer jede Quelle.
+
+cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
+cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
+help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
+help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
+mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
+mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
+mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
+mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }

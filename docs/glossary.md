@@ -35,6 +35,8 @@ Orienteering Maps 2019 (IOF).
 | Kartenvorlage | template | Hintergrunddatei (Raster oder Vektor) in OOM, die nicht Teil der Karte ist und zum Abzeichnen dient. | `Template` |
 | Vorlagenkarte | template map | OOM-Datei, die in einer anderen OOM-Datei als Kartenvorlage eingebunden ist. | `TemplateMap` |
 | Kandidat | candidate | Unsicher abgeleitetes Objekt, das nur als Vorlage geliefert wird (z. B. Privatgelände, Barriere). | `Candidate` |
+| Inhaltsprofil | content profile | Voreinstellung dafür, was direkt auf die Karte kommt: `safe`, `balanced` (Standard), `full` (ADR 0100). | `Profile` |
+| Objektgruppe | object group | Gruppe von Objekten, die der Nutzer auf die Karte, zu den Kandidaten oder weglassen schicken kann (Mauern, Zäune, Hecken …). | `Group`, `Place` |
 | Startprojekt | starter project | Erstes, von freemapper erzeugtes OOM-Projekt, ab dem in OOM kartiert wird. | `StarterProject` |
 | Abgleich | reconciliation | (später) Vergleich neuer Quelldaten mit einer bereits bearbeiteten Karte. | `reconcile` |
 | Generalisierung | generalization | Vereinfachen von Geometrie auf Kartenmaßstab (Mindestgrößen, Vereinfachung). | `generalize` |

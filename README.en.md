@@ -305,6 +305,8 @@ furniture, barriers, paths without a surface tag, contours, out-of-bounds areas 
 out-of-bounds candidates are left out. Because uncertain data is drawn too, check this map in the terrain before
 training. With both switches you get both files side by side.
 
+What goes straight onto the map and what stays a candidate is set by `--content`: `safe` keeps buildings, areas, water and paths, `balanced` (default) also puts streets with kerbs, banks, stairs and trees from ALKIS, the registers and the street survey, and walls, fences, hedges and water also from OSM, onto the map, `full` puts everything there. `--content-set` sets single groups, for example `--content-set fences=candidates`; the choice is stored in `freemapper.toml` and holds in the browser and through MCP.
+
 ## Starting point for OCAD
 
 ```sh
