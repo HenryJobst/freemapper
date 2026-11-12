@@ -79,11 +79,9 @@ world_magnetic_model = "1.2025.0"
 zip = { version = "=9.0.5", default-features = false, features = ["deflate"] }
 
 # The tests run the whole pipeline (rasters, geometry, image files) and take minutes unoptimized.
-# The dependencies are built once and cached, so they get the full optimization; our own crates
-# get the light one that keeps the build fast. Debug assertions and overflow checks stay on.
-[profile.dev]
-opt-level = 1
-
+# The dependencies are built once and then cached, so they get the full optimization. Our own
+# crates stay unoptimized: optimizing them costs more build time in CI than the tests win
+# (measured in PR 55: with `opt-level = 1` the build took 2.5 to 3.5 times as long).
 [profile.dev.package."*"]
 opt-level = 3
 
