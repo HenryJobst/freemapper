@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # `labeled`: the label `all-systems` asks for macOS and Windows on a pull request.
+    types: [opened, synchronize, reopened, labeled]
 
 # A newer push to a pull request replaces the run of the older one; runs on main all finish.
 concurrency:
@@ -20,7 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # A pull request runs on Linux only; the label `all-systems` and every push to main run
+        # on all three systems.
+        os: ${{ fromJSON(github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'all-systems') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     env:
       # The tests that sign a manifest with the minisign CLI fail instead of skipping when it is
@@ -53,7 +57,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # A pull request runs on Linux only; the label `all-systems` and every push to main run
+        # on all three systems.
+        os: ${{ fromJSON(github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'all-systems') && '["ubuntu-latest"]' || '["ubuntu-latest", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
