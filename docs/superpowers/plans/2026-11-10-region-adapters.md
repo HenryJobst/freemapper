@@ -660,6 +660,24 @@ Not a task of this plan but a gate: before F1, one state of stage G (Saarland or
 
 ---
 
+## Stage F as built (2026-11-12)
+
+- F1: `docs/adapters/` holds the guide (`en.md`, `de.md`), the tutorial (`tutorial.en.md`, `tutorial.de.md`) and
+  the reference (`manifest-v1.en.md`, `manifest-v1.de.md`). The tutorial's region is made up, its services are
+  those of Saxony-Anhalt, so that it ends with a live check that passes; every output block was replayed from
+  the documents against the built program, in both languages. Sections 3, 4 and 8 of the guide describe the
+  steps Saarland took by hand, since `adapter new`, `adapter boundary` and `adapter record` are deferred.
+- The documents say `0.14.0` for the first freemapper that reads folder adapters; the session that owns the
+  releases confirmed the number.
+- F2, done: manual, README, changelog, glossary, AGENTS.md, ADR 0082 Accepted. The release archive ships
+  `docs/adapters` and `docs/glossary.md`; links that leave the archive are GitHub addresses.
+- F2, moved: shrinking the golden net is a pull request of its own after merge 3, because it publishes a new
+  fixture store and should not hold this branch up. Keep Hesse beside the three states the task names: the
+  test of the interrupted fetches needs a state that reads archives by range requests. The hosts test of
+  `crates/adapters/de/tests/manifests.rs` reads the traces of all eleven states and needs another source for
+  the states that leave the net.
+- The weekly live workflow stays deferred. The guide says that there is no scheduled check yet.
+
 ## Stage F: documentation
 
 ### Task F1: Contributor guide and manifest reference (bilingual)
