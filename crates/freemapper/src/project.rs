@@ -6018,6 +6018,151 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(!dir.path().join("data/map-preview.json").exists());
     }
 
+    /// The bytes of the map and of the candidates map as written to the `.omap` files.
+    fn omap_bytes(documents: &StarterDocuments) -> (Vec<u8>, Vec<u8>) {
+        let bytes = |doc: &MapDocument| {
+            let mut out = Vec::new();
+            write_map(doc, &mut out, XmlFormat::Compact).unwrap();
+            out
+        };
+        (bytes(&documents.map), bytes(&documents.candidates))
+    }
+
+    /// A sprint project with the school building, a carriageway (on the map) and a way (a
+    /// candidate) of the land use, and an OSM fence, a track and a path.
+    fn sprint_with_paving_and_fence(
+        fetcher: &MapFetcher,
+    ) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, cache_dir) = sprint_with_ways(fetcher);
+        store_traffic_areas(dir.path());
+        let c = fixture_area().centroid();
+        let at = |dlat: f64, dlon: f64| LatLon {
+            lat: c.lat + dlat,
+            lon: c.lon + dlon,
+        };
+        let way = |id: &str, tags: &[(&str, &str)], points: Vec<LatLon>| {
+            crate::sources::osm::OsmFeature {
+                id: id.to_string(),
+                tags: tags
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+                geometry: crate::sources::osm::OsmGeometry::Line(points),
+            }
+        };
+        let features = [
+            way(
+                "way/1",
+                &[("highway", "track"), ("surface", "gravel")],
+                vec![at(0.0, 0.0), at(0.0003, 0.0003)],
+            ),
+            way(
+                "way/2",
+                &[("highway", "path")],
+                vec![at(0.0, 0.0), at(0.0003, 0.0003)],
+            ),
+            way(
+                "way/3",
+                &[("barrier", "fence")],
+                vec![at(-0.0002, -0.0003), at(-0.0002, 0.0003)],
+            ),
+        ];
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+        (dir, cache_dir)
+    }
+
+    #[test]
+    fn placing_the_built_project_gives_the_starter_documents() {
+        use crate::build::content::Profile;
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let content = ContentSettings::with_profile(Profile::Balanced);
+        set_content(dir.path(), Some(content.clone())).unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        // What the fixture holds: a building, paving with its border, a fence.
+        let set = MapKind::Sprint.symbol_set();
+        let all: Vec<&MapObject> = documents
+            .map
+            .parts
+            .iter()
+            .chain(&documents.candidates.parts)
+            .flat_map(|p| &p.objects)
+            .collect();
+        let has = |code: &str| {
+            let id = set.id_for_code(code).unwrap();
+            all.iter().any(|o| o.symbol_id == id)
+        };
+        assert!(has("521") && has("501.5") && has("518"));
+        let edge = set.id_for_code("501.1").unwrap();
+        assert!(all.iter().any(|o| {
+            o.symbol_id == edge
+                && o.tags
+                    .iter()
+                    .any(|(k, v)| k == "freemapper:source" && v == GENERALIZATION_SOURCE)
+        }));
+
+        let built = build_project(dir.path()).unwrap();
+        assert_eq!(
+            built.fingerprint(),
+            project_fingerprint(&ProjectFile::load(dir.path()).unwrap()).unwrap()
+        );
+        let placed = place(&built, &content).unwrap();
+        assert!(omap_bytes(&placed) == omap_bytes(&documents), "same files");
+        assert_eq!(placed.attribution_text, documents.attribution_text);
+        assert_eq!(placed.content, documents.content);
+        assert_eq!(placed.info, documents.info);
+        assert_eq!(placed.content_settings, content);
+    }
+
+    #[test]
+    fn the_built_project_is_placed_by_any_content_settings() {
+        use crate::build::content::{Group, Place, Profile};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let built = build_project(dir.path()).unwrap();
+        let map_part = |d: &StarterDocuments| {
+            d.map
+                .parts
+                .iter()
+                .find(|p| p.name == "default part")
+                .unwrap()
+                .objects
+                .len()
+        };
+        let safe = place(&built, &ContentSettings::with_profile(Profile::Safe)).unwrap();
+        let full = place(&built, &ContentSettings::with_profile(Profile::Full)).unwrap();
+        assert_ne!(map_part(&safe), map_part(&full));
+
+        // Each placement equals a build from scratch with those settings saved, also where the
+        // streets move (their borders are computed again) and when asked twice.
+        let with = |profile, group: Option<(Group, Place)>| {
+            let mut settings = ContentSettings::with_profile(profile);
+            if let Some((group, place)) = group {
+                settings.set(group, Some(place));
+            }
+            settings
+        };
+        for settings in [
+            with(Profile::Balanced, None),
+            with(Profile::Full, None),
+            with(Profile::Balanced, Some((Group::Streets, Place::Off))),
+            with(Profile::Safe, Some((Group::Streets, Place::Candidates))),
+            with(Profile::Full, Some((Group::Fences, Place::Off))),
+            with(Profile::Safe, None),
+            with(Profile::Full, None),
+        ] {
+            set_content(dir.path(), Some(settings.clone())).unwrap();
+            let fresh = starter_documents(dir.path()).unwrap();
+            let placed = place(&built, &settings).unwrap();
+            assert!(omap_bytes(&placed) == omap_bytes(&fresh), "{settings:?}");
+            assert_eq!(placed.content_settings, settings);
+        }
+    }
+
     fn hex(text: &str) -> String {
         text.bytes().map(|b| format!("{b:02X}")).collect()
     }

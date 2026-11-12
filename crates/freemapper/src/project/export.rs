@@ -8,7 +8,7 @@ use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::content::route;
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
-use crate::build::paved_borders::border_paved_areas;
+use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
 use crate::build::points::way_footprints;
 use crate::build::ticks::{orient_ticks, read_terrain};
 
@@ -858,6 +858,97 @@ pub struct StarterDocuments {
 /// Builds the documents of the project in `dir` from its stored data. They belong to that folder
 /// and to the data as stored at this moment: build them again after a fetch or a derive.
 pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
+    let built = build_project(dir)?;
+    place(&built, &built.saved_content)
+}
+
+/// Every object of a project built from its stored data, before the content settings place them
+/// ([`place`]): the expensive part of [`starter_documents`] (reading the data, building and
+/// deduplicating the objects), so the area page builds it once and places it again for every
+/// change of the content settings. It belongs to the folder and the data as stored when it was
+/// built, like the documents.
+#[derive(Clone)]
+pub struct BuiltProject {
+    /// [`project_fingerprint`] of the project file it was built from.
+    fingerprint: String,
+    /// The content settings of that project file.
+    saved_content: ContentSettings,
+    map_kind: MapKind,
+    scale_denominator: u32,
+    georef: Georeferencing,
+    symbol_set: SymbolSet,
+    footprints: Vec<geo_types::Polygon<f64>>,
+    water: geo_types::MultiPolygon<f64>,
+    clip: BoundingBox,
+    terrain: std::sync::Arc<Option<Raster<f32>>>,
+    /// The objects of the map part and the candidates map, as the build put them.
+    map_objects: Vec<MapObject>,
+    candidates: MapDocument,
+    notes: String,
+    templates: Vec<TemplateRef>,
+    attribution_text: String,
+    content: PaperRect,
+    info: PeripheralInfo,
+    /// The walkable area (sprint only) and the sheet, which no content setting changes.
+    base_part: Option<MapPart>,
+    sheet_part: MapPart,
+    paved_borders: PavedBorders,
+}
+
+impl BuiltProject {
+    /// [`project_fingerprint`] of the project file it was built from.
+    pub fn fingerprint(&self) -> &str {
+        &self.fingerprint
+    }
+}
+
+/// The 501.1 borders of the paved areas, by what they are computed from
+/// ([`border_input`]): 3.1 of 3.7 s of the steps after `route` on Viktoriapark.
+///
+/// They depend on the content settings, so they cannot be built once for all: `route` moves the
+/// 501.5 areas and the kerbs (501.1 of the survey and the cadastre) of the streets group between
+/// the map and the candidates or drops them, which changes which areas are bordered in which list
+/// and which edges are there already. No other group holds a 501.5 or a 501.1, and nothing
+/// between `route` and the borders changes one (the line cuts only touch contours and north
+/// lines). So the borders follow the streets group and the profile only, and a placement whose
+/// paved areas and kerbs equal those of an earlier one gets that one's borders. The build
+/// computes them for the project's own settings; others are computed when first asked for and
+/// kept (a handful at most: the streets group has few outcomes).
+#[derive(Clone, Default)]
+struct PavedBorders(std::sync::Arc<std::sync::Mutex<Vec<BorderEntry>>>);
+
+/// A border input and the borders it gives, per list.
+type BorderEntry = (Vec<Vec<MapObject>>, Vec<Vec<MapObject>>);
+
+/// How many border results a built project keeps.
+const KEPT_BORDERS: usize = 8;
+
+impl PavedBorders {
+    fn get_or_compute(
+        &self,
+        input: Vec<Vec<MapObject>>,
+        compute: impl FnOnce(&[Vec<MapObject>]) -> Vec<Vec<MapObject>>,
+    ) -> Vec<Vec<MapObject>> {
+        let lock = || {
+            self.0
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+        };
+        if let Some((_, borders)) = lock().iter().find(|(known, _)| *known == input) {
+            return borders.clone();
+        }
+        let borders = compute(&input);
+        let mut kept = lock();
+        if kept.len() >= KEPT_BORDERS {
+            kept.remove(0);
+        }
+        kept.push((input, borders.clone()));
+        borders
+    }
+}
+
+/// Builds every object of the project in `dir` from its stored data ([`BuiltProject`]).
+pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = project.area()?;
     let georef = Georeferencing::new_in(
@@ -1071,7 +1162,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let mut candidates = MapDocument {
+    let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
         symbol_set: symbol_set.clone(),
@@ -1141,72 +1232,9 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(generalized.map);
-    // What goes onto the map and what stays a candidate, by the project's content settings
-    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
-    // default.
-    let settings = content_settings(&project);
-    route(
-        &settings,
-        &mut map_objects,
-        &mut candidates.parts[0].objects,
-        &symbol_set,
-    );
-    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
-    let ways = way_footprints(
-        &map_objects,
-        &candidates.parts[0].objects,
-        &map_objects,
-        project.map_kind,
-        &georef,
-        &symbol_set,
-    );
-    let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
-    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
-        cut_lines_at_ways(
-            list,
-            &CONTOUR_CODES,
-            &ways,
-            min_piece_m,
-            &georef,
-            &symbol_set,
-        );
-    }
-    cut_lines_at_ways(
-        &mut map_objects,
-        &NORTH_LINE_CODES,
-        &ways,
-        min_piece_m,
-        &georef,
-        &symbol_set,
-    );
-    // The border of the paved areas, 501.1 (`build/paved_borders.rs`).
-    border_paved_areas(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        &footprints,
-        &water.union,
-        &clip,
-        &georef,
-        &symbol_set,
-    );
-    // The last step on the lines: the ticks of fences point to the olive green area beside them,
-    // those of earth banks down the slope (`build/ticks.rs`).
-    orient_ticks(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        read_terrain(dir).as_ref(),
-        &georef,
-        &symbol_set,
-    );
-    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
-    // the ticks (`build/barrier_gaps.rs`).
-    move_points_off_barriers(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        project.map_kind,
-        &symbol_set,
-    );
-    let buildings_part = MapPart {
-        name: "default part".to_string(),
-        objects: map_objects,
-    };
+    // New object builders go here (landform candidates, vegetation): they see every object built
+    // so far (`map_objects`, `candidates`), `water.union`, `footprints`, `area` and `georef`, and
+    // what they add is placed by the content settings like the rest.
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
@@ -1217,34 +1245,155 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         attribution,
     };
     // The walkable area (sprint only, ADR 0069) in its own part, written first.
-    let mut parts: Vec<MapPart> = walkable_base(&content, project.map_kind, &symbol_set)
-        .map(|base| MapPart {
-            name: BASE_PART.to_string(),
-            objects: vec![base],
-        })
-        .into_iter()
-        .collect();
-    parts.push(buildings_part);
-    parts.push(MapPart {
+    let base_part = walkable_base(&content, project.map_kind, &symbol_set).map(|base| MapPart {
+        name: BASE_PART.to_string(),
+        objects: vec![base],
+    });
+    let sheet_part = MapPart {
         name: SHEET_PART.to_string(),
         objects: info_block(&content, &info, &symbol_set),
+    };
+    // The borders for the project's own settings, from the paved areas and kerbs `route` leaves
+    // ([`PavedBorders`]): it sends each object by the object alone and keeps the order, so
+    // routing these gives the ones of the routed lists.
+    let saved_content = content_settings(&project);
+    let paved_borders = PavedBorders::default();
+    let mut input = border_input(&[&map_objects, &candidates.parts[0].objects], &symbol_set);
+    if let [map, candidates] = &mut input[..] {
+        route(&saved_content, map, candidates, &symbol_set);
+    }
+    paved_borders.get_or_compute(input, |input| {
+        paved_borders_of(
+            input,
+            &footprints,
+            &water.union,
+            &clip,
+            &georef,
+            &symbol_set,
+        )
     });
-    let sheet_info = info;
-    let map = MapDocument {
-        notes,
+
+    Ok(BuiltProject {
+        fingerprint: project_fingerprint(&project)?,
+        saved_content,
+        map_kind: project.map_kind,
+        scale_denominator: project.scale_denominator,
         georef,
         symbol_set,
-        parts,
+        footprints,
+        water: water.union,
+        clip,
+        terrain: std::sync::Arc::new(read_terrain(dir)),
+        map_objects,
+        candidates,
+        notes,
         templates,
+        attribution_text,
+        content,
+        info,
+        base_part,
+        sheet_part,
+        paved_borders,
+    })
+}
+
+/// The documents of `built` with its objects placed by `content` (ADR 0100): `route` sends them
+/// to the map, to the candidates or leaves them out, and the steps that look at both lists
+/// follow. [`starter_documents`] places with the project's own settings.
+pub fn place(
+    built: &BuiltProject,
+    content: &ContentSettings,
+) -> Result<StarterDocuments, ProjectError> {
+    let BuiltProject {
+        georef, symbol_set, ..
+    } = built;
+    let mut map_objects = built.map_objects.clone();
+    let mut candidates = built.candidates.clone();
+    // What goes onto the map and what stays a candidate, by the content settings
+    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
+    // default.
+    route(
+        content,
+        &mut map_objects,
+        &mut candidates.parts[0].objects,
+        symbol_set,
+    );
+    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
+    let ways = way_footprints(
+        &map_objects,
+        &candidates.parts[0].objects,
+        &map_objects,
+        built.map_kind,
+        georef,
+        symbol_set,
+    );
+    let min_piece_m = f64::from(built.scale_denominator) / 1000.0;
+    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
+        cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
+    }
+    cut_lines_at_ways(
+        &mut map_objects,
+        &NORTH_LINE_CODES,
+        &ways,
+        min_piece_m,
+        georef,
+        symbol_set,
+    );
+    // The border of the paved areas, 501.1 (`build/paved_borders.rs`), computed once per input
+    // ([`PavedBorders`]).
+    let input = border_input(&[&map_objects, &candidates.parts[0].objects], symbol_set);
+    let borders = built.paved_borders.get_or_compute(input, |input| {
+        paved_borders_of(
+            input,
+            &built.footprints,
+            &built.water,
+            &built.clip,
+            georef,
+            symbol_set,
+        )
+    });
+    for (list, added) in [&mut map_objects, &mut candidates.parts[0].objects]
+        .into_iter()
+        .zip(borders)
+    {
+        list.extend(added);
+    }
+    // The last step on the lines: the ticks of fences point to the olive green area beside them,
+    // those of earth banks down the slope (`build/ticks.rs`).
+    orient_ticks(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        built.terrain.as_ref().as_ref(),
+        georef,
+        symbol_set,
+    );
+    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
+    // the ticks (`build/barrier_gaps.rs`).
+    move_points_off_barriers(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        built.map_kind,
+        symbol_set,
+    );
+    let mut parts: Vec<MapPart> = built.base_part.iter().cloned().collect();
+    parts.push(MapPart {
+        name: "default part".to_string(),
+        objects: map_objects,
+    });
+    parts.push(built.sheet_part.clone());
+    let map = MapDocument {
+        notes: built.notes.clone(),
+        georef: georef.clone(),
+        symbol_set: symbol_set.clone(),
+        parts,
+        templates: built.templates.clone(),
     };
 
     Ok(StarterDocuments {
         map,
         candidates,
-        attribution_text,
-        content,
-        info: sheet_info,
-        content_settings: settings,
+        attribution_text: built.attribution_text.clone(),
+        content: built.content,
+        info: built.info.clone(),
+        content_settings: content.clone(),
     })
 }
 
