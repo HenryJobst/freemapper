@@ -1858,7 +1858,7 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     );
     assert_eq!(
         lines[11],
-        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org"
+        "mine  Sample  from your folder  revision 2  checked never  hosts: geo.example.org  shares ground with: brandenburg"
     );
     assert!(
         lines[12].starts_with("Your adapters are read from "),
@@ -1891,7 +1891,105 @@ fn project_adapters_need_the_flag() {
         assert_eq!(output.status.code(), Some(1), "{output:?}");
         String::from_utf8(output.stderr).unwrap()
     };
-    let line = "adapter theirs from the project folder asks these hosts: geo.example.org";
+    let line = "warning: the adapter theirs from the project folder is in use; it may ask these \
+                hosts: geo.example.org";
     assert!(!fetch(&[]).contains("theirs"));
     assert!(fetch(&["--adapters-from-project"]).contains(line));
+}
+
+/// A project whose file names an adapter of its own folder `adapters` is read only with the
+/// switch; without it the adapter is one this freemapper does not have.
+#[test]
+fn a_project_that_names_its_own_adapter_is_read_only_with_the_flag() {
+    let user = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    let init = freemapper()
+        .env("FREEMAPPER_ADAPTER_DIR", user.path())
+        .arg("init")
+        .arg(&project)
+        .args(["--geojson", FIXTURE])
+        .output()
+        .unwrap();
+    assert!(init.status.success(), "{init:?}");
+    write_adapter(&project.join("adapters"), "theirs");
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("provider = \"lgb\""), "{text}");
+    std::fs::write(
+        &file,
+        text.replace("provider = \"lgb\"", "provider = \"theirs\""),
+    )
+    .unwrap();
+    let export = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("export")
+            .arg(&project)
+            .args(args)
+            .output()
+            .unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let unknown = "error: the project file names the adapter \"theirs\", which this freemapper \
+                   does not have";
+    let (code, without) = export(&[]);
+    assert_eq!(code, Some(1), "{without}");
+    assert!(without.contains(unknown), "{without}");
+    assert!(
+        without.contains("(only for a project you trust)"),
+        "{without}"
+    );
+    assert!(!without.contains("is in use"), "{without}");
+    // With the switch the project is read, and the person is told about the adapter first.
+    let (code, with) = export(&["--adapters-from-project"]);
+    assert_eq!(code, Some(0), "{with}");
+    assert!(
+        with.starts_with("warning: the adapter theirs from the project folder is in use; "),
+        "{with}"
+    );
+}
+
+/// A manifest in a project folder whose hosts are an address or a wildcard is left out with a
+/// warning; nothing panics, and the command goes on to its own error.
+#[test]
+fn a_project_adapter_with_a_hostile_host_list_is_left_out() {
+    let user = tempfile::tempdir().unwrap();
+    for host in ["127.0.0.1", "*", "localhost"] {
+        let project = tempfile::tempdir().unwrap();
+        let adapters = project.path().join("adapters");
+        write_adapter(&adapters, "theirs");
+        let manifest = adapters.join("theirs").join("manifest.toml");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace(
+                "hosts = [\"geo.example.org\"]",
+                &format!("hosts = [\"geo.example.org\", \"{host}\"]"),
+            ),
+        )
+        .unwrap();
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", user.path())
+            .arg("fetch")
+            .arg(project.path())
+            .args(["--offline", "--adapters-from-project"])
+            .output()
+            .unwrap();
+        // No project file: the fetch fails with its own error, after the warning.
+        assert_eq!(output.status.code(), Some(1), "{host}: {output:?}");
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        let first = stderr.lines().next().unwrap_or_default();
+        assert!(
+            first.starts_with("warning: the adapter in "),
+            "{host}: {stderr}"
+        );
+        assert!(first.contains(" is left out: "), "{host}: {stderr}");
+        assert!(first.contains("[policy.host]"), "{host}: {stderr}");
+        assert!(!stderr.contains("is in use"), "{host}: {stderr}");
+        assert!(!stderr.contains("panicked"), "{host}: {stderr}");
+    }
 }

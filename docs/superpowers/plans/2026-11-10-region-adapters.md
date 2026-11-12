@@ -556,8 +556,8 @@ and the code differ, the code and the ADRs hold:
   `[alkis] name`, `[[osm.extract]] cache_prefix`, `[terrain] source_label`, `label` of a raster, `[preview]
   agency`; no `page_count`; a manifest URL has no query. A byte order mark is read like CRLF.
 - D2: the address check sits in the resolver of the HTTP client and, for a target written as an address, in the
-  first connector of every agent. One fetcher has one policy (the union of the declared hosts), not one per
-  adapter. `UrlPolicy::update()` was not built: the self-update keeps the host rule of freemapper-core. New
+  first connector of every agent. The fetcher of a run has no host list; an adapter from a folder asks
+  through a fetcher bound to the hosts of its own manifest (`Fetcher::bound_to`, `RegionAdapter::policy`). `UrlPolicy::update()` was not built: the self-update keeps the host rule of freemapper-core. New
   `FetchError::NotAllowed`, with its reasons in both catalogs. Two reviews by the session that owns the
   self-update and the tile proxy are built in.
 - D3: an adapter's own `rules.toml` is not read; a folder that has one loads with a warning.
@@ -570,8 +570,9 @@ and the code differ, the code and the ADRs hold:
   (one parse for the adapter and the agency modules). The fetcher does not enforce the declared hosts for the
   built-in adapters alone: that switch needs live runs of all states.
 - D7: `adapters list` also takes `--project <dir>`. `--adapters-from-project` is a switch of `init`, `fetch`,
-  `derive`, `export` and `run`; `select` and `mcp` have none. With an adapter from a folder loaded, the fetcher
-  of a run holds every request to the declared hosts of all adapters.
+  `derive`, `export` and `run`; `select` and `mcp` have none. The requests for an adapter from a folder (ALKIS, rasters,
+  NAS, tree cadastres) stay on its declared hosts, redirects included; the built-in states are not held to
+  theirs by it. A relative `FREEMAPPER_ADAPTER_DIR` is ignored. An adapter on the ground of another names it.
 
 Left for later: the host policy for the built-in adapters alone (after live runs), the raster code and the WFS
 constants that the manifests made double, and the estimate inside the backends.

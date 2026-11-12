@@ -67,7 +67,7 @@ impl PipelineRunner for RealRunner {
             dir,
             options,
             cache,
-            &crate::adapters::fetcher(),
+            &freemapper::fetch::HttpFetcher::new(),
             control,
             progress,
         )

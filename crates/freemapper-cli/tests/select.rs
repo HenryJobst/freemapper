@@ -605,6 +605,65 @@ fn area_outside_brandenburg_is_refused() {
     assert!(!project.exists());
 }
 
+/// Puts the adapter `theirs` into the folder `adapters` of `project` and makes the project
+/// file name it as the provider of its rasters: a project that was passed on with a source of
+/// its own.
+fn bring_an_adapter_along(project: &std::path::Path) {
+    let folder = project.join("adapters").join("theirs");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("manifest.toml"),
+        "format = 1\n\n[adapter]\nid = \"theirs\"\nrevision = 2\nmin_freemapper = \"0.13.0\"\ncrs = 25832\n\
+         names = { en = \"Sample\", de = \"Beispiel\" }\n\n[net]\nhosts = [\"geo.example.org\"]\n\n\
+         [boundary]\nfile = \"boundary.geojson\"\ncrs = 25833\n\n[[osm.extract]]\n\
+         geofabrik = \"europe/germany/hamburg\"\nmegabytes = 54\nlabel = \"Sample\"\n\n[attribution]\n\
+         licence = \"dl-de/by-2-0\"\ntext = \"© Sample {year}\"\n\n[alkis]\nkind = \"wfs\"\n\
+         url = \"https://geo.example.org/wfs\"\nbuildings_type = \"ave:GebaeudeBauwerk\"\n\
+         land_use_type = \"ave:NutzungFlurstueck\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        folder.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+    )
+    .unwrap();
+    let file = project.join("freemapper.toml");
+    let text = std::fs::read_to_string(&file).unwrap();
+    assert!(text.contains("provider = \"lgb\""), "{text}");
+    std::fs::write(
+        &file,
+        text.replace("provider = \"lgb\"", "provider = \"theirs\""),
+    )
+    .unwrap();
+}
+
+/// The area page never loads the adapters of a project folder (ADR 0082): a project that
+/// names an adapter it brought along is one whose adapter is not installed, for the page and
+/// for a run started from it.
+#[test]
+fn page_never_loads_the_adapters_of_a_project() {
+    let (_dir, _cache, project, first) = page_on_a_project();
+    drop(first);
+    bring_an_adapter_along(&project);
+    let cache = tempfile::tempdir().unwrap();
+    let user = tempfile::tempdir().unwrap();
+    let selector = Selector::start_with_env(
+        &project,
+        cache.path(),
+        &[],
+        &[("FREEMAPPER_ADAPTER_DIR", user.path().to_str().unwrap())],
+    );
+    let unknown =
+        "the project file names the adapter \\\"theirs\\\", which this freemapper does not have";
+    let (status, body) = selector.get("api/project");
+    assert_eq!(status, 400, "{body}");
+    assert!(body.contains(unknown), "{body}");
+    let (status, answer) = selector.post("api/run", json!({ "offline": true }));
+    assert!((400..500).contains(&status), "{status}: {answer}");
+    assert!(answer.to_string().contains(unknown), "{answer}");
+}
+
 #[test]
 fn broken_project_file_is_reported() {
     let dir = tempfile::tempdir().unwrap();

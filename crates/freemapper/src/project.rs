@@ -111,7 +111,7 @@ pub enum ProjectError {
     /// The project file names a provider or a region this program has no adapter for: it was
     /// made with adapters that are not installed here.
     #[error(
-        "the project file names the adapter \"{0}\", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project, from the folder `adapters` of the project"
+        "the project file names the adapter \"{0}\", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project on the command line, from the folder `adapters` of the project (only for a project you trust)"
     )]
     UnknownAdapter(String),
     #[error(transparent)]

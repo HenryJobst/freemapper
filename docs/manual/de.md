@@ -961,17 +961,20 @@ enthält eine `manifest.toml` und eine Grenzdatei. freemapper liest solche Ordne
 | Linux | `~/.config/freemapper/adapters` |
 | Windows | `%APPDATA%\freemapper\adapters` |
 
-Die Variable `FREEMAPPER_ADAPTER_DIR` nennt einen anderen Ordner. `freemapper adapters list` zeigt jeden Adapter
-mit Herkunft, dem Tag der letzten Prüfung und den Servern, die er anfragt, und nennt in der letzten Zeile Ihren
-Adapterordner. Ein Ordner mit einem Fehler wird ausgelassen, mit einer Warnung, die Datei und Zeile nennt; die
-anderen Adapter laden trotzdem. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen.
+Die Variable `FREEMAPPER_ADAPTER_DIR` nennt einen anderen Ordner, mit absolutem Pfad; ein relativer Pfad wird
+mit einer Warnung ignoriert. `freemapper adapters list` zeigt jeden Adapter mit Herkunft, dem Tag der letzten
+Prüfung und den Servern, die er anfragt, und nennt in der letzten Zeile Ihren Adapterordner. Ein Ordner mit
+einem Fehler wird ausgelassen, mit einer Warnung, die Datei und Zeile nennt; die anderen Adapter laden
+trotzdem. Was am Manifest nicht stimmt, steht in der Warnung auf Englisch, mit einem festen Code in eckigen
+Klammern. Ein Adapter aus einem Ordner kann keinen eingebauten ersetzen. Liegt er auf dem Gebiet eines anderen
+Adapters, nennt die Liste diesen: Eine Karte dort bekommt die Objekte beider.
 
 Ein Adapter lässt freemapper die Server anfragen, die er nennt, und keine anderen. Lesen Sie ein Manifest
 trotzdem, bevor Sie es in Ihren Adapterordner kopieren: `[net] hosts` zählt jeden Server auf.
 
 Ein Projektordner kann Adapter in seinem Ordner `adapters` mitbringen. freemapper lädt sie nur, wenn Sie es
 sagen, mit `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` oder `run`, und nennt dann jeden
-mit seinen Servern. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen Sie den Schalter für ein
+in einer Warnung mit den Servern, die er anfragen darf. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen Sie den Schalter für ein
 eigenes Projekt.
 
 Das Format des Manifests beschreibt

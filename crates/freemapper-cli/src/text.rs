@@ -224,6 +224,7 @@ mod tests {
             ("hosts", v("geo.example.org")),
             ("folder", v("/adapters/x")),
             ("finding", v("f")),
+            ("others", v("berlin")),
             ("source", v("built in")),
             ("revision", v(1)),
             ("checked", v("2026-11-12")),

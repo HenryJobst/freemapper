@@ -3,12 +3,13 @@
 
 pub use freemapper_sources::trees::*;
 
-use crate::adapters::registry;
+use crate::adapters::{Registry, registry};
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::Fetcher;
 use crate::sources::alkis::FetchArea;
 use crate::sources::alkis_nas::PartFile;
 use crate::sources::region::touches_region_in;
+use freemapper_adapter_api::policy::PolicyFetcher;
 
 /// The tree cadastres of every adapter, in the order of the registry.
 pub fn all_tree_datasets() -> impl Iterator<Item = &'static TreeDataset> {
@@ -69,11 +70,27 @@ pub fn fetch_tree_layers(
 ) -> Vec<FetchedTreeLayer> {
     tree_datasets_for(&area.region_bbox)
         .into_iter()
-        .map(|dataset| FetchedTreeLayer {
-            dataset,
-            features: fetch_dataset(fetcher, dataset, area, part),
-        })
+        .map(|dataset| fetch_tree_layer_in(registry(), fetcher, dataset, area, part))
         .collect()
+}
+
+/// `dataset` for `area`. The dataset of an adapter of `registry` that is held to its declared
+/// hosts ([`crate::adapters::RegionAdapter::policy`]) is asked through that policy.
+fn fetch_tree_layer_in(
+    registry: &Registry,
+    fetcher: &dyn Fetcher,
+    dataset: &'static TreeDataset,
+    area: &FetchArea,
+    part: PartFile,
+) -> FetchedTreeLayer {
+    let policy = registry
+        .get(dataset.region.as_str())
+        .and_then(|adapter| adapter.policy());
+    let features = match policy {
+        Some(policy) => fetch_dataset(&PolicyFetcher::new(fetcher, policy), dataset, area, part),
+        None => fetch_dataset(fetcher, dataset, area, part),
+    };
+    FetchedTreeLayer { dataset, features }
 }
 
 // The tests of the reader that take Potsdam and its state as their example stay here until the
@@ -220,6 +237,42 @@ mod tests {
         assert_eq!(trees.features.len(), 3);
         assert_eq!(trees.regions.len(), 1);
         assert_eq!(trees.regions[0].as_str(), regions::BRANDENBURG.id());
+    }
+
+    /// The tree cadastre of an adapter from a folder is asked through the adapter's policy:
+    /// off the hosts it declares, no request leaves. One of the program is asked as before.
+    #[test]
+    fn the_tree_cadastre_of_a_folder_adapter_is_held_to_its_hosts() {
+        use crate::adapters::test_support::{SQUARE, square};
+        let dataset: &'static TreeDataset = Box::leak(Box::new(TreeDataset {
+            region: SQUARE,
+            ..POTSDAM
+        }));
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let area = FetchArea::new(sanssouci(), Crs::Utm33);
+        let fetched = |hosts: Option<&[&str]>| {
+            let registry = square(None, hosts);
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(
+                "https://",
+                br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+            );
+            let layer = fetch_tree_layer_in(&registry, &fetcher, dataset, &area, &part);
+            (layer.features, fetcher.calls.get())
+        };
+        let (features, calls) = fetched(Some(&["geo.example.org"]));
+        assert!(
+            matches!(features, Err(FetchError::NotAllowed { .. })),
+            "{features:?}"
+        );
+        assert_eq!(calls, 0);
+        for hosts in [Some(&["opendata.potsdam.de"][..]), None] {
+            let (features, calls) = fetched(hosts);
+            assert!(features.is_ok(), "{features:?}");
+            assert_eq!(calls, 3);
+        }
     }
 
     #[test]

@@ -610,16 +610,29 @@ pub fn fetch_layers_from(
     kind: MapKind,
     part: PartFile,
 ) -> Vec<FetchedNasLayer> {
+    let services: Vec<(&NasService, &dyn Fetcher)> =
+        services.iter().map(|service| (*service, fetcher)).collect();
+    fetch_layers_through(&services, area, kind, part)
+}
+
+/// [`fetch_layers_from`] with a fetcher per service: the services of adapters that are held to
+/// different hosts are each asked through their own.
+pub fn fetch_layers_through(
+    services: &[(&NasService, &dyn Fetcher)],
+    area: &FetchArea,
+    kind: MapKind,
+    part: PartFile,
+) -> Vec<FetchedNasLayer> {
     nas_layers(kind)
         .filter_map(|layer| {
-            let serving: Vec<&NasService> = services
+            let serving: Vec<(&NasService, &dyn Fetcher)> = services
                 .iter()
                 .copied()
-                .filter(|s| s.serves(layer.file))
+                .filter(|(service, _)| service.serves(layer.file))
                 .collect();
             (!serving.is_empty()).then(|| FetchedNasLayer {
                 layer,
-                features: fetch_layer(fetcher, &serving, layer, area, part),
+                features: fetch_layer(&serving, layer, area, part),
             })
         })
         .collect()
@@ -627,8 +640,7 @@ pub fn fetch_layers_from(
 
 /// `layer` from each of `services`, reprojected into the map's CRS.
 fn fetch_layer(
-    fetcher: &dyn Fetcher,
-    services: &[&NasService],
+    services: &[(&NasService, &dyn Fetcher)],
     layer: &NasLayer,
     area: &FetchArea,
     part: PartFile,
@@ -639,7 +651,7 @@ fn fetch_layer(
         skipped: Vec::new(),
         regions: Vec::new(),
     };
-    for service in services {
+    for &(service, fetcher) in services {
         let request = Request {
             fetcher,
             service,

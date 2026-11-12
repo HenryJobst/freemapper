@@ -8,6 +8,7 @@ use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::extras::{NasService, TreeDataset};
 use crate::info::{Declared, RegionInfo};
+use crate::policy::UrlPolicy;
 use crate::rasters::RasterBackend;
 use crate::records::EstimateItem;
 
@@ -21,6 +22,13 @@ pub trait RegionAdapter: Send + Sync {
     /// What the manifest of the adapter declares about itself. `None`: the adapter has no
     /// manifest.
     fn declared(&self) -> Option<&Declared> {
+        None
+    }
+
+    /// The hosts every request for this adapter is held to, redirects included: an adapter
+    /// that came from a folder asks the hosts its manifest declares and no other. `None`: the
+    /// adapter is part of the program and asks as its code asks.
+    fn policy(&self) -> Option<&UrlPolicy> {
         None
     }
 

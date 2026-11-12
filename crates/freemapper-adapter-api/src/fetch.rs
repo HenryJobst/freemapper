@@ -9,6 +9,7 @@ use freemapper_georef::tiles::TileId;
 
 use crate::error::FetchError;
 use crate::note::Note;
+use crate::policy::UrlPolicy;
 use crate::records::{Product, TileCurrency};
 
 /// Source of downloads; HTTP in production, in-memory in tests.
@@ -59,6 +60,14 @@ pub trait Fetcher {
             megabytes = megabytes(bytes.len() as u64).to_string()
         ));
         Ok(())
+    }
+
+    /// A fetcher like this one whose requests stay on the hosts of `policy`, redirects
+    /// included. `None`: this fetcher cannot hold itself to a policy (it answers from memory or
+    /// from a recording), and whoever asks checks the URLs instead
+    /// ([`crate::policy::PolicyFetcher`]).
+    fn bound_to(&self, _policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+        None
     }
 }
 

@@ -63,8 +63,12 @@ cli-find-nothing = Zu „{ $query }“ wurde kein Ort gefunden. Versuchen Sie ei
 ## und Code an, auf Englisch.
 
 cli-adapter-skipped = Warnung: Der Adapter in { $folder } wird ausgelassen: { $finding }
-cli-adapter-note = Warnung: Der Adapter in { $folder }: { $finding }
-cli-adapter-from-project = Adapter { $adapter } aus dem Projektordner fragt diese Hosts an: { $hosts }
+cli-adapter-note = Warnung: Der Adapter in { $folder } lädt, aber: { $finding }
+cli-adapter-from-project = Warnung: Der Adapter { $adapter } aus dem Projektordner wird verwendet; er darf diese Hosts anfragen: { $hosts }
+cli-adapter-overlaps = Warnung: Der Adapter { $adapter } deckt auch Gebiet von { $others } ab; seine Objekte kommen dort auf die Karten
+cli-adapter-dir-relative = Warnung: FREEMAPPER_ADAPTER_DIR ist kein absoluter Pfad ({ $path }) und wird ignoriert
+cli-adapters-no-project = Warnung: { $path } ist kein Ordner; es wurden keine Adapter eines Projekts gelesen
+cli-adapters-overlaps = teilt Gebiet mit: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  Revision { $revision }  geprüft { $checked }  Hosts: { $hosts }
 cli-adapters-source-built-in = eingebaut
 cli-adapters-source-user = aus Ihrem Ordner
@@ -338,7 +342,7 @@ error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $
 word-kind-schoolyard = Schulhofkarten
 word-kind-sprint = Sprintkarten
 error-project-toml = ungültige Projektdatei: { $message }
-error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; Adapter kommen mit dem Programm, aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project, aus dem Ordner `adapters` des Projekts
+error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; Adapter kommen mit dem Programm, aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project auf der Kommandozeile, aus dem Ordner `adapters` des Projekts (nur für ein Projekt, dem Sie vertrauen)
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
@@ -391,7 +395,7 @@ error-fetch-not-stored = Für dieses Kartengebiet ist nichts gespeichert ({ $lab
 error-fetch-range-ignored = { $url }: Der Server hat den Bytebereich { $range } nicht beachtet (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper sendet keine Anfragen an diese Adresse: { $reason }
 error-reason-not-a-host-name = kein Hostname
-error-reason-not-ascii = ein Name außerhalb von ASCII muss in seiner xn---Form stehen
+error-reason-not-ascii = ein Name außerhalb von ASCII muss in seiner „xn--“-Form stehen
 error-reason-not-a-dns-name = kein DNS-Name
 error-reason-no-domain = ein Name dieses Rechners oder ohne Domain
 error-reason-local-name = ein Name des lokalen Netzes
@@ -511,11 +515,11 @@ help-update-yes = Ohne Rückfrage installieren; nötig, wenn die Eingabe kein Te
 help-update-version = Diese Version (x.y.z) statt der neuesten installieren, auch eine ältere
 help-update-rollback = Zur Version zurückkehren, die die letzte Aktualisierung ersetzt hat
 help-update-mode = Festlegen, was die tägliche Prüfung tut, wenn sie eine neuere Version findet (Standard: notify). Funktioniert in jedem Build, weil nur die Einstellung geschrieben wird
-help-adapters = Zeigt die Regionsadapter: die Bundesländer und Länder, für die freemapper Datenquellen hat
-help-adapters-list = Listet die Adapter auf, jeweils mit Herkunft (eingebaut, Ihr Ordner, ein Projekt), Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt
-help-adapters-list-json = Gibt die Liste als JSON aus
-help-adapters-list-project = Liest auch die Adapter im Ordner `adapters` dieses Projektordners, wie es --adapters-from-project täte
-help-arg-adapters-from-project = Lädt auch die Adapter im Ordner `adapters` des Projektordners. freemapper nennt jeden davon mit den Hosts, die er anfragt. Für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
+help-adapters = Die Regionsadapter zeigen: die Bundesländer und Länder, für die freemapper Datenquellen hat
+help-adapters-list = Die Adapter auflisten, jeweils mit Herkunft (eingebaut, Ihr Ordner, ein Projekt), Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt
+help-adapters-list-json = Die Liste als JSON ausgeben
+help-adapters-list-project = Auch die Adapter im Ordner `adapters` dieses Projektordners lesen, wie es --adapters-from-project täte
+help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite
 

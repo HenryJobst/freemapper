@@ -113,7 +113,8 @@ pub struct ManifestAdapter {
     nas: Option<NasService>,
     trees: Vec<TreeDataset>,
     declared: Declared,
-    declared_hosts_only: bool,
+    /// The hosts the requests are held to, for an adapter from a folder.
+    policy: Option<Arc<UrlPolicy>>,
 }
 
 impl ManifestAdapter {
@@ -241,13 +242,15 @@ impl ManifestAdapter {
             manifest,
             boundary,
             extracts,
-            declared_hosts_only: false,
+            policy: None,
         })
     }
 
-    /// The adapter with its requests kept on the hosts of `[net] hosts`: for an adapter from a
-    /// folder, whose services may answer with addresses nobody declared. The built-in adapters
-    /// are reviewed code and ask what their code asks.
+    /// The adapter with its requests kept on the hosts of `[net] hosts`, redirects included:
+    /// for an adapter from a folder, whose services may answer with addresses nobody declared.
+    /// Its ALKIS and its rasters ask through the policy here; the engine asks its NAS service
+    /// and its tree cadastres through [`RegionAdapter::policy`]. The built-in adapters are
+    /// reviewed code and ask what their code asks.
     pub fn asking_declared_hosts_only(mut self) -> Self {
         let policy = UrlPolicy::new(self.manifest.hosts.iter().map(String::as_str))
             .expect("the validator accepts the hosts the policy accepts");
@@ -264,13 +267,13 @@ impl ManifestAdapter {
                 policy: policy.clone(),
             }) as Arc<dyn RasterBackend>
         });
-        self.declared_hosts_only = true;
+        self.policy = Some(policy);
         self
     }
 
     /// Whether the requests of the adapter are kept on its declared hosts.
     pub fn asks_declared_hosts_only(&self) -> bool {
-        self.declared_hosts_only
+        self.policy.is_some()
     }
 
     /// The manifest the adapter was made of.
@@ -324,6 +327,10 @@ impl RegionAdapter for ManifestAdapter {
 
     fn declared(&self) -> Option<&Declared> {
         Some(&self.declared)
+    }
+
+    fn policy(&self) -> Option<&UrlPolicy> {
+        self.policy.as_deref()
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {

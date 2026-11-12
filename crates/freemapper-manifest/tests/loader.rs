@@ -93,12 +93,20 @@ fn folder_adapters_load_after_the_built_ins_in_the_order_of_their_ids() {
             revision: 1,
             hosts: vec!["geo.example.org".to_string()],
             last_verified: None,
+            // The three adapters lie on the same square.
+            overlaps: vec!["sample".to_string(), "alpha".to_string()],
         }
     );
     let zeta = registry.get("zeta").unwrap();
     assert!(zeta.alkis().is_some() && zeta.rasters().is_some());
     assert_eq!(zeta.rasters().unwrap().provider().id.as_str(), "zeta");
     assert!(!zeta.boundary().0.is_empty());
+    // An adapter from a folder is held to the hosts it declares, the hosts of OSM and the
+    // place search not among them; one of the program is held to nothing.
+    let policy = zeta.policy().expect("a folder adapter has a policy");
+    assert!(policy.check_url("https://geo.example.org/wfs").is_ok());
+    assert!(policy.check_url("https://download.geofabrik.de/x").is_err());
+    assert!(registry.get("sample").unwrap().policy().is_none());
     // A folder of adapters that is not there is no finding; a file in its place is one.
     let nowhere = load_dirs(&mut registry, &user(&dir.path().join("none")), RUNNING);
     assert!(nowhere.0.is_empty() && nowhere.1.is_empty());
@@ -108,6 +116,50 @@ fn folder_adapters_load_after_the_built_ins_in_the_order_of_their_ids() {
         RUNNING,
     );
     assert_eq!(skipped(&file.1).0, "adapter.folder");
+}
+
+/// An adapter that lies on the ground of another says so: both draw objects there. A neighbour
+/// that only shares a border does not.
+#[test]
+fn an_adapter_on_the_ground_of_another_names_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let square = |min_e: u32, max_e: u32| {
+        format!(
+            r#"{{"type":"Feature","properties":{{}},"geometry":{{"type":"Polygon","coordinates":
+            [[[{min_e},5800000],[{max_e},5800000],[{max_e},5801000],[{min_e},5801000],[{min_e},5800000]]]}}}}"#
+        )
+    };
+    // `inner` lies inside the square of `sample`, `neighbour` beside it with a shared border,
+    // `wide` around all of them.
+    for (id, min_e, max_e) in [
+        ("inner", 400_200, 400_400),
+        ("neighbour", 401_000, 402_000),
+        ("wide", 399_000, 403_000),
+    ] {
+        let folder = write(dir.path(), id, &manifest(id));
+        std::fs::write(folder.join("boundary.geojson"), square(min_e, max_e)).unwrap();
+    }
+    let mut registry = Registry::new();
+    registry
+        .add(built_in("sample", &manifest("sample"), &Registry::new()))
+        .unwrap();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let overlaps: Vec<(&str, Vec<&str>)> = loaded
+        .iter()
+        .map(|adapter| {
+            let others = adapter.overlaps.iter().map(String::as_str).collect();
+            (adapter.id.as_str(), others)
+        })
+        .collect();
+    assert_eq!(
+        overlaps,
+        [
+            ("inner", vec!["sample"]),
+            ("neighbour", vec![]),
+            ("wide", vec!["sample", "inner", "neighbour"]),
+        ]
+    );
 }
 
 /// Review focus 4: an id is taken once. A folder cannot replace an adapter the program has,

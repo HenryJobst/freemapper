@@ -10,6 +10,13 @@
 use std::collections::BTreeSet;
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::path::Path;
+
+use chrono::NaiveDate;
+
+use crate::error::FetchError;
+use crate::fetch::{ByteRange, Fetcher};
+use crate::note::Note;
 
 /// A URL or a host a policy refuses.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -305,9 +312,151 @@ impl UrlPolicy {
     }
 }
 
+/// A fetcher that sends a request on only when its URL passes `policy`: the requests of an
+/// adapter that came from a folder. When the fetcher behind it can hold itself to the policy
+/// ([`Fetcher::bound_to`]), the requests go through that one, and the redirects stay on the
+/// hosts of the policy as well.
+pub struct PolicyFetcher<'a> {
+    inner: &'a dyn Fetcher,
+    bound: Option<Box<dyn Fetcher + 'a>>,
+    policy: &'a UrlPolicy,
+}
+
+impl<'a> PolicyFetcher<'a> {
+    pub fn new(inner: &'a dyn Fetcher, policy: &'a UrlPolicy) -> Self {
+        Self {
+            inner,
+            bound: inner.bound_to(policy),
+            policy,
+        }
+    }
+
+    /// The fetcher a request for `url` goes to, if the policy lets it go.
+    fn through(&self, url: &str) -> Result<&dyn Fetcher, FetchError> {
+        self.policy
+            .check_url(url)
+            .map_err(|refused| FetchError::NotAllowed {
+                url: refused.subject,
+                reason: refused.reason.to_string(),
+            })?;
+        Ok(self.bound.as_deref().unwrap_or(self.inner))
+    }
+}
+
+impl Fetcher for PolicyFetcher<'_> {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        self.through(url)?.get(url)
+    }
+
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        self.through(url)?.last_modified(url)
+    }
+
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        self.through(url)?.get_range(url, range)
+    }
+
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(Note),
+    ) -> Result<(), FetchError> {
+        self.through(url)?
+            .download_to(url, path, max_bytes, progress)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use super::*;
+
+    /// A fetcher that writes down what it was asked, and one bound to a policy that writes
+    /// into the same list with `bound:` before the URL.
+    struct Logging<'a> {
+        log: &'a RefCell<Vec<String>>,
+        prefix: &'static str,
+        binds: bool,
+    }
+
+    impl Fetcher for Logging<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.log.borrow_mut().push(format!("{}{url}", self.prefix));
+            Ok(Vec::new())
+        }
+
+        fn bound_to(&self, _policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+            self.binds.then(|| {
+                Box::new(Logging {
+                    log: self.log,
+                    prefix: "bound:",
+                    binds: false,
+                }) as Box<dyn Fetcher>
+            })
+        }
+    }
+
+    /// Every way to ask is judged before the request, and nothing refused is sent.
+    #[test]
+    fn a_policy_fetcher_sends_declared_urls_only() {
+        let policy = UrlPolicy::new(["geo.example.org"]).unwrap();
+        let log = RefCell::new(Vec::new());
+        let plain = Logging {
+            log: &log,
+            prefix: "",
+            binds: false,
+        };
+        let fetcher = PolicyFetcher::new(&plain, &policy);
+        assert!(fetcher.get("https://geo.example.org/items?page=2").is_ok());
+        let evil = "https://evil.example.net/items?token=abc";
+        let Err(FetchError::NotAllowed { url, reason }) = fetcher.get(evil) else {
+            panic!("the request went out");
+        };
+        assert_eq!(url, "https://evil.example.net/items");
+        assert_eq!(reason, "the host is not one of the declared hosts");
+        assert!(matches!(
+            fetcher.last_modified(evil),
+            Err(FetchError::NotAllowed { .. })
+        ));
+        assert!(matches!(
+            fetcher.get_range(evil, ByteRange::Last(4)),
+            Err(FetchError::NotAllowed { .. })
+        ));
+        assert!(matches!(
+            fetcher.download_to(evil, Path::new("nowhere"), 10, &mut |_| {}),
+            Err(FetchError::NotAllowed { .. })
+        ));
+        assert_eq!(*log.borrow(), ["https://geo.example.org/items?page=2"]);
+    }
+
+    /// A fetcher that can hold itself to the policy gets the requests, so its redirects are
+    /// judged too; the URL is still checked first.
+    #[test]
+    fn a_policy_fetcher_asks_through_the_bound_fetcher() {
+        let policy = UrlPolicy::new(["geo.example.org"]).unwrap();
+        let log = RefCell::new(Vec::new());
+        let binding = Logging {
+            log: &log,
+            prefix: "",
+            binds: true,
+        };
+        let fetcher = PolicyFetcher::new(&binding, &policy);
+        fetcher.get("https://geo.example.org/a").unwrap();
+        fetcher
+            .get_range("https://geo.example.org/b", ByteRange::Last(4))
+            .unwrap();
+        assert!(fetcher.get("https://evil.example.net/x").is_err());
+        assert_eq!(
+            *log.borrow(),
+            [
+                "bound:https://geo.example.org/a",
+                "bound:https://geo.example.org/b"
+            ]
+        );
+    }
 
     #[test]
     fn urls_are_https_on_443_with_a_dns_name() {

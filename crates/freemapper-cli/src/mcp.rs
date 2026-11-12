@@ -582,7 +582,7 @@ impl FreemapperServer {
                     &job_dir,
                     &options,
                     &cache,
-                    &crate::adapters::fetcher(),
+                    &HttpFetcher::new(),
                     control,
                     progress,
                 )

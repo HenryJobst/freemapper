@@ -48,6 +48,11 @@ the tile proxy of the area page asked whatever address they were given.
 - With a policy (`HttpFetcher::with_policy`) the fetcher follows redirects by hand: at most three, and each target
   must pass the policy like the first URL. A redirect to another host, to `http` or to an IP address ends the
   request. A pinned host follows no redirect, as before.
+- An adapter that came from a folder has a policy of its own: the hosts of its manifest and no other
+  (`RegionAdapter::policy`). Whatever is asked for it goes through a fetcher bound to that policy
+  (`Fetcher::bound_to`, `policy::PolicyFetcher`): its ALKIS, its rasters, its NAS service and its tree
+  cadastres. A fetcher that cannot bind itself, a replay in a test, still has every URL checked before it is
+  asked.
 - A request freemapper does not send is `FetchError::NotAllowed` with the URL and the reason. It is not asked
   again. The URL is shown without query and fragment, since a signed link carries its token there.
 - The self-update keeps its own, narrower rule: the hosts of `freemapper_update::ALLOWED_HOSTS`, each hop through
@@ -63,12 +68,18 @@ the tile proxy of the area page asked whatever address they were given.
 - A manifest cannot make freemapper ask the user's router, a service on the same computer or the metadata address
   of a cloud machine, neither by naming it nor through DNS nor through a redirect. Behind a proxy the part about
   DNS does not hold (see below).
-- Until the eleven states are manifests (task D6), the fetcher of the pipeline has no host list: the address
-  check holds, and redirects are followed as before. With D6 the fetcher gets the hosts all installed adapters
-  declare plus the core list. It is one list for a run, not one per adapter, so a redirect may lead from one
-  adapter's host to a host another installed adapter declared.
-- A service that redirects to a host its manifest does not list fails with a message that names the host. The
-  fix is one line in `[net] hosts`, which a reviewer sees.
+- The fetcher of a run has no host list of its own, so the built-in states ask as before: the address check
+  holds, and their redirects are followed as before. An adapter from a folder changes nothing for them. Their
+  manifests declare their hosts already, and a test compares the lists with the recorded requests. Holding them
+  to the lists waits for live runs of all states, because no recording shows a redirect.
+- The list of an adapter from a folder is its own. It cannot ask the host of another adapter, nor the hosts of
+  the OSM extracts and the place search, and a redirect cannot lead it there.
+- A service of such an adapter that redirects to a host its manifest does not list fails with a message that
+  names the host. The fix is one line in `[net] hosts`, which a reviewer sees.
+- One request of an adapter does not pass the fetcher: the aerial photo on the map of the area page. The browser
+  asks the WMS of `[preview]` itself, so the address check does not apply there, and a declared name that
+  resolves into the local network is reachable from the page. Only adapters of the user's own folder reach the
+  page, never those of a project, and the browser sends the map bounds and nothing else.
 - A proxy from the environment (`HTTPS_PROXY`) is the user's own setting and may be on this computer. Its own
   address is the one thing the check lets through, and it is told apart by identity: the HTTP client hands the
   resolver the URI of the proxy itself. A target on the proxy's host is judged like any other, also when

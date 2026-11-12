@@ -1,18 +1,14 @@
 //! An adapter from a folder asks its declared hosts and no other: the fetcher it is handed is
-//! wrapped, so a URL that a service's answer leads to (a `next` link, an address in an index)
-//! is judged like the URLs of the manifest.
+//! put behind its policy, so a URL that a service's answer leads to (a `next` link, an address
+//! in an index) and the target of a redirect are judged like the URLs of the manifest.
 
-use std::path::Path;
 use std::sync::Arc;
 
-use chrono::NaiveDate;
 use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource, FetchArea};
 use freemapper_adapter_api::env::AdapterEnv;
-use freemapper_adapter_api::error::{AdapterError, FetchError};
+use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
-use freemapper_adapter_api::fetch::{ByteRange, Fetcher};
-use freemapper_adapter_api::note::Note;
-use freemapper_adapter_api::policy::{PolicyError, UrlPolicy};
+use freemapper_adapter_api::policy::{PolicyFetcher, UrlPolicy};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{
     DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, StoredRasters,
@@ -21,61 +17,13 @@ use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::trust::TrustAnchors;
 use freemapper_georef::crs::BoundingBox;
 
-/// A fetcher that sends a request on only when its URL passes `policy`.
-pub struct PolicyFetcher<'a> {
-    pub inner: &'a dyn Fetcher,
-    pub policy: &'a UrlPolicy,
-}
-
-impl PolicyFetcher<'_> {
-    fn check(&self, url: &str) -> Result<(), FetchError> {
-        self.policy
-            .check_url(url)
-            .map_err(|refused: PolicyError| FetchError::NotAllowed {
-                url: refused.subject,
-                reason: refused.reason.to_string(),
-            })
-    }
-}
-
-impl Fetcher for PolicyFetcher<'_> {
-    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-        self.check(url)?;
-        self.inner.get(url)
-    }
-
-    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        self.check(url)?;
-        self.inner.last_modified(url)
-    }
-
-    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
-        self.check(url)?;
-        self.inner.get_range(url, range)
-    }
-
-    fn download_to(
-        &self,
-        url: &str,
-        path: &Path,
-        max_bytes: u64,
-        progress: &mut dyn FnMut(Note),
-    ) -> Result<(), FetchError> {
-        self.check(url)?;
-        self.inner.download_to(url, path, max_bytes, progress)
-    }
-}
-
 /// `env` with its fetcher behind `policy`, handed to `work`.
 fn guarded<T>(
     env: &mut AdapterEnv<'_>,
     policy: &UrlPolicy,
     work: impl FnOnce(&mut AdapterEnv<'_>) -> T,
 ) -> T {
-    let fetcher = PolicyFetcher {
-        inner: env.fetcher,
-        policy,
-    };
+    let fetcher = PolicyFetcher::new(env.fetcher, policy);
     let mut inner = AdapterEnv {
         fetcher: &fetcher,
         regions: env.regions,
@@ -154,8 +102,11 @@ impl RasterBackend for GuardedRasters {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+
     use freemapper_adapter_api::cache::CacheDir;
-    use freemapper_adapter_api::fetch::FetchMode;
+    use freemapper_adapter_api::error::FetchError;
+    use freemapper_adapter_api::fetch::{FetchMode, Fetcher};
     use freemapper_adapter_api::registry::Registry;
     use freemapper_adapter_api::testing::MapFetcher;
     use freemapper_georef::crs::Crs;
@@ -192,8 +143,31 @@ mod tests {
         }
     }
 
+    /// A fetcher that can hold itself to a policy and counts how often it was asked to.
+    struct Binds<'a> {
+        inner: &'a MapFetcher,
+        bound: &'a Cell<usize>,
+    }
+
+    impl Fetcher for Binds<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.inner.get(url)
+        }
+
+        fn bound_to(&self, policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+            assert!(policy.check_url("https://geo.example.org/x").is_ok());
+            assert!(policy.check_url("https://download.geofabrik.de/x").is_err());
+            self.bound.set(self.bound.get() + 1);
+            Some(Box::new(Binds {
+                inner: self.inner,
+                bound: self.bound,
+            }))
+        }
+    }
+
     /// A request to a host the manifest did not declare is not sent, whoever names the address;
-    /// one to a declared host goes on to the fetcher.
+    /// one to a declared host goes on, through the fetcher bound to the policy of the adapter,
+    /// which judges the redirects.
     #[test]
     fn a_guarded_source_asks_declared_hosts_only() {
         let policy = Arc::new(UrlPolicy::new(["geo.example.org"]).unwrap());
@@ -206,10 +180,15 @@ mod tests {
         };
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix("https://", b"{}".to_vec());
+        let bound = Cell::new(0);
+        let binds = Binds {
+            inner: &fetcher,
+            bound: &bound,
+        };
         let registry = Registry::new();
         let cache = CacheDir::new("no-cache".into());
         let mut env = AdapterEnv {
-            fetcher: &fetcher,
+            fetcher: &binds,
             regions: &registry,
             cache: &cache,
             mode: FetchMode::Online,
@@ -237,24 +216,6 @@ mod tests {
             *fetcher.log.borrow(),
             ["https://geo.example.org/items?page=2"]
         );
-        // Every way to ask is judged.
-        let guarded = PolicyFetcher {
-            inner: &fetcher,
-            policy: &policy,
-        };
-        let evil = "https://evil.example.net/x";
-        assert!(matches!(
-            guarded.last_modified(evil),
-            Err(FetchError::NotAllowed { .. })
-        ));
-        assert!(matches!(
-            guarded.get_range(evil, ByteRange::Last(4)),
-            Err(FetchError::NotAllowed { .. })
-        ));
-        assert!(matches!(
-            guarded.download_to(evil, Path::new("nowhere"), 10, &mut |_| {}),
-            Err(FetchError::NotAllowed { .. })
-        ));
-        assert_eq!(fetcher.log.borrow().len(), 1);
+        assert_eq!(bound.get(), 2);
     }
 }

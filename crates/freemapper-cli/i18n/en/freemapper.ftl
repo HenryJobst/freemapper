@@ -63,8 +63,12 @@ cli-find-nothing = no place found for "{ $query }"; try another name, or draw th
 ## and code, in English.
 
 cli-adapter-skipped = warning: the adapter in { $folder } is left out: { $finding }
-cli-adapter-note = warning: the adapter in { $folder }: { $finding }
-cli-adapter-from-project = adapter { $adapter } from the project folder asks these hosts: { $hosts }
+cli-adapter-note = warning: the adapter in { $folder } loads, but: { $finding }
+cli-adapter-from-project = warning: the adapter { $adapter } from the project folder is in use; it may ask these hosts: { $hosts }
+cli-adapter-overlaps = warning: the adapter { $adapter } also covers ground of { $others }; its objects go onto maps there
+cli-adapter-dir-relative = warning: FREEMAPPER_ADAPTER_DIR is not an absolute path ({ $path }); it is ignored
+cli-adapters-no-project = warning: { $path } is not a folder; no adapters of a project were read
+cli-adapters-overlaps = shares ground with: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revision { $revision }  checked { $checked }  hosts: { $hosts }
 cli-adapters-source-built-in = built in
 cli-adapters-source-user = from your folder
@@ -338,7 +342,7 @@ error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for 
 word-kind-schoolyard = schoolyard
 word-kind-sprint = sprint
 error-project-toml = invalid project file: { $message }
-error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project, from the folder `adapters` of the project
+error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; adapters come with the program, from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project on the command line, from the folder `adapters` of the project (only for a project you trust)
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again

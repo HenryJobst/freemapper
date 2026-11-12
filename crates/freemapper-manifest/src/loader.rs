@@ -12,6 +12,7 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::registry::Registry;
+use geo_types::MultiPolygon;
 
 use crate::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use crate::boundary::MAX_BOUNDARY_BYTES;
@@ -49,6 +50,9 @@ pub struct Loaded {
     /// The hosts the adapter may ask.
     pub hosts: Vec<String>,
     pub last_verified: Option<NaiveDate>,
+    /// The adapters loaded before it on whose ground it lies: a map there gets the objects of
+    /// both.
+    pub overlaps: Vec<String>,
 }
 
 /// What is wrong with the folder of an adapter.
@@ -228,13 +232,14 @@ fn load_one(
     let text = std::fs::read_to_string(&path).map_err(|e| missing(e.to_string()))?;
     let manifest = crate::parse(&text, folder)?;
     check_fit(registry, &manifest, &path, running)?;
-    let entry = Loaded {
+    let mut entry = Loaded {
         id: manifest.adapter.id.clone(),
         origin,
         folder: folder.to_path_buf(),
         revision: manifest.adapter.revision,
         hosts: manifest.hosts.clone(),
         last_verified: manifest.adapter.last_verified,
+        overlaps: Vec::new(),
     };
     let adapter = ManifestAdapter::new(manifest, &FolderFiles::new(folder), Parse::Now, registry)
         .map_err(|findings| {
@@ -251,6 +256,7 @@ fn load_one(
         })?
         .asking_declared_hosts_only();
     let adapter: Arc<dyn RegionAdapter> = Arc::new(adapter);
+    entry.overlaps = sharing_ground(registry, adapter.as_ref());
     registry
         .add(adapter)
         .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
@@ -266,6 +272,34 @@ fn load_one(
         ));
     }
     Ok((entry, notes))
+}
+
+/// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: a
+/// point inside the one is inside the other. Two neighbours whose simplified borders cross are
+/// not among them.
+fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
+    use geo::{Contains, InteriorPoint};
+    let inside = |shape: &MultiPolygon<f64>, of: &MultiPolygon<f64>| {
+        shape
+            .interior_point()
+            .is_some_and(|point| of.contains(&point))
+    };
+    let bounds = adapter.bounds();
+    registry
+        .adapters()
+        .filter(|other| {
+            // The box first: the boundary of an adapter far away is not even parsed.
+            let theirs = other.bounds();
+            let apart = theirs.max_e < bounds.min_e
+                || bounds.max_e < theirs.min_e
+                || theirs.max_n < bounds.min_n
+                || bounds.max_n < theirs.min_n;
+            !apart
+                && (inside(adapter.boundary(), other.boundary())
+                    || inside(other.boundary(), adapter.boundary()))
+        })
+        .map(|other| other.info().id.to_string())
+        .collect()
 }
 
 /// Whether the adapter of `manifest` fits beside those of `registry` and this freemapper.

@@ -927,17 +927,19 @@ boundary file. freemapper reads such folders from your adapter folder:
 | Linux | `~/.config/freemapper/adapters` |
 | Windows | `%APPDATA%\freemapper\adapters` |
 
-The variable `FREEMAPPER_ADAPTER_DIR` names another folder. `freemapper adapters list` shows every adapter with
-where it comes from, the day it was last checked and the servers it asks, and names your adapter folder in its
-last line. A folder with a mistake is left out with a warning that names the file and the line; the other
-adapters still load. An adapter from a folder cannot replace a built-in one.
+The variable `FREEMAPPER_ADAPTER_DIR` names another folder by its absolute path; a relative path is ignored
+with a warning. `freemapper adapters list` shows every adapter with where it comes from, the day it was last
+checked and the servers it asks, and names your adapter folder in its last line. A folder with a mistake is
+left out with a warning that names the file and the line; the other adapters still load. An adapter from a
+folder cannot replace a built-in one. If it lies on the ground of another adapter, the list names that one: a
+map there gets the objects of both.
 
 An adapter makes freemapper ask the servers it names, and no others. Still, read a manifest before you copy it
 into your adapter folder: `[net] hosts` lists every server.
 
 A project folder can bring adapters along in its folder `adapters`. freemapper loads them only when you say so,
-with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each with its
-servers. The area page and the AI assistant never load them. Use the switch for a project of your own.
+with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each in a
+warning with the servers it may ask. The area page and the AI assistant never load them. Use the switch for a project of your own.
 
 The format of the manifest is described in
 [ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md); the manifests of the built-in states in

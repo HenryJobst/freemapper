@@ -33,7 +33,9 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
 
 /// The hosts the requests of a run may go to when they are held to what was declared: the hosts
 /// every adapter of the registry declares, and those of the requests that belong to no adapter
-/// (OSM extracts, the place search, the map tiles).
+/// (OSM extracts, the place search, the map tiles). No run is held to it yet: an adapter from a
+/// folder asks through its own policy ([`RegionAdapter::policy`]), and the built-in ones are
+/// held to their lists once live runs of all of them have shown the redirects (ADR 0106).
 pub fn declared_policy() -> freemapper_adapter_api::policy::UrlPolicy {
     let hosts = registry()
         .adapters()
@@ -58,6 +60,109 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::Arc;
+
+    use freemapper_adapter_api::extras::{NasService, TreeDataset};
+    use freemapper_adapter_api::info::{Names, RegionInfo};
+    use freemapper_adapter_api::policy::UrlPolicy;
+    use freemapper_adapter_api::records::AdapterId;
+
+    use super::*;
+
+    /// The id of the region of [`square`].
+    pub(crate) const SQUARE: AdapterId = AdapterId::built_in("square");
+
+    /// A square region with a NAS service and the hosts its requests are held to, as an
+    /// adapter from a folder has them.
+    struct Square {
+        info: RegionInfo,
+        boundary: geo_types::MultiPolygon<f64>,
+        nas: Option<NasService>,
+        policy: Option<UrlPolicy>,
+    }
+
+    impl RegionAdapter for Square {
+        fn info(&self) -> &RegionInfo {
+            &self.info
+        }
+
+        fn policy(&self) -> Option<&UrlPolicy> {
+            self.policy.as_ref()
+        }
+
+        fn boundary(&self) -> &geo_types::MultiPolygon<f64> {
+            &self.boundary
+        }
+
+        fn alkis(&self) -> Option<&dyn freemapper_adapter_api::alkis::AlkisSource> {
+            None
+        }
+
+        fn nas(&self) -> Option<&NasService> {
+            self.nas.as_ref()
+        }
+
+        fn tree_datasets(&self) -> &[TreeDataset] {
+            &[]
+        }
+
+        fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
+            None
+        }
+
+        fn attribution(
+            &self,
+            _used: &freemapper_adapter_api::credit::UsedSources<'_>,
+        ) -> Vec<freemapper_adapter_api::credit::CreditLine> {
+            Vec::new()
+        }
+
+        fn estimate(
+            &self,
+            _area: &freemapper_adapter_api::estimate::EstimateArea,
+            _env: &freemapper_adapter_api::estimate::EstimateEnv<'_>,
+        ) -> Vec<freemapper_adapter_api::records::EstimateItem> {
+            Vec::new()
+        }
+    }
+
+    /// A registry with the one region [`SQUARE`], E and N from 0 to 10 km (EPSG:25833), with
+    /// the NAS service `nas`. `hosts`: the hosts its requests are held to, as for an adapter
+    /// from a folder; `None`: it asks as a built-in adapter does.
+    pub(crate) fn square(nas: Option<NasService>, hosts: Option<&[&str]>) -> Registry {
+        let mut registry = Registry::new();
+        registry
+            .add(Arc::new(Square {
+                info: RegionInfo {
+                    id: SQUARE,
+                    provider: SQUARE,
+                    names: Names {
+                        en: "Square".to_string(),
+                        de: "Quadrat".to_string(),
+                    },
+                    crs: crate::crs::Crs::Utm33,
+                    object_id_prefix: None,
+                    osm: Vec::new(),
+                    credit_short: None,
+                    preview: None,
+                },
+                boundary: geo_types::MultiPolygon(vec![
+                    geo_types::Rect::new(
+                        geo_types::coord! { x: 0.0, y: 0.0 },
+                        geo_types::coord! { x: 10_000.0, y: 10_000.0 },
+                    )
+                    .to_polygon(),
+                ]),
+                nas,
+                policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
+            }))
+            .unwrap();
+        registry
+    }
 }
 
 #[cfg(test)]
@@ -110,6 +215,23 @@ mod tests {
         assert_eq!(trees::tree_datasets_for(&sanssouci).len(), 1);
         assert!(alkis_nas::nas_services_for(&zwinger).is_empty());
         assert!(trees::tree_datasets_for(&zwinger).is_empty());
+    }
+
+    /// The declared hosts of the built-in states and the hosts of the program's own requests
+    /// pass the policy of all adapters; nothing else does.
+    #[test]
+    fn the_declared_policy_is_the_hosts_of_the_adapters_and_of_the_program() {
+        let policy = declared_policy();
+        for url in [
+            "https://isk.geobasis-bb.de/ows/alkis_vereinf_wfs",
+            "https://download.geofabrik.de/europe/germany/berlin-latest.osm.pbf",
+            "https://nominatim.openstreetmap.org/search",
+        ] {
+            assert!(policy.check_url(url).is_ok(), "{url}");
+        }
+        assert!(policy.check_url("https://geo.example.org/wfs").is_err());
+        // A built-in adapter is held to no list of its own.
+        assert!(registry().adapters().all(|a| a.policy().is_none()));
     }
 
     /// The error for an area outside every region names the regions of the registry; with the

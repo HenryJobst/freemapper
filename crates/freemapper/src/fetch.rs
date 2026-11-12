@@ -63,6 +63,13 @@ impl Fetcher for CancelCheck<'_> {
         self.inner.get(url)
     }
 
+    fn bound_to(&self, policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+        Some(Box::new(BoundCancelCheck {
+            inner: self.inner.bound_to(policy)?,
+            cancelled: self.cancelled,
+        }))
+    }
+
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
         self.check()?;
         self.inner.last_modified(url)
@@ -82,6 +89,45 @@ impl Fetcher for CancelCheck<'_> {
     ) -> Result<(), FetchError> {
         self.check()?;
         self.inner.download_to(url, path, max_bytes, progress)
+    }
+}
+
+/// A [`CancelCheck`] in front of the fetcher its inner one bound to a policy.
+struct BoundCancelCheck<'a> {
+    inner: Box<dyn Fetcher + 'a>,
+    cancelled: &'a dyn Fn() -> bool,
+}
+
+impl BoundCancelCheck<'_> {
+    fn checked(&self) -> CancelCheck<'_> {
+        CancelCheck {
+            inner: &*self.inner,
+            cancelled: self.cancelled,
+        }
+    }
+}
+
+impl Fetcher for BoundCancelCheck<'_> {
+    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        self.checked().get(url)
+    }
+
+    fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
+        self.checked().last_modified(url)
+    }
+
+    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
+        self.checked().get_range(url, range)
+    }
+
+    fn download_to(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(Note),
+    ) -> Result<(), FetchError> {
+        self.checked().download_to(url, path, max_bytes, progress)
     }
 }
 
@@ -429,9 +475,21 @@ pub struct HttpFetcher {
     policy: Option<UrlPolicy>,
     /// The largest answer [`Fetcher::get`] reads.
     max_get_bytes: u64,
+    /// What the fetcher was built with, for the one [`Fetcher::bound_to`] builds.
+    built: Built,
     /// Tests: the server on this computer that answers in place of every `https://` host.
     #[cfg(test)]
     stub: Option<String>,
+}
+
+/// The timeouts of a fetcher, and whether its agents check the address they connect to
+/// (always, outside tests).
+#[derive(Clone, Copy)]
+struct Built {
+    connect: Duration,
+    response: Duration,
+    body: Duration,
+    guard: bool,
 }
 
 /// An answer of the HTTP client.
@@ -531,6 +589,12 @@ impl HttpFetcher {
                 .collect(),
             policy,
             max_get_bytes: MAX_DOWNLOAD_BYTES,
+            built: Built {
+                connect,
+                response,
+                body,
+                guard,
+            },
             #[cfg(test)]
             stub: None,
         }
@@ -627,6 +691,24 @@ impl Default for HttpFetcher {
 }
 
 impl Fetcher for HttpFetcher {
+    /// This fetcher with `policy` in place of its own: the same timeouts and limits, and the
+    /// redirects followed by hand within the hosts of `policy`.
+    fn bound_to(&self, policy: &UrlPolicy) -> Option<Box<dyn Fetcher + '_>> {
+        let Built {
+            connect,
+            response,
+            body,
+            guard,
+        } = self.built;
+        let mut bound = Self::build(connect, response, body, guard, Some(policy.clone()));
+        bound.max_get_bytes = self.max_get_bytes;
+        #[cfg(test)]
+        {
+            bound.stub = self.stub.clone();
+        }
+        Some(Box::new(bound))
+    }
+
     /// Asks for `range` only; a server that answers with the whole file (not 206) is refused
     /// before its body is read, so a 1 GB archive is never downloaded by accident.
     fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
@@ -3483,6 +3565,53 @@ mod tests {
             assert!(result.is_err());
             assert_eq!(fetcher.0.get(), 1, "{:?}", result.unwrap_err());
         }
+    }
+
+    /// A fetcher without a policy hands out one bound to a policy: that one refuses what the
+    /// policy refuses, redirects included, with a check for a stop in front of it as well. The
+    /// fetcher itself goes on asking as before.
+    #[test]
+    fn a_fetcher_bound_to_a_policy_keeps_redirects_on_its_hosts() {
+        let (base, asked) = stub_server(vec![
+            ("/a", Stubbed::Redirect("/b")),
+            ("/b", Stubbed::Body(b"done")),
+            ("/away", Stubbed::Redirect("https://evil.example.net/x")),
+        ]);
+        let mut plain = HttpFetcher::local();
+        plain.stub = Some(base.trim_end_matches('/').to_string());
+        plain.max_get_bytes = 4000;
+        assert_eq!(plain.get("https://geo.example.org/a").unwrap(), b"done");
+        let policy = UrlPolicy::new(["geo.example.org"]).unwrap();
+        let away = "https://geo.example.org/away: a redirect to https://evil.example.net/x: the \
+                    host is not one of the declared hosts";
+        {
+            let bound = plain
+                .bound_to(&policy)
+                .expect("the HTTP fetcher binds itself");
+            assert_eq!(bound.get("https://geo.example.org/a").unwrap(), b"done");
+            assert_eq!(not_allowed(bound.get("https://geo.example.org/away")), away);
+            assert_eq!(
+                not_allowed(bound.get("https://cdn.example.org/a")),
+                "https://cdn.example.org/a: the host is not one of the declared hosts"
+            );
+        }
+        assert_eq!(*asked.lock().unwrap(), ["/a", "/b", "/a", "/b", "/away"]);
+        let stop = std::cell::Cell::new(false);
+        let cancelled = || stop.get();
+        let check = CancelCheck {
+            inner: &plain,
+            cancelled: &cancelled,
+        };
+        let bound = check
+            .bound_to(&policy)
+            .expect("the check hands the policy on");
+        assert_eq!(not_allowed(bound.get("https://geo.example.org/away")), away);
+        stop.set(true);
+        assert!(matches!(
+            bound.get("https://geo.example.org/a"),
+            Err(FetchError::Cancelled)
+        ));
+        assert_eq!(asked.lock().unwrap().len(), 6);
     }
 
     /// What the HTTP client reports for a refused address is worded without its "other: ".

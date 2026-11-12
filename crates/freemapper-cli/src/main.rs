@@ -749,7 +749,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             let _lock = lock_folder(&dir)?;
             let project = fetch_project(
                 &dir,
-                &adapters::fetcher(),
+                &HttpFetcher::new(),
                 &cache.cache()?,
                 mode(offline),
                 &mut report_note,
@@ -798,7 +798,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 &dir,
                 &options,
                 &cache.cache()?,
-                &adapters::fetcher(),
+                &HttpFetcher::new(),
                 &pipeline::RunControl::default(),
                 &mut |event| match event {
                     pipeline::Event::Line(line) | pipeline::Event::Warning(line) => report(line),
