@@ -5,8 +5,8 @@
 //! another host name are refused, so other websites cannot reach it (also not by DNS rebinding).
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use crate::errors::message;
 use crate::estimate::estimate_json;
@@ -42,11 +42,77 @@ use tokio::sync::Notify;
 #[folder = "web/"]
 pub(crate) struct Assets;
 
-/// Hosts can only be reached from this machine; the page tells the user so.
-const CONTENT_SECURITY_POLICY: &str = "default-src 'self'; script-src 'self'; \
-     style-src 'self' 'unsafe-inline'; connect-src 'self'; \
-     img-src 'self' data: https://isk.geobasis-bb.de https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de https://www.geodaten-mv.de https://www.wms.nrw.de https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de; \
-     frame-ancestors 'none'";
+/// The content security policy of the page. Hosts can only be reached from this machine; the
+/// page tells the user so. Images may come from the page itself and from the aerial photo
+/// services the adapters name ([`preview_hosts`]), nothing else.
+fn content_security_policy() -> &'static str {
+    static POLICY: OnceLock<String> = OnceLock::new();
+    POLICY.get_or_init(|| {
+        format!(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
+             connect-src 'self'; img-src 'self' data: {}; frame-ancestors 'none'",
+            preview_hosts().join(" ")
+        )
+    })
+}
+
+/// The origins (`https://host`) of the aerial photo services of the adapters, each once, in the
+/// order of the registry. Only an `https` address with a plain host name counts: the list goes
+/// into the content security policy as it is.
+fn preview_hosts() -> Vec<String> {
+    let mut hosts: Vec<String> = Vec::new();
+    for adapter in freemapper::adapters::registry().adapters() {
+        let Some(preview) = &adapter.info().preview else {
+            continue;
+        };
+        let host = preview
+            .wms
+            .strip_prefix("https://")
+            .and_then(|rest| rest.split(['/', '?', '#']).next())
+            .filter(|host| {
+                !host.is_empty()
+                    && host
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+            });
+        if let Some(host) = host {
+            let origin = format!("https://{host}");
+            if !hosts.contains(&origin) {
+                hosts.push(origin);
+            }
+        }
+    }
+    hosts
+}
+
+/// The regions freemapper supports, for the page: `[{ id, names: { en, de }, preview }]` in the
+/// order of the registry. `preview` is the aerial photo of the region for the map (`wms`,
+/// `layer`, `format`, `params`, `attribution`, `agency`), or null.
+async fn adapters() -> Response {
+    let list: Vec<Value> = freemapper::adapters::registry()
+        .adapters()
+        .map(|adapter| {
+            let info = adapter.info();
+            json!({
+                "id": info.id.as_str(),
+                "names": { "en": info.names.en, "de": info.names.de },
+                "preview": info.preview.as_ref().map(|preview| json!({
+                    "wms": preview.wms,
+                    "layer": preview.layer,
+                    "format": preview.format,
+                    "params": preview
+                        .params
+                        .iter()
+                        .map(|(name, value)| (name.clone(), Value::from(value.as_str())))
+                        .collect::<serde_json::Map<String, Value>>(),
+                    "attribution": preview.attribution,
+                    "agency": preview.agency,
+                })),
+            })
+        })
+        .collect();
+    Json(list).into_response()
+}
 
 /// Settings for a project the page creates (an existing project keeps its own).
 #[derive(Debug, Clone)]
@@ -130,7 +196,7 @@ impl Selector {
             port,
             strict_post: true,
             max_body: MAX_BODY,
-            ..ServeOptions::new(CONTENT_SECURITY_POLICY)
+            ..ServeOptions::new(content_security_policy())
         };
         let stopped = Arc::new(AtomicBool::new(false));
         let route_stopped = Arc::clone(&stopped);
@@ -181,6 +247,7 @@ fn router(
             get(osm_tile),
         )
         .route(&format!("{prefix}/api/texts"), get(texts))
+        .route(&format!("{prefix}/api/adapters"), get(adapters))
         .route(&format!("{prefix}/api/project"), get(project))
         .route(&format!("{prefix}/api/update"), get(update_notice))
         .route(&format!("{prefix}/api/preview"), post(preview))

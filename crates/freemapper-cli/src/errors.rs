@@ -196,7 +196,11 @@ impl Localize for ProjectError {
                     ("limit", v(format!("{MAX_AREA_SIDE_M:.0}"))),
                 ],
             ),
-            ProjectError::OutsideCoverage => text(lang, "error-project-outside-coverage", &[]),
+            ProjectError::OutsideCoverage => text(
+                lang,
+                "error-project-outside-coverage",
+                &[("states", v(crate::text::states(lang)))],
+            ),
             ProjectError::NotEnoughSpace(shortfall) => shortfall.localize(lang),
         }
     }

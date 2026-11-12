@@ -109,6 +109,7 @@ mod tests {
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,
+                preview: None,
             },
             MultiPolygon(Vec::new()),
         ))

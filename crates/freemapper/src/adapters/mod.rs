@@ -42,6 +42,22 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
     REGISTRY.set(registry)
 }
 
+/// The names of the regions of the registry in its order, German with `german`, else English:
+/// the list of what freemapper supports, for messages.
+pub fn region_names(german: bool) -> Vec<&'static str> {
+    registry()
+        .adapters()
+        .map(|adapter| {
+            let names = &adapter.info().names;
+            if german {
+                names.de.as_str()
+            } else {
+                names.en.as_str()
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -90,6 +106,20 @@ mod tests {
         assert_eq!(trees::tree_datasets_for(&sanssouci).len(), 1);
         assert!(alkis_nas::nas_services_for(&zwinger).is_empty());
         assert!(trees::tree_datasets_for(&zwinger).is_empty());
+    }
+
+    /// The error for an area outside every region names the regions of the registry; with the
+    /// built-in states it reads as it always did.
+    #[test]
+    fn the_outside_coverage_error_names_the_states_as_before() {
+        assert_eq!(
+            crate::project::ProjectError::OutsideCoverage.to_string(),
+            "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
+             Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
+             North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has data \
+             sources for those only so far"
+        );
+        assert_eq!(region_names(true)[2], "Sachsen");
     }
 
     #[test]

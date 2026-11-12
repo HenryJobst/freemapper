@@ -40,6 +40,24 @@ impl OsmExtractInfo {
     }
 }
 
+/// The aerial photo of a region for the map of the area page: a WMS the browser asks for tiles.
+/// It is not the service the orthophoto is fetched from; most regions have a mosaic for viewing
+/// with its own address and layer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreviewInfo {
+    /// The address of the WMS, without a query.
+    pub wms: String,
+    pub layer: String,
+    /// The image format asked for: `image/png` or `image/jpeg`.
+    pub format: String,
+    /// Further parameters of the request, by name (Hamburg: `time` = `2026`).
+    pub params: Vec<(String, String)>,
+    /// The credit shown on the map. `{year}` stands for the current year.
+    pub attribution: String,
+    /// The short name of the agency that serves it, for the name of the layer (`LGB`).
+    pub agency: String,
+}
+
 /// Identity and static facts of a region.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegionInfo {
@@ -57,4 +75,7 @@ pub struct RegionInfo {
     pub osm: Vec<OsmExtractInfo>,
     /// A short credit line for where the full one has no room.
     pub credit_short: Option<String>,
+    /// The aerial photo for the map of the area page. Two regions may share one (Brandenburg
+    /// and Berlin).
+    pub preview: Option<PreviewInfo>,
 }

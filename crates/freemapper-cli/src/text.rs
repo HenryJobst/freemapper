@@ -142,6 +142,25 @@ pub fn text(id: &str, args: &[(&str, FluentValue)]) -> String {
     TEXTS.text(&lang(), id, args)
 }
 
+/// The names of the supported states in `lang`, in the order of the registry and joined by
+/// commas: for a list in parentheses.
+pub fn states(lang: &Lang) -> String {
+    freemapper::adapters::region_names(lang.code() == "de").join(", ")
+}
+
+/// [`states`] for the middle of a sentence: the last name follows the word for "and".
+pub fn states_in_a_sentence(lang: &Lang) -> String {
+    let names = freemapper::adapters::region_names(lang.code() == "de");
+    match names.split_last() {
+        Some((last, first)) if !first.is_empty() => TEXTS.text(
+            lang,
+            "cli-list-and",
+            &[("first", v(first.join(", "))), ("last", v(last))],
+        ),
+        _ => names.join(", "),
+    }
+}
+
 /// `body` as a warning line in the language of this run, with the prefix every warning of the
 /// program has ("warning: …"), from the engine's catalog (`note-warning`).
 pub fn warning(body: &str) -> String {
@@ -249,6 +268,12 @@ mod tests {
             // `freemapper find`.
             ("category", v("amenity")),
             ("place", v("Strausberg")),
+            // The supported states, from the registry.
+            ("states", v("Brandenburg, Berlin")),
+            ("first", v("Brandenburg")),
+            ("last", v("Berlin")),
+            ("state", v("Brandenburg/Berlin")),
+            ("agency", v("LGB")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }
@@ -311,6 +336,39 @@ mod tests {
         }) {
             assert!(used.contains(id), "{id} is in the catalog but not used");
         }
+    }
+
+    /// The lists of the supported states read as the fixed lists read before they came from
+    /// the registry.
+    #[test]
+    fn the_state_lists_read_as_before() {
+        let (english, german) = (Lang::english(), de());
+        assert_eq!(
+            states(&english),
+            "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
+             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate"
+        );
+        assert_eq!(
+            states_in_a_sentence(&english),
+            "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
+             Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and \
+             Rhineland-Palatinate"
+        );
+        assert_eq!(
+            states_in_a_sentence(&german),
+            "Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, \
+             Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz"
+        );
+        let instructions = TEXTS.text(
+            &english,
+            "mcp-instructions",
+            &[("states", v(states_in_a_sentence(&english)))],
+        );
+        assert!(
+            instructions.contains("geodata of Brandenburg, Berlin, Saxony,")
+                && instructions.contains("Lower Saxony and Rhineland-Palatinate, and from OSM"),
+            "{instructions}"
+        );
     }
 
     #[test]

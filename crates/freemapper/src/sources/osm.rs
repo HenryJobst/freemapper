@@ -1315,6 +1315,7 @@ mod tests {
                         })
                         .collect(),
                     credit_short: None,
+                    preview: None,
                 },
                 boundary: rect(0.0, 10_000.0),
                 far: rect(900_000.0, 910_000.0),

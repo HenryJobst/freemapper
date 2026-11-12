@@ -131,7 +131,7 @@ page-no-room-skip = Nicht alles passt auf den Datenträger (freemapper lässt { 
 page-no-room-stop = Zu wenig Speicherplatz (freemapper lässt { $reserve } frei). Ohne die markierten Teile entsteht keine Karte, deshalb bricht das Laden ab, bevor es etwas lädt. Schaffe vorher Platz:
 page-disk-unknown = Den freien Speicherplatz kann freemapper nicht lesen ({ $error }). Es lädt dann ohne Prüfung.
 page-too-large = Das Gebiet ist zu groß: höchstens { $max } m Seitenlänge (mit Puffer). Bitte kleiner wählen.
-page-outside = Das Gebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); für andere Regionen hat freemapper noch keine Datenquellen.
+page-outside = Das Gebiet liegt außerhalb der unterstützten Bundesländer ({ $states }); für andere Regionen hat freemapper noch keine Datenquellen.
 page-settings = Karte
 page-kind = Kartenart
 page-schoolyard = Schulhofkarte (1:1000)
@@ -154,16 +154,7 @@ page-back-to-agent = Sag deinem KI-Assistenten, dass das Gebiet gespeichert ist.
 page-nothing-saved = Es wurde nichts gespeichert.
 page-failed = Fehler: { $error }
 page-layer-osm = OpenStreetMap
-page-layer-aerial = Luftbild Brandenburg/Berlin (LGB)
-page-layer-aerial-saxony = Luftbild Sachsen (GeoSN)
-page-layer-aerial-saxony-anhalt = Luftbild Sachsen-Anhalt (LVermGeo)
-page-layer-aerial-hamburg = Luftbild Hamburg (LGV)
-page-layer-aerial-hessen = Luftbild Hessen (HVBG)
-page-layer-aerial-schleswig-holstein = Luftbild Schleswig-Holstein (LVermGeo SH)
-page-layer-aerial-mecklenburg-vorpommern = Luftbild Mecklenburg-Vorpommern (LAiV M-V)
-page-layer-aerial-nordrhein-westfalen = Luftbild Nordrhein-Westfalen (Geobasis NRW)
-page-layer-aerial-niedersachsen = Luftbild Niedersachsen (LGLN)
-page-layer-aerial-rheinland-pfalz = Luftbild Rheinland-Pfalz (LVermGeo RP)
+page-layer-aerial-of = Luftbild { $state } ({ $agency })
 
 ## Der Block „Karte erzeugen“ der Gebietsauswahl-Seite (ADR 0090)
 
@@ -336,7 +327,7 @@ error-project-terrain-not-fetched = Für dieses Kartengebiet ist kein Geländemo
 error-project-candidates-outdated = Die gespeicherten OSM-Kandidaten decken das Kartengebiet nicht ab; rufen Sie `freemapper fetch` auf
 error-project-stored = { $path }: { $message }; rufen Sie `freemapper fetch` noch einmal auf
 error-project-area-too-large = Das Kartengebiet mit Puffer misst { $width } × { $height } m, mehr als { $limit } m je Seite; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
-error-project-outside-coverage = Das Kartengebiet liegt außerhalb der unterstützten Bundesländer (Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz); bisher hat freemapper nur für diese Datenquellen
+error-project-outside-coverage = Das Kartengebiet liegt außerhalb der unterstützten Bundesländer ({ $states }); bisher hat freemapper nur für diese Datenquellen
 
 ## Fehler: Speicherplatz
 
@@ -536,7 +527,9 @@ mcp-created-project-given-area = Projekt { $path } für das angegebene Gebiet an
 mcp-page-already-open = Die Seite für diesen Ordner ist schon offen; sie behält die Einstellungen, mit denen sie geöffnet wurde.
 mcp-page-next = Bitten Sie die Nutzerin oder den Nutzer, das Gebiet auf der Seite zu wählen und dann „Speichern“ und „Fertig“ zu drücken.
 mcp-preview-of = Vorschau von { $layer }
-mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000) aus amtlichen Geodaten von Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und Rheinland-Pfalz sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline. check_update sagt, ob es eine neuere Version von freemapper gibt; install_update installiert sie, nur mit confirm: true nach Zustimmung der Nutzerin oder des Nutzers, und danach startet der Assistent den freemapper-Server neu.
+# A list in a sentence: its last item after the others, which are joined by commas.
+cli-list-and = { $first } und { $last }
+mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000) aus amtlichen Geodaten von { $states } sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline. check_update sagt, ob es eine neuere Version von freemapper gibt; install_update installiert sie, nur mit confirm: true nach Zustimmung der Nutzerin oder des Nutzers, und danach startet der Assistent den freemapper-Server neu.
 mcp-tool-check-update = Ob es eine neuere Version von freemapper gibt: ihre Versionsnummer, ihr Erscheinungsdatum, die Versionshinweise und die Downloadgröße, oder dass diese Version aktuell ist. Installiert nichts.
 mcp-tool-create-project = Legt einen Projektordner für ein Kartengebiet an. Geben Sie osm_id (aus find_place) oder eine GeoJSON-Datei an. kind ist schoolyard (1:1000, Standard) oder sprint (1:4000).
 mcp-param-create-project-dir = Neuer Projektordner (absoluter Pfad oder mit ~ beginnend).

@@ -9,7 +9,7 @@ use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
-use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
+use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use geo_types::MultiPolygon;
@@ -53,6 +53,116 @@ fn names(region: Region) -> Names {
     Names {
         en: en.to_string(),
         de: de.to_string(),
+    }
+}
+
+/// The aerial photo of a state for the map of the area page.
+fn preview(region: Region) -> PreviewInfo {
+    let jpeg = "image/jpeg";
+    let (wms, layer, format, params, attribution, agency): (_, _, _, &[(&str, &str)], _, _) =
+        match region {
+            // The map proxy of LGB serves Brandenburg and Berlin.
+            Region::Brandenburg | Region::Berlin => (
+                "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",
+                "bebb_dop20c",
+                "image/png",
+                &[],
+                "© GeoBasis-DE/LGB, dl-de/by-2-0",
+                "LGB",
+            ),
+            Region::Saxony => (
+                "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest",
+                "sn_dop_020",
+                jpeg,
+                &[],
+                "Quelle: GeoSN, dl-de/by-2-0",
+                "GeoSN",
+            ),
+            Region::SaxonyAnhalt => (
+                "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
+                "lsa_lvermgeo_dop20_2",
+                jpeg,
+                &[],
+                "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0",
+                "LVermGeo",
+            ),
+            // The open 2026 vintage; 2023 is a closed-licence satellite image.
+            Region::Hamburg => (
+                "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt",
+                "dop_zeitreihe_unbelaubt",
+                jpeg,
+                &[("time", "2026")],
+                "Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0",
+                "LGV",
+            ),
+            // `he_dop_rgb` is served at all scales (`he_dop20_rgb` only below 1:9000, blank when
+            // zoomed out).
+            Region::Hessen => (
+                "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows",
+                "he_dop_rgb",
+                jpeg,
+                &[],
+                "Geobasisdaten © HVBG, dl-de/zero-2-0",
+                "HVBG",
+            ),
+            // The current DOP20 mosaic (EPSG:3857 is among the layer's CRS).
+            Region::SchleswigHolstein => (
+                "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
+                "sh_dop20_rgb",
+                jpeg,
+                &[],
+                "© GeoBasis-DE/LVermGeo SH/CC BY 4.0",
+                "LVermGeo SH",
+            ),
+            // The ADV DOP20 mosaic (EPSG:3857 is offered); the WMS stamps a watermark, fine for
+            // a preview.
+            Region::MecklenburgVorpommern => (
+                "https://www.geodaten-mv.de/dienste/adv_dop",
+                "mv_dop",
+                jpeg,
+                &[],
+                "©GeoBasis-DE/MV/CC BY 4.0",
+                "LAiV M-V",
+            ),
+            // The current DOP mosaic (EPSG:3857 is among the layer's CRS).
+            Region::NordrheinWestfalen => (
+                "https://www.wms.nrw.de/geobasis/wms_nw_dop",
+                "nw_dop_rgb",
+                jpeg,
+                &[],
+                "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0",
+                "Geobasis NRW",
+            ),
+            // The newest DOP20 (EPSG:3857 is among the service's CRS); Bremen is left white.
+            Region::Niedersachsen => (
+                "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
+                "ni_dop20",
+                jpeg,
+                &[],
+                "© GeoBasis-DE/LGLN, CC BY 4.0",
+                "LGLN",
+            ),
+            // The current DOP20 (EPSG:3857 is among the layer's CRS); white beyond the state
+            // border. The credit carries the year without a blank, as the licence page asks.
+            Region::RheinlandPfalz => (
+                "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi",
+                "rp_dop20",
+                jpeg,
+                &[],
+                "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de",
+                "LVermGeo RP",
+            ),
+        };
+    PreviewInfo {
+        wms: wms.to_string(),
+        layer: layer.to_string(),
+        format: format.to_string(),
+        params: params
+            .iter()
+            .map(|(name, value)| (name.to_string(), value.to_string()))
+            .collect(),
+        attribution: attribution.to_string(),
+        agency: agency.to_string(),
     }
 }
 
@@ -153,6 +263,7 @@ impl LegacyAdapter {
             object_id_prefix: Some(region.object_id_prefix().to_string()),
             osm: extracts(region),
             credit_short: None,
+            preview: Some(preview(region)),
         };
         Self {
             region,

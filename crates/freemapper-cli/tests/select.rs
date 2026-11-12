@@ -185,6 +185,89 @@ fn page_and_assets_are_served() {
     assert_eq!(selector.get("assets/missing.js").0, 404);
 }
 
+/// The page gets the supported regions and their aerial photos from the registry, and the
+/// content security policy lets the page load images from exactly those services.
+#[test]
+fn adapters_endpoint_lists_eleven_with_previews() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let selector = Selector::start(&dir.path().join("school"), cache.path(), &[]);
+    let (status, body) = selector.get("api/adapters");
+    assert_eq!(status, 200);
+    let adapters: Value = serde_json::from_str(&body).unwrap();
+    let adapters = adapters.as_array().unwrap();
+    let ids: Vec<&str> = adapters
+        .iter()
+        .map(|adapter| adapter["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "brandenburg",
+            "berlin",
+            "saxony",
+            "saxonyanhalt",
+            "hamburg",
+            "hessen",
+            "schleswigholstein",
+            "mecklenburgvorpommern",
+            "nordrheinwestfalen",
+            "niedersachsen",
+            "rheinlandpfalz"
+        ]
+    );
+    assert_eq!(
+        adapters[2]["names"],
+        json!({ "en": "Saxony", "de": "Sachsen" })
+    );
+    // Every region has an aerial photo over https; Brandenburg and Berlin share LGB's.
+    let mut services = Vec::new();
+    for adapter in adapters {
+        let preview = &adapter["preview"];
+        let wms = preview["wms"].as_str().unwrap();
+        assert!(wms.starts_with("https://") && !wms.contains('?'), "{wms}");
+        for key in ["layer", "format", "attribution", "agency"] {
+            assert!(!preview[key].as_str().unwrap().is_empty(), "{key} of {wms}");
+        }
+        assert!(preview["params"].is_object(), "{preview}");
+        if !services.contains(&wms) {
+            services.push(wms);
+        }
+    }
+    assert_eq!(adapters[0]["preview"], adapters[1]["preview"]);
+    assert_eq!(services.len(), 10);
+    assert_eq!(adapters[4]["preview"]["params"], json!({ "time": "2026" }));
+    assert!(
+        adapters[10]["preview"]["attribution"]
+            .as_str()
+            .unwrap()
+            .contains("LVermGeoRP{year},")
+    );
+    // The policy names the hosts of those ten services, in that order, and no other.
+    let response = selector.agent.get(&selector.url).call().unwrap();
+    let policy = response
+        .headers()
+        .get("content-security-policy")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        policy,
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
+         connect-src 'self'; img-src 'self' data: https://isk.geobasis-bb.de \
+         https://geodienste.sachsen.de https://www.geodatenportal.sachsen-anhalt.de \
+         https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de \
+         https://www.geodaten-mv.de https://www.wms.nrw.de \
+         https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de; \
+         frame-ancestors 'none'"
+    );
+    for service in services {
+        let host = service.split('/').nth(2).unwrap();
+        assert!(policy.contains(&format!("https://{host}")), "{host}");
+    }
+}
+
 #[test]
 fn requests_without_token_are_404() {
     let dir = tempfile::tempdir().unwrap();

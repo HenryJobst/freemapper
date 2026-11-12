@@ -808,7 +808,13 @@ impl ServerHandler for FreemapperServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("freemapper", env!("CARGO_PKG_VERSION")))
-            .with_instructions(crate::text::text("mcp-instructions", &[]))
+            .with_instructions(crate::text::text(
+                "mcp-instructions",
+                &[(
+                    "states",
+                    crate::text::v(crate::text::states_in_a_sentence(&crate::text::lang())),
+                )],
+            ))
     }
 }
 
