@@ -811,7 +811,6 @@ fn check_pbf(path: &Path, url: &str) -> Result<Option<NaiveDate>, FetchError> {
 #[cfg(any(test, feature = "golden"))]
 pub mod golden {
     use super::*;
-    use crate::sources::region::Region;
 
     /// One Geofabrik extract as the code states it.
     #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -825,9 +824,9 @@ pub mod golden {
 
     /// The extracts `region` reads, as [`extracts_for`] maps them (North Rhine-Westphalia: all
     /// five government districts).
-    pub fn extracts_of(region: Region) -> Vec<OsmFacts> {
+    pub fn extracts_of(region: &AdapterId) -> Vec<OsmFacts> {
         registry()
-            .get(region.id())
+            .get(region.as_str())
             .expect("the built-in states are in the registry")
             .info()
             .osm
@@ -853,6 +852,8 @@ pub(crate) fn extract_of(id: &str, index: usize) -> ExtractRef {
 mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
 
     pub(crate) const FIXTURE_PBF: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -1163,8 +1164,8 @@ mod tests {
         assert_eq!(
             crate::sources::region::regions_for(&sliver),
             [
-                crate::sources::region::Region::NordrheinWestfalen,
-                crate::sources::region::Region::RheinlandPfalz
+                crate::sources::region::ids::regions::NORDRHEIN_WESTFALEN,
+                crate::sources::region::ids::regions::RHEINLAND_PFALZ
             ]
         );
         let nrw = registry().get("nordrheinwestfalen").unwrap();

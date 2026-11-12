@@ -324,6 +324,7 @@ error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for 
 word-kind-schoolyard = schoolyard
 word-kind-sprint = sprint
 error-project-toml = invalid project file: { $message }
+error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; a newer version may have it
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again

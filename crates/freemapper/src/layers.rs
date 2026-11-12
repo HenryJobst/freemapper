@@ -20,7 +20,7 @@ use crate::project::{
 };
 use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
-use crate::sources::region::{Region, provider_tiles_in, raster_region_in, regions_for};
+use crate::sources::region::{provider_tiles_in, raster_region_in, regions_for};
 use crate::space::{Part, Store};
 use crate::tiles::TileId;
 /// Typical download sizes in MB.
@@ -146,7 +146,10 @@ pub(crate) fn estimate_area(
         store: Store::Project,
     });
     // Areas that touch Berlin also get the extra Berlin layers and the K5 template.
-    if regions_for(bbox).contains(&Region::Berlin) {
+    let near_berlin = regions_for(bbox)
+        .iter()
+        .any(|region| region.as_str() == freemapper_adapters_de::boundaries::BERLIN);
+    if near_berlin {
         items.push(per_km2_item(
             bbox,
             BERLIN_LAYERS_ITEM,
@@ -398,6 +401,8 @@ mod tests {
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_ndsm, serve_synthetic_tile};
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
     use crate::sources::region::{raster_region, tile_touches};
     use crate::tiles::TileId;
     use crate::tiles::tiles_covering;
@@ -985,8 +990,8 @@ mod tests {
         // At the Hesse border in Mainz: the tile 447/5540 is 43 % RP, 448/5540 lies wholly in
         // Hesse (Wiesbaden). An area from E 446500 to 448100 covers 446 to 448.
         let at = |east_km, north_km| TileId { east_km, north_km };
-        assert!(tile_touches(at(447, 5540), Region::RheinlandPfalz));
-        assert!(!tile_touches(at(448, 5540), Region::RheinlandPfalz));
+        assert!(tile_touches(at(447, 5540), regions::RHEINLAND_PFALZ));
+        assert!(!tile_touches(at(448, 5540), regions::RHEINLAND_PFALZ));
         let p = |easting, northing| {
             crate::crs::Crs::Utm32
                 .inverse(crate::crs::ProjectedPoint { easting, northing })
@@ -1004,7 +1009,7 @@ mod tests {
         let region_bbox = area.projected_bbox().buffered(20.0);
         assert_eq!(
             raster_region(&region_bbox),
-            Some(Region::RheinlandPfalz),
+            Some(regions::RHEINLAND_PFALZ),
             "the centre lies in RP"
         );
         let map_bbox = area
@@ -1018,7 +1023,7 @@ mod tests {
         // Before a run: the tiles that touch the state.
         let touching = area_tiles
             .iter()
-            .filter(|t| tile_touches(**t, Region::RheinlandPfalz))
+            .filter(|t| tile_touches(**t, regions::RHEINLAND_PFALZ))
             .count();
         assert!(touching < area_tiles.len(), "{area_tiles:?}");
         let before = dgm1(&cache);
@@ -1060,7 +1065,7 @@ mod tests {
         );
         let touching = all
             .iter()
-            .filter(|t| tile_touches(**t, Region::Hamburg))
+            .filter(|t| tile_touches(**t, regions::HAMBURG))
             .count();
         assert!(touching < all.len());
         let preview = preview_area(&area, 20.0, &cache, today());
@@ -1103,7 +1108,7 @@ mod tests {
         );
         let touching = all
             .iter()
-            .filter(|t| crate::sources::region::tile_touches(**t, Region::SchleswigHolstein))
+            .filter(|t| crate::sources::region::tile_touches(**t, regions::SCHLESWIG_HOLSTEIN))
             .count();
         assert!(touching < all.len());
         let preview = preview_area(&area, 20.0, &cache, today());

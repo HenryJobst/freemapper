@@ -53,7 +53,8 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sources::region::Region;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
 
     /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg; the
     /// queries over the registry find them for an area there and nowhere else.
@@ -119,14 +120,14 @@ mod tests {
     fn registry_lists_the_eleven_in_legacy_order() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
-        let legacy: Vec<&str> = Region::ALL.into_iter().map(Region::id).collect();
+        let legacy: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
         assert_eq!(ids, legacy);
         assert_eq!(ids.len(), 11);
         // The registry of the process is the built-in one unless another was installed.
         assert_eq!(registry().len(), 11);
     }
 
-    /// G1 records what the enums answer; the adapters must say the same.
+    /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.
     #[test]
     fn legacy_info_matches_g1() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -189,5 +190,52 @@ mod tests {
         };
         assert_eq!(kind("berlin"), RasterKind::Tiles { grid_km: 1 });
         assert_eq!(kind("saxony"), RasterKind::Tiles { grid_km: 2 });
+    }
+
+    /// The engine and the crates beside it name no state through an enum of the engine: the
+    /// enums `Region` and `Provider` are gone (plan C14), and nothing may bring them back. The
+    /// test reads every source file of the crates outside their `tests` folders.
+    #[test]
+    fn no_enum_matches_left() {
+        fn sources(dir: &std::path::Path, found: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if path
+                        .file_name()
+                        .is_some_and(|name| name != "tests" && name != "target")
+                    {
+                        sources(&path, found);
+                    }
+                } else if path.extension().is_some_and(|e| e == "rs") {
+                    found.push(path);
+                }
+            }
+        }
+        let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut files = Vec::new();
+        sources(&crates, &mut files);
+        assert!(files.len() > 80, "{} files", files.len());
+        // Written in two parts, so that this file does not name them itself.
+        let names = [["Region", "::"].concat(), ["Provider", "::"].concat()];
+        let mut left = Vec::new();
+        for file in files {
+            let text = std::fs::read_to_string(&file).unwrap();
+            for (index, line) in text.lines().enumerate() {
+                let named = names.iter().any(|name| {
+                    line.match_indices(name.as_str()).any(|(at, _)| {
+                        // `TileProvider::Lgb` of the adapter crate is another type.
+                        !line[..at]
+                            .chars()
+                            .next_back()
+                            .is_some_and(|c| c.is_alphanumeric() || c == '_')
+                    })
+                });
+                if named {
+                    left.push(format!("{}:{}", file.display(), index + 1));
+                }
+            }
+        }
+        assert!(left.is_empty(), "the enums are named in: {left:?}");
     }
 }

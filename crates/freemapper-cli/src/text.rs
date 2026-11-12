@@ -274,6 +274,7 @@ mod tests {
             ("last", v("Berlin")),
             ("state", v("Brandenburg/Berlin")),
             ("agency", v("LGB")),
+            ("adapter", v("czfoo")),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }

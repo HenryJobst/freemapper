@@ -165,11 +165,11 @@ pub(super) fn stored_contour_objects(
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
     // The contours come from the terrain model of the area's raster provider.
-    let provider = match project.provider {
-        Some(provider) => provider,
-        None => raster_region(&project.region_bbox()?).map_or(Provider::Lgb, Region::provider),
+    let provider = match &project.provider {
+        Some(provider) => Some(provider.clone()),
+        None => raster_provider(&project.region_bbox()?),
     };
-    let source = provider.terrain_source();
+    let source = terrain_source(provider.as_ref());
     let map_area = area.projected_polygon_in(project.crs());
     // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;

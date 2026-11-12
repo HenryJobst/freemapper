@@ -324,6 +324,7 @@ error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $
 word-kind-schoolyard = Schulhofkarten
 word-kind-sprint = Sprintkarten
 error-project-toml = ungültige Projektdatei: { $message }
+error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; eine neuere Version kann ihn haben
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf

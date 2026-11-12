@@ -16,11 +16,13 @@ use freemapper::project::{
 };
 use freemapper::sources::osm::extracts_for;
 use freemapper::sources::region::golden::{inside, legacy_facts};
+use freemapper::sources::region::ids::{IdFacts as _, regions};
 use freemapper::sources::region::{
-    Provider, Region, contains_point, provider_tiles, raster_region, reaches_beyond_coverage,
-    regions_for, tile_centre_in, tile_touches,
+    contains_point, provider_tiles, raster_region, reaches_beyond_coverage, regions_for,
+    tile_centre_in, tile_touches,
 };
 use freemapper::tiles::{TileId, tiles_covering};
+use freemapper_adapter_api::records::AdapterId;
 use serde::{Deserialize, Serialize};
 
 #[path = "support/replay.rs"]
@@ -115,11 +117,11 @@ const CREDIT_NEIGHBOURS: [&[&str]; 21] = [
 fn g1_credit_lines_match_for_all_year_and_record_combinations() {
     use freemapper::project::golden::{Held, credits};
     let mut rows = Vec::new();
-    let mut row = |regions: &[Region], year: i32, held: Held| {
-        let (lon, lat) = golden_centre(regions[0]);
-        let lines = credits(regions[0], lon, lat, year, held, &regions[1..]);
+    let mut row = |regions: &[AdapterId], year: i32, held: Held| {
+        let (lon, lat) = golden_centre(&regions[0]);
+        let lines = credits(&regions[0], lon, lat, year, held, &regions[1..]);
         rows.push(serde_json::json!({
-            "regions": regions.iter().map(|region| id_of(*region)).collect::<Vec<_>>(),
+            "regions": regions.iter().map(id_of).collect::<Vec<_>>(),
             "year": year,
             "records": match held {
                 Held::Rasters => "rasters",
@@ -130,15 +132,15 @@ fn g1_credit_lines_match_for_all_year_and_record_combinations() {
             "sheet": lines.sheet,
         }));
     };
-    for region in Region::ALL {
+    for region in regions::ALL {
         for year in [2025, 2026] {
             for held in [Held::Rasters, Held::Alkis, Held::Both] {
-                row(&[region], year, held);
+                row(std::slice::from_ref(&region), year, held);
             }
         }
     }
     for ids in CREDIT_NEIGHBOURS {
-        let regions: Vec<Region> = ids.iter().map(|id| region_of(id)).collect();
+        let regions: Vec<AdapterId> = ids.iter().map(|id| region_of(id)).collect();
         for held in [Held::Alkis, Held::Both] {
             row(&regions, 2026, held);
         }
@@ -387,10 +389,10 @@ impl Sequence {
     }
 }
 
-fn region_at(easting: f64, northing: f64) -> Option<Region> {
-    Region::ALL
+fn region_at(easting: f64, northing: f64) -> Option<AdapterId> {
+    regions::ALL
         .into_iter()
-        .find(|region| contains_point(*region, easting, northing))
+        .find(|region| contains_point(region, easting, northing))
 }
 
 /// The nearest point east, north, west or south of the given one (EPSG:25833, 100 m steps, at
@@ -402,8 +404,8 @@ fn nearest_border(easting: f64, northing: f64) -> (i64, i64) {
         for (de, dn) in [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)] {
             let e = (easting + de * 100.0 * f64::from(step)).round();
             let n = (northing + dn * 100.0 * f64::from(step)).round();
-            let here = match home {
-                Some(region) => contains_point(region, e, n).then_some(region),
+            let here = match &home {
+                Some(region) => contains_point(region, e, n).then(|| region.clone()),
                 None => region_at(e, n),
             };
             if here != home {
@@ -537,8 +539,8 @@ fn names(tiles: impl IntoIterator<Item = TileId>) -> Vec<String> {
 
 fn geometry_of(golden: &GoldenBox) -> Geometry {
     let bbox = golden.bbox();
-    let mut providers: Vec<Provider> = Vec::new();
-    for region in Region::ALL {
+    let mut providers: Vec<AdapterId> = Vec::new();
+    for region in regions::ALL {
         if !providers.contains(&region.provider()) {
             providers.push(region.provider());
         }
@@ -546,10 +548,10 @@ fn geometry_of(golden: &GoldenBox) -> Geometry {
     let mut tiles = Vec::new();
     for provider in providers {
         for km in [1, 2] {
-            let found = provider_tiles(&bbox, provider, km);
+            let found = provider_tiles(&bbox, &provider, km);
             if !found.is_empty() {
                 tiles.push(ProviderTiles {
-                    provider: id_of(provider),
+                    provider: id_of(&provider),
                     km,
                     tiles: names(found),
                 });
@@ -562,18 +564,18 @@ fn geometry_of(golden: &GoldenBox) -> Geometry {
         .into_iter()
         .filter(|region| region.crs() == Crs::Utm32)
         .map(|region| Zone32Tiles {
-            region: id_of(region),
+            region: id_of(&region),
             touched: names(
                 zone_32_tiles
                     .iter()
                     .copied()
-                    .filter(|t| tile_touches(*t, region)),
+                    .filter(|t| tile_touches(*t, &region)),
             ),
             centre_in: names(
                 zone_32_tiles
                     .iter()
                     .copied()
-                    .filter(|t| tile_centre_in(*t, region)),
+                    .filter(|t| tile_centre_in(*t, &region)),
             ),
         })
         .filter(|tiles| !tiles.touched.is_empty() || !tiles.centre_in.is_empty())
@@ -647,7 +649,7 @@ fn g2_boxes_come_from_the_generator() {
 /// series, 2026-11-11), in milliseconds: the best of five runs.
 const G2_MEASURED_MS: u128 = 1100;
 
-/// The registry must not make the dispatch slower than the enums were: the 211 boxes finish
+/// The registry must not make the dispatch slower than the enums of v0.12.0 were: the 211 boxes finish
 /// within twice the measured time. Run by hand after the registry takes over (plan C2, C14), on
 /// the machine the measurement comes from, never on a shared CI runner:
 /// `cargo test --release -p freemapper --test adapters_golden g2_dispatch -- --ignored --nocapture`
@@ -808,10 +810,10 @@ fn golden_noon() -> chrono::NaiveDateTime {
         .unwrap()
 }
 
-fn region_of(id: &str) -> Region {
-    Region::ALL
+fn region_of(id: &str) -> AdapterId {
+    regions::ALL
         .into_iter()
-        .find(|region| id_of(*region) == id)
+        .find(|region| id_of(region) == id)
         .unwrap_or_else(|| panic!("no region {id:?}"))
 }
 
@@ -820,18 +822,18 @@ fn region_of(id: &str) -> Region {
 /// would need two or four tiles (Schleswig-Holstein: four surface model tiles of 105 MB each);
 /// there the centre is moved by 90 to 190 m, so that the area with its buffer stays in one tile.
 /// The numbers are written out, not computed: the area must be the same on every system.
-fn golden_centre(region: Region) -> (f64, f64) {
-    match region {
-        Region::Berlin => (13.3829, 52.488),
-        Region::SchleswigHolstein => (10.6849, 53.8648),
-        Region::NordrheinWestfalen => (6.2401, 50.5534),
-        Region::RheinlandPfalz => (7.1638, 50.1443),
+fn golden_centre(region: &AdapterId) -> (f64, f64) {
+    match region.as_str() {
+        "berlin" => (13.3829, 52.488),
+        "schleswigholstein" => (10.6849, 53.8648),
+        "nordrheinwestfalen" => (6.2401, 50.5534),
+        "rheinlandpfalz" => (7.1638, 50.1443),
         _ => inside(region),
     }
 }
 
 /// The golden area of a region: about 150 m square around [`golden_centre`].
-fn golden_area(region: Region) -> MapArea {
+fn golden_area(region: &AdapterId) -> MapArea {
     let (lon, lat) = golden_centre(region);
     let (dlon, dlat) = (0.001_1, 0.000_7);
     let ring = [
@@ -846,7 +848,7 @@ fn golden_area(region: Region) -> MapArea {
 }
 
 /// A new sprint project over the golden area of `region` in the empty folder `dir`.
-fn init_golden_project(dir: &Path, region: Region) {
+fn init_golden_project(dir: &Path, region: &AdapterId) {
     std::fs::create_dir_all(dir).unwrap();
     let date = golden_noon().date();
     init_project(dir, &golden_area(region), MapKind::Sprint, None, date, None).unwrap();
@@ -894,7 +896,7 @@ fn replayed_fetch_until(id: &str, cut: Option<&str>) -> Replayed {
     let log = fetcher.log();
     let add = |line: String| log.lock().unwrap().push(line);
     clock::with_fixed(golden_noon(), || {
-        init_golden_project(&dir, region_of(id));
+        init_golden_project(&dir, &region_of(id));
         let estimate = estimate_download(&dir, &cache, clock::today()).unwrap();
         for item in &estimate.items {
             add(format!(
@@ -1036,15 +1038,15 @@ fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
 /// stay.
 #[test]
 fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
-    let rows: Vec<serde_json::Value> = Region::ALL
+    let rows: Vec<serde_json::Value> = regions::ALL
         .into_iter()
         .map(|region| {
             let root = tempfile::tempdir().unwrap();
             let (dir, cache) = (root.path().join("project"), root.path().join("cache"));
             let cache = Cache::new(cache);
             clock::with_fixed(golden_noon(), || {
-                init_golden_project(&dir, region);
-                estimate_row(&id_of(region), &dir, &cache)
+                init_golden_project(&dir, &region);
+                estimate_row(&id_of(&region), &dir, &cache)
             })
         })
         .collect();
@@ -1059,7 +1061,7 @@ fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
 #[test]
 #[ignore = "needs the fixture store: scripts/golden.sh test"]
 fn g3_estimates_after_the_fetch_are_unchanged() {
-    let rows: Vec<serde_json::Value> = Region::ALL
+    let rows: Vec<serde_json::Value> = regions::ALL
         .into_iter()
         .map(|region| {
             let id = id_of(region);
@@ -1291,7 +1293,7 @@ per_state!(
 
 /// Copies the maintainer's cached OSM extracts of `region` into `cache`, so the recording does
 /// not download 50 to 500 MB that the replay answers with the empty extract anyway.
-fn seed_extracts(region: Region, cache: &Cache) {
+fn seed_extracts(region: &AdapterId, cache: &Cache) {
     let Some(kept) = Cache::default_location() else {
         return;
     };
@@ -1330,8 +1332,8 @@ fn record_state() {
     let index = golden_dir().join(&id).join("index.toml");
     let recorder = RecordingFetcher::new(HttpFetcher::new(), &index, &store);
     clock::with_fixed(golden_noon(), || {
-        init_golden_project(&dir, region);
-        seed_extracts(region, &cache);
+        init_golden_project(&dir, &region);
+        seed_extracts(&region, &cache);
         let fetched = fetch_project(&dir, &recorder, &cache, FetchMode::Online, &mut |note| {
             eprintln!("{note}");
         });
@@ -1346,8 +1348,8 @@ fn record_state() {
         std::fs::copy(&candidates, store.join(&id).join("osm-candidates.geojson")).unwrap();
     }
     // The store republishes data of the state and of OpenStreetMap.
-    let (lon, lat) = inside(region);
-    let credit = freemapper::project::golden::credit_lines(region, lon, lat, 2026, true);
+    let (lon, lat) = inside(&region);
+    let credit = freemapper::project::golden::credit_lines(&region, lon, lat, 2026, true);
     let mut attribution = format!(
         "Recorded answers of the open data services for the golden area of {id}, and OpenStreetMap \
          objects of the same area (osm-candidates.geojson, ODbL 1.0), for the tests of freemapper \
@@ -1390,10 +1392,8 @@ fn g5_examples_roundtrip() {
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the
-/// adapter instead of a parse error of the enum. True once the registry reads the project file
-/// (plan C14); until then `scripts/golden.sh test` skips it by name.
+/// adapter instead of a parse error.
 #[test]
-#[ignore = "until the registry reads the project file (plan C14)"]
 fn g5_unknown_provider_is_a_clear_error() {
     let example = examples_dir().join("brandenburg-sanssouci/freemapper.toml");
     let text = std::fs::read_to_string(example).unwrap();

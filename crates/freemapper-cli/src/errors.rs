@@ -143,6 +143,11 @@ impl Localize for ProjectError {
             ProjectError::Toml(message) => {
                 text(lang, "error-project-toml", &[("message", v(message))])
             }
+            ProjectError::UnknownAdapter(adapter) => text(
+                lang,
+                "error-project-unknown-adapter",
+                &[("adapter", v(adapter))],
+            ),
             ProjectError::Area(e) => e.localize(lang),
             ProjectError::Georef(e) => e.localize(lang),
             ProjectError::Omap(e) => e.localize(lang),
@@ -663,6 +668,7 @@ mod tests {
                 hint: ". A new hint",
             },
             ProjectError::Toml("missing field `crs`".into()),
+            ProjectError::UnknownAdapter("czfoo".into()),
             ProjectError::NotFetched,
             ProjectError::Cancelled,
             ProjectError::Layer(

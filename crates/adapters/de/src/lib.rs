@@ -76,7 +76,7 @@ mod raster {
 
 #[allow(unused_imports)]
 mod sources {
-    /// The questions the state modules asked the region enum of the engine.
+    /// The questions a state module asks about the boundary of its own state.
     pub(crate) mod region {
         pub(crate) use crate::boundaries::*;
     }

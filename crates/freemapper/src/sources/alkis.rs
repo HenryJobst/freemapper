@@ -121,7 +121,9 @@ mod tests {
     use crate::fetch::test_support::MapFetcher;
     use crate::fetch::{FetchError, FetchMode, Fetcher};
     use crate::sources::alkis_wfs;
-    use crate::sources::region::{Region, regions_for};
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
+    use crate::sources::region::regions_for;
     use serde_json::Value;
 
     /// Runs a fetch with `fetcher` and nothing else: the ALKIS sources keep nothing in the
@@ -606,7 +608,7 @@ mod tests {
         };
         assert_eq!(
             regions_for(&region_bbox),
-            vec![Region::Hamburg, Region::SchleswigHolstein]
+            vec![regions::HAMBURG, regions::SCHLESWIG_HOLSTEIN]
         );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
@@ -698,7 +700,10 @@ mod tests {
             max_e: c.easting + 200.0,
             max_n: c.northing + 200.0,
         };
-        assert_eq!(regions_for(&region_bbox), vec![Region::NordrheinWestfalen]);
+        assert_eq!(
+            regions_for(&region_bbox),
+            vec![regions::NORDRHEIN_WESTFALEN]
+        );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
@@ -759,7 +764,7 @@ mod tests {
         };
         assert_eq!(
             regions_for(&region_bbox),
-            vec![Region::Hessen, Region::NordrheinWestfalen]
+            vec![regions::HESSEN, regions::NORDRHEIN_WESTFALEN]
         );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
@@ -843,7 +848,7 @@ mod tests {
             max_e: c.easting + 200.0,
             max_n: c.northing + 200.0,
         };
-        assert_eq!(regions_for(&region_bbox), vec![Region::Niedersachsen]);
+        assert_eq!(regions_for(&region_bbox), vec![regions::NIEDERSACHSEN]);
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
@@ -910,7 +915,7 @@ mod tests {
         };
         assert_eq!(
             regions_for(&region_bbox),
-            vec![Region::Hessen, Region::RheinlandPfalz]
+            vec![regions::HESSEN, regions::RHEINLAND_PFALZ]
         );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
@@ -997,7 +1002,7 @@ mod tests {
         };
         assert_eq!(
             regions_for(&region_bbox),
-            vec![Region::Hamburg, Region::Niedersachsen]
+            vec![regions::HAMBURG, regions::NIEDERSACHSEN]
         );
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();

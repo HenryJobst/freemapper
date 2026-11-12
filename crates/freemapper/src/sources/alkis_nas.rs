@@ -50,7 +50,9 @@ mod tests {
     use crate::crs::Crs;
     use crate::fetch::FetchError;
     use crate::fetch::test_support::MapFetcher;
-    use crate::sources::region::{Region, regions_for};
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
+    use crate::sources::region::regions_for;
 
     #[test]
     fn nas_layers_only_in_nas_states() {
@@ -68,7 +70,7 @@ mod tests {
                     let features = l.features.as_ref().unwrap();
                     assert!(features.features.is_empty());
                     assert_eq!(features.regions.len(), 1);
-                    assert_eq!(features.regions[0].as_str(), Region::Brandenburg.id());
+                    assert_eq!(features.regions[0].as_str(), regions::BRANDENBURG.id());
                     l.layer.file
                 })
                 .collect();
@@ -112,7 +114,7 @@ mod tests {
             max_e: 393_500.0,
             max_n: 5_821_000.0,
         };
-        assert_eq!(regions_for(&mitte), [Region::Berlin]);
+        assert_eq!(regions_for(&mitte), [regions::BERLIN]);
         let dresden = BoundingBox {
             min_e: 415_800.0,
             min_n: 5_655_600.0,

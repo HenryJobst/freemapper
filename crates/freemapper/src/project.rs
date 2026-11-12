@@ -74,7 +74,8 @@ use crate::sources::osm::{
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    Provider, Region, overlaps_in, raster_region, raster_region_in, touches_berlin,
+    overlaps_in, raster_provider, raster_region_in, region_of_object_id, terrain_source,
+    touches_berlin,
 };
 use crate::sources::trees;
 use crate::sources::{alkis_nas, berlin};
@@ -107,6 +108,12 @@ pub enum ProjectError {
     },
     #[error("invalid project file: {0}")]
     Toml(String),
+    /// The project file names a provider or a region this program has no adapter for: it was
+    /// made with adapters that are not installed here.
+    #[error(
+        "the project file names the adapter \"{0}\", which this freemapper does not have; a newer version may have it"
+    )]
+    UnknownAdapter(String),
     #[error(transparent)]
     Area(#[from] AreaError),
     #[error(transparent)]
@@ -312,7 +319,7 @@ pub struct ProjectFile {
     pub crs: u32,
     /// Who serves the rasters, from the raster region (missing in older projects).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider: Option<Provider>,
+    pub provider: Option<AdapterId>,
     /// Map title for the peripheral information; the folder name when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -423,7 +430,7 @@ pub struct AlkisRecord {
     pub count: usize,
     /// The states whose services delivered objects (missing in projects fetched before Berlin).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub regions: Vec<Region>,
+    pub regions: Vec<AdapterId>,
 }
 
 impl AlkisRecord {
@@ -451,6 +458,7 @@ impl ProjectFile {
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
+        project.check_adapters()?;
         project.drop_unknown_names(progress);
         if project
             .map_kind
@@ -466,6 +474,30 @@ impl ProjectFile {
             ));
         }
         Ok(project)
+    }
+
+    /// Fails when the file names a provider or a region the registry has no adapter for.
+    fn check_adapters(&self) -> Result<(), ProjectError> {
+        let known_provider = |id: &AdapterId| {
+            registry()
+                .adapters()
+                .any(|adapter| adapter.info().provider == *id)
+        };
+        if let Some(provider) = self.provider.as_ref().filter(|id| !known_provider(id)) {
+            return Err(ProjectError::UnknownAdapter(provider.to_string()));
+        }
+        let records = [&self.buildings, &self.land_use]
+            .into_iter()
+            .flatten()
+            .chain(self.berlin_layers.values())
+            .chain(self.nas_layers.values())
+            .chain(self.tree_layers.values());
+        for region in records.flat_map(|record| &record.regions) {
+            if registry().get(region.as_str()).is_none() {
+                return Err(ProjectError::UnknownAdapter(region.to_string()));
+            }
+        }
+        Ok(())
     }
 
     /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
@@ -639,7 +671,7 @@ pub fn init_project_with_content(
     let region_bbox = area.projected_bbox().buffered(map_kind.default_buffer_m());
     check_area(&region_bbox)?;
     let crs = map_crs(&region_bbox);
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     check_size(
         &area
             .projected_bbox_in(crs)
@@ -757,13 +789,10 @@ pub fn set_map_area_with_content(
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     // Projects saved before the provider was recorded: that of the old area.
-    let old_provider = project.provider.or_else(|| {
-        project
-            .region_bbox()
-            .ok()
-            .and_then(|b| raster_region(&b))
-            .map(Region::provider)
-    });
+    let old_provider = project
+        .provider
+        .clone()
+        .or_else(|| project.region_bbox().ok().and_then(|b| raster_provider(&b)));
     project.map_area = area.to_geojson_value();
     project.map_area_source_id = area.source_id.clone();
     let region_bbox = project.region_bbox()?;
@@ -772,7 +801,7 @@ pub fn set_map_area_with_content(
     let crs = map_crs(&region_bbox);
     check_size(&area.projected_bbox_in(crs).buffered(project.buffer_m))?;
     // Another provider (in the same zone) serves other rasters: fetch them again too.
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     let provider_changed = old_provider.is_some() && old_provider != provider;
     let zone_changed = crs != project.crs();
     if zone_changed || provider_changed {
@@ -807,7 +836,7 @@ pub fn set_content(
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
-    raster_region(region_bbox).map_or(Crs::Utm33, Region::crs)
+    raster_region_in(registry(), region_bbox).map_or(Crs::Utm33, |adapter| adapter.info().crs)
 }
 
 fn default_crs() -> u32 {
@@ -817,7 +846,7 @@ fn default_crs() -> u32 {
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
 /// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    if raster_region(bbox).is_none() {
+    if raster_region_in(registry(), bbox).is_none() {
         return Err(ProjectError::OutsideCoverage);
     }
     check_size(bbox)
@@ -970,11 +999,11 @@ fn fetch_project_parts(
         project.drop_fetched(dir);
         project.save(dir)?;
     }
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     if project.provider.is_some() && project.provider != provider {
         progress(note!("warning-other-state"));
         project.drop_fetched(dir);
-        project.provider = provider;
+        project.provider = provider.clone();
         project.save(dir)?;
     }
     project.provider = provider;
@@ -1635,7 +1664,9 @@ fn fetch_berlin_layers_into(
                         fetched: crate::clock::today(),
                         latest_update: None,
                         count,
-                        regions: vec![Region::Berlin],
+                        regions: vec![AdapterId::built_in(
+                            freemapper_adapters_de::boundaries::BERLIN,
+                        )],
                     },
                 );
             }
@@ -1773,11 +1804,7 @@ fn fetch_nas_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched
-                            .regions
-                            .iter()
-                            .filter_map(|id| Region::from_id(id.as_str()))
-                            .collect(),
+                        regions: fetched.regions.clone(),
                     },
                 );
             }
@@ -1976,11 +2003,7 @@ fn fetch_tree_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched
-                            .regions
-                            .iter()
-                            .filter_map(|id| Region::from_id(id.as_str()))
-                            .collect(),
+                        regions: fetched.regions.clone(),
                     },
                 );
             }
@@ -2860,11 +2883,7 @@ fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedS
         terrain: project.terrain.as_ref(),
         alkis: alkis_records(project)
             .map(|record| AlkisUse {
-                regions: record
-                    .regions
-                    .iter()
-                    .map(|region| AdapterId::built_in(region.id()))
-                    .collect(),
+                regions: record.regions.clone(),
                 fetched: record.fetched,
             })
             .collect(),
@@ -2885,12 +2904,13 @@ fn alkis_records(project: &ProjectFile) -> impl Iterator<Item = &AlkisRecord> {
         .flatten()
 }
 
-/// The states of the given ALKIS object ids, in [`Region::ALL`] order.
-fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<Region> {
-    let found: Vec<Region> = oids.filter_map(Region::of_object_id).collect();
-    Region::ALL
-        .into_iter()
-        .filter(|r| found.contains(r))
+/// The regions of the given ALKIS object ids, in the order of the registry.
+fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<AdapterId> {
+    let found: Vec<AdapterId> = oids.filter_map(region_of_object_id).collect();
+    registry()
+        .adapters()
+        .map(|adapter| adapter.info().id.clone())
+        .filter(|region| found.contains(region))
         .collect()
 }
 
@@ -2937,7 +2957,7 @@ pub mod golden {
     /// one recorded tile for the tile providers) to the ALKIS records. `lon` and `lat` place the
     /// map area (a 150 m square) inside the region.
     pub fn credit_lines(
-        region: Region,
+        region: &AdapterId,
         lon: f64,
         lat: f64,
         year: i32,
@@ -2951,12 +2971,12 @@ pub mod golden {
     /// fetched in `year`. `lon` and `lat` place the map area (a 150 m square) inside the region.
     /// The ALKIS services of the states in `neighbours` delivered objects too (land use record).
     pub fn credits(
-        region: Region,
+        region: &AdapterId,
         lon: f64,
         lat: f64,
         year: i32,
         held: Held,
-        neighbours: &[Region],
+        neighbours: &[AdapterId],
     ) -> Credits {
         let (dlon, dlat) = (0.001_1, 0.000_7);
         let ring = [
@@ -2992,7 +3012,7 @@ pub mod golden {
             content: None,
         };
         let bbox = [0.0, 0.0, 1.0, 1.0];
-        let alkis = |regions: Vec<Region>| AlkisRecord {
+        let alkis = |regions: Vec<AdapterId>| AlkisRecord {
             bbox,
             fetched: date,
             latest_update: None,
@@ -3000,7 +3020,7 @@ pub mod golden {
             regions,
         };
         if held != Held::Rasters {
-            project.buildings = Some(alkis(vec![region]));
+            project.buildings = Some(alkis(vec![region.clone()]));
         }
         if !neighbours.is_empty() {
             project.land_use = Some(alkis(neighbours.to_vec()));
@@ -3019,9 +3039,12 @@ pub mod golden {
             };
             project.terrain = Some(wcs.clone());
             project.surface = Some(wcs);
-            let product = match region.provider() {
-                Provider::GeoSn => Some(Product::SaxonyDtm),
-                Provider::Lgb => Some(Product::Dtm),
+            let provider = registry()
+                .get(region.as_str())
+                .map(|adapter| adapter.info().provider.clone());
+            let product = match provider.as_ref().map(AdapterId::as_str) {
+                Some("geosn") => Some(Product::SaxonyDtm),
+                Some("lgb") => Some(Product::Dtm),
                 _ => None,
             };
             if let Some(product) = product {
@@ -3048,6 +3071,9 @@ mod tests {
     use super::*;
     use crate::fetch::TilePaths as _;
     use crate::sources::lgb::ProductTiles as _;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, providers, regions};
+    use crate::sources::region::raster_region;
     use chrono::Datelike as _;
     use freemapper_adapters_de::states::credit::{
         BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
@@ -3373,7 +3399,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::SaxonyAnhalt]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::SAXONY_ANHALT]);
         let foreign: Vec<String> = fetcher
             .log
             .borrow()
@@ -3626,7 +3652,7 @@ mod tests {
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -3636,7 +3662,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Hamburg]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::HAMBURG]);
         assert!(
             messages
                 .iter()
@@ -3749,7 +3775,7 @@ mod tests {
         let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Hvbg));
+        assert_eq!(project.provider, Some(providers::HVBG));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -3760,7 +3786,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Hessen]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::HESSEN]);
         assert!(
             messages
                 .iter()
@@ -4007,7 +4033,7 @@ mod tests {
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -4020,7 +4046,7 @@ mod tests {
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::SchleswigHolstein]
+            [regions::SCHLESWIG_HOLSTEIN]
         );
         assert!(
             messages
@@ -4260,11 +4286,11 @@ mod tests {
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // The rasters come from the centre's provider (Schleswig-Holstein).
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hamburg, Region::SchleswigHolstein]
+            [regions::HAMBURG, regions::SCHLESWIG_HOLSTEIN]
         );
         for extract in ["Hamburg", "Schleswig-Holstein"] {
             let line = format!("reading OSM extract {extract} from 2026-11-06");
@@ -4391,13 +4417,13 @@ mod tests {
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Lgv));
+        assert_eq!(before.provider, Some(providers::LGV));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &norderstedt_area())
             .unwrap()
             .project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -4501,7 +4527,7 @@ mod tests {
         fetch(dir.path(), &fetcher, &cache);
         assert!(dir.path().join(TERRAIN_RELPATH).exists());
         let project = set_map_area(dir.path(), &frankfurt_area()).unwrap().project;
-        assert_eq!(project.provider, Some(Provider::Hvbg));
+        assert_eq!(project.provider, Some(providers::HVBG));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -4510,10 +4536,10 @@ mod tests {
         crate::fetch::test_support::serve_synthetic_hessen(&fetcher, &project.bbox().unwrap());
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Hvbg));
+        assert_eq!(before.provider, Some(providers::HVBG));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &eppendorf_area()).unwrap().project;
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -4527,13 +4553,13 @@ mod tests {
         let (dir, _cache_dir, cache) = halle_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::LvermGeo));
+        assert_eq!(before.provider, Some(providers::LVERM_GEO));
         assert!(before.terrain.is_some());
         let saved = set_map_area(dir.path(), &eppendorf_area()).unwrap();
         assert!(saved.provider_changed && !saved.zone_changed, "{saved:?}");
         let project = saved.project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -4730,7 +4756,7 @@ mod tests {
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm33);
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -4743,7 +4769,7 @@ mod tests {
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::MecklenburgVorpommern]
+            [regions::MECKLENBURG_VORPOMMERN]
         );
         assert!(
             messages
@@ -4838,7 +4864,7 @@ mod tests {
         let (mut project, _) = fetch(dir.path(), &fetcher, &cache);
         // Objects of both states were fetched (a map at the Luebeck bay).
         project.buildings.as_mut().unwrap().regions =
-            vec![Region::SchleswigHolstein, Region::MecklenburgVorpommern];
+            vec![regions::SCHLESWIG_HOLSTEIN, regions::MECKLENBURG_VORPOMMERN];
         let lines = attribution_lines(&project, &[]);
         assert!(lines.iter().any(|l| l == MV_ATTRIBUTION), "{lines:?}");
         assert!(lines.iter().any(|l| l == SH_ATTRIBUTION), "{lines:?}");
@@ -4898,11 +4924,11 @@ mod tests {
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::LaivMv));
+        assert_eq!(before.provider, Some(providers::LAIV_MV));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &fixture_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
-        assert_eq!(project.provider, Some(Provider::Lgb));
+        assert_eq!(project.provider, Some(providers::LGB));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         for relpath in [TERRAIN_RELPATH, SURFACE_RELPATH, WMS_ORTHOPHOTO_RELPATH] {
@@ -5076,7 +5102,7 @@ mod tests {
         // Both states' ALKIS, each OSM extract once, nothing twice.
         assert_eq!(
             project.buildings.as_ref().unwrap().regions,
-            [Region::Brandenburg, Region::MecklenburgVorpommern]
+            [regions::BRANDENBURG, regions::MECKLENBURG_VORPOMMERN]
         );
         for extract in ["Brandenburg", "Mecklenburg-Vorpommern"] {
             let line = format!("reading OSM extract {extract} from 2026-11-06");
@@ -5101,7 +5127,7 @@ mod tests {
         assert_eq!(ids, ["node/101", "node/102"]);
         assert_eq!(project.osm.as_ref().unwrap().count, 2);
         // The rasters come from the centre's provider (MV).
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(
             messages.iter().any(|m| m.starts_with(
@@ -5127,11 +5153,11 @@ mod tests {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Lgb));
+        assert_eq!(before.provider, Some(providers::LGB));
         assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
         let project = set_map_area(dir.path(), &rostock_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert!(project.buildings.is_none() && project.land_use.is_none());
         assert!(project.osm.is_none() && project.orthophoto.is_none());
@@ -5268,7 +5294,7 @@ mod tests {
                 "coordinates": [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }),
             crs: 25833,
-            provider: Some(Provider::Lgb),
+            provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -5282,7 +5308,7 @@ mod tests {
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
                 count: 18,
-                regions: vec![Region::Brandenburg],
+                regions: vec![regions::BRANDENBURG],
             }),
             land_use: Some(AlkisRecord {
                 bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
@@ -5299,7 +5325,7 @@ mod tests {
                     fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
                     latest_update: NaiveDate::from_ymd_opt(2020, 11, 24),
                     count: 4,
-                    regions: vec![Region::Brandenburg],
+                    regions: vec![regions::BRANDENBURG],
                 },
             )]),
             tree_layers: BTreeMap::from([(
@@ -5309,7 +5335,7 @@ mod tests {
                     fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
                     latest_update: NaiveDate::from_ymd_opt(2026, 3, 2),
                     count: 3,
-                    regions: vec![Region::Brandenburg],
+                    regions: vec![regions::BRANDENBURG],
                 },
             )]),
             k5: None,
@@ -6334,24 +6360,24 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     #[test]
     fn skip_surface_reaches_every_backend() {
         type School = fn(&MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache);
-        let providers: [(Provider, School); 10] = [
-            (Provider::Lgb, strausberg_school),
-            (Provider::GeoSn, dresden_school),
-            (Provider::LvermGeo, halle_school),
-            (Provider::Lgv, eppendorf_school),
-            (Provider::Hvbg, frankfurt_school),
-            (Provider::LvermGeoSh, norderstedt_school),
-            (Provider::LaivMv, rostock_school),
-            (Provider::GeobasisNrw, koeln_school),
-            (Provider::Lgln, hannover_school),
-            (Provider::LvermGeoRp, koblenz_school),
+        let providers: [(AdapterId, School); 10] = [
+            (providers::LGB, strausberg_school),
+            (providers::GEO_SN, dresden_school),
+            (providers::LVERM_GEO, halle_school),
+            (providers::LGV, eppendorf_school),
+            (providers::HVBG, frankfurt_school),
+            (providers::LVERM_GEO_SH, norderstedt_school),
+            (providers::LAIV_MV, rostock_school),
+            (providers::GEOBASIS_NRW, koeln_school),
+            (providers::LGLN, hannover_school),
+            (providers::LVERM_GEO_RP, koblenz_school),
         ];
         for (provider, school) in providers {
             // With room for everything: the requests of a whole fetch.
             let fetcher = MapFetcher::default();
             let (dir, _cache_dir, cache) = school(&fetcher);
             let (whole, _) = fetch(dir.path(), &fetcher, &cache);
-            assert_eq!(whole.provider, Some(provider));
+            assert_eq!(whole.provider, Some(provider.clone()));
             let all: Vec<String> = fetcher.log.borrow().clone();
             // One byte short: the surface model is the first part to go.
             let fetcher = MapFetcher::default();
@@ -6873,8 +6899,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(orthophoto.flight.as_deref(), Some("19.03. + 07.04.2024"));
         assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
         assert_eq!(project.buildings.as_ref().unwrap().count, 3);
-        assert_eq!(project.buildings.unwrap().regions, [Region::Saxony]);
-        assert_eq!(project.land_use.unwrap().regions, [Region::Saxony]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::SAXONY]);
+        assert_eq!(project.land_use.unwrap().regions, [regions::SAXONY]);
         assert!(
             messages.iter().any(|m| m == "3 ALKIS buildings"),
             "{messages:?}"
@@ -7174,7 +7200,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, _cache_dir, cache) = koeln_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -7187,7 +7213,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::NordrheinWestfalen]
+            [regions::NORDRHEIN_WESTFALEN]
         );
         assert!(
             messages
@@ -7278,7 +7304,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(project.surface.is_some() && project.buildings.is_some());
         assert!(
@@ -7306,11 +7332,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, _cache_dir, cache) =
             nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hessen, Region::NordrheinWestfalen]
+            [regions::HESSEN, regions::NORDRHEIN_WESTFALEN]
         );
         {
             let log = fetcher.log.borrow();
@@ -7535,7 +7561,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -7546,7 +7572,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Niedersachsen]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::NIEDERSACHSEN]);
         {
             let log = fetcher.log.borrow();
             let getmap: Vec<&String> = log
@@ -7762,13 +7788,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|step| (485_500.0, 5_876_500.0 - f64::from(step) * 50.0))
             .find(|&(e, n)| {
                 raster_region(&utm32_area_at(e, n, 300.0).projected_bbox())
-                    == Some(Region::Niedersachsen)
+                    == Some(regions::NIEDERSACHSEN)
             })
             .expect("a centre in Niedersachsen");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert_eq!(
             messages
                 .iter()
@@ -7801,12 +7827,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let area = utm32_area_at(590_150.0, 5_706_232.0, 300.0);
         assert_eq!(
             raster_region(&area.projected_bbox()),
-            Some(Region::Niedersachsen)
+            Some(regions::NIEDERSACHSEN)
         );
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &area);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         let warnings: Vec<&String> = messages
             .iter()
             .filter(|m| {
@@ -7905,7 +7931,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (mut project, _) = fetch(dir.path(), &fetcher, &cache);
         // Objects of both states were fetched (a map on the Elbe).
         project.buildings.as_mut().unwrap().regions =
-            vec![Region::SchleswigHolstein, Region::Niedersachsen];
+            vec![regions::SCHLESWIG_HOLSTEIN, regions::NIEDERSACHSEN];
         let lines = attribution_lines(&project, &[]);
         assert!(lines.iter().any(|l| l == SH_ATTRIBUTION), "{lines:?}");
         assert!(
@@ -7929,18 +7955,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .find(|&(e, n)| {
                 let area = utm32_area_at(e, n, 300.0);
                 let bbox = area.projected_bbox();
-                raster_region(&bbox) == Some(Region::Niedersachsen)
-                    && regions_for(&bbox).contains(&Region::Hamburg)
+                raster_region(&bbox) == Some(regions::NIEDERSACHSEN)
+                    && regions_for(&bbox).contains(&regions::HAMBURG)
             })
             .expect("a border area south of Harburg");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hamburg, Region::Niedersachsen]
+            [regions::HAMBURG, regions::NIEDERSACHSEN]
         );
         {
             let log = fetcher.log.borrow();
@@ -8074,7 +8100,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // Koblenz lies west of the 25833 false easting: the region box is negative.
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_RP));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         let orthophoto = project.orthophoto.unwrap();
         assert_eq!(orthophoto.flight.as_deref(), Some("25.08.2025"));
@@ -8088,7 +8114,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::RheinlandPfalz]);
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [regions::RHEINLAND_PFALZ]
+        );
         {
             let log = fetcher.log.borrow();
             // The orthophoto and the tiles come from the origin hosts, never the registry proxy.
@@ -8272,19 +8301,19 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|step| (447_500.0 - f64::from(step) * 50.0, 5_540_500.0))
             .find(|&(e, n)| {
                 let bbox = utm32_area_at(e, n, 300.0).projected_bbox();
-                raster_region(&bbox) == Some(Region::RheinlandPfalz)
-                    && regions_for(&bbox).contains(&Region::Hessen)
+                raster_region(&bbox) == Some(regions::RHEINLAND_PFALZ)
+                    && regions_for(&bbox).contains(&regions::HESSEN)
             })
             .expect("a border area at Mainz");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = rp_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_RP));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(project.surface.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hessen, Region::RheinlandPfalz]
+            [regions::HESSEN, regions::RHEINLAND_PFALZ]
         );
         {
             let log = fetcher.log.borrow();
@@ -8421,7 +8450,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         for extract in ["Düsseldorf", "Köln"] {
             let line =
                 format!("reading OSM extract North Rhine-Westphalia, {extract} from 2026-11-06");
@@ -9616,7 +9645,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let walls = &project.nas_layers["sonstiges-bauwerk"];
         assert_eq!(walls.count, 5);
         assert_eq!(walls.latest_update, NaiveDate::from_ymd_opt(2013, 1, 29));
-        assert_eq!(walls.regions, [Region::Brandenburg]);
+        assert_eq!(walls.regions, [regions::BRANDENBURG]);
         let stored =
             std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
                 .unwrap();
@@ -9673,7 +9702,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
             latest_update: None,
             count: 0,
-            regions: vec![Region::Berlin],
+            regions: vec![regions::BERLIN],
         };
         let previous = BTreeMap::from([("relief".to_string(), record)]);
         // Strausberg, Brandenburg.
@@ -9746,7 +9775,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
             latest_update: None,
             count: 0,
-            regions: vec![Region::Berlin],
+            regions: vec![regions::BERLIN],
         }
     }
 
@@ -9951,7 +9980,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let record = &records["potsdam"];
         assert_eq!(record.count, 3);
         assert_eq!(record.latest_update, NaiveDate::from_ymd_opt(2009, 6, 10));
-        assert_eq!(record.regions, [Region::Brandenburg]);
+        assert_eq!(record.regions, [regions::BRANDENBURG]);
         assert_eq!(
             record.bbox,
             [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0]
@@ -10499,13 +10528,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.buildings.unwrap().regions, [Region::Berlin]);
-        assert_eq!(project.land_use.unwrap().regions, [Region::Berlin]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::BERLIN]);
+        assert_eq!(project.land_use.unwrap().regions, [regions::BERLIN]);
 
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let project = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(project.buildings.unwrap().regions, [Region::Brandenburg]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::BRANDENBURG]);
     }
 
     #[test]
@@ -10518,7 +10547,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .iter()
                 .any(|l| l.contains("Berlin"))
         );
-        project.buildings.as_mut().unwrap().regions = vec![Region::Brandenburg, Region::Berlin];
+        project.buildings.as_mut().unwrap().regions = vec![regions::BRANDENBURG, regions::BERLIN];
         assert!(attribution_lines(&project, &[]).contains(&BERLIN_ATTRIBUTION.to_string()));
     }
 

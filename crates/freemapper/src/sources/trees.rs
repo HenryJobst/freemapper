@@ -85,7 +85,9 @@ mod tests {
     use super::*;
     use crate::fetch::FetchError;
     use crate::fetch::test_support::MapFetcher;
-    use crate::sources::region::Region;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
+    use freemapper_adapter_api::records::AdapterId;
 
     /// Sanssouci, Potsdam (EPSG:25833), where the fixture trees stand.
     fn sanssouci() -> BoundingBox {
@@ -217,7 +219,7 @@ mod tests {
         let trees = layers[0].features.as_ref().unwrap();
         assert_eq!(trees.features.len(), 3);
         assert_eq!(trees.regions.len(), 1);
-        assert_eq!(trees.regions[0].as_str(), Region::Brandenburg.id());
+        assert_eq!(trees.regions[0].as_str(), regions::BRANDENBURG.id());
     }
 
     #[test]
@@ -261,7 +263,7 @@ mod tests {
             max_e: 374_800.0,
             max_n: 5_817_250.0,
         };
-        let row = |region: Region, min_e, max_e| TreeDataset {
+        let row = |region: AdapterId, min_e, max_e| TreeDataset {
             region: region.id().parse().unwrap(),
             envelope: BoundingBox {
                 min_e,
@@ -273,12 +275,12 @@ mod tests {
         };
         // The area touches both states, but the envelope covers only the Berlin side.
         let berlin_side = |region| row(region, 374_300.0, 374_700.0);
-        assert!(needs(&berlin_side(Region::Berlin), &area));
-        assert!(!needs(&berlin_side(Region::Brandenburg), &area));
+        assert!(needs(&berlin_side(regions::BERLIN), &area));
+        assert!(!needs(&berlin_side(regions::BRANDENBURG), &area));
         // And only the Brandenburg side.
         let brandenburg_side = |region| row(region, 373_000.0, 373_400.0);
-        assert!(needs(&brandenburg_side(Region::Brandenburg), &area));
-        assert!(!needs(&brandenburg_side(Region::Berlin), &area));
+        assert!(needs(&brandenburg_side(regions::BRANDENBURG), &area));
+        assert!(!needs(&brandenburg_side(regions::BERLIN), &area));
     }
 
     #[test]

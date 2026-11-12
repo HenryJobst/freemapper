@@ -11,8 +11,9 @@ use crate::info::RegionInfo;
 use crate::rasters::RasterBackend;
 use crate::records::EstimateItem;
 
-/// Everything one state or country supplies. This is the first cut (plan task C1): identity
-/// and boundary, by now with the OSM extracts (C3), the credit lines (C4), the estimate (C5), ALKIS (C6), the rasters (C7) and the extra sources (C13). The tasks that move a concern off the region enums add its method.
+/// Everything one state or country supplies: who it is and where it lies, its OSM extracts, its
+/// ALKIS service, its rasters, its extra sources, the credit it asks for and what a map of it
+/// downloads. The engine asks the adapters of the registry and names no region itself.
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;

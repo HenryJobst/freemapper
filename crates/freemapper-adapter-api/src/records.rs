@@ -269,6 +269,27 @@ impl FromStr for AdapterId {
     }
 }
 
+impl AsRef<str> for AdapterId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+/// An id is written as its plain text: the project file names regions and providers so.
+impl serde::Serialize for AdapterId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+/// Read from its plain text; a text that has not the form of an id is refused.
+impl<'de> serde::Deserialize<'de> for AdapterId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse().map_err(serde::de::Error::custom)
+    }
+}
+
 impl fmt::Display for AdapterId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
@@ -278,6 +299,33 @@ impl fmt::Display for AdapterId {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_adapter_id_is_stored_as_its_text() {
+        #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq)]
+        struct Record {
+            provider: Option<AdapterId>,
+            regions: Vec<AdapterId>,
+        }
+        let record = Record {
+            provider: Some(AdapterId::built_in("lgb")),
+            regions: vec![
+                AdapterId::built_in("brandenburg"),
+                AdapterId::built_in("berlin"),
+            ],
+        };
+        let text = serde_json::to_string(&record).unwrap();
+        assert_eq!(
+            text,
+            r#"{"provider":"lgb","regions":["brandenburg","berlin"]}"#
+        );
+        assert_eq!(serde_json::from_str::<Record>(&text).unwrap(), record);
+        let error = serde_json::from_str::<Record>(r#"{"provider":"Not An Id","regions":[]}"#)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("is no adapter id"), "{error}");
+        assert_eq!(AdapterId::built_in("lgb").as_ref(), "lgb");
+    }
 
     #[test]
     fn adapter_id_accepts_legacy_ids_and_rejects_others() {
