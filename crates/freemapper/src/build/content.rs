@@ -104,6 +104,8 @@ pub enum Group {
     Passages,
     /// Contours (101, 102).
     Contours,
+    /// Knolls, elongated knolls and depressions (109 to 111), from the terrain model.
+    Landforms,
     /// Areas that shall not be entered (520).
     OutOfBounds,
     /// Paths and tracks (501.6 to 501.9, 505, 506, 509).
@@ -113,7 +115,7 @@ pub enum Group {
 }
 
 impl Group {
-    pub const ALL: [Group; 14] = [
+    pub const ALL: [Group; 15] = [
         Group::Walls,
         Group::Fences,
         Group::Hedges,
@@ -125,6 +127,7 @@ impl Group {
         Group::Furniture,
         Group::Passages,
         Group::Contours,
+        Group::Landforms,
         Group::OutOfBounds,
         Group::Paths,
         Group::Streets,
@@ -144,6 +147,7 @@ impl Group {
             Group::Furniture => "furniture",
             Group::Passages => "passages",
             Group::Contours => "contours",
+            Group::Landforms => "landforms",
             Group::OutOfBounds => "out-of-bounds",
             Group::Paths => "paths",
             Group::Streets => "streets",
@@ -168,6 +172,7 @@ impl Group {
             Group::Furniture => &["321", "531", "541", "542", "543", "544", "545"],
             Group::Passages => &["522"],
             Group::Contours => &["101", "102"],
+            Group::Landforms => &["109", "110", "111"],
             Group::OutOfBounds => &["520"],
             Group::Paths => &[
                 "501.6", "501.7", "501.8", "501.9", "505.1", "505.2", "506", "507", "509.1",
@@ -183,7 +188,8 @@ impl Group {
 
     /// The lowest rank of a source whose objects of this group the `balanced` profile puts on the
     /// map; `None` for a group it leaves as the build has it (areas that shall not be entered,
-    /// street furniture) or sends by another rule (the contours always go to the map).
+    /// street furniture, the knolls and depressions of the terrain model until their hit rate is
+    /// measured) or sends by another rule (the contours always go to the map).
     /// OpenStreetMap counts for walls, fences, hedges, water, trees, monuments (towers, pipelines,
     /// power lines), banks, passages and paths, where it is often the only source; the rest needs the cadastre, a register or the street survey.
     fn balanced_from(self) -> Option<Rank> {
@@ -199,7 +205,7 @@ impl Group {
             | Group::Paths
             | Group::Stairs => Some(Rank::Osm),
             Group::Streets => Some(Rank::Survey),
-            Group::Furniture | Group::OutOfBounds | Group::Contours => None,
+            Group::Furniture | Group::OutOfBounds | Group::Contours | Group::Landforms => None,
         }
     }
 }
@@ -232,6 +238,8 @@ pub struct ContentSettings {
     pub passages: Option<Place>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contours: Option<Place>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub landforms: Option<Place>,
     #[serde(rename = "out-of-bounds", skip_serializing_if = "Option::is_none")]
     pub out_of_bounds: Option<Place>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -263,6 +271,7 @@ impl ContentSettings {
             Group::Furniture => self.furniture,
             Group::Passages => self.passages,
             Group::Contours => self.contours,
+            Group::Landforms => self.landforms,
             Group::OutOfBounds => self.out_of_bounds,
             Group::Paths => self.paths,
             Group::Streets => self.streets,
@@ -283,6 +292,7 @@ impl ContentSettings {
             Group::Furniture => &mut self.furniture,
             Group::Passages => &mut self.passages,
             Group::Contours => &mut self.contours,
+            Group::Landforms => &mut self.landforms,
             Group::OutOfBounds => &mut self.out_of_bounds,
             Group::Paths => &mut self.paths,
             Group::Streets => &mut self.streets,

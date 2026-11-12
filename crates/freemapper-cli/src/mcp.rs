@@ -82,7 +82,7 @@ struct CreateProject {
     content: Option<String>,
     /// Groups sent somewhere else than the profile says, as "group=place" with place map,
     /// candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees,
-    /// water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+    /// water-features, monuments, furniture, passages, contours, landforms, out-of-bounds, paths, streets.
     content_set: Option<Vec<String>>,
 }
 

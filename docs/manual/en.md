@@ -563,8 +563,9 @@ From the terrain model come further candidates the contours miss:
 
 None come at buildings, in water, or next to walls, fences and banks that are already drawn. The terrain
 model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
-as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Banks and cliffs belong to the group `slopes`
-(see below): with `full` or `--content-set slopes=map` they go straight onto the map.
+as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Banks and cliffs belong to the group `slopes`,
+knolls and depressions to the group `landforms` (see below): with `full`, `--content-set slopes=map` or
+`landforms=map` they go straight onto the map.
 
 ### What goes straight onto the map
 
@@ -575,11 +576,11 @@ stays a candidate and appears only in the template. You set how this is divided 
 | Profile | Effect |
 |---|---|
 | `safe` | Every object stays where the build puts it: buildings, ALKIS areas (traffic, water, parks) and OSM paths with a known surface go onto the map. Walls, fences, trees, OSM ponds, paths without a known surface and everything else uncertain stay candidates. |
-| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips. Stairs, walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps and OSM parks stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
+| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips. Stairs, walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps, OSM parks, and the knolls, depressions, banks and cliffs from the terrain model stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
 | `full` | Everything goes onto the map, as in the training map. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
-`monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, each `map`, `candidates` or `off`.
+`monuments`, `furniture`, `passages`, `contours`, `landforms`, `out-of-bounds`, `paths`, `streets`, each `map`, `candidates` or `off`.
 
 ```sh
 freemapper run <folder> --content balanced --content-set fences=candidates --content-set contours=map

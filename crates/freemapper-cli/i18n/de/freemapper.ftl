@@ -275,6 +275,7 @@ page-content-group-monuments = Türme, Denkmäler und Leitungen
 page-content-group-furniture = Ausstattung und Laternen
 page-content-group-passages = Durchgänge
 page-content-group-contours = Höhenlinien
+page-content-group-landforms = Kuppen und Senken aus dem Geländemodell
 page-content-group-out-of-bounds = Sperrgebiete
 page-content-group-paths = Wege und Gleise
 page-content-group-streets = Straßen und Plätze
@@ -716,9 +717,9 @@ mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Stand
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
-help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
+help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
 mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
-mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, out-of-bounds, paths, streets.
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }

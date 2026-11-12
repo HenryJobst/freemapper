@@ -34,7 +34,10 @@ three that work on the DGM1 every state publishes.
   (0.1 m) and `freemapper:currency`. The landforms are added before the content routing (ADR 0100): banks
   and cliffs belong to the group `slopes`, so `full` or `slopes=map` puts them on the map and `slopes=off`
   drops them; `balanced` leaves them candidates, because the terrain model has no source rank. Knolls and
-  depressions belong to no group and stay candidates.
+  depressions get their own group `landforms` (109 to 111), so `full` and `landforms=map` reach them too;
+  `balanced` leaves the group as the build has it. Whether `balanced` takes the knolls is decided on a
+  measured hit rate in three example areas (at least about 80 % real knolls); banks and depressions stay
+  candidates, cliffs always, because a wrong impassable cliff forbids a way in a sprint race.
 - The algorithms are our own. The pairing of drop and steepness follows karttapullautin's cliff test, the drop
   across the patch and the tick side follow omapmaker's cliff classification. No code is copied from omapmaker.
   freemapper does not depend on karttapullautin: its library split (`pullauta-core`) is not upstream, and most of

@@ -590,8 +590,9 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
 An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine. Das
 Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa einen Meter sind, übersieht es,
 und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
-Mauer herausstellen, eine Felswand als Treppe. Böschungen und Felswände gehören zur Gruppe `slopes` (siehe
-unten): Mit `full` oder `--content-set slopes=map` kommen sie direkt auf die Karte.
+Mauer herausstellen, eine Felswand als Treppe. Böschungen und Felswände gehören zur Gruppe `slopes`, Kuppen
+und Senken zur Gruppe `landforms` (siehe unten): Mit `full` oder `--content-set slopes=map` bzw.
+`landforms=map` kommen sie direkt auf die Karte.
 
 ### Was direkt auf die Karte kommt
 
@@ -602,11 +603,11 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 | Profil | Wirkung |
 |---|---|
 | `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, ALKIS-Flächen (Verkehr, Gewässer, Parks) und OSM-Wege mit bekannter Oberfläche kommen auf die Karte. Mauern, Zäune, Bäume, OSM-Teiche, Wege ohne bekannte Oberfläche und alles andere Unsichere bleiben Kandidat. |
-| `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Treppen, Wege, Gleise, Böschungen, Durchgänge sowie Denkmäler, Türme und oberirdische Rohrleitungen kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Auch die Höhenlinien kommen auf die Karte. Die Sperrgebiete entlang von Bahngleisen kommen auf die Karte (und die Punkte darin entfallen); andere Sperrgebiete, die auf einer Schätzung beruhen, Ausstattung und Laternen und OSM-Parkflächen bleiben Kandidat. Für Rohrleitungen (528, 529) verlangt die Norm eine Erklärung des Symbols in der Legende; sie zu schreiben ist Sache des Kartierers. |
+| `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Treppen, Wege, Gleise, Böschungen, Durchgänge sowie Denkmäler, Türme und oberirdische Rohrleitungen kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Auch die Höhenlinien kommen auf die Karte. Die Sperrgebiete entlang von Bahngleisen kommen auf die Karte (und die Punkte darin entfallen); andere Sperrgebiete, die auf einer Schätzung beruhen, Ausstattung und Laternen, OSM-Parkflächen sowie die Kuppen, Senken, Böschungen und Felswände aus dem Geländemodell bleiben Kandidat. Für Rohrleitungen (528, 529) verlangt die Norm eine Erklärung des Symbols in der Legende; sie zu schreiben ist Sache des Kartierers. |
 | `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
 
 Einzelne Gruppen lassen sich abweichend einstellen: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`,
-`water-features`, `monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, je nach `map`
+`water-features`, `monuments`, `furniture`, `passages`, `contours`, `landforms`, `out-of-bounds`, `paths`, `streets`, je nach `map`
 (Karte), `candidates` (Kandidat) oder `off` (weglassen).
 
 ```sh

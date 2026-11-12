@@ -12755,8 +12755,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // The map itself stays without them.
         let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
         assert!(!map.contains(">1.1<"));
-        // The terrain model has no source rank: `balanced` leaves the bank a candidate, the
-        // group `slopes` set to the map moves it there; knolls belong to no group.
+        // The terrain model has no source rank: `balanced` leaves the bank and the knoll
+        // candidates, the groups `slopes` and `landforms` set to the map move them there.
         use crate::build::content::{Group, Place, Profile};
         let mut content = ContentSettings::with_profile(Profile::Balanced);
         let on_map = |dir: &Path| {
@@ -12767,8 +12767,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         set_content(dir.path(), Some(content.clone())).unwrap();
         assert_eq!(on_map(dir.path()), (false, false));
         content.set(Group::Slopes, Some(Place::Map));
-        set_content(dir.path(), Some(content)).unwrap();
+        set_content(dir.path(), Some(content.clone())).unwrap();
         assert_eq!(on_map(dir.path()), (true, false));
+        content.set(Group::Landforms, Some(Place::Map));
+        set_content(dir.path(), Some(content)).unwrap();
+        assert_eq!(on_map(dir.path()), (true, true));
     }
 
     #[test]
