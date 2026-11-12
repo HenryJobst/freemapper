@@ -1139,3 +1139,232 @@ fn content_written_elsewhere_shows_in_the_next_project_answer() {
     assert_eq!(status, 409);
     assert_eq!(stored_content(&project).unwrap().profile.name(), "full");
 }
+
+/// Status, content type, cache control and body of a GET.
+fn get_bytes(selector: &Selector, path: &str) -> (u16, String, String, Vec<u8>) {
+    let mut response = selector
+        .agent
+        .get(&format!("{}{path}", selector.url))
+        .call()
+        .unwrap();
+    let header = |name: &str| {
+        response
+            .headers()
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let (content_type, cache_control) = (header("content-type"), header("cache-control"));
+    let status = response.status().as_u16();
+    let body = response.body_mut().read_to_vec().unwrap();
+    (status, content_type, cache_control, body)
+}
+
+/// A POST as the page sends it, in the browser language `accept`; the error sentence of a JSON
+/// answer, or the whole text of another one.
+fn post_in(selector: &Selector, path: &str, body: Value, accept: &str) -> (u16, Value) {
+    let origin = selector
+        .url
+        .split('/')
+        .take(3)
+        .collect::<Vec<_>>()
+        .join("/");
+    let mut response = selector
+        .agent
+        .post(&format!("{}{path}", selector.url))
+        .header("Content-Type", "application/json")
+        .header("Origin", &origin)
+        .header("Accept-Language", accept)
+        .send(body.to_string())
+        .unwrap();
+    let status = response.status().as_u16();
+    let text = response.body_mut().read_to_string().unwrap();
+    (
+        status,
+        serde_json::from_str(&text).unwrap_or(Value::String(text)),
+    )
+}
+
+/// `RIFF`, the size, `WEBP`.
+fn is_webp(bytes: &[u8]) -> bool {
+    bytes.len() > 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP"
+}
+
+/// The map image routes: the stored preview after an export, live previews by the content
+/// settings, and the refusals in the page's language. No network: `init` and `export` without
+/// fetched data give an (almost empty) map and its preview.
+#[test]
+fn map_image_routes_serve_the_stored_and_live_previews() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    let freemapper = |args: &[&str]| {
+        let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+            .env("FREEMAPPER_LANG", "en")
+            .args(args)
+            .stdout(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success(), "{args:?}");
+    };
+    let path = project.to_str().unwrap();
+    freemapper(&["init", path, "--geojson", FIXTURE]);
+    let selector = Selector::start_with_env(&project, cache.path(), &[], &NO_LANGUAGE);
+    let state = |selector: &Selector| -> Value {
+        let (status, body) = selector.get("api/map-image/state");
+        assert_eq!(status, 200, "{body}");
+        serde_json::from_str(&body).unwrap()
+    };
+
+    // No map yet: no stored image, and no live one either.
+    let (status, ..) = get_bytes(&selector, "api/map-image");
+    assert_eq!(status, 404);
+    assert_eq!(
+        state(&selector),
+        json!({ "stored": false, "fresh": false, "content": null })
+    );
+    for (accept, sentence) in [
+        ("de-DE,de;q=0.9", "Erzeugen Sie zuerst die Karte."),
+        ("en", "Create the map first."),
+    ] {
+        let (status, answer) = post_in(&selector, "api/map-image", json!({}), accept);
+        assert_eq!(status, 409, "{answer}");
+        assert_eq!(answer["error"], sentence, "{answer}");
+    }
+
+    // After the export the stored preview is served, and it fits the saved project.
+    freemapper(&["export", path]);
+    let (status, content_type, cache_control, stored) = get_bytes(&selector, "api/map-image");
+    assert_eq!(status, 200);
+    assert_eq!(content_type, "image/webp");
+    assert_eq!(cache_control, "no-store");
+    assert!(is_webp(&stored));
+    assert_eq!(
+        state(&selector),
+        json!({ "stored": true, "fresh": true, "content": { "profile": "balanced" } })
+    );
+
+    // A live preview with other settings, kept in memory until a newer one replaces it.
+    let (status, first) = post_in(
+        &selector,
+        "api/map-image",
+        json!({ "content": { "profile": "full" } }),
+        "en",
+    );
+    assert_eq!(status, 200, "{first}");
+    assert_eq!(first["content"], json!({ "profile": "full" }));
+    assert!(first["width"].as_u64().unwrap() > 0, "{first}");
+    assert!(first["height"].as_u64().unwrap() > 0, "{first}");
+    let first_id = first["id"].as_u64().unwrap();
+    let (status, content_type, cache_control, live) =
+        get_bytes(&selector, &format!("api/map-image/live/{first_id}"));
+    assert_eq!(status, 200);
+    assert_eq!(content_type, "image/webp");
+    assert_eq!(cache_control, "no-store");
+    assert!(is_webp(&live));
+    // Without settings the project's own are used; the older image is gone.
+    let (status, second) = post_in(&selector, "api/map-image", json!({}), "en");
+    assert_eq!(status, 200, "{second}");
+    assert_eq!(second["content"], json!({ "profile": "balanced" }));
+    let second_id = second["id"].as_u64().unwrap();
+    assert!(second_id > first_id, "{first} {second}");
+    let (status, ..) = get_bytes(&selector, &format!("api/map-image/live/{first_id}"));
+    assert_eq!(status, 404);
+    let (status, _, _, live) = get_bytes(&selector, &format!("api/map-image/live/{second_id}"));
+    assert_eq!(status, 200);
+    assert!(is_webp(&live));
+    for path in ["api/map-image/live/0", "api/map-image/live/x"] {
+        let (status, body) = selector.get(path);
+        assert_eq!(status, 404, "{path}: {body}");
+        assert_eq!(
+            serde_json::from_str::<Value>(&body).unwrap()["error"],
+            "This preview is no longer available.",
+            "{path}"
+        );
+    }
+
+    // Settings that are no valid choice: 422 with one sentence, nothing computed.
+    for content in [json!({ "profile": "nope" }), json!({ "colour": "map" })] {
+        let (status, answer) = post_in(
+            &selector,
+            "api/map-image",
+            json!({ "content": content }),
+            "de",
+        );
+        assert_eq!(status, 422, "{answer}");
+        assert_eq!(answer, "Die Inhaltseinstellungen sind ungültig.");
+    }
+    // A body that is no JSON object: 400 in the page's language, nothing computed either.
+    for body in ["[]", "\"x\"", "1", "{"] {
+        let mut response = selector
+            .agent
+            .post(&format!("{}api/map-image", selector.url))
+            .header("Content-Type", "application/json")
+            .header(
+                "Origin",
+                selector
+                    .url
+                    .split('/')
+                    .take(3)
+                    .collect::<Vec<_>>()
+                    .join("/"),
+            )
+            .header("Accept-Language", "de")
+            .send(body)
+            .unwrap();
+        assert_eq!(response.status().as_u16(), 400, "{body}");
+        let answer: Value =
+            serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+        assert!(
+            answer["error"]
+                .as_str()
+                .unwrap()
+                .starts_with("Die Anfrage für die Vorschau ist ungültig."),
+            "{body}: {answer}"
+        );
+    }
+    // The newest live image is still the one before.
+    let (status, ..) = get_bytes(&selector, &format!("api/map-image/live/{second_id}"));
+    assert_eq!(status, 200);
+
+    // A save of the same area with other content settings, as the page makes it, keeps the
+    // stored data fitting: the preview stays fresh and still names the settings it shows.
+    let page = selector.project();
+    let (status, saved) = selector.save(json!({
+        "area": page["area"],
+        "source_id": page["source_id"],
+        "content": { "profile": "full" },
+    }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(
+        state(&selector),
+        json!({ "stored": true, "fresh": true, "content": { "profile": "balanced" } })
+    );
+    let (status, answer) = post_in(&selector, "api/map-image", json!({}), "en");
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["content"], json!({ "profile": "full" }));
+    // The refused requests took no number.
+    assert_eq!(answer["id"].as_u64().unwrap(), second_id + 1, "{answer}");
+
+    // Another area saved: the stored data is not that area's any more, so a new run is needed.
+    let (status, saved) = selector.save(json!({ "area": rectangle(13.843, 52.539) }));
+    assert_eq!(status, 200, "{saved}");
+    let (status, answer) = post_in(&selector, "api/map-image", json!({}), "de-DE,de");
+    assert_eq!(status, 409, "{answer}");
+    assert_eq!(
+        answer["error"],
+        "Das gespeicherte Projekt passt nicht mehr zur erzeugten Karte, etwa weil sich Gebiet, \
+         Kartenart oder Maßstab geändert haben. Starten Sie zuerst einen Lauf, der die Karte \
+         ersetzt („Vorhandene Karte ersetzen“ auf der Seite oder freemapper run --force).",
+        "{answer}"
+    );
+    // The stored image stays, marked as not fresh.
+    assert_eq!(
+        state(&selector),
+        json!({ "stored": true, "fresh": false, "content": { "profile": "balanced" } })
+    );
+    let (status, _, _, again) = get_bytes(&selector, "api/map-image");
+    assert_eq!(status, 200);
+    assert_eq!(again, stored);
+}

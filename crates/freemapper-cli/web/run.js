@@ -90,6 +90,7 @@ function blockedReason() {
 /** Brings the controls in line with the page: options, hints, start button. */
 function refresh() {
   if (!page() || $r("run").hidden) return;
+  const p = page();
   const anyPdf = $r("run-pdf").checked || $r("run-pdf-candidates").checked;
   $r("run-pdf-scale-bar").disabled = running || !anyPdf;
   $r("run-pdf-sources").disabled = running || !anyPdf;
@@ -98,6 +99,11 @@ function refresh() {
   for (const id of ["ocad", "pdf", "pdf-candidates", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;
   }
+  // The area on the page became saved or unsaved: that decides whether live images may come.
+  const areaSaved = p.areaIsSaved();
+  const areaChanged = previewAreaSaved !== null && areaSaved !== previewAreaSaved;
+  previewAreaSaved = areaSaved;
+  if (areaChanged && previewState) decidePreview(0);
   const reason = blockedReason();
   const why = $r("run-why");
   // Only a reason the user can act on is worth a line; "running" shows in the progress panel.
@@ -157,6 +163,8 @@ async function startRun() {
   } finally {
     starting = false;
     refresh();
+    // A refused or failed start: the page may show a state that the save changed.
+    if (!running) loadPreviewState().then(() => decidePreview(0));
   }
 }
 
@@ -277,6 +285,7 @@ async function endRun(status) {
   applyRunTexts();
   refresh();
   $r("run-result-heading").focus();
+  runEnded();
 }
 
 function renderResult(status) {
@@ -350,6 +359,199 @@ function closingText() {
   return t("page-made-files", { files, dir: project.dir });
 }
 
+// --- Map preview -----------------------------------------------------------------------------
+// The record next to the stored image (api/map-image/state) says which settings that image shows
+// and whether the saved project still fits it. The image is the stored one when the page's content
+// settings are the recorded ones, otherwise a live one for the page's settings (api/map-image).
+
+// How long the content settings must stay unchanged before a live image is asked for.
+const PREVIEW_DELAY_MS = 400;
+// How often a live image that another tab replaced is asked for again.
+const PREVIEW_RETRIES = 2;
+
+// The answer of api/map-image/state, or null before it is read.
+let previewState = null;
+// Answers and images of older requests are dropped.
+let previewSeq = 0;
+let previewTimer = null;
+// Makes the address of the stored image change, so the browser loads it again.
+let previewVersion = 0;
+// The live image on show (its id), or null.
+let previewLive = null;
+let previewRetries = 0;
+// Whether the area on the page was the saved one when last looked at; null before.
+let previewAreaSaved = null;
+
+const previewImage = () => $r("preview-image");
+
+function previewLine(id, isError = false) {
+  const line = $r("preview-state");
+  line.textContent = id ? t(id) : "";
+  line.classList.toggle("error-text", isError);
+}
+
+function previewShow(src) {
+  const image = previewImage();
+  image.alt = t("page-preview-alt");
+  image.src = src;
+  image.hidden = false;
+  image.classList.remove("computing");
+  const link = $r("preview-open");
+  link.href = src;
+  $r("preview-open-row").hidden = false;
+}
+
+function previewHide() {
+  previewImage().hidden = true;
+  previewImage().removeAttribute("src");
+  $r("preview-open-row").hidden = true;
+  previewLive = null;
+}
+
+function previewShowStored(lineId) {
+  previewSeq += 1;
+  previewLive = null;
+  previewVersion += 1;
+  previewShow(`api/map-image?v=${previewVersion}`);
+  previewLine(lineId);
+}
+
+/** Reads api/map-image/state; the page shows no image without it. */
+async function loadPreviewState() {
+  try {
+    previewState = await page().api("api/map-image/state");
+  } catch (e) {
+    previewState = null;
+  }
+}
+
+/** Shows what fits the state now: the stored image, or a live one after a pause. */
+function decidePreview(delay = 0) {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(showPreviewNow, delay);
+}
+
+async function showPreviewNow() {
+  if (!previewState || $r("run").hidden) return;
+  if (!previewState.stored) {
+    previewSeq += 1;
+    previewHide();
+    const project = page().getProject();
+    previewLine(project && project.has_map ? "page-preview-later" : "page-preview-none");
+    return;
+  }
+  // A run is starting or going on: its end brings the new image. A page opened meanwhile shows the
+  // stored one until then; a computation that was asked for before leaves its line and its
+  // dimming behind, so settle them.
+  if (running || starting) {
+    if (previewImage().hidden) {
+      previewShowStored("page-preview-run");
+      return;
+    }
+    previewImage().classList.remove("computing");
+    previewLine(previewLive === null ? "page-preview-run" : previewSettledLine());
+    return;
+  }
+  // The live images are of the saved area: a drawn area that is not saved yet gets none.
+  if (!page().areaIsSaved()) {
+    previewShowStored("page-preview-area-unsaved");
+    return;
+  }
+  if (!previewState.fresh) {
+    previewShowStored("page-preview-stale");
+    return;
+  }
+  const recorded = previewState.content;
+  if (recorded && page().sameContent(recorded)) {
+    previewShowStored("page-preview-stored");
+    return;
+  }
+  await requestLivePreview();
+}
+
+/** The line for the image on show when nothing is computed. */
+function previewSettledLine() {
+  if (previewLive !== null) {
+    return page().contentIsSaved() ? "page-preview-live-saved" : "page-preview-live";
+  }
+  return previewState && !previewState.fresh ? "page-preview-stale" : "page-preview-stored";
+}
+
+async function requestLivePreview() {
+  const mine = ++previewSeq;
+  previewImage().classList.add("computing");
+  previewLine("page-preview-computing");
+  let answer;
+  try {
+    answer = await page().api("api/map-image", { content: page().contentBody() });
+  } catch (e) {
+    if (mine !== previewSeq) return;
+    previewImage().classList.remove("computing");
+    // A run started meanwhile: its end brings the image.
+    if (running || starting) {
+      decidePreview(0);
+      return;
+    }
+    await loadPreviewState();
+    if (mine !== previewSeq) return;
+    if (previewState && !previewState.fresh) {
+      previewShowStored("page-preview-stale");
+    } else {
+      const line = $r("preview-state");
+      line.textContent = e.message;
+      line.classList.add("error-text");
+    }
+    return;
+  }
+  if (mine !== previewSeq) return;
+  previewLive = answer.id;
+  previewShow(`api/map-image/live/${answer.id}`);
+  previewImage().classList.add("computing");
+  // The line changes when the image has loaded (the load handler below).
+}
+
+previewImage().addEventListener("load", () => {
+  if (previewLive === null) return;
+  previewImage().classList.remove("computing");
+  previewRetries = 0;
+  previewLine(page().contentIsSaved() ? "page-preview-live-saved" : "page-preview-live");
+});
+
+previewImage().addEventListener("error", () => {
+  if (previewLive === null) return;
+  // 404: another tab replaced this image with a newer one. Ask again, a few times at most; then
+  // go back to what the record says.
+  previewLive = null;
+  if (previewRetries < PREVIEW_RETRIES) {
+    previewRetries += 1;
+    decidePreview(0);
+  } else {
+    previewRetries = 0;
+    previewShowStored("page-preview-stored");
+  }
+});
+
+/** The content settings on the page changed. */
+function contentChanged() {
+  if (!previewState) return;
+  previewRetries = 0;
+  // The shown image is out of date from now on; a newer answer replaces it.
+  previewSeq += 1;
+  decidePreview(PREVIEW_DELAY_MS);
+}
+
+/** The project was saved: the record may not fit it any more. */
+async function projectSaved() {
+  await loadPreviewState();
+  decidePreview(0);
+}
+
+/** A run ended: a new image and a new record. */
+async function runEnded() {
+  await loadPreviewState();
+  decidePreview(0);
+}
+
 // --- Init ------------------------------------------------------------------------------------
 
 function syncForceRow(project) {
@@ -374,6 +576,7 @@ function init(project) {
   applyRunTexts();
   refresh();
   if (project.running && project.running.job_id) attach(project.running.job_id, false);
+  loadPreviewState().then(() => decidePreview(0));
 }
 
 for (const id of ["ocad", "pdf", "pdf-candidates", "pdf-scale-bar", "pdf-sources", "offline", "force"]) {
@@ -387,6 +590,8 @@ window.freemapperRun = {
   init,
   refresh,
   closingText,
+  contentChanged,
+  projectSaved,
   optionsFromForm,
   validateOptions,
 };

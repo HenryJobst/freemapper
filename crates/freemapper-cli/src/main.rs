@@ -11,6 +11,7 @@ mod nominatim;
 mod pipeline;
 mod select;
 mod select_page;
+mod select_preview;
 mod select_run;
 mod text;
 mod tiles;
@@ -26,8 +27,9 @@ use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, export_starter_project_from,
-    fetch_project, init_project, map_path, set_content, starter_documents,
+    export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
+    export_starter_project_from, fetch_project, init_project, map_path, set_content,
+    starter_documents,
 };
 
 use text::{n, text, v};
@@ -385,7 +387,12 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                 wrote(path);
             }
             match &outcome.map {
-                MapOutcome::Written(map) => wrote(map),
+                MapOutcome::Written(map) => {
+                    wrote(map);
+                    if let Some(preview) = &outcome.preview {
+                        wrote(preview);
+                    }
+                }
                 MapOutcome::Kept {
                     map,
                     references_images,
@@ -647,6 +654,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 kept(&existing);
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
+                // The map is written: a failed preview is a warning, and the outputs still run.
+                if let Some(preview) =
+                    export_map_preview_or_warn(&dir, &documents, &mut report_note)
+                {
+                    wrote(&preview);
+                }
             }
             if ocad {
                 report_ocad(&export_ocad_from(&dir, &documents, force)?);

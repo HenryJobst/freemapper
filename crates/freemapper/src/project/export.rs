@@ -8,7 +8,7 @@ use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::content::route;
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
-use crate::build::paved_borders::border_paved_areas;
+use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
 use crate::build::points::way_footprints;
 use crate::build::ticks::{orient_ticks, read_terrain};
 
@@ -365,6 +365,7 @@ pub(super) fn write_starter_project(
     }
     write_document(dir, candidates, &dir.join(CANDIDATES_RELPATH))?;
     if map_force.is_some() {
+        forget_map_preview(dir)?;
         write_document(dir, map, &map_path)?;
     }
     let attribution = format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n");
@@ -630,17 +631,10 @@ pub(super) fn write_pdf_file(
             .flat_map(|o| draw::primitives(o, &symbols))
             .collect()
     };
-    let content = PaperRect::of_bbox(&project.bbox()?, &documents.map.georef)?;
-    let clip = pdf::PaperBox {
-        min: (
-            f64::from(content.min_x) / 1000.0,
-            f64::from(content.min_y) / 1000.0,
-        ),
-        max: (
-            f64::from(content.max_x) / 1000.0,
-            f64::from(content.max_y) / 1000.0,
-        ),
-    };
+    let clip = paper_box(&PaperRect::of_bbox(
+        &project.bbox()?,
+        &documents.map.georef,
+    )?);
     let bytes = pdf::write_pdf(
         &render(&map),
         &render(&sheet),
@@ -651,6 +645,258 @@ pub(super) fn write_pdf_file(
     let path = pdf_path(dir, candidates);
     write_inside(dir, &path, &bytes)?;
     Ok(path)
+}
+
+/// The preview of the map: a lossless WebP of what the map PDF draws in the map area.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MapImage {
+    pub webp: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// What `data/map-preview.json` says about the preview next to the map: the project it was
+/// exported for, by the fields that decide the build ([`project_fingerprint`]), and the content
+/// settings it was placed with.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MapPreviewRecord {
+    pub fingerprint: String,
+    pub content: ContentSettings,
+}
+
+/// The record of the preview, in the internal store.
+const MAP_PREVIEW_RECORD_RELPATH: &str = "data/map-preview.json";
+
+/// The preview next to the map: `<name>-preview.webp` for `<name>.omap`.
+pub fn map_preview_path(dir: &Path) -> PathBuf {
+    let map = map_path(dir);
+    let stem = map
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    map.with_file_name(format!("{stem}-preview.webp"))
+}
+
+/// The preview of the map in `documents`: the base part and the map part as the map PDF draws
+/// them, clipped to the map area on paper (in paper orientation), without the sheet and without
+/// any candidate. Texts are left out (see [`crate::render::raster`]). The map area is the one
+/// the documents were built for (`documents.content`, the rectangle of the project's bounding
+/// box on paper), not a new read of `freemapper.toml`: a save meanwhile cannot mix two areas.
+/// `dir` only names the file in an error.
+pub fn map_preview_webp(
+    documents: &StarterDocuments,
+    dir: &Path,
+) -> Result<MapImage, ProjectError> {
+    use crate::render::{draw, raster, symbols::RenderSymbols};
+    let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
+    let (map, _) = pdf_objects(documents, false);
+    let primitives: Vec<draw::Primitive> = map
+        .iter()
+        .flat_map(|o| draw::primitives(o, &symbols))
+        .collect();
+    let clip = paper_box(&documents.content);
+    let image = raster::rasterize(
+        &primitives,
+        clip,
+        &symbols.colours,
+        raster::preview_px_per_mm(&clip),
+    );
+    let (width, height) = image.dimensions();
+    let mut webp = Vec::new();
+    image::codecs::webp::WebPEncoder::new_lossless(&mut webp)
+        .encode(
+            image.as_raw(),
+            width,
+            height,
+            image::ExtendedColorType::Rgba8,
+        )
+        .map_err(|e| ProjectError::Io(map_preview_path(dir), std::io::Error::other(e)))?;
+    Ok(MapImage {
+        webp,
+        width,
+        height,
+    })
+}
+
+/// Writes the preview of the map, `<name>-preview.webp`, and its record `data/map-preview.json`
+/// (both or neither), from `documents`, which [`starter_documents`] built for `dir`. Called
+/// where the map is written, never where an existing map is kept.
+pub fn export_map_preview_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+) -> Result<PathBuf, ProjectError> {
+    let image = map_preview_webp(documents, dir)?;
+    let record = MapPreviewRecord {
+        fingerprint: project_fingerprint(&ProjectFile::load(dir)?)?,
+        content: documents.content_settings.clone(),
+    };
+    let path = map_preview_path(dir);
+    let record_path = dir.join(MAP_PREVIEW_RECORD_RELPATH);
+    let json = serde_json::to_vec_pretty(&record)
+        .map_err(|e| ProjectError::Io(record_path.clone(), std::io::Error::other(e)))?;
+    crate::fsutil::write_files_inside(
+        dir,
+        &[
+            (path.as_path(), &image.webp),
+            (record_path.as_path(), &json),
+        ],
+    )
+    .map_err(|(path, e)| ProjectError::Io(path, e))?;
+    Ok(path)
+}
+
+/// [`export_map_preview_from`] right after the map was written: a failure is the warning
+/// `warning-map-preview-failed`, not an error, because the map is written and the outputs after
+/// it (OCAD, PDFs) still run. The old preview went before the map was replaced, so the folder
+/// then has none rather than a wrong one. The path of the preview when it was written.
+pub fn export_map_preview_or_warn(
+    dir: &Path,
+    documents: &StarterDocuments,
+    progress: &mut dyn FnMut(Note),
+) -> Option<PathBuf> {
+    match export_map_preview_from(dir, documents) {
+        Ok(path) => Some(path),
+        Err(e) => {
+            progress(note!("warning-map-preview-failed", error = Arg::error(e)));
+            None
+        }
+    }
+}
+
+/// SHA-256 (hex) of the fields of `project` that decide which map the stored data builds: map
+/// kind, scale, declination date, buffer, the map area and its source, CRS and raster provider.
+/// Equal for two projects that differ only in what does not decide that, so the stored data and
+/// a preview still fit the project after such a change:
+/// - the content settings, which [`place`] applies to the build;
+/// - the title, which only the sheet shows, and the preview never draws the sheet;
+/// - the records of the fetch (tiles, ALKIS, registers, OSM, rasters, nDSM), which every online
+///   fetch rewrites, at least with today's date. Data that really changed changes the files
+///   under `data/` and `templates/`, and whoever caches a build watches those.
+///
+/// An allow-list, not "everything but": the fields are taken apart without `..`, so a field
+/// added to [`ProjectFile`] does not compile until it is sorted in here, and a new record cannot
+/// silently start to count.
+pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError> {
+    use sha2::Digest as _;
+    /// The fields that count, in the TOML the library writes for them.
+    #[derive(Serialize)]
+    struct Counted<'a> {
+        map_kind: &'a MapKind,
+        scale_denominator: u32,
+        declination_date: &'a chrono::NaiveDate,
+        buffer_m: f64,
+        map_area_source_id: &'a Option<String>,
+        map_area: &'a serde_json::Value,
+        crs: u32,
+        provider: &'a Option<AdapterId>,
+    }
+    let ProjectFile {
+        map_kind,
+        scale_denominator,
+        declination_date,
+        buffer_m,
+        map_area_source_id,
+        map_area,
+        crs,
+        provider,
+        title: _,
+        tiles: _,
+        buildings: _,
+        land_use: _,
+        berlin_layers: _,
+        nas_layers: _,
+        tree_layers: _,
+        osm: _,
+        orthophoto: _,
+        k5: _,
+        terrain: _,
+        surface: _,
+        ndsm_tiles: _,
+        content: _,
+    } = project;
+    let counted = Counted {
+        map_kind,
+        scale_denominator: *scale_denominator,
+        declination_date,
+        buffer_m: *buffer_m,
+        map_area_source_id,
+        map_area,
+        crs: *crs,
+        provider,
+    };
+    let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
+    Ok(sha2::Sha256::digest(text.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect())
+}
+
+/// Removes the record of the preview, then the preview, before the map is replaced: if the new
+/// preview then fails, the folder has none, never the old one claiming to show the new map.
+/// Without its record an image is no preview of any map, so the image goes on a best-effort
+/// basis; the record must go.
+fn forget_map_preview(dir: &Path) -> Result<(), ProjectError> {
+    let record = dir.join(MAP_PREVIEW_RECORD_RELPATH);
+    if freemapper_fs::stays_inside(dir, &record) {
+        match std::fs::remove_file(&record) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                return Err(ProjectError::Io(record, e));
+            }
+            _ => {}
+        }
+    }
+    freemapper_fs::remove_inside(dir, &map_preview_path(dir));
+    Ok(())
+}
+
+/// The record of the preview in `dir`; none when there is none, it does not read, or it is not a
+/// file of the project folder ([`read_inside`]).
+pub fn read_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
+    let bytes = read_inside(dir, &dir.join(MAP_PREVIEW_RECORD_RELPATH))?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// The record of the stored preview: [`read_map_preview_record`] when the image is there too,
+/// as a file of the project folder. Without both there is no preview.
+pub fn stored_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
+    let record = read_map_preview_record(dir)?;
+    let image = map_preview_path(dir);
+    (!is_link(&image) && freemapper_fs::stays_inside(dir, &image) && image.is_file())
+        .then_some(record)
+}
+
+/// The stored preview, `<name>-preview.webp`, when it has its record; none otherwise.
+pub fn read_map_preview(dir: &Path) -> Option<Vec<u8>> {
+    read_map_preview_record(dir)?;
+    read_inside(dir, &map_preview_path(dir))
+}
+
+/// The file `path` of the project folder `dir`, read only when neither it nor a folder on the
+/// way is a link that leads elsewhere: the area page serves what it reads, and a planted link
+/// must not make it serve another file. Writing is guarded the same way (`write_files_inside`).
+fn read_inside(dir: &Path, path: &Path) -> Option<Vec<u8>> {
+    if is_link(path) || !freemapper_fs::stays_inside(dir, path) {
+        return None;
+    }
+    std::fs::read(path).ok()
+}
+
+/// Whether `path` itself is a link.
+fn is_link(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink())
+}
+
+/// The paper rectangle `rect` (µm) in millimetres.
+fn paper_box(rect: &PaperRect) -> crate::render::pdf::PaperBox {
+    crate::render::pdf::PaperBox {
+        min: (
+            f64::from(rect.min_x) / 1000.0,
+            f64::from(rect.min_y) / 1000.0,
+        ),
+        max: (
+            f64::from(rect.max_x) / 1000.0,
+            f64::from(rect.max_y) / 1000.0,
+        ),
+    }
 }
 
 /// Which source lines the PDF prints under the title block (ADR 0081). `ATTRIBUTION.txt` and the
@@ -706,11 +952,148 @@ pub struct StarterDocuments {
     /// The map content on paper and the texts of the sheet, from which the PDF builds its own.
     pub(super) content: PaperRect,
     pub(super) info: PeripheralInfo,
+    /// The content settings the objects were placed with (ADR 0100).
+    pub(super) content_settings: ContentSettings,
 }
 
 /// Builds the documents of the project in `dir` from its stored data. They belong to that folder
 /// and to the data as stored at this moment: build them again after a fetch or a derive.
 pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
+    let built = build_project(dir)?;
+    place(&built, &built.saved_content)
+}
+
+/// Every object of a project built from its stored data, before the content settings place them
+/// ([`place`]): the expensive part of [`starter_documents`] (reading the data, building and
+/// deduplicating the objects), so the area page builds it once and places it again for every
+/// change of the content settings. It belongs to the folder and the data as stored when it was
+/// built, like the documents.
+#[derive(Clone)]
+pub struct BuiltProject {
+    /// [`project_fingerprint`] of the project file it was built from.
+    fingerprint: String,
+    /// The content settings of that project file.
+    saved_content: ContentSettings,
+    map_kind: MapKind,
+    scale_denominator: u32,
+    georef: Georeferencing,
+    symbol_set: SymbolSet,
+    footprints: Vec<geo_types::Polygon<f64>>,
+    water: geo_types::MultiPolygon<f64>,
+    clip: BoundingBox,
+    terrain: std::sync::Arc<Option<Raster<f32>>>,
+    /// The objects of the map part and the candidates map, as the build put them.
+    map_objects: Vec<MapObject>,
+    candidates: MapDocument,
+    notes: String,
+    templates: Vec<TemplateRef>,
+    attribution_text: String,
+    content: PaperRect,
+    info: PeripheralInfo,
+    /// The walkable area (sprint only) and the sheet, which no content setting changes.
+    base_part: Option<MapPart>,
+    sheet_part: MapPart,
+    paved_borders: PavedBorders,
+}
+
+impl BuiltProject {
+    /// [`project_fingerprint`] of the project file it was built from.
+    pub fn fingerprint(&self) -> &str {
+        &self.fingerprint
+    }
+
+    /// How many times the paved borders were computed for it (and its clones).
+    #[cfg(test)]
+    pub(super) fn borders_computed(&self) -> usize {
+        self.paved_borders.computed()
+    }
+}
+
+/// The 501.1 borders of the paved areas, by what they are computed from
+/// ([`border_input`]): 3.1 of 3.7 s of the steps after `route` on Viktoriapark.
+///
+/// They depend on the content settings, so they cannot be built once for all: `route` moves the
+/// 501.5 areas and the kerbs (501.1 of the survey and the cadastre) of the streets group between
+/// the map and the candidates or drops them, which changes which areas are bordered in which list
+/// and which edges are there already. No other group holds a 501.5 or a 501.1, and nothing
+/// between `route` and the borders changes one (the line cuts only touch contours and north
+/// lines). So the borders follow the streets group and the profile only, and a placement whose
+/// paved areas and kerbs equal those of an earlier one gets that one's borders. The build
+/// computes them for the project's own settings; others are computed when first asked for and
+/// kept (a handful at most: the streets group has few outcomes; the least recently used goes
+/// first).
+#[derive(Clone, Default)]
+struct PavedBorders(std::sync::Arc<std::sync::Mutex<BorderStore>>);
+
+/// The border inputs and the borders they give, per list, the one used last at the end; and how
+/// many were computed.
+#[derive(Default)]
+struct BorderStore {
+    entries: Vec<BorderEntry>,
+    computed: usize,
+}
+
+impl BorderStore {
+    /// The borders of `input`, if kept, which then count as used last (the least recently used
+    /// entry is the first to go).
+    fn take_up(&mut self, input: &[Vec<MapObject>]) -> Option<Vec<Vec<MapObject>>> {
+        let at = self.entries.iter().position(|(known, _)| known == input)?;
+        let entry = self.entries.remove(at);
+        let borders = entry.1.clone();
+        self.entries.push(entry);
+        Some(borders)
+    }
+}
+
+/// A border input and the borders it gives, per list.
+type BorderEntry = (Vec<Vec<MapObject>>, Vec<Vec<MapObject>>);
+
+/// How many border results a built project keeps.
+const KEPT_BORDERS: usize = 8;
+
+impl PavedBorders {
+    fn lock(&self) -> std::sync::MutexGuard<'_, BorderStore> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    fn get_or_compute(
+        &self,
+        input: Vec<Vec<MapObject>>,
+        compute: impl FnOnce(&[Vec<MapObject>]) -> Vec<Vec<MapObject>>,
+    ) -> Vec<Vec<MapObject>> {
+        if let Some(borders) = self.lock().take_up(&input) {
+            return borders;
+        }
+        // Computed without the lock: another placement may store the same input meanwhile.
+        let borders = compute(&input);
+        let mut store = self.lock();
+        store.computed += 1;
+        if store.take_up(&input).is_none() {
+            if store.entries.len() >= KEPT_BORDERS {
+                store.entries.remove(0);
+            }
+            store.entries.push((input, borders.clone()));
+        }
+        borders
+    }
+
+    /// How many borders were computed.
+    #[cfg(test)]
+    fn computed(&self) -> usize {
+        self.lock().computed
+    }
+
+    /// How many inputs are kept.
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.lock().entries.len()
+    }
+}
+
+/// Builds every object of the project in `dir` from its stored data ([`BuiltProject`]).
+pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let area = project.area()?;
     let georef = Georeferencing::new_in(
@@ -924,7 +1307,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let mut candidates = MapDocument {
+    let candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
         symbol_set: symbol_set.clone(),
@@ -994,71 +1377,10 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(generalized.map);
-    // What goes onto the map and what stays a candidate, by the project's content settings
-    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
-    // default.
-    route(
-        &content_settings(&project),
-        &mut map_objects,
-        &mut candidates.parts[0].objects,
-        &symbol_set,
-    );
-    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
-    let ways = way_footprints(
-        &map_objects,
-        &candidates.parts[0].objects,
-        &map_objects,
-        project.map_kind,
-        &georef,
-        &symbol_set,
-    );
-    let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
-    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
-        cut_lines_at_ways(
-            list,
-            &CONTOUR_CODES,
-            &ways,
-            min_piece_m,
-            &georef,
-            &symbol_set,
-        );
-    }
-    cut_lines_at_ways(
-        &mut map_objects,
-        &NORTH_LINE_CODES,
-        &ways,
-        min_piece_m,
-        &georef,
-        &symbol_set,
-    );
-    // The border of the paved areas, 501.1 (`build/paved_borders.rs`).
-    border_paved_areas(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        &footprints,
-        &water.union,
-        &clip,
-        &georef,
-        &symbol_set,
-    );
-    // The last step on the lines: the ticks of fences point to the olive green area beside them,
-    // those of earth banks down the slope (`build/ticks.rs`).
-    orient_ticks(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        read_terrain(dir).as_ref(),
-        &georef,
-        &symbol_set,
-    );
-    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
-    // the ticks (`build/barrier_gaps.rs`).
-    move_points_off_barriers(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        project.map_kind,
-        &symbol_set,
-    );
-    let buildings_part = MapPart {
-        name: "default part".to_string(),
-        objects: map_objects,
-    };
+    // New object builders go here (landform candidates, vegetation): they see every object built
+    // so far (`map_objects`, `candidates`), `water.union`, `footprints`, `area` and `georef`, and
+    // what they add is placed by the content settings like the rest. A builder that appends to
+    // `candidates` makes it `mut` again.
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
@@ -1069,33 +1391,155 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         attribution,
     };
     // The walkable area (sprint only, ADR 0069) in its own part, written first.
-    let mut parts: Vec<MapPart> = walkable_base(&content, project.map_kind, &symbol_set)
-        .map(|base| MapPart {
-            name: BASE_PART.to_string(),
-            objects: vec![base],
-        })
-        .into_iter()
-        .collect();
-    parts.push(buildings_part);
-    parts.push(MapPart {
+    let base_part = walkable_base(&content, project.map_kind, &symbol_set).map(|base| MapPart {
+        name: BASE_PART.to_string(),
+        objects: vec![base],
+    });
+    let sheet_part = MapPart {
         name: SHEET_PART.to_string(),
         objects: info_block(&content, &info, &symbol_set),
+    };
+    // The borders for the project's own settings, from the paved areas and kerbs `route` leaves
+    // ([`PavedBorders`]): it sends each 501.x object by the object alone and keeps the order, so
+    // routing these gives the ones of the routed lists.
+    let saved_content = content_settings(&project);
+    let paved_borders = PavedBorders::default();
+    let mut input = border_input(&[&map_objects, &candidates.parts[0].objects], &symbol_set);
+    if let [map, candidates] = &mut input[..] {
+        route(&saved_content, map, candidates, &symbol_set);
+    }
+    paved_borders.get_or_compute(input, |input| {
+        paved_borders_of(
+            input,
+            &footprints,
+            &water.union,
+            &clip,
+            &georef,
+            &symbol_set,
+        )
     });
-    let sheet_info = info;
-    let map = MapDocument {
-        notes,
+
+    Ok(BuiltProject {
+        fingerprint: project_fingerprint(&project)?,
+        saved_content,
+        map_kind: project.map_kind,
+        scale_denominator: project.scale_denominator,
         georef,
         symbol_set,
-        parts,
+        footprints,
+        water: water.union,
+        clip,
+        terrain: std::sync::Arc::new(read_terrain(dir)),
+        map_objects,
+        candidates,
+        notes,
         templates,
+        attribution_text,
+        content,
+        info,
+        base_part,
+        sheet_part,
+        paved_borders,
+    })
+}
+
+/// The documents of `built` with its objects placed by `content` (ADR 0100): `route` sends them
+/// to the map, to the candidates or leaves them out, and the steps that look at both lists
+/// follow. [`starter_documents`] places with the project's own settings.
+pub fn place(
+    built: &BuiltProject,
+    content: &ContentSettings,
+) -> Result<StarterDocuments, ProjectError> {
+    let BuiltProject {
+        georef, symbol_set, ..
+    } = built;
+    let mut map_objects = built.map_objects.clone();
+    let mut candidates = built.candidates.clone();
+    // What goes onto the map and what stays a candidate, by the content settings
+    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
+    // default.
+    route(
+        content,
+        &mut map_objects,
+        &mut candidates.parts[0].objects,
+        symbol_set,
+    );
+    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
+    let ways = way_footprints(
+        &map_objects,
+        &candidates.parts[0].objects,
+        &map_objects,
+        built.map_kind,
+        georef,
+        symbol_set,
+    );
+    let min_piece_m = f64::from(built.scale_denominator) / 1000.0;
+    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
+        cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
+    }
+    cut_lines_at_ways(
+        &mut map_objects,
+        &NORTH_LINE_CODES,
+        &ways,
+        min_piece_m,
+        georef,
+        symbol_set,
+    );
+    // The border of the paved areas, 501.1 (`build/paved_borders.rs`), computed once per input
+    // ([`PavedBorders`]).
+    let input = border_input(&[&map_objects, &candidates.parts[0].objects], symbol_set);
+    let borders = built.paved_borders.get_or_compute(input, |input| {
+        paved_borders_of(
+            input,
+            &built.footprints,
+            &built.water,
+            &built.clip,
+            georef,
+            symbol_set,
+        )
+    });
+    for (list, added) in [&mut map_objects, &mut candidates.parts[0].objects]
+        .into_iter()
+        .zip(borders)
+    {
+        list.extend(added);
+    }
+    // The last step on the lines: the ticks of fences point to the olive green area beside them,
+    // those of earth banks down the slope (`build/ticks.rs`).
+    orient_ticks(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        built.terrain.as_ref().as_ref(),
+        georef,
+        symbol_set,
+    );
+    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
+    // the ticks (`build/barrier_gaps.rs`).
+    move_points_off_barriers(
+        &mut [&mut map_objects, &mut candidates.parts[0].objects],
+        built.map_kind,
+        symbol_set,
+    );
+    let mut parts: Vec<MapPart> = built.base_part.iter().cloned().collect();
+    parts.push(MapPart {
+        name: "default part".to_string(),
+        objects: map_objects,
+    });
+    parts.push(built.sheet_part.clone());
+    let map = MapDocument {
+        notes: built.notes.clone(),
+        georef: georef.clone(),
+        symbol_set: symbol_set.clone(),
+        parts,
+        templates: built.templates.clone(),
     };
 
     Ok(StarterDocuments {
         map,
         candidates,
-        attribution_text,
-        content,
-        info: sheet_info,
+        attribution_text: built.attribution_text.clone(),
+        content: built.content,
+        info: built.info.clone(),
+        content_settings: content.clone(),
     })
 }
 
@@ -1178,4 +1622,57 @@ pub(super) fn back_up(dir: &Path, map: &Path, backup: &Path) -> Result<(), Proje
             ProjectError::Io(path, e)
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A border input that differs by `n`.
+    fn input(n: i32) -> Vec<Vec<MapObject>> {
+        vec![vec![MapObject {
+            symbol_id: 1,
+            kind: MapObjectKind::Path,
+            coords: vec![MapCoord::new(n, 0), MapCoord::new(n, 1)],
+            tags: Vec::new(),
+        }]]
+    }
+
+    /// Asks `store` for `n` and says whether it computed the borders.
+    fn computes(store: &PavedBorders, n: i32) -> bool {
+        let mut computed = false;
+        let borders = store.get_or_compute(input(n), |i| {
+            computed = true;
+            i.to_vec()
+        });
+        assert_eq!(borders, input(n));
+        computed
+    }
+
+    #[test]
+    fn the_border_store_keeps_what_was_used_last() {
+        let store = PavedBorders::default();
+        for n in 0..KEPT_BORDERS as i32 {
+            assert!(computes(&store, n));
+        }
+        // The first one used again, then one more: the second goes, the first stays.
+        assert!(!computes(&store, 0));
+        assert!(computes(&store, 100));
+        assert!(!computes(&store, 0));
+        assert!(computes(&store, 1));
+        assert_eq!(store.computed(), KEPT_BORDERS + 2);
+    }
+
+    #[test]
+    fn the_border_store_keeps_an_input_once() {
+        let store = PavedBorders::default();
+        let other = store.clone();
+        // Another placement stores the same input while this one computes it.
+        store.get_or_compute(input(7), |i| {
+            assert!(computes(&other, 7));
+            i.to_vec()
+        });
+        assert_eq!(store.len(), 1);
+        assert!(!computes(&store, 7));
+    }
 }

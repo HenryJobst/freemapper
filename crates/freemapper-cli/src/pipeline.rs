@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use freemapper::fetch::{Cache, FetchMode, Fetcher};
 use freemapper::project::{
     MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, map_path, pdf_path,
-    run_project_steps_cancellable, starter_documents,
+    export_candidates_pdf_from, export_ocad_from, export_pdf_from, map_path, map_preview_path,
+    pdf_path, run_project_steps_cancellable, starter_documents,
 };
 use serde::Deserialize;
 
@@ -184,10 +184,11 @@ impl std::fmt::Display for Cancelled {
 
 impl std::error::Error for Cancelled {}
 
-/// The map, the templates, the OCAD files and the PDFs that exist in `dir` under their fixed
-/// names.
+/// The map, its preview, the templates, the OCAD files and the PDFs that exist in `dir` under
+/// their fixed names.
 fn kept_files(dir: &Path) -> Vec<ResultFile> {
-    let mut paths: Vec<(&'static str, PathBuf)> = vec![("map", map_path(dir))];
+    let mut paths: Vec<(&'static str, PathBuf)> =
+        vec![("map", map_path(dir)), ("preview", map_preview_path(dir))];
     for (kind, folder) in [("template", "templates"), ("ocad", "ocad")] {
         let mut found: Vec<PathBuf> = std::fs::read_dir(dir.join(folder))
             .into_iter()
@@ -429,6 +430,10 @@ fn result_files(
     pdf_candidates: &Option<Result<PathBuf, String>>,
 ) -> Vec<ResultFile> {
     let mut candidates: Vec<(&'static str, PathBuf)> = vec![("map", map_path(dir))];
+    // Only a preview written with the map: one left next to a kept map belongs to an older run.
+    if let Some(preview) = &outcome.preview {
+        candidates.push(("preview", preview.clone()));
+    }
     for template in &outcome.templates {
         candidates.push(("template", template.clone()));
     }
@@ -454,6 +459,9 @@ fn map_summary(outcome: &RunOutcome) -> String {
     match &outcome.map {
         MapOutcome::Written(map) => {
             lines.push(text("cli-summary-wrote-map", &[("path", v(map.display()))]));
+            if let Some(preview) = &outcome.preview {
+                lines.push(text("cli-wrote", &[("path", v(preview.display()))]));
+            }
         }
         MapOutcome::Kept {
             map,
@@ -582,13 +590,19 @@ mod tests {
 
     #[test]
     fn summary_text_is_unchanged() {
-        let outcome = RunOutcome {
+        let mut outcome = RunOutcome {
             templates: vec![PathBuf::from("/p/orthophoto.png")],
             map: MapOutcome::Written(PathBuf::from("/p/p.omap")),
+            preview: None,
         };
         assert_eq!(
             map_summary(&outcome),
             "Wrote the map /p/p.omap\nWrote /p/orthophoto.png"
+        );
+        outcome.preview = Some(PathBuf::from("/p/p-preview.webp"));
+        assert_eq!(
+            map_summary(&outcome),
+            "Wrote the map /p/p.omap\nWrote /p/p-preview.webp\nWrote /p/orthophoto.png"
         );
         let ocad = OcadOutcome {
             map: PathBuf::from("/p/ocad/p.ocd"),
@@ -622,6 +636,7 @@ mod tests {
                 missing_buildings: false,
                 missing_canopies: true,
             },
+            preview: None,
         };
         let text = map_summary(&outcome);
         assert!(
@@ -636,9 +651,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let map = map_path(dir.path());
         std::fs::write(&map, "12345").unwrap();
-        let outcome = RunOutcome {
+        let mut outcome = RunOutcome {
             templates: vec![dir.path().join("missing.png")],
             map: MapOutcome::Written(map.clone()),
+            preview: None,
         };
         let pdf = Some(Ok(pdf_path(dir.path(), false)));
         let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
@@ -647,6 +663,23 @@ mod tests {
         assert_eq!(files[0].kind, "map");
         assert_eq!(files[0].bytes, 5);
         assert!(!files[0].relative_path.contains('/'), "{files:?}");
+
+        // A preview in the folder that the run did not write (a kept map, a failed preview) is
+        // not listed; the one written with the map is, right after it.
+        let preview = map_preview_path(dir.path());
+        std::fs::write(&preview, "123").unwrap();
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        assert_eq!(files.len(), 1, "{files:?}");
+        outcome.preview = Some(preview.clone());
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        assert_eq!(files.len(), 2, "{files:?}");
+        assert_eq!(files[0].kind, "map");
+        assert_eq!(files[1].kind, "preview");
+        assert_eq!(files[1].bytes, 3);
+        assert_eq!(
+            files[1].relative_path,
+            preview.file_name().unwrap().to_string_lossy()
+        );
     }
 
     #[test]
@@ -801,6 +834,21 @@ mod tests {
         let name = map.file_name().unwrap().to_string_lossy().into_owned();
         assert_eq!(error, format!("cancelled; kept: {name}"));
         assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+        // A preview in the folder is named too.
+        let preview = map_preview_path(dir.path());
+        std::fs::write(&preview, "image").unwrap();
+        let error = run(
+            dir.path(),
+            &all_off(),
+            &cache,
+            &fetcher,
+            &control,
+            &mut |_| {},
+        )
+        .unwrap_err()
+        .to_string();
+        let preview_name = preview.file_name().unwrap().to_string_lossy().into_owned();
+        assert_eq!(error, format!("cancelled; kept: {name}, {preview_name}"));
     }
 
     #[test]

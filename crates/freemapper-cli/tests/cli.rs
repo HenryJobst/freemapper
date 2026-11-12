@@ -199,6 +199,8 @@ fn init_then_export_creates_starter_project() {
         "clara-zetkin-schule.omap",
         "templates/candidates.omap",
         "ATTRIBUTION.txt",
+        "clara-zetkin-schule-preview.webp",
+        "data/map-preview.json",
     ] {
         assert!(project.join(file).exists(), "{file} missing");
     }
@@ -208,6 +210,40 @@ fn init_then_export_creates_starter_project() {
     assert!(map.contains(r#"<symbols count="195""#));
     assert!(map.contains(r#"type="TemplateMap""#));
     assert!(map.contains("© OpenStreetMap contributors"));
+}
+
+#[test]
+fn export_whose_preview_fails_leaves_no_preview_of_the_old_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("clara-zetkin-schule");
+    init_and_export(&project);
+    // A folder where the new image goes: the map is written, its preview is not.
+    let preview = project.join("clara-zetkin-schule-preview.webp");
+    std::fs::remove_file(&preview).unwrap();
+    std::fs::create_dir(&preview).unwrap();
+    std::fs::write(preview.join("keep"), "").unwrap();
+    let pdf = project.join("clara-zetkin-schule.pdf");
+    assert!(!pdf.exists());
+    let export = freemapper()
+        .args(["export", project.to_str().unwrap(), "--force", "--pdf"])
+        .output()
+        .unwrap();
+    let (stdout, stderr) = (
+        String::from_utf8_lossy(&export.stdout),
+        String::from_utf8_lossy(&export.stderr),
+    );
+    // A warning, not a failure: the map is written, and the PDF after it too.
+    assert_eq!(export.status.code(), Some(0), "{stdout}{stderr}");
+    assert!(
+        stderr
+            .lines()
+            .any(|l| l.starts_with("warning: the map is written, but its preview is missing: ")),
+        "{stderr}"
+    );
+    assert!(!stdout.contains("preview.webp"), "{stdout}");
+    assert!(project.join("clara-zetkin-schule.omap.bak").exists());
+    assert!(pdf.exists(), "{stdout}{stderr}");
+    assert!(!project.join("data/map-preview.json").exists());
 }
 
 #[test]

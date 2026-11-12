@@ -131,6 +131,53 @@ pub fn border_paved_areas(
     added
 }
 
+/// What [`border_paved_areas`] reads of `lists`: per list, its 501.5 areas and its 501.1 lines
+/// in list order. It reads nothing else of them (the areas and the edge lines are picked by
+/// symbol) and only appends to them, so it adds the same borders to these lists as to the whole
+/// ones. A border computed for one input fits every placement with an equal input.
+pub fn border_input(lists: &[&Vec<MapObject>], symbol_set: &SymbolSet) -> Vec<Vec<MapObject>> {
+    let paved = symbol_set.id_for_code(PAVED_CODE);
+    let edge = symbol_set.id_for_code(EDGE_CODE);
+    lists
+        .iter()
+        .map(|list| {
+            list.iter()
+                .filter(|o| {
+                    Some(o.symbol_id) == paved
+                        || (Some(o.symbol_id) == edge && matches!(o.kind, MapObjectKind::Path))
+                })
+                .cloned()
+                .collect()
+        })
+        .collect()
+}
+
+/// The borders [`border_paved_areas`] adds to lists whose [`border_input`] is `input`: per list,
+/// the objects to append to it.
+pub fn paved_borders(
+    input: &[Vec<MapObject>],
+    footprints: &[Polygon<f64>],
+    water: &MultiPolygon<f64>,
+    clip: &BoundingBox,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<Vec<MapObject>> {
+    let mut lists = input.to_vec();
+    border_paved_areas(
+        &mut lists.iter_mut().collect::<Vec<_>>(),
+        footprints,
+        water,
+        clip,
+        georef,
+        symbol_set,
+    );
+    lists
+        .iter_mut()
+        .zip(input)
+        .map(|(list, read)| list.split_off(read.len()))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,6 +292,38 @@ mod tests {
         run(&f, &mut map, &mut candidates, &[]);
         assert_eq!(edge_count(&f, &map), 0);
         assert!(edge_count(&f, &candidates) >= 1);
+    }
+
+    #[test]
+    fn borders_from_the_input_are_those_of_the_whole_lists() {
+        let f = fixture(MapKind::Sprint);
+        let mut kerb = square(&f, "501.1", (0.0, 0.0), 20.0);
+        kerb.coords.last_mut().unwrap().flags = 0;
+        let mut map = vec![
+            square(&f, "501.5", (0.0, 0.0), 40.0),
+            square(&f, "518", (5.0, 5.0), 10.0),
+            kerb,
+        ];
+        let mut candidates = vec![
+            square(&f, "410.1", (50.0, 0.0), 10.0),
+            square(&f, "501.5", (60.0, 0.0), 30.0),
+        ];
+        let input = border_input(&[&map, &candidates], &f.set);
+        assert_eq!(input[0].len(), 2);
+        assert_eq!(input[1].len(), 1);
+        let added = paved_borders(
+            &input,
+            &[],
+            &MultiPolygon::new(Vec::new()),
+            &f.clip,
+            &f.georef,
+            &f.set,
+        );
+        let (map_len, candidates_len) = (map.len(), candidates.len());
+        run(&f, &mut map, &mut candidates, &[]);
+        assert!(!added[0].is_empty() && !added[1].is_empty());
+        assert_eq!(map[map_len..], added[0][..]);
+        assert_eq!(candidates[candidates_len..], added[1][..]);
     }
 
     #[test]

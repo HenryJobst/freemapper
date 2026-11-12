@@ -299,3 +299,4 @@ error-layer-not-made = { $layer } gibt es noch nicht; rufen Sie { $step ->
        *[derive] freemapper derive oder run auf (MCP: start_pipeline)
     }
 warning-ocad-no-background = { $error }; die OCAD-Karte bekommt daraus keinen Hintergrund
+warning-map-preview-failed = Die Karte ist geschrieben, ihre Vorschau fehlt aber: { $error }

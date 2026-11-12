@@ -210,6 +210,8 @@ Result in the project folder:
 
 - `freemapper.toml` – map area, map kind, scale, declination date, tiles used with their data currency
 - `clara-zetkin-schule.omap` – georeferenced OOM map (EPSG:25833, 1:1000, IOF school symbol set 2019)
+- `clara-zetkin-schule-preview.webp` – an image of the map objects, written with the map; the area page
+  shows it
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` – templates behind the map,
   each with a world file (`.jgw`/`.pgw`); hillshade, slope and nDSM can be switched on in OOM. nDSM
   colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m

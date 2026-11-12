@@ -371,7 +371,20 @@ screenshot shows the German page.*
    *Progress in the middle of a run (a staged server answer for the picture).*
 5. **Cancel:** "Cancel" stops the run at the next safe point. Whatever is written or downloaded stays whole (no
    half files); a new run carries on from there.
-6. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
+6. **Map preview:** Below the run status the section "Map preview" shows the map objects as an image. After a
+   run, and when you open the page for a project that has a map, it is the map as generated last. If you change
+   the profile or a group in "What goes onto the map", the page shows the effect after a short pause, without a
+   run and without saving; the old image fades while the new one is computed (a few seconds the first time on a
+   large area, about one second after that). The line above the image says what it shows: "As generated last."
+   or "With the settings on this page, not saved yet." "Open full size" opens the image in a new tab. The
+   image shows the map objects only, no candidates, no orthophoto and no legend, and no text. If you changed the
+   area, the map kind or the scale since the map was generated, the page keeps showing the last image and says
+   that a new preview needs a run with "Replace the existing map": a run that keeps the map writes no preview.
+   A drawn area that is not saved yet gets no new image either, and the line says so. During a run the page
+   shows the last image and updates it when the run ends. A later fetch alone does not make the image out of
+   date. Before the first run there is no image ("No map generated yet."). A map from an older freemapper has
+   none either; the page says so, and the next run with "Replace the existing map" makes one.
+7. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
    size and names the project folder. "Open folder" opens it in the file manager; if that fails, the path is
    shown as text. If a map existed and "Replace the existing map" was off, it stays as it is, and the page says
    so. On an error the program's message is shown; "Create again" starts a new run.
@@ -402,6 +415,7 @@ Among other files, the project folder then holds:
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
+| `<name>-preview.webp` | an image of the map objects (no candidates, no sheet), written together with the `.omap`; the area page shows it |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 | `freemapper.toml` | the project's settings and data currency |
 
@@ -958,6 +972,7 @@ language. The most important messages, in their English wording:
 | `--part picks a part of an OSM area and needs --osm` | `--part` only works with `--osm`. | Look up the OSM id and give `--osm <id> --part <n>`. |
 | `MultiPolygon with … parts` | The chosen grounds consist of several parts. | Draw one connected area in the browser. |
 | `warning: no ALKIS buildings found in the map area` | There are no buildings in the area, e.g. in a forest. | Nothing, if that is right. Otherwise fetch again later. |
+| `warning: the map is written, but its preview is missing: …` | The map was written, but `<name>-preview.webp` could not be written, for example because the disk is full or a folder of that name is in the way. The OCAD files and PDFs are still written. | Make room or remove what is in the way, then run again with "Replace the existing map" (`--force`). |
 | `the map area reaches beyond the state border` | Part of the area lies in the neighbouring state. The orthophoto and height models come from the state holding the centre, ALKIS and OSM from both states. | The templates stay empty where that state's orthophoto and height models end. Draw that part by hand. |
 | `warning: part of the map area lies outside the supported states` | Part of the area lies outside every supported state: abroad, at sea or in a German state freemapper does not support yet. Those states are Bremen, Thuringia, Bavaria, Baden-Württemberg and Saarland. The sea includes the Baltic off Schleswig-Holstein and Mecklenburg-Vorpommern and the Schleswig-Holstein Wadden Sea, for example between Föhr and Dagebüll. The boundaries of these two states leave that water out. There are no state data there, the orthophoto can be white, and ALKIS gives no buildings or land use. freemapper reports this when it fetches, not in the size estimate. A strip of up to 50 m beyond the border does not trigger the warning. | Draw that part by hand or move the area. |
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |

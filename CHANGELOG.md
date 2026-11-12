@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Eine Vorschau der Karte (ADR 0108). Jeder Export, der eine Karte schreibt, schreibt neben die `.omap` auch `<name>-preview.webp`: die Kartenobjekte so, wie das Karten-PDF sie zeichnet, ohne Kandidaten und ohne Blattrand. Die Gebietsseite zeigt sie in einem neuen Abschnitt „Kartenvorschau“ unter dem Laufstatus. Ändern Sie dort das Inhaltsprofil oder eine Gruppe, zeigt sie die Wirkung ohne Lauf und ohne Speichern: nach etwa einer Sekunde, nach einer ersten Berechnung, die einige Sekunden dauert. Eine Zeile sagt, ob das Bild die zuletzt erzeugte Karte oder die Einstellungen auf der Seite zeigt; nach einer Änderung von Gebiet, Kartenart oder Maßstab und solange ein gezeichnetes Gebiet nicht gespeichert ist, sagt sie, dass ein Lauf mit „Vorhandene Karte ersetzen“ nötig ist. Ein späteres Laden macht das Bild nicht veraltet. Lässt sich die Vorschau nicht schreiben, sagt der Lauf das in einer Warnung und schreibt Karte, OCAD-Dateien und PDFs trotzdem; die Dateiliste eines Laufs nennt die Vorschau. Die `.omap`, die Kandidaten-Karte, die OCAD-Dateien und die PDFs ändern sich nicht.
+
 ### Geändert
 
 - Intern: Die Bundesländer sind jetzt Regionsadapter (ADR 0082, Stufen B und C; ADR 0102). Ein Bundesland liefert über ein gemeinsames Trait seine Grenze, seine OSM-Auszüge, seinen ALKIS-Dienst, seine Rasterquellen, seine Quellenzeilen und seine Download-Schätzung; die Engine fragt die Registry und nennt selbst kein Bundesland mehr. Die Aufzählungen `Region` und `Provider` gibt es nicht mehr. Der Code der elf Bundesländer liegt in der neuen Crate `freemapper-adapters-de`, die allgemeinen Dienst-Leser in `freemapper-sources`, die gemeinsamen Typen in `freemapper-adapter-api`. Für Nutzerinnen und Nutzer ändert sich nichts: Das Golden-Netz bestätigt für alle elf Bundesländer dieselben Anfragen und byte-gleiche Dateien, und `freemapper.toml` wird gelesen und geschrieben wie zuvor.
