@@ -5,6 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to a pull request replaces the run of the older one; runs on main all finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Line numbers in backtraces are enough here; full debug info only makes linking and the
+  # cache slower.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+
 jobs:
   check:
     strategy:

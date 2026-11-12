@@ -78,6 +78,15 @@ world_magnetic_model = "1.2025.0"
 # Pinned: newer releases are younger than two weeks.
 zip = { version = "=9.0.5", default-features = false, features = ["deflate"] }
 
+# The tests run the whole pipeline (rasters, geometry, image files) and take minutes unoptimized.
+# The dependencies are built once and cached, so they get the full optimization; our own crates
+# get the light one that keeps the build fast. Debug assertions and overflow checks stay on.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
