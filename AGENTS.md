@@ -229,6 +229,10 @@ Rules:
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
   takes its place: after a successful call of either the note does not come; after a failed one it still can.
   Pass the note on to the person.
+- When the server found a problem with an adapter folder of the person at its start, the first tool result
+  carries one extra text block `Note for the person: at its start the freemapper server found this about the
+  adapter folders. …` with the warning lines. Pass it on; the person fixes or removes the folder and restarts
+  the server.
 - Never install without the person's yes. Ask, and call `install_update` with `confirm: true` only after they
   agreed. The server never installs on its own.
 - After `install_update` succeeded, the server still runs the old version. Restart the freemapper MCP server, or

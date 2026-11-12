@@ -719,13 +719,14 @@ fn main() -> std::process::ExitCode {
 fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     // The adapters of this run, before anything asks the registry. The list of the adapters
     // assembles its own, and an update asks none.
+    let mut adapter_lines = Vec::new();
     if !matches!(
         cli.command,
         Commands::Adapters { .. } | Commands::Update { .. }
     ) {
         // The MCP server and the area page read the person's settings and never write them.
         let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
-        adapters::install(cli.command.project_adapters(), may_write);
+        adapter_lines = adapters::install(cli.command.project_adapters(), may_write);
     }
     match cli.command {
         Commands::Init {
@@ -949,7 +950,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         } => adapters::change_allowed_host(&adapter, &host, false)?,
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;
-            tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;
+            tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache, adapter_lines))?;
         }
         Commands::Update {
             check,

@@ -332,6 +332,38 @@ fn mcp_never_loads_the_adapters_of_a_project() {
     assert!(!stderr.contains("project folder"), "{stderr}");
 }
 
+/// What the server found about the person's adapter folders at its start reaches the agent once,
+/// with the first tool result: stderr is read by neither the agent nor the person.
+#[test]
+fn mcp_passes_the_adapter_warnings_on_once() {
+    let cache = tempfile::tempdir().unwrap();
+    let user = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(user.path().join("broken")).unwrap();
+    std::fs::write(user.path().join("broken/manifest.toml"), "not toml [").unwrap();
+    let mut command = isolated(Command::new(env!("CARGO_BIN_EXE_freemapper")));
+    command
+        .env("FREEMAPPER_ADAPTER_DIR", user.path())
+        .env_remove("FREEMAPPER_UPDATE_TEST_BASE");
+    let mut session = Session::start_with(command, cache.path());
+    let notes = |texts: &[String]| -> Vec<String> {
+        texts
+            .iter()
+            .filter(|text| text.starts_with("Note for the person: "))
+            .cloned()
+            .collect()
+    };
+    let (_, first) = session.call_all("project_status", json!({ "job_id": "job-1" }));
+    let first = notes(&first);
+    assert_eq!(first.len(), 1, "{first:?}");
+    assert!(first[0].contains("is left out"), "{first:?}");
+    assert!(first[0].contains("broken"), "{first:?}");
+    let (_, second) = session.call_all("project_status", json!({ "job_id": "job-1" }));
+    assert!(notes(&second).is_empty(), "{second:?}");
+    // The log keeps the lines too.
+    let (stderr, _) = session.close();
+    assert!(stderr.contains("is left out"), "{stderr}");
+}
+
 /// The server reads the hosts the person allowed and never writes the file: an entry that a
 /// release made redundant stays for a command of the person to remove, and no tool allows a
 /// host.

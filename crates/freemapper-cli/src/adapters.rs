@@ -184,21 +184,23 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
 
 /// Makes the adapters of this run the registry of the process: the built-in ones, those of the
 /// user's folder and, with `project` (a project folder), those of its folder `adapters`. What
-/// the folders had to say goes to stderr. Called once, before anything asks the registry.
+/// the folders had to say goes to stderr and comes back, for the MCP server to pass on. Called
+/// once, before anything asks the registry.
 ///
 /// The fetcher of the run is the plain one. Every adapter asks through its own policy
 /// (`RegionAdapter::policy`), so an adapter from a folder changes nothing for the others.
-pub fn install(project: Option<&Path>, may_write: bool) {
+pub fn install(project: Option<&Path>, may_write: bool) -> Vec<String> {
     let user = user_dir();
     let project = project.map(project_dir);
     let allowed = allowed_hosts(may_write);
     let assembled = assemble_with_hosts(user.dir.as_deref(), project.as_deref(), &allowed.hosts);
-    let lines = user
+    let lines: Vec<String> = user
         .warning()
         .into_iter()
         .chain(allowed.lines)
-        .chain(report_lines(&assembled));
-    for line in lines {
+        .chain(report_lines(&assembled))
+        .collect();
+    for line in &lines {
         eprintln!("{line}");
     }
     let installed = install_registry(assembled.registry);
@@ -208,6 +210,7 @@ pub fn install(project: Option<&Path>, may_write: bool) {
         installed.is_ok(),
         "the registry was asked before the adapters of the run were installed"
     );
+    lines
 }
 
 /// The hosts the person allowed for built-in adapters, and what there is to say about them.

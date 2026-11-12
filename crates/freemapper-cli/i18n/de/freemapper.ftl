@@ -395,6 +395,8 @@ update-notice = freemapper { $new } ist verfügbar (Sie haben { $old }). Aktuali
 update-applies-next-start = Die neue Version gilt ab dem nächsten Start von freemapper.
 update-install-failed = freemapper { $new } wurde nicht installiert: { $error }
 update-no-config-dir = Dieses System hat keinen Ordner für Einstellungen; setzen Sie FREEMAPPER_CONFIG_DIR.
+mcp-adapter-note = Hinweis für die Nutzerin oder den Nutzer: Beim Start hat der freemapper-Server Folgendes zu den Adapterordnern gefunden. Geben Sie es weiter; die Person korrigiert oder entfernt den Ordner und startet den Server danach neu.
+    { $lines }
 update-mcp-note = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }). Fragen Sie nach, bevor Sie install_update aufrufen.
 update-mcp-needs-confirm = Es wurde nichts installiert; fragen Sie zuerst die Nutzerin oder den Nutzer und rufen Sie install_update nach der Zustimmung mit confirm: true auf
 update-mcp-note-manual = Hinweis für die Nutzerin oder den Nutzer: freemapper { $new } ist verfügbar (dies ist { $old }), lässt sich aber nicht mit install_update installieren. { $needed } oder neuer muss von Hand installiert werden, siehe { $notes }

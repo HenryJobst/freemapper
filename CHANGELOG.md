@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- MCP: Was der Server beim Start an den Adapterordnern der Person auszusetzen hat (ein Ordner wird weggelassen oder lädt nur mit Einschränkung), steht jetzt einmal als Hinweis im ersten Tool-Ergebnis. Bisher stand es nur auf stderr, das weder der Agent noch die Person zu sehen bekommt.
 - MCP: `preview_layer` zeigt mit der Ebene `map` das Bild der Kartenobjekte, das der letzte Lauf neben die Karte geschrieben hat (ohne die Kandidaten). Vor dem ersten Lauf nennt die Meldung `freemapper export` oder `run`.
 - Zwei Adapter teilen sich Gebiet, wenn ihre gemeinsame Fläche mehr als ein Hundertstel der kleineren Region ausmacht. Bisher wurde je ein Innenpunkt geprüft; ein Adapter, der ein Drittel weit in ein Bundesland hineinreichte, blieb so unbemerkt. `adapters list`, `adapters check` und die Warnung zu den Adaptern eines Projekts nutzen das neue Maß. Die Warnung nennt die Regionen jetzt mit ihrem Namen statt mit der Kennung.
 - Die Meldung zu einem Adapter, den das Programm nicht hat, sagt, dass ein neueres freemapper ihn vielleicht mitbringt.

@@ -395,6 +395,8 @@ update-notice = freemapper { $new } is available (you have { $old }). Update wit
 update-applies-next-start = The new version applies from the next start of freemapper.
 update-install-failed = freemapper { $new } was not installed: { $error }
 update-no-config-dir = no configuration folder on this system; set FREEMAPPER_CONFIG_DIR
+mcp-adapter-note = Note for the person: at its start the freemapper server found this about the adapter folders. Pass it on; the person fixes the folder or removes it, then restarts the server.
+    { $lines }
 update-mcp-note = Note for the person: freemapper { $new } is available (this is { $old }). Ask them before calling install_update.
 update-mcp-needs-confirm = nothing was installed; ask the person first and call install_update with confirm: true once they agree
 update-mcp-note-manual = Note for the person: freemapper { $new } is available (this is { $old }), but install_update cannot install it; install { $needed } or newer by hand, see { $notes }
