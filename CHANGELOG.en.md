@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-12
+
 ### Added
 
 - New template local relief (`templates/relief.png`, layer `relief`): the terrain model minus its smoothed mean. Banks, mounds, hollows and ditches stand out light or dark; the general fall of the ground disappears. It is hidden in the map and can be switched on in OOM.

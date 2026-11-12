@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,967](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C967-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,986](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C986-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -47,7 +47,7 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.14.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.14.0) of
+The current version is [v0.15.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.15.0) of
 12 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
 
 freemapper makes schoolyard and
