@@ -50,21 +50,70 @@ function escapeHtml(text) {
   return span.innerHTML;
 }
 
+function isText(value) {
+  return typeof value === "string" && value !== "";
+}
+
+/**
+ * The aerial photo of a region as the page can draw it, or null: every field a text, the
+ * parameters plain values, and none of them an option of Leaflet (they are query parameters of
+ * the WMS request and nothing else).
+ */
+function usablePreview(preview) {
+  if (!preview || typeof preview !== "object") return null;
+  const { wms, layer, format, attribution, agency } = preview;
+  if (![wms, layer, format, attribution, agency].every(isText)) return null;
+  const params = {};
+  const given = preview.params && typeof preview.params === "object" ? preview.params : {};
+  for (const [name, value] of Object.entries(given)) {
+    const plain = typeof value === "string" || typeof value === "number";
+    if (plain && !(name in L.TileLayer.WMS.prototype.options)) params[name] = String(value);
+  }
+  return { wms, layer, format, attribution, agency, params };
+}
+
+/**
+ * The regions of `api/adapters` the page can use: each with a name, and with its aerial photo
+ * when that is complete. When the answer fails the list is empty and `problem` says why; the
+ * page then works without aerial photos.
+ */
+async function loadAdapters() {
+  try {
+    const list = await api("api/adapters");
+    const regions = (Array.isArray(list) ? list : [])
+      .filter((region) => region && region.names && isText(region.names.en))
+      .map((region) => ({ ...region, preview: usablePreview(region.preview) }));
+    return { regions, problem: null };
+  } catch (e) {
+    return { regions: [], problem: e.message };
+  }
+}
+
 /** The names of `regions` in the page language, joined by `separator`. */
 function regionNames(regions, separator) {
-  return regions.map((region) => region.names[language()] ?? region.names.en).join(separator);
+  return regions
+    .map((region) => (isText(region.names[language()]) ? region.names[language()] : region.names.en))
+    .join(separator);
 }
 
 /**
  * The aerial photos of the regions: one WMS layer per service, named after the regions that
- * share it (Brandenburg and Berlin share the one of LGB).
+ * share it (Brandenburg and Berlin share the one of LGB). Regions share a layer only when
+ * their previews are the same in every field.
  */
 function aerialLayers() {
   const layers = new Map();
   for (const region of adapters) {
     const preview = region.preview;
     if (!preview) continue;
-    const key = `${preview.wms} ${preview.layer}`;
+    const key = JSON.stringify([
+      preview.wms,
+      preview.layer,
+      preview.format,
+      preview.attribution,
+      preview.agency,
+      Object.entries(preview.params).sort(),
+    ]);
     if (!layers.has(key)) layers.set(key, { preview, regions: [] });
     layers.get(key).regions.push(region);
   }
@@ -88,7 +137,7 @@ function aerialLayers() {
 
 /** The layer control, with its names in the page language: built once the texts are loaded. */
 function showLayerNames() {
-  L.control.layers({ [t("page-layer-osm")]: osm, ...aerialLayers() }).addTo(map);
+  L.control.layers({ [escapeHtml(t("page-layer-osm"))]: osm, ...aerialLayers() }).addTo(map);
 }
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
@@ -154,6 +203,13 @@ function updateControls() {
 function failedText(message) {
   const text = t("page-failed", { error: message });
   return text === "page-failed" ? message : text;
+}
+
+/** What to say about an area outside every region: with the regions by name when known. */
+function outsideText() {
+  return adapters.length
+    ? t("page-outside", { states: regionNames(adapters, ", ") })
+    : t("page-outside-unknown");
 }
 
 function setMessage(text, kind) {
@@ -234,7 +290,7 @@ function showPreview() {
   const unusable = preview.too_large || preview.outside_coverage;
   $("too-large").hidden = !unusable;
   $("too-large").textContent = preview.outside_coverage
-    ? t("page-outside", { states: regionNames(adapters, ", ") })
+    ? outsideText()
     : t("page-too-large", { max: Math.round(preview.max_side_m) });
   const names = preview.tiles.map((t) => t.name);
   $("tiles").textContent = unusable
@@ -804,7 +860,9 @@ async function start() {
     // First the texts: everything below writes them.
     await loadTexts();
     setMode(null);
-    adapters = await api("api/adapters");
+    // The page works without the list of the regions: the map keeps OpenStreetMap.
+    const listed = await loadAdapters();
+    adapters = listed.regions;
     showLayerNames();
     project = await api("api/project");
     $("folder").textContent = project.dir;
@@ -820,6 +878,9 @@ async function start() {
       savedSignature = signature();
     }
     if (window.freemapperRun) window.freemapperRun.init(project);
+    if (listed.problem) {
+      setMessage(t("page-adapters-failed", { detail: listed.problem }), "error");
+    }
   } catch (e) {
     setMessage(failedText(e.message), "error");
   }

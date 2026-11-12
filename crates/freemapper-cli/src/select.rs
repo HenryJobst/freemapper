@@ -56,30 +56,36 @@ fn content_security_policy() -> &'static str {
     })
 }
 
-/// The origins (`https://host`) of the aerial photo services of the adapters, each once, in the
-/// order of the registry. Only an `https` address with a plain host name counts: the list goes
-/// into the content security policy as it is.
+/// The origin (`https://host`) the page may load an aerial photo from, for a WMS at `wms`. Only
+/// an `https` address with a plain host name has one: no port, no user, no other scheme, letters
+/// of ASCII only. The origin goes into the content security policy as it is, so nothing that
+/// could carry a second directive gets through.
+fn preview_origin(wms: &str) -> Option<String> {
+    let rest = wms.strip_prefix("https://")?;
+    let host = rest.split(['/', '?', '#']).next()?;
+    let plain = !host.is_empty()
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
+        && !host.starts_with(['.', '-'])
+        && !host.ends_with(['.', '-']);
+    plain.then(|| format!("https://{host}"))
+}
+
+/// The origins of the aerial photo services of the adapters, each once, in the order of the
+/// registry.
 fn preview_hosts() -> Vec<String> {
     let mut hosts: Vec<String> = Vec::new();
     for adapter in freemapper::adapters::registry().adapters() {
-        let Some(preview) = &adapter.info().preview else {
-            continue;
-        };
-        let host = preview
-            .wms
-            .strip_prefix("https://")
-            .and_then(|rest| rest.split(['/', '?', '#']).next())
-            .filter(|host| {
-                !host.is_empty()
-                    && host
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
-            });
-        if let Some(host) = host {
-            let origin = format!("https://{host}");
-            if !hosts.contains(&origin) {
-                hosts.push(origin);
-            }
+        let origin = adapter
+            .info()
+            .preview
+            .as_ref()
+            .and_then(|preview| preview_origin(&preview.wms));
+        if let Some(origin) = origin
+            && !hosts.contains(&origin)
+        {
+            hosts.push(origin);
         }
     }
     hosts
@@ -87,16 +93,22 @@ fn preview_hosts() -> Vec<String> {
 
 /// The regions freemapper supports, for the page: `[{ id, names: { en, de }, preview }]` in the
 /// order of the registry. `preview` is the aerial photo of the region for the map (`wms`,
-/// `layer`, `format`, `params`, `attribution`, `agency`), or null.
+/// `layer`, `format`, `params`, `attribution`, `agency`), or null: also for a service the
+/// content security policy does not let the page load ([`preview_origin`]), which would show a
+/// white map without a word.
 async fn adapters() -> Response {
     let list: Vec<Value> = freemapper::adapters::registry()
         .adapters()
         .map(|adapter| {
             let info = adapter.info();
+            let preview = info
+                .preview
+                .as_ref()
+                .filter(|preview| preview_origin(&preview.wms).is_some());
             json!({
                 "id": info.id.as_str(),
                 "names": { "en": info.names.en, "de": info.names.de },
-                "preview": info.preview.as_ref().map(|preview| json!({
+                "preview": preview.map(|preview| json!({
                     "wms": preview.wms,
                     "layer": preview.layer,
                     "format": preview.format,
@@ -994,6 +1006,38 @@ pub(crate) mod tests {
         assert_eq!(status, 502);
         let text = String::from_utf8(body).unwrap();
         assert!(text.contains("HTTP 403"), "{text}");
+    }
+
+    /// Only a plain `https` host becomes an origin of the content security policy.
+    #[test]
+    fn preview_origin_takes_plain_https_hosts_only() {
+        for (wms, origin) in [
+            (
+                "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms",
+                Some("https://isk.geobasis-bb.de"),
+            ),
+            (
+                "https://geo4.service24.rlp.de",
+                Some("https://geo4.service24.rlp.de"),
+            ),
+            ("https://Example.ORG/wms?x=1", Some("https://Example.ORG")),
+            // No other scheme, no port, no user, no host at all.
+            ("http://example.org/wms", None),
+            ("https://example.org:8443/wms", None),
+            ("https://user@example.org/wms", None),
+            ("https:///wms", None),
+            ("example.org/wms", None),
+            ("", None),
+            // Nothing that could end the directive or start another.
+            ("https://example.org; script-src *", None),
+            ("https://example.org evil.example/wms", None),
+            ("https://exämple.org/wms", None),
+            ("https://[::1]/wms", None),
+            ("https://.example.org/wms", None),
+            ("https://example.org./wms", None),
+        ] {
+            assert_eq!(preview_origin(wms).as_deref(), origin, "{wms:?}");
+        }
     }
 
     #[tokio::test(flavor = "multi_thread")]

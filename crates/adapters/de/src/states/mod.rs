@@ -513,3 +513,30 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
 pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
     vec![POTSDAM]
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The area page draws one layer per aerial photo. Two states with the same service and
+    /// layer (Brandenburg and Berlin) must name it alike in every field, or the page would
+    /// show it twice.
+    #[test]
+    fn states_that_share_a_preview_share_all_of_it() {
+        let previews: Vec<PreviewInfo> = State::ALL.into_iter().map(preview).collect();
+        let mut services = Vec::new();
+        for (index, one) in previews.iter().enumerate() {
+            for other in &previews[index + 1..] {
+                if (&one.wms, &one.layer) == (&other.wms, &other.layer) {
+                    assert_eq!(one, other);
+                }
+            }
+            assert!(one.wms.starts_with("https://"), "{}", one.wms);
+            if !services.contains(&(&one.wms, &one.layer)) {
+                services.push((&one.wms, &one.layer));
+            }
+        }
+        assert_eq!(services.len(), 10);
+        assert_eq!(previews[0], previews[1]);
+    }
+}

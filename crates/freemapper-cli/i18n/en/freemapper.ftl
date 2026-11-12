@@ -59,6 +59,11 @@ cli-find-hint = Create the project with: freemapper init <dir> --osm { $id }
 cli-find-no-area = None of these places has an area that can be a map area. Draw the area with: freemapper select <dir>
 cli-find-nothing = no place found for "{ $query }"; try another name, or draw the area with: freemapper select <dir>
 
+## Lists in sentences
+
+# A list in a sentence: its last item after the others, which are joined by commas.
+cli-list-and = { $first } and { $last }
+
 ## Folder lock
 
 cli-lock-held = another freemapper run is using this folder (since { $time }, started by { $who }). Wait for it or stop it first.
@@ -132,6 +137,8 @@ page-no-room-stop = Not enough disk space (freemapper keeps { $reserve } free). 
 page-disk-unknown = freemapper cannot read the free disk space ({ $error }). It fetches without the check.
 page-too-large = The area is too large: at most { $max } m per side (with buffer). Please choose a smaller one.
 page-outside = The area lies outside the supported states ({ $states }); freemapper has no data sources for other regions yet.
+page-outside-unknown = The area lies outside the regions freemapper supports; it has no data sources there yet.
+page-adapters-failed = The aerial photos cannot be listed ({ $detail }). The map shows OpenStreetMap only; everything else works.
 page-settings = Map
 page-kind = Map kind
 page-schoolyard = Schoolyard map (1:1000)
@@ -555,8 +562,6 @@ mcp-param-start-pipeline-pdf = Also write <name>.pdf, the map ready to print (th
 mcp-param-start-pipeline-pdf-candidates = Also write <name>-candidates.pdf, the training map (the map plus every candidate drawn as a map object; check them in the terrain). Default false.
 mcp-param-start-pipeline-pdf-scale-bar = Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale number stays in the title block).
 mcp-param-start-pipeline-pdf-sources = Source lines on the PDFs: "auto" (default; the full list, shortened only when it takes more than 5 lines), "full" (never shortened) or "credit-only" (only the freemapper credit line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on). ATTRIBUTION.txt always lists every source.
-# A list in a sentence: its last item after the others, which are joined by commas.
-cli-list-and = { $first } and { $last }
 mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of { $states }, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
 
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }

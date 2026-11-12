@@ -50,7 +50,9 @@ pub struct PreviewInfo {
     pub layer: String,
     /// The image format asked for: `image/png` or `image/jpeg`.
     pub format: String,
-    /// Further parameters of the request, by name (Hamburg: `time` = `2026`).
+    /// Further query parameters of the WMS request, by name (Hamburg: `time` = `2026`). They
+    /// reach the request and nothing else: the page drops a name that is an option of its map
+    /// library.
     pub params: Vec<(String, String)>,
     /// The credit shown on the map. `{year}` stands for the current year.
     pub attribution: String,
