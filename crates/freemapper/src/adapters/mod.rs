@@ -247,8 +247,8 @@ mod tests {
     /// does not have is asked plainly.
     #[test]
     fn asking_for_an_adapter_keeps_to_its_hosts() {
+        use crate::fetch::FetchError;
         use crate::fetch::test_support::MapFetcher;
-        use crate::fetch::{FetchError, Fetcher as _};
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix("https://", b"ok".to_vec());
         let elsewhere = "https://geo.example.org/wms?token=abc";
