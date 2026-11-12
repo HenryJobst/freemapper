@@ -540,7 +540,7 @@ stays a candidate and appears only in the template. You set how this is divided 
 | Profile | Effect |
 |---|---|
 | `safe` | Every object stays where the build puts it: buildings, areas, water and paths on the map, everything else a candidate. |
-| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs, banks, stairs, trees, towers, passages. Walls, fences, hedges and water also come from OpenStreetMap. Other OSM objects, contours, areas that shall not be entered and street furniture stay candidates. |
+| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips, banks, stairs, towers, passages. Walls, fences, hedges, water, trees, tree groups, paths and railways also come from OpenStreetMap, which is often the only source there. Contours, areas that shall not be entered, street furniture and lamps, OSM parks and OSM monuments stay candidates. |
 | `full` | Everything goes onto the map, as in the training map. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
