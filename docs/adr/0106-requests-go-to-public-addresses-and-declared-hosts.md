@@ -33,9 +33,14 @@ the tile proxy of the area page asked whatever address they were given.
   documentation and benchmark nets. For IPv6 the rule is the other way round: only global unicast (`2000::/3`)
   passes, without the documentation nets and the protocol assignments (Teredo among them). An IPv4 address inside
   an IPv6 one (mapped, behind the well-known NAT64 prefix, 6to4) is judged as that IPv4 address, so a network
-  without IPv4 still reaches an IPv4 server. The check sits in the resolver of the HTTP client (`freemapper::fetch::GuardedResolver`): the
-  client connects to the addresses the resolver returns and to no other, so the address checked is the address
-  used. It runs for every redirect hop again.
+  without IPv4 still reaches an IPv4 server. The check sits in the resolver of the HTTP client
+  (`freemapper::fetch::GuardedResolver`): the client connects to the addresses the resolver returns and to no
+  other, so the address checked is the address used. It runs for every redirect hop again, and an answer with one
+  refused address is refused as a whole.
+- A target that needs no DNS is judged as it is written, before any connection, for every hop
+  (`freemapper::fetch::TargetGuard`, the first connector of every agent): a host written as an address goes
+  through `check_addr`, and a host that is no DNS name with a domain (`localhost`, a name of the local network, a
+  number) is refused.
 - Every agent of freemapper that talks to the internet is built by `freemapper::fetch::guarded_agent`: the two
   agents of the fetcher, those of a pinned host, the tile proxy and the self-update.
 - With a policy (`HttpFetcher::with_policy`) the fetcher follows redirects by hand: at most three, and each target
@@ -54,16 +59,24 @@ the tile proxy of the area page asked whatever address they were given.
 ## Consequences
 
 - A manifest cannot make freemapper ask the user's router, a service on the same computer or the metadata address
-  of a cloud machine, neither by naming it nor through DNS nor through a redirect.
+  of a cloud machine, neither by naming it nor through DNS nor through a redirect. Behind a proxy the part about
+  DNS does not hold (see below).
 - Until the eleven states are manifests (task D6), the fetcher of the pipeline has no host list: the address
   check holds, and redirects are followed as before. With D6 the fetcher gets the hosts all installed adapters
   declare plus the core list. It is one list for a run, not one per adapter, so a redirect may lead from one
   adapter's host to a host another installed adapter declared.
 - A service that redirects to a host its manifest does not list fails with a message that names the host. The
   fix is one line in `[net] hosts`, which a reviewer sees.
-- A proxy from the environment (`HTTPS_PROXY`) is the user's own setting and may be local; its address is not
-  judged. A proxy that resolves the names itself takes the check with it: behind such a proxy a declared name can
-  reach what the proxy can reach.
+- A proxy from the environment (`HTTPS_PROXY`) is the user's own setting and may be on this computer. Its own
+  address is the one thing the check lets through, and it is told apart by identity: the HTTP client hands the
+  resolver the URI of the proxy itself. A target on the proxy's host is judged like any other, also when
+  `NO_PROXY` makes the client connect to it directly.
+- Behind a proxy that resolves the names itself (HTTP `CONNECT`, SOCKS5) freemapper never sees the address a
+  name leads to. There the check is weaker: a target written as an address and `localhost` are still refused,
+  for every hop, but a declared name can reach what the proxy can reach. With a policy the name must still be a
+  declared host.
+- One thing no list can close: a network whose own NAT64 prefix (inside `2000::/3`) translates to private IPv4
+  addresses.
 - A service on another port or without a DNS name cannot be an adapter in format 1.
 - `Fetcher::get` of the HTTP fetcher fails over 512 MB instead of cutting the answer off.
 - The resolver hook of `ureq` (`ureq::unversioned`) is outside its semver promise. The workspace pins `ureq`

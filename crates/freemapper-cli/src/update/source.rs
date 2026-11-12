@@ -6,7 +6,7 @@ use std::io::{Read as _, Write as _};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use freemapper::fetch::{USER_AGENT, guarded_agent, redirect_target as resolve};
+use freemapper::fetch::{USER_AGENT, error_text, guarded_agent, redirect_target as resolve};
 use freemapper_update::{ALLOWED_HOSTS, UpdateError, UpdateSource, check_url};
 
 /// Redirects followed per request; GitHub needs one (release URL to asset host).
@@ -115,7 +115,7 @@ impl HttpUpdateSource {
                 .timeout_global(Some(timeout))
                 .build()
                 .call()
-                .map_err(|e| download_error(&current, &e.to_string()))?;
+                .map_err(|e| download_error(&current, &error_text(&e)))?;
             let status = response.status().as_u16();
             if status == 200 {
                 return Ok((current, response));
@@ -444,6 +444,21 @@ mod tests {
             );
             assert_eq!(stub.paths(), [MANIFEST_PATH]);
         }
+    }
+
+    /// The agent of the source connects to public addresses only: asked for a server on this
+    /// computer, it refuses before a connection is opened. The source of the tests has no such
+    /// check, or it could not reach its stub.
+    #[test]
+    fn the_agent_of_the_source_refuses_this_computer() {
+        let stub = Stub::start(vec![(MANIFEST_PATH, ok(b"{}"))]);
+        let url = format!("{}{MANIFEST_PATH}", stub.base);
+        let error = HttpUpdateSource::new().agent.get(&url).call().unwrap_err();
+        let text = error_text(&error);
+        assert!(text.contains("this computer"), "{text}");
+        assert!(!text.starts_with("other"), "{text}");
+        assert!(stub.paths().is_empty());
+        assert_eq!(stub.source().agent.get(&url).call().unwrap().status(), 200);
     }
 
     #[test]

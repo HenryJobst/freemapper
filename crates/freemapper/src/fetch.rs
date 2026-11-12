@@ -26,11 +26,13 @@ pub(crate) use freemapper_adapter_api::fetch::{
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
-pub use freemapper_adapter_api::policy::redirect_target;
-use freemapper_adapter_api::policy::{self, PolicyError, UrlPolicy};
+use freemapper_adapter_api::policy::{self, UrlPolicy};
+pub use freemapper_adapter_api::policy::{PolicyError, redirect_target};
 use freemapper_adapter_api::trust::TrustAnchors;
 use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
-use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+use ureq::unversioned::transport::{
+    ConnectionDetails, Connector, DefaultConnector, NextTimeout, Transport,
+};
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
@@ -294,7 +296,8 @@ fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
 /// so the address checked is the address used, for the first request and for every redirect.
 ///
 /// A proxy from the environment is the user's own setting and may be local; its address is not
-/// judged. A proxy that resolves the names itself takes the check with it.
+/// judged. Behind a proxy that resolves the names itself this resolver is not asked for the
+/// target; [`TargetGuard`] still refuses a target written as an address.
 #[derive(Debug, Default)]
 pub struct GuardedResolver<R = DefaultResolver> {
     inner: R,
@@ -316,10 +319,12 @@ impl<R: Resolver> Resolver for GuardedResolver<R> {
         timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let addrs = self.inner.resolve(uri, config, timeout)?;
-        let is_proxy = config.proxy().is_some_and(|proxy| {
-            uri.host() == Some(proxy.host())
-                && uri.port_u16().is_none_or(|port| port == proxy.port())
-        });
+        // The HTTP client hands over the URI of the proxy itself when it resolves the proxy,
+        // and a URI of the request otherwise: only the former is exempt, by identity. A target
+        // on the proxy's host (resolved here when `NO_PROXY` names it) is judged.
+        let is_proxy = config
+            .proxy()
+            .is_some_and(|proxy| std::ptr::eq(uri, proxy.uri()));
         if !is_proxy {
             for addr in addrs.iter() {
                 policy::check_addr(addr.ip())
@@ -330,12 +335,73 @@ impl<R: Resolver> Resolver for GuardedResolver<R> {
     }
 }
 
-/// An agent of `config` that connects to public addresses only ([`GuardedResolver`]). Every
-/// agent of freemapper that talks to the internet is built here.
+/// Refuses a target that needs no DNS to lead astray: a host written as an address that
+/// [`policy::check_addr`] refuses, and a host that is no DNS name with a domain (`localhost`, a
+/// name of the local network, a number). A name with one trailing dot is the same name.
+fn check_target(uri: &ureq::http::Uri) -> Result<(), PolicyError> {
+    let host = uri.host().unwrap_or_default();
+    let literal = host
+        .strip_prefix('[')
+        .and_then(|rest| rest.strip_suffix(']'))
+        .unwrap_or(host);
+    match literal.parse::<std::net::IpAddr>() {
+        Ok(addr) => policy::check_addr(addr),
+        Err(_) => policy::dns_name(host.strip_suffix('.').unwrap_or(host)).map(|_| ()),
+    }
+}
+
+/// What went wrong with a call of an agent, in words: a refusal of the policy as the policy
+/// words it (the HTTP client would put "other: " before it), everything else as the client
+/// words it.
+pub fn error_text(error: &ureq::Error) -> String {
+    match error {
+        ureq::Error::Other(inner) => match inner.downcast_ref::<PolicyError>() {
+            Some(refused) => refused.to_string(),
+            None => error.to_string(),
+        },
+        _ => error.to_string(),
+    }
+}
+
+/// The first connector of an agent: it opens nothing and refuses a target [`check_target`]
+/// refuses. The HTTP client runs the connectors for every hop of a redirect, with a proxy and
+/// without one, so a target written as an address is judged even where the resolver is not
+/// asked. The proxy the agent was built with is connected to through the same connectors; that
+/// connection alone is let through unjudged.
+#[derive(Debug)]
+struct TargetGuard {
+    /// The proxy of the agent's configuration.
+    proxy: Option<ureq::http::Uri>,
+}
+
+impl<In: Transport> Connector<In> for TargetGuard {
+    type Out = In;
+
+    fn connect(
+        &self,
+        details: &ConnectionDetails,
+        chained: Option<In>,
+    ) -> Result<Option<In>, ureq::Error> {
+        // The connection to the proxy itself: the client asks for it with the proxy's URI and a
+        // configuration without a proxy.
+        let to_proxy = details.config.proxy().is_none() && self.proxy.as_ref() == Some(details.uri);
+        if !to_proxy {
+            check_target(details.uri).map_err(|refused| ureq::Error::Other(Box::new(refused)))?;
+        }
+        Ok(chained)
+    }
+}
+
+/// An agent of `config` that connects to public addresses only: [`TargetGuard`] judges the
+/// target as it is written, [`GuardedResolver`] the addresses its name resolves to. Every agent
+/// of freemapper that talks to the internet is built here.
 pub fn guarded_agent(config: ureq::config::Config) -> ureq::Agent {
+    let guard = TargetGuard {
+        proxy: config.proxy().map(|proxy| proxy.uri().clone()),
+    };
     ureq::Agent::with_parts(
         config,
-        DefaultConnector::new(),
+        guard.chain(DefaultConnector::new()),
         GuardedResolver::<DefaultResolver>::default(),
     )
 }
@@ -3013,6 +3079,57 @@ mod tests {
         );
     }
 
+    /// An address on the internet (nothing is asked of it).
+    const PUBLIC: &str = "193.99.144.80:443";
+
+    /// Answers every name with the same addresses.
+    #[derive(Debug)]
+    struct Fixed(Vec<std::net::SocketAddr>);
+
+    impl ureq::unversioned::resolver::Resolver for Fixed {
+        fn resolve(
+            &self,
+            _: &ureq::http::Uri,
+            _: &ureq::config::Config,
+            _: ureq::unversioned::transport::NextTimeout,
+        ) -> Result<ureq::unversioned::resolver::ResolvedSocketAddrs, ureq::Error> {
+            let mut addrs = self.empty();
+            for addr in &self.0 {
+                addrs.push(*addr);
+            }
+            Ok(addrs)
+        }
+    }
+
+    fn no_timeout() -> ureq::unversioned::transport::NextTimeout {
+        ureq::unversioned::transport::NextTimeout {
+            after: ureq::unversioned::transport::time::Duration::NotHappening,
+            reason: ureq::Timeout::Resolve,
+        }
+    }
+
+    /// The address of the server behind `http://127.0.0.1:<port>/…`.
+    fn addr_of(url: &str) -> std::net::SocketAddr {
+        url.strip_prefix("http://")
+            .and_then(|rest| rest.split('/').next())
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+
+    /// The code of the policy that refused a call of the HTTP client.
+    fn policy_code<T: std::fmt::Debug>(result: Result<T, ureq::Error>) -> &'static str {
+        match result {
+            Err(ureq::Error::Other(refused)) => {
+                refused
+                    .downcast_ref::<PolicyError>()
+                    .expect("a refusal of the policy")
+                    .code
+            }
+            other => panic!("not refused by the policy: {other:?}"),
+        }
+    }
+
     /// What the stub server of the policy tests answers for a path.
     enum Stubbed {
         Body(&'static [u8]),
@@ -3105,38 +3222,14 @@ mod tests {
     /// file): the address is judged when the connection is opened, whatever the name.
     #[test]
     fn declared_host_resolving_to_loopback_is_refused() {
-        use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
-        use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
-
-        /// Answers every name with one address.
-        #[derive(Debug)]
-        struct Fixed(std::net::SocketAddr);
-        impl Resolver for Fixed {
-            fn resolve(
-                &self,
-                _: &ureq::http::Uri,
-                _: &ureq::config::Config,
-                _: NextTimeout,
-            ) -> Result<ResolvedSocketAddrs, ureq::Error> {
-                let mut addrs = self.empty();
-                addrs.push(self.0);
-                Ok(addrs)
-            }
-        }
-
         let (url, connections) = answering("200 OK", b"local".to_vec());
-        let addr: std::net::SocketAddr = url
-            .strip_prefix("http://")
-            .and_then(|rest| rest.split('/').next())
-            .unwrap()
-            .parse()
-            .unwrap();
+        let addr = addr_of(&url);
         let named = format!("http://geo.example.org:{}/big.zip", addr.port());
         let config = || ureq::Agent::config_builder().build();
         let guarded = ureq::Agent::with_parts(
             config(),
             DefaultConnector::new(),
-            GuardedResolver::over(Fixed(addr)),
+            GuardedResolver::over(Fixed(vec![addr])),
         );
         let error = guarded.get(&named).call().unwrap_err();
         let ureq::Error::Other(refused) = &error else {
@@ -3146,16 +3239,228 @@ mod tests {
         assert_eq!(refused.code, "policy.address");
         assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 0);
         // The same name without the guard reaches the server.
-        let plain = ureq::Agent::with_parts(config(), DefaultConnector::new(), Fixed(addr));
+        let plain = ureq::Agent::with_parts(config(), DefaultConnector::new(), Fixed(vec![addr]));
         assert_eq!(plain.get(&named).call().unwrap().status(), 200);
         // A public address passes the guard; nothing listens there in this test.
-        let public = GuardedResolver::over(Fixed("193.99.144.80:443".parse().unwrap()));
+        let public = GuardedResolver::over(Fixed(vec![PUBLIC.parse().unwrap()]));
         let uri: ureq::http::Uri = "https://geo.example.org/".parse().unwrap();
-        let timeout = NextTimeout {
-            after: ureq::unversioned::transport::time::Duration::NotHappening,
-            reason: ureq::Timeout::Resolve,
-        };
-        assert_eq!(public.resolve(&uri, &config(), timeout).unwrap().len(), 1);
+        assert_eq!(
+            public.resolve(&uri, &config(), no_timeout()).unwrap().len(),
+            1
+        );
+        // An answer with a public and a local address is refused as a whole.
+        let mixed = GuardedResolver::over(Fixed(vec![PUBLIC.parse().unwrap(), addr]));
+        assert_eq!(
+            policy_code(mixed.resolve(&uri, &config(), no_timeout())),
+            "policy.address"
+        );
+    }
+
+    /// The proxy of the environment may be on this computer. Its own address is not judged,
+    /// and nothing else is exempt: a target on the proxy's host is judged like any other (the
+    /// HTTP client resolves a `NO_PROXY` target here).
+    #[test]
+    fn only_the_proxy_itself_is_exempt_from_the_address_check() {
+        let local: std::net::SocketAddr = "127.0.0.1:3128".parse().unwrap();
+        let resolver = GuardedResolver::over(Fixed(vec![local]));
+        let proxy = ureq::Proxy::new("http://127.0.0.1:3128").unwrap();
+        let config = ureq::Agent::config_builder().proxy(Some(proxy)).build();
+        // The URI of the proxy, as the HTTP client hands it to the resolver.
+        let own = config.proxy().unwrap().uri();
+        assert_eq!(
+            resolver.resolve(own, &config, no_timeout()).unwrap().len(),
+            1
+        );
+        for target in [
+            "http://127.0.0.1/admin",
+            "https://127.0.0.1/",
+            "http://127.0.0.1:3128/x",
+            // Written exactly like the proxy, but a target of its own.
+            "http://127.0.0.1:3128",
+        ] {
+            let uri: ureq::http::Uri = target.parse().unwrap();
+            assert_eq!(
+                policy_code(resolver.resolve(&uri, &config, no_timeout())),
+                "policy.address",
+                "{target}"
+            );
+        }
+        // Without a proxy nothing is exempt.
+        let plain = ureq::Agent::config_builder().proxy(None).build();
+        let uri: ureq::http::Uri = "http://127.0.0.1:3128".parse().unwrap();
+        assert_eq!(
+            policy_code(resolver.resolve(&uri, &plain, no_timeout())),
+            "policy.address"
+        );
+    }
+
+    /// Without a policy the HTTP client follows redirects itself. Each hop is resolved through
+    /// the guard, so a redirect to a name that leads to this computer ends the request.
+    #[test]
+    fn a_redirect_the_client_follows_itself_is_judged() {
+        use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
+        use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+
+        /// `a.example.org` reaches the stub unchecked; every other name leads there through the
+        /// guard.
+        #[derive(Debug)]
+        struct FirstHopOnly(std::net::SocketAddr);
+        impl Resolver for FirstHopOnly {
+            fn resolve(
+                &self,
+                uri: &ureq::http::Uri,
+                config: &ureq::config::Config,
+                timeout: NextTimeout,
+            ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+                let fixed = Fixed(vec![self.0]);
+                if uri.host() == Some("a.example.org") {
+                    fixed.resolve(uri, config, timeout)
+                } else {
+                    GuardedResolver::over(fixed).resolve(uri, config, timeout)
+                }
+            }
+        }
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let connections = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = connections.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 302 Found\r\nLocation: http://b.example.org:{}/x\r\n\
+                     Content-Length: 0\r\nConnection: close\r\n\r\n",
+                    addr.port()
+                );
+            }
+        });
+        let agent = ureq::Agent::with_parts(
+            ureq::Agent::config_builder().build(),
+            DefaultConnector::new(),
+            FirstHopOnly(addr),
+        );
+        let result = agent
+            .get(format!("http://a.example.org:{}/start", addr.port()))
+            .call()
+            .map(|response| response.status().as_u16());
+        assert_eq!(policy_code(result), "policy.address");
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    /// A target that is written as an address or as a name of this computer needs no DNS, so
+    /// the resolver never sees it behind a proxy. It is judged before the connection all the
+    /// same, for every hop, with a proxy and without one.
+    #[test]
+    fn a_target_written_as_an_address_is_refused_behind_a_proxy() {
+        use std::io::{BufRead as _, BufReader, Write as _};
+        // A proxy on this computer: it answers every request itself and notes the request line.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let proxy_url = format!("http://{}", listener.local_addr().unwrap());
+        let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = asked.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut reader = BufReader::new(stream);
+                loop {
+                    let mut request = String::new();
+                    if !reader.read_line(&mut request).is_ok_and(|n| n > 0) {
+                        break;
+                    }
+                    let mut line = String::new();
+                    while reader.read_line(&mut line).is_ok_and(|n| n > 2) {
+                        line.clear();
+                    }
+                    log.lock().unwrap().push(request.trim().to_string());
+                    let answer = if request.starts_with("CONNECT") {
+                        "HTTP/1.1 200 Connection established\r\n\r\n"
+                    } else {
+                        "HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\nproxied"
+                    };
+                    if reader.get_mut().write_all(answer.as_bytes()).is_err() {
+                        break;
+                    }
+                    if !request.starts_with("CONNECT") {
+                        break;
+                    }
+                }
+            }
+        });
+        let config = ureq::Agent::config_builder()
+            .proxy(Some(ureq::Proxy::new(&proxy_url).unwrap()))
+            .max_redirects(0)
+            .build();
+        let agent = guarded_agent(config);
+        // A name goes to the proxy, which is on this computer and exempt.
+        let mut response = agent.get("http://geo.example.org/x").call().unwrap();
+        assert_eq!(response.body_mut().read_to_string().unwrap(), "proxied");
+        let through_proxy = asked.lock().unwrap().len();
+        assert!(through_proxy >= 1);
+        for target in [
+            "http://127.0.0.1:631/",
+            "http://169.254.169.254/latest/meta-data/",
+            "http://[::1]/",
+            "http://localhost/admin",
+            "http://printer.localhost/",
+            "http://LOCALHOST./",
+            "http://fileserver/share",
+            "http://2130706433/",
+            "http://0x7f.1/",
+        ] {
+            let result = agent.get(target).call().map(|r| r.status().as_u16());
+            let ureq::Error::Other(refused) = result.expect_err(target) else {
+                panic!("{target}: not refused by the policy");
+            };
+            assert!(refused.downcast_ref::<PolicyError>().is_some(), "{target}");
+        }
+        assert_eq!(asked.lock().unwrap().len(), through_proxy);
+        // A public address written out is a target like any other.
+        assert!(check_target(&"https://193.99.144.80/".parse().unwrap()).is_ok());
+        assert!(check_target(&"https://geo.example.org./x".parse().unwrap()).is_ok());
+    }
+
+    /// A request freemapper does not send, and an answer over its limit, are final for a byte
+    /// range as for the other ways to ask: the fetcher is asked once.
+    #[test]
+    fn a_refused_range_is_not_asked_again() {
+        struct Refusing(Cell<usize>, fn() -> FetchError);
+        impl Fetcher for Refusing {
+            fn get(&self, _: &str) -> Result<Vec<u8>, FetchError> {
+                unreachable!("only ranges are asked")
+            }
+            fn get_range(&self, _: &str, _: ByteRange) -> Result<Vec<u8>, FetchError> {
+                self.0.set(self.0.get() + 1);
+                Err((self.1)())
+            }
+        }
+        let cases: [fn() -> FetchError; 2] = [
+            || FetchError::NotAllowed {
+                url: "https://geo.example.org/x".to_string(),
+                reason: "more than 3 redirects".to_string(),
+            },
+            || too_large("https://geo.example.org/x", 1000),
+        ];
+        for error in cases {
+            let fetcher = Refusing(Cell::new(0), error);
+            let result =
+                get_range_with_retries(&fetcher, "https://geo.example.org/x", ByteRange::Last(4));
+            assert!(result.is_err());
+            assert_eq!(fetcher.0.get(), 1, "{:?}", result.unwrap_err());
+        }
+    }
+
+    /// What the HTTP client reports for a refused address is worded without its "other: ".
+    #[test]
+    fn a_refusal_is_worded_as_the_policy_words_it() {
+        let refused = policy::check_addr("127.0.0.1".parse().unwrap()).unwrap_err();
+        let text = refused.to_string();
+        assert_eq!(error_text(&ureq::Error::Other(Box::new(refused))), text);
+        assert_eq!(error_text(&ureq::Error::HostNotFound), "host not found");
     }
 
     /// With a policy, redirects are followed by hand: within the declared hosts, relative or

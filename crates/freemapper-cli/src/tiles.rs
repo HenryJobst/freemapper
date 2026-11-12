@@ -357,4 +357,23 @@ mod tests {
         assert!(store.bytes <= CACHE_BYTES);
         assert!(store.get((11, 1, 0)).is_some());
     }
+
+    /// The agent of the proxy for OpenStreetMap connects to public addresses only: asked for a
+    /// server on this computer, it refuses before a connection is opened.
+    #[test]
+    fn the_agent_of_the_proxy_refuses_this_computer() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/1/2/3.png", listener.local_addr().unwrap());
+        let error = TileProxy::new().agent.get(&url).call().unwrap_err();
+        let text = freemapper::fetch::error_text(&error);
+        assert!(text.contains("this computer"), "{text}");
+        assert!(listener.accept().is_err(), "a connection was opened");
+        // The proxy of the tests has no such check.
+        let plain = TileProxy::with_base("http://127.0.0.1:1")
+            .agent
+            .get(&url)
+            .call();
+        assert!(plain.is_err_and(|e| !freemapper::fetch::error_text(&e).contains("this computer")));
+    }
 }

@@ -365,6 +365,8 @@ pub fn get_range_with_retries(
                 FetchError::NotFound(_)
                 | FetchError::Refused { .. }
                 | FetchError::RangeIgnored { .. }
+                | FetchError::TooLarge { .. }
+                | FetchError::NotAllowed { .. }
                 | FetchError::Cancelled,
             ) => return result,
             Err(_) if attempt < ATTEMPTS => {

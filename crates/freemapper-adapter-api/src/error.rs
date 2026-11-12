@@ -71,7 +71,7 @@ pub enum FetchError {
     /// freemapper does not send this request: the URL, the address its host resolves to or a
     /// redirect is against the rules for where requests go. Asking again does not help.
     /// `url` has no query and no fragment.
-    #[error("{url}: freemapper does not ask this address: {reason}")]
+    #[error("{url}: freemapper does not send requests to this address: {reason}")]
     NotAllowed { url: String, reason: String },
 }
 
