@@ -365,6 +365,7 @@ pub struct ProjectFile {
 }
 
 // The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
+use freemapper_adapter_api::cache::CacheDir;
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::{RasterProject, RasterRecords};
@@ -978,7 +979,7 @@ fn fetch_project_parts(
         bbox: project.bbox()?,
     };
     let previous = project.buildings.as_ref();
-    let buildings = fetch_buildings_into(dir, fetcher, &area, mode, previous, progress)?;
+    let buildings = fetch_buildings_into(dir, fetcher, cache, &area, mode, previous, progress)?;
     stop_if(cancelled)?;
     if let Some(record) = buildings {
         project.buildings = Some(record);
@@ -987,6 +988,7 @@ fn fetch_project_parts(
     let land_use = fetch_land_use_into(
         dir,
         fetcher,
+        cache,
         &area,
         mode,
         project.land_use.as_ref(),
@@ -2171,12 +2173,30 @@ fn merge_features(parts: Vec<Vec<OsmFeature>>) -> Vec<OsmFeature> {
     features
 }
 
+/// The surroundings of an ALKIS fetch: the services are asked through the adapters.
+fn alkis_env<'a>(
+    fetcher: &'a dyn Fetcher,
+    cache: &'a CacheDir,
+    mode: FetchMode,
+    progress: &'a mut dyn FnMut(Note),
+) -> AdapterEnv<'a> {
+    AdapterEnv {
+        fetcher,
+        cache,
+        mode,
+        today: crate::clock::today(),
+        skip_surface: false,
+        progress,
+    }
+}
+
 /// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`] and returns the new record;
 /// the stored file is only replaced by an answer that parses. Offline, the stored file must
 /// exist and, if recorded, cover `bbox`; nothing new is recorded then.
 fn fetch_buildings_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
+    cache: &CacheDir,
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
@@ -2196,7 +2216,7 @@ fn fetch_buildings_into(
         };
     }
     progress(note!("progress-alkis-buildings-download"));
-    let text = fetch_buildings_in(fetcher, area)?;
+    let text = fetch_buildings_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_inside(dir, &path, text.as_bytes())?;
     let count = parsed.buildings.len();
@@ -2257,6 +2277,7 @@ fn fetch_buildings_into(
 fn fetch_land_use_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
+    cache: &CacheDir,
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
@@ -2271,7 +2292,8 @@ fn fetch_land_use_into(
         return None;
     }
     progress(note!("progress-alkis-land-use-download"));
-    let downloaded = fetch_land_use_in(fetcher, area).and_then(|text| {
+    let fetched = fetch_land_use_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area);
+    let downloaded = fetched.and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_inside(dir, &dir.join(LAND_USE_RELPATH), text.as_bytes())?;
         Ok(land_use)

@@ -3,13 +3,14 @@
 use freemapper_georef::crs::BoundingBox;
 use geo_types::MultiPolygon;
 
+use crate::alkis::AlkisSource;
 use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::info::RegionInfo;
 use crate::records::EstimateItem;
 
 /// Everything one state or country supplies. This is the first cut (plan task C1): identity
-/// and boundary, by now with the OSM extracts (C3), the credit lines (C4) and the estimate (C5). The tasks that move a concern off the region enums add its method.
+/// and boundary, by now with the OSM extracts (C3), the credit lines (C4), the estimate (C5) and ALKIS (C6). The tasks that move a concern off the region enums add its method.
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;
@@ -23,6 +24,10 @@ pub trait RegionAdapter: Send + Sync {
     fn extract_boundary(&self, _index: usize) -> Option<&MultiPolygon<f64>> {
         None
     }
+
+    /// The ALKIS service of the region: buildings and land use as features in the LGB schema.
+    /// `None`: the region has no ALKIS data to offer.
+    fn alkis(&self) -> Option<&dyn AlkisSource>;
 
     /// The credit lines for what a project holds of this region, in the order they are printed;
     /// empty before anything of it was fetched.

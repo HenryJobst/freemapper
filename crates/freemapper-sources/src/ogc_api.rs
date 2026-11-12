@@ -8,6 +8,7 @@ use serde_json::Value;
 use crate::crs::{BoundingBox, Crs, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 
+pub use freemapper_adapter_api::alkis::FetchArea;
 pub use freemapper_adapter_api::error::AlkisError;
 
 /// Features per page; a 1 km tile holds about 800 buildings.
@@ -53,77 +54,6 @@ pub fn collection_url_in(endpoint: &str, bbox: &BoundingBox, crs: Crs) -> String
         bbox.max_e.ceil(),
         bbox.max_n.ceil()
     )
-}
-
-/// The area ALKIS is fetched for: its EPSG:25833 box, which decides the regions, and the map's
-/// CRS with the box in it.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct FetchArea {
-    pub region_bbox: BoundingBox,
-    pub crs: Crs,
-    /// The area in `crs`.
-    pub bbox: BoundingBox,
-}
-
-impl FetchArea {
-    pub fn new(region_bbox: BoundingBox, crs: Crs) -> Self {
-        Self {
-            region_bbox,
-            crs,
-            bbox: bbox_in(&region_bbox, Crs::Utm33, crs),
-        }
-    }
-
-    /// The area in `crs`: exact for the map's CRS and EPSG:25833, else the envelope of the
-    /// region box's outline in `crs`.
-    pub fn bbox_for(&self, crs: Crs) -> BoundingBox {
-        if crs == self.crs {
-            self.bbox
-        } else {
-            bbox_in(&self.region_bbox, Crs::Utm33, crs)
-        }
-    }
-}
-
-/// The envelope of `bbox` (in `from`) in `to`, from points along its outline, grown by 1 m.
-fn bbox_in(bbox: &BoundingBox, from: Crs, to: Crs) -> BoundingBox {
-    if from == to {
-        return *bbox;
-    }
-    const STEPS: u32 = 8;
-    let mut out: Option<BoundingBox> = None;
-    for i in 0..=STEPS {
-        let t = f64::from(i) / f64::from(STEPS);
-        let e = bbox.min_e + t * (bbox.max_e - bbox.min_e);
-        let n = bbox.min_n + t * (bbox.max_n - bbox.min_n);
-        for (pe, pn) in [
-            (e, bbox.min_n),
-            (e, bbox.max_n),
-            (bbox.min_e, n),
-            (bbox.max_e, n),
-        ] {
-            let Some(p) = to.reproject(
-                from,
-                ProjectedPoint {
-                    easting: pe,
-                    northing: pn,
-                },
-            ) else {
-                continue;
-            };
-            let b = out.get_or_insert(BoundingBox {
-                min_e: p.easting,
-                min_n: p.northing,
-                max_e: p.easting,
-                max_n: p.northing,
-            });
-            b.min_e = b.min_e.min(p.easting);
-            b.min_n = b.min_n.min(p.northing);
-            b.max_e = b.max_e.max(p.easting);
-            b.max_n = b.max_n.max(p.northing);
-        }
-    }
-    out.map_or(*bbox, |b| b.buffered(1.0))
 }
 
 /// `feature` with its geometry's coordinates moved from `from` into `to`.

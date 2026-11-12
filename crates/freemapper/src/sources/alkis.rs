@@ -1,12 +1,13 @@
-//! ALKIS buildings and land use: the LGB OGC API Features service (dl-de/by-2-0), and inside
-//! Berlin the Geoportal Berlin WFS (see [`berlin`]).
+//! ALKIS buildings and land use: the parts of every region an area touches, from the ALKIS
+//! service of its adapter, merged into one collection in the LGB schema.
 
-use serde_json::Value;
+use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource};
+use freemapper_adapter_api::env::AdapterEnv;
+use freemapper_adapter_api::error::AdapterError;
 
-use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, Fetcher};
-use crate::sources::region::{Region, regions_for};
-use crate::sources::{alkis_wfs, berlin, lgv};
+use crate::adapters::registry;
+use crate::crs::BoundingBox;
+use crate::sources::region::regions_for_in;
 
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
@@ -28,183 +29,48 @@ pub fn buildings_url(bbox: &BoundingBox) -> String {
     collection_url(BUILDINGS_ENDPOINT, bbox)
 }
 
-/// Downloads the buildings in `bbox` (EPSG:25833) from every state service covering it, like
-/// [`fetch_buildings_in`] for a map in EPSG:25833.
-pub fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    fetch_buildings_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
-}
-
-/// Downloads the land use in `bbox` (EPSG:25833), like [`fetch_land_use_in`].
-pub fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
-    fetch_land_use_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
-}
-
-/// Downloads the buildings of `area` from every state service covering it and returns them as
-/// one GeoJSON FeatureCollection in the LGB schema and the map's CRS.
-pub fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
-    merged(area, |region| {
-        let in_crs = |crs: Crs| area.bbox_for(crs);
-        Ok(match region {
-            Region::Brandenburg => (
-                collection_features(fetcher, BUILDINGS_ENDPOINT, &in_crs(Crs::Utm33))?,
-                Crs::Utm33,
-            ),
-            Region::Berlin => (
-                berlin::fetch_buildings(fetcher, &in_crs(Crs::Utm33))?,
-                Crs::Utm33,
-            ),
-            Region::Saxony => wfs_buildings(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
-            Region::SaxonyAnhalt => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
-            Region::Hamburg => (
-                ogc_api_or_wfs(
-                    fetcher,
-                    (
-                        lgv::BUILDINGS_ENDPOINT,
-                        &alkis_wfs::LGV,
-                        AlkisLayer::Buildings,
-                    ),
-                    &in_crs(Crs::Utm32),
-                    lgv::normalise_building,
-                )?,
-                Crs::Utm32,
-            ),
-            Region::Hessen => wfs_buildings(fetcher, &alkis_wfs::HVBG, &in_crs)?,
-            Region::SchleswigHolstein => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
-            Region::MecklenburgVorpommern => (
-                ogc_api_or_wfs(
-                    fetcher,
-                    (
-                        MV_BUILDINGS_ENDPOINT,
-                        &alkis_wfs::LAIV_MV,
-                        AlkisLayer::Buildings,
-                    ),
-                    &in_crs(Crs::Utm33),
-                    std::convert::identity,
-                )?,
-                Crs::Utm33,
-            ),
-            Region::NordrheinWestfalen => {
-                wfs_buildings(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?
-            }
-            Region::Niedersachsen => wfs_buildings(fetcher, &alkis_wfs::LGLN, &in_crs)?,
-            Region::RheinlandPfalz => wfs_buildings(fetcher, &alkis_wfs::LVERMGEO_RP, &in_crs)?,
-        })
-    })
+/// Downloads the buildings of `area` from the ALKIS service of every region covering it and
+/// returns them as one GeoJSON FeatureCollection in the LGB schema and the map's CRS.
+pub fn fetch_buildings_in(
+    env: &mut AdapterEnv<'_>,
+    area: &FetchArea,
+) -> Result<String, AdapterError> {
+    merged(env, area, |source, env| source.buildings(env, area))
 }
 
 /// Downloads the land use of `area`, like [`fetch_buildings_in`].
-pub fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
-    merged(area, |region| {
-        let in_crs = |crs: Crs| area.bbox_for(crs);
-        Ok(match region {
-            Region::Brandenburg => (
-                collection_features(fetcher, LAND_USE_ENDPOINT, &in_crs(Crs::Utm33))?,
-                Crs::Utm33,
-            ),
-            Region::Berlin => (
-                berlin::fetch_land_use(fetcher, &in_crs(Crs::Utm33))?,
-                Crs::Utm33,
-            ),
-            Region::Saxony => wfs_land_use(fetcher, &alkis_wfs::GEOSN, &in_crs)?,
-            Region::SaxonyAnhalt => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO, &in_crs)?,
-            Region::Hamburg => (
-                ogc_api_or_wfs(
-                    fetcher,
-                    (lgv::LAND_USE_ENDPOINT, &alkis_wfs::LGV, AlkisLayer::LandUse),
-                    &in_crs(Crs::Utm32),
-                    lgv::normalise_land_use,
-                )?,
-                Crs::Utm32,
-            ),
-            Region::Hessen => wfs_land_use(fetcher, &alkis_wfs::HVBG, &in_crs)?,
-            Region::SchleswigHolstein => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO_SH, &in_crs)?,
-            Region::MecklenburgVorpommern => (
-                ogc_api_or_wfs(
-                    fetcher,
-                    (
-                        MV_LAND_USE_ENDPOINT,
-                        &alkis_wfs::LAIV_MV,
-                        AlkisLayer::LandUse,
-                    ),
-                    &in_crs(Crs::Utm33),
-                    std::convert::identity,
-                )?,
-                Crs::Utm33,
-            ),
-            Region::NordrheinWestfalen => wfs_land_use(fetcher, &alkis_wfs::GEOBASIS_NRW, &in_crs)?,
-            Region::Niedersachsen => wfs_land_use(fetcher, &alkis_wfs::LGLN, &in_crs)?,
-            Region::RheinlandPfalz => wfs_land_use(fetcher, &alkis_wfs::LVERMGEO_RP, &in_crs)?,
-        })
-    })
-}
-
-type Features = (Vec<Value>, Crs);
-
-/// Which ALKIS layer the WFS fallback of [`ogc_api_or_wfs`] reads.
-#[derive(Clone, Copy)]
-enum AlkisLayer {
-    Buildings,
-    LandUse,
-}
-
-/// The features of one collection in `bbox` (in the WFS service's CRS), normalised to the LGB
-/// spellings: from the OGC API `endpoint`, or from the classic WFS (the same data) when the OGC
-/// API fails. When both fail, the OGC API's error is reported. `layer` says which
-/// of the service's feature types the WFS fallback reads; land use gets the service's `square_bez` rule, if it has one.
-fn ogc_api_or_wfs(
-    fetcher: &dyn Fetcher,
-    (endpoint, wfs, layer): (&str, &alkis_wfs::WfsService, AlkisLayer),
-    bbox: &BoundingBox,
-    normalise: fn(Value) -> Value,
-) -> Result<Vec<Value>, FetchError> {
-    let features = collection_features_in(fetcher, endpoint, bbox, wfs.crs).or_else(|e| {
-        match layer {
-            AlkisLayer::LandUse => alkis_wfs::fetch_land_use(fetcher, wfs, bbox),
-            AlkisLayer::Buildings => alkis_wfs::fetch_buildings(fetcher, wfs, bbox),
-        }
-        .map_err(|_| e)
-    })?;
-    Ok(features.into_iter().map(normalise).collect())
-}
-
-fn wfs_buildings(
-    fetcher: &dyn Fetcher,
-    service: &alkis_wfs::WfsService,
-    in_crs: &dyn Fn(Crs) -> BoundingBox,
-) -> Result<Features, FetchError> {
-    let features = alkis_wfs::fetch_buildings(fetcher, service, &in_crs(service.crs))?;
-    Ok((features, service.crs))
-}
-
-fn wfs_land_use(
-    fetcher: &dyn Fetcher,
-    service: &alkis_wfs::WfsService,
-    in_crs: &dyn Fn(Crs) -> BoundingBox,
-) -> Result<Features, FetchError> {
-    let features = alkis_wfs::fetch_land_use(fetcher, service, &in_crs(service.crs))?;
-    Ok((features, service.crs))
+pub fn fetch_land_use_in(
+    env: &mut AdapterEnv<'_>,
+    area: &FetchArea,
+) -> Result<String, AdapterError> {
+    merged(env, area, |source, env| source.land_use(env, area))
 }
 
 /// The features of every region covering `area` as one FeatureCollection in the map's CRS;
 /// each state has its own object id prefix (`DEBBAL…`, `DEBE…`, `DESN…`, `DEST…`, `DEHE…`, `DESH…`,
 /// `DEMV…`, `DENW…`, `DENI…`, `DERP…`), and a feature two states both return is kept once.
 fn merged(
+    env: &mut AdapterEnv<'_>,
     area: &FetchArea,
-    mut fetch: impl FnMut(Region) -> Result<Features, FetchError>,
-) -> Result<String, FetchError> {
+    mut fetch: impl FnMut(&dyn AlkisSource, &mut AdapterEnv<'_>) -> Result<AlkisPart, AdapterError>,
+) -> Result<String, AdapterError> {
     let mut features = Vec::new();
     let mut seen = std::collections::HashSet::new();
-    for region in regions_for(&area.region_bbox) {
-        let (part, crs) = fetch(region)?;
+    for adapter in regions_for_in(registry(), &area.region_bbox) {
+        let Some(source) = adapter.alkis() else {
+            continue;
+        };
+        let part = fetch(source, env)?;
         // An object on a state border may come from both services: keep it once.
         features.extend(
-            part.into_iter()
+            part.features
+                .into_iter()
                 .filter(|f| {
                     f["properties"]["oid"]
                         .as_str()
                         .is_none_or(|oid| seen.insert(oid.to_string()))
                 })
-                .map(|f| reproject_feature(f, crs, area.crs)),
+                .map(|f| reproject_feature(f, part.crs, area.crs)),
         );
     }
     Ok(feature_collection(features))
@@ -258,7 +124,51 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use crate::crs::Crs;
     use crate::fetch::test_support::MapFetcher;
+    use crate::fetch::{FetchError, FetchMode, Fetcher};
+    use crate::sources::alkis_wfs;
+    use crate::sources::region::{Region, regions_for};
+    use serde_json::Value;
+
+    /// Runs a fetch with `fetcher` and nothing else: the ALKIS sources keep nothing in the
+    /// cache and say nothing.
+    fn with_env<T>(
+        fetcher: &dyn Fetcher,
+        run: impl FnOnce(&mut AdapterEnv<'_>) -> Result<T, AdapterError>,
+    ) -> Result<T, FetchError> {
+        let cache = freemapper_adapter_api::cache::CacheDir::new("no-cache".into());
+        let mut env = AdapterEnv {
+            fetcher,
+            cache: &cache,
+            mode: FetchMode::Online,
+            today: crate::clock::today(),
+            skip_surface: false,
+            progress: &mut |_| {},
+        };
+        run(&mut env).map_err(|error| match error {
+            AdapterError::Fetch(e) => e,
+            other => panic!("an ALKIS fetch fails with a fetch error, not {other}"),
+        })
+    }
+
+    fn fetch_buildings_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
+        with_env(fetcher, |env| super::fetch_buildings_in(env, area))
+    }
+
+    fn fetch_land_use_in(fetcher: &dyn Fetcher, area: &FetchArea) -> Result<String, FetchError> {
+        with_env(fetcher, |env| super::fetch_land_use_in(env, area))
+    }
+
+    /// The buildings in `bbox` (EPSG:25833) for a map in EPSG:25833.
+    fn fetch_buildings(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
+        fetch_buildings_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
+    }
+
+    /// The land use in `bbox` (EPSG:25833) for a map in EPSG:25833.
+    fn fetch_land_use(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<String, FetchError> {
+        fetch_land_use_in(fetcher, &FetchArea::new(*bbox, Crs::Utm33))
+    }
 
     const BBOX: BoundingBox = BoundingBox {
         min_e: 421_490.0,
@@ -392,19 +302,26 @@ mod tests {
         );
         let regions = regions_for(&area.region_bbox);
         assert!(regions.len() >= 2, "{regions:?}");
-        let first = regions[0];
-        let copy = |from: &str| -> Features {
+        let copy = |from: &str| {
             let feature = serde_json::json!({
                 "type": "Feature", "id": from,
                 "geometry": {"type": "Point", "coordinates": [437_000.0, 5_918_000.0]},
                 "properties": {"oid": "SAME", "from": from}
             });
-            (vec![feature], Crs::Utm33)
+            AlkisPart {
+                features: vec![feature],
+                crs: Crs::Utm33,
+            }
         };
-        let text = merged(&area, |region| {
-            Ok(copy(if region == first { "first" } else { "later" }))
+        let mut asked = 0;
+        let text = with_env(&MapFetcher::default(), |env| {
+            merged(env, &area, |_, _| {
+                asked += 1;
+                Ok(copy(if asked == 1 { "first" } else { "later" }))
+            })
         })
         .unwrap();
+        assert_eq!(asked, regions.len());
         let json: Value = serde_json::from_str(&text).unwrap();
         let features = json["features"].as_array().unwrap();
         assert_eq!(features.len(), 1);

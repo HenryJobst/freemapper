@@ -72,6 +72,10 @@ mod tests {
             &self.1
         }
 
+        fn alkis(&self) -> Option<&dyn crate::alkis::AlkisSource> {
+            None
+        }
+
         fn attribution(
             &self,
             _used: &crate::credit::UsedSources<'_>,

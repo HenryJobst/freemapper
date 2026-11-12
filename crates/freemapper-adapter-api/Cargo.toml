@@ -19,6 +19,7 @@ freemapper-georef.workspace = true
 freemapper-text.workspace = true
 geo-types.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 
 [lints]

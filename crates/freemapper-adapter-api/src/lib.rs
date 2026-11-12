@@ -7,6 +7,7 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod adapter;
+pub mod alkis;
 pub mod cache;
 pub mod credit;
 pub mod env;

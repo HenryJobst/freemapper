@@ -1260,6 +1260,10 @@ mod tests {
             Some(&self.far)
         }
 
+        fn alkis(&self) -> Option<&dyn freemapper_adapter_api::alkis::AlkisSource> {
+            None
+        }
+
         fn attribution(
             &self,
             _used: &freemapper_adapter_api::credit::UsedSources<'_>,

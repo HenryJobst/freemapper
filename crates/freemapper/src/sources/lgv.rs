@@ -5,8 +5,6 @@
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-use serde_json::Value;
-
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::raster::{GridSpec, Raster};
@@ -240,86 +238,11 @@ pub const BUILDINGS_ENDPOINT: &str =
 pub const LAND_USE_ENDPOINT: &str =
     "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/NutzungFlurstueck/items";
 
-/// The LGB spellings of `gebnutzbez` the build rules know.
-pub(crate) const BUILDING_KINDS: [&str; 3] = [
-    "Gebäude",
-    "Bauteil",
-    "Sonstiges Bauwerk oder sonstige Einrichtung",
-];
-/// The LGB spellings of `nutzart` (the AdV class names).
-const LAND_USE_CLASSES: [&str; 26] = [
-    "Wohnbaufläche",
-    "Industrie- und Gewerbefläche",
-    "Halde",
-    "Bergbaubetrieb",
-    "Tagebau, Grube, Steinbruch",
-    "Fläche gemischter Nutzung",
-    "Fläche besonderer funktionaler Prägung",
-    "Sport-, Freizeit- und Erholungsfläche",
-    "Friedhof",
-    "Straßenverkehr",
-    "Weg",
-    "Platz",
-    "Bahnverkehr",
-    "Flugverkehr",
-    "Schiffsverkehr",
-    "Landwirtschaft",
-    "Wald",
-    "Gehölz",
-    "Heide",
-    "Moor",
-    "Sumpf",
-    "Unland/Vegetationslose Fläche",
-    "Fließgewässer",
-    "Hafenbecken",
-    "Stehendes Gewässer",
-    "Meer",
-];
-
-/// A Hamburg building feature with the LGB spellings (`Gebaeude` → `Gebäude`).
-pub fn normalise_building(feature: Value) -> Value {
-    normalise(feature, "gebnutzbez", &BUILDING_KINDS)
-}
-
-/// A Hamburg land use feature with the LGB `nutzart` spellings (`Wohnbauflaeche` →
-/// `Wohnbaufläche`); unknown classes are kept.
-pub fn normalise_land_use(feature: Value) -> Value {
-    normalise(feature, "nutzart", &LAND_USE_CLASSES)
-}
-
-/// `feature` with `property` replaced by the entry of `names` it spells in ASCII.
-fn normalise(mut feature: Value, property: &str, names: &[&str]) -> Value {
-    let Some(value) = feature
-        .get_mut("properties")
-        .and_then(|p| p.get_mut(property))
-    else {
-        return feature;
-    };
-    if let Some(text) = value.as_str() {
-        let key = spelling_key(text);
-        if let Some(name) = names.iter().find(|name| spelling_key(name) == key) {
-            *value = Value::from(*name);
-        }
-    }
-    feature
-}
-
-/// A key equal for "Industrie- und Gewerbefläche" and "Industrie Und Gewerbeflaeche": lower
-/// case, umlauts and ß written out, punctuation dropped, single spaces.
-pub(crate) fn spelling_key(text: &str) -> String {
-    let mut key = String::new();
-    for c in text.to_lowercase().chars() {
-        match c {
-            'ä' => key.push_str("ae"),
-            'ö' => key.push_str("oe"),
-            'ü' => key.push_str("ue"),
-            'ß' => key.push_str("ss"),
-            '-' | ',' | '/' => key.push(' '),
-            c => key.push(c),
-        }
-    }
-    key.split_whitespace().collect::<Vec<_>>().join(" ")
-}
+// The LGB spellings and the Hamburg normaliser live in `freemapper-sources` beside the ALKIS
+// sources that use them (ADR 0082).
+pub(crate) use freemapper_sources::alkis_source::spelling_key;
+#[cfg(test)]
+pub(crate) use freemapper_sources::alkis_source::{normalise_building, normalise_land_use};
 
 #[cfg(test)]
 pub(crate) mod test_support {
@@ -333,6 +256,7 @@ mod tests {
     use super::*;
     use crate::sources::alkis::{parse_buildings, parse_land_use};
     use crate::sources::zip_range::test_support::archive;
+    use serde_json::Value;
 
     fn normalised(collection: &str, f: fn(Value) -> Value) -> String {
         let mut v: Value = serde_json::from_str(collection).unwrap();

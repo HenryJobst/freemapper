@@ -4,13 +4,14 @@
 //! enums go.
 
 use freemapper_adapter_api::adapter::RegionAdapter;
+use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use geo_types::MultiPolygon;
 
-use crate::adapters::{credit, estimate};
+use crate::adapters::{alkis, credit, estimate};
 use crate::crs::BoundingBox;
 use std::sync::OnceLock;
 
@@ -21,6 +22,7 @@ pub struct LegacyAdapter {
     region: Region,
     info: RegionInfo,
     /// The box around the boundary, found when first asked for.
+    alkis: Box<dyn AlkisSource>,
     bounds: OnceLock<BoundingBox>,
 }
 
@@ -146,6 +148,7 @@ impl LegacyAdapter {
         Self {
             region,
             info,
+            alkis: alkis::source(region),
             bounds: OnceLock::new(),
         }
     }
@@ -163,6 +166,10 @@ impl RegionAdapter for LegacyAdapter {
 
     fn boundary(&self) -> &MultiPolygon<f64> {
         self.region.boundary()
+    }
+
+    fn alkis(&self) -> Option<&dyn AlkisSource> {
+        Some(&*self.alkis)
     }
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {

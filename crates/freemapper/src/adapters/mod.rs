@@ -11,6 +11,7 @@ pub use freemapper_adapter_api::registry::Registry;
 
 use crate::sources::region::Region;
 
+pub(crate) mod alkis;
 pub(crate) mod credit;
 pub(crate) mod estimate;
 pub mod legacy;
