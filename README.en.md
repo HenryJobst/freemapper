@@ -376,7 +376,7 @@ The workflow the agent follows:
 4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id
    (with `ocad: true` also the OCAD starting point, with `pdf: true` the map PDF, with `pdf_candidates: true` the PDF with candidates).
 5. `project_status` – polls the progress until the job has finished or failed.
-6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the templates.
+6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the map and the templates.
 
 When no search result fits or the user wants to draw the area, `open_area_selector` opens the area
 selection in the browser and returns its address; after saving, continue with step 3.

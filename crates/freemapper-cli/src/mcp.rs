@@ -164,7 +164,7 @@ struct OpenAreaSelector {
 struct PreviewLayer {
     /// Project folder (absolute path or starting with ~).
     dir: String,
-    /// "orthophoto", "hillshade", "slope", "relief" or "ndsm".
+    /// "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" or "k5" (Berlin only).
     layer: String,
 }
 
@@ -243,6 +243,8 @@ pub struct FreemapperServer {
     /// Area selection pages by [`folder_key`], one per folder.
     selectors: Arc<tokio::sync::Mutex<HashMap<PathBuf, Selector>>>,
     update_note: Arc<Mutex<UpdateNote>>,
+    /// What the server found about the adapter folders at its start, for the first tool result.
+    adapter_note: Arc<Mutex<Option<String>>>,
 }
 
 /// The id of a tool's description in the catalog.
@@ -382,7 +384,18 @@ impl FreemapperServer {
             jobs: Arc::default(),
             selectors: Arc::default(),
             update_note: Arc::default(),
+            adapter_note: Arc::default(),
         }
+    }
+
+    /// Passes `lines` (the warnings about the adapter folders, see [`crate::adapters::install`])
+    /// on with the first tool result, as one note for the person.
+    fn tell_about_adapters(&self, lines: &[String]) {
+        if lines.is_empty() {
+            return;
+        }
+        *self.adapter_note.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some(t("mcp-adapter-note", &[("lines", v(lines.join("\n")))]));
     }
 
     /// Starts the daily check (spec 3.7) of the cache folder; what it finds waits for the next
@@ -716,8 +729,9 @@ impl FreemapperServer {
     }
 
     #[tool(
-        description = "A PNG preview (at most 800 px) of a raster template: orthophoto, \
-                       hillshade, slope, relief or ndsm."
+        description = "A PNG preview (at most 800 px) of a layer: map (the image of the map \
+                       objects that the last run wrote, without the candidates), or a raster \
+                       template: orthophoto, hillshade, slope, relief, ndsm, or k5 in Berlin."
     )]
     async fn preview_layer(
         &self,
@@ -803,6 +817,15 @@ impl ServerHandler for FreemapperServer {
             self.update_note().release(failed);
         }
         let mut response = response?;
+        if let CallToolResponse::Complete(result) = &mut response
+            && let Some(note) = self
+                .adapter_note
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .take()
+        {
+            result.content.push(ContentBlock::text(note));
+        }
         if !update_tool
             && let CallToolResponse::Complete(result) = &mut response
             && let Some(note) = self.update_note().take()
@@ -826,8 +849,10 @@ impl ServerHandler for FreemapperServer {
 }
 
 /// Serves MCP on stdin/stdout until the client disconnects.
-pub async fn serve(cache: Cache) -> anyhow::Result<()> {
+/// `adapter_lines`: what the adapter folders had to say at the start.
+pub async fn serve(cache: Cache, adapter_lines: Vec<String>) -> anyhow::Result<()> {
     let server = FreemapperServer::new(cache);
+    server.tell_about_adapters(&adapter_lines);
     server.start_update_check();
     let service = server.serve(rmcp::transport::stdio()).await?;
     service.waiting().await?;
