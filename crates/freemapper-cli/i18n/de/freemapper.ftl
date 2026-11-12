@@ -488,7 +488,6 @@ error-reason-user-info = Benutzerangabe in der Adresse
 error-reason-port = ein anderer Port als 443
 error-reason-host-not-declared = der Host gehört nicht zu den erklärten Hosts
 error-reason-local-address = eine Adresse dieses Rechners oder des lokalen Netzes, nicht die eines Servers im Internet
-error-reason-redirect-to = eine Weiterleitung auf { $target }
 error-reason-too-many-redirects = mehr als { $count } Weiterleitungen
 error-reason-redirect-nowhere = eine Weiterleitung (HTTP { $status }) ohne Ziel
 error-fetch-currency-csv = Aktualitäts-CSV, Zeile { $line }: { $message }

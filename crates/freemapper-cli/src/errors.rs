@@ -291,7 +291,8 @@ const POLICY_REASONS: [(&str, &str); 12] = [
 
 /// Why freemapper did not send a request, in the language of the run. The library gives the
 /// reason in English: one of the reasons of the rules, alone or after what it is about
-/// (`127.0.0.1: an address …`), or one of the three about redirects.
+/// (`127.0.0.1: an address …`), then the address that redirected there if one did
+/// (`… (https://… redirects there)`), or one of the two about redirects that lead nowhere.
 pub(crate) fn not_allowed_reason(lang: &Lang, reason: &str) -> String {
     let worded = |english: &str| {
         POLICY_REASONS
@@ -299,12 +300,16 @@ pub(crate) fn not_allowed_reason(lang: &Lang, reason: &str) -> String {
             .find(|(known, _)| *known == english)
             .map(|(_, id)| text(lang, id, &[]))
     };
-    if let Some(target) = reason.strip_prefix("a redirect to ") {
-        return text(
+    if let Some((why, from)) = reason
+        .strip_suffix(" redirects there)")
+        .and_then(|rest| rest.rsplit_once(" ("))
+    {
+        let from = text(
             lang,
-            "error-reason-redirect-to",
-            &[("target", v(not_allowed_reason(lang, target)))],
+            "error-fetch-host-redirected-from",
+            &[("url", v(from))],
         );
+        return format!("{}{from}", not_allowed_reason(lang, why));
     }
     if let Some(count) = reason
         .strip_prefix("more than ")
@@ -953,9 +958,9 @@ mod tests {
         );
         assert_eq!(
             said(
-                "a redirect to https://evil.example.net/x: the host is not one of the declared hosts"
+                "the host is not one of the declared hosts (https://geo.example.org/a redirects there)"
             ),
-            "eine Weiterleitung auf https://evil.example.net/x: der Host gehört nicht zu den erklärten Hosts"
+            "der Host gehört nicht zu den erklärten Hosts (https://geo.example.org/a leitet dorthin weiter)"
         );
         assert_eq!(said("more than 3 redirects"), "mehr als 3 Weiterleitungen");
         assert_eq!(
