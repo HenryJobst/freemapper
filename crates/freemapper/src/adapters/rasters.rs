@@ -9,6 +9,8 @@ use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_adapters_de::geosn::GeosnBackend;
 use freemapper_adapters_de::lgb::LgbBackend;
+use freemapper_adapters_de::lgln::LglnBackend;
+use freemapper_adapters_de::lvermgeo::LvermgeoBackend;
 
 use crate::crs::BoundingBox;
 use crate::project;
@@ -23,13 +25,13 @@ pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
     let fetch: RasterFetch = match provider {
         Provider::Lgb => return Box::new(LgbBackend::new()),
         Provider::GeoSn => return Box::new(GeosnBackend::new()),
-        Provider::LvermGeo => project::fetch_lvermgeo_rasters,
+        Provider::LvermGeo => return Box::new(LvermgeoBackend::new()),
         Provider::Lgv => project::fetch_lgv_rasters,
         Provider::Hvbg => project::fetch_hvbg_rasters,
         Provider::LvermGeoSh => project::fetch_sh_rasters,
         Provider::LaivMv => project::fetch_mv_rasters,
         Provider::GeobasisNrw => project::fetch_nrw_rasters,
-        Provider::Lgln => project::fetch_lgln_rasters,
+        Provider::Lgln => return Box::new(LglnBackend::new()),
         Provider::LvermGeoRp => project::fetch_rp_rasters,
     };
     Box::new(LegacyBackend::new(provider, fetch))

@@ -6,6 +6,8 @@
 
 pub mod geosn;
 pub mod lgb;
+pub mod lgln;
+pub mod lvermgeo;
 pub mod tile_fetch;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths
@@ -47,6 +49,42 @@ mod raster {
 
 #[allow(unused_imports)]
 mod sources {
-    pub(crate) use crate::{geosn, lgb};
-    pub(crate) use freemapper_sources::wms;
+    pub(crate) use crate::{geosn, lgb, lgln, lvermgeo};
+    pub(crate) use freemapper_sources::{
+        float_tiff, height_model, metalink, wcs, wfs as alkis_wfs, wms, xlsx, zip_range,
+    };
+}
+
+/// What `derive` does with the files a backend stores, for the tests of the backends.
+#[cfg(test)]
+mod derive {
+    pub(crate) mod terrain {
+        use std::path::Path;
+
+        use crate::raster::{GridSpec, Raster};
+
+        /// A Float32 GeoTIFF with its world file (`.tfw`) as a raster, `NaN` where it holds no
+        /// data: what `derive` reads of a height model stored per map area.
+        pub(crate) fn read_float_raster(path: &Path) -> Result<Raster<f32>, String> {
+            let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+            let world = std::fs::read(path.with_extension("tfw")).map_err(|e| e.to_string())?;
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes))
+                .map_err(|e| e.to_string())?;
+            let (width, height) = decoder.dimensions().map_err(|e| e.to_string())?;
+            let tiff::decoder::DecodingResult::F32(values) =
+                decoder.read_image().map_err(|e| e.to_string())?
+            else {
+                return Err("not 32-bit float".to_string());
+            };
+            let grid = GridSpec::from_world_file(&String::from_utf8_lossy(&world), width, height)
+                .map_err(|e| e.to_string())?;
+            Ok(Raster {
+                grid,
+                data: values
+                    .into_iter()
+                    .map(|z| if z < -9998.0 { f32::NAN } else { z })
+                    .collect(),
+            })
+        }
+    }
 }
