@@ -982,6 +982,33 @@ fn file_names_under(dir: &Path) -> Vec<String> {
     names
 }
 
+/// The states the net still records (G3, G4), one of each kind of fetch: Brandenburg (tiles in
+/// the cache), Berlin (the code adapter), Saxony-Anhalt (per-area services, declared by its
+/// manifest alone) and Hesse (archives read by range requests). The other seven left the net
+/// after the migration to adapters, which they were recorded to prove: every later change to a
+/// request would have paid for them with a new recording.
+const RECORDED: [&str; 4] = ["brandenburg", "berlin", "saxonyanhalt", "hessen"];
+
+/// The folders of the net are those of [`RECORDED`], and each has its three files.
+#[test]
+fn g3_the_net_holds_the_recorded_states() {
+    let mut folders: Vec<String> = std::fs::read_dir(golden_dir())
+        .unwrap()
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    folders.sort();
+    let mut recorded = RECORDED.map(str::to_string).to_vec();
+    recorded.sort();
+    assert_eq!(folders, recorded);
+    for id in RECORDED {
+        for file in ["index.toml", "trace.txt", "expected.sha256"] {
+            assert!(golden_dir().join(id).join(file).is_file(), "{id}/{file}");
+        }
+    }
+}
+
 /// One test per state in the module `$layer`, each calling `$run` with the state's id.
 macro_rules! per_state {
     ($layer:ident, $run:path, $($id:ident),+) => {
@@ -1002,15 +1029,8 @@ per_state!(
     crate::g3_trace_of,
     brandenburg,
     berlin,
-    saxony,
     saxonyanhalt,
-    hamburg,
-    hessen,
-    schleswigholstein,
-    mecklenburgvorpommern,
-    nordrheinwestfalen,
-    niedersachsen,
-    rheinlandpfalz
+    hessen
 );
 
 /// The download estimate of a project as a golden row: the tiles, every item (text, megabytes,
@@ -1058,25 +1078,24 @@ fn g2_estimate_items_equal_the_old_ones_for_the_example_areas() {
     check_golden("g2-estimates.json", &pretty(&rows));
 }
 
-/// The estimate of every state after its fetch: the tiles and lists are in the cache and the
-/// rasters in the project folder, so the items say what is cached and what is replaced in place.
+/// The estimate of every recorded state after its fetch: the tiles and lists are in the cache and
+/// the rasters in the project folder, so the items say what is cached and what is replaced in place.
 /// Each provider finds its files in the cache under its own names; the move of plan C5 must
 /// keep them.
 #[test]
 #[ignore = "needs the fixture store: scripts/golden.sh test"]
 fn g3_estimates_after_the_fetch_are_unchanged() {
-    let rows: Vec<serde_json::Value> = regions::LEGACY
+    let rows: Vec<serde_json::Value> = RECORDED
         .into_iter()
-        .map(|region| {
-            let id = id_of(region);
-            let replayed = replayed_fetch(&id);
+        .map(|id| {
+            let replayed = replayed_fetch(id);
             assert_eq!(
                 replayed.lines.last().map(String::as_str),
                 Some("result: fetched"),
                 "{id}"
             );
             clock::with_fixed(golden_noon(), || {
-                estimate_row(&id, &replayed.dir, &replayed.cache)
+                estimate_row(id, &replayed.dir, &replayed.cache)
             })
         })
         .collect();
@@ -1284,15 +1303,8 @@ per_state!(
     crate::g4_pipeline_of,
     brandenburg,
     berlin,
-    saxony,
     saxonyanhalt,
-    hamburg,
-    hessen,
-    schleswigholstein,
-    mecklenburgvorpommern,
-    nordrheinwestfalen,
-    niedersachsen,
-    rheinlandpfalz
+    hessen
 );
 
 /// Copies the maintainer's cached OSM extracts of `region` into `cache`, so the recording does

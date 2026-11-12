@@ -122,10 +122,31 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     }
 }
 
-/// The hosts a fetch of `state` asked when the golden net was recorded, without Geofabrik's
-/// (the OSM extracts belong to no adapter). Saarland came after the net: its hosts are those
-/// of the addresses its backend and its WFS are written with.
-fn hosts_of_the_trace(state: State) -> Vec<String> {
+/// The golden net of the adapter work, at the root of the repository.
+fn golden_dir() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tests/golden/adapters")
+}
+
+/// The hosts in the trace of a recorded fetch, without Geofabrik's (the OSM extracts belong
+/// to no adapter).
+fn hosts_in(trace: &str) -> Vec<String> {
+    let mut hosts: Vec<String> = trace
+        .lines()
+        .filter_map(|line| line.strip_prefix("GET https://"))
+        .filter_map(|rest| rest.split(['/', '?', ' ']).next())
+        .filter(|host| *host != "download.geofabrik.de")
+        .map(str::to_string)
+        .collect();
+    hosts.sort();
+    hosts.dedup();
+    hosts
+}
+
+/// The hosts a fetch of `state` asked when the golden net recorded it: for the eleven states
+/// of the net `g1-hosts.txt`, which keeps them for the states that are no longer recorded.
+/// Saarland came after the net: its hosts are those of the addresses its backend and its WFS
+/// are written with.
+fn recorded_hosts(state: State) -> Vec<String> {
     if state == State::Saarland {
         let mut hosts: Vec<String> = [
             lvgl::WMS.url.as_ref(),
@@ -140,21 +161,28 @@ fn hosts_of_the_trace(state: State) -> Vec<String> {
         hosts.dedup();
         return hosts;
     }
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../tests/golden/adapters")
-        .join(state.id())
-        .join("trace.txt");
+    let path = golden_dir().join("g1-hosts.txt");
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let mut hosts: Vec<String> = text
+    let line = text
         .lines()
-        .filter_map(|line| line.strip_prefix("GET https://"))
-        .filter_map(|rest| rest.split(['/', '?', ' ']).next())
-        .filter(|host| *host != "download.geofabrik.de")
-        .map(str::to_string)
-        .collect();
-    hosts.sort();
-    hosts.dedup();
-    hosts
+        .find_map(|line| line.strip_prefix(state.id())?.strip_prefix(": "))
+        .unwrap_or_else(|| panic!("{} names no hosts of {}", path.display(), state.id()));
+    line.split(' ').map(str::to_string).collect()
+}
+
+/// A state the net still records asks the hosts `g1-hosts.txt` names, no more and no fewer: a
+/// new recording that asks another host changes the file with it.
+#[test]
+fn the_recorded_hosts_are_those_of_the_traces() {
+    let mut recorded = 0;
+    for state in State::ALL {
+        let trace = golden_dir().join(state.id()).join("trace.txt");
+        if let Ok(trace) = std::fs::read_to_string(&trace) {
+            assert_eq!(hosts_in(&trace), recorded_hosts(state), "{}", state.id());
+            recorded += 1;
+        }
+    }
+    assert!(recorded > 0, "the net records no state");
 }
 
 /// No two states share ground. The borders of neighbours were simplified apart and overlap by
@@ -208,7 +236,7 @@ fn builtin_manifests_pass_the_validator_and_policy() {
             .join(id);
         let file = std::fs::read_to_string(folder.join("manifest.toml")).unwrap();
         assert_eq!(states::manifest_text(state), file, "{id}");
-        let asked = hosts_of_the_trace(state);
+        let asked = recorded_hosts(state);
         assert!(!asked.is_empty(), "{id}");
         for host in &asked {
             assert!(

@@ -1,0 +1,14 @@
+# The hosts a fetch of each state asked when the golden net recorded all eleven (store version 1),
+# without Geofabrik's. Every built-in manifest declares at least these
+# (crates/adapters/de/tests/manifests.rs). A state that is still recorded must ask exactly these.
+brandenburg: data.geobasis-bb.de isk.geobasis-bb.de ogc-api.geobasis-bb.de opendata.potsdam.de
+berlin: data.geobasis-bb.de gdi.berlin.de
+saxony: geocloud.landesvermessung.sachsen.de geodienste.sachsen.de
+saxonyanhalt: geodatenportal.sachsen-anhalt.de www.geodatenportal.sachsen-anhalt.de
+hamburg: api.hamburg.de archiv.transparenz.hamburg.de geodienste.hamburg.de www.daten-hamburg.de
+hessen: gds.hessen.de www.gds-srv.hessen.de www.gds.hessen.de
+schleswigholstein: dienste.gdi-sh.de geodaten.schleswig-holstein.de service.gdi-sh.de
+mecklenburgvorpommern: laiv.geodaten-mv.de www.geodaten-mv.de
+nordrheinwestfalen: www.opengeodata.nrw.de www.wfs.nrw.de www.wms.nrw.de
+niedersachsen: dgm.stac.lgln.niedersachsen.de dom.stac.lgln.niedersachsen.de dop.stac.lgln.niedersachsen.de opendata.geoservices.lgln.niedersachsen.de opendata.lgln.niedersachsen.de
+rheinlandpfalz: geo4.service24.rlp.de geo5.service24.rlp.de geobasis-rlp.de
