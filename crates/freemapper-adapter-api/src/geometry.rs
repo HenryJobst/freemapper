@@ -11,6 +11,26 @@ use geo_types::{MultiPolygon, Point, Polygon, Rect, coord};
 use crate::adapter::RegionAdapter;
 use crate::registry::Registry;
 
+/// The outline of a region: its boundary in EPSG:25833 and the box around it. Every adapter has
+/// one; a crate of adapters can ask the questions below of an outline it holds itself.
+pub trait Outline {
+    /// The boundary in EPSG:25833.
+    fn boundary(&self) -> &MultiPolygon<f64>;
+
+    /// The box around the boundary.
+    fn bounds(&self) -> BoundingBox;
+}
+
+impl Outline for dyn RegionAdapter + '_ {
+    fn boundary(&self) -> &MultiPolygon<f64> {
+        RegionAdapter::boundary(self)
+    }
+
+    fn bounds(&self) -> BoundingBox {
+        RegionAdapter::bounds(self)
+    }
+}
+
 /// The area is widened by this much before testing, so the 25 m simplification never drops
 /// buildings right at the border.
 pub const MARGIN_M: f64 = 100.0;
@@ -18,7 +38,7 @@ pub const MARGIN_M: f64 = 100.0;
 /// Whether `bbox` can meet the boundary of `adapter` at all: the two boxes overlap. Asked
 /// before the boundary itself, which has tens of thousands of points; it never changes an
 /// answer, since what lies outside the box of a boundary cannot touch it.
-pub fn near_bounds(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+pub fn near_bounds<O: Outline + ?Sized>(adapter: &O, bbox: &BoundingBox) -> bool {
     let bounds = adapter.bounds();
     bounds.min_e <= bbox.max_e
         && bbox.min_e <= bounds.max_e
@@ -55,19 +75,19 @@ pub fn within_margin(boundary: &MultiPolygon<f64>, bbox: &BoundingBox) -> bool {
 
 /// Whether the boundary of `adapter` lies within [`MARGIN_M`] of `bbox` (EPSG:25833):
 /// [`regions_for_in`] for one adapter.
-pub fn touches_region_in(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+pub fn touches_region_in<O: Outline + ?Sized>(adapter: &O, bbox: &BoundingBox) -> bool {
     near_bounds(adapter, &bbox.buffered(MARGIN_M)) && within_margin(adapter.boundary(), bbox)
 }
 
 /// Whether the point (EPSG:25833) lies inside the boundary of `adapter` itself (no margin).
-pub fn contains_point_in(adapter: &dyn RegionAdapter, easting: f64, northing: f64) -> bool {
+pub fn contains_point_in<O: Outline + ?Sized>(adapter: &O, easting: f64, northing: f64) -> bool {
     near_bounds(adapter, &point_box(easting, northing))
         && adapter.boundary().contains(&Point::new(easting, northing))
 }
 
 /// Whether the centre of the 1 km zone-32 tile (EPSG:25832) lies in or near the region of
 /// `adapter`, so its provider must have the tile.
-pub fn tile_centre_near(adapter: &dyn RegionAdapter, tile: TileId) -> bool {
+pub fn tile_centre_near<O: Outline + ?Sized>(adapter: &O, tile: TileId) -> bool {
     let centre = crs::ProjectedPoint {
         easting: f64::from(tile.east_km) * 1000.0 + 500.0,
         northing: f64::from(tile.north_km) * 1000.0 + 500.0,
@@ -80,7 +100,7 @@ pub fn tile_centre_near(adapter: &dyn RegionAdapter, tile: TileId) -> bool {
 /// Whether the 1 km zone-32 tile (EPSG:25832) touches the region of `adapter` at all: every
 /// tile that can exist for it (a provider delivers whole or clipped tiles for each square that
 /// intersects).
-pub fn tile_touches_in(adapter: &dyn RegionAdapter, tile: TileId) -> bool {
+pub fn tile_touches_in<O: Outline + ?Sized>(adapter: &O, tile: TileId) -> bool {
     let corner = |de: u32, dn: u32| {
         crs::Crs::Utm33.reproject(
             crs::Crs::Utm32,
@@ -204,7 +224,7 @@ pub fn reaches_beyond_coverage_in(registry: &Registry, bbox: &BoundingBox) -> bo
 }
 
 /// Whether `bbox` itself (without the fetch margin) overlaps the boundary of `adapter`.
-pub fn overlaps_in(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> bool {
+pub fn overlaps_in<O: Outline + ?Sized>(adapter: &O, bbox: &BoundingBox) -> bool {
     near_bounds(adapter, bbox) && adapter.boundary().intersects(&rectangle(bbox))
 }
 

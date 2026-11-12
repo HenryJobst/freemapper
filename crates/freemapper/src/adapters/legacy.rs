@@ -7,6 +7,7 @@ use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+use freemapper_adapter_api::geometry::Outline;
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
@@ -16,7 +17,9 @@ use crate::adapters::{alkis, credit, estimate, rasters};
 use crate::crs::BoundingBox;
 use std::sync::OnceLock;
 
-use crate::sources::region::{Region, parse_boundary};
+use freemapper_adapters_de::boundaries::parse_boundary;
+
+use crate::sources::region::Region;
 
 /// One built-in state.
 pub struct LegacyAdapter {
@@ -25,7 +28,6 @@ pub struct LegacyAdapter {
     /// The box around the boundary, found when first asked for.
     alkis: Box<dyn AlkisSource>,
     rasters: Box<dyn RasterBackend>,
-    bounds: OnceLock<BoundingBox>,
 }
 
 /// The names of a state in English and German.
@@ -152,7 +154,6 @@ impl LegacyAdapter {
             info,
             alkis: alkis::source(region),
             rasters: rasters::backend(region.provider()),
-            bounds: OnceLock::new(),
         }
     }
 
@@ -195,18 +196,6 @@ impl RegionAdapter for LegacyAdapter {
     }
 
     fn bounds(&self) -> BoundingBox {
-        *self.bounds.get_or_init(|| {
-            use geo::BoundingRect as _;
-            let rect = self
-                .boundary()
-                .bounding_rect()
-                .expect("a boundary has an extent");
-            BoundingBox {
-                min_e: rect.min().x,
-                min_n: rect.min().y,
-                max_e: rect.max().x,
-                max_n: rect.max().y,
-            }
-        })
+        Outline::bounds(self.region.outline())
     }
 }

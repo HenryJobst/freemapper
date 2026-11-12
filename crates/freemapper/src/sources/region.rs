@@ -4,8 +4,6 @@
 //! the Berlin service none outside, so an area near a border needs several. The rasters come
 //! from one provider, the one of the region containing the area's centre (LGB also serves Berlin).
 
-use std::sync::OnceLock;
-
 pub use freemapper_adapter_api::geometry::{
     contains_point_in, overlaps_in, provider_tiles_in, raster_region_in,
     reaches_beyond_coverage_in, regions_for_in, tile_centre_near, tile_touches_in,
@@ -16,44 +14,6 @@ use geo_types::MultiPolygon;
 use crate::adapters::{RegionAdapter, registry};
 use crate::crs::BoundingBox;
 use crate::tiles::TileId;
-
-/// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
-const BRANDENBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/brandenburg.geojson");
-/// Berlin boundary from ALKIS `alkis:land` (EPSG:25833, simplified 25 m; dl-de/zero-2-0).
-const BERLIN_BOUNDARY: &str = include_str!("../../../../assets/regions/berlin.geojson");
-/// Saxony from GeoSN ALKIS `VerwaltungsEinheit` DE14 (dl-de/by-2-0).
-const SAXONY_BOUNDARY: &str = include_str!("../../../../assets/regions/saxony.geojson");
-/// Saxony-Anhalt from LVermGeo DVG `VerwaltungsEinheit` DE15 (dl-de/by-2-0), in EPSG:25833 like
-/// the others.
-const SAXONY_ANHALT_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/saxony-anhalt.geojson");
-/// Hamburg from LGV `app:landesgrenze` (dl-de/by-2-0), with Neuwerk and Scharhörn.
-const HAMBURG_BOUNDARY: &str = include_str!("../../../../assets/regions/hamburg.geojson");
-/// Hesse from HVBG ALKIS vereinfacht `VerwaltungsEinheit` DE06 (dl-de/zero-2-0). In EPSG:25833 it
-/// has negative eastings (Hesse reaches from about -17 km to 167 km).
-const HESSEN_BOUNDARY: &str = include_str!("../../../../assets/regions/hessen.geojson");
-/// Schleswig-Holstein from LVermGeo SH ALKIS (simplified 25 m, EPSG:25833; dl-de/by-2-0). It shares
-/// about 131 km of border with Hamburg.
-const SCHLESWIG_HOLSTEIN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/schleswig-holstein.geojson");
-/// Mecklenburg-Vorpommern from LAiV M-V ALKIS (simplified 25 m, EPSG:25833; CC BY 4.0). It shares
-/// its southern border with Brandenburg, and stays in UTM zone 33 like it.
-const MECKLENBURG_VORPOMMERN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/mecklenburg-vorpommern.geojson");
-/// North Rhine-Westphalia from Geobasis NRW ALKIS vereinfacht `VerwaltungsEinheit` DE05
-/// (simplified 25 m, EPSG:25833; dl-de/zero-2-0), with the five Vennbahn exclaves. In EPSG:25833 it
-/// has negative eastings (from about -140 km to 119 km).
-const NORDRHEIN_WESTFALEN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/nordrhein-westfalen.geojson");
-/// Lower Saxony from LGLN ALKIS vereinfacht `VerwaltungsEinheit` DE03 (simplified 25 m, EPSG:25833;
-/// CC BY 4.0). Bremen and Bremerhaven are holes: they are not Niedersachsen.
-const NIEDERSACHSEN_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/niedersachsen.geojson");
-/// Rhineland-Palatinate from the LVermGeo RP WFS `Verwaltungsgrenzen` (simplified 25 m, EPSG:25833;
-/// dl-de/by-2-0). In EPSG:25833 it has negative eastings (84.5 % of the state). Wiesbaden and
-/// Mainz-Kastel are Hesse, not part of it.
-const RHEINLAND_PFALZ_BOUNDARY: &str =
-    include_str!("../../../../assets/regions/rheinland-pfalz.geojson");
 
 /// A state with its own ALKIS service.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -253,33 +213,14 @@ impl Region {
 
     /// The region's boundary, parsed once.
     pub(crate) fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 11] = [
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-        ];
-        let (index, text) = match self {
-            Self::Brandenburg => (0, BRANDENBURG_BOUNDARY),
-            Self::Berlin => (1, BERLIN_BOUNDARY),
-            Self::Saxony => (2, SAXONY_BOUNDARY),
-            Self::SaxonyAnhalt => (3, SAXONY_ANHALT_BOUNDARY),
-            Self::Hamburg => (4, HAMBURG_BOUNDARY),
-            Self::Hessen => (5, HESSEN_BOUNDARY),
-            Self::SchleswigHolstein => (6, SCHLESWIG_HOLSTEIN_BOUNDARY),
-            Self::MecklenburgVorpommern => (7, MECKLENBURG_VORPOMMERN_BOUNDARY),
-            Self::NordrheinWestfalen => (8, NORDRHEIN_WESTFALEN_BOUNDARY),
-            Self::Niedersachsen => (9, NIEDERSACHSEN_BOUNDARY),
-            Self::RheinlandPfalz => (10, RHEINLAND_PFALZ_BOUNDARY),
-        };
-        BOUNDARIES[index].get_or_init(|| parse_boundary(text))
+        use freemapper_adapter_api::geometry::Outline as _;
+        self.outline().boundary()
+    }
+
+    /// The outline of the region: its boundary and the box around it, from the adapter crate.
+    pub(crate) fn outline(self) -> &'static freemapper_adapters_de::boundaries::StateOutline {
+        freemapper_adapters_de::boundaries::outline(self.id())
+            .expect("every built-in state has a boundary")
     }
 }
 
@@ -353,17 +294,6 @@ pub fn touches_berlin(bbox: &BoundingBox) -> bool {
     overlaps_in(adapter_of(Region::Berlin), bbox)
 }
 
-/// The MultiPolygon of the first feature of an embedded GeoJSON boundary asset.
-pub(crate) fn parse_boundary(text: &str) -> MultiPolygon<f64> {
-    let collection: geojson::FeatureCollection =
-        text.parse().expect("embedded boundary is GeoJSON");
-    let geometry = collection.features[0]
-        .geometry
-        .clone()
-        .expect("embedded boundary has a geometry");
-    MultiPolygon::try_from(geometry.value).expect("embedded boundary is a MultiPolygon")
-}
-
 /// Every per-region fact the `Region` and `Provider` enums answer, for the golden net of the
 /// adapter migration (`tests/adapters_golden.rs`, layer G1). Test and `golden` feature only.
 #[cfg(any(test, feature = "golden"))]
@@ -429,19 +359,8 @@ pub mod golden {
     }
 
     fn boundary_text(region: Region) -> &'static str {
-        match region {
-            Region::Brandenburg => BRANDENBURG_BOUNDARY,
-            Region::Berlin => BERLIN_BOUNDARY,
-            Region::Saxony => SAXONY_BOUNDARY,
-            Region::SaxonyAnhalt => SAXONY_ANHALT_BOUNDARY,
-            Region::Hamburg => HAMBURG_BOUNDARY,
-            Region::Hessen => HESSEN_BOUNDARY,
-            Region::SchleswigHolstein => SCHLESWIG_HOLSTEIN_BOUNDARY,
-            Region::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_BOUNDARY,
-            Region::NordrheinWestfalen => NORDRHEIN_WESTFALEN_BOUNDARY,
-            Region::Niedersachsen => NIEDERSACHSEN_BOUNDARY,
-            Region::RheinlandPfalz => RHEINLAND_PFALZ_BOUNDARY,
-        }
+        freemapper_adapters_de::boundaries::boundary_text(region.id())
+            .expect("every built-in state has a boundary")
     }
 
     /// The folder `provider` keeps its downloads under in the shared cache: the name its

@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod boundaries;
 pub mod geosn;
 pub mod lgb;
 pub mod lgln;
@@ -49,6 +50,10 @@ mod raster {
 
 #[allow(unused_imports)]
 mod sources {
+    /// The questions the state modules asked the region enum of the engine.
+    pub(crate) mod region {
+        pub(crate) use crate::boundaries::*;
+    }
     pub(crate) use crate::{geosn, lgb, lgln, lvermgeo};
     pub(crate) use freemapper_sources::{
         float_tiff, height_model, metalink, wcs, wfs as alkis_wfs, wms, xlsx, zip_range,
