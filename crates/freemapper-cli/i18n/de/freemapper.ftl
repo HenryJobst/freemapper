@@ -447,6 +447,7 @@ word-part-osm-update = die Aktualisierung des gespeicherten OSM-Auszugs
 word-part-k-five = die Berliner Kartenvorlage K5
 word-part-berlin-layers = die Berliner ALKIS-Bauwerke, das Baumkataster, die Straßenbefahrung und die Punktebenen
 word-part-state-layers = die vollständigen ALKIS-Bauwerke und die Baumkataster
+word-part-point-cloud = die Laserpunktwolken für die Vegetations-Kandidaten
 
 ## Fehler: Herunterladen
 

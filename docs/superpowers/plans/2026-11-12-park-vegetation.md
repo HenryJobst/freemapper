@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Stage C of the region adapters is on main (ed319e5). Stage D (manifests) is in progress on the branch `region-adapters`: the point-cloud capability touches its schema (D1) and named backends (D5), so Task 1 starts only after agreement with that session on who builds it and when.
+- Stage C of the region adapters is on main (ed319e5); stage D (manifests) is in progress on the branch `region-adapters`. Agreed with that work on 2026-11-12: the point-cloud capability is ours and stays additive (`pointcloud.rs`, a default method on `RegionAdapter`, one line in `lib.rs`); `crates/freemapper-manifest` is not touched until D6; until `Registry::backend(name)` exists (D5) the backend hangs directly on the adapter; `[pointcloud] backend = "<name>"` follows after D5. The hosts are those the adapters already declare (`data.geobasis-bb.de`, `www.opengeodata.nrw.de`, `geobasis-rlp.de`).
 - Only per-area downloads; never a statewide bulk file (Berlin's 8 regional ZIPs of about 200 GB need range reads or stay out).
 - Verify checksums where the service gives them (Metalink SHA-256 in Rhineland-Palatinate).
 - The disk check (ADR 0045) counts the point-cloud tiles in the estimate.
@@ -30,9 +30,11 @@
 
 ### Task 1: Point-cloud capability in the adapter API
 
-- [ ] `PointCloudBackend` beside the raster backends: tiles under a box, their URLs, sizes and checksums; a `pointcloud` kind for manifests (stage D).
-- [ ] Brandenburg first (per-tile ZIP, LAS 1.2), then North Rhine-Westphalia (index.json, LAZ), Rhineland-Palatinate (Metalink with SHA-256), Saxony, Thuringia, Bavaria, Saarland; Berlin only with range reads.
-- [ ] Estimate and disk check include the tiles; cache like the DTM tiles.
+- [x] `PointCloudBackend` in `freemapper-adapter-api/src/pointcloud.rs` (`info`, `fetch`, `cached`, `estimate`), `PointCloudRecord` for the project file, `RegionAdapter::point_cloud` (default `None`), `Part::PointCloud` with its texts.
+- [x] Brandenburg: `crates/adapters/de/src/lgb_als.rs` (zip per km tile streamed into the cache, only the LAZ file kept and checked to its last point, currency from `bb_laserscandaten_aktualitaet.csv`, older publications removed, a failing tile falls back to the cache or is left out with a warning).
+- [ ] North Rhine-Westphalia (index.json, LAZ), Rhineland-Palatinate (Metalink with SHA-256), Saxony, Thuringia, Bavaria, Saarland; Berlin only with range reads.
+- [ ] `[pointcloud]` in the manifests once stage D has named backends (D5).
+- [ ] The engine counts the estimate items in `estimate_download` and the disk check (Task 2, beside the fetch step).
 
 ### Task 2: Derive step
 

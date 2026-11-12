@@ -171,6 +171,8 @@ pub enum Part {
     OsmUpdate,
     /// The Berlin K5 map (1:5000), a template the mapper may draw on.
     K5,
+    /// The classified laser point clouds: only the vegetation candidates.
+    PointCloud,
 }
 
 impl Part {
@@ -188,6 +190,7 @@ impl Part {
             Part::Surface => "the surface model for the nDSM template",
             Part::OsmUpdate => "the update of the cached OSM extract",
             Part::K5 => "the Berlin K5 map template",
+            Part::PointCloud => "the laser point clouds for the vegetation candidates",
             Part::BerlinLayers => {
                 "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
             }

@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis); the data side waits for the region adapters (ADR 0082)
+Status: Accepted (analysis and the Brandenburg source); the engine steps follow
 
 ## Context
 
@@ -28,11 +28,15 @@ the crowns, so it does not help.
   1.5 m, and patches and holes smaller than 1.5 mm × 1.5 mm on paper are left out (36 m² at 1:4000, like
   karttapullautin's minimum).
 - `read_points` reads classified LAS/LAZ tiles and leaves out buildings, noise and water.
-- The data side is not built yet. Point clouds are a new kind of source per state (open in Bavaria,
-  Rhineland-Palatinate, North Rhine-Westphalia, Brandenburg, Saxony, Thuringia, Berlin, Saarland), and new sources go
-  through the region adapters. Stages B and C are on main; the point-cloud capability touches the manifests of
-  stage D, which is in progress, and is agreed with that work first. The plan is
-  `docs/superpowers/plans/2026-11-12-park-vegetation.md`.
+- Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
+  Rhine-Westphalia, Brandenburg, Saxony, Thuringia, Berlin, Saarland). A region adapter offers them through
+  `PointCloudBackend` (`freemapper-adapter-api`), next to its rasters and agreed with stage D of the adapters:
+  the tiles under a box go into the shared cache as checked LAS/LAZ files, and the backend gives their records
+  and download estimate (part `PointCloud`, optional like the surface model). Brandenburg is the first: LGB
+  serves a zip of about 100 MB per km tile, of which only the LAZ file is kept. A tile that fails falls back to
+  the cache or is left out with a warning, because the vegetation is only a candidate.
+- The engine steps (fetch and estimate, `data/vegetation.geojson` in `derive`, the candidates in `export`)
+  follow; the plan is `docs/superpowers/plans/2026-11-12-park-vegetation.md`.
 - No code is copied from omapmaker; karttapullautin is not a dependency (see ADR 0104).
 
 ## Consequences

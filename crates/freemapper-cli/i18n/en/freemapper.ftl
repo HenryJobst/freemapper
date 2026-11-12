@@ -447,6 +447,7 @@ word-part-osm-update = the update of the cached OSM extract
 word-part-k-five = the Berlin K5 map template
 word-part-berlin-layers = the Berlin ALKIS structures, tree cadastre, street survey and point layers
 word-part-state-layers = the full ALKIS structures and the tree cadastres
+word-part-point-cloud = the laser point clouds for the vegetation candidates
 
 ## Errors: downloads
 

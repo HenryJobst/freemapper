@@ -11,6 +11,7 @@ pub mod geosn;
 pub mod hvbg;
 pub mod laiv_mv;
 pub mod lgb;
+pub mod lgb_als;
 pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;

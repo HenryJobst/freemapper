@@ -220,6 +220,7 @@ impl Localize for Part {
             Part::Surface => "word-part-surface",
             Part::OsmUpdate => "word-part-osm-update",
             Part::K5 => "word-part-k-five",
+            Part::PointCloud => "word-part-point-cloud",
             Part::BerlinLayers => "word-part-berlin-layers",
             Part::StateLayers => "word-part-state-layers",
         };
@@ -628,7 +629,7 @@ mod tests {
         }
     }
 
-    const PARTS: [Part; 8] = [
+    const PARTS: [Part; 9] = [
         Part::MapData,
         Part::Terrain,
         Part::Orthophoto,
@@ -637,6 +638,7 @@ mod tests {
         Part::K5,
         Part::BerlinLayers,
         Part::StateLayers,
+        Part::PointCloud,
     ];
 
     fn fetch_errors() -> Vec<FetchError> {

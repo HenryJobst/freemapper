@@ -31,6 +31,8 @@ fn derived_share(part: Part) -> f64 {
         Part::MapData | Part::OsmUpdate | Part::K5 => 0.0,
         Part::Terrain | Part::Orthophoto | Part::BerlinLayers | Part::StateLayers => 1.0,
         Part::Surface => 0.5,
+        // The vegetation areas are a small GeoJSON file.
+        Part::PointCloud => 0.0,
     }
 }
 
