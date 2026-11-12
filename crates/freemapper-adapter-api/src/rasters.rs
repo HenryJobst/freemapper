@@ -13,6 +13,7 @@ use crate::fetch::FetchedTile;
 use crate::project::RasterProject;
 use crate::records::{AdapterId, NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use crate::registry::Registry;
+use crate::trust::TrustAnchors;
 
 /// How a provider delivers its rasters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,6 +131,12 @@ pub trait RasterBackend: Send + Sync {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError>;
+
+    /// The trust anchors of a host of this provider that the default roots cannot verify.
+    /// `None`: every host is verified against the default roots.
+    fn trust(&self) -> Option<&TrustAnchors> {
+        None
+    }
 
     /// What `derive` reads for `area`. The default is that of a per-area provider.
     fn derive_inputs(

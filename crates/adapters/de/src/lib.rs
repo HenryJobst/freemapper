@@ -11,6 +11,7 @@ pub mod lgb;
 pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
+pub mod lvermgeo_sh;
 pub mod tile_fetch;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths
@@ -38,6 +39,9 @@ mod fetch {
     pub(crate) use freemapper_adapter_api::error::FetchError;
     pub(crate) use freemapper_adapter_api::fetch::*;
 
+    /// The HTTP client of the engine, for the live tests of the state modules.
+    #[cfg(test)]
+    pub(crate) use freemapper::fetch::HttpFetcher;
     /// The cache as the tests of the state modules name it.
     #[cfg(test)]
     pub(crate) use freemapper_adapter_api::cache::CacheDir as Cache;
@@ -60,7 +64,7 @@ mod sources {
     pub(crate) mod region {
         pub(crate) use crate::boundaries::*;
     }
-    pub(crate) use crate::{geosn, hvbg, lgb, lgln, lgv, lvermgeo};
+    pub(crate) use crate::{geosn, hvbg, lgb, lgln, lgv, lvermgeo, lvermgeo_sh};
     pub(crate) use freemapper_sources::{
         float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,
         zip_range,

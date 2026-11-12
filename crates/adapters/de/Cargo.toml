@@ -29,6 +29,8 @@ zip.workspace = true
 workspace = true
 
 [dev-dependencies]
+# The live tests of the state modules (ignored unless asked for) use the HTTP client of the engine.
+freemapper.workspace = true
 image.workspace = true
 freemapper-adapter-api = { workspace = true, features = ["testing"] }
 freemapper-sources = { workspace = true, features = ["testing"] }

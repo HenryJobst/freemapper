@@ -24,3 +24,4 @@ pub mod records;
 pub mod registry;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+pub mod trust;

@@ -13,6 +13,7 @@ use freemapper_adapters_de::lgb::LgbBackend;
 use freemapper_adapters_de::lgln::LglnBackend;
 use freemapper_adapters_de::lgv::LgvBackend;
 use freemapper_adapters_de::lvermgeo::LvermgeoBackend;
+use freemapper_adapters_de::lvermgeo_sh::LvermgeoShBackend;
 
 use crate::crs::BoundingBox;
 use crate::project;
@@ -30,7 +31,7 @@ pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
         Provider::LvermGeo => return Box::new(LvermgeoBackend::new()),
         Provider::Lgv => return Box::new(LgvBackend::new()),
         Provider::Hvbg => return Box::new(HvbgBackend::new()),
-        Provider::LvermGeoSh => project::fetch_sh_rasters,
+        Provider::LvermGeoSh => return Box::new(LvermgeoShBackend::new()),
         Provider::LaivMv => project::fetch_mv_rasters,
         Provider::GeobasisNrw => project::fetch_nrw_rasters,
         Provider::Lgln => return Box::new(LglnBackend::new()),

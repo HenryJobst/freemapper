@@ -14,17 +14,20 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 // old paths stay.
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
+#[cfg(test)]
+pub(crate) use freemapper_adapter_api::fetch::download_with_retries;
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 pub(crate) use freemapper_adapter_api::fetch::{
-    download_with_retries, get_limited_with_retries, get_with_attempts, get_with_retries, one_line,
-    write_cache_file, write_inside,
+    get_limited_with_retries, get_with_attempts, get_with_retries, one_line, write_cache_file,
+    write_inside,
 };
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
     get_range_with_retries, is_ogc_report, ogc_exception,
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
+use freemapper_adapter_api::trust::TrustAnchors;
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
@@ -147,11 +150,12 @@ fn stream(
     Ok(())
 }
 
-/// A redirect answer as an error. Only the agents of [`PORTAL_HOST`] return one: they follow
-/// none, as a followed redirect would keep the portal's pinned trust.
+/// A redirect answer as an error. Only the agents of a pinned host return one: they follow
+/// none, as a followed redirect would keep the host's pinned trust. `pinned` is that host.
 fn refuse_redirect(
     url: &str,
     response: &ureq::http::Response<ureq::Body>,
+    pinned: Option<&str>,
 ) -> Result<(), FetchError> {
     let status = response.status();
     if !status.is_redirection() {
@@ -169,8 +173,9 @@ fn refuse_redirect(
     Err(FetchError::Http {
         url: url.to_string(),
         message: format!(
-            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; freemapper does not \
+            "{} answered with a redirect (HTTP {}) to {location}; freemapper does not \
              follow redirects of this host, because it pins the host's certificates",
+            pinned.unwrap_or("the server"),
             status.as_u16()
         ),
     })
@@ -211,57 +216,42 @@ const PROGRESS_STEP_BYTES: u64 = 25 * 1024 * 1024;
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 
-/// The LVermGeo SH Downloadportal. It sends its leaf certificate without the intermediate
-/// `D-TRUST BR CA 1-20-1 2020`, and rustls does not fetch missing intermediates, so this host
-/// is verified against the bundled intermediate and its root instead of the default roots.
-///
-/// The agents of this host follow no redirects: a followed redirect would keep the trust of the
-/// URL it started from (a redirect away from the portal checked against the D-TRUST anchors, one
-/// to the portal against the default roots). A redirect answer is an error naming this host.
-const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
-
-/// The only trust anchors for [`PORTAL_HOST`]: the intermediate `D-TRUST BR CA 1-20-1 2020`
-/// (valid to 2035-02-11) and the root `D-TRUST BR Root CA 1 2020` that signed it.
-///
-/// The intermediate is a trust anchor because the server omits it from its chain. As an anchor,
-/// its own validity period, extended key usage and revocation are not checked, and the pin does
-/// not follow a later distrust of the root in the default roots. This applies to that one host
-/// only; the leaf is still fully verified (chain, validity and host name). When the portal
-/// changes its CA or the intermediate expires, its requests fail with a certificate error until
-/// `assets/tls/` is updated.
-const PORTAL_ANCHORS: [&[u8]; 2] = [
-    include_bytes!("../../../assets/tls/d-trust-br-ca-1-20-1-2020.pem"),
-    include_bytes!("../../../assets/tls/d-trust-br-root-ca-1-2020.pem"),
-];
-
-/// Which certificates a URL is verified against.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Trust {
-    /// ureq's default (webpki) roots, for every host but the portal.
-    DefaultRoots,
-    /// Only the bundled [`PORTAL_ANCHORS`].
-    PortalAnchors,
+/// The pinned hosts: the trust anchors the raster backends of the registry name, each host
+/// once (the first backend that names a host decides its anchors).
+fn registered_anchors() -> Vec<TrustAnchors> {
+    let mut anchors: Vec<TrustAnchors> = Vec::new();
+    for adapter in crate::adapters::registry().adapters() {
+        if let Some(trust) = adapter.rasters().and_then(|backend| backend.trust())
+            && !anchors
+                .iter()
+                .any(|known| known.host.eq_ignore_ascii_case(trust.host))
+        {
+            anchors.push(*trust);
+        }
+    }
+    anchors
 }
 
-/// The trust for `url`: the bundled anchors exactly for absolute URLs on the host
-/// [`PORTAL_HOST`], the default roots for everything else, including URLs that do not parse.
+/// Which of `anchors` verifies `url`: the anchors of a host exactly for absolute URLs on that
+/// host. `None` is the default roots, for everything else, including URLs that do not parse.
 /// Hosts compare without case, and a single trailing dot (the fully qualified form of the same
 /// name, as a pasted URL may carry) is the same host.
-fn trust_for(url: &str) -> Trust {
-    let Ok(uri) = url.parse::<ureq::http::Uri>() else {
-        return Trust::DefaultRoots;
-    };
+fn trust_for(url: &str, anchors: &[TrustAnchors]) -> Option<usize> {
+    let uri = url.parse::<ureq::http::Uri>().ok()?;
     let host = uri
         .host()
         .map(|host| host.strip_suffix('.').unwrap_or(host));
     match (uri.scheme(), host) {
-        (Some(_), Some(host)) if host.eq_ignore_ascii_case(PORTAL_HOST) => Trust::PortalAnchors,
-        _ => Trust::DefaultRoots,
+        (Some(_), Some(host)) => anchors
+            .iter()
+            .position(|trust| host.eq_ignore_ascii_case(trust.host)),
+        _ => None,
     }
 }
 
-fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
-    PORTAL_ANCHORS
+fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
+    trust
+        .pems
         .iter()
         .map(|pem| ureq::tls::Certificate::from_pem(pem).expect("bundled certificates are PEM"))
         .collect()
@@ -271,12 +261,16 @@ fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
 struct Agents {
     normal: ureq::Agent,
     large: ureq::Agent,
+    /// The host these agents are pinned to: they verify it against its trust anchors only and
+    /// follow no redirect. `None`: the default roots, for every other host.
+    pinned: Option<&'static str>,
 }
 
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
 pub struct HttpFetcher {
     default: Agents,
-    portal: Agents,
+    /// The agents of the pinned hosts, each with its trust anchors.
+    pinned: Vec<(TrustAnchors, Agents)>,
 }
 
 impl HttpFetcher {
@@ -290,37 +284,42 @@ impl HttpFetcher {
     }
 
     fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
-        let agent = |body: Duration, trust: Trust| -> ureq::Agent {
+        let agent = |body: Duration, trust: Option<&TrustAnchors>| -> ureq::Agent {
             let config = ureq::Agent::config_builder()
                 .timeout_connect(Some(connect))
                 .timeout_recv_response(Some(response))
                 .timeout_recv_body(Some(body));
             match trust {
-                Trust::DefaultRoots => config,
-                Trust::PortalAnchors => config.max_redirects(0).tls_config(
+                None => config,
+                Some(trust) => config.max_redirects(0).tls_config(
                     ureq::tls::TlsConfig::builder()
-                        .root_certs(ureq::tls::RootCerts::new_with_certs(&portal_anchors()))
+                        .root_certs(ureq::tls::RootCerts::new_with_certs(&certificates(trust)))
                         .build(),
                 ),
             }
             .build()
             .into()
         };
-        let agents = |trust: Trust| Agents {
+        let agents = |trust: Option<&TrustAnchors>| Agents {
             normal: agent(body, trust),
             large: agent(LARGE_BODY_TIMEOUT.max(body), trust),
+            pinned: trust.map(|trust| trust.host),
         };
         Self {
-            default: agents(Trust::DefaultRoots),
-            portal: agents(Trust::PortalAnchors),
+            default: agents(None),
+            pinned: registered_anchors()
+                .into_iter()
+                .map(|trust| (trust, agents(Some(&trust))))
+                .collect(),
         }
     }
 
     /// The agents verifying `url`'s host.
     fn agents(&self, url: &str) -> &Agents {
-        match trust_for(url) {
-            Trust::DefaultRoots => &self.default,
-            Trust::PortalAnchors => &self.portal,
+        let anchors: Vec<TrustAnchors> = self.pinned.iter().map(|(trust, _)| *trust).collect();
+        match trust_for(url, &anchors) {
+            Some(index) => &self.pinned[index].1,
+            None => &self.default,
         }
     }
 }
@@ -340,15 +339,15 @@ impl Fetcher for HttpFetcher {
             ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .header("Range", &header)
             .call()
             .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
@@ -381,14 +380,14 @@ impl Fetcher for HttpFetcher {
             url: url.to_string(),
             message,
         };
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .large
             .get(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| http_error(e.to_string()))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -409,14 +408,14 @@ impl Fetcher for HttpFetcher {
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        let response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let response = agents
             .normal
             .head(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         Ok(response
             .headers()
             .get("last-modified")
@@ -427,8 +426,8 @@ impl Fetcher for HttpFetcher {
 
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let http_error = |e: ureq::Error| status_error(url, e);
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
@@ -438,7 +437,7 @@ impl Fetcher for HttpFetcher {
             .build()
             .call()
             .map_err(http_error)?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         let status = response.status().as_u16();
         if status >= 400 {
             let mut body = Vec::new();
@@ -2826,9 +2825,28 @@ mod tests {
         (a.connect, a.recv_response, a.recv_body) == (b.connect, b.recv_response, b.recv_body)
     }
 
+    use crate::sources::lvermgeo_sh::{PORTAL_HOST, PORTAL_TRUST};
+
+    /// The agents of the portal in `fetcher`.
+    fn portal(fetcher: &HttpFetcher) -> &Agents {
+        let (trust, agents) = &fetcher.pinned[0];
+        assert_eq!(*trust, PORTAL_TRUST);
+        agents
+    }
+
+    /// The portal is the only pinned host of the built-in adapters.
+    #[test]
+    fn the_registry_pins_the_portal_only() {
+        assert_eq!(registered_anchors(), [PORTAL_TRUST]);
+        let fetcher = HttpFetcher::new();
+        assert_eq!(fetcher.pinned.len(), 1);
+        assert_eq!(portal(&fetcher).pinned, Some(PORTAL_HOST));
+        assert_eq!(fetcher.default.pinned, None);
+    }
+
     #[test]
     fn portal_host_uses_the_bundled_anchors() {
-        let anchors: Vec<_> = portal_anchors()
+        let anchors: Vec<_> = certificates(&PORTAL_TRUST)
             .iter()
             .map(|cert| fingerprint(cert.der()))
             .collect();
@@ -2850,7 +2868,7 @@ mod tests {
             // A fully qualified name is the same host.
             "https://geodaten.schleswig-holstein.de./x",
         ] {
-            assert_eq!(trust_for(url), Trust::PortalAnchors, "{url}");
+            assert_eq!(trust_for(url, &[PORTAL_TRUST]), Some(0), "{url}");
             let agents = fetcher.agents(url);
             for (agent, default) in [
                 (&agents.normal, &fetcher.default.normal),
@@ -2885,7 +2903,7 @@ mod tests {
             "https://geodaten.schleswig-holstein.de.evil./x",
             "not a url",
         ] {
-            assert_eq!(trust_for(url), Trust::DefaultRoots, "{url}");
+            assert_eq!(trust_for(url, &[PORTAL_TRUST]), None, "{url}");
             let agents = fetcher.agents(url);
             for agent in [&agents.normal, &agents.large] {
                 assert!(
@@ -2909,7 +2927,7 @@ mod tests {
     #[test]
     fn portal_agents_follow_no_redirects() {
         let fetcher = HttpFetcher::new();
-        for agent in [&fetcher.portal.normal, &fetcher.portal.large] {
+        for agent in [&portal(&fetcher).normal, &portal(&fetcher).large] {
             assert_eq!(agent.config().max_redirects(), 0);
         }
         // The other hosts follow redirects as before.
@@ -2939,10 +2957,11 @@ mod tests {
         });
         let pinned = HttpFetcher {
             default: Agents {
-                normal: fetcher.portal.normal.clone(),
-                large: fetcher.portal.large.clone(),
+                normal: portal(&fetcher).normal.clone(),
+                large: portal(&fetcher).large.clone(),
+                pinned: Some(PORTAL_HOST),
             },
-            portal: fetcher.portal,
+            pinned: Vec::new(),
         };
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile.part");
@@ -2988,8 +3007,7 @@ mod tests {
     #[ignore = "network"]
     fn live_portal_anchors_refuse_other_chains() {
         let fetcher = HttpFetcher::new();
-        let result = fetcher
-            .portal
+        let result = portal(&fetcher)
             .normal
             .get("https://opendata.schleswig-holstein.de/api/3/action/status_show")
             .call();
