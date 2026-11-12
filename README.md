@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 1.567 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.567%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 1.577 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.577%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -315,8 +315,8 @@ Punkte in Sperrgebiet-Kandidaten fehlen. Weil auch unsichere Daten eingezeichnet
 im Gelände zu prüfen. Mit beiden Schaltern entstehen beide Dateien nebeneinander.
 
 Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, den ALKIS-Flächen
-(Verkehr, Gewässer, Parks) und den Wegen mit bekannter Oberfläche, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen und Treppen aus ALKIS, den Registern und der
-Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege und Gleise auch aus OSM auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
+(Verkehr, Gewässer, Parks) und den Wegen mit bekannter Oberfläche, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen und Treppen aus ALKIS, den Registern und der
+Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege, Gleise, Böschungen, Durchgänge, Denkmäler, Türme und oberirdische Rohrleitungen auch aus OSM sowie die Höhenlinien und die Sperrgebiete an Bahngleisen auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
 `--content-set fences=candidates`; die Wahl steht in `freemapper.toml` und gilt auch im Browser und über MCP.
 
 ## Ausgangsstand für OCAD

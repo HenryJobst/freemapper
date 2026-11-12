@@ -10,11 +10,16 @@
 
 use std::collections::HashMap;
 
+use geo::Contains as _;
 use serde::{Deserialize, Serialize};
 
+use crate::build::berlin::object_polygon;
 use crate::build::dedup::{Rank, rank};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
-use crate::omap::{MapObject, SymbolSet};
+use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+
+/// The ALKIS land use whose areas that shall not be entered `balanced` always puts on the map.
+const RAILWAY_LAND_USE: &str = "Bahnverkehr";
 
 /// A default for all groups.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -177,10 +182,10 @@ impl Group {
     const TREE_AREA_CODES: [&'static str; 4] = ["402", "405", "501.3", "416"];
 
     /// The lowest rank of a source whose objects of this group the `balanced` profile puts on the
-    /// map; `None` for a group it leaves as the build has it (contours, areas that shall not be
-    /// entered, street furniture). OpenStreetMap counts for walls, fences, hedges, water, trees and
-    /// paths, where it is often the only source; the rest needs the cadastre, a register or the
-    /// street survey.
+    /// map; `None` for a group it leaves as the build has it (areas that shall not be entered,
+    /// street furniture) or sends by another rule (the contours always go to the map).
+    /// OpenStreetMap counts for walls, fences, hedges, water, trees, monuments (towers, pipelines,
+    /// power lines), banks, passages and paths, where it is often the only source; the rest needs the cadastre, a register or the street survey.
     fn balanced_from(self) -> Option<Rank> {
         match self {
             Group::Walls
@@ -188,11 +193,12 @@ impl Group {
             | Group::Hedges
             | Group::WaterFeatures
             | Group::Trees
+            | Group::Monuments
+            | Group::Slopes
+            | Group::Passages
             | Group::Paths => Some(Rank::Osm),
-            Group::Slopes | Group::Stairs | Group::Monuments | Group::Passages | Group::Streets => {
-                Some(Rank::Survey)
-            }
-            Group::Furniture | Group::Contours | Group::OutOfBounds => None,
+            Group::Stairs | Group::Streets => Some(Rank::Survey),
+            Group::Furniture | Group::OutOfBounds | Group::Contours => None,
         }
     }
 }
@@ -332,14 +338,18 @@ impl ContentSettings {
     }
 
     /// Where an object of `group` with the source `rank` goes: `None` leaves it where the build
-    /// put it.
-    fn place(&self, group: Group, rank: Option<Rank>) -> Option<Place> {
+    /// put it. `railway` marks an area that shall not be entered around railway tracks.
+    fn place(&self, group: Group, rank: Option<Rank>, railway: bool) -> Option<Place> {
         if let Some(choice) = self.choice(group) {
             return Some(choice);
         }
         match self.profile {
             Profile::Safe => None,
             Profile::Full => Some(Place::Map),
+            // The contours come from the terrain model, which has no rank: they go to the map.
+            Profile::Balanced if group == Group::Contours => Some(Place::Map),
+            // The ground along the tracks is closed to everyone, not a guess about a garden.
+            Profile::Balanced if group == Group::OutOfBounds && railway => Some(Place::Map),
             Profile::Balanced => group
                 .balanced_from()
                 .is_some_and(|lowest| rank >= Some(lowest))
@@ -383,6 +393,7 @@ pub fn route(
     // streets; one from OpenStreetMap is the outline of the map area.
     let edge_id = symbol_set.id_for_code("501.1");
     let open_land_id = symbol_set.id_for_code("401");
+    let out_of_bounds_id = symbol_set.id_for_code("520");
     let tag = |o: &MapObject, key: &str| -> Option<String> {
         o.tags
             .iter()
@@ -417,7 +428,10 @@ pub fn route(
                 (group == Some(Group::Trees) && area_id.contains_key(&object.symbol_id))
                     .then_some(Rank::Osm)
             });
-            let place = group.and_then(|g| settings.place(g, source_rank));
+            let railway = group == Some(Group::OutOfBounds)
+                && tag(&object, "freemapper:nutzart")
+                    .is_some_and(|nutzart| nutzart.starts_with(RAILWAY_LAND_USE));
+            let place = group.and_then(|g| settings.place(g, source_rank, railway));
             match place {
                 Some(Place::Off) => routed.dropped += 1,
                 Some(Place::Map) if !on_map => {
@@ -433,11 +447,35 @@ pub fn route(
         }
         *list = kept;
     }
+    // A 520 on the map takes every point in it with it (ISSprOM 4.5), as in `generalize_points`.
+    let closed: Vec<geo_types::Polygon<f64>> = out_of_bounds_id
+        .into_iter()
+        .flat_map(|id| {
+            moves
+                .iter()
+                .filter(move |(to_map, o)| *to_map && o.symbol_id == id)
+                .filter_map(|(_, o)| object_polygon(o))
+        })
+        .collect();
     for (to_map, object) in moves {
         if to_map {
             map.push(object);
         } else {
             candidates.push(object);
+        }
+    }
+    if !closed.is_empty() {
+        let inside = |o: &MapObject| {
+            matches!(o.kind, MapObjectKind::Point { .. })
+                && o.coords.first().is_some_and(|c| {
+                    let at = geo_types::Point::new(f64::from(c.x), f64::from(c.y));
+                    closed.iter().any(|area| area.contains(&at))
+                })
+        };
+        for list in [&mut *map, &mut *candidates] {
+            let before = list.len();
+            list.retain(|o| !inside(o));
+            routed.dropped += before - list.len();
         }
     }
     routed
@@ -531,18 +569,59 @@ mod tests {
                 object(&f, "418", "osm"),
                 object(&f, "505.1", "osm"),
                 object(&f, "405", GENERALIZATION_SOURCE),
-                // Not for monuments or open land, the outline of the map area is no street
-                // edge, and contours and furniture are left as they are.
+                // Monuments, towers and pipelines too, and the contours.
                 object(&f, "526", "osm"),
+                object(&f, "528", "osm"),
+                object(&f, "104", "osm"),
+                object(&f, "522", "osm"),
+                // Not for open land, the outline of the map area is no street edge, and
+                // furniture is left as it is.
                 object(&f, "401", "osm"),
                 object(&f, "501.1", "osm"),
                 object(&f, "101", "lgb-dgm1"),
                 object(&f, "531", "geoportal-berlin/beleuchtung"),
             ],
         );
-        assert_eq!(map.len(), 12, "{map:?}");
-        assert_eq!(cand.len(), 5);
-        assert_eq!(routed.to_map, 12);
+        assert_eq!(map.len(), 17, "{map:?}");
+        assert_eq!(cand.len(), 3);
+        assert_eq!(routed.to_map, 17);
+    }
+
+    #[test]
+    fn balanced_puts_the_areas_along_the_tracks_on_the_map_and_clears_the_points_in_them() {
+        let f = fixture(MapKind::Sprint);
+        let with_nutzart = |nutzart: &str| {
+            let mut o = object(&f, "520", "alkis-nutzung");
+            // A closed square 100 m across around the origin.
+            o.coords = [(-50.0, -50.0), (50.0, -50.0), (50.0, 50.0), (-50.0, 50.0)]
+                .iter()
+                .map(|&p| f.at(p))
+                .collect();
+            o.coords.last_mut().unwrap().flags = crate::omap::coord::FLAG_CLOSE;
+            o.tags
+                .push(("freemapper:nutzart".to_string(), nutzart.to_string()));
+            o
+        };
+        let mut lamp = object(&f, "531", "geoportal-berlin/beleuchtung");
+        lamp.kind = MapObjectKind::Point { rotation_rad: 0.0 };
+        lamp.coords = vec![f.at((0.0, 0.0))];
+        let settings = ContentSettings::default();
+        let (map, cand, routed) = run(
+            &f,
+            &settings,
+            vec![],
+            vec![with_nutzart("Bahnverkehr"), lamp.clone()],
+        );
+        assert_eq!((map.len(), cand.len()), (1, 0), "{map:?} {cand:?}");
+        assert_eq!(routed.dropped, 1, "the lamp in the area goes");
+        // Other private ground stays a candidate and keeps its points.
+        let (map, cand, _) = run(
+            &f,
+            &settings,
+            vec![],
+            vec![with_nutzart("Wohnbaufläche / Mehrfamilienhaus"), lamp],
+        );
+        assert_eq!((map.len(), cand.len()), (0, 2));
     }
 
     #[test]

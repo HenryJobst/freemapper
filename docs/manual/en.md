@@ -546,7 +546,7 @@ stays a candidate and appears only in the template. You set how this is divided 
 | Profile | Effect |
 |---|---|
 | `safe` | Every object stays where the build puts it: buildings, ALKIS areas (traffic, water, parks) and OSM paths with a known surface go onto the map. Walls, fences, trees, OSM ponds, paths without a known surface and everything else uncertain stay candidates. |
-| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips, banks, stairs, towers, passages. Walls, fences, hedges, water, trees, tree groups, paths and railways also come from OpenStreetMap, which is often the only source there. Contours, areas that shall not be entered, street furniture and lamps, OSM parks and OSM monuments stay candidates. |
+| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips, stairs. Walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps and OSM parks stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
 | `full` | Everything goes onto the map, as in the training map. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,

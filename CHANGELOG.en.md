@@ -14,6 +14,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Fixed
 
 - When a project file names a provider or a state this freemapper does not know, the error says so and names the id. Before, it was a parser message about an unknown value.
+- Tests: `save_creates_the_project` failed now and then on Windows and Linux. The server answers a POST to a GET route with 405 before it reads the body, and closes the connection when the body arrives only afterwards. The test client kept using that connection. The check now sends the request raw, in one piece. The program itself does not change.
+- The area page shows the disk space notes in its own language: what is left out for lack of space, why a run does not start, and that the free space cannot be read. Before, they came in the program's language, so a German page often showed them in English. The same goes for the refusal of an invalid `pdf_sources`.
 
 ## [0.13.0] - 2026-11-12
 
@@ -24,7 +26,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- Content profiles (ADR 0100): what goes straight onto the map and what stays a candidate is adjustable: `safe` (the former state), `balanced` (the new default: streets with kerbs and green strips, banks, stairs, towers and passages from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, tree groups, paths and railways also from OSM, go onto the map) and `full` (everything). Single groups can differ. `init`, `export` and `run` take `--content` and `--content-set <group>=map|candidates|off`, MCP `content` and `content_set`; the choice is saved in `freemapper.toml` (`[content]`). Contours now also stop at ways when they are on the map.
+- Content profiles (ADR 0100): what goes straight onto the map and what stays a candidate is adjustable: `safe` (the former state), `balanced` (the new default: streets with kerbs and green strips and stairs from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also from OSM, and the contours and the areas that shall not be entered along railway tracks, go onto the map) and `full` (everything). Single groups can differ. `init`, `export` and `run` take `--content` and `--content-set <group>=map|candidates|off`, MCP `content` and `content_set`; the choice is saved in `freemapper.toml` (`[content]`). Contours now also stop at ways when they are on the map.
 - Paved areas (501.5) get their black border 501.1, as the norm (ISSprOM §4.5) has it (ADR 0099). No border is drawn where an edge already shows: along building outlines, water, existing 501.1 lines (the kerbs of the street survey) and the edge of the map. Paved OSM ways of the class `service` (driveways, courtyard roads) come in as 501.6 to 501.9, 501.8 without a width.
 - OSM ways with a paved surface (asphalt, paving stones, concrete, sett …) now come into the map as lines 501.6 to 501.9 with the black border, like gravel paths (ADR 0098). Before, they were missing where the ALKIS and Berlin areas do not hold them, such as park paths in the Biesdorfer Park; where a paved area lies, `build/firm_paths.rs` cuts them. Streets and sidewalks keep no rule.
 - All core crates are pinned to freemapper-core v0.21.1. The buttons of the area page take their text colour from the suite token `--on-accent`, and the main buttons their colours from the suite class `button.primary`. They look the same as before.

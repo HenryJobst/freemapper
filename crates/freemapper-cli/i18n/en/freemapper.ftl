@@ -487,6 +487,7 @@ help-update-mode = Store what the daily check does when it finds a newer version
 
 cli-internal-error = internal error: { $message }
 cli-pdf-sources-invalid = pdf_sources must be auto, full or credit-only, not { $value }
+cli-estimate-disk-unreadable = cannot read the free disk space of { $path } ({ $message })
 cli-summary-wrote-map = Wrote the map { $path }
 cli-summary-kept-map = Kept the existing map { $path } (it may contain the mapper's work)
 cli-summary-map-lacks-templates = The map does not reference the image templates yet. Start the pipeline with force to replace it and keep the old one as .omap.bak.
