@@ -35,7 +35,7 @@ OpenStreetMap (OSM).
 - **Fertig gezeichnet** wird nur, was verlässlich ist: Gebäude, Gewässer aus dem Kataster, auf
   Sprintkarten auch befestigte Flächen (Straßen, Plätze) und unbefestigte Wege mit bekannter Oberfläche.
 - **Als Vorlage** kommt alles, was Sie selbst beurteilen müssen: Luftbild, Höhenschummerung, Hangneigung,
-  Höhe über Grund (nDOM), Höhenlinien, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
+  lokales Relief, Höhe über Grund (nDOM), Höhenlinien, Kuppen und Böschungen aus dem Gelände, Zäune, Hecken, Bänke, Spielgeräte, Sperrgebiete, Teiche, Bäche,
   Brunnen und Brücken.
 - Gezeichnet und im Gelände geprüft wird weiterhin von Ihnen, in **OpenOrienteering Mapper (OOM)** oder
   **OCAD**.
@@ -429,7 +429,7 @@ Im Projektordner liegen danach unter anderem:
 | Datei | Was sie ist |
 |---|---|
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
-| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
+| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
@@ -571,10 +571,54 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 | **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | ![nDOM über dem Luftbild](images/ndsm.jpg) |
 | **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | ![Schummerung](images/hillshade.jpg) |
 | **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | ![Hangneigung](images/slope.jpg) |
+| **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
 alle 2 m, jede fünfte als Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
+
+Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zeigen:
+
+- **Kleine Kuppen** (109) und **längliche Kuppen** (110): ein Hügel, auf Sprintkarten mindestens 1 m hoch
+  (auf Schulhofkarten 0,5 m), schmaler als 5 mm auf dem Papier und mindestens 10 m, der sich deutlich aus
+  seinem Fuß hebt. Eine längliche Kuppe ist in ihre Längsrichtung gedreht.
+- **Kleine Senken** (111): dasselbe als Mulde.
+- **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
+  Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
+  zählt nicht. Die Striche zeigen bergab.
+
+An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine; eine
+Böschung entfällt nur, wenn sie überwiegend an einem Gebäude liegt. Kuppen und
+Senken entstehen nicht auf Wohn-, Misch-, Gewerbe- und Verkehrsflächen und in Kleingärten, denn dort sind es
+meist Schüttgut, Gartenhügel, Höfe oder Rampen; Senken auch nicht näher als 8 m an Gebäuden. Eine Felswand
+entlang einer Straße oder eines Gebäudes ist meist eine Stützmauer und wird als nicht passierbare Mauer
+(515) angeboten. Eine gebogene oder geknickte Geländestufe wird in Stücke geteilt, die ihr folgen. Das
+Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa einen Meter sind, übersieht es,
+und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
+Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell gehört zur Gruppe `landforms`
+(siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
+kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap.
+
+### Vegetation aus Laserpunktwolken
+
+In Brandenburg und Nordrhein-Westfalen kann freemapper die Vegetation aus den klassifizierten
+Laserpunktwolken der LGB bzw. von Geobasis NRW ableiten:
+offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
+409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
+Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
+
+Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß: je
+Quadratkilometer-Kachel etwa 160 MB in Brandenburg und meist 50 bis 165 MB in Nordrhein-Westfalen, für einen
+Park meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
+(oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
+schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
+im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
+freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
+nur den Teil mit anderer Klasse. Geprüft ist das an Sanssouci und am Kölner Volksgarten; Schilf und Gebüsch am
+Ufer erscheinen als 410. Die Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und
+im Gelände.
+Ist der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
+Punktwolken-Quelle.
 
 ### Was direkt auf die Karte kommt
 
@@ -585,12 +629,13 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 | Profil | Wirkung |
 |---|---|
 | `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, ALKIS-Flächen (Verkehr, Gewässer, Parks) und OSM-Wege mit bekannter Oberfläche kommen auf die Karte. Mauern, Zäune, Bäume, OSM-Teiche, Wege ohne bekannte Oberfläche und alles andere Unsichere bleiben Kandidat. |
-| `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Treppen, Wege, Gleise, Böschungen, Durchgänge sowie Denkmäler, Türme und oberirdische Rohrleitungen kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Auch die Höhenlinien kommen auf die Karte. Die Sperrgebiete entlang von Bahngleisen kommen auf die Karte (und die Punkte darin entfallen); andere Sperrgebiete, die auf einer Schätzung beruhen, Ausstattung und Laternen und OSM-Parkflächen bleiben Kandidat. Für Rohrleitungen (528, 529) verlangt die Norm eine Erklärung des Symbols in der Legende; sie zu schreiben ist Sache des Kartierers. |
+| `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Treppen, Wege, Gleise, Böschungen, Durchgänge sowie Denkmäler, Türme und oberirdische Rohrleitungen kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Auch die Höhenlinien kommen auf die Karte. Die Sperrgebiete entlang von Bahngleisen kommen auf die Karte (und die Punkte darin entfallen); andere Sperrgebiete, die auf einer Schätzung beruhen, Ausstattung und Laternen, OSM-Parkflächen sowie die Kuppen, Senken, Böschungen und Felswände aus dem Geländemodell bleiben Kandidat. Für Rohrleitungen (528, 529) verlangt die Norm eine Erklärung des Symbols in der Legende; sie zu schreiben ist Sache des Kartierers. |
 | `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
 
 Einzelne Gruppen lassen sich abweichend einstellen: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`,
-`water-features`, `monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, je nach `map`
-(Karte), `candidates` (Kandidat) oder `off` (weglassen).
+`water-features`, `monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`,
+`paths`, `streets`, je nach `map` (Karte), `candidates` (Kandidat) oder `off` (weglassen). `vegetation` ist
+ohne eigene Wahl immer aus (siehe oben).
 
 ```sh
 freemapper run <Ordner> --content balanced --content-set fences=candidates --content-set contours=map
@@ -721,7 +766,8 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   übernehmen Sie den Punkt aus den Kandidaten.
 - **Möblierung und Spielgeräte:** Sie stammen aus OSM, in Berlin auf Schulhofkarten auch aus der
   Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
-- **Höhenlinien:** Kleine Böschungen und Stufen zeigt eher die Schummerung oder Hangneigung.
+- **Höhenlinien:** Kleine Böschungen und Stufen zeigen eher Schummerung, Hangneigung oder lokales Relief;
+  die Kuppen- und Böschungs-Kandidaten weisen auf sie hin.
 
 ## 10. Karte als PDF
 

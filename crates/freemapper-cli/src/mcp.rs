@@ -82,7 +82,8 @@ struct CreateProject {
     content: Option<String>,
     /// Groups sent somewhere else than the profile says, as "group=place" with place map,
     /// candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees,
-    /// water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+    /// water-features, monuments, furniture, passages, contours, landforms, vegetation,
+    /// out-of-bounds, paths, streets.
     content_set: Option<Vec<String>>,
 }
 
@@ -163,7 +164,7 @@ struct OpenAreaSelector {
 struct PreviewLayer {
     /// Project folder (absolute path or starting with ~).
     dir: String,
-    /// "map", "orthophoto", "hillshade", "slope", "ndsm" or "k5" (Berlin only).
+    /// "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" or "k5" (Berlin only).
     layer: String,
 }
 
@@ -730,7 +731,7 @@ impl FreemapperServer {
     #[tool(
         description = "A PNG preview (at most 800 px) of a layer: map (the image of the map \
                        objects that the last run wrote, without the candidates), or a raster \
-                       template: orthophoto, hillshade, slope, ndsm, or k5 in Berlin."
+                       template: orthophoto, hillshade, slope, relief, ndsm, or k5 in Berlin."
     )]
     async fn preview_layer(
         &self,

@@ -275,6 +275,8 @@ page-content-group-monuments = Türme, Denkmäler und Leitungen
 page-content-group-furniture = Ausstattung und Laternen
 page-content-group-passages = Durchgänge
 page-content-group-contours = Höhenlinien
+page-content-group-landforms = Kuppen, Senken, Böschungen und Felswände aus dem Geländemodell
+page-content-group-vegetation = Vegetation aus Laserpunktwolken (Brandenburg und Nordrhein-Westfalen; aus, bis Sie sie wählen; lädt etwa 50 bis 165 MB je km²)
 page-content-group-out-of-bounds = Sperrgebiete
 page-content-group-paths = Wege und Gleise
 page-content-group-streets = Straßen und Plätze
@@ -448,6 +450,7 @@ word-part-osm-update = die Aktualisierung des gespeicherten OSM-Auszugs
 word-part-k-five = die Berliner Kartenvorlage K5
 word-part-berlin-layers = die Berliner ALKIS-Bauwerke, das Baumkataster, die Straßenbefahrung und die Punktebenen
 word-part-state-layers = die vollständigen ALKIS-Bauwerke und die Baumkataster
+word-part-point-cloud = die Laserpunktwolken für die Vegetations-Kandidaten
 
 ## Fehler: Herunterladen
 
@@ -567,7 +570,7 @@ help-fetch = Die Daten für das Kartengebiet laden (Orthophoto, Geländemodell, 
 help-fetch-dir = Projektordner
 help-fetch-offline = Nur den Zwischenspeicher verwenden, ohne Netzzugriff
 help-arg-cache-dir = Ordner des Zwischenspeichers für geladene Kacheln (Standard: der Cache-Ordner des Systems + `freemapper`)
-help-derive = Die Kartenvorlagen (Orthophoto, Schummerung, Hangneigung, nDSM) und die Höhenlinien aus den geladenen Daten berechnen
+help-derive = Die Kartenvorlagen (Orthophoto, Schummerung, Hangneigung, lokales Relief, nDSM), die Höhenlinien und die Geländeformen aus den geladenen Daten berechnen
 help-derive-dir = Projektordner
 help-run = Laden, ableiten und exportieren in einem Schritt
 help-run-dir = Projektordner
@@ -700,9 +703,9 @@ mcp-param-open-area-selector-pdf-scale-bar = Im Lauf-Block ist die Maßstabsleis
 mcp-param-open-area-selector-pdf-sources = Quellenzeilen auf den PDFs, mit denen der Block startet: "auto" (Standard), "full" oder "credit-only", wie bei start_pipeline.
 mcp-param-open-area-selector-scale = Maßstabszahl eines neuen Projekts: Schulhof 1000 (Standard); Sprint 4000 (Standard) oder 5000. Andere Werte werden abgelehnt.
 mcp-param-open-area-selector-title = Kartentitel eines neuen Projekts.
-mcp-tool-preview-layer = Eine PNG-Vorschau (höchstens 800 px) einer Ebene: map (das Bild der Kartenobjekte, das der letzte Lauf geschrieben hat, ohne die Kandidaten) oder eine Rastervorlage: orthophoto, hillshade, slope, ndsm, in Berlin auch k5.
+mcp-tool-preview-layer = Eine PNG-Vorschau (höchstens 800 px) einer Ebene: map (das Bild der Kartenobjekte, das der letzte Lauf geschrieben hat, ohne die Kandidaten) oder eine Rastervorlage: orthophoto, hillshade, slope, relief, ndsm, in Berlin auch k5.
 mcp-param-preview-layer-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
-mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "ndsm" oder "k5" (nur in Berlin).
+mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" oder "k5" (nur in Berlin).
 mcp-tool-project-status = Zustand eines Pipeline-Jobs: running, finished oder failed, die letzten Fortschrittszeilen, die Warnungen und das Ergebnis oder der Fehler.
 mcp-param-project-status-job-id = Job-ID aus start_pipeline, z. B. "job-1".
 mcp-tool-start-pipeline = Lädt die Daten, berechnet die Kartenvorlagen und schreibt das Startprojekt (fetch, derive, export). Läuft im Hintergrund und gibt eine job_id zurück; fragen Sie project_status ab. Es läuft immer nur eine Pipeline. Eine vorhandene Karte bleibt, außer force ist true.
@@ -718,9 +721,9 @@ mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Stand
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
-help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
+help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
 mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
-mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }

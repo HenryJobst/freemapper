@@ -761,6 +761,8 @@ const CONTENT_NAMES = {
     furniture: "page-content-group-furniture",
     passages: "page-content-group-passages",
     contours: "page-content-group-contours",
+    landforms: "page-content-group-landforms",
+    vegetation: "page-content-group-vegetation",
     "out-of-bounds": "page-content-group-out-of-bounds",
     paths: "page-content-group-paths",
     streets: "page-content-group-streets",

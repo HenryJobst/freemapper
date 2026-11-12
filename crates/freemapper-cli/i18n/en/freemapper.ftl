@@ -275,6 +275,8 @@ page-content-group-monuments = Towers, monuments and power lines
 page-content-group-furniture = Street furniture and lamps
 page-content-group-passages = Passages
 page-content-group-contours = Contours
+page-content-group-landforms = Knolls, depressions, banks and cliffs from the terrain model
+page-content-group-vegetation = Vegetation from laser point clouds (Brandenburg and North Rhine-Westphalia; off until you choose it; downloads about 50 to 165 MB per km²)
 page-content-group-out-of-bounds = Areas that shall not be entered
 page-content-group-paths = Paths and railways
 page-content-group-streets = Streets and squares
@@ -448,6 +450,7 @@ word-part-osm-update = the update of the cached OSM extract
 word-part-k-five = the Berlin K5 map template
 word-part-berlin-layers = the Berlin ALKIS structures, tree cadastre, street survey and point layers
 word-part-state-layers = the full ALKIS structures and the tree cadastres
+word-part-point-cloud = the laser point clouds for the vegetation candidates
 
 ## Errors: downloads
 
@@ -567,7 +570,7 @@ help-fetch = Download the data for the map area (orthophoto, terrain model, nDSM
 help-fetch-dir = Project folder
 help-fetch-offline = Use the cache only, without network access
 help-arg-cache-dir = Cache folder for downloaded tiles (default: the system cache folder + `freemapper`)
-help-derive = Compute the templates (orthophoto, hillshade, slope, nDSM) and contours from the fetched data
+help-derive = Compute the templates (orthophoto, hillshade, slope, local relief, nDSM), contours and landforms from the fetched data
 help-derive-dir = Project folder
 help-run = Fetch, derive and export in one go
 help-run-dir = Project folder
@@ -684,9 +687,9 @@ mcp-param-open-area-selector-pdf-scale-bar = The run panel starts with the scale
 mcp-param-open-area-selector-pdf-sources = Source lines on the PDFs the panel starts with: "auto" (default), "full" or "credit-only", as for start_pipeline.
 mcp-param-open-area-selector-scale = Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default) or 5000. Other values are refused.
 mcp-param-open-area-selector-title = Map title of a new project.
-mcp-tool-preview-layer = A PNG preview (at most 800 px) of a layer: map (the image of the map objects that the last run wrote, without the candidates), or a raster template: orthophoto, hillshade, slope, ndsm, or k5 in Berlin.
+mcp-tool-preview-layer = A PNG preview (at most 800 px) of a layer: map (the image of the map objects that the last run wrote, without the candidates), or a raster template: orthophoto, hillshade, slope, relief, ndsm, or k5 in Berlin.
 mcp-param-preview-layer-dir = Project folder (absolute path or starting with ~).
-mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "ndsm" or "k5" (Berlin only).
+mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" or "k5" (Berlin only).
 mcp-tool-project-status = State of a pipeline job: running, finished or failed, the last progress lines, warnings, and the result or the error.
 mcp-param-project-status-job-id = Job id from start_pipeline, e.g. "job-1".
 mcp-tool-start-pipeline = Download the data, compute the templates and write the starter project (fetch, derive, export). Runs in the background and returns a job_id; poll project_status. One pipeline runs at a time. It keeps an existing map unless force is true.
@@ -703,9 +706,9 @@ mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }
 help-arg-content = What goes straight onto the map: `safe` leaves every object where the build puts it, `balanced` (default) puts the objects of the cadastre and the registers on the map, `full` puts everything on the map. The choice is saved in freemapper.toml
-help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g. `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Saved in freemapper.toml
+help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g. `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Saved in freemapper.toml
 mcp-param-create-project-content = What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the project. balanced puts the objects of the cadastre and the registers on the map, full puts everything on it.
-mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets.
+mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-error-content = Cannot read the content setting: { $detail }

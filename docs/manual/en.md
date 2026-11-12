@@ -32,8 +32,8 @@ buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) 
 
 - **Drawn as finished map objects** is only what is reliable: buildings, water from the cadastre, and on
   sprint maps also paved areas (streets, squares) and unpaved paths with a known surface.
-- **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, height
-  above ground (nDSM), contours, fences, hedges, benches, playground equipment, out-of-bounds areas,
+- **Given as templates** is everything you have to judge yourself: orthophoto, hillshade, slope, local
+  relief, height above ground (nDSM), contours, knolls and banks from the terrain, fences, hedges, benches, playground equipment, out-of-bounds areas,
   ponds, streams, fountains and bridges.
 - You still draw and check the map in the terrain, in **OpenOrienteering Mapper (OOM)** or **OCAD**.
 
@@ -411,7 +411,7 @@ Among other files, the project folder then holds:
 | File | What it is |
 |---|---|
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
-| `templates/` | the templates: orthophoto, hillshade, slope, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
+| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
@@ -546,10 +546,50 @@ dl-de/by-2-0, Daten geändert.
 | **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
 | **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
 | **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
+| **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
 every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
+
+From the terrain model come further candidates the contours miss:
+
+- **Small knolls** (109) and **small elongated knolls** (110): a mound at least 1 m high on sprint maps
+  (0.5 m on schoolyard maps), narrower than 5 mm on paper and at least 10 m, that rises clearly from its
+  foot. An elongated knoll is turned along its length.
+- **Small depressions** (111): the same, as a hollow.
+- **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
+  most of its height difference within a few metres. A plain slope does not count. The ticks point down.
+
+None come at buildings, in water, or next to walls, fences and banks that are already drawn; a bank is left
+out only when most of it lies at a building. Knolls and
+depressions do not come on residential, mixed, commercial and traffic land or in allotments, where they are
+mostly heaps, garden mounds, courtyards or ramps; depressions not within 8 m of a building either. A cliff along
+a street or a building is mostly a retaining wall and is offered as an impassable wall (515). A bent or
+kinked step is split into pieces that follow it. The terrain
+model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
+as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Everything from the terrain model belongs to the group
+`landforms` (see below), banks, cliffs and retaining walls too: with `full` or `--content-set landforms=map` they
+go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap.
+
+### Vegetation from laser point clouds
+
+In Brandenburg and North Rhine-Westphalia freemapper can derive the vegetation from the classified laser point
+clouds of LGB and Geobasis NRW: open land
+(401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
+3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
+shows more than the nDSM, which only sees the crowns.
+
+The group `vegetation` is off in every profile, `full` included, because the point clouds are large: per square
+kilometre tile about 160 MB in Brandenburg and mostly 50 to 165 MB in North Rhine-Westphalia, and a park usually
+needs two to four tiles. Only `--content-set
+vegetation=candidates` (or the area page) makes the next `fetch` load them into the shared cache. `derive` writes
+`data/vegetation.geojson` from them, and the export puts the areas into the candidates map. There are none at
+buildings, in water or on paved areas; roofs that ALKIS no longer has are recognised by their laser echoes too.
+Where the map already has a park or a wood from ALKIS, the candidate shows only the part of another class. It is
+checked on Sanssouci and the Volksgarten in Cologne; reeds and shrubs at a shore come out as 410. The point cloud can be some years older
+than the orthophoto. Check the areas against the orthophoto and in the terrain. When space is short, the
+point clouds are the first part left out. The other states have no point-cloud source yet.
 
 ### What goes straight onto the map
 
@@ -560,11 +600,12 @@ stays a candidate and appears only in the template. You set how this is divided 
 | Profile | Effect |
 |---|---|
 | `safe` | Every object stays where the build puts it: buildings, ALKIS areas (traffic, water, parks) and OSM paths with a known surface go onto the map. Walls, fences, trees, OSM ponds, paths without a known surface and everything else uncertain stay candidates. |
-| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips. Stairs, walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps and OSM parks stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
+| `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips. Stairs, walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps, OSM parks, and the knolls, depressions, banks and cliffs from the terrain model stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
 | `full` | Everything goes onto the map, as in the training map. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
-`monuments`, `furniture`, `passages`, `contours`, `out-of-bounds`, `paths`, `streets`, each `map`, `candidates` or `off`.
+`monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`, `paths`, `streets`,
+each `map`, `candidates` or `off`. `vegetation` is always off without a choice of its own (see above).
 
 ```sh
 freemapper run <folder> --content balanced --content-set fences=candidates --content-set contours=map
@@ -693,7 +734,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   point over from the candidates.
 - **Furniture and playground equipment:** it comes from OSM, in Berlin on schoolyard maps also from the
   street survey and the lighting cadastre. It is often incomplete.
-- **Contours:** small banks and steps show better in the hillshade or slope.
+- **Contours:** small banks and steps show better in the hillshade, slope or local relief; the knoll and
+  bank candidates point to them.
 
 ## 10. Map as PDF
 

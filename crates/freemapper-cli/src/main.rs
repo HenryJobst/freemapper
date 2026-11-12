@@ -125,7 +125,7 @@ enum Commands {
         #[command(flatten)]
         adapters: AdapterArgs,
     },
-    /// Compute the templates (orthophoto, hillshade, slope, nDSM) and contours from the fetched data.
+    /// Compute the templates (orthophoto, hillshade, slope, local relief, nDSM), contours and landforms from the fetched data.
     Derive {
         /// Project folder.
         dir: PathBuf,
@@ -561,8 +561,8 @@ struct ContentArgs {
     content: Option<String>,
     /// Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g.
     /// `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees,
-    /// water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Saved in
-    /// freemapper.toml
+    /// water-features, monuments, furniture, passages, contours, landforms, vegetation,
+    /// out-of-bounds, paths, streets. Saved in freemapper.toml
     #[arg(long = "content-set", value_name = "GROUP=PLACE")]
     content_set: Vec<String>,
 }

@@ -8,6 +8,7 @@ use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::extras::{NasService, TreeDataset};
 use crate::info::{Declared, RegionInfo};
+use crate::pointcloud::PointCloudBackend;
 use crate::policy::UrlPolicy;
 use crate::rasters::RasterBackend;
 use crate::records::EstimateItem;
@@ -68,6 +69,12 @@ pub trait RegionAdapter: Send + Sync {
     /// The raster downloads of a map of `area` whose rasters come from this region (what, MB,
     /// cached, part, store), in the order they are listed.
     fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem>;
+
+    /// The classified laser point clouds of the region, for the vegetation classes. `None`: the
+    /// region publishes none.
+    fn point_cloud(&self) -> Option<&dyn PointCloudBackend> {
+        None
+    }
 
     /// The box around the boundary (EPSG:25833). The region functions ask it before the
     /// boundary itself: what lies outside the box cannot touch the region. An adapter that

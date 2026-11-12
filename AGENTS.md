@@ -6,7 +6,7 @@ map. It ships in every release archive next to the program. People read [README.
 
 freemapper makes a starter project for an orienteering map from official geodata of a German state and from
 OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
-reliable objects already drawn, templates (orthophoto, hillshade, slope, nDSM), a candidates map to check, and on
+reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to check, and on
 request an OCAD starting point and printable PDFs. Map kinds: `schoolyard` (1:1000) and `sprint` (ISSprOM 2019,
 1:4000 or 1:5000).
 
@@ -193,7 +193,7 @@ states such as `running` or `finished` are the same in both languages. This file
 | `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress line or the error. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
-| `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `ndsm`, or `k5` in Berlin. |
+| `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `relief`, `ndsm`, or `k5` in Berlin. |
 | `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline` | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
 | `install_update` | `confirm` | Installs the newest release over the program the server runs from. Without `confirm: true` it installs nothing and returns an error. The new version applies once the MCP server is restarted. |
@@ -245,7 +245,8 @@ Rules:
 ## What lands in the project folder
 
 - `<name>.omap`: the map for OpenOrienteering Mapper, with the finished map objects and the peripheral information.
-- `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` with world files, and `candidates.omap`.
+- `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` with world files, and
+  `candidates.omap`.
 - `ocad/` (with `ocad`): `<name>.ocd`, `<name>-candidates.ocd` and the templates.
 - `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf` (with `pdf_candidates`).
 - `<name>-preview.webp`: an image of the map objects, written with the map. The area page shows it; the image
@@ -260,8 +261,9 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 
 - Open the `.omap` with OpenOrienteering Mapper (free, all systems). Templates can be switched on there.
 - The map holds only what the data shows reliably. Everything uncertain (furniture, barriers, many paths,
-  contours, out-of-bounds areas) is in the candidates map and must be checked against the orthophoto and in the
-  terrain before it is copied into the map. The candidates PDF draws all of it and is for quick training only.
+  contours, knolls and banks from the terrain, out-of-bounds areas) is in the candidates map and must be checked
+  against the orthophoto and in the terrain before it is copied into the map. The candidates PDF draws all of it
+  and is for quick training only.
 - The OCAD files carry placeholder symbols; in OCAD the user loads the official symbol set, which replaces them by
   number. The OCAD output has not been checked in OCAD yet.
 - The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
