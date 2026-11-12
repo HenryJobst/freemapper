@@ -17,13 +17,15 @@ pub(crate) use freemapper_adapter_api::error::tile_names;
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 #[cfg(test)]
-pub(crate) use freemapper_adapter_api::fetch::{download_with_retries, get_limited_with_retries};
+pub(crate) use freemapper_adapter_api::fetch::{
+    download_with_retries, get_limited_with_retries, get_with_retries,
+};
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
     get_range_with_retries, is_ogc_report, ogc_exception,
 };
-pub(crate) use freemapper_adapter_api::fetch::{get_with_retries, one_line, write_inside};
 use freemapper_adapter_api::fetch::{megabytes, too_large};
+pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
 use freemapper_adapter_api::trust::TrustAnchors;
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.

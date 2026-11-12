@@ -1845,12 +1845,10 @@ pub fn stored_nas_layers(
     Ok(layers)
 }
 
-/// The tree dataset the project file records under `key`, from the static table; `None` for a
-/// key no dataset has.
+/// The tree dataset the project file records under `key`, from the datasets of the adapters;
+/// `None` for a key no dataset has.
 fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
-    trees::TREE_DATASETS
-        .iter()
-        .find(|dataset| dataset.id == key)
+    trees::all_tree_datasets().find(|dataset| dataset.id == key)
 }
 
 /// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
@@ -2022,7 +2020,7 @@ pub fn stored_tree_layers(
 ) -> Result<Vec<StoredTreeLayer>, ProjectError> {
     let bbox = project.bbox()?;
     let mut layers = Vec::new();
-    for dataset in &trees::TREE_DATASETS {
+    for dataset in trees::all_tree_datasets() {
         let path = tree_layer_path(dir, dataset);
         let Some(record) = project
             .tree_layers
@@ -2788,7 +2786,7 @@ const FREEMAPPER_CREDIT_DE: &str =
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
 /// The registers whose points are among `objects`: the files of the Berlin registers
-/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`). A
+/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::all_tree_datasets`). A
 /// group area of the point generalization draws the sources of the trees it merged
 /// (`freemapper:source_id` = `<source>/<source_id>; …`).
 fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
@@ -2813,8 +2811,7 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
         .iter()
         .map(|&(file, _)| file)
         .filter(|file| drawn(format!("geoportal-berlin/{file}")));
-    let cities = trees::TREE_DATASETS
-        .iter()
+    let cities = trees::all_tree_datasets()
         .map(|d| d.id.as_ref())
         .filter(|id| drawn(format!("trees/{id}")));
     berlin.chain(cities).collect()

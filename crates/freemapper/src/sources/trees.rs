@@ -3,23 +3,32 @@
 
 pub use freemapper_sources::trees::*;
 
+use crate::adapters::registry;
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::Fetcher;
 use crate::sources::alkis::FetchArea;
 use crate::sources::alkis_nas::PartFile;
-use crate::sources::region::{Region, touches_region};
+use crate::sources::region::touches_region_in;
 
-/// The state `dataset` lies in.
-fn region_of(dataset: &TreeDataset) -> Region {
-    Region::from_id(dataset.region.as_str()).expect("a tree dataset names a built-in state")
+/// The tree cadastres of every adapter, in the order of the registry.
+pub fn all_tree_datasets() -> impl Iterator<Item = &'static TreeDataset> {
+    registry()
+        .adapters()
+        .flat_map(|adapter| adapter.tree_datasets())
+}
+
+/// Whether the region `dataset` lies in is within the margin of `bbox` (EPSG:25833).
+fn touches_region_of(dataset: &TreeDataset, bbox: &BoundingBox) -> bool {
+    registry()
+        .get(dataset.region.as_str())
+        .is_some_and(|adapter| touches_region_in(adapter, bbox))
 }
 
 /// The datasets a map area needs: those whose envelope the part of the area inside their state
 /// intersects (the envelope of Potsdam reaches into Berlin, which has its own register).
 /// `region_bbox` is the area in EPSG:25833.
 pub fn tree_datasets_for(region_bbox: &BoundingBox) -> Vec<&'static TreeDataset> {
-    TREE_DATASETS
-        .iter()
+    all_tree_datasets()
         .filter(|d| needs(d, region_bbox))
         .collect()
 }
@@ -32,7 +41,7 @@ fn needs(dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
     }
     // The state's boundary is in EPSG:25833: clip the area to the envelope there.
     if dataset.crs != Crs::Utm33 {
-        return touches_region(region_of(dataset), region_bbox);
+        return touches_region_of(dataset, region_bbox);
     }
     let e = &dataset.envelope;
     let clip = BoundingBox {
@@ -41,7 +50,7 @@ fn needs(dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
         max_e: area.max_e.min(e.max_e),
         max_n: area.max_n.min(e.max_n),
     };
-    touches_region(region_of(dataset), &clip)
+    touches_region_of(dataset, &clip)
 }
 
 fn intersects(a: &BoundingBox, b: &BoundingBox) -> bool {
@@ -76,6 +85,7 @@ mod tests {
     use super::*;
     use crate::fetch::FetchError;
     use crate::fetch::test_support::MapFetcher;
+    use crate::sources::region::Region;
 
     /// Sanssouci, Potsdam (EPSG:25833), where the fixture trees stand.
     fn sanssouci() -> BoundingBox {

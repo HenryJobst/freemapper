@@ -46,6 +46,52 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
 mod tests {
     use super::*;
 
+    /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg; the
+    /// queries over the registry find them for an area there and nowhere else.
+    #[test]
+    fn brandenburg_names_the_nas_service_and_the_tree_cadastre() {
+        use crate::crs::BoundingBox;
+        use crate::sources::{alkis_nas, trees};
+        for adapter in registry().adapters() {
+            let brandenburg = adapter.info().id.as_str() == "brandenburg";
+            assert_eq!(
+                adapter.nas().is_some(),
+                brandenburg,
+                "{}",
+                adapter.info().id
+            );
+            assert_eq!(
+                adapter.tree_datasets().len(),
+                usize::from(brandenburg),
+                "{}",
+                adapter.info().id
+            );
+        }
+        assert_eq!(
+            trees::all_tree_datasets()
+                .map(|dataset| dataset.id.as_ref())
+                .collect::<Vec<_>>(),
+            ["potsdam"]
+        );
+        // Sanssouci, Potsdam, and the Zwinger, Dresden (EPSG:25833).
+        let sanssouci = BoundingBox {
+            min_e: 366_200.0,
+            min_n: 5_807_100.0,
+            max_e: 367_100.0,
+            max_n: 5_807_700.0,
+        };
+        let zwinger = BoundingBox {
+            min_e: 410_800.0,
+            min_n: 5_656_300.0,
+            max_e: 411_200.0,
+            max_n: 5_656_700.0,
+        };
+        assert_eq!(alkis_nas::nas_services_for(&sanssouci).len(), 1);
+        assert_eq!(trees::tree_datasets_for(&sanssouci).len(), 1);
+        assert!(alkis_nas::nas_services_for(&zwinger).is_empty());
+        assert!(trees::tree_datasets_for(&zwinger).is_empty());
+    }
+
     #[test]
     fn registry_lists_the_eleven_in_legacy_order() {
         let built_in = builtin();

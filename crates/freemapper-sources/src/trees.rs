@@ -1,7 +1,7 @@
 //! City tree cadastres (single trees with a species, a survey date and sometimes a crown
 //! diameter) for the 417/418 candidates.
 //!
-//! One row per city in [`TREE_DATASETS`]: where the points come from ([`TreeFormat`], the
+//! One row per city (the adapter of its state names it): where the points come from ([`TreeFormat`], the
 //! endpoints), the field names, the kinds that are no tree (stumps), the licence line and the
 //! envelope that decides whether a map area needs the dataset. Potsdam is the first row
 //! ([`POTSDAM`], an OpenDataSoft GeoJSON export); the WFS, OGC API and CSV formats of the other
@@ -15,59 +15,12 @@ use std::collections::HashSet;
 use chrono::NaiveDate;
 use serde_json::{Map, Value, json};
 
-use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
+use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 use crate::nas::PartFile;
 use crate::ogc_api::{AlkisError, FetchArea, invalid};
+pub use freemapper_adapter_api::extras::{TreeDataset, TreeFields, TreeFormat};
 use freemapper_adapter_api::records::AdapterId;
-
-/// How a dataset is read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TreeFormat {
-    /// An OpenDataSoft `exports/geojson` endpoint, asked with `where=in_bbox(<geo_field>, …)` in
-    /// WGS84 (no paging). The geometry is WGS84 too.
-    OdsGeoJsonExport { geo_field: &'static str },
-}
-
-/// The field names of a dataset (properties of the served features).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TreeFields {
-    /// The kind of the point (`Laubbaum`, `Baumstumpf`).
-    pub kind: Cow<'static, str>,
-    /// The tree's number, the `freemapper:source_id`.
-    pub id: Cow<'static, str>,
-    /// The survey date (`2009-06-10T00:00:00+00:00`).
-    pub date: Cow<'static, str>,
-    pub species: Option<Cow<'static, str>>,
-    /// The crown diameter in metres.
-    pub crown: Option<Cow<'static, str>>,
-}
-
-/// One city's tree cadastre.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TreeDataset {
-    /// The file name under `data/trees/` and the `freemapper:source` suffix (`trees/<id>`).
-    pub id: Cow<'static, str>,
-    /// For messages.
-    pub name: Cow<'static, str>,
-    /// The adapter of the state the city lies in; the dataset is asked only for areas that
-    /// touch it.
-    pub region: AdapterId,
-    /// The CRS of `envelope`.
-    pub crs: Crs,
-    /// The data extent rounded outward: an area outside asks for nothing.
-    pub envelope: BoundingBox,
-    pub format: TreeFormat,
-    /// The endpoints, whose points are merged (Potsdam serves 283 772 points in three datasets).
-    pub endpoints: &'static [&'static str],
-    pub fields: TreeFields,
-    /// Kinds that are no tree and are not stored.
-    pub skipped_kinds: &'static [&'static str],
-    /// The line for the attribution once a tree of the dataset is drawn.
-    pub attribution: Cow<'static, str>,
-    /// The largest answer of one endpoint (bytes); a larger one fails the dataset.
-    pub max_bytes: u64,
-}
 
 /// 256 MB, as for the NAS answers: the whole Potsdam envelope (283 772 points) is about 110 MB.
 const MAX_ANSWER_BYTES: u64 = 256 << 20;
@@ -105,52 +58,6 @@ pub const POTSDAM: TreeDataset = TreeDataset {
     attribution: Cow::Borrowed("Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"),
     max_bytes: MAX_ANSWER_BYTES,
 };
-
-/// The tree cadastres, one per city.
-pub static TREE_DATASETS: [TreeDataset; 1] = [POTSDAM];
-
-/// The request grows the area by this much (ground metres): a tree on its edge is in.
-const REQUEST_MARGIN_M: f64 = 1.0;
-
-/// The WGS84 envelope (lat_min, lon_min, lat_max, lon_max) of `bbox` (EPSG:25833) grown by
-/// [`REQUEST_MARGIN_M`], from points along its outline (the edges bend in WGS84).
-fn wgs84_bbox(bbox: &BoundingBox) -> Option<(f64, f64, f64, f64)> {
-    const STEPS: u32 = 8;
-    let bbox = bbox.buffered(REQUEST_MARGIN_M);
-    let mut out: Option<(f64, f64, f64, f64)> = None;
-    for i in 0..=STEPS {
-        let t = f64::from(i) / f64::from(STEPS);
-        let e = bbox.min_e + t * (bbox.max_e - bbox.min_e);
-        let n = bbox.min_n + t * (bbox.max_n - bbox.min_n);
-        for (easting, northing) in [
-            (e, bbox.min_n),
-            (e, bbox.max_n),
-            (bbox.min_e, n),
-            (bbox.max_e, n),
-        ] {
-            let p = Crs::Utm33.inverse(ProjectedPoint { easting, northing })?;
-            out = Some(match out {
-                None => (p.lat, p.lon, p.lat, p.lon),
-                Some((a, b, c, d)) => (a.min(p.lat), b.min(p.lon), c.max(p.lat), d.max(p.lon)),
-            });
-        }
-    }
-    out
-}
-
-impl TreeDataset {
-    /// The request for `endpoint` for the points in `region_bbox` (EPSG:25833, grown by 1 m).
-    /// The box is asked as `lat_min,lon_min,lat_max,lon_max`. `None` for an area no position
-    /// projects to.
-    pub fn url(&self, endpoint: &str, region_bbox: &BoundingBox) -> Option<String> {
-        let (lat_min, lon_min, lat_max, lon_max) = wgs84_bbox(region_bbox)?;
-        Some(match self.format {
-            TreeFormat::OdsGeoJsonExport { geo_field } => format!(
-                "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
-            ),
-        })
-    }
-}
 
 /// One answer: the stored features (points in the map's CRS) and the ones that were left out.
 #[derive(Debug, Clone, Default, PartialEq)]

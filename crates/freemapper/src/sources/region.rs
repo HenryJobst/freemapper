@@ -244,12 +244,6 @@ pub fn regions_for(bbox: &BoundingBox) -> Vec<Region> {
         .collect()
 }
 
-/// Whether `region`'s boundary lies within [`MARGIN_M`] of `bbox` (EPSG:25833): [`regions_for`]
-/// for one region.
-pub(crate) fn touches_region(region: Region, bbox: &BoundingBox) -> bool {
-    touches_region_in(adapter_of(region), bbox)
-}
-
 /// Whether the point (EPSG:25833) lies inside `region`'s boundary itself (no margin).
 pub fn contains_point(region: Region, easting: f64, northing: f64) -> bool {
     contains_point_in(adapter_of(region), easting, northing)

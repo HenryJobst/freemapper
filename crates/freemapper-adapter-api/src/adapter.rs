@@ -6,12 +6,13 @@ use geo_types::MultiPolygon;
 use crate::alkis::AlkisSource;
 use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
+use crate::extras::{NasService, TreeDataset};
 use crate::info::RegionInfo;
 use crate::rasters::RasterBackend;
 use crate::records::EstimateItem;
 
 /// Everything one state or country supplies. This is the first cut (plan task C1): identity
-/// and boundary, by now with the OSM extracts (C3), the credit lines (C4), the estimate (C5), ALKIS (C6) and the rasters (C7). The tasks that move a concern off the region enums add its method.
+/// and boundary, by now with the OSM extracts (C3), the credit lines (C4), the estimate (C5), ALKIS (C6), the rasters (C7) and the extra sources (C13). The tasks that move a concern off the region enums add its method.
 pub trait RegionAdapter: Send + Sync {
     /// Identity and static facts.
     fn info(&self) -> &RegionInfo;
@@ -29,6 +30,17 @@ pub trait RegionAdapter: Send + Sync {
     /// The ALKIS service of the region: buildings and land use as features in the LGB schema.
     /// `None`: the region has no ALKIS data to offer.
     fn alkis(&self) -> Option<&dyn AlkisSource>;
+
+    /// The full ALKIS (NAS) service of the region, for the structures ALKIS vereinfacht leaves
+    /// out. `None`: the region has none.
+    fn nas(&self) -> Option<&NasService> {
+        None
+    }
+
+    /// The tree cadastres of cities in the region.
+    fn tree_datasets(&self) -> &[TreeDataset] {
+        &[]
+    }
 
     /// The credit lines for what a project holds of this region, in the order they are printed;
     /// empty before anything of it was fetched.

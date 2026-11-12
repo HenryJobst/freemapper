@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod berlin;
 pub mod boundaries;
 pub mod geobasis_nrw;
 pub mod geosn;
@@ -59,6 +60,12 @@ mod fetch {
 #[allow(unused_imports)]
 mod clock {
     pub(crate) use freemapper_adapter_api::clock::*;
+}
+
+/// The map kinds, as the suite contract names them.
+#[allow(unused_imports)]
+mod project {
+    pub(crate) use freemapper_contract::MapKind;
 }
 
 #[allow(unused_imports)]

@@ -1,7 +1,7 @@
 //! The full ALKIS from the states' NAS WFS (NAS-konform, GML 3.2 only, AdV namespace `adv:`):
 //! surveyed walls, fences, hedges, embankment edges, bridges and monuments for candidates.
 //!
-//! One service row per state ([`NAS_SERVICES`]) and one layer row per AdV feature type
+//! One service row per state (the adapter of the state names it) and one layer row per AdV feature type
 //! ([`NAS_LAYERS`]); the AdV schema and its code lists are the same nationwide, so a later state
 //! adds a service row only. The services do not page: one GetFeature per type with
 //! `COUNT=max_count`, and an answer cut at the cap is asked again in four quadrants.
@@ -18,29 +18,9 @@ use crate::fetch::{
 };
 use crate::ogc_api::{AlkisError, FetchArea, invalid, reproject_feature};
 use crate::xml::resolve_entity;
+pub use freemapper_adapter_api::extras::NasService;
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_contract::MapKind;
-
-/// A NAS WFS of one state.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NasService {
-    /// For messages, e.g. "LGB ALKIS (NAS)".
-    pub name: Cow<'static, str>,
-    pub url: Cow<'static, str>,
-    /// The adapter of the state the service covers; it is asked only for areas that touch it.
-    pub region: AdapterId,
-    /// The CRS asked for and answered in.
-    pub crs: Crs,
-    /// Features per GetFeature (`COUNT`); the service has no paging.
-    pub max_count: usize,
-    /// The largest answer read; a larger one is stopped and asked again in quadrants.
-    pub max_bytes: u64,
-    /// The files of the [`NAS_LAYERS`] the service serves; `None`: all of them. A type the state
-    /// does not serve answers an exception report, which would warn on every fetch.
-    pub layers: Option<&'static [&'static str]>,
-    /// The `NAMESPACES` parameter, for a server that wants the `adv` prefix declared.
-    pub namespaces: Option<Cow<'static, str>>,
-}
 
 /// 256 MB: 100 000 features of about 1.1 KB (Sanssouci) and room to spare.
 const MAX_ANSWER_BYTES: u64 = 256 << 20;
@@ -57,9 +37,6 @@ pub const LGB_NAS: NasService = NasService {
     layers: None,
     namespaces: None,
 };
-
-/// The NAS services, one per state.
-pub static NAS_SERVICES: [NasService; 1] = [LGB_NAS];
 
 /// One AdV feature type, stored as `data/alkis-nas/<file>.geojson` for the map kinds that use it.
 #[derive(Debug, PartialEq)]
@@ -119,34 +96,6 @@ pub const ARC_STEP_DEG: f64 = 10.0;
 /// The NAS layers `kind` uses.
 pub fn nas_layers(kind: MapKind) -> impl Iterator<Item = &'static NasLayer> {
     NAS_LAYERS.iter().filter(move |l| l.kinds.contains(&kind))
-}
-
-impl NasService {
-    /// Whether the service serves `layer`.
-    pub fn serves(&self, layer: &NasLayer) -> bool {
-        self.layers.is_none_or(|files| files.contains(&layer.file))
-    }
-
-    /// The GetFeature of `type_name` features in `bbox` (in [`NasService::crs`]), rounded
-    /// outward, with `COUNT` = [`NasService::max_count`].
-    pub fn get_feature_url(&self, type_name: &str, bbox: &BoundingBox) -> String {
-        let epsg = self.crs.epsg();
-        format!(
-            "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
-             &SRSNAME=urn:ogc:def:crs:EPSG::{epsg}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::{epsg}\
-             &COUNT={}{}",
-            self.url,
-            bbox.min_e.floor(),
-            bbox.min_n.floor(),
-            bbox.max_e.ceil(),
-            bbox.max_n.ceil(),
-            self.max_count,
-            self.namespaces
-                .as_deref()
-                .map(|n| format!("&NAMESPACES={n}"))
-                .unwrap_or_default()
-        )
-    }
 }
 
 /// One NAS answer: its features as GeoJSON (in the service's CRS), the features it could not
@@ -654,7 +603,7 @@ pub fn fetch_layers_from(
             let serving: Vec<&NasService> = services
                 .iter()
                 .copied()
-                .filter(|s| s.serves(layer))
+                .filter(|s| s.serves(layer.file))
                 .collect();
             (!serving.is_empty()).then(|| FetchedNasLayer {
                 layer,
@@ -1287,8 +1236,8 @@ mod tests {
                 .get_feature_url(NAS_LAYERS[0].type_name, &SANSSOUCI)
                 .ends_with("&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)")
         );
-        assert!(service.serves(&NAS_LAYERS[0]) && !service.serves(&NAS_LAYERS[1]));
-        assert!(LGB_NAS.serves(&NAS_LAYERS[5]), "LGB serves every layer");
+        assert!(service.serves(NAS_LAYERS[0].file) && !service.serves(NAS_LAYERS[1].file));
+        assert!(LGB_NAS.serves(NAS_LAYERS[5].file), "LGB serves every layer");
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(&service.url, EMPTY.as_bytes().to_vec());
         let scratch = tempfile::tempdir().unwrap();
@@ -1362,14 +1311,7 @@ mod tests {
     #[test]
     fn nas_service_layer_lists_name_known_layers() {
         // A misspelled file in a service's list would drop that layer for the state silently.
-        for service in &NAS_SERVICES {
-            assert_eq!(
-                unknown_layers(service),
-                Vec::<&str>::new(),
-                "{}",
-                service.name
-            );
-        }
+        assert_eq!(unknown_layers(&LGB_NAS), Vec::<&str>::new());
         static MISSPELLED: [&str; 2] = ["sonstiges-bauwerk", "vegetationsmerkmale"];
         let service = NasService {
             layers: Some(&MISSPELLED),

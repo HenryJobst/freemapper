@@ -3,11 +3,12 @@
 
 pub use freemapper_sources::nas::*;
 
+use crate::adapters::registry;
 use crate::crs::BoundingBox;
 use crate::fetch::Fetcher;
 use crate::project::MapKind;
 use crate::sources::alkis::FetchArea;
-use crate::sources::region::regions_for;
+use crate::sources::region::regions_for_in;
 
 /// The NAS layers `kind` uses.
 pub fn nas_layers(kind: MapKind) -> impl Iterator<Item = &'static NasLayer> {
@@ -16,10 +17,9 @@ pub fn nas_layers(kind: MapKind) -> impl Iterator<Item = &'static NasLayer> {
 
 /// The NAS services of the states `region_bbox` (EPSG:25833) touches.
 pub fn nas_services_for(region_bbox: &BoundingBox) -> Vec<&'static NasService> {
-    let regions = regions_for(region_bbox);
-    NAS_SERVICES
-        .iter()
-        .filter(|service| regions.iter().any(|r| r.id() == service.region.as_str()))
+    regions_for_in(registry(), region_bbox)
+        .into_iter()
+        .filter_map(|adapter| adapter.nas())
         .collect()
 }
 
@@ -50,7 +50,7 @@ mod tests {
     use crate::crs::Crs;
     use crate::fetch::FetchError;
     use crate::fetch::test_support::MapFetcher;
-    use crate::sources::region::Region;
+    use crate::sources::region::{Region, regions_for};
 
     #[test]
     fn nas_layers_only_in_nas_states() {

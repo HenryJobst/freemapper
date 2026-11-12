@@ -14,6 +14,7 @@ pub mod credit;
 pub mod env;
 pub mod error;
 pub mod estimate;
+pub mod extras;
 pub mod fetch;
 pub mod fs;
 pub mod geometry;

@@ -185,8 +185,7 @@ fn berlin(used: &UsedSources<'_>) -> Vec<String> {
 /// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
 /// for each dataset that drew trees.
 pub(crate) fn tree_attribution(registers: &[&str]) -> Vec<String> {
-    trees::TREE_DATASETS
-        .iter()
+    trees::all_tree_datasets()
         .filter(|d| registers.contains(&d.id.as_ref()))
         .map(|d| d.attribution.to_string())
         .collect()

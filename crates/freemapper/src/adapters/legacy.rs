@@ -7,6 +7,7 @@ use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
@@ -18,6 +19,8 @@ use crate::crs::BoundingBox;
 use std::sync::OnceLock;
 
 use freemapper_adapters_de::boundaries::parse_boundary;
+use freemapper_sources::nas::LGB_NAS;
+use freemapper_sources::trees::POTSDAM;
 
 use crate::sources::region::Region;
 
@@ -27,6 +30,8 @@ pub struct LegacyAdapter {
     info: RegionInfo,
     /// The box around the boundary, found when first asked for.
     alkis: Box<dyn AlkisSource>,
+    nas: Option<NasService>,
+    tree_datasets: Vec<TreeDataset>,
     rasters: Box<dyn RasterBackend>,
 }
 
@@ -153,6 +158,13 @@ impl LegacyAdapter {
             region,
             info,
             alkis: alkis::source(region),
+            // The full ALKIS of LGB and the tree cadastre of Potsdam are Brandenburg's.
+            nas: (region == Region::Brandenburg).then_some(LGB_NAS),
+            tree_datasets: if region == Region::Brandenburg {
+                vec![POTSDAM]
+            } else {
+                Vec::new()
+            },
             rasters: rasters::backend(region.provider()),
         }
     }
@@ -174,6 +186,14 @@ impl RegionAdapter for LegacyAdapter {
 
     fn alkis(&self) -> Option<&dyn AlkisSource> {
         Some(&*self.alkis)
+    }
+
+    fn nas(&self) -> Option<&NasService> {
+        self.nas.as_ref()
+    }
+
+    fn tree_datasets(&self) -> &[TreeDataset] {
+        &self.tree_datasets
     }
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
