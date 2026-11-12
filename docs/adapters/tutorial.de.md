@@ -111,7 +111,7 @@ freemapper adapters check elbaue
 ```
 Adapter elbaue (Elbaue), Revision 1, Hosts: www.geodatenportal.sachsen-anhalt.de
 Warnung: /home/you/work/elbaue/manifest.toml: adapter.last_verified: the manifest does not say when its services were last checked against it [check.never-verified]
-Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of saxonyanhalt: a map there gets the objects of both [check.shares-ground]
+Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of Saxony-Anhalt: a map there gets the objects of both [check.shares-ground]
 /home/you/work/elbaue besteht die Prüfung, mit 2 Warnungen
 ```
 
@@ -211,7 +211,7 @@ freemapper adapters check elbaue
 
 ```
 Adapter elbaue (Elbaue), Revision 1, Hosts: www.geodatenportal.sachsen-anhalt.de, geodatenportal.sachsen-anhalt.de
-Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of saxonyanhalt: a map there gets the objects of both [check.shares-ground]
+Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of Saxony-Anhalt: a map there gets the objects of both [check.shares-ground]
 /home/you/work/elbaue besteht die Prüfung, mit einer Warnung
 ```
 
@@ -227,7 +227,7 @@ freemapper adapters check elbaue --live --bbox 12.2430,51.8350,12.2452,51.8364
 
 ```
 Adapter elbaue (Elbaue), Revision 1, Hosts: www.geodatenportal.sachsen-anhalt.de, geodatenportal.sachsen-anhalt.de
-Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of saxonyanhalt: a map there gets the objects of both [check.shares-ground]
+Warnung: /home/you/work/elbaue/manifest.toml: boundary.file: the adapter lies on the ground of Saxony-Anhalt: a map there gets the objects of both [check.shares-ground]
 rasters in Ordnung: Luftbild, Geländemodell, Oberflächenmodell
 alkis-buildings in Ordnung: 58 Objekte
 alkis-land-use in Ordnung: 60 Objekte

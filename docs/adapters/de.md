@@ -194,7 +194,9 @@ Karte weitergeben. Arbeiten Sie deshalb aus den Quellen:
    Herunterladen einen Vertrag braucht, dann nutzen Sie ihn nicht, gleich was der Katalog sagt. Die zwei
    INSPIRE-WCS-Dienste des Saarlands blieben aus diesem Grund außen vor. Verweisen die Capabilities nur auf
    allgemeine Bedingungen, entscheiden die Nutzungsbedingungen des Amts; zitieren Sie den Satz im
-   Pull-Request.
+   Pull-Request. Dasselbe gilt, wenn `Fees` eine Kostenverordnung nennt, das Amt das Produkt aber als offene
+   Daten führt: So steht es im WFS von Sachsen-Anhalt, und § 2 der Nutzungsbedingungen des Amts
+   (Version 5.0) stellt dessen offene Daten unter dl-de/by-2-0.
 2. Übernehmen Sie den Namen des Bereitstellers genau so, wie das Amt ihn vorschreibt
    (`© GeoBasis-DE / LVermGeo ST`, `© GeoBasis DE/LVGL-SL (Jahr)`), mit Leerzeichen und Klammern.
 3. Schreiben Sie `[attribution] text` mit dem, was die Lizenz verlangt:

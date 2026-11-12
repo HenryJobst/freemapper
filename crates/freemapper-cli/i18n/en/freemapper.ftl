@@ -493,7 +493,6 @@ error-reason-user-info = user info
 error-reason-port = a port other than 443
 error-reason-host-not-declared = the host is not one of the declared hosts
 error-reason-local-address = an address of this computer or of the local network, not of a server on the internet
-error-reason-redirect-to = a redirect to { $target }
 error-reason-too-many-redirects = more than { $count } redirects
 error-reason-redirect-nowhere = a redirect (HTTP { $status }) to nowhere
 error-fetch-currency-csv = currency CSV line { $line }: { $message }
