@@ -15,6 +15,7 @@ pub(crate) mod alkis;
 pub(crate) mod credit;
 pub(crate) mod estimate;
 pub mod legacy;
+pub(crate) mod rasters;
 
 /// The states built into the program, in the order the region functions always went through
 /// them.

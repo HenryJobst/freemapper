@@ -19,6 +19,7 @@ pub mod geometry;
 pub mod info;
 pub mod note;
 pub mod project;
+pub mod rasters;
 pub mod records;
 pub mod registry;
 #[cfg(any(test, feature = "testing"))]

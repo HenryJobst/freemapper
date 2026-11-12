@@ -58,7 +58,7 @@ use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
-use crate::fetch::{Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_inside};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, fetch_tiles, write_inside};
 use crate::fetch::{fetch_ndsm_tiles, fetch_tiles_each};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
@@ -70,13 +70,13 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::lgb::{Product, TileCurrency};
+use crate::sources::lgb::Product;
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    Provider, Region, overlaps_in, provider_tiles, raster_region, raster_region_in, touches_berlin,
+    Provider, Region, overlaps_in, raster_region, raster_region_in, touches_berlin,
 };
 use crate::sources::trees;
 use crate::sources::wms::OrthophotoSource;
@@ -368,6 +368,9 @@ use freemapper_adapter_api::cache::CacheDir;
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::{RasterProject, RasterRecords};
+use freemapper_adapter_api::rasters::{
+    DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
+};
 // The steps of a raster fetch that name no state, and the files they write.
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
@@ -666,7 +669,7 @@ pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
-const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
+use crate::adapters::rasters::LGB_PRODUCTS as PRODUCTS;
 pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
@@ -958,18 +961,7 @@ fn fetch_project_parts(
                 region_bbox,
             },
         );
-        match raster_region(&region_bbox).map(Region::provider) {
-            Some(Provider::LvermGeo) => fetch_lvermgeo_rasters(env, p, &bbox)?,
-            Some(Provider::Lgv) => fetch_lgv_rasters(env, p, &bbox)?,
-            Some(Provider::GeoSn) => fetch_geosn_rasters(env, p, &bbox)?,
-            Some(Provider::Hvbg) => fetch_hvbg_rasters(env, p, &bbox)?,
-            Some(Provider::LvermGeoSh) => fetch_sh_rasters(env, p, &bbox)?,
-            Some(Provider::LaivMv) => fetch_mv_rasters(env, p, &bbox)?,
-            Some(Provider::GeobasisNrw) => fetch_nrw_rasters(env, p, &bbox)?,
-            Some(Provider::Lgln) => fetch_lgln_rasters(env, p, &bbox)?,
-            Some(Provider::LvermGeoRp) => fetch_rp_rasters(env, p, &bbox)?,
-            Some(Provider::Lgb) | None => fetch_lgb_rasters(env, p, &bbox)?,
-        }
+        raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
     }
     stop_if(cancelled)?;
     project.save(dir)?;
@@ -1155,6 +1147,35 @@ fn check_space(
         progress(note!("warning-error", error = Arg::error(skipped.clone())));
     }
     Ok(Some(plan))
+}
+
+/// The raster backend of a map of `region_bbox`: that of the region its centre lies in.
+fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBackend, ProjectError> {
+    raster_region_in(registry(), region_bbox)
+        .and_then(|adapter| adapter.rasters())
+        .ok_or(ProjectError::OutsideCoverage)
+}
+
+/// The raster fetch of `provider`, for the legacy backends (`adapters/rasters.rs`) until each
+/// function moves into the backend of its provider.
+pub(crate) fn fetch_rasters(
+    provider: Provider,
+    env: &mut AdapterEnv<'_>,
+    project: &mut dyn RasterProject,
+    bbox: &BoundingBox,
+) -> Result<(), AdapterError> {
+    match provider {
+        Provider::LvermGeo => fetch_lvermgeo_rasters(env, project, bbox),
+        Provider::Lgv => fetch_lgv_rasters(env, project, bbox),
+        Provider::GeoSn => fetch_geosn_rasters(env, project, bbox),
+        Provider::Hvbg => fetch_hvbg_rasters(env, project, bbox),
+        Provider::LvermGeoSh => fetch_sh_rasters(env, project, bbox),
+        Provider::LaivMv => fetch_mv_rasters(env, project, bbox),
+        Provider::GeobasisNrw => fetch_nrw_rasters(env, project, bbox),
+        Provider::Lgln => fetch_lgln_rasters(env, project, bbox),
+        Provider::LvermGeoRp => fetch_rp_rasters(env, project, bbox),
+        Provider::Lgb => fetch_lgb_rasters(env, project, bbox),
+    }
 }
 
 /// The LGB rasters of `bbox`: orthophoto and DTM tiles, the nDOM point clouds, and the bDOM where
@@ -3198,91 +3219,31 @@ pub fn derive_project_cancellable(
     }
     let bbox = project.bbox()?;
     let region_bbox = project.region_bbox()?;
-    let provider = raster_region(&region_bbox)
-        .ok_or(ProjectError::OutsideCoverage)?
-        .provider();
-    // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP)
-    // store their height models per area and have none.
-    let tile_products: Option<(&[Product], Product, Product)> = match provider {
-        Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
-        Provider::GeoSn => Some((
-            &[Product::SaxonyDtm],
-            Product::SaxonyDtm,
-            Product::SaxonyDsm,
-        )),
-        Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => None,
-    };
-    let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
-        provider_tiles(&bbox, provider, dtm_product.grid_km())
-    });
-    let required = tile_products.map_or(&[][..], |(required, _, _)| required);
-    let outdated: Vec<TileId> = needed
-        .iter()
-        .copied()
-        .filter(|tile| {
-            required.iter().any(|product| {
-                !project
-                    .tiles
-                    .iter()
-                    .any(|r| r.product == *product && r.tile == tile.name())
-            })
-        })
-        .collect();
-    if !outdated.is_empty() {
-        return Err(ProjectError::TilesOutdated(outdated));
+    let inputs = raster_backend(&region_bbox)?.derive_inputs(
+        &DeriveEnv {
+            regions: registry(),
+            cache,
+        },
+        &StoredRasters {
+            tiles: &project.tiles,
+            ndsm_tiles: &project.ndsm_tiles,
+            orthophoto: project.orthophoto.as_ref(),
+            terrain: project.terrain.as_ref(),
+            surface: project.surface.as_ref(),
+        },
+        &RasterArea { bbox, region_bbox },
+    );
+    if !inputs.outdated.is_empty() {
+        return Err(ProjectError::TilesOutdated(inputs.outdated));
     }
-    let tiles = |product: Product| -> Result<Vec<FetchedTile>, ProjectError> {
-        let mut fetched = Vec::new();
-        let mut missing = Vec::new();
-        for record in project.tiles.iter().filter(|r| r.product == product) {
-            let tile = TileId::parse(&record.tile)
-                .ok_or_else(|| ProjectError::Toml(format!("invalid tile id {:?}", record.tile)))?;
-            let zip = cache.tile_path(product, tile, record.published);
-            if !zip.exists() {
-                missing.push(tile);
-                continue;
-            }
-            fetched.push(FetchedTile {
-                product,
-                tile,
-                url: record.url.clone(),
-                currency: TileCurrency {
-                    created: record.currency,
-                    revised: None,
-                    published: record.published,
-                },
-                zip,
-            });
-        }
-        if !missing.is_empty() {
-            return Err(FetchError::MissingOffline(product, missing).into());
-        }
-        Ok(fetched)
-    };
 
     crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(note!("progress-writing", path = ORTHOPHOTO_RELPATH));
     stop_if(cancelled)?;
-    match provider {
-        Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, dir, &orthophoto)?,
-        Provider::GeoSn
-        | Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => {
+    match inputs.orthophoto? {
+        OrthophotoInput::Tiles(tiles) => build_orthophoto(&tiles, &bbox, dir, &orthophoto)?,
+        OrthophotoInput::Image => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -3295,8 +3256,10 @@ pub fn derive_project_cancellable(
         record.as_ref().is_some_and(|r| r.covers(&bbox)) && dir.join(relpath).exists()
     };
     stop_if(cancelled)?;
-    let dtm = if let Some((_, dtm_product, _)) = tile_products {
-        mosaic_dtm(&tiles(dtm_product)?, &bbox)?
+    // A tile provider's terrain mosaic is only in the cache.
+    let tile_provider = matches!(inputs.dtm, Ok(HeightInput::Tiles(_)));
+    let dtm = if let HeightInput::Tiles(tiles) = inputs.dtm? {
+        mosaic_dtm(&tiles, &bbox)?
     } else {
         if !stored_model(&project.terrain, TERRAIN_RELPATH) {
             return Err(ProjectError::TerrainNotFetched);
@@ -3313,7 +3276,7 @@ pub fn derive_project_cancellable(
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
     // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
     // when the Berlin layers have no stairs.
-    let stairs = tile_products.is_some() && {
+    let stairs = tile_provider && {
         let berlin_stairs = !project.berlin_layers.is_empty()
             && stored_berlin_layers(dir, &project)?
                 .iter()
@@ -3357,26 +3320,25 @@ pub fn derive_project_cancellable(
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
         progress(note!("warning-berlin-buildings-missing"));
     }
-    let dsm_recorded = match tile_products {
-        Some((_, _, dsm_product)) => project.tiles.iter().any(|r| r.product == dsm_product),
-        None => stored_model(&project.surface, SURFACE_RELPATH),
+    let dsm_recorded = match &inputs.dsm {
+        Some(Ok(HeightInput::Stored)) => stored_model(&project.surface, SURFACE_RELPATH),
+        Some(_) => true,
+        None => false,
     };
     if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress(note!("progress-no-ndsm-recorded"));
     }
-    let ndsm_files: Vec<PathBuf> = project
-        .ndsm_tiles
-        .iter()
+    let ndsm_files: Vec<PathBuf> = inputs
+        .ndsm
+        .into_iter()
         .filter_map(|record| {
-            // The tile comes from the project file: only a valid tile id names a cache file.
-            let Some(tile) = TileId::parse(&record.tile) else {
+            let Some(path) = record.path else {
                 progress(note!(
                     "warning-ndsm-tile-invalid",
                     tile = format!("{:?}", record.tile)
                 ));
                 return None;
             };
-            let path = cache.ndsm_path(tile, record.published);
             if !path.exists() {
                 progress(note!("warning-ndsm-not-cached", tile = &record.tile));
                 return None;
@@ -3397,11 +3359,14 @@ pub fn derive_project_cancellable(
     let ndsm_path = dir.join(NDSM_RELPATH);
     stop_if(cancelled)?;
     let dsm = if dsm_recorded {
-        let model = match tile_products {
-            Some((_, _, dsm_product)) => {
-                tiles(dsm_product).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?))
+        let model = match inputs.dsm {
+            Some(Ok(HeightInput::Tiles(tiles))) => {
+                mosaic_dtm(&tiles, &bbox).map_err(ProjectError::from)
             }
-            None => read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from),
+            Some(Err(e)) => Err(ProjectError::from(e)),
+            Some(Ok(HeightInput::Stored)) | None => {
+                read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from)
+            }
         };
         match model {
             Ok(dsm) => Some(dsm),

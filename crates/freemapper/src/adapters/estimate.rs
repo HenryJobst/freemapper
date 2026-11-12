@@ -34,25 +34,6 @@ const NRW_DOM1_TILE_MB: f64 = 3.0;
 const RP_DGM1_TILE_MB: f64 = 1.5;
 const RP_DOM1_TILE_MB: f64 = 3.0;
 
-/// The side in km of the EPSG:25833 tiles of `region`'s rasters; `None` for the providers that
-/// fetch per area.
-pub(crate) fn tile_grid_km(region: Region) -> Option<u32> {
-    match region.provider() {
-        Provider::Lgb => Some(1),
-        Provider::GeoSn => Some(Product::SaxonyDtm.grid_km()),
-        // LVermGeo rasters are fetched per area (WMS, WCS).
-        // HVBG rasters are fetched per area, too (no 25833 grid: Hesse has negative eastings).
-        Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => None,
-    }
-}
-
 /// The raster downloads of a map of `area` whose rasters come from `region`.
 pub(crate) fn items(
     region: Region,
@@ -61,11 +42,11 @@ pub(crate) fn items(
 ) -> Vec<EstimateItem> {
     let (bbox, cache) = (&area.bbox_25833, env.cache);
     let provider = region.provider();
-    let tiles =
-        || tile_grid_km(region).map_or_else(Vec::new, |km| provider_tiles(bbox, provider, km));
+    // The tiles of a tile provider's grid (LGB 1 km, GeoSN 2 km) that touch its regions.
+    let tiles = |km: u32| provider_tiles(bbox, provider, km);
     match provider {
-        Provider::Lgb => lgb_items(&tiles(), cache),
-        Provider::GeoSn => geosn_items(&tiles(), bbox, cache),
+        Provider::Lgb => lgb_items(&tiles(1), cache),
+        Provider::GeoSn => geosn_items(&tiles(Product::SaxonyDtm.grid_km()), bbox, cache),
         Provider::LvermGeo => lvermgeo_items(bbox),
         Provider::Lgv => lgv_items(bbox, cache),
         Provider::Hvbg => hvbg_items(bbox, cache),

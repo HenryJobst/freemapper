@@ -7,6 +7,7 @@ use std::path::Path;
 use chrono::NaiveDate;
 
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv, per_km2_item};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterKind};
 
 use crate::adapters::registry;
 use crate::area::MapArea;
@@ -87,14 +88,19 @@ pub fn estimate_download(
 /// The tiles a map of `bbox` uses, on the grid of its raster region, and the grid size in km.
 /// None for a region whose rasters are fetched per area.
 fn area_tiles(bbox: &BoundingBox) -> (Vec<TileId>, u32) {
-    let grid = raster_region_in(registry(), bbox)
-        .and_then(|adapter| Some((adapter, adapter.tile_grid_km()?)));
-    match grid {
-        Some((adapter, km)) => (
-            provider_tiles_in(registry(), bbox, adapter.info().provider.as_str(), km),
-            km,
+    let provider = raster_region_in(registry(), bbox)
+        .and_then(|adapter| adapter.rasters())
+        .map(|backend| backend.provider());
+    match provider {
+        Some(ProviderInfo {
+            id,
+            kind: RasterKind::Tiles { grid_km },
+            ..
+        }) => (
+            provider_tiles_in(registry(), bbox, id.as_str(), *grid_km),
+            *grid_km,
         ),
-        None => (Vec::new(), 1),
+        _ => (Vec::new(), 1),
     }
 }
 

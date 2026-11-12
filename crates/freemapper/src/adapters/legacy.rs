@@ -8,9 +8,11 @@ use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, RegionInfo};
+use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use geo_types::MultiPolygon;
 
+use crate::adapters::rasters::LegacyBackend;
 use crate::adapters::{alkis, credit, estimate};
 use crate::crs::BoundingBox;
 use std::sync::OnceLock;
@@ -23,6 +25,7 @@ pub struct LegacyAdapter {
     info: RegionInfo,
     /// The box around the boundary, found when first asked for.
     alkis: Box<dyn AlkisSource>,
+    rasters: LegacyBackend,
     bounds: OnceLock<BoundingBox>,
 }
 
@@ -149,6 +152,7 @@ impl LegacyAdapter {
             region,
             info,
             alkis: alkis::source(region),
+            rasters: LegacyBackend::new(region.provider()),
             bounds: OnceLock::new(),
         }
     }
@@ -176,8 +180,8 @@ impl RegionAdapter for LegacyAdapter {
         credit::lines(self.region, used)
     }
 
-    fn tile_grid_km(&self) -> Option<u32> {
-        estimate::tile_grid_km(self.region)
+    fn rasters(&self) -> Option<&dyn RasterBackend> {
+        Some(&self.rasters)
     }
 
     fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {

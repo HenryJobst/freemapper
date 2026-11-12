@@ -76,6 +76,10 @@ mod tests {
             None
         }
 
+        fn rasters(&self) -> Option<&dyn crate::rasters::RasterBackend> {
+            None
+        }
+
         fn attribution(
             &self,
             _used: &crate::credit::UsedSources<'_>,

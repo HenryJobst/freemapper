@@ -1264,6 +1264,10 @@ mod tests {
             None
         }
 
+        fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
+            None
+        }
+
         fn attribution(
             &self,
             _used: &freemapper_adapter_api::credit::UsedSources<'_>,
