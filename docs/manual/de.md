@@ -385,7 +385,18 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    *Der Fortschritt mitten im Lauf (für die Abbildung mit einer gestellten Serverantwort).*
 5. **Abbrechen:** „Abbrechen“ hält den Lauf an der nächsten Stelle an. Was schon geschrieben oder geladen
    ist, bleibt ganz erhalten (keine halben Dateien); ein neuer Lauf macht dort weiter.
-6. **Ergebnis:** Die Seite sagt, ob der Lauf fertig, fehlgeschlagen oder abgebrochen ist, listet die Dateien
+6. **Kartenvorschau:** Unter dem Laufstatus zeigt der Abschnitt „Kartenvorschau“ die Kartenobjekte als Bild. Nach
+   einem Lauf und beim Öffnen der Seite für ein Projekt mit Karte ist es die zuletzt erzeugte Karte. Ändern Sie
+   unter „Was auf die Karte kommt“ das Profil oder eine Gruppe, zeigt die Seite die Wirkung nach einer kurzen
+   Pause, ohne Lauf und ohne Speichern. Das alte Bild verblasst, während das neue berechnet wird (beim ersten
+   Mal auf einem großen Gebiet einige Sekunden, danach etwa eine Sekunde). Die Zeile über dem Bild sagt, was es
+   zeigt: „Stand der zuletzt erzeugten Karte.“ oder „Mit den Einstellungen auf dieser Seite, noch nicht
+   gespeichert.“ „In voller Größe öffnen“ öffnet das Bild in einem neuen Tab. Das Bild zeigt nur die
+   Kartenobjekte, keine Kandidaten, kein Luftbild, keine Legende und keinen Text. Haben Sie Gebiet, Kartenart
+   oder Maßstab seit dem letzten Lauf geändert, zeigt die Seite weiter das letzte Bild und sagt, dass ein neuer
+   Lauf nötig ist. Vor dem ersten Lauf und bei einer Karte aus einem älteren freemapper gibt es kein Bild; der
+   nächste Lauf mit „Vorhandene Karte ersetzen“ erzeugt eins.
+7. **Ergebnis:** Die Seite sagt, ob der Lauf fertig, fehlgeschlagen oder abgebrochen ist, listet die Dateien
    mit Größe und nennt den Projektordner. „Ordner öffnen“ öffnet ihn im Dateimanager; geht das nicht, steht
    der Pfad als Text da. Gab es schon eine Karte und war „Vorhandene Karte ersetzen“ aus, bleibt sie
    unverändert, und die Seite sagt das. Bei einem Fehler steht die Meldung des Programms da; „Nochmal
@@ -418,6 +429,7 @@ Im Projektordner liegen danach unter anderem:
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
+| `<name>-preview.webp` | ein Bild der Kartenobjekte (ohne Kandidaten, ohne Blattrand), zusammen mit der `.omap` geschrieben; die Gebietsseite zeigt es |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 | `freemapper.toml` | die Einstellungen und der Datenstand des Projekts |
 

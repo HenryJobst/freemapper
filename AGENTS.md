@@ -224,6 +224,8 @@ Rules:
 - `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `ndsm.png` with world files, and `candidates.omap`.
 - `ocad/` (with `ocad`): `<name>.ocd`, `<name>-candidates.ocd` and the templates.
 - `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf` (with `pdf_candidates`).
+- `<name>-preview.webp`: an image of the map objects, written with the map. The area page shows it; the image
+  is not the map and has no candidates.
 - `ATTRIBUTION.txt`: every data source with its licence.
 - `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features.
 

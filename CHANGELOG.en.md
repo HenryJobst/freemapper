@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- A preview of the map (ADR 0108). Every export that writes a map also writes `<name>-preview.webp` next to the `.omap`: the map objects as the map PDF draws them, no candidates, no sheet. The area page shows it in a new section "Map preview" below the run status, and when you change the content profile or a group there, it shows the effect within about a second, without a run and without saving. A line says whether the image is the map as generated last or the settings on the page; after a change of area, map kind or scale it says that a new run is needed. The `.omap`, the candidates map, the OCAD files and the PDFs do not change.
+
 ### Changed
 
 - Internal: the states are region adapters now (ADR 0082, stages B and C; ADR 0102). A state supplies its boundary, its OSM extracts, its ALKIS service, its raster sources, its credit lines and its download estimate through one trait; the engine asks the registry and names no state itself. The enums `Region` and `Provider` are gone. The code of the eleven states lives in the new crate `freemapper-adapters-de`, the generic service readers in `freemapper-sources`, the shared types in `freemapper-adapter-api`. Nothing changes for users: the golden net confirms the same requests and byte-identical files for all eleven states, and `freemapper.toml` is read and written as before.

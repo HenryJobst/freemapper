@@ -371,7 +371,17 @@ screenshot shows the German page.*
    *Progress in the middle of a run (a staged server answer for the picture).*
 5. **Cancel:** "Cancel" stops the run at the next safe point. Whatever is written or downloaded stays whole (no
    half files); a new run carries on from there.
-6. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
+6. **Map preview:** Below the run status the section "Map preview" shows the map objects as an image. After a
+   run, and when you open the page for a project that has a map, it is the map as generated last. If you change
+   the profile or a group in "What goes onto the map", the page shows the effect after a short pause, without a
+   run and without saving; the old image fades while the new one is computed (a few seconds the first time on a
+   large area, about one second after that). The line above the image says what it shows: "As generated last."
+   or "With the settings on this page, not saved yet." "Open full size" opens the image in a new tab. The
+   image shows the map objects only, no candidates, no orthophoto and no legend, and no text. If you changed the
+   area, the map kind or the scale since the last run, the page keeps showing the last image and says that a
+   new run is needed. Before the first run, and for a map from an older freemapper, there is no image; the
+   next run with "Replace the existing map" makes one.
+7. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
    size and names the project folder. "Open folder" opens it in the file manager; if that fails, the path is
    shown as text. If a map existed and "Replace the existing map" was off, it stays as it is, and the page says
    so. On an error the program's message is shown; "Create again" starts a new run.
@@ -402,6 +412,7 @@ Among other files, the project folder then holds:
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
+| `<name>-preview.webp` | an image of the map objects (no candidates, no sheet), written together with the `.omap`; the area page shows it |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 | `freemapper.toml` | the project's settings and data currency |
 
