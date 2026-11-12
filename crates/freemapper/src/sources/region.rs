@@ -9,7 +9,6 @@ pub use freemapper_adapter_api::geometry::{
     reaches_beyond_coverage_in, regions_for_in, tile_centre_near, tile_touches_in,
     touches_region_in, within_margin,
 };
-use geo_types::MultiPolygon;
 
 use crate::adapters::{RegionAdapter, registry};
 use crate::crs::BoundingBox;
@@ -197,6 +196,15 @@ impl Region {
         }
     }
 
+    /// The region's boundary, from the adapter crate.
+    #[cfg(test)]
+    pub(crate) fn boundary(self) -> &'static geo_types::MultiPolygon<f64> {
+        use freemapper_adapter_api::geometry::Outline as _;
+        freemapper_adapters_de::boundaries::outline(self.id())
+            .expect("every built-in state has a boundary")
+            .boundary()
+    }
+
     /// The CRS the region's rasters come in, and so the CRS of maps whose centre lies in it.
     pub fn crs(self) -> crate::crs::Crs {
         match self {
@@ -209,18 +217,6 @@ impl Region {
             | Self::RheinlandPfalz => crate::crs::Crs::Utm32,
             _ => crate::crs::Crs::Utm33,
         }
-    }
-
-    /// The region's boundary, parsed once.
-    pub(crate) fn boundary(self) -> &'static MultiPolygon<f64> {
-        use freemapper_adapter_api::geometry::Outline as _;
-        self.outline().boundary()
-    }
-
-    /// The outline of the region: its boundary and the box around it, from the adapter crate.
-    pub(crate) fn outline(self) -> &'static freemapper_adapters_de::boundaries::StateOutline {
-        freemapper_adapters_de::boundaries::outline(self.id())
-            .expect("every built-in state has a boundary")
     }
 }
 

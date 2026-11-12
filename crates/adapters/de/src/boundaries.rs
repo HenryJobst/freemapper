@@ -4,7 +4,8 @@
 use std::sync::OnceLock;
 
 use freemapper_adapter_api::geometry::{
-    Outline, contains_point_in, tile_centre_near, tile_touches_in, touches_region_in,
+    Outline, contains_point_in, tile_centre_near, tile_touches_in, tiles_touching,
+    touches_region_in,
 };
 use geo_types::MultiPolygon;
 
@@ -153,6 +154,23 @@ pub fn tile_touches(tile: TileId, id: &str) -> bool {
 /// the rule by which an area needs the state.
 pub fn touches(id: &str, bbox: &BoundingBox) -> bool {
     touches_region_in(own(id), bbox)
+}
+
+/// The states whose boundary lies within the region margin of `bbox` (EPSG:25833), in their
+/// order.
+pub fn states_touching(bbox: &BoundingBox) -> Vec<&'static str> {
+    STATES
+        .iter()
+        .map(|(id, _)| *id)
+        .filter(|id| touches(id, bbox))
+        .collect()
+}
+
+/// The tiles of a `km` grid over `bbox` (EPSG:25833) that touch one of the `states`: those the
+/// provider of these states publishes.
+pub fn provider_tiles(bbox: &BoundingBox, states: &[&str], km: u32) -> Vec<TileId> {
+    let outlines: Vec<&StateOutline> = states.iter().map(|id| own(id)).collect();
+    tiles_touching(&outlines, bbox, km)
 }
 
 /// Whether the point (EPSG:25833) lies inside the boundary of the state `id` itself.

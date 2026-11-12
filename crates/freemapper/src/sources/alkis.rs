@@ -9,20 +9,13 @@ use crate::adapters::registry;
 use crate::crs::BoundingBox;
 use crate::sources::region::regions_for_in;
 
-pub const BUILDINGS_ENDPOINT: &str =
-    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
-/// LAiV M-V's OGC API (the same LGB schema and spellings, EPSG:25833).
-pub const MV_BUILDINGS_ENDPOINT: &str =
-    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items";
-pub const MV_LAND_USE_ENDPOINT: &str =
-    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items";
 // The reader of the OGC API (paging, parsing, the area in a CRS) lives in `freemapper-sources`
 // (ADR 0082). Which service serves which state stays here.
 pub use freemapper_sources::ogc_api::*;
 
-/// Land use per parcel part (`nutzung_flurstueck`).
-pub const LAND_USE_ENDPOINT: &str =
-    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items";
+pub use freemapper_adapters_de::states::alkis::{
+    BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
+};
 
 /// URL of the first page of buildings in `bbox` (EPSG:25833), rounded outward to whole metres.
 pub fn buildings_url(bbox: &BoundingBox) -> String {

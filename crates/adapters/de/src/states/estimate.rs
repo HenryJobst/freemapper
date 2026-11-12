@@ -1,7 +1,5 @@
-//! The raster downloads of the eleven states for the estimate, as the `*_items` functions of
-//! `layers.rs` gave them (plan C5): the texts, the sizes and what counts as cached are
-//! unchanged, the items are asked through
-//! [`RegionAdapter::estimate`](freemapper_adapter_api::adapter::RegionAdapter).
+//! The raster downloads of the states for the estimate: what each provider would download for
+//! an area, how large it is and what of it is in the cache already.
 
 use freemapper_adapter_api::cache::CacheDir;
 use freemapper_adapter_api::estimate::{
@@ -9,10 +7,14 @@ use freemapper_adapter_api::estimate::{
 };
 use freemapper_adapter_api::records::{EstimateItem, Part, Store};
 
+use crate::boundaries::{
+    BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles,
+    states_touching, tile_touches,
+};
 use crate::crs::BoundingBox;
-use crate::fetch::TilePaths as _;
 use crate::sources::lgb::{Product, ProductTiles as _};
-use crate::sources::region::{Provider, Region, provider_tiles, regions_for, tile_touches};
+use crate::states::{Agency, State};
+use crate::tile_fetch::TilePaths as _;
 use crate::tiles::{TileId, tiles_covering};
 
 /// Typical download sizes in MB.
@@ -20,9 +22,9 @@ const DOP_TILE_MB: f64 = 8.0;
 const DGM_TILE_MB: f64 = 1.3;
 const NDSM_TILE_MB: f64 = 15.0;
 /// The bDOM GeoTIFF that replaces the nDOM inside Berlin.
-pub(crate) const BDOM_TILE_MB: f64 = 30.0;
+pub const BDOM_TILE_MB: f64 = 30.0;
 /// GeoSN's 2 km tiles.
-pub(crate) const GEOSN_DGM1_TILE_MB: f64 = 14.0;
+pub const GEOSN_DGM1_TILE_MB: f64 = 14.0;
 const GEOSN_DOM1_TILE_MB: f64 = 15.0;
 /// LVermGeo SH per whole 1 km tile: the DGM1 GeoTIFF and the bDOM 0.2 m (reduced to 1 m after).
 const SH_DGM1_TILE_MB: f64 = 1.5;
@@ -35,26 +37,24 @@ const RP_DGM1_TILE_MB: f64 = 1.5;
 const RP_DOM1_TILE_MB: f64 = 3.0;
 
 /// The raster downloads of a map of `area` whose rasters come from `region`.
-pub(crate) fn items(
-    region: Region,
-    area: &EstimateArea,
-    env: &EstimateEnv<'_>,
-) -> Vec<EstimateItem> {
+pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
     let (bbox, cache) = (&area.bbox_25833, env.cache);
-    let provider = region.provider();
-    // The tiles of a tile provider's grid (LGB 1 km, GeoSN 2 km) that touch its regions.
-    let tiles = |km: u32| provider_tiles(bbox, provider, km);
-    match provider {
-        Provider::Lgb => lgb_items(&tiles(1), cache),
-        Provider::GeoSn => geosn_items(&tiles(Product::SaxonyDtm.grid_km()), bbox, cache),
-        Provider::LvermGeo => lvermgeo_items(bbox),
-        Provider::Lgv => lgv_items(bbox, cache),
-        Provider::Hvbg => hvbg_items(bbox, cache),
-        Provider::LvermGeoSh => schleswig_holstein_items(bbox, cache),
-        Provider::LaivMv => laiv_mv_items(bbox),
-        Provider::GeobasisNrw => nrw_items(bbox, cache),
-        Provider::Lgln => lgln_items(bbox),
-        Provider::LvermGeoRp => rp_items(bbox, &area.map_bbox, cache),
+    // The tiles of a tile provider's grid (LGB 1 km, GeoSN 2 km) that touch its states.
+    match state.agency() {
+        Agency::Lgb => lgb_items(&provider_tiles(bbox, &[BRANDENBURG, BERLIN], 1), cache),
+        Agency::GeoSn => geosn_items(
+            &provider_tiles(bbox, &[SAXONY], Product::SaxonyDtm.grid_km()),
+            bbox,
+            cache,
+        ),
+        Agency::LvermGeo => lvermgeo_items(bbox),
+        Agency::Lgv => lgv_items(bbox, cache),
+        Agency::Hvbg => hvbg_items(bbox, cache),
+        Agency::LvermGeoSh => schleswig_holstein_items(bbox, cache),
+        Agency::LaivMv => laiv_mv_items(bbox),
+        Agency::GeobasisNrw => nrw_items(bbox, cache),
+        Agency::Lgln => lgln_items(bbox),
+        Agency::LvermGeoRp => rp_items(bbox, &area.map_bbox, cache),
     }
 }
 
@@ -116,7 +116,7 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
 
 /// The 1 km tiles of EPSG:25832 touched by `bbox` (EPSG:25833): what the per-area providers of
 /// zone 32 (LGV, HVBG) read, whole, out of their archives.
-pub(crate) fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
+pub fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
     use crate::crs::{Crs, ProjectedPoint};
     let corners = [
         (bbox.min_e, bbox.min_n),
@@ -148,7 +148,7 @@ fn lgv_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
     // Only tiles that can exist: every square that touches Hamburg has a (clipped) tile.
     let tiles: Vec<TileId> = zone_32_tiles(bbox)
         .into_iter()
-        .filter(|t| tile_touches(*t, Region::Hamburg))
+        .filter(|t| tile_touches(*t, HAMBURG))
         .collect();
     let model_item = |model: Model, mb_per_tile: f64, part: Part| {
         let open = tiles
@@ -232,7 +232,7 @@ fn nrw_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
     use crate::sources::geobasis_nrw::{Model, cached_tiles};
     let tiles: Vec<TileId> = zone_32_tiles(bbox)
         .into_iter()
-        .filter(|t| tile_touches(*t, Region::NordrheinWestfalen))
+        .filter(|t| tile_touches(*t, NORDRHEIN_WESTFALEN))
         .collect();
     let model_item = |model: Model, mb_per_tile: f64, part: Part| {
         let cached = cached_tiles(cache, model, &tiles);
@@ -306,7 +306,7 @@ fn schleswig_holstein_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<Estimat
     // Every square that touches the state has a (whole) tile.
     let tiles: Vec<TileId> = zone_32_tiles(bbox)
         .into_iter()
-        .filter(|t| tile_touches(*t, Region::SchleswigHolstein))
+        .filter(|t| tile_touches(*t, SCHLESWIG_HOLSTEIN))
         .collect();
     // A tile counts as cached only under the name its current vintage has.
     let model_item = |model: Model, mb_per_tile: f64, what: String, part: Part| {
@@ -378,7 +378,7 @@ fn lgln_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
 }
 
 /// LGB: orthophoto, DTM and nDSM (or bDOM inside Berlin) per 1 km tile.
-pub(crate) fn lgb_items(tiles: &[TileId], cache: &CacheDir) -> Vec<EstimateItem> {
+pub fn lgb_items(tiles: &[TileId], cache: &CacheDir) -> Vec<EstimateItem> {
     let mut items = Vec::new();
     for &tile in tiles {
         for (product, mb, part) in [
@@ -394,7 +394,7 @@ pub(crate) fn lgb_items(tiles: &[TileId], cache: &CacheDir) -> Vec<EstimateItem>
             });
         }
         // LGB publishes no nDOM inside Berlin; the bDOM stands in for it.
-        let inside_berlin = regions_for(&tile.bounds()) == [Region::Berlin];
+        let inside_berlin = states_touching(&tile.bounds()) == [BERLIN];
         items.push(if inside_berlin {
             EstimateItem {
                 what: format!("nDSM tile {} ({})", tile.name(), Product::ImageDsm),

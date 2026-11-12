@@ -176,13 +176,22 @@ pub fn provider_tiles_in(
         .adapters()
         .filter(|adapter| adapter.info().provider.as_str() == provider)
         .collect();
+    tiles_touching(&regions, bbox, km)
+}
+
+/// The tiles of a `km` grid over `bbox` that touch one of `outlines`.
+pub fn tiles_touching<O: Outline + ?Sized>(
+    outlines: &[&O],
+    bbox: &BoundingBox,
+    km: u32,
+) -> Vec<TileId> {
     tiles::tiles_covering_grid(bbox, km)
         .into_iter()
         .filter(|tile| {
             let bounds = tile.bounds_km(km);
             let rect = rectangle(&bounds);
-            regions.iter().any(|adapter| {
-                near_bounds(*adapter, &bounds) && adapter.boundary().intersects(&rect)
+            outlines.iter().any(|outline| {
+                near_bounds(*outline, &bounds) && outline.boundary().intersects(&rect)
             })
         })
         .collect()

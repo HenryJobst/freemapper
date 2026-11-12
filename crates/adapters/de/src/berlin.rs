@@ -19,6 +19,13 @@ pub const BUILDINGS_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis_ge
 pub const BUILDINGS_TYPE: &str = "alkis_gebaeude:gebaeude";
 pub const LAND_USE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis";
 pub const LAND_USE_TYPE: &str = "alkis:tatsaechlichenutzungflaechen";
+/// The lighting cadastre and the fountain registers: the stored file and the name in the
+/// credit line, in the order of the line.
+pub const BERLIN_REGISTERS: [(&str, &str); 3] = [
+    ("beleuchtung", "Öffentliche Beleuchtung"),
+    ("zierbrunnen", "Zierbrunnen"),
+    ("trinkwasserbrunnen", "Trinkwasserbrunnen"),
+];
 /// Features per page; a 1 km tile in the city centre holds about 1100 buildings.
 const PAGE_COUNT: u32 = 5000;
 /// Property that holds the WFS type of a stored feature (not `layer`: a service may have one).

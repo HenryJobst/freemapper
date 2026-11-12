@@ -373,6 +373,7 @@ use freemapper_adapter_api::project::{RasterProject, RasterRecords};
 use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
+use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
 // The steps of a raster fetch that name no state, and the files they write.
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
 use freemapper_adapter_api::records::{on_grid, stored_bbox};
@@ -2771,13 +2772,6 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
 }
 
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
-/// The lighting cadastre and the fountain registers: the stored file and the name in the
-/// attribution, in the order of the line.
-pub(crate) const BERLIN_REGISTERS: [(&str, &str); 3] = [
-    ("beleuchtung", "Öffentliche Beleuchtung"),
-    ("zierbrunnen", "Zierbrunnen"),
-    ("trinkwasserbrunnen", "Trinkwasserbrunnen"),
-];
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -3052,12 +3046,12 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
-    use crate::adapters::credit::{
-        BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
-    };
     use crate::fetch::TilePaths as _;
     use crate::sources::lgb::ProductTiles as _;
     use chrono::Datelike as _;
+    use freemapper_adapters_de::states::credit::{
+        BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
+    };
 
     #[test]
     fn set_map_area_keeps_the_rest() {

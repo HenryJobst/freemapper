@@ -395,7 +395,6 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::adapters::estimate::{BDOM_TILE_MB, GEOSN_DGM1_TILE_MB, lgb_items, zone_32_tiles};
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_ndsm, serve_synthetic_tile};
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};
@@ -403,6 +402,9 @@ mod tests {
     use crate::tiles::TileId;
     use crate::tiles::tiles_covering;
     use chrono::NaiveDate;
+    use freemapper_adapters_de::states::estimate::{
+        BDOM_TILE_MB, GEOSN_DGM1_TILE_MB, lgb_items, zone_32_tiles,
+    };
 
     fn school_project(dir: &Path) {
         let text = std::fs::read_to_string(concat!(

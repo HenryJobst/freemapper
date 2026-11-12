@@ -4,26 +4,18 @@
 //! with the built-in states, so the library and its tests work without the command line; the
 //! command line may install another registry once, before the first use.
 
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 pub use freemapper_adapter_api::adapter::RegionAdapter;
 pub use freemapper_adapter_api::registry::Registry;
 
-use crate::sources::region::Region;
-
-pub(crate) mod alkis;
-pub(crate) mod credit;
-pub(crate) mod estimate;
-pub mod legacy;
-pub(crate) mod rasters;
-
-/// The states built into the program, in the order the region functions always went through
-/// them.
+/// The adapters built into the program: the German states of `freemapper-adapters-de`, in the
+/// order the region functions always went through them.
 pub fn builtin() -> Registry {
     let mut registry = Registry::new();
-    for region in Region::ALL {
+    for adapter in freemapper_adapters_de::states::adapters() {
         registry
-            .add(Arc::new(legacy::LegacyAdapter::new(region)))
+            .add(adapter)
             .expect("the built-in states have distinct ids");
     }
     registry
@@ -61,6 +53,7 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sources::region::Region;
 
     /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg; the
     /// queries over the registry find them for an area there and nowhere else.
@@ -165,5 +158,36 @@ mod tests {
             }
             assert!(!adapter.boundary().0.is_empty(), "{}", info.id);
         }
+    }
+
+    /// G1 records who serves the rasters of each state and how; the backends say the same.
+    #[test]
+    fn provider_info_matches_g1() {
+        use crate::sources::region::golden::legacy_facts;
+        use freemapper_adapter_api::rasters::RasterKind;
+        for facts in legacy_facts() {
+            let adapter = registry().get(&facts.id).unwrap();
+            let info = adapter.rasters().unwrap().provider();
+            assert_eq!(info.id.as_str(), facts.provider, "{}", facts.id);
+            assert_eq!(info.cache_dir, facts.cache_dir, "{}", facts.id);
+            assert_eq!(info.terrain_source, facts.terrain_source, "{}", facts.id);
+            assert_eq!(
+                info.kind == RasterKind::PerArea,
+                facts.per_area,
+                "{}",
+                facts.id
+            );
+        }
+        let kind = |id: &str| {
+            registry()
+                .get(id)
+                .unwrap()
+                .rasters()
+                .unwrap()
+                .provider()
+                .kind
+        };
+        assert_eq!(kind("berlin"), RasterKind::Tiles { grid_km: 1 });
+        assert_eq!(kind("saxony"), RasterKind::Tiles { grid_km: 2 });
     }
 }

@@ -1,6 +1,6 @@
-//! The ALKIS services of the eleven states, as the two matches of `sources/alkis.rs` named them
-//! (plan C6): which service serves which state, in which CRS, with which fallback. The readers
-//! are those of `freemapper-sources`; Berlin keeps its own (Geoportal Berlin WFS).
+//! The ALKIS services of the states: which service serves which state, in which CRS, with which
+//! fallback. The readers are those of `freemapper-sources`; Berlin keeps its own (Geoportal
+//! Berlin WFS).
 
 use std::borrow::Cow;
 
@@ -10,47 +10,57 @@ use freemapper_adapter_api::error::AdapterError;
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis, WfsAlkis};
 
 use crate::crs::Crs;
-use crate::sources::alkis::{
-    BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
-};
-use crate::sources::region::Region;
-use crate::sources::{alkis_wfs, berlin, lgv};
+use crate::sources::alkis_wfs;
+use crate::states::State;
+use crate::{berlin, lgv};
 
-/// The ALKIS service of `region`.
-pub(crate) fn source(region: Region) -> Box<dyn AlkisSource> {
+/// LGB's OGC API, buildings and structures (`gebaeude_bauwerk`).
+pub const BUILDINGS_ENDPOINT: &str =
+    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
+/// LAiV M-V's OGC API (the same LGB schema and spellings, EPSG:25833).
+pub const MV_BUILDINGS_ENDPOINT: &str =
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items";
+pub const MV_LAND_USE_ENDPOINT: &str =
+    "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items";
+/// Land use per parcel part (`nutzung_flurstueck`).
+pub const LAND_USE_ENDPOINT: &str =
+    "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items";
+
+/// The ALKIS service of `state`.
+pub fn source(state: State) -> Box<dyn AlkisSource> {
     let wfs =
         |service: alkis_wfs::WfsService| -> Box<dyn AlkisSource> { Box::new(WfsAlkis { service }) };
-    match region {
+    match state {
         // LGB's OGC API (dl-de/by-2-0), which sets the schema and the spellings of all others.
-        Region::Brandenburg => Box::new(OgcApiAlkis {
+        State::Brandenburg => Box::new(OgcApiAlkis {
             buildings: Cow::Borrowed(BUILDINGS_ENDPOINT),
             land_use: Cow::Borrowed(LAND_USE_ENDPOINT),
             crs: Crs::Utm33,
             fallback: None,
             normalise: Normaliser::Lgb,
         }),
-        Region::Berlin => Box::new(BerlinAlkis),
-        Region::Saxony => wfs(alkis_wfs::GEOSN),
-        Region::SaxonyAnhalt => wfs(alkis_wfs::LVERMGEO),
-        Region::Hamburg => Box::new(OgcApiAlkis {
+        State::Berlin => Box::new(BerlinAlkis),
+        State::Saxony => wfs(alkis_wfs::GEOSN),
+        State::SaxonyAnhalt => wfs(alkis_wfs::LVERMGEO),
+        State::Hamburg => Box::new(OgcApiAlkis {
             buildings: Cow::Borrowed(lgv::BUILDINGS_ENDPOINT),
             land_use: Cow::Borrowed(lgv::LAND_USE_ENDPOINT),
             crs: alkis_wfs::LGV.crs,
             fallback: Some(alkis_wfs::LGV),
             normalise: Normaliser::HamburgAscii,
         }),
-        Region::Hessen => wfs(alkis_wfs::HVBG),
-        Region::SchleswigHolstein => wfs(alkis_wfs::LVERMGEO_SH),
-        Region::MecklenburgVorpommern => Box::new(OgcApiAlkis {
+        State::Hessen => wfs(alkis_wfs::HVBG),
+        State::SchleswigHolstein => wfs(alkis_wfs::LVERMGEO_SH),
+        State::MecklenburgVorpommern => Box::new(OgcApiAlkis {
             buildings: Cow::Borrowed(MV_BUILDINGS_ENDPOINT),
             land_use: Cow::Borrowed(MV_LAND_USE_ENDPOINT),
             crs: alkis_wfs::LAIV_MV.crs,
             fallback: Some(alkis_wfs::LAIV_MV),
             normalise: Normaliser::Lgb,
         }),
-        Region::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
-        Region::Niedersachsen => wfs(alkis_wfs::LGLN),
-        Region::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
+        State::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
+        State::Niedersachsen => wfs(alkis_wfs::LGLN),
+        State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
     }
 }
 
@@ -86,10 +96,9 @@ mod tests {
     use super::*;
 
     /// Every state asks its own service first, for the buildings and for the land use, in the
-    /// CRS of that service. The table is the two matches `sources/alkis.rs` had.
+    /// CRS of that service.
     #[test]
     fn every_state_asks_its_service() {
-        use crate::adapters::registry;
         use crate::fetch::FetchMode;
         use crate::fetch::test_support::MapFetcher;
         use crate::sources::alkis::FetchArea;
@@ -105,24 +114,24 @@ mod tests {
         let api = |buildings: &str, land_use: &str, crs: Crs| {
             (buildings.to_string(), land_use.to_string(), crs)
         };
-        let expected = |region: Region| match region {
-            Region::Brandenburg => api(BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, Crs::Utm33),
-            Region::Berlin => api(
+        let expected = |state: State| match state {
+            State::Brandenburg => api(BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, Crs::Utm33),
+            State::Berlin => api(
                 berlin::BUILDINGS_SERVICE,
                 berlin::LAND_USE_SERVICE,
                 Crs::Utm33,
             ),
-            Region::Saxony => wfs(alkis_wfs::GEOSN),
-            Region::SaxonyAnhalt => wfs(alkis_wfs::LVERMGEO),
-            Region::Hamburg => api(lgv::BUILDINGS_ENDPOINT, lgv::LAND_USE_ENDPOINT, Crs::Utm32),
-            Region::Hessen => wfs(alkis_wfs::HVBG),
-            Region::SchleswigHolstein => wfs(alkis_wfs::LVERMGEO_SH),
-            Region::MecklenburgVorpommern => {
+            State::Saxony => wfs(alkis_wfs::GEOSN),
+            State::SaxonyAnhalt => wfs(alkis_wfs::LVERMGEO),
+            State::Hamburg => api(lgv::BUILDINGS_ENDPOINT, lgv::LAND_USE_ENDPOINT, Crs::Utm32),
+            State::Hessen => wfs(alkis_wfs::HVBG),
+            State::SchleswigHolstein => wfs(alkis_wfs::LVERMGEO_SH),
+            State::MecklenburgVorpommern => {
                 api(MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT, Crs::Utm33)
             }
-            Region::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
-            Region::Niedersachsen => wfs(alkis_wfs::LGLN),
-            Region::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
+            State::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
+            State::Niedersachsen => wfs(alkis_wfs::LGLN),
+            State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
         };
         // Kassel, a place both UTM zones can hold.
         let area = FetchArea::new(
@@ -135,15 +144,19 @@ mod tests {
             Crs::Utm33,
         );
         let cache = CacheDir::new("no-cache".into());
-        for region in Region::ALL {
-            let (buildings, land_use, crs) = expected(region);
-            let source = source(region);
+        let mut registry = freemapper_adapter_api::registry::Registry::new();
+        for adapter in crate::states::adapters() {
+            registry.add(adapter).unwrap();
+        }
+        for state in State::ALL {
+            let (buildings, land_use, crs) = expected(state);
+            let source = source(state);
             // Nothing answers: the first request shows where the source asks.
             let first_request = |land: bool| {
                 let fetcher = MapFetcher::default();
                 let mut env = AdapterEnv {
                     fetcher: &fetcher,
-                    regions: registry(),
+                    regions: &registry,
                     cache: &cache,
                     mode: FetchMode::Online,
                     today: crate::clock::today(),
@@ -155,17 +168,17 @@ mod tests {
                 } else {
                     source.buildings(&mut env, &area)
                 };
-                assert!(failed.is_err(), "{region:?}");
+                assert!(failed.is_err(), "{state:?}");
                 fetcher.log.borrow()[0].clone()
             };
             for (url, endpoint) in [
                 (first_request(false), buildings),
                 (first_request(true), land_use),
             ] {
-                assert!(url.starts_with(&endpoint), "{region:?}: {url}");
+                assert!(url.starts_with(&endpoint), "{state:?}: {url}");
                 assert!(
                     url.contains(&format!("{}", crs.epsg())),
-                    "{region:?} asks in EPSG:{}: {url}",
+                    "{state:?} asks in EPSG:{}: {url}",
                     crs.epsg()
                 );
             }

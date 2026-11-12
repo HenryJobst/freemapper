@@ -16,6 +16,7 @@ pub mod lgv;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
+pub mod states;
 pub mod tile_fetch;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths
