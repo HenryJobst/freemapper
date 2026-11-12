@@ -16,6 +16,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Map preview: when the area page is open in two tabs and both change a setting shortly after each other, the overtaken tab no longer shows "A newer preview was asked for meanwhile". It asks again and gets the image of its own settings.
 - MCP: `list_layers` lists the K5 template only for projects whose area touches Berlin, or when its file is in the folder. Before, every project listed it, and outside Berlin it never got ready.
 - Saarland: a district archive that cannot be read (renamed, or its server down for a moment) no longer stops the fetch when the tiles of the area are in other archives. When an archive is down, its directory from the last run is used; maps whose tiles are in the cache already are still made. A warning with the address of the archive says so in both cases. A cancel, an address freemapper does not ask and a write error on this computer still stop the fetch at once.
 - A folder in the adapter folder whose name starts with a dot (`.git`) no longer causes a warning on every command.

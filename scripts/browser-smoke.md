@@ -41,4 +41,6 @@ tiles through the local server.
     Profil": the stored image returns at once. Draw another area without saving: the stored image stays and the
     line says that the area is not saved yet; a group change asks for nothing. Save that area and reload: the line
     asks for a run with „Vorhandene Karte ersetzen“. "In voller Größe öffnen" opens the image in a new tab. Repeat with
-    `--lang en` and `set-color-scheme dark`.
+    `--lang en` and `set-color-scheme dark`. Open the page in a second tab and change a group in each tab
+    within a second: both tabs end with "Mit den Einstellungen auf dieser Seite, …" and an image of their own
+    settings; no tab shows "Inzwischen wurde eine neuere Vorschau angefordert".
