@@ -159,16 +159,17 @@ impl UpdateStub {
 pub fn copied_program(dir: &std::path::Path) -> std::path::PathBuf {
     let original = std::path::Path::new(env!("CARGO_BIN_EXE_freemapper"));
     let copy = dir.join(original.file_name().unwrap());
-    if cfg!(unix) {
+    #[cfg(unix)]
+    {
         let status = Command::new("cp")
             .arg(original)
             .arg(&copy)
             .status()
             .unwrap();
         assert!(status.success(), "cp {} failed", original.display());
-    } else {
-        std::fs::copy(original, &copy).unwrap();
     }
+    #[cfg(not(unix))]
+    std::fs::copy(original, &copy).unwrap();
     copy
 }
 
