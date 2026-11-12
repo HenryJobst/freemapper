@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.15.0] - 2026-11-12
+
 ### Hinzugefügt
 
 - Neue Vorlage lokales Relief (`templates/relief.png`, Ebene `relief`): das Geländemodell minus sein geglättetes Mittel. Böschungen, Hügel, Mulden und Gräben treten hell oder dunkel hervor, das allgemeine Gefälle verschwindet. In der Karte ist sie ausgeblendet und lässt sich in OOM einschalten.
