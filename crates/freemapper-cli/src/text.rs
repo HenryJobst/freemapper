@@ -220,6 +220,7 @@ mod tests {
             ("product", v("p")),
             ("status", v(404)),
             ("detail", v("d")),
+            ("reason", v("r")),
             ("label", v("l")),
             ("range", v("0-1")),
             ("line", v(1)),

@@ -26,7 +26,11 @@ pub(crate) use freemapper_adapter_api::fetch::{
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
+pub use freemapper_adapter_api::policy::redirect_target;
+use freemapper_adapter_api::policy::{self, PolicyError, UrlPolicy};
 use freemapper_adapter_api::trust::TrustAnchors;
+use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
+use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
@@ -180,6 +184,34 @@ fn refuse_redirect(
     })
 }
 
+/// `url` without its query and fragment, for the messages about requests that are not sent:
+/// a signed link carries its token there.
+fn bare_url(url: &str) -> &str {
+    url.split(['?', '#']).next().unwrap_or(url)
+}
+
+/// The error of a request for `url` that failed before an answer came. An address the resolver
+/// refused is [`FetchError::NotAllowed`]; the rest is worded as [`status_error`] does, or
+/// plainly (`plain`) where a status has no meaning of its own.
+fn call_error(url: &str, e: ureq::Error, plain: bool) -> FetchError {
+    if let ureq::Error::Other(inner) = &e
+        && let Some(refused) = inner.downcast_ref::<PolicyError>()
+    {
+        return FetchError::NotAllowed {
+            url: bare_url(url).to_string(),
+            reason: refused.to_string(),
+        };
+    }
+    if plain {
+        FetchError::Http {
+            url: url.to_string(),
+            message: e.to_string(),
+        }
+    } else {
+        status_error(url, e)
+    }
+}
+
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
 fn status_error(url: &str, e: ureq::Error) -> FetchError {
     match e {
@@ -256,6 +288,58 @@ fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
         .collect()
 }
 
+/// Resolves a host name as `R` does and refuses the answer when one of its addresses is none a
+/// request may go to ([`policy::check_addr`]): this computer, the local network, a link-local or
+/// multicast address. The connection is opened to the addresses returned here and to no other,
+/// so the address checked is the address used, for the first request and for every redirect.
+///
+/// A proxy from the environment is the user's own setting and may be local; its address is not
+/// judged. A proxy that resolves the names itself takes the check with it.
+#[derive(Debug, Default)]
+pub struct GuardedResolver<R = DefaultResolver> {
+    inner: R,
+}
+
+impl<R> GuardedResolver<R> {
+    /// The guard over another resolver (tests).
+    #[cfg(test)]
+    fn over(inner: R) -> Self {
+        Self { inner }
+    }
+}
+
+impl<R: Resolver> Resolver for GuardedResolver<R> {
+    fn resolve(
+        &self,
+        uri: &ureq::http::Uri,
+        config: &ureq::config::Config,
+        timeout: NextTimeout,
+    ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+        let addrs = self.inner.resolve(uri, config, timeout)?;
+        let is_proxy = config.proxy().is_some_and(|proxy| {
+            uri.host() == Some(proxy.host())
+                && uri.port_u16().is_none_or(|port| port == proxy.port())
+        });
+        if !is_proxy {
+            for addr in addrs.iter() {
+                policy::check_addr(addr.ip())
+                    .map_err(|refused| ureq::Error::Other(Box::new(refused)))?;
+            }
+        }
+        Ok(addrs)
+    }
+}
+
+/// An agent of `config` that connects to public addresses only ([`GuardedResolver`]). Every
+/// agent of freemapper that talks to the internet is built here.
+pub fn guarded_agent(config: ureq::config::Config) -> ureq::Agent {
+    ureq::Agent::with_parts(
+        config,
+        DefaultConnector::new(),
+        GuardedResolver::<DefaultResolver>::default(),
+    )
+}
+
 /// An agent for ordinary requests and one for large bodies.
 struct Agents {
     normal: ureq::Agent,
@@ -266,29 +350,94 @@ struct Agents {
 }
 
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
+///
+/// Its agents connect to public addresses only ([`GuardedResolver`]). With a policy
+/// ([`HttpFetcher::with_policy`]) every URL must be one the policy accepts, and redirects are
+/// followed by hand: at most as many as the policy allows, each target judged like the first URL.
 pub struct HttpFetcher {
     default: Agents,
     /// The agents of the pinned hosts, each with its trust anchors.
     pinned: Vec<(TrustAnchors, Agents)>,
+    /// The hosts requests may go to. `None`: any host, and the agents follow redirects
+    /// themselves; the address check holds all the same.
+    policy: Option<UrlPolicy>,
+    /// The largest answer [`Fetcher::get`] reads.
+    max_get_bytes: u64,
+    /// Tests: the server on this computer that answers in place of every `https://` host.
+    #[cfg(test)]
+    stub: Option<String>,
 }
+
+/// An answer of the HTTP client.
+type Response = ureq::http::Response<ureq::Body>;
 
 impl HttpFetcher {
     pub fn new() -> Self {
-        Self::with_timeouts(CONNECT_TIMEOUT, RESPONSE_TIMEOUT, BODY_TIMEOUT)
+        Self::build(CONNECT_TIMEOUT, RESPONSE_TIMEOUT, BODY_TIMEOUT, true, None)
     }
 
     /// The same timeout for connecting, the response headers and the body.
     pub fn with_timeout(timeout: Duration) -> Self {
-        Self::with_timeouts(timeout, timeout, timeout)
+        Self::build(timeout, timeout, timeout, true, None)
     }
 
-    fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
+    /// A fetcher whose requests stay on the hosts of `policy`, redirects included.
+    pub fn with_policy(policy: UrlPolicy) -> Self {
+        Self::build(
+            CONNECT_TIMEOUT,
+            RESPONSE_TIMEOUT,
+            BODY_TIMEOUT,
+            true,
+            Some(policy),
+        )
+    }
+
+    /// A fetcher without the address check, for the tests that ask a server on this computer.
+    /// It exists in tests only: no switch and no variable turns the check off.
+    #[cfg(test)]
+    pub(crate) fn local() -> Self {
+        Self::build(CONNECT_TIMEOUT, RESPONSE_TIMEOUT, BODY_TIMEOUT, false, None)
+    }
+
+    /// [`HttpFetcher::local`] with the same timeout for connecting, the headers and the body.
+    #[cfg(test)]
+    pub(crate) fn local_with_timeout(timeout: Duration) -> Self {
+        Self::build(timeout, timeout, timeout, false, None)
+    }
+
+    /// A fetcher with `policy` whose requests to any `https://` host go to the server `base`
+    /// (`http://127.0.0.1:<port>`) with the same path. The policy judges every URL before it is
+    /// mapped.
+    #[cfg(test)]
+    pub(crate) fn stubbed(policy: UrlPolicy, base: &str) -> Self {
+        let mut fetcher = Self::build(
+            CONNECT_TIMEOUT,
+            RESPONSE_TIMEOUT,
+            BODY_TIMEOUT,
+            false,
+            Some(policy),
+        );
+        fetcher.stub = Some(base.trim_end_matches('/').to_string());
+        fetcher
+    }
+
+    /// `guard`: whether the agents check the address they connect to (always, outside tests).
+    fn build(
+        connect: Duration,
+        response: Duration,
+        body: Duration,
+        guard: bool,
+        policy: Option<UrlPolicy>,
+    ) -> Self {
+        // With a policy the fetcher follows the redirects itself.
+        let by_hand = policy.is_some();
         let agent = |body: Duration, trust: Option<&TrustAnchors>| -> ureq::Agent {
             let config = ureq::Agent::config_builder()
                 .timeout_connect(Some(connect))
                 .timeout_recv_response(Some(response))
                 .timeout_recv_body(Some(body));
-            match trust {
+            let config = match trust {
+                None if by_hand => config.max_redirects(0),
                 None => config,
                 Some(trust) => config.max_redirects(0).tls_config(
                     ureq::tls::TlsConfig::builder()
@@ -296,8 +445,12 @@ impl HttpFetcher {
                         .build(),
                 ),
             }
-            .build()
-            .into()
+            .build();
+            if guard {
+                guarded_agent(config)
+            } else {
+                config.into()
+            }
         };
         let agents = |trust: Option<&TrustAnchors>| Agents {
             normal: agent(body, trust),
@@ -310,6 +463,84 @@ impl HttpFetcher {
                 .into_iter()
                 .map(|trust| (trust, agents(Some(&trust))))
                 .collect(),
+            policy,
+            max_get_bytes: MAX_DOWNLOAD_BYTES,
+            #[cfg(test)]
+            stub: None,
+        }
+    }
+
+    /// The address a request for `url` goes to: `url` itself, in tests the stub's.
+    fn target(&self, url: &str) -> String {
+        #[cfg(test)]
+        if let (Some(base), Some(rest)) = (&self.stub, url.get(8..))
+            && url[..8].eq_ignore_ascii_case("https://")
+        {
+            let path = rest.find(['/', '?', '#']).map_or("", |at| &rest[at..]);
+            return format!("{base}{path}");
+        }
+        url.to_string()
+    }
+
+    /// The answer to the request `send` makes for `url`, with the agent for `large` bodies or
+    /// the ordinary one. Without a policy the agent follows redirects itself (a pinned host
+    /// follows none). With one, `url` and every redirect target must pass it, and at most
+    /// `max_redirects` are followed. `plain` words a failed call without regard to its status.
+    fn open(
+        &self,
+        url: &str,
+        large: bool,
+        plain: bool,
+        send: &dyn Fn(&ureq::Agent, &str) -> Result<Response, ureq::Error>,
+    ) -> Result<Response, FetchError> {
+        let ask = |current: &str| -> Result<Response, FetchError> {
+            let agents = self.agents(current);
+            let agent = if large { &agents.large } else { &agents.normal };
+            let response =
+                send(agent, &self.target(current)).map_err(|e| call_error(current, e, plain))?;
+            if agents.pinned.is_some() || self.policy.is_none() {
+                refuse_redirect(current, &response, agents.pinned)?;
+            }
+            Ok(response)
+        };
+        let Some(policy) = &self.policy else {
+            return ask(url);
+        };
+        policy
+            .check_url(url)
+            .map_err(|refused| FetchError::NotAllowed {
+                url: refused.subject,
+                reason: refused.reason.to_string(),
+            })?;
+        let not_allowed = |reason: String| FetchError::NotAllowed {
+            url: bare_url(url).to_string(),
+            reason,
+        };
+        let mut current = url.to_string();
+        let mut redirects = 0;
+        loop {
+            let response = ask(&current)?;
+            let status = response.status().as_u16();
+            if !matches!(status, 301 | 302 | 303 | 307 | 308) {
+                return Ok(response);
+            }
+            if redirects == policy.max_redirects {
+                return Err(not_allowed(format!(
+                    "more than {} redirects",
+                    policy.max_redirects
+                )));
+            }
+            redirects += 1;
+            let location = response
+                .headers()
+                .get("location")
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| not_allowed(format!("a redirect (HTTP {status}) to nowhere")))?;
+            let next = policy::redirect_target(&current, location);
+            policy
+                .check_url(&next)
+                .map_err(|refused| not_allowed(format!("a redirect to {refused}")))?;
+            current = next;
         }
     }
 
@@ -338,15 +569,13 @@ impl Fetcher for HttpFetcher {
             ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
-        let agents = self.agents(url);
-        let mut response = agents
-            .normal
-            .get(url)
-            .header("User-Agent", USER_AGENT)
-            .header("Range", &header)
-            .call()
-            .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response, agents.pinned)?;
+        let mut response = self.open(url, false, false, &|agent, target| {
+            agent
+                .get(target)
+                .header("User-Agent", USER_AGENT)
+                .header("Range", &header)
+                .call()
+        })?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
@@ -375,18 +604,9 @@ impl Fetcher for HttpFetcher {
         max_bytes: u64,
         progress: &mut dyn FnMut(Note),
     ) -> Result<(), FetchError> {
-        let http_error = |message: String| FetchError::Http {
-            url: url.to_string(),
-            message,
-        };
-        let agents = self.agents(url);
-        let mut response = agents
-            .large
-            .get(url)
-            .header("User-Agent", USER_AGENT)
-            .call()
-            .map_err(|e| http_error(e.to_string()))?;
-        refuse_redirect(url, &response, agents.pinned)?;
+        let mut response = self.open(url, true, true, &|agent, target| {
+            agent.get(target).header("User-Agent", USER_AGENT).call()
+        })?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -407,14 +627,9 @@ impl Fetcher for HttpFetcher {
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        let agents = self.agents(url);
-        let response = agents
-            .normal
-            .head(url)
-            .header("User-Agent", USER_AGENT)
-            .call()
-            .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response, agents.pinned)?;
+        let response = self.open(url, false, false, &|agent, target| {
+            agent.head(target).header("User-Agent", USER_AGENT).call()
+        })?;
         Ok(response
             .headers()
             .get("last-modified")
@@ -424,19 +639,16 @@ impl Fetcher for HttpFetcher {
     }
 
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-        let http_error = |e: ureq::Error| status_error(url, e);
-        let agents = self.agents(url);
-        let mut response = agents
-            .normal
-            .get(url)
-            .header("User-Agent", USER_AGENT)
-            // An error answer is read for its exception report.
-            .config()
-            .http_status_as_error(false)
-            .build()
-            .call()
-            .map_err(http_error)?;
-        refuse_redirect(url, &response, agents.pinned)?;
+        let mut response = self.open(url, false, false, &|agent, target| {
+            agent
+                .get(target)
+                .header("User-Agent", USER_AGENT)
+                // An error answer is read for its exception report.
+                .config()
+                .http_status_as_error(false)
+                .build()
+                .call()
+        })?;
         let status = response.status().as_u16();
         if status >= 400 {
             let mut body = Vec::new();
@@ -448,16 +660,20 @@ impl Fetcher for HttpFetcher {
                 .read_to_end(&mut body);
             return Err(status_answer_error(url, status, &body));
         }
+        // One byte more than allowed, so an oversized answer shows instead of being cut off.
         let mut bytes = Vec::new();
         response
             .body_mut()
             .as_reader()
-            .take(MAX_DOWNLOAD_BYTES)
+            .take(self.max_get_bytes.saturating_add(1))
             .read_to_end(&mut bytes)
             .map_err(|e| FetchError::Http {
                 url: url.to_string(),
                 message: e.to_string(),
             })?;
+        if bytes.len() as u64 > self.max_get_bytes {
+            return Err(too_large(url, self.max_get_bytes));
+        }
         Ok(bytes)
     }
 }
@@ -2131,7 +2347,7 @@ mod tests {
                 let _ = stream.write_all(&body);
             }
         });
-        let fetcher = HttpFetcher::new();
+        let fetcher = HttpFetcher::local();
         let err = fetcher
             .get_range(
                 &url,
@@ -2217,7 +2433,7 @@ mod tests {
       does not intersect with desired region.</ows:ExceptionText>
   </ows:Exception>
 </ows:ExceptionReport>"#;
-        let fetcher = HttpFetcher::new();
+        let fetcher = HttpFetcher::local();
         let (url, _) = answering("400 Bad Request", report.to_vec());
         let err = fetcher.get(&url).unwrap_err();
         let FetchError::Refused { status, detail, .. } = &err else {
@@ -2281,10 +2497,11 @@ mod tests {
                 streaming_without_length(vec![b'x'; 300_000])
             };
             let mut messages = Vec::new();
-            let err = download_with_retries(&HttpFetcher::new(), &url, &path, 200_000, &mut |m| {
-                messages.push(m.to_string())
-            })
-            .unwrap_err();
+            let err =
+                download_with_retries(&HttpFetcher::local(), &url, &path, 200_000, &mut |m| {
+                    messages.push(m.to_string())
+                })
+                .unwrap_err();
             assert!(matches!(err, FetchError::TooLarge { .. }), "{err}");
             assert!(err.to_string().contains("larger than"), "{err}");
             assert!(!path.exists(), "length {length}");
@@ -2418,7 +2635,7 @@ mod tests {
     fn ignored_range_is_not_retried() {
         let (url, connections) = answering("200 OK", vec![b'x'; 10_000]);
         let err = get_range_with_retries(
-            &HttpFetcher::new(),
+            &HttpFetcher::local(),
             &url,
             ByteRange::From {
                 start: 100,
@@ -2434,7 +2651,7 @@ mod tests {
     fn partial_answer_of_the_wrong_length_is_an_error() {
         let (url, _) = answering("206 Partial Content", vec![b'x'; 20]);
         let err = get_range_with_retries(
-            &HttpFetcher::new(),
+            &HttpFetcher::local(),
             &url,
             ByteRange::From {
                 start: 100,
@@ -2552,7 +2769,7 @@ mod tests {
             let _held: Vec<_> = listener.incoming().take(4).collect();
             std::thread::sleep(std::time::Duration::from_secs(30));
         });
-        let fetcher = HttpFetcher::with_timeout(std::time::Duration::from_millis(300));
+        let fetcher = HttpFetcher::local_with_timeout(std::time::Duration::from_millis(300));
         let (sender, receiver) = std::sync::mpsc::channel();
         std::thread::spawn(move || sender.send(fetcher.get(&url)));
         let result = receiver
@@ -2730,13 +2947,16 @@ mod tests {
                 );
             }
         });
+        // The portal agents of the test fetcher: the same, without the address check.
+        let local = HttpFetcher::local();
         let pinned = HttpFetcher {
             default: Agents {
-                normal: portal(&fetcher).normal.clone(),
-                large: portal(&fetcher).large.clone(),
+                normal: portal(&local).normal.clone(),
+                large: portal(&local).large.clone(),
                 pinned: Some(PORTAL_HOST),
             },
             pinned: Vec::new(),
+            ..HttpFetcher::local()
         };
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile.part");
@@ -2791,5 +3011,295 @@ mod tests {
             err.to_string().to_lowercase().contains("certificate"),
             "{err}"
         );
+    }
+
+    /// What the stub server of the policy tests answers for a path.
+    enum Stubbed {
+        Body(&'static [u8]),
+        Redirect(&'static str),
+    }
+
+    /// A server on this computer that answers by path and notes the paths asked for. The
+    /// fetcher of [`HttpFetcher::stubbed`] sends every `https://` request to it.
+    fn stub_server(
+        routes: Vec<(&'static str, Stubbed)>,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use std::io::{BufRead as _, BufReader, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let log = asked.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut reader = BufReader::new(stream);
+                let mut request = String::new();
+                let _ = reader.read_line(&mut request);
+                let mut line = String::new();
+                while reader.read_line(&mut line).is_ok_and(|n| n > 2) {
+                    line.clear();
+                }
+                let path = request.split(' ').nth(1).unwrap_or("").to_string();
+                log.lock().unwrap().push(path.clone());
+                let answer = routes.iter().find(|(route, _)| *route == path);
+                let mut stream = reader.into_inner();
+                let _ = match answer {
+                    Some((_, Stubbed::Body(body))) => write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\
+                         Last-Modified: Wed, 11 Nov 2026 10:00:00 GMT\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    )
+                    .and_then(|()| stream.write_all(body)),
+                    Some((_, Stubbed::Redirect(location))) => write!(
+                        stream,
+                        "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\
+                         Connection: close\r\n\r\n"
+                    ),
+                    None => write!(
+                        stream,
+                        "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    ),
+                };
+            }
+        });
+        (base, asked)
+    }
+
+    fn declared() -> UrlPolicy {
+        UrlPolicy::new(["geo.example.org", "cdn.example.org"]).unwrap()
+    }
+
+    /// The reason of a request freemapper did not send.
+    fn not_allowed(result: Result<impl std::fmt::Debug, FetchError>) -> String {
+        match result {
+            Err(FetchError::NotAllowed { url, reason }) => format!("{url}: {reason}"),
+            other => panic!("not refused: {other:?}"),
+        }
+    }
+
+    /// Review focus 3: a request to this computer is not sent, by any of the four ways to ask,
+    /// and it is not asked again.
+    #[test]
+    fn a_request_to_this_computer_is_refused() {
+        let (url, connections) = answering("200 OK", b"local".to_vec());
+        let fetcher = HttpFetcher::new();
+        let dir = tempfile::tempdir().unwrap();
+        let reason = not_allowed(get_with_retries(&fetcher, &url, |b| Ok(b.to_vec())));
+        assert!(reason.contains("127.0.0.1"), "{reason}");
+        assert!(reason.contains("this computer"), "{reason}");
+        not_allowed(fetcher.last_modified(&url));
+        not_allowed(fetcher.get_range(&url, ByteRange::Last(4)));
+        not_allowed(download_with_retries(
+            &fetcher,
+            &url,
+            &dir.path().join("f"),
+            1000,
+            &mut |_| {},
+        ));
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 0);
+        // The fetcher of the tests has no such check and reaches the server.
+        assert_eq!(HttpFetcher::local().get(&url).unwrap(), b"local");
+    }
+
+    /// A name that an adapter declared can resolve to this computer (DNS rebinding, a hosts
+    /// file): the address is judged when the connection is opened, whatever the name.
+    #[test]
+    fn declared_host_resolving_to_loopback_is_refused() {
+        use ureq::unversioned::resolver::{ResolvedSocketAddrs, Resolver};
+        use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
+
+        /// Answers every name with one address.
+        #[derive(Debug)]
+        struct Fixed(std::net::SocketAddr);
+        impl Resolver for Fixed {
+            fn resolve(
+                &self,
+                _: &ureq::http::Uri,
+                _: &ureq::config::Config,
+                _: NextTimeout,
+            ) -> Result<ResolvedSocketAddrs, ureq::Error> {
+                let mut addrs = self.empty();
+                addrs.push(self.0);
+                Ok(addrs)
+            }
+        }
+
+        let (url, connections) = answering("200 OK", b"local".to_vec());
+        let addr: std::net::SocketAddr = url
+            .strip_prefix("http://")
+            .and_then(|rest| rest.split('/').next())
+            .unwrap()
+            .parse()
+            .unwrap();
+        let named = format!("http://geo.example.org:{}/big.zip", addr.port());
+        let config = || ureq::Agent::config_builder().build();
+        let guarded = ureq::Agent::with_parts(
+            config(),
+            DefaultConnector::new(),
+            GuardedResolver::over(Fixed(addr)),
+        );
+        let error = guarded.get(&named).call().unwrap_err();
+        let ureq::Error::Other(refused) = &error else {
+            panic!("{error:?}");
+        };
+        let refused = refused.downcast_ref::<PolicyError>().unwrap();
+        assert_eq!(refused.code, "policy.address");
+        assert_eq!(connections.load(std::sync::atomic::Ordering::SeqCst), 0);
+        // The same name without the guard reaches the server.
+        let plain = ureq::Agent::with_parts(config(), DefaultConnector::new(), Fixed(addr));
+        assert_eq!(plain.get(&named).call().unwrap().status(), 200);
+        // A public address passes the guard; nothing listens there in this test.
+        let public = GuardedResolver::over(Fixed("193.99.144.80:443".parse().unwrap()));
+        let uri: ureq::http::Uri = "https://geo.example.org/".parse().unwrap();
+        let timeout = NextTimeout {
+            after: ureq::unversioned::transport::time::Duration::NotHappening,
+            reason: ureq::Timeout::Resolve,
+        };
+        assert_eq!(public.resolve(&uri, &config(), timeout).unwrap().len(), 1);
+    }
+
+    /// With a policy, redirects are followed by hand: within the declared hosts, relative or
+    /// absolute, by each way to ask.
+    #[test]
+    fn a_redirect_within_the_declared_hosts_is_followed() {
+        let (base, asked) = stub_server(vec![
+            ("/a", Stubbed::Redirect("/b?x=1")),
+            (
+                "/b?x=1",
+                Stubbed::Redirect("https://cdn.example.org/files/c"),
+            ),
+            ("/files/c", Stubbed::Redirect("d")),
+            ("/files/d", Stubbed::Body(b"done")),
+        ]);
+        let fetcher = HttpFetcher::stubbed(declared(), &base);
+        assert_eq!(fetcher.get("https://geo.example.org/a").unwrap(), b"done");
+        assert_eq!(
+            *asked.lock().unwrap(),
+            ["/a", "/b?x=1", "/files/c", "/files/d"]
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("f");
+        fetcher
+            .download_to("https://geo.example.org/a", &file, 1000, &mut |_| {})
+            .unwrap();
+        assert_eq!(std::fs::read(&file).unwrap(), b"done");
+        assert_eq!(
+            fetcher
+                .last_modified("https://geo.example.org/a")
+                .unwrap()
+                .unwrap()
+                .to_string(),
+            "2026-11-11"
+        );
+    }
+
+    #[test]
+    fn redirect_to_undeclared_host_is_refused() {
+        let (base, asked) = stub_server(vec![
+            (
+                "/a",
+                Stubbed::Redirect("https://evil.example.net/x?token=abc#frag"),
+            ),
+            ("/x?token=abc", Stubbed::Body(b"stolen")),
+            ("/plain", Stubbed::Redirect("http://geo.example.org/x")),
+            ("/x", Stubbed::Body(b"plain")),
+        ]);
+        let fetcher = HttpFetcher::stubbed(declared(), &base);
+        let reason = not_allowed(get_with_retries(
+            &fetcher,
+            "https://geo.example.org/a",
+            |b| Ok(b.to_vec()),
+        ));
+        assert_eq!(
+            reason,
+            "https://geo.example.org/a: a redirect to https://evil.example.net/x: the host is \
+             not one of the declared hosts"
+        );
+        // The target was not asked, and the first URL only once.
+        assert_eq!(*asked.lock().unwrap(), ["/a"]);
+        // A redirect from https to http is refused as well.
+        let reason = not_allowed(fetcher.get("https://geo.example.org/plain"));
+        assert!(
+            reason.ends_with("a redirect to http://geo.example.org/x: not https"),
+            "{reason}"
+        );
+        assert_eq!(*asked.lock().unwrap(), ["/a", "/plain"]);
+    }
+
+    #[test]
+    fn redirect_to_ip_literal_is_refused() {
+        let (base, asked) = stub_server(vec![
+            ("/v4", Stubbed::Redirect("https://127.0.0.1/x")),
+            ("/v6", Stubbed::Redirect("https://[::1]/x")),
+            (
+                "/meta",
+                Stubbed::Redirect("//169.254.169.254/latest/meta-data/"),
+            ),
+        ]);
+        let fetcher = HttpFetcher::stubbed(declared(), &base);
+        for path in ["/v4", "/v6", "/meta"] {
+            let reason = not_allowed(fetcher.get(&format!("https://geo.example.org{path}")));
+            assert!(
+                reason.ends_with("an IP address, not a DNS name"),
+                "{reason}"
+            );
+        }
+        assert_eq!(*asked.lock().unwrap(), ["/v4", "/v6", "/meta"]);
+    }
+
+    #[test]
+    fn more_than_three_redirects_is_refused() {
+        let (base, asked) = stub_server(vec![
+            ("/r0", Stubbed::Redirect("/r1")),
+            ("/r1", Stubbed::Redirect("/r2")),
+            ("/r2", Stubbed::Redirect("/r3")),
+            ("/r3", Stubbed::Redirect("/r4")),
+            ("/r4", Stubbed::Body(b"too far")),
+        ]);
+        let fetcher = HttpFetcher::stubbed(declared(), &base);
+        let reason = not_allowed(fetcher.get("https://geo.example.org/r0"));
+        assert_eq!(reason, "https://geo.example.org/r0: more than 3 redirects");
+        assert_eq!(*asked.lock().unwrap(), ["/r0", "/r1", "/r2", "/r3"]);
+        // Three are followed.
+        assert_eq!(
+            fetcher.get("https://geo.example.org/r1").unwrap(),
+            b"too far"
+        );
+    }
+
+    #[test]
+    fn a_url_outside_the_policy_is_not_requested() {
+        let (base, asked) = stub_server(vec![("/x", Stubbed::Body(b"x"))]);
+        let fetcher = HttpFetcher::stubbed(declared(), &base);
+        for (url, reason) in [
+            (
+                "https://other.example.org/x?key=1",
+                "https://other.example.org/x: the host is not one of the declared hosts",
+            ),
+            (
+                "http://geo.example.org/x",
+                "http://geo.example.org/x: not https",
+            ),
+            (
+                "https://geo.example.org:8443/x",
+                "https://geo.example.org:8443/x: a port other than 443",
+            ),
+        ] {
+            assert_eq!(not_allowed(fetcher.get(url)), reason);
+        }
+        assert!(asked.lock().unwrap().is_empty());
+        assert_eq!(fetcher.get("https://GEO.example.org/x").unwrap(), b"x");
+    }
+
+    /// An answer larger than the cap of a plain request is an error, not a cut-off answer.
+    #[test]
+    fn answer_over_the_cap_is_too_large() {
+        let (url, _) = answering("200 OK", vec![b'x'; 5000]);
+        let mut fetcher = HttpFetcher::local();
+        fetcher.max_get_bytes = 5000;
+        assert_eq!(fetcher.get(&url).unwrap().len(), 5000);
+        fetcher.max_get_bytes = 4999;
+        let error = get_with_retries(&fetcher, &url, |b| Ok(b.len())).unwrap_err();
+        assert!(matches!(error, FetchError::TooLarge { .. }), "{error:?}");
     }
 }

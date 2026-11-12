@@ -119,19 +119,29 @@ pub(crate) struct TileProxy {
 }
 
 impl TileProxy {
+    /// The proxy for OpenStreetMap. Its agent connects to public addresses only, like every
+    /// agent of freemapper that talks to the internet.
     pub(crate) fn new() -> Self {
-        Self::with_base(UPSTREAM)
+        Self::with_agent(UPSTREAM, freemapper::fetch::guarded_agent(Self::config()))
     }
 
-    /// Another server instead of OpenStreetMap (tests).
+    /// Another server instead of OpenStreetMap, on this computer: its agent has no address
+    /// check. Tests only, so no build that ships has such an agent.
+    #[cfg(test)]
     pub(crate) fn with_base(base: &str) -> Self {
-        let agent = ureq::Agent::config_builder()
+        Self::with_agent(base, Self::config().into())
+    }
+
+    fn config() -> ureq::config::Config {
+        ureq::Agent::config_builder()
             .timeout_global(Some(TIMEOUT))
             // A redirect could lead to another host.
             .max_redirects(0)
             .http_status_as_error(false)
             .build()
-            .into();
+    }
+
+    fn with_agent(base: &str, agent: ureq::Agent) -> Self {
         Self {
             base: base.trim_end_matches('/').to_string(),
             agent,

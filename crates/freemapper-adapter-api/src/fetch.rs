@@ -289,6 +289,7 @@ fn retrying<T>(
                 FetchError::NotFound(_)
                 | FetchError::Refused { .. }
                 | FetchError::TooLarge { .. }
+                | FetchError::NotAllowed { .. }
                 | FetchError::Cancelled,
             ) => return result,
             // Asking again does not free disk space.
@@ -320,6 +321,7 @@ pub fn download_with_retries(
                 FetchError::NotFound(_)
                 | FetchError::Refused { .. }
                 | FetchError::TooLarge { .. }
+                | FetchError::NotAllowed { .. }
                 | FetchError::Cancelled,
             ) => return result,
             Err(ref e) if e.is_disk_full() => return result,

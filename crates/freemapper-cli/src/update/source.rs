@@ -6,7 +6,7 @@ use std::io::{Read as _, Write as _};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use freemapper::fetch::USER_AGENT;
+use freemapper::fetch::{USER_AGENT, guarded_agent, redirect_target as resolve};
 use freemapper_update::{ALLOWED_HOSTS, UpdateError, UpdateSource, check_url};
 
 /// Redirects followed per request; GitHub needs one (release URL to asset host).
@@ -18,8 +18,8 @@ const GET_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// An [`UpdateSource`] over HTTPS. Its agent follows no redirects: [`HttpUpdateSource::open`]
-/// follows them itself, after each target passed [`check_url`]. freemapper's other agents follow
-/// redirects to any host.
+/// follows them itself, after each target passed [`check_url`]. The agent connects to public
+/// addresses only (`freemapper::fetch::GuardedResolver`), for every hop.
 pub struct HttpUpdateSource {
     agent: ureq::Agent,
     /// The URLs asked for whose answer, after any redirects, was HTTP 404.
@@ -31,17 +31,24 @@ pub struct HttpUpdateSource {
 
 impl HttpUpdateSource {
     pub fn new() -> Self {
+        Self::with_agent(guarded_agent(Self::config()))
+    }
+
+    fn config() -> ureq::config::Config {
+        ureq::Agent::config_builder()
+            .max_redirects(0)
+            // Redirects and error answers arrive as responses, so their status can be named.
+            .http_status_as_error(false)
+            .timeout_connect(Some(CONNECT_TIMEOUT))
+            .timeout_global(Some(GET_TIMEOUT))
+            // The bytes as they are: the hashes in the manifest are those of the files.
+            .accept_encoding("identity")
+            .build()
+    }
+
+    fn with_agent(agent: ureq::Agent) -> Self {
         Self {
-            agent: ureq::Agent::config_builder()
-                .max_redirects(0)
-                // Redirects and error answers arrive as responses, so their status can be named.
-                .http_status_as_error(false)
-                .timeout_connect(Some(CONNECT_TIMEOUT))
-                .timeout_global(Some(GET_TIMEOUT))
-                // The bytes as they are: the hashes in the manifest are those of the files.
-                .accept_encoding("identity")
-                .build()
-                .into(),
+            agent,
             not_found: Mutex::new(Vec::new()),
             #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
             stub: None,
@@ -52,12 +59,12 @@ impl HttpUpdateSource {
     /// `https://release-assets.githubusercontent.com/...` go to `base` (`http://127.0.0.1:<port>`)
     /// with the same path. The host rule still applies to every URL before it is mapped. Exists in
     /// unit tests and in debug builds with the `test-stub` feature (the CLI tests), never in a
-    /// release build.
+    /// release build. Its agent has no address check, as the stub is on this computer.
     #[cfg(any(test, all(debug_assertions, feature = "test-stub")))]
     pub fn stub(base: &str) -> Self {
         Self {
             stub: Some(base.trim_end_matches('/').to_string()),
-            ..Self::new()
+            ..Self::with_agent(Self::config().into())
         }
     }
 
@@ -223,33 +230,6 @@ fn bare_url(url: &str) -> &str {
 /// [`UpdateError::Download`] for `url` with `what` went wrong.
 fn download_error(url: &str, what: &str) -> UpdateError {
     UpdateError::Download(format!("{}: {what}", bare_url(url)))
-}
-
-/// The absolute URL of a redirect's `location`, which may be relative to `base` (RFC 9110 allows
-/// it): a whole URL, `//host/path`, `/path`, or a path relative to `base`'s folder. Dot segments
-/// are left to the server; [`check_url`] judges the result.
-fn resolve(base: &str, location: &str) -> String {
-    let has_scheme = location.split_once("://").is_some_and(|(scheme, _)| {
-        !scheme.is_empty()
-            && scheme
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
-    });
-    if has_scheme {
-        return location.to_string();
-    }
-    let (scheme, rest) = base.split_once("://").unwrap_or(("https", base));
-    if let Some(network_path) = location.strip_prefix("//") {
-        return format!("{scheme}://{network_path}");
-    }
-    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
-    let origin = format!("{scheme}://{}", &rest[..authority_end]);
-    if location.starts_with('/') {
-        return format!("{origin}{location}");
-    }
-    let path = rest[authority_end..].split(['?', '#']).next().unwrap_or("");
-    let folder = path.rfind('/').map_or("/", |end| &path[..=end]);
-    format!("{origin}{folder}{location}")
 }
 
 #[cfg(test)]

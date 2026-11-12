@@ -68,6 +68,11 @@ pub enum FetchError {
     /// The caller asked to stop; no request was made.
     #[error("cancelled")]
     Cancelled,
+    /// freemapper does not send this request: the URL, the address its host resolves to or a
+    /// redirect is against the rules for where requests go. Asking again does not help.
+    /// `url` has no query and no fragment.
+    #[error("{url}: freemapper does not ask this address: {reason}")]
+    NotAllowed { url: String, reason: String },
 }
 
 /// What a raster fetch can end with. Each variant stands for one error of the engine, which

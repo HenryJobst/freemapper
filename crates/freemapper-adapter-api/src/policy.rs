@@ -2,16 +2,22 @@
 //!
 //! A manifest is untrusted input. Its URLs are `https` on port 443, name a host by its DNS name
 //! and stay on the hosts the manifest declares. The rules are parsed by hand: no URL crate.
+//!
+//! A declared name can still resolve to this computer or to the local network, so the address a
+//! connection goes to is checked as well ([`check_addr`]), for the first request and for every
+//! redirect. The fetcher of `freemapper` does that at connect time.
 
 use std::collections::BTreeSet;
 use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// A URL or a host a policy refuses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolicyError {
-    /// The stable code of the rule: `policy.url`, `policy.host`, `policy.host-not-declared`.
+    /// The stable code of the rule: `policy.url`, `policy.host`, `policy.host-not-declared`,
+    /// `policy.address`, `policy.redirect`.
     pub code: &'static str,
-    /// The URL or host, without query and fragment (they may carry signed parts).
+    /// The URL, host or address, without query and fragment (they may carry signed parts).
     pub subject: String,
     /// What is wrong with it.
     pub reason: &'static str,
@@ -103,6 +109,102 @@ pub fn host_of(url: &str) -> Result<String, PolicyError> {
     dns_name(host).map_err(|e| PolicyError::new("policy.url", url, e.reason))
 }
 
+/// Whether a request may go to the IPv4 address: a public one. Refused are this computer, the
+/// local network and everything else that is no host on the internet.
+fn public_v4(addr: Ipv4Addr) -> bool {
+    let [a, b, c, _] = addr.octets();
+    !(a == 0                                   // "this network", unspecified
+        || a == 127                            // loopback
+        || a == 10                             // private
+        || (a == 172 && (16..=31).contains(&b))
+        || (a == 192 && b == 168)
+        || (a == 169 && b == 254)              // link-local, cloud metadata
+        || (a == 100 && (64..=127).contains(&b)) // shared address space of carriers
+        || (a == 192 && b == 0 && c == 0)      // protocol assignments
+        || (a == 192 && b == 0 && c == 2)      // documentation
+        || (a == 198 && b == 51 && c == 100)
+        || (a == 203 && b == 0 && c == 113)
+        || (a == 198 && (18..=19).contains(&b)) // benchmarking
+        || a >= 224) // multicast, reserved, broadcast
+}
+
+/// Whether a request may go to the IPv6 address. An IPv4 address inside it (mapped, compatible,
+/// NAT64, 6to4) is judged as that IPv4 address.
+fn public_v6(addr: Ipv6Addr) -> bool {
+    let s = addr.segments();
+    let embedded = |high: u16, low: u16| {
+        let [a, b] = high.to_be_bytes();
+        let [c, d] = low.to_be_bytes();
+        public_v4(Ipv4Addr::new(a, b, c, d))
+    };
+    if addr.is_unspecified() || addr.is_loopback() {
+        return false;
+    }
+    match s {
+        // `::ffff:a.b.c.d` (mapped) and `::a.b.c.d` (compatible).
+        [0, 0, 0, 0, 0, 0xffff, high, low] | [0, 0, 0, 0, 0, 0, high, low] => embedded(high, low),
+        // NAT64.
+        [0x64, 0xff9b, 0, 0, 0, 0, high, low] => embedded(high, low),
+        // 6to4.
+        [0x2002, high, low, ..] => embedded(high, low),
+        // Documentation.
+        [0x2001, 0xdb8, ..] => false,
+        // Unique local, link-local and the old site-local, multicast.
+        [first, ..] => {
+            !(first & 0xfe00 == 0xfc00
+                || first & 0xff80 == 0xfe80
+                || first & 0xffc0 == 0xfec0
+                || first & 0xff00 == 0xff00)
+        }
+    }
+}
+
+/// Refuses an address a request may not go to: loopback, link-local, private, unique-local,
+/// multicast, unspecified and other addresses that are no host on the internet. Checked for the
+/// address a connection is opened to, so a declared name cannot lead to the local network.
+pub fn check_addr(addr: IpAddr) -> Result<(), PolicyError> {
+    let public = match addr {
+        IpAddr::V4(addr) => public_v4(addr),
+        IpAddr::V6(addr) => public_v6(addr),
+    };
+    if public {
+        Ok(())
+    } else {
+        Err(PolicyError::new(
+            "policy.address",
+            &addr.to_string(),
+            "an address of this computer or of the local network, not of a server on the internet",
+        ))
+    }
+}
+
+/// The absolute URL of a redirect's `location`, which may be relative to `base` (RFC 9110 allows
+/// it): a whole URL, `//host/path`, `/path`, or a path relative to `base`'s folder. Dot segments
+/// are left to the server; the rule for URLs judges the result.
+pub fn redirect_target(base: &str, location: &str) -> String {
+    let has_scheme = location.split_once("://").is_some_and(|(scheme, _)| {
+        !scheme.is_empty()
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    });
+    if has_scheme {
+        return location.to_string();
+    }
+    let (scheme, rest) = base.split_once("://").unwrap_or(("https", base));
+    if let Some(network_path) = location.strip_prefix("//") {
+        return format!("{scheme}://{network_path}");
+    }
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let origin = format!("{scheme}://{}", &rest[..authority_end]);
+    if location.starts_with('/') {
+        return format!("{origin}{location}");
+    }
+    let path = rest[authority_end..].split(['?', '#']).next().unwrap_or("");
+    let folder = path.rfind('/').map_or("/", |end| &path[..=end]);
+    format!("{origin}{folder}{location}")
+}
+
 /// The hosts the requests of one adapter (or of the program itself) may go to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UrlPolicy {
@@ -121,6 +223,30 @@ impl UrlPolicy {
             hosts: hosts.into_iter().map(dns_name).collect::<Result<_, _>>()?,
             max_redirects: Self::MAX_REDIRECTS,
         })
+    }
+
+    /// The hosts of the requests that belong to no adapter: the OSM extracts and their state
+    /// files, the place search and the map tiles of the area page.
+    pub const CORE_HOSTS: [&'static str; 3] = [
+        "download.geofabrik.de",
+        "nominatim.openstreetmap.org",
+        "tile.openstreetmap.org",
+    ];
+
+    /// The policy of the requests that belong to no adapter ([`UrlPolicy::CORE_HOSTS`]).
+    pub fn core() -> Self {
+        Self::new(Self::CORE_HOSTS).expect("the core hosts are DNS names")
+    }
+
+    /// The policy with `hosts` added.
+    pub fn with_hosts<'a>(
+        mut self,
+        hosts: impl IntoIterator<Item = &'a str>,
+    ) -> Result<Self, PolicyError> {
+        for host in hosts {
+            self.hosts.insert(dns_name(host)?);
+        }
+        Ok(self)
     }
 
     /// The hosts of the policy, in lower case, sorted.
@@ -251,5 +377,119 @@ mod tests {
     fn a_refusal_shows_no_query_and_no_fragment() {
         let refused = host_of("http://example.org/file?token=abc#frag").unwrap_err();
         assert_eq!(refused.to_string(), "http://example.org/file: not https");
+    }
+
+    /// A declared name can still resolve to this computer or to the local network; a request
+    /// goes to public addresses only (review focus 3).
+    #[test]
+    fn private_ranges_are_refused() {
+        for refused in [
+            "127.0.0.1",
+            "127.255.255.254",
+            "10.0.0.1",
+            "172.16.0.1",
+            "172.31.255.255",
+            "192.168.1.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "100.127.255.255",
+            "0.0.0.0",
+            "0.1.2.3",
+            "224.0.0.1",
+            "239.255.255.250",
+            "240.0.0.1",
+            "255.255.255.255",
+            "192.0.0.8",
+            "192.0.2.1",
+            "198.18.0.1",
+            "198.51.100.7",
+            "203.0.113.9",
+            "::1",
+            "::",
+            "fc00::1",
+            "fd12:3456::1",
+            "fe80::1",
+            "febf::1",
+            "ff02::1",
+            "2001:db8::1",
+            // An IPv4 address inside an IPv6 one is judged as the IPv4 address.
+            "::ffff:127.0.0.1",
+            "::ffff:10.1.2.3",
+            "::7f00:1",
+            "64:ff9b::a00:1",
+            "64:ff9b::7f00:1",
+            "2002:7f00:1::1",
+            "2002:c0a8:101::1",
+        ] {
+            let addr: IpAddr = refused.parse().unwrap();
+            let error = check_addr(addr).unwrap_err();
+            assert_eq!(error.code, "policy.address", "{refused}");
+            assert_eq!(error.subject, addr.to_string());
+        }
+        for allowed in [
+            "8.8.8.8",
+            "172.15.255.255",
+            "172.32.0.1",
+            "100.63.255.255",
+            "100.128.0.1",
+            "192.167.255.255",
+            "193.99.144.80",
+            "2a00:1450:4001:81b::200e",
+            "::ffff:8.8.8.8",
+            "64:ff9b::808:808",
+            "2002:808:808::1",
+        ] {
+            assert_eq!(check_addr(allowed.parse().unwrap()), Ok(()), "{allowed}");
+        }
+    }
+
+    /// Where a redirect leads: the `Location` may be a whole URL or relative to the URL asked.
+    #[test]
+    fn a_location_resolves_against_the_url_asked() {
+        let base = "https://github.com/a/b/c?query=1#frag";
+        for (location, target) in [
+            ("https://example.org/x", "https://example.org/x"),
+            ("http://example.org/x", "http://example.org/x"),
+            ("//example.org/x", "https://example.org/x"),
+            ("/x/y", "https://github.com/x/y"),
+            ("d?e=2", "https://github.com/a/b/d?e=2"),
+            ("", "https://github.com/a/b/"),
+        ] {
+            assert_eq!(redirect_target(base, location), target, "{location}");
+        }
+        assert_eq!(
+            redirect_target("https://github.com", "x"),
+            "https://github.com/x"
+        );
+    }
+
+    /// The requests that belong to no adapter: OSM extracts, the place search, the map tiles.
+    #[test]
+    fn core_policy_allows_geofabrik_nominatim_and_osm_tiles_only() {
+        let core = UrlPolicy::core();
+        assert_eq!(
+            core.hosts().collect::<Vec<_>>(),
+            [
+                "download.geofabrik.de",
+                "nominatim.openstreetmap.org",
+                "tile.openstreetmap.org"
+            ]
+        );
+        assert!(
+            core.check_url("https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf")
+                .is_ok()
+        );
+        assert_eq!(
+            core.check_url("https://geodienste.hamburg.de/wms")
+                .unwrap_err()
+                .code,
+            "policy.host-not-declared"
+        );
+        // An adapter adds its hosts; a host named twice is there once.
+        let more = core
+            .with_hosts(["geodienste.hamburg.de", "Download.Geofabrik.de"])
+            .unwrap();
+        assert_eq!(more.hosts().count(), 4);
+        assert!(more.check_url("https://geodienste.hamburg.de/wms").is_ok());
     }
 }

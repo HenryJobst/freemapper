@@ -338,6 +338,11 @@ impl Localize for FetchError {
                 &[url(from), ("range", v(range)), ("status", v(status))],
             ),
             FetchError::Cancelled => text(lang, "error-cancelled", &[]),
+            FetchError::NotAllowed { url: from, reason } => text(
+                lang,
+                "error-fetch-not-allowed",
+                &[url(from), ("reason", v(reason))],
+            ),
         }
     }
 }
@@ -589,6 +594,10 @@ mod tests {
                 status: 200,
             },
             FetchError::Cancelled,
+            FetchError::NotAllowed {
+                url: url(),
+                reason: "more than 3 redirects".into(),
+            },
         ]
     }
 

@@ -149,3 +149,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0101](0101-content-profiles-on-the-area-page.md) | Content profiles on the area page | Accepted | 2026-11-12 |
 | [0102](0102-region-adapters-crates-trait-and-registry-as-built.md) | Region adapters, stages B and C: crates, trait and registry as built | Accepted | 2026-11-12 |
 | [0103](0103-the-area-page-takes-the-regions-from-the-registry.md) | The area page and the texts take the regions from the registry | Accepted | 2026-11-12 |
+| [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) | Requests go to public addresses, and with a policy to declared hosts only | Accepted | 2026-11-12 |
