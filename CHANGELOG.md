@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.14.0] - 2026-11-12
+
 ### Hinzugefügt
 
 - Das Saarland ist das zwölfte Bundesland (ADR 0111). Das Luftbild von 2025 kommt aus dem freien Kartendienst des LVGL, Gelände- und Oberflächenmodell des Laserscans von 2025 aus den Landkreis-Archiven seiner Open-Data-Ablage (freemapper liest aus Archiven von bis zu 1,3 GB nur die 1-km-Kacheln des Gebiets), Gebäude und Nutzung aus dem Dienst „ALKIS Vereinfacht“ des Geoportals Saarland. Alles steht unter dl-de/by-2-0; Karten tragen `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert`. Das Beispiel ist [Altstadt und Festung Saarlouis](examples/saarland-saarlouis/). Das Saarland ist das erste Bundesland, das als Adapter dazukam: ein Manifest-Ordner und ein Raster-Backend.

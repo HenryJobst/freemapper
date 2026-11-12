@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-12
+
 ### Added
 
 - Saarland is the twelfth state (ADR 0111). The orthophoto of 2025 comes from the free map service of the LVGL, the terrain and the surface model of the 2025 laser scan from the district archives of its open-data share (freemapper reads only the 1 km tiles of the area out of archives of up to 1.3 GB), buildings and land use from the service "ALKIS Vereinfacht" of the Geoportal Saarland. All of it is dl-de/by-2-0; maps carry `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert`. The example is [Saarlouis old town and fortress](examples/saarland-saarlouis/). Saarland is the first state added as an adapter: a manifest folder and one raster backend.
