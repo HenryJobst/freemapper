@@ -179,9 +179,9 @@ impl Model {
     }
 }
 
-/// The members of the archive of `district`: online from the archive, kept in the cache;
-/// offline from the cache, and none when the directory was never read (a tile that was
-/// fetched has its directory there).
+/// The members of the archive of `district`: online from the archive, kept in the cache, and
+/// from the cache when the archive cannot be read just now; offline from the cache, and none
+/// when the directory was never read (a tile that was fetched has its directory there).
 fn directory(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -194,25 +194,33 @@ fn directory(
     let file = model
         .cache_folder(cache)
         .join(format!("directory-{district}.bin"));
+    // The directory kept by an earlier run; `None` when there is none.
+    let kept = || -> Option<Result<Vec<Member>, FetchError>> {
+        let cached = std::fs::read(&file).ok()?;
+        let (count, directory) = cached.split_at_checked(2)?;
+        Some(
+            parse_directory(directory, u16::from_le_bytes([count[0], count[1]]))
+                .map_err(|message| refused(&url, message)),
+        )
+    };
     match mode {
         FetchMode::Online => {
-            let (directory, count) = read_directory_bytes(fetcher, &url)?;
-            let members =
-                parse_directory(&directory, count).map_err(|message| refused(&url, message))?;
-            // Kept only once it parsed, so a broken answer never replaces a good copy.
-            write_cache_file(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
-            Ok(members)
+            let read = read_directory_bytes(fetcher, &url).and_then(|(directory, count)| {
+                let members =
+                    parse_directory(&directory, count).map_err(|message| refused(&url, message))?;
+                // Kept only once it parsed, so a broken answer never replaces a good copy.
+                write_cache_file(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
+                Ok(members)
+            });
+            match (read, kept()) {
+                (Ok(members), _) => Ok(members),
+                // The archive is down: the tiles of the kept directory that are in the cache
+                // need nothing from it.
+                (Err(_), Some(Ok(members))) => Ok(members),
+                (Err(e), _) => Err(e),
+            }
         }
-        FetchMode::Offline => {
-            let Ok(cached) = std::fs::read(&file) else {
-                return Ok(Vec::new());
-            };
-            let Some((count, directory)) = cached.split_at_checked(2) else {
-                return Ok(Vec::new());
-            };
-            parse_directory(directory, u16::from_le_bytes([count[0], count[1]]))
-                .map_err(|message| refused(&url, message))
-        }
+        FetchMode::Offline => kept().unwrap_or_else(|| Ok(Vec::new())),
     }
 }
 
@@ -224,7 +232,8 @@ fn directory(
 /// either model had one CRC-32 per tile on 2026-11-12), so the first archive that holds it is
 /// as good as any. Tiles outside Saarland are in no archive and stay empty; returned are the
 /// tiles inside Saarland that no archive holds. No tile at all is an error (the archives were
-/// renamed or replaced by a newer survey).
+/// renamed or replaced by a newer survey). An archive that cannot be read is passed over; it
+/// is the error only when a tile inside Saarland is in none of the others.
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -244,6 +253,9 @@ pub fn fetch_model(
         )
     };
     let mut directories: Vec<Option<Vec<Member>>> = DISTRICTS.iter().map(|_| None).collect();
+    // Why the first archive that could not be read could not be read. Its tiles may be in
+    // another archive too; only a tile that none of the others holds makes it the error.
+    let mut unread: Option<FetchError> = None;
     let mut found = 0;
     let mut missing = Vec::new();
     for tile in tiles_covering(bbox) {
@@ -256,7 +268,12 @@ pub fn fetch_model(
         let mut holder = None;
         for (index, district) in DISTRICTS.iter().enumerate() {
             if directories[index].is_none() {
-                directories[index] = Some(directory(fetcher, cache, mode, model, district)?);
+                directories[index] = Some(
+                    directory(fetcher, cache, mode, model, district).unwrap_or_else(|e| {
+                        unread.get_or_insert(e);
+                        Vec::new()
+                    }),
+                );
             }
             let members = directories[index].as_deref().unwrap_or_default();
             if let Some(member) = find_member(members, |file| {
@@ -268,6 +285,10 @@ pub fn fetch_model(
         }
         let Some((district, member)) = holder else {
             if tile_centre_in(tile, SAARLAND) {
+                // It may be in the archive that could not be read: no map with a hole.
+                if let Some(e) = unread {
+                    return Err(e);
+                }
                 missing.push(tile);
             }
             continue;
@@ -286,6 +307,9 @@ pub fn fetch_model(
             .map_err(|e| refused(&url, e.to_string()))?;
     }
     if found == 0 {
+        if let Some(e) = unread {
+            return Err(e);
+        }
         return Err(match mode {
             FetchMode::Offline => offline_hint(model.label()),
             FetchMode::Online => refused(
@@ -605,6 +629,101 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(refused.contains("offline and not cached"), "{refused}");
+    }
+
+    /// The six archives without those of `gone`, which answer "not found".
+    fn serve_without(fetcher: &MapFetcher, tiles: &[(&str, u32, u32, f32)], gone: &[&str]) {
+        serve(fetcher, tiles);
+        for district in gone {
+            fetcher
+                .responses
+                .borrow_mut()
+                .remove(&Model::Dgm1.archive_url(district));
+        }
+    }
+
+    /// An archive that cannot be read (renamed, or its server is down) does not stop the tiles
+    /// another archive holds: MZG is looked through first for every tile and is gone here.
+    #[test]
+    fn an_archive_that_is_gone_does_not_stop_the_tiles_another_holds() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_without(
+            &fetcher,
+            &[("NK", 353, 5455, 6.0), ("NK", 354, 5455, 8.0)],
+            &["MZG"],
+        );
+        let out = dir.path().join("dgm1.tif");
+        let missing = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &saarbruecken(),
+            dir.path(),
+            &out,
+        )
+        .unwrap();
+        assert!(missing.is_empty());
+        let raster = crate::derive::terrain::read_float_raster(&out).unwrap();
+        assert_eq!(raster.get(10, 50), 6.0);
+        assert_eq!(raster.get(190, 50), 8.0);
+    }
+
+    /// A tile inside Saarland that no readable archive holds, while one archive could not be
+    /// read: the tile may be in that one, so the fetch fails and names it. It does not go on
+    /// with a hole, and it does not say the archives were renamed.
+    #[test]
+    fn a_tile_that_may_be_in_the_archive_that_is_gone_fails_the_fetch() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        serve_without(&fetcher, &[("NK", 353, 5455, 6.0)], &["SB"]);
+        let out = dir.path().join("dgm1.tif");
+        let refused = fetch_model(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &saarbruecken(),
+            dir.path(),
+            &out,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(refused.contains("DGM1_tif_SB_"), "{refused}");
+        assert!(!refused.contains("renamed"), "{refused}");
+        assert!(!out.exists());
+    }
+
+    /// Tiles in the cache survive an archive that is down: its directory is read from the
+    /// cache, and the tiles match it, so nothing more is asked of that archive.
+    #[test]
+    fn cached_tiles_survive_an_archive_that_is_down() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let tiles = [("NK", 353, 5455, 6.0), ("NK", 354, 5455, 8.0)];
+        let out = dir.path().join("dgm1.tif");
+        let fetch = |fetcher: &MapFetcher| {
+            fetch_model(
+                fetcher,
+                &cache,
+                FetchMode::Online,
+                Model::Dgm1,
+                &saarbruecken(),
+                dir.path(),
+                &out,
+            )
+        };
+        let up = MapFetcher::default();
+        serve(&up, &tiles);
+        fetch(&up).unwrap();
+        let first = std::fs::read(&out).unwrap();
+        let down = MapFetcher::default();
+        serve_without(&down, &tiles, &["NK"]);
+        assert!(fetch(&down).unwrap().is_empty());
+        assert_eq!(std::fs::read(&out).unwrap(), first);
     }
 
     /// The share was renamed or holds another survey: the error names the folder and nothing
