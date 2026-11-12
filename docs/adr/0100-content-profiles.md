@@ -23,8 +23,12 @@ although a wall of the cadastre is as reliable as a building.
   survey or higher, `build/dedup.rs`) of every group but furniture, contours and out-of-bounds, and for walls, fences, hedges, water, trees (and the tree
   groups made of them) and paths also those of OpenStreetMap, which is often the only source there (no register
   outside a few cities). The contours go to the map too (user decision 2026-11-12: a park map without relief looks empty; they are cut at
-  ways, ADR 0097). Areas that shall not be entered (520, a land-use guess that would also have to remove the
-  points under it), street furniture, monuments, open land and the rest of OSM stay candidates. The green strips (401) of
+  ways, ADR 0097). The areas that shall not be entered around railway tracks (520 from the ALKIS land use `Bahnverkehr`) go to the map
+  and take the points inside them with them, as in `generalize_points` (user decision 2026-11-12). Other 520 (a
+  land-use guess about private ground), street furniture, open land and the rest of OSM stay candidates. Monuments, towers, power lines
+  and above-ground pipelines (group `monuments`), banks and cliffs (`slopes`) and passages (`passages`) go to the map
+  from OpenStreetMap too (user decision 2026-11-12);
+  the legend text that the norm requires for 528 and 529 stays the mapper's (ADR 0083). The green strips (401) of
   the street survey belong to `streets`. `full` sends everything
   to the map. A choice per group beats the profile.
 - Hidden candidate points (`freemapper:hidden`) are never moved.
