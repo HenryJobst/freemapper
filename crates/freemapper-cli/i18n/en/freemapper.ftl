@@ -207,6 +207,7 @@ page-preview-live = With the settings on this page, not saved yet.
 page-preview-live-saved = With the saved settings, not generated in a run yet.
 page-preview-computing = Computing …
 page-preview-none = No map generated yet.
+page-preview-later = This map has no preview yet. It comes with the next run that writes the map.
 page-preview-stale = The area, map kind or scale changed since the last run. The image still shows the map as generated last; a new preview needs a new run.
 page-preview-open = Open full size
 page-preview-alt = Preview of the map objects

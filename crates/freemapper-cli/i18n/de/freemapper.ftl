@@ -207,6 +207,7 @@ page-preview-live = Mit den Einstellungen auf dieser Seite, noch nicht gespeiche
 page-preview-live-saved = Mit den gespeicherten Einstellungen, noch in keinem Lauf erzeugt.
 page-preview-computing = Wird berechnet …
 page-preview-none = Noch keine Karte erzeugt.
+page-preview-later = Zu dieser Karte gibt es noch keine Vorschau. Sie entsteht mit dem nächsten Lauf, der die Karte schreibt.
 page-preview-stale = Gebiet, Kartenart oder Maßstab haben sich seit dem letzten Lauf geändert. Das Bild zeigt noch die zuletzt erzeugte Karte; für eine neue Vorschau braucht es einen neuen Lauf.
 page-preview-open = In voller Größe öffnen
 page-preview-alt = Vorschau der Kartenobjekte

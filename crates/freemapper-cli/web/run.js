@@ -157,6 +157,8 @@ async function startRun() {
   } finally {
     starting = false;
     refresh();
+    // A refused or failed start: the page may show a state that the save changed.
+    if (!running) loadPreviewState().then(() => decidePreview(0));
   }
 }
 
@@ -426,11 +428,17 @@ async function showPreviewNow() {
   if (!previewState.stored) {
     previewSeq += 1;
     previewHide();
-    previewLine("page-preview-none");
+    const project = page().getProject();
+    previewLine(project && project.has_map ? "page-preview-later" : "page-preview-none");
     return;
   }
-  // A run is starting or going on: its end brings the new image.
-  if (running || starting) return;
+  // A run is starting or going on: its end brings the new image. A computation that was asked
+  // for before leaves its line and its dimming behind, so settle them.
+  if (running || starting) {
+    previewImage().classList.remove("computing");
+    previewLine(previewSettledLine());
+    return;
+  }
   if (!previewState.fresh) {
     previewShowStored("page-preview-stale");
     return;
@@ -441,6 +449,14 @@ async function showPreviewNow() {
     return;
   }
   await requestLivePreview();
+}
+
+/** The line for the image on show when nothing is computed. */
+function previewSettledLine() {
+  if (previewLive !== null) {
+    return page().contentIsSaved() ? "page-preview-live-saved" : "page-preview-live";
+  }
+  return previewState && !previewState.fresh ? "page-preview-stale" : "page-preview-stored";
 }
 
 async function requestLivePreview() {
@@ -454,7 +470,10 @@ async function requestLivePreview() {
     if (mine !== previewSeq) return;
     previewImage().classList.remove("computing");
     // A run started meanwhile: its end brings the image.
-    if (running || starting) return;
+    if (running || starting) {
+      decidePreview(0);
+      return;
+    }
     await loadPreviewState();
     if (mine !== previewSeq) return;
     if (previewState && !previewState.fresh) {

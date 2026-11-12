@@ -394,8 +394,8 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    gespeichert.“ „In voller Größe öffnen“ öffnet das Bild in einem neuen Tab. Das Bild zeigt nur die
    Kartenobjekte, keine Kandidaten, kein Luftbild, keine Legende und keinen Text. Haben Sie Gebiet, Kartenart
    oder Maßstab seit dem letzten Lauf geändert, zeigt die Seite weiter das letzte Bild und sagt, dass ein neuer
-   Lauf nötig ist. Vor dem ersten Lauf und bei einer Karte aus einem älteren freemapper gibt es kein Bild; der
-   nächste Lauf mit „Vorhandene Karte ersetzen“ erzeugt eins.
+   Lauf nötig ist. Vor dem ersten Lauf gibt es kein Bild („Noch keine Karte erzeugt.“). Eine Karte aus einem älteren
+   freemapper hat auch keins; die Seite sagt das, und der nächste Lauf mit „Vorhandene Karte ersetzen“ erzeugt eins.
 7. **Ergebnis:** Die Seite sagt, ob der Lauf fertig, fehlgeschlagen oder abgebrochen ist, listet die Dateien
    mit Größe und nennt den Projektordner. „Ordner öffnen“ öffnet ihn im Dateimanager; geht das nicht, steht
    der Pfad als Text da. Gab es schon eine Karte und war „Vorhandene Karte ersetzen“ aus, bleibt sie

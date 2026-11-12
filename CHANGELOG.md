@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
-- Eine Vorschau der Karte (ADR 0108). Jeder Export, der eine Karte schreibt, schreibt neben die `.omap` auch `<name>-preview.webp`: die Kartenobjekte so, wie das Karten-PDF sie zeichnet, ohne Kandidaten und ohne Blattrand. Die Gebietsseite zeigt sie in einem neuen Abschnitt „Kartenvorschau“ unter dem Laufstatus. Ändern Sie dort das Inhaltsprofil oder eine Gruppe, zeigt sie die Wirkung nach etwa einer Sekunde, ohne Lauf und ohne Speichern. Eine Zeile sagt, ob das Bild die zuletzt erzeugte Karte oder die Einstellungen auf der Seite zeigt; nach einer Änderung von Gebiet, Kartenart oder Maßstab sagt sie, dass ein neuer Lauf nötig ist. Die `.omap`, die Kandidaten-Karte, die OCAD-Dateien und die PDFs ändern sich nicht.
+- Eine Vorschau der Karte (ADR 0108). Jeder Export, der eine Karte schreibt, schreibt neben die `.omap` auch `<name>-preview.webp`: die Kartenobjekte so, wie das Karten-PDF sie zeichnet, ohne Kandidaten und ohne Blattrand. Die Gebietsseite zeigt sie in einem neuen Abschnitt „Kartenvorschau“ unter dem Laufstatus. Ändern Sie dort das Inhaltsprofil oder eine Gruppe, zeigt sie die Wirkung ohne Lauf und ohne Speichern: nach etwa einer Sekunde, nach einer ersten Berechnung, die einige Sekunden dauert. Eine Zeile sagt, ob das Bild die zuletzt erzeugte Karte oder die Einstellungen auf der Seite zeigt; nach einer Änderung von Gebiet, Kartenart oder Maßstab sagt sie, dass ein neuer Lauf nötig ist. Die `.omap`, die Kandidaten-Karte, die OCAD-Dateien und die PDFs ändern sich nicht.
 
 ### Geändert
 

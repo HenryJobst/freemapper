@@ -379,8 +379,8 @@ screenshot shows the German page.*
    or "With the settings on this page, not saved yet." "Open full size" opens the image in a new tab. The
    image shows the map objects only, no candidates, no orthophoto and no legend, and no text. If you changed the
    area, the map kind or the scale since the last run, the page keeps showing the last image and says that a
-   new run is needed. Before the first run, and for a map from an older freemapper, there is no image; the
-   next run with "Replace the existing map" makes one.
+   new run is needed. Before the first run there is no image ("No map generated yet."). A map from an older
+   freemapper has none either; the page says so, and the next run with "Replace the existing map" makes one.
 7. **Result:** The page says whether the run finished, failed or was cancelled, lists the files with their
    size and names the project folder. "Open folder" opens it in the file manager; if that fails, the path is
    shown as text. If a map existed and "Replace the existing map" was off, it stays as it is, and the page says

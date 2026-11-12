@@ -539,7 +539,7 @@ fn preview_uses_only_the_pages_own_image_routes() {
     assert!(run.contains("api/map-image/live/"));
     assert!(!run.contains("blob:") && !run.contains("createObjectURL"));
     // A live image is not asked for while a run starts or goes on.
-    assert!(run.contains("if (running || starting) return;"));
+    assert!(run.contains("if (running || starting) {\n    previewImage().classList.remove"));
 }
 
 #[test]
