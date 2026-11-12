@@ -6133,12 +6133,6 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 .objects
                 .len()
         };
-        let safe = place(&built, &ContentSettings::with_profile(Profile::Safe)).unwrap();
-        let full = place(&built, &ContentSettings::with_profile(Profile::Full)).unwrap();
-        assert_ne!(map_part(&safe), map_part(&full));
-
-        // Each placement equals a build from scratch with those settings saved, also where the
-        // streets move (their borders are computed again) and when asked twice.
         let with = |profile, group: Option<(Group, Place)>| {
             let mut settings = ContentSettings::with_profile(profile);
             if let Some((group, place)) = group {
@@ -6146,6 +6140,28 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }
             settings
         };
+        // The build computed the borders for the project's own settings (`safe` in tests).
+        assert_eq!(built.borders_computed(), 1);
+        let walls_off = with(Profile::Safe, Some((Group::Walls, Place::Off)));
+        for settings in [ContentSettings::with_profile(Profile::Safe), walls_off] {
+            place(&built, &settings).unwrap();
+            assert_eq!(
+                built.borders_computed(),
+                1,
+                "{settings:?} has the same streets"
+            );
+        }
+        let streets_off = with(Profile::Safe, Some((Group::Streets, Place::Off)));
+        place(&built, &streets_off).unwrap();
+        assert_eq!(built.borders_computed(), 2);
+        place(&built, &streets_off).unwrap();
+        assert_eq!(built.borders_computed(), 2, "computed once per input");
+        let safe = place(&built, &ContentSettings::with_profile(Profile::Safe)).unwrap();
+        let full = place(&built, &ContentSettings::with_profile(Profile::Full)).unwrap();
+        assert_ne!(map_part(&safe), map_part(&full));
+
+        // Each placement equals a build from scratch with those settings saved, also where the
+        // streets move (their borders are computed again) and when asked twice.
         for settings in [
             with(Profile::Balanced, None),
             with(Profile::Full, None),

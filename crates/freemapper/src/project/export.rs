@@ -900,6 +900,12 @@ impl BuiltProject {
     pub fn fingerprint(&self) -> &str {
         &self.fingerprint
     }
+
+    /// How many times the paved borders were computed for it (and its clones).
+    #[cfg(test)]
+    pub(super) fn borders_computed(&self) -> usize {
+        self.paved_borders.computed()
+    }
 }
 
 /// The 501.1 borders of the paved areas, by what they are computed from
@@ -913,9 +919,30 @@ impl BuiltProject {
 /// lines). So the borders follow the streets group and the profile only, and a placement whose
 /// paved areas and kerbs equal those of an earlier one gets that one's borders. The build
 /// computes them for the project's own settings; others are computed when first asked for and
-/// kept (a handful at most: the streets group has few outcomes).
+/// kept (a handful at most: the streets group has few outcomes; the least recently used goes
+/// first).
 #[derive(Clone, Default)]
-struct PavedBorders(std::sync::Arc<std::sync::Mutex<Vec<BorderEntry>>>);
+struct PavedBorders(std::sync::Arc<std::sync::Mutex<BorderStore>>);
+
+/// The border inputs and the borders they give, per list, the one used last at the end; and how
+/// many were computed.
+#[derive(Default)]
+struct BorderStore {
+    entries: Vec<BorderEntry>,
+    computed: usize,
+}
+
+impl BorderStore {
+    /// The borders of `input`, if kept, which then count as used last (the least recently used
+    /// entry is the first to go).
+    fn take_up(&mut self, input: &[Vec<MapObject>]) -> Option<Vec<Vec<MapObject>>> {
+        let at = self.entries.iter().position(|(known, _)| known == input)?;
+        let entry = self.entries.remove(at);
+        let borders = entry.1.clone();
+        self.entries.push(entry);
+        Some(borders)
+    }
+}
 
 /// A border input and the borders it gives, per list.
 type BorderEntry = (Vec<Vec<MapObject>>, Vec<Vec<MapObject>>);
@@ -924,26 +951,43 @@ type BorderEntry = (Vec<Vec<MapObject>>, Vec<Vec<MapObject>>);
 const KEPT_BORDERS: usize = 8;
 
 impl PavedBorders {
+    fn lock(&self) -> std::sync::MutexGuard<'_, BorderStore> {
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     fn get_or_compute(
         &self,
         input: Vec<Vec<MapObject>>,
         compute: impl FnOnce(&[Vec<MapObject>]) -> Vec<Vec<MapObject>>,
     ) -> Vec<Vec<MapObject>> {
-        let lock = || {
-            self.0
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-        };
-        if let Some((_, borders)) = lock().iter().find(|(known, _)| *known == input) {
-            return borders.clone();
+        if let Some(borders) = self.lock().take_up(&input) {
+            return borders;
         }
+        // Computed without the lock: another placement may store the same input meanwhile.
         let borders = compute(&input);
-        let mut kept = lock();
-        if kept.len() >= KEPT_BORDERS {
-            kept.remove(0);
+        let mut store = self.lock();
+        store.computed += 1;
+        if store.take_up(&input).is_none() {
+            if store.entries.len() >= KEPT_BORDERS {
+                store.entries.remove(0);
+            }
+            store.entries.push((input, borders.clone()));
         }
-        kept.push((input, borders.clone()));
         borders
+    }
+
+    /// How many borders were computed.
+    #[cfg(test)]
+    fn computed(&self) -> usize {
+        self.lock().computed
+    }
+
+    /// How many inputs are kept.
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.lock().entries.len()
     }
 }
 
@@ -1234,7 +1278,8 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     map_objects.extend(generalized.map);
     // New object builders go here (landform candidates, vegetation): they see every object built
     // so far (`map_objects`, `candidates`), `water.union`, `footprints`, `area` and `georef`, and
-    // what they add is placed by the content settings like the rest.
+    // what they add is placed by the content settings like the rest. A builder that appends to
+    // `candidates` makes it `mut` again.
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
@@ -1476,4 +1521,57 @@ pub(super) fn back_up(dir: &Path, map: &Path, backup: &Path) -> Result<(), Proje
             ProjectError::Io(path, e)
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A border input that differs by `n`.
+    fn input(n: i32) -> Vec<Vec<MapObject>> {
+        vec![vec![MapObject {
+            symbol_id: 1,
+            kind: MapObjectKind::Path,
+            coords: vec![MapCoord::new(n, 0), MapCoord::new(n, 1)],
+            tags: Vec::new(),
+        }]]
+    }
+
+    /// Asks `store` for `n` and says whether it computed the borders.
+    fn computes(store: &PavedBorders, n: i32) -> bool {
+        let mut computed = false;
+        let borders = store.get_or_compute(input(n), |i| {
+            computed = true;
+            i.to_vec()
+        });
+        assert_eq!(borders, input(n));
+        computed
+    }
+
+    #[test]
+    fn the_border_store_keeps_what_was_used_last() {
+        let store = PavedBorders::default();
+        for n in 0..KEPT_BORDERS as i32 {
+            assert!(computes(&store, n));
+        }
+        // The first one used again, then one more: the second goes, the first stays.
+        assert!(!computes(&store, 0));
+        assert!(computes(&store, 100));
+        assert!(!computes(&store, 0));
+        assert!(computes(&store, 1));
+        assert_eq!(store.computed(), KEPT_BORDERS + 2);
+    }
+
+    #[test]
+    fn the_border_store_keeps_an_input_once() {
+        let store = PavedBorders::default();
+        let other = store.clone();
+        // Another placement stores the same input while this one computes it.
+        store.get_or_compute(input(7), |i| {
+            assert!(computes(&other, 7));
+            i.to_vec()
+        });
+        assert_eq!(store.len(), 1);
+        assert!(!computes(&store, 7));
+    }
 }
