@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Das Beispiel [Treppenviertel Blankenese](examples/hamburg-blankenese/) ist neu gebaut, mit dem Standardprofil `balanced`: Höhenlinien, Wege und 110 Treppen aus OpenStreetMap stehen jetzt in der Karte (1780 Kartenobjekte, 755 Kandidaten). Die [Gegenüberstellung](examples/vergleich.md) sagt, welche Beispiele vor den Inhaltsprofilen entstanden sind, und nennt die Messwerte für Blankenese und Saarlouis.
 - Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf. Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
 
 ## [0.14.0] - 2026-11-12
