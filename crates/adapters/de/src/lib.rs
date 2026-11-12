@@ -13,6 +13,7 @@ pub mod lgb;
 pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
+pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
 pub mod tile_fetch;
 
@@ -56,6 +57,11 @@ mod fetch {
 }
 
 #[allow(unused_imports)]
+mod clock {
+    pub(crate) use freemapper_adapter_api::clock::*;
+}
+
+#[allow(unused_imports)]
 mod raster {
     pub(crate) use freemapper_sources::raster::*;
 }
@@ -67,7 +73,7 @@ mod sources {
         pub(crate) use crate::boundaries::*;
     }
     pub(crate) use crate::{
-        geobasis_nrw, geosn, hvbg, laiv_mv, lgb, lgln, lgv, lvermgeo, lvermgeo_sh,
+        geobasis_nrw, geosn, hvbg, laiv_mv, lgb, lgln, lgv, lvermgeo, lvermgeo_rp, lvermgeo_sh,
     };
     pub(crate) use freemapper_sources::{
         float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,

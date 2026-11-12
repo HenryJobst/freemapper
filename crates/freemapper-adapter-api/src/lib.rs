@@ -9,6 +9,7 @@
 pub mod adapter;
 pub mod alkis;
 pub mod cache;
+pub mod clock;
 pub mod credit;
 pub mod env;
 pub mod error;

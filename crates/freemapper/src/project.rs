@@ -77,7 +77,6 @@ use crate::sources::region::{
     Provider, Region, overlaps_in, raster_region, raster_region_in, touches_berlin,
 };
 use crate::sources::trees;
-use crate::sources::wms::OrthophotoSource;
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
@@ -380,9 +379,6 @@ use freemapper_adapter_api::records::{on_grid, stored_bbox};
 use freemapper_sources::raster_fetch::UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
 pub(crate) use freemapper_sources::raster_fetch::{
     SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH,
-};
-use freemapper_sources::raster_fetch::{
-    fetch_area_heights, fetch_wms_orthophoto, warn_beyond_state,
 };
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
@@ -1232,55 +1228,6 @@ fn fetch_k5_into(
             remove(project);
         }
     }
-}
-
-/// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
-/// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
-/// names. The DOM1 is only a template: an unavailable one costs a warning.
-pub(crate) fn fetch_rp_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode) = (env.fetcher, env.mode);
-    let cache = env.cache;
-    let dir = &project.dir().to_path_buf();
-    use crate::sources::lvermgeo_rp::{self, Model};
-    project.records().tiles.clear();
-    project.records().ndsm_tiles.clear();
-    // The WMS is white beyond the state border, while the tiles reach across it.
-    warn_beyond_state(env, project, Provider::LvermGeoRp.id(), "LVermGeo RP");
-    let flight = || lvermgeo_rp::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        env,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(lvermgeo_rp::WMS),
-            "LVermGeo RP",
-            &flight,
-            // The block's creation date, taken as the flight date: the record and the log say so.
-            Some(&lvermgeo_rp::FLIGHT_LABEL),
-        ),
-    )?;
-    fetch_area_heights(
-        env,
-        project,
-        bbox,
-        "the map area",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-    )?;
-    project.save()?;
-    Ok(())
 }
 
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs

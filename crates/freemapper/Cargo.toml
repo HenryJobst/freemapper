@@ -11,7 +11,7 @@ rust-version.workspace = true
 # Test helpers for the golden net of the adapter work (tests/adapters_golden.rs): the fixed clock
 # and the facts the enums answer. The crate's own tests turn it on through a dev-dependency on
 # itself; it is never part of a release build.
-golden = ["dep:sha2"]
+golden = ["dep:sha2", "freemapper-adapter-api/testing"]
 
 [dependencies]
 chrono.workspace = true

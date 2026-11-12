@@ -14,17 +14,15 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 // old paths stay.
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
-#[cfg(test)]
-pub(crate) use freemapper_adapter_api::fetch::download_with_retries;
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
-pub(crate) use freemapper_adapter_api::fetch::{
-    get_limited_with_retries, get_with_retries, one_line, write_cache_file, write_inside,
-};
+#[cfg(test)]
+pub(crate) use freemapper_adapter_api::fetch::{download_with_retries, get_limited_with_retries};
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
     get_range_with_retries, is_ogc_report, ogc_exception,
 };
+pub(crate) use freemapper_adapter_api::fetch::{get_with_retries, one_line, write_inside};
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 use freemapper_adapter_api::trust::TrustAnchors;
 
@@ -524,6 +522,9 @@ pub(crate) mod test_support {
         nrw_meta_zip, serve_synthetic_nrw,
     };
     pub(crate) use freemapper_adapters_de::laiv_mv::test_support::serve_synthetic_mv;
+    pub(crate) use freemapper_adapters_de::lvermgeo_rp::test_support::{
+        rp_tile_list, serve_synthetic_rp,
+    };
     pub(crate) use freemapper_sources::testing::{
         dtm_tiff, geotiff, red_jpeg, solid_jpeg, wcs_answer,
     };
@@ -1093,106 +1094,6 @@ pub(crate) mod test_support {
                 geotiff(&grid, &surface),
             );
         }
-    }
-
-    /// A `Laserbefliegung` answer of the LVermGeo RP Blattschnitt WFS (GML 3.2, as MapServer
-    /// writes it) with a feature per `(tile, flugjahr, flugtage)`; an empty `flugjahr` or
-    /// `flugtage` is left out, as the server does.
-    pub fn rp_tile_list(rows: &[(TileId, &str, &str)]) -> String {
-        let mut gml = format!(
-            "<?xml version='1.0' encoding=\"UTF-8\" ?>\n<wfs:FeatureCollection \
-             xmlns:ms=\"http://mapserver.gis.umn.edu/mapserver\" \
-             xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
-             xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" timeStamp=\"2026-11-08T07:03:21\" \
-             numberMatched=\"{0}\" numberReturned=\"{0}\">\n",
-            rows.len()
-        );
-        for (gid, (tile, year, days)) in rows.iter().enumerate() {
-            let (e, n) = (tile.east_km * 1000, tile.north_km * 1000);
-            gml.push_str(&format!(
-                "<wfs:member><ms:Laserbefliegung gml:id=\"Laserbefliegung.{gid}\"><ms:msGeometry>\
-                 <gml:Polygon gml:id=\"Laserbefliegung.{gid}.1\" \
-                 srsName=\"urn:ogc:def:crs:EPSG::25832\"><gml:exterior><gml:LinearRing>\
-                 <gml:posList srsDimension=\"2\">{e} {n1} {e1} {n1} {e1} {n} {e} {n} {e} {n1} \
-                 </gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></ms:msGeometry>\
-                 <ms:gid>{gid}</ms:gid><ms:art>Laserbefliegung</ms:art>\
-                 <ms:betrifft>DGM, DOM, Laserpunkte</ms:betrifft>\
-                 <ms:kachel>{:03}{:04}</ms:kachel>",
-                tile.east_km,
-                tile.north_km,
-                e1 = e + 1000,
-                n1 = n + 1000,
-            ));
-            if !year.is_empty() {
-                gml.push_str(&format!("<ms:flugjahr>{year}</ms:flugjahr>"));
-            }
-            if !days.is_empty() {
-                gml.push_str(&format!("<ms:flugtage>{days}</ms:flugtage>"));
-            }
-            gml.push_str("</ms:Laserbefliegung></wfs:member>\n");
-        }
-        gml.push_str("</wfs:FeatureCollection>\n");
-        gml
-    }
-
-    /// The GetFeatureInfo text answer of the LVermGeo RP orthophoto WMS at the Görres-Gymnasium,
-    /// Koblenz (block 400/5578, `erstellung` 25.08.2025), as the server gives it.
-    pub const RP_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'rp_dop20_info'\n  \
-        Feature 5098: \n\nLayer 'metadaten'\n  Feature 5098: \n    gid = '5098'\n    \
-        publikation = '2026-01-11 02:15:10.166'\n    name = 'dop20rgbi_32400_5578'\n    \
-        titel = 'Digitale Orthophotos 0,2m Rheinland-Pfalz (DOP20RGB) - 4005578'\n    \
-        erstellung = '25.08.2025'\n    aktualisierung = 'n/a'\n    \
-        csw-anfrage = 'https://metadatenkatalog-vermkv.service24.rlp.de/extern/vertriebsprodukte?\
-        request=GetRecords&service=CSW&version=2.0.2'\n";
-
-    /// Serves the LVermGeo RP height models of a project in `bbox` (EPSG:25832): the tile list
-    /// naming every tile of `bbox` (flown 30.03.24 and 06.04.24, file names with `_2024`) and
-    /// the DGM1 and DOM1 tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
-    /// above).
-    pub fn serve_synthetic_rp_heights(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lvermgeo_rp::{Model, tile_list_prefix, tile_url};
-        let tiles = crate::tiles::tiles_covering(bbox);
-        let rows: Vec<(TileId, &str, &str)> = tiles
-            .iter()
-            .map(|t| (*t, "2024", "30.03.24, 06.04.24"))
-            .collect();
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
-        for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
-            for tile in &tiles {
-                let grid = crate::raster::GridSpec {
-                    west: f64::from(tile.east_km) * 1000.0,
-                    north: f64::from(tile.north_km + 1) * 1000.0,
-                    pixel_size: 1.0,
-                    width: 1000,
-                    height: 1000,
-                };
-                let heights: Vec<f32> = (0..1000 * 1000)
-                    .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
-                    .collect();
-                let name = format!("{slug}_32_{}_{}_1_rp_2024", tile.east_km, tile.north_km);
-                fetcher.insert(&tile_url(model, &name), geotiff(&grid, &heights));
-            }
-        }
-    }
-
-    /// Serves the LVermGeo RP rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
-    /// right size with the flight date [`RP_FLIGHT_INFO`] (25.08.2025) and the height models of
-    /// [`serve_synthetic_rp_heights`].
-    pub fn serve_synthetic_rp(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lvermgeo_rp::WMS;
-        let photo =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [80, 120, 60]));
-        }
-        fetcher.insert_prefix(
-            &format!(
-                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                WMS.url
-            ),
-            RP_FLIGHT_INFO.as_bytes().to_vec(),
-        );
-        serve_synthetic_rp_heights(fetcher, bbox);
     }
 
     /// The orthophoto flight date and the height model date the synthetic LGLN STAC answers give
