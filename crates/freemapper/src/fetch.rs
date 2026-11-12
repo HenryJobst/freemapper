@@ -3409,6 +3409,8 @@ mod tests {
             "http://printer.localhost/",
             "http://LOCALHOST./",
             "http://fileserver/share",
+            "http://fritz.box/",
+            "http://nas.local/",
             "http://2130706433/",
             "http://0x7f.1/",
         ] {
@@ -3417,6 +3419,35 @@ mod tests {
                 panic!("{target}: not refused by the policy");
             };
             assert!(refused.downcast_ref::<PolicyError>().is_some(), "{target}");
+        }
+        assert_eq!(asked.lock().unwrap().len(), through_proxy);
+        // With `NO_PROXY` for this computer the client would connect directly: the proxy's own
+        // address as a target and the same host without a port are refused all the same.
+        let port = proxy_url
+            .rsplit(':')
+            .next()
+            .unwrap()
+            .parse::<u16>()
+            .unwrap();
+        let direct = ureq::Proxy::builder(ureq::ProxyProtocol::Http)
+            .host("127.0.0.1")
+            .port(port)
+            .no_proxy("127.0.0.1")
+            .build()
+            .unwrap();
+        let agent = guarded_agent(
+            ureq::Agent::config_builder()
+                .proxy(Some(direct))
+                .max_redirects(0)
+                .build(),
+        );
+        for target in [
+            proxy_url.clone(),
+            format!("{proxy_url}/x"),
+            "http://127.0.0.1/".to_string(),
+        ] {
+            let result = agent.get(&target).call().map(|r| r.status().as_u16());
+            assert_eq!(policy_code(result), "policy.address", "{target}");
         }
         assert_eq!(asked.lock().unwrap().len(), through_proxy);
         // A public address written out is a target like any other.

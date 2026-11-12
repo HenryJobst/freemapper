@@ -24,7 +24,9 @@ the tile proxy of the area page asked whatever address they were given.
 - The rules for a URL are code of `freemapper-adapter-api` (`policy`), written by hand without a URL crate: `https`
   only, port 443 or none, no user info, no control character, blank or backslash. The host is a DNS name of at
   least two labels in ASCII (a name outside ASCII is written in its `xn--` form). An IP address, `localhost`, a
-  trailing dot and a wildcard are refused.
+  trailing dot and a wildcard are refused, and so is a name that ends like a name of a local network (`.local`,
+  `.home.arpa`, `.internal`, `.lan`, `.home`, `.corp`, `.intranet`, `.localdomain`, `.private`, `.box`, `.test`,
+  `.invalid`).
 - A `UrlPolicy` is a list of hosts. A URL passes when its host is in the list. The requests that belong to no
   adapter have a fixed list (`UrlPolicy::core()`): `download.geofabrik.de`, `nominatim.openstreetmap.org` and
   `tile.openstreetmap.org`.
@@ -39,8 +41,8 @@ the tile proxy of the area page asked whatever address they were given.
   refused address is refused as a whole.
 - A target that needs no DNS is judged as it is written, before any connection, for every hop
   (`freemapper::fetch::TargetGuard`, the first connector of every agent): a host written as an address goes
-  through `check_addr`, and a host that is no DNS name with a domain (`localhost`, a name of the local network, a
-  number) is refused.
+  through `check_addr`, and a host that is no DNS name as above (`localhost`, a name of one label, a number,
+  `fritz.box`, `printer.local`) is refused.
 - Every agent of freemapper that talks to the internet is built by `freemapper::fetch::guarded_agent`: the two
   agents of the fetcher, those of a pinned host, the tile proxy and the self-update.
 - With a policy (`HttpFetcher::with_policy`) the fetcher follows redirects by hand: at most three, and each target
@@ -77,7 +79,8 @@ the tile proxy of the area page asked whatever address they were given.
   declared host.
 - One thing no list can close: a network whose own NAT64 prefix (inside `2000::/3`) translates to private IPv4
   addresses.
-- A service on another port or without a DNS name cannot be an adapter in format 1.
+- A service on another port, without a DNS name or under one of the refused endings (`.box` is also a public
+  top-level domain) cannot be an adapter in format 1.
 - `Fetcher::get` of the HTTP fetcher fails over 512 MB instead of cutting the answer off.
 - The resolver hook of `ureq` (`ureq::unversioned`) is outside its semver promise. The workspace pins `ureq`
   exactly; a version bump runs the tests of this decision first (`declared_host_resolving_to_loopback_is_refused`

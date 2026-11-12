@@ -42,6 +42,21 @@ impl fmt::Display for PolicyError {
 
 impl std::error::Error for PolicyError {}
 
+/// The last label of a name of a local network.
+const LOCAL_ENDINGS: [&str; 11] = [
+    "local",
+    "internal",
+    "lan",
+    "home",
+    "corp",
+    "intranet",
+    "localdomain",
+    "private",
+    "box",
+    "test",
+    "invalid",
+];
+
 /// Checks that `host` is a DNS name a request may go to and returns it in lower case: at least
 /// two labels of letters, digits and hyphens, no IP literal, no `localhost`, no trailing dot, no
 /// wildcard. A name outside ASCII is written in its `xn--` form.
@@ -69,6 +84,13 @@ pub fn dns_name(host: &str) -> Result<String, PolicyError> {
     let last = labels.last().copied().unwrap_or_default();
     if labels.len() < 2 || last == "localhost" {
         return refuse("a name of this computer or without a domain");
+    }
+    // The endings of names that live in a local network and not in the public DNS: the
+    // special-use domains (`.local`, `.home.arpa`, `.internal`, `.test`, `.invalid`) and what
+    // home routers and company networks use (`fritz.box`, `.lan`, `.corp`).
+    let second_last = labels.len().checked_sub(2).map(|at| labels[at]);
+    if LOCAL_ENDINGS.contains(&last) || (last == "arpa" && second_last == Some("home")) {
+        return refuse("a name of the local network");
     }
     // `127.0.0.1`, `0x7f.1`: an address ends in a number, a DNS name in a top-level domain.
     if last.bytes().all(|b| b.is_ascii_digit()) || last.starts_with("0x") {
@@ -146,7 +168,7 @@ fn public_v6(addr: Ipv6Addr) -> bool {
         // 2001::/23, the protocol assignments (Teredo, ORCHID, benchmarking), and the
         // documentation nets 2001:db8::/32 and 3fff::/20.
         [0x2001, second, ..] if second < 0x200 || second == 0xdb8 => false,
-        [first, ..] if first & 0xfff0 == 0x3ff0 => false,
+        [0x3fff, second, ..] if second & 0xf000 == 0 => false,
         [first, ..] => first & 0xe000 == 0x2000,
     }
 }
@@ -303,6 +325,13 @@ mod tests {
                 "https://app.localhost/x",
                 "a name of this computer or without a domain",
             ),
+            ("https://printer.local/x", "a name of the local network"),
+            ("https://nas.home.arpa/x", "a name of the local network"),
+            ("https://db.internal/x", "a name of the local network"),
+            ("https://router.lan/x", "a name of the local network"),
+            ("https://fritz.box/x", "a name of the local network"),
+            ("https://wiki.corp/x", "a name of the local network"),
+            ("https://x.test/x", "a name of the local network"),
             ("https://api.hamburg.de./x", "not a DNS name"),
             ("https://*.hamburg.de/x", "not a DNS name"),
             ("https://api_.hamburg.de/x", "not a DNS name"),
@@ -422,6 +451,7 @@ mod tests {
             "2001:2::1",
             "2001:10::1",
             "3fff::1",
+            "3fff:0fff::1",
             "4000::1",
             "100::1",
             "e000::1",
@@ -442,6 +472,9 @@ mod tests {
             "2a00:1450:4001:81b::200e",
             "2001:4860:4860::8888",
             "2606:4700::6810:84e5",
+            // Beside the documentation net 3fff::/20.
+            "3fff:1000::1",
+            "3ff0::1",
             "::ffff:8.8.8.8",
             "64:ff9b::808:808",
             "2002:808:808::1",
