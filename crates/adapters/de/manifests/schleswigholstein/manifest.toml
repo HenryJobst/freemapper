@@ -1,0 +1,55 @@
+# Schleswig-Holstein: LVermGeo SH's WFS; rasters from the download portal, whose certificates are pinned, through code.
+format = 1
+
+[adapter]
+id = "schleswigholstein"
+provider = "lvermgeosh"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DESH"
+names = { en = "Schleswig-Holstein", de = "Schleswig-Holstein" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["dienste.gdi-sh.de", "service.gdi-sh.de", "geodaten.schleswig-holstein.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/schleswig-holstein"
+megabytes = 159
+label = "Schleswig-Holstein"
+
+[attribution]
+licence = "cc-by-4.0"
+text = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[alkis]
+kind = "wfs"
+name = "LVermGeo SH ALKIS"
+crs = 25832
+url = "https://dienste.gdi-sh.de/WFS_SH_ALKIS_VWG_OpenGBD"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Schleswig-Holstein)"
+
+[orthophoto]
+backend = "lvermgeo-sh"
+
+[terrain]
+backend = "lvermgeo-sh"
+
+[surface]
+backend = "lvermgeo-sh"
+
+[preview]
+wms = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
+layer = "sh_dop20_rgb"
+format = "image/jpeg"
+attribution = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0"
+agency = "LVermGeo SH"

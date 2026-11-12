@@ -1,0 +1,59 @@
+# Hamburg: LGV's OGC API with the WFS as fallback, a WMS orthophoto, heights and the flight date through code.
+format = 1
+
+[adapter]
+id = "hamburg"
+provider = "lgv"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEHH"
+names = { en = "Hamburg", de = "Hamburg" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["api.hamburg.de", "geodienste.hamburg.de", "www.daten-hamburg.de", "archiv.transparenz.hamburg.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/hamburg"
+megabytes = 54
+label = "Hamburg"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) {year}, dl-de/by-2-0, Daten geändert"
+
+[alkis]
+kind = "ogc-api-features"
+crs = 25832
+buildings = "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/GebaeudeBauwerk/items"
+land_use = "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/NutzungFlurstueck/items"
+normalise = "hamburg-ascii"
+
+[alkis.fallback]
+name = "LGV ALKIS (WFS)"
+url = "https://geodienste.hamburg.de/WFS_HH_ALKIS_vereinfacht"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+
+[orthophoto]
+backend = "lgv"
+
+[terrain]
+backend = "lgv"
+
+[surface]
+backend = "lgv"
+
+[preview]
+wms = "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"
+layer = "dop_zeitreihe_unbelaubt"
+format = "image/jpeg"
+params = { time = "2026" }
+attribution = "Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0"
+agency = "LGV"

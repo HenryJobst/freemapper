@@ -1,0 +1,54 @@
+# Saxony: GeoSN's WFS, tiles of 2 km and the orthophoto through code.
+format = 1
+
+[adapter]
+id = "saxony"
+provider = "geosn"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25833
+object_id_prefix = "DESN"
+names = { en = "Saxony", de = "Sachsen" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["geodienste.sachsen.de", "geocloud.landesvermessung.sachsen.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/sachsen"
+megabytes = 270
+label = "Saxony"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+
+[alkis]
+kind = "wfs"
+name = "GeoSN ALKIS"
+crs = 25833
+url = "https://geodienste.sachsen.de/aaa/public_alkis/vereinf/wfs"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Sachsen)"
+
+[orthophoto]
+backend = "geosn"
+
+[terrain]
+backend = "geosn"
+
+[surface]
+backend = "geosn"
+
+[preview]
+wms = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest"
+layer = "sn_dop_020"
+format = "image/jpeg"
+attribution = "Quelle: GeoSN, dl-de/by-2-0"
+agency = "GeoSN"

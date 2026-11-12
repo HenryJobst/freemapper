@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
+use freemapper_sources::nas::NAS_LAYERS;
 use toml::Spanned;
 
 use crate::error::ManifestError;
@@ -546,15 +547,19 @@ impl Check<'_> {
             None => Some(None),
         };
         let orthophoto = match &raw.orthophoto {
-            Some(table) => self.orthophoto(table, crs).map(Some),
+            Some(table) => self.orthophoto(table, crs, english.as_deref()).map(Some),
             None => Some(None),
         };
         let terrain = match &raw.terrain {
-            Some(table) => self.height_model(table, "terrain").map(Some),
+            Some(table) => self
+                .height_model(table, "terrain", english.as_deref())
+                .map(Some),
             None => Some(None),
         };
         let surface = match &raw.surface {
-            Some(table) => self.height_model(table, "surface").map(Some),
+            Some(table) => self
+                .height_model(table, "surface", english.as_deref())
+                .map(Some),
             None => Some(None),
         };
         let nas = self.nas_services(&raw.extra.nas, crs);
@@ -1181,6 +1186,14 @@ impl Check<'_> {
         }
     }
 
+    /// What a raster of the table `table` is called: its `label`, else `default`.
+    fn label(&mut self, raw: &RawRaster, table: &str, default: Option<String>) -> Option<String> {
+        match &raw.label {
+            Some(label) => self.text(label, &format!("{table}.label"), "manifest.value", 80),
+            None => default,
+        }
+    }
+
     /// The keys of a raster table that `kind` does not have.
     fn absent_of_raster(
         &mut self,
@@ -1193,6 +1206,7 @@ impl Check<'_> {
         for key in keys {
             let full = format!("{table}.{key}");
             let absent = match *key {
+                "label" => self.absent(raw.label.as_ref(), &full, kind),
                 "url" => self.absent(raw.url.as_ref(), &full, kind),
                 "layer" => self.absent(raw.layer.as_ref(), &full, kind),
                 "coverage" => self.absent(raw.coverage.as_ref(), &full, kind),
@@ -1211,7 +1225,12 @@ impl Check<'_> {
         fine
     }
 
-    fn orthophoto(&mut self, raw: &RawRaster, adapter: Option<Crs>) -> Option<Orthophoto> {
+    fn orthophoto(
+        &mut self,
+        raw: &RawRaster,
+        adapter: Option<Crs>,
+        english: Option<&str>,
+    ) -> Option<Orthophoto> {
         let table = "orthophoto";
         let kind = match self.kind_of(
             raw.kind.as_ref(),
@@ -1227,6 +1246,7 @@ impl Check<'_> {
                     table,
                     "a backend",
                     &[
+                        "label",
                         "url",
                         "layer",
                         "coverage",
@@ -1275,6 +1295,12 @@ impl Check<'_> {
             });
         let crs = self.service_crs(raw.crs.as_ref(), "orthophoto.crs", adapter);
         let params = self.params(raw.params.as_ref(), "orthophoto.params");
+        let service = if wms { "WMS" } else { "WCS" };
+        let label = self.label(
+            raw,
+            table,
+            english.map(|name| format!("orthophoto ({name} {service})")),
+        );
         let max_px = self
             .required(raw.max_px.as_ref(), &at, "orthophoto.max_px", kind)
             .and_then(|value| self.integer(value, "orthophoto.max_px", 256, 10_000))
@@ -1285,6 +1311,7 @@ impl Check<'_> {
         }
         Some(if wms {
             Orthophoto::Wms {
+                label: label?,
                 url: url?,
                 layer: named?,
                 crs: crs?,
@@ -1294,6 +1321,7 @@ impl Check<'_> {
             }
         } else {
             Orthophoto::Wcs {
+                label: label?,
                 url: url?,
                 coverage: named?,
                 crs: crs?,
@@ -1304,7 +1332,12 @@ impl Check<'_> {
     }
 
     /// `[terrain]` or `[surface]`.
-    fn height_model(&mut self, raw: &RawRaster, table: &str) -> Option<HeightModel> {
+    fn height_model(
+        &mut self,
+        raw: &RawRaster,
+        table: &str,
+        english: Option<&str>,
+    ) -> Option<HeightModel> {
         let kind = match self.kind_of(
             raw.kind.as_ref(),
             raw.backend.as_ref(),
@@ -1319,6 +1352,7 @@ impl Check<'_> {
                     table,
                     "a backend",
                     &[
+                        "label",
                         "url",
                         "layer",
                         "coverage",
@@ -1357,6 +1391,11 @@ impl Check<'_> {
                 )
             });
         let params = self.params(raw.params.as_ref(), &key("params"));
+        let label = self.label(
+            raw,
+            table,
+            english.map(|name| format!("{table} model ({name} WCS)")),
+        );
         let envelope = self
             .required(raw.envelope.as_ref(), &at, &key("envelope"), kind)
             .and_then(|value| self.envelope(value, &key("envelope")));
@@ -1377,6 +1416,7 @@ impl Check<'_> {
             None => Some(None),
         };
         fine.then_some(HeightModel::Wcs {
+            label: label?,
             url: url?,
             coverage: coverage?,
             params: params?,
@@ -1516,12 +1556,12 @@ impl Check<'_> {
 
     fn nas_services(&mut self, raw: &[RawNas], adapter: Option<Crs>) -> Option<Vec<Nas>> {
         let mut fine = true;
-        if raw.len() > 4 {
+        if raw.len() > 1 {
             self.fail(
                 "manifest.value",
-                &raw[4].name.span(),
+                &raw[1].name.span(),
                 "extra.nas",
-                "more than 4 NAS services",
+                "a region has one NAS service; this is a second one",
             );
             fine = false;
         }
@@ -1543,8 +1583,15 @@ impl Check<'_> {
                     layer,
                     "extra.nas.layers",
                     "manifest.value",
-                    |text| is_slug(text, 40),
-                    "the name of a NAS layer: lower-case letters, digits and hyphens",
+                    |text| NAS_LAYERS.iter().any(|known| known.file == text),
+                    &format!(
+                        "a NAS layer; the layers are {}",
+                        NAS_LAYERS
+                            .iter()
+                            .map(|known| known.file)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
                 );
                 layers = layers.zip(layer).map(|(mut all, layer)| {
                     all.push(layer);

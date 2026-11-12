@@ -1,0 +1,86 @@
+# Saxony-Anhalt: every source is a standard service (WFS, WMS, WCS, a WFS with the flight dates).
+format = 1
+
+[adapter]
+id = "saxonyanhalt"
+provider = "lvermgeo"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEST"
+names = { en = "Saxony-Anhalt", de = "Sachsen-Anhalt" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["www.geodatenportal.sachsen-anhalt.de", "geodatenportal.sachsen-anhalt.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/sachsen-anhalt"
+megabytes = 177
+label = "Saxony-Anhalt"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "© GeoBasis-DE / LVermGeo ST {year}, dl-de/by-2-0, Daten geändert"
+
+[alkis]
+kind = "wfs"
+name = "LVermGeo ALKIS"
+crs = 25832
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:Nutzung"
+square_bez = "ohne Unterart (Sachsen-Anhalt)"
+
+[orthophoto]
+kind = "wms"
+label = "orthophoto (LVermGeo WMS)"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest"
+layer = "lsa_lvermgeo_dop20_2"
+crs = 25832
+max_px = 4000
+
+[orthophoto.date]
+kind = "wfs-geojson"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis"
+layer = "atkis_geobasis_bestand:truedop_kacheln"
+field = "BFDATUM"
+format = "DD.MM.YYYY"
+
+[terrain]
+kind = "wcs"
+label = "terrain model (LVermGeo DGM1)"
+url = "https://www.geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DGM1"
+coverage = "Coverage1"
+multipart = true
+envelope = [606000, 5646000, 790000, 5882000]
+max_m = 4000
+source_label = "lvermgeo-st-dgm1"
+
+[surface]
+kind = "wcs"
+label = "surface model (LVermGeo DOM1)"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_WCS_ST_DOM1"
+coverage = "Coverage1"
+multipart = true
+envelope = [606000, 5646000, 790000, 5882000]
+max_m = 4000
+
+[surface.date]
+kind = "wfs-geojson"
+url = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis"
+layer = "atkis_geobasis_bestand:bdom_aktualitaet_zyklus"
+field = "BFDATUM"
+format = "DD.MM.YYYY"
+
+[preview]
+wms = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest"
+layer = "lsa_lvermgeo_dop20_2"
+format = "image/jpeg"
+attribution = "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0"
+agency = "LVermGeo"

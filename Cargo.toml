@@ -14,6 +14,7 @@ rust-version = "1.88"
 freemapper = { path = "crates/freemapper" }
 freemapper-adapter-api = { path = "crates/freemapper-adapter-api" }
 freemapper-adapters-de = { path = "crates/adapters/de" }
+freemapper-manifest = { path = "crates/freemapper-manifest" }
 freemapper-sources = { path = "crates/freemapper-sources" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.

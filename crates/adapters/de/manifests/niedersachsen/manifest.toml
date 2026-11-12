@@ -1,0 +1,74 @@
+# Lower Saxony: every source is a standard service (WFS, WMS, WCS, STAC for the dates).
+format = 1
+
+[adapter]
+id = "niedersachsen"
+provider = "lgln"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DENI"
+names = { en = "Lower Saxony", de = "Niedersachsen" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["opendata.lgln.niedersachsen.de", "opendata.geoservices.lgln.niedersachsen.de", "dop.stac.lgln.niedersachsen.de", "dgm.stac.lgln.niedersachsen.de", "dom.stac.lgln.niedersachsen.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/niedersachsen"
+megabytes = 510
+label = "Lower Saxony"
+
+[attribution]
+licence = "cc-by-4.0"
+text = "© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[alkis]
+kind = "wfs"
+name = "LGLN ALKIS"
+crs = 25832
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_einfach"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Niedersachsen)"
+
+[orthophoto]
+kind = "wms"
+label = "orthophoto (LGLN WMS)"
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
+layer = "ni_dop20"
+crs = 25832
+max_px = 4000
+date = { kind = "stac-newest", url = "https://dop.stac.lgln.niedersachsen.de" }
+
+[terrain]
+kind = "wcs"
+label = "terrain model (LGLN DGM1)"
+url = "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs"
+coverage = "ni_dgm1"
+envelope = [341000, 5681992, 676040, 5973000]
+max_m = 2000
+date = { kind = "stac-newest", url = "https://dgm.stac.lgln.niedersachsen.de" }
+source_label = "lgln-dgm1"
+
+[surface]
+kind = "wcs"
+label = "surface model (LGLN DOM1)"
+url = "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs"
+coverage = "ni_dom1"
+envelope = [341000, 5681992, 676040, 5973000]
+max_m = 2000
+date = { kind = "stac-newest", url = "https://dom.stac.lgln.niedersachsen.de" }
+
+[preview]
+wms = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
+layer = "ni_dop20"
+format = "image/jpeg"
+attribution = "© GeoBasis-DE/LGLN, CC BY 4.0"
+agency = "LGLN"

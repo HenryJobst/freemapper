@@ -1,0 +1,58 @@
+# Mecklenburg-Vorpommern: LAiV's OGC API with the WFS as fallback; rasters through code.
+format = 1
+
+[adapter]
+id = "mecklenburgvorpommern"
+provider = "laivmv"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25833
+object_id_prefix = "DEMV"
+names = { en = "Mecklenburg-Vorpommern", de = "Mecklenburg-Vorpommern" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["www.geodaten-mv.de", "laiv.geodaten-mv.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/mecklenburg-vorpommern"
+megabytes = 128.8
+label = "Mecklenburg-Vorpommern"
+
+[attribution]
+licence = "cc-by-4.0"
+text = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[alkis]
+kind = "ogc-api-features"
+crs = 25833
+buildings = "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items"
+land_use = "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items"
+
+[alkis.fallback]
+name = "LAiV M-V ALKIS (WFS)"
+url = "https://www.geodaten-mv.de/dienste/alkis_wfs_einfach"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+
+[orthophoto]
+backend = "laiv-mv"
+
+[terrain]
+backend = "laiv-mv"
+
+[surface]
+backend = "laiv-mv"
+
+[preview]
+wms = "https://www.geodaten-mv.de/dienste/adv_dop"
+layer = "mv_dop"
+format = "image/jpeg"
+attribution = "©GeoBasis-DE/MV/CC BY 4.0"
+agency = "LAiV M-V"

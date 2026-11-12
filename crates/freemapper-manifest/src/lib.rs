@@ -12,8 +12,11 @@
 use std::path::Path;
 
 pub mod adapter;
+pub mod alkis;
 pub mod boundary;
 pub mod error;
+pub mod estimate;
+pub mod extras;
 pub mod model;
 mod schema;
 mod validate;

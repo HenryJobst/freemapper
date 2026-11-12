@@ -30,6 +30,7 @@ zip.workspace = true
 workspace = true
 
 [dev-dependencies]
+freemapper-manifest.workspace = true
 # The live tests of the state modules (ignored unless asked for) use the HTTP client of the engine.
 freemapper.workspace = true
 image.workspace = true

@@ -352,7 +352,7 @@ fn a_manifest_holds_at_most_64_urls() {
 fn a_nas_service_is_read() {
     let text = format!(
         "{}\n[[extra.nas]]\nname = \"Sample ALKIS (NAS)\"\nurl = \"https://geo.example.org/nas\"\n\
-         max_count = 100000\nmax_bytes = 268435456\nlayers = [\"gebaeude\", \"bauwerke\"]\n",
+         max_count = 100000\nmax_bytes = 268435456\nlayers = [\"sonstiges-bauwerk\", \"strukturlinie\"]\n",
         sample()
     );
     let manifest = parse(&text, Path::new("sample")).unwrap();
@@ -361,7 +361,7 @@ fn a_nas_service_is_read() {
     assert_eq!(manifest.nas[0].max_bytes, 256 * 1024 * 1024);
     assert_eq!(
         manifest.nas[0].layers.as_deref(),
-        Some(&["gebaeude".to_string(), "bauwerke".to_string()][..])
+        Some(&["sonstiges-bauwerk".to_string(), "strukturlinie".to_string()][..])
     );
     // An answer may not be larger than the cap of the reader.
     let over = text.replace("268435456", "268435457");

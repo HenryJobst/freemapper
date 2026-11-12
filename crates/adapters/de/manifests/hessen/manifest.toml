@@ -1,0 +1,54 @@
+# Hesse: HVBG's WFS; orthophoto and heights from the archives of the districts through code.
+format = 1
+
+[adapter]
+id = "hessen"
+provider = "hvbg"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEHE"
+names = { en = "Hesse", de = "Hessen" }
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-12"
+
+[net]
+hosts = ["www.gds.hessen.de", "gds.hessen.de", "www.gds-srv.hessen.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/hessen"
+megabytes = 348
+label = "Hesse"
+
+[attribution]
+licence = "dl-de/zero-2-0"
+text = "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
+
+[alkis]
+kind = "wfs"
+name = "HVBG ALKIS"
+crs = 25832
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Hessen)"
+
+[orthophoto]
+backend = "hvbg"
+
+[terrain]
+backend = "hvbg"
+
+[surface]
+backend = "hvbg"
+
+[preview]
+wms = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
+layer = "he_dop_rgb"
+format = "image/jpeg"
+attribution = "Geobasisdaten © HVBG, dl-de/zero-2-0"
+agency = "HVBG"

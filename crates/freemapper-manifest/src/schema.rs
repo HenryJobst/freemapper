@@ -133,6 +133,7 @@ pub(crate) struct RawFallback {
 pub(crate) struct RawRaster {
     pub kind: Option<Text>,
     pub backend: Option<Text>,
+    pub label: Option<Text>,
     pub url: Option<Text>,
     pub layer: Option<Text>,
     pub coverage: Option<Text>,

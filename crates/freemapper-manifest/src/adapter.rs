@@ -12,6 +12,7 @@ use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::info::{Names, OsmExtractInfo, PreviewInfo, RegionInfo};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
@@ -103,6 +104,9 @@ pub struct ManifestAdapter {
     boundary: BoundaryFile,
     /// The boundary of each OSM extract that has one, in the order of the extracts.
     extracts: Vec<Option<BoundaryFile>>,
+    alkis: Option<Box<dyn AlkisSource>>,
+    nas: Option<NasService>,
+    trees: Vec<TreeDataset>,
 }
 
 impl ManifestAdapter {
@@ -166,8 +170,19 @@ impl ManifestAdapter {
         let (Some(boundary), true) = (boundary, findings.is_empty()) else {
             return Err(findings);
         };
+        let info = info_of(&manifest);
         Ok(Self {
-            info: info_of(&manifest),
+            alkis: manifest.alkis.as_ref().map(crate::alkis::alkis_source),
+            nas: manifest
+                .nas
+                .first()
+                .map(|nas| crate::extras::nas_service(nas, &info.id)),
+            trees: manifest
+                .trees
+                .iter()
+                .map(|trees| crate::extras::tree_dataset(trees, &info.id))
+                .collect(),
+            info,
             manifest,
             boundary,
             extracts,
@@ -181,7 +196,7 @@ impl ManifestAdapter {
 }
 
 /// The static facts of the region `manifest` declares.
-fn info_of(manifest: &Manifest) -> RegionInfo {
+pub fn info_of(manifest: &Manifest) -> RegionInfo {
     let id = |id: &str| -> AdapterId {
         id.parse()
             .expect("the validator accepts the ids the registry accepts")
@@ -235,22 +250,37 @@ impl RegionAdapter for ManifestAdapter {
     }
 
     fn alkis(&self) -> Option<&dyn AlkisSource> {
-        None
+        self.alkis.as_deref()
+    }
+
+    fn nas(&self) -> Option<&NasService> {
+        self.nas.as_ref()
+    }
+
+    fn tree_datasets(&self) -> &[TreeDataset] {
+        &self.trees
     }
 
     /// The credit of the manifest once the project holds something of the region, with the
-    /// year of the newest fetch in place of `{year}`.
+    /// year of the newest fetch in place of `{year}`, then the line of each tree cadastre that
+    /// drew trees.
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
-        let Some(year) = used.newest_fetch_year(self.info.provider.as_str(), self.info.id.as_str())
-        else {
-            return Vec::new();
-        };
         let credit = &self.manifest.attribution;
-        let text = credit.text.replacen("{year}", &year.to_string(), 1);
-        vec![match &credit.note {
-            Some(note) => CreditLine::with_licence(text, note),
-            None => CreditLine::new(text),
-        }]
+        let own = used
+            .newest_fetch_year(self.info.provider.as_str(), self.info.id.as_str())
+            .map(|year| {
+                let text = credit.text.replacen("{year}", &year.to_string(), 1);
+                match &credit.note {
+                    Some(note) => CreditLine::with_licence(text, note),
+                    None => CreditLine::new(text),
+                }
+            });
+        let trees = self
+            .trees
+            .iter()
+            .filter(|dataset| used.drawn_registers.contains(&dataset.id.as_ref()))
+            .map(|dataset| CreditLine::new(dataset.attribution.as_ref()));
+        own.into_iter().chain(trees).collect()
     }
 
     fn rasters(&self) -> Option<&dyn RasterBackend> {

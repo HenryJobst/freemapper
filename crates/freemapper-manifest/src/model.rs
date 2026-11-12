@@ -239,6 +239,8 @@ pub enum DateFormat {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Orthophoto {
     Wms {
+        /// What the raster is called in the estimate and in messages.
+        label: String,
         url: String,
         layer: String,
         crs: Crs,
@@ -249,6 +251,8 @@ pub enum Orthophoto {
         date: DateSource,
     },
     Wcs {
+        /// What the raster is called in the estimate and in messages.
+        label: String,
         url: String,
         coverage: String,
         crs: Crs,
@@ -260,9 +264,13 @@ pub enum Orthophoto {
 }
 
 /// `[terrain]` and `[surface]`.
+// A manifest holds two of these at most; a box would save nothing.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum HeightModel {
     Wcs {
+        /// What the model is called in the estimate and in messages.
+        label: String,
         url: String,
         coverage: String,
         /// More GetCoverage parameters, by name.
