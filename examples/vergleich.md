@@ -8,13 +8,15 @@ plus jeder Kandidat als Kartenobjekt. Kandidaten sind unsicher abgeleitete Objek
 Privatgrundstücke oder Treppen. Das Handbuch erklärt, [was im Gelände zu prüfen ist](../docs/manual/de.md#9-was-im-gelände-zu-prüfen-ist),
 und beschreibt die [PDF-Schalter](../docs/manual/de.md#10-karte-als-pdf).
 
-Alle elf Beispiele haben die Trainingskarte als PDF. Zwei davon, Cochem und Blankenese, liegen zusätzlich als Karte
+Alle zwölf Beispiele haben die Trainingskarte als PDF. Zwei davon, Cochem und Blankenese, liegen zusätzlich als Karte
 allein bei; bei den anderen entsteht sie mit `freemapper run --pdf <Projektordner>`. Die Bilder sind Vorschauen, der
 Link unter dem Bild öffnet das PDF.
 
 ## Warum die Karte allein so schlicht ist
 
-freemapper legt nur verlässliche Registerdaten in die Karte: Gebäude, Straßen, Gewässer, Wald, offenes Land und die
+Was in die Karte kommt, bestimmt das [Inhaltsprofil](../docs/manual/de.md#was-direkt-auf-die-karte-kommt). Zehn der
+zwölf Beispiele, auch Cochem, sind entstanden, bevor es die Profile gab; sie entsprechen dem Profil `safe`. Damit
+legt freemapper nur verlässliche Registerdaten in die Karte: Gebäude, Straßen, Gewässer, Wald, offenes Land und die
 Grundfläche. Alles, was automatisch abgeleitet oder unsicher ist, bleibt Kandidat, damit ein Kartierer es prüft. Dazu
 gehören Höhenlinien, Bäume, Zäune und Mauern, Hecken, Sperrflächen und Kontrollstandorte. In Cochem stehen 1315
 Kartenobjekte (1156 davon Gebäude) 894 Kandidaten gegenüber: 234 Büsche und Bäume (418), 205 Sperrflächen (520),
@@ -22,9 +24,12 @@ Kartenobjekte (1156 davon Gebäude) 894 Kandidaten gegenüber: 234 Büsche und B
 sicher, aber dünn. Die Trainingskarte zeigt, was freemapper ableiten kann, und jedes dieser Objekte prüfen Sie im
 Gelände, bevor Sie es übernehmen.
 
+Heute ist `balanced` das Standardprofil. Damit kommen auch Höhenlinien, Treppen, Wege, Mauern, Zäune und Bäume in
+die Karte, und Kandidaten bleiben vor allem die Sperrflächen. Blankenese unten ist so gebaut; Saarlouis auch.
+
 ## Cochem
 
-| Karte (Standard) | mit Kandidaten |
+| Karte (Profil `safe`) | mit Kandidaten |
 |---|---|
 | ![Cochem, nur Kartenobjekte](rheinland-pfalz-cochem/preview-map.webp) | ![Cochem mit Kandidaten](rheinland-pfalz-cochem/preview.webp) |
 | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf) |
@@ -53,32 +58,35 @@ in die Karte.
 
 ## Blankenese
 
-| Karte (Standard) | mit Kandidaten |
+| Karte (Profil `balanced`, Standard) | mit Kandidaten |
 |---|---|
 | ![Blankenese, nur Kartenobjekte](hamburg-blankenese/preview-map.webp) | ![Blankenese mit Kandidaten](hamburg-blankenese/preview.webp) |
 | [hamburg-blankenese.pdf](hamburg-blankenese/hamburg-blankenese.pdf) | [hamburg-blankenese-candidates.pdf](hamburg-blankenese/hamburg-blankenese-candidates.pdf) |
 
-Die Karte hat 969 Objekte, davon 880 Gebäude. Dazu kommen 979 Kandidaten, 1,0 je Kartenobjekt. 690 stammen aus der
-ALKIS-Nutzung, 187 aus OSM, 95 aus dem Geländemodell und 7 aus ALKIS.
+Blankenese wurde am 12. November 2026 mit dem Standardprofil `balanced` neu gebaut. Die Karte hat 1780 Objekte:
+880 Gebäude, 409 Höhenlinien (83 davon Zählkurven), 110 Treppen aus OpenStreetMap (532), dazu Wege, Kanten
+befestigter Flächen, Bäume und Zäune. Es bleiben 755 Kandidaten, 0,4 je Kartenobjekt. 688 stammen aus der
+ALKIS-Nutzung, 60 aus OSM, 5 aus ALKIS und 2 aus der Generalisierung.
 
 Die fünf häufigsten Symbole der Kandidaten:
 
 | Symbol | Anzahl |
 |---|---:|
 | 520 verbotenes Gebiet | 696 |
-| 101 Höhenlinie | 76 |
-| 505.1 unbefestigter Weg | 48 |
-| 418 Busch oder kleiner Baum | 39 |
 | 531 Kontrollstandort | 32 |
+| 401 offenes Land | 9 |
+| 418 Busch oder kleiner Baum | 8 |
+| 522 Überdachung | 5 |
 
-Fast drei Viertel der Kandidaten sind Sperrflächen. 657 davon sind Wohnbauflächen und 21 gemischt genutzte Flächen aus der ALKIS-Nutzung, also die
-Grundstücke zwischen den Treppenwegen. Sie färben die Trainingskarte olivgrün. Welche Grundstücke wirklich
-verboten sind, entscheiden Sie im Gelände. Die 76 Höhenlinien zeigen den Elbhang; Cochem hat 151.
+Neun von zehn Kandidaten sind Sperrflächen. 657 davon sind Wohnbauflächen und 21 gemischt genutzte Flächen aus der
+ALKIS-Nutzung, also die Grundstücke zwischen den Treppenwegen. Sie färben die Trainingskarte olivgrün. Welche
+Grundstücke wirklich verboten sind, entscheiden Sie im Gelände. Die Höhenlinien des Elbhangs und die Treppen, die
+dem Viertel den Namen geben, stehen jetzt schon in der Karte; prüfen müssen Sie sie trotzdem.
 
 ## Wie die beiden Beispiele gewählt wurden
 
-Die Wahl folgt einer Messung an allen elf Beispielen. Jedes wurde als Karte und als Trainingskarte gerendert (A3,
-120 dpi). Die mittlere Pixeldifferenz ist der Mittelwert der Farbabweichung über das ganze Blatt in Prozent des
+Die Wahl folgt einer Messung an den elf Beispielen, die es damals gab, alle im Stand vor den Inhaltsprofilen. Jedes
+wurde als Karte und als Trainingskarte gerendert (A3, 120 dpi). Die mittlere Pixeldifferenz ist der Mittelwert der Farbabweichung über das ganze Blatt in Prozent des
 Wertebereichs. Die zweite Spalte nennt den Anteil der Pixel, die sich sichtbar unterscheiden (Abweichung über
 24 von 255 in einem Farbkanal). Das Blatt enthält auch den weißen Titelblock, deshalb sind die absoluten Werte klein;
 es zählt die Reihenfolge. Die Tabelle ist nach der Pixeldifferenz sortiert.
@@ -86,7 +94,7 @@ es zählt die Reihenfolge. Die Tabelle ist nach der Pixeldifferenz sortiert.
 | Beispiel | Kartenobjekte | Kandidaten | Kandidaten je Kartenobjekt | mittlere Pixeldifferenz | geänderte Pixel |
 |---|---:|---:|---:|---:|---:|
 | [Cochem](rheinland-pfalz-cochem/) | 1315 | 894 | 0,7 | 4,9 % | 16,8 % |
-| [Blankenese](hamburg-blankenese/) | 969 | 979 | 1,0 | 4,9 % | 16,3 % |
+| Blankenese (alter Stand, `safe`) | 969 | 979 | 1,0 | 4,9 % | 16,3 % |
 | [Monschau](nordrhein-westfalen-monschau/) | 993 | 851 | 0,9 | 4,6 % | 16,1 % |
 | [Marburg](hessen-marburg/) | 1541 | 1065 | 0,7 | 3,9 % | 14,9 % |
 | [Bautzen](sachsen-bautzen/) | 1226 | 1376 | 1,1 | 3,9 % | 14,9 % |
@@ -102,6 +110,10 @@ Kandidaten je Kartenobjekt. Ihre Karten sind aber klein, und die Kandidaten sind
 wenig Fläche ändern. In Cochem und Blankenese ändern Höhenlinien und Sperrflächen große Teile des Blattes. Monschau
 liegt mit 4,6 % dicht dahinter, der Abstand zu den ersten beiden ist klein. Die ersten drei Plätze blieben bei 60 dpi
 und 120 dpi gleich.
+
+Mit `balanced` rücken Karte und Trainingskarte zusammen, weil die Höhenlinien schon in der Karte stehen. Dieselbe
+Messung ergibt für das neu gebaute [Blankenese](hamburg-blankenese/) 2,9 % und 11,3 % (1780 Kartenobjekte, 755
+Kandidaten) und für [Saarlouis](saarland-saarlouis/) 2,2 % und 9,4 % (1465 Kartenobjekte, 249 Kandidaten).
 
 Die Zählung der Symbole stammt aus `templates/candidates.omap` des jeweiligen Beispiels. Die Trainingskarte lässt
 Punkte unter einer 520-Fläche und nicht erreichbare Durchgänge weg (`freemapper:hidden`), deshalb deckt sich das Bild
