@@ -230,6 +230,12 @@ pub fn load_folder(
         )]);
     }
     let text = std::fs::read_to_string(&path).map_err(|e| missing(e.to_string()))?;
+    // A manifest written for a newer freemapper may use keys this one does not know. It is
+    // told by the version it asks for, before the strict schema calls its keys unknown.
+    if let Some(needed) = min_freemapper_of(&text).filter(|needed| *needed > running) {
+        let id = folder.file_name().unwrap_or_default().to_string_lossy();
+        return Err(vec![needs_newer(&path, &id, needed, running)]);
+    }
     let manifest = crate::parse(&text, folder)?;
     check_fit(registry, &manifest, &path, running)?;
     let mut entry = Loaded {
@@ -302,6 +308,22 @@ pub(crate) fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -
         .collect()
 }
 
+/// `[adapter] min_freemapper` of a manifest, read without the schema; `None` when the text is
+/// no TOML or has no such version.
+fn min_freemapper_of(text: &str) -> Option<Version> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let table: toml::Table = toml::from_str(text).ok()?;
+    Version::parse(table.get("adapter")?.get("min_freemapper")?.as_str()?)
+}
+
+fn needs_newer(path: &Path, id: &str, needed: Version, running: Version) -> ManifestError {
+    finding(
+        "adapter.needs-newer",
+        path,
+        format!("adapter {id} needs freemapper {needed} or newer (this is {running})"),
+    )
+}
+
 /// Whether the adapter of `manifest` fits beside those of `registry` and this freemapper.
 fn check_fit(
     registry: &Registry,
@@ -311,13 +333,11 @@ fn check_fit(
 ) -> Result<(), Vec<ManifestError>> {
     let id = &manifest.adapter.id;
     if manifest.adapter.min_freemapper > running {
-        return Err(vec![finding(
-            "adapter.needs-newer",
+        return Err(vec![needs_newer(
             path,
-            format!(
-                "adapter {id} needs freemapper {} or newer (this is {running})",
-                manifest.adapter.min_freemapper
-            ),
+            id,
+            manifest.adapter.min_freemapper,
+            running,
         )]);
     }
     if registry.get(id).is_some() {

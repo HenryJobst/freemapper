@@ -24,6 +24,9 @@ The design sketched the format; building it against the eleven states changed so
   freemapper that reads it), `[net]`, `[boundary]`, `[[osm.extract]]`, `[attribution]`, `[alkis]`, `[orthophoto]`,
   `[terrain]`, `[surface]`, `[[extra.nas]]`, `[[extra.trees]]`, `[preview]`, `[estimate]`. Limits: 64 KiB per
   manifest, 64 URLs, 2 MiB and a million vertices per boundary file.
+- A folder's manifest is asked for `min_freemapper` before the strict schema reads it. A manifest that uses a key
+  of a later freemapper is therefore refused with the version it needs (`adapter.needs-newer`), not with
+  "unknown key"; additive keys stay possible within format 1.
 - A boundary file is GeoJSON with one polygon feature, in EPSG:25833 or in longitude and latitude. It must be a
   valid geometry, and its positions must be possible in the CRS the manifest states.
 - `[alkis]` is a WFS or an OGC API Features service with an optional WFS fallback; `normalise` names the preset

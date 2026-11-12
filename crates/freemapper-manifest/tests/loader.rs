@@ -353,6 +353,33 @@ fn an_adapter_for_a_newer_freemapper_is_skipped() {
     assert!(warnings.is_empty());
 }
 
+/// A manifest written for a newer freemapper may use keys and kinds this one does not know.
+/// What it says is that the adapter needs the newer program, not that a key is unknown: the
+/// version is read before the strict schema.
+#[test]
+fn a_manifest_of_a_newer_format_1_says_which_freemapper_it_needs() {
+    let dir = tempfile::tempdir().unwrap();
+    let newer = manifest("future")
+        .replace("\"0.13.0\"", "\"0.15.0\"")
+        .replace("[net]", "key_of_tomorrow = true\n\n[net]");
+    assert!(newer.contains("key_of_tomorrow") && newer.contains("0.15.0"));
+    write(dir.path(), "future", &newer);
+    let mut registry = Registry::new();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty());
+    let (code, warning) = skipped(&warnings);
+    assert_eq!(code, "adapter.needs-newer");
+    assert_eq!(warning.findings.len(), 1);
+    assert_eq!(
+        warning.findings[0].message,
+        "adapter future needs freemapper 0.15.0 or newer (this is 0.13.0)"
+    );
+    // The program it was written for reads the version and then finds what it cannot read.
+    let mut registry = Registry::new();
+    let (_, warnings) = load_dirs(&mut registry, &user(dir.path()), Version(0, 15, 0));
+    assert_eq!(skipped(&warnings).0, "manifest.unknown-key");
+}
+
 /// Review focus 5: a folder with more files than an adapter has, and a `rules.toml`, which this
 /// freemapper does not read: the adapter loads and the person hears about it.
 #[test]
