@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The example [Treppenviertel Blankenese](examples/hamburg-blankenese/) is rebuilt with the default profile `balanced`: contours, paths and 110 stairs from OpenStreetMap are on the map now (1780 map objects, 755 candidates). The [comparison page](examples/compare.en.md) says which examples were made before the content profiles and gives the measurements for Blankenese and Saarlouis.
+
 ## [0.14.0] - 2026-11-12
 
 ### Added

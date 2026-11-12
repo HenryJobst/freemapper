@@ -14,7 +14,7 @@ ist viel schlichter; wie sich beide unterscheiden und warum, zeigt die [Gegenüb
 | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 769 | 2263 | 36 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
 | Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 1226 | 1376 | 35 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
 | Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 1642 | 1111 | 33 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 969 | 979 | 27 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 1780 | 755 | 29 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
 | Hessen | [Altstadt und Landgrafenschloss Marburg](hessen-marburg/): steile Oberstadt mit Treppengassen, Schlossberg | 1541 | 1065 | 31 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
 | Schleswig-Holstein | [Altstadt Lübeck mit Holstentor](schleswig-holstein-luebeck/): mittelalterliche Altstadtinsel mit Gängen und Höfen | 2292 | 1766 | 32 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
 | Mecklenburg-Vorpommern | [Altstadt Wismar](mecklenburg-vorpommern-wismar/): Welterbe-Altstadt mit Georgenkirche und Marktplatz | 2486 | 1757 | 30 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
@@ -129,7 +129,9 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
 Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis ist das jüngste Beispiel und mit dem
 Inhaltsprofil `balanced` entstanden, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet:
-Die Karte selbst hat deshalb 30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben nur 249 Kandidaten. Die älteren Beispiele stammen aus der Zeit davor.
+Die Karte selbst hat deshalb 30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben nur 249 Kandidaten.
+Blankenese ist seitdem mit demselben Profil neu gebaut: Höhenlinien, Wege und 110 Treppen aus OpenStreetMap stehen
+dort jetzt in der Karte. Die übrigen zehn Beispiele stammen aus der Zeit vor den Inhaltsprofilen.
 
 ## Lizenzen
 
