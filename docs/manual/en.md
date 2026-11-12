@@ -352,7 +352,12 @@ screenshot shows the German page.*
    attribution when you pass the map on; then you name the sources yourself. The page shows this hint as soon
    as you choose it. Map kind, scale and title are set further up; for an existing project they are
    read-only (they live in `freemapper.toml`).
-3. **Press "Create map".** If the area changed since the last save, the page saves it first. "Replace the
+
+   The section "What goes onto the map" (collapsed) sets the content profile and the exceptions per group,
+   the same as `--content` and `--content-set`. A group set to "As in the profile" follows the profile. If you
+   change the profile, your exceptions stay and you can reset them one by one. The page saves the choice with
+   the area; what the profiles do is explained in [section 8](#8-what-the-templates-show).
+3. **Press "Create map".** If the area or the content settings changed since the last save, the page saves them first. "Replace the
    existing map" appears only when a map exists, and is never ticked in advance. When it is ticked, a dialog
    asks first; "Cancel" has the focus there. The old map stays in the project folder as `.omap.bak`.
 4. **Progress:** The page shows "Step 2 of 4: Computing templates", a bar without a percentage (freemapper
@@ -539,7 +544,7 @@ stays a candidate and appears only in the template. You set how this is divided 
 
 | Profile | Effect |
 |---|---|
-| `safe` | Every object stays where the build puts it: buildings, areas, water and paths on the map, everything else a candidate. |
+| `safe` | Every object stays where the build puts it: buildings, ALKIS areas (traffic, water, parks) and OSM paths with a known surface go onto the map. Walls, fences, trees, OSM ponds, paths without a known surface and everything else uncertain stay candidates. |
 | `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips, banks, stairs, towers, passages. Walls, fences, hedges, water, trees, tree groups, paths and railways also come from OpenStreetMap, which is often the only source there. Contours, areas that shall not be entered, street furniture and lamps, OSM parks and OSM monuments stay candidates. |
 | `full` | Everything goes onto the map, as in the training map. |
 

@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Die Gebietsseite bietet das Inhaltsprofil an (ADR 0101): ein eingeklappter Abschnitt „Was auf die Karte kommt“ im Block „Karte erzeugen“ mit den drei Profilen und einer Wahl je Gruppe („Wie im Profil“, Karte, Kandidat, Aus). Die Wahl wird mit dem Gebiet gespeichert, in einem Schreibvorgang unter der Revision von `freemapper.toml`; ein Wechsel des Profils behält die Ausnahmen.
 - `freemapper find "<Name>"` listet die OpenStreetMap-Orte zu einem Namen auf, höchstens fünf, die mit Fläche zuerst, jeden mit seiner Kennung, und nennt am Ende den Befehl `init --osm` für die erste Fläche. Bei einem Treffer ohne Fläche steht, dass er kein Kartengebiet sein kann. `--json` gibt dieselben Felder aus wie das MCP-Werkzeug `find_place`. Findet die Suche nichts, endet der Befehl mit Exit-Code 1; mit `--json` gibt er `[]` aus und endet mit 0, wie `find_place` antwortet. Steuerzeichen und Bidi-Steuerzeichen aus OSM-Namen erreichen das Terminal nicht. Es ist dieselbe Suche wie bei `find_place` und `init --place`, und `init --place` bleibt, wie es ist. Wie `init` prüft auch `find` einmal am Tag auf eine neue Version. `AGENTS.md` sagt Agenten an der Kommandozeile jetzt, der Person zuerst die Treffer zu zeigen und dann `init --osm` zu nehmen.
 
 ### Geändert

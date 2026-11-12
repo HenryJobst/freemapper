@@ -822,3 +822,224 @@ fn api_update_is_null_in_a_source_build() {
     let answer = update_answer(Some(available_record("9.9.9")), "http://127.0.0.1:9");
     assert_eq!(answer, json!({"available": null}));
 }
+
+// --- Content profiles (ADR 0100, 0101) -------------------------------------------------------
+
+/// The content settings in the project file in `dir`, read back with the library.
+fn stored_content(dir: &Path) -> Option<freemapper::build::content::ContentSettings> {
+    freemapper::project::ProjectFile::load(dir).unwrap().content
+}
+
+#[test]
+fn project_answer_carries_the_content_settings() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let state = selector.project();
+    assert!(state["content"].is_null(), "{state}");
+    // The lists the page shows come from the library, in its order.
+    let groups: Vec<&str> = state["content_options"]["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g.as_str().unwrap())
+        .collect();
+    let expected: Vec<&str> = freemapper::build::content::Group::ALL
+        .iter()
+        .map(|g| g.name())
+        .collect();
+    assert_eq!(groups, expected);
+    assert_eq!(
+        state["content_options"]["profiles"],
+        json!(["safe", "balanced", "full"])
+    );
+    assert_eq!(
+        state["content_options"]["places"],
+        json!(["map", "candidates", "off"])
+    );
+    let status = Command::new(env!("CARGO_BIN_EXE_freemapper"))
+        .env("FREEMAPPER_LANG", "en")
+        .arg("init")
+        .arg(project.parent().unwrap().join("other"))
+        .args([
+            "--geojson",
+            FIXTURE,
+            "--content",
+            "full",
+            "--content-set",
+            "walls=off",
+        ])
+        .stdout(Stdio::null())
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let cache = tempfile::tempdir().unwrap();
+    let other = Selector::start(&project.parent().unwrap().join("other"), cache.path(), &[]);
+    assert_eq!(
+        other.project()["content"],
+        json!({ "profile": "full", "walls": "off" })
+    );
+}
+
+#[test]
+fn save_stores_the_content_in_the_same_write() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let (status, saved) = selector.save(json!({
+        "area": rectangle(13.843, 52.539),
+        "content": { "profile": "safe", "walls": "map", "water-features": "off" },
+    }));
+    assert_eq!(status, 200, "{saved}");
+    let content = stored_content(&project).unwrap();
+    assert_eq!(content.profile.name(), "safe");
+    assert_eq!(content.summary(), "safe, walls=map, water-features=off");
+    // One write: the revision in the answer is that of the file now.
+    let bytes = std::fs::read(project.join("freemapper.toml")).unwrap();
+    assert_eq!(saved["revision"], freemapper_web::revision(&bytes));
+    assert_eq!(selector.project()["revision"], saved["revision"]);
+    assert_eq!(
+        selector.project()["content"],
+        json!({ "profile": "safe", "walls": "map", "water-features": "off" })
+    );
+}
+
+#[test]
+fn first_save_stores_the_content() {
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let project = dir.path().join("school");
+    let selector = Selector::start(&project, cache.path(), &[]);
+    let (status, saved) = selector.post(
+        "api/save",
+        json!({ "area": school_area(), "content": { "profile": "full", "trees": "off" } }),
+    );
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(
+        stored_content(&project).unwrap().summary(),
+        "full, trees=off"
+    );
+}
+
+#[test]
+fn save_without_content_keeps_the_stored_settings() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let (status, saved) = selector.save(json!({
+        "area": rectangle(13.843, 52.539),
+        "content": { "profile": "full", "fences": "candidates" },
+    }));
+    assert_eq!(status, 200, "{saved}");
+    let (status, saved) = selector.save(json!({ "area": rectangle(13.85, 52.539) }));
+    assert_eq!(status, 200, "{saved}");
+    assert_eq!(
+        stored_content(&project).unwrap().summary(),
+        "full, fences=candidates"
+    );
+}
+
+#[test]
+fn save_with_invalid_content_is_refused_and_writes_nothing() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let file = project.join("freemapper.toml");
+    let before = std::fs::read_to_string(&file).unwrap();
+    for content in [
+        json!({ "profile": "balanced", "gardens": "map" }),
+        json!({ "profile": "balanced", "walls": "everywhere" }),
+        json!({ "profile": "extreme" }),
+        json!("balanced"),
+    ] {
+        let (status, answer) = selector.save(json!({
+            "area": rectangle(13.843, 52.539),
+            "content": content,
+        }));
+        assert_eq!(status, 422, "{content}: {answer}");
+        // `refused` answers with the sentence as plain text.
+        assert!(answer.as_str().is_some_and(|e| !e.is_empty()), "{answer}");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), before, "{content}");
+    }
+}
+
+#[test]
+fn save_with_content_and_a_stale_revision_is_refused() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let file = project.join("freemapper.toml");
+    let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+    let mut other = std::fs::read_to_string(&file).unwrap();
+    other.push_str("\n# changed elsewhere\n");
+    std::fs::write(&file, &other).unwrap();
+    let (status, answer) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.843, 52.539), "content": { "profile": "full" } }),
+        Some(&seen),
+    );
+    assert_eq!(status, 409, "{answer}");
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), other);
+}
+
+#[test]
+fn a_save_with_content_never_shows_a_half_written_file() {
+    // Two writes (the area, then the content) would leave a file with the new area and the old
+    // content for a moment. A reader that polls the file all the time sees every state that the
+    // file has had; with one write it sees the old file and the new one, nothing between. A
+    // polling reader can miss a state, so this test can pass by luck with two writes, but it
+    // never fails with one (the writes are renames, a reader sees whole files).
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let file = project.join("freemapper.toml");
+    let before = std::fs::read(&file).unwrap();
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let seen = {
+        let (stop, file) = (stop.clone(), file.clone());
+        std::thread::spawn(move || {
+            let mut states: Vec<Vec<u8>> = Vec::new();
+            while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(bytes) = std::fs::read(&file)
+                    && states.last() != Some(&bytes)
+                {
+                    states.push(bytes);
+                }
+            }
+            states
+        })
+    };
+    std::thread::sleep(Duration::from_millis(50));
+    let (status, saved) = selector.save(json!({
+        "area": rectangle(13.843, 52.539),
+        "content": { "profile": "full", "walls": "off" },
+    }));
+    assert_eq!(status, 200, "{saved}");
+    std::thread::sleep(Duration::from_millis(50));
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    let states = seen.join().unwrap();
+    let after = std::fs::read(&file).unwrap();
+    assert_ne!(before, after);
+    for state in &states {
+        assert!(
+            *state == before || *state == after,
+            "the file had a state between the old and the new one:\n{}",
+            String::from_utf8_lossy(state)
+        );
+    }
+    assert!(states.contains(&after));
+}
+
+#[test]
+fn content_written_elsewhere_shows_in_the_next_project_answer() {
+    // The page takes this answer after a conflict, so an untouched content section follows the file.
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+    assert!(selector.project()["content"].is_null());
+    freemapper::project::set_content(
+        &project,
+        Some(freemapper::build::content::ContentSettings::with_profile(
+            freemapper::build::content::Profile::Full,
+        )),
+    )
+    .unwrap();
+    let state = selector.project();
+    assert_eq!(state["content"], json!({ "profile": "full" }));
+    assert_ne!(state["revision"].as_str().unwrap(), seen);
+    // A save with the old revision is refused and the foreign choice stays in the file.
+    let (status, _) = selector.post_with_revision(
+        "api/save",
+        json!({ "area": rectangle(13.843, 52.539), "content": { "profile": "balanced" } }),
+        Some(&seen),
+    );
+    assert_eq!(status, 409);
+    assert_eq!(stored_content(&project).unwrap().profile.name(), "full");
+}

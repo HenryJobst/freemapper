@@ -86,6 +86,7 @@ cli-open-folder-refused = The folder name is not safe to pass on to the file man
 cli-save-running = A run is going on for this project. Save again when it has finished.
 cli-save-unknown-kind = Unknown map kind "{ $kind }". Use schoolyard or sprint.
 cli-save-scale-too-large = The scale { $scale } is too large.
+cli-save-bad-content = The content settings are not valid. Nothing was saved.
 
 ## The area page (`web/`, ADR 0096). The page gets every `page-*` and `suite-*` message through
 ## `api/texts`; a `{ $name }` stays in the text and the page fills it in. No selectors: a count has
@@ -164,8 +165,37 @@ page-layer-aerial-nordrhein-westfalen = Aerial photo North Rhine-Westphalia (Geo
 page-layer-aerial-niedersachsen = Aerial photo Lower Saxony (LGLN)
 page-layer-aerial-rheinland-pfalz = Aerial photo Rhineland-Palatinate (LVermGeo RP)
 
-## The run panel of the area page (ADR 0090)
+## The "Create the map" block of the area page (ADR 0090)
 
+page-content-heading = What goes onto the map
+page-content-help = The profile decides what goes straight onto the map and what stays a candidate to check. A choice for a group beats the profile. It is saved with the area.
+page-content-profile-legend = Profile
+page-content-profile-safe = Safe
+page-content-profile-safe-hint = Every object stays where the build puts it: buildings and the areas of the cadastre go onto the map; walls, fences, trees and much from OpenStreetMap (ponds, paths without a known surface) stay candidates.
+page-content-profile-balanced = Balanced
+page-content-profile-balanced-hint = Objects of the cadastre, the registers and the street survey go onto the map, except street furniture, contours and areas that shall not be entered; for walls, fences, hedges, water, trees, paths and railways also those of OpenStreetMap.
+page-content-profile-full = Full
+page-content-profile-full-hint = Everything goes onto the map, as in the training map; only hidden candidates stay out.
+page-content-groups-legend = By group
+page-content-groups-help = "As in the profile" follows the profile. What that means for a group depends on where each object comes from.
+page-content-place-profile = As in the profile
+page-content-place-map = Map
+page-content-place-candidates = Candidate
+page-content-place-off = Off
+page-content-group-walls = Walls
+page-content-group-fences = Fences
+page-content-group-hedges = Hedges
+page-content-group-slopes = Banks and cliffs
+page-content-group-stairs = Stairs
+page-content-group-trees = Trees and tree groups
+page-content-group-water-features = Water, fountains and springs
+page-content-group-monuments = Towers, monuments and power lines
+page-content-group-furniture = Street furniture and lamps
+page-content-group-passages = Passages
+page-content-group-contours = Contours
+page-content-group-out-of-bounds = Areas that shall not be entered
+page-content-group-paths = Paths and railways
+page-content-group-streets = Streets and squares
 page-run-heading = Create the map
 page-opt-ocad = Write an OCAD starter project
 page-help-ocad = For everyone who carries on in OCAD.
