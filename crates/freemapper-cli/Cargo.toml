@@ -35,6 +35,7 @@ rust-embed.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
 tokio.workspace = true
 ureq.workspace = true
 
@@ -43,7 +44,6 @@ ureq.workspace = true
 freemapper-web = { workspace = true, features = ["page-rules"] }
 minisign-verify.workspace = true
 sha2.workspace = true
-tempfile.workspace = true
 
 [lints]
 workspace = true

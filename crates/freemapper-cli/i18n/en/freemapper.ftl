@@ -77,6 +77,46 @@ cli-adapters-never-checked = never
 cli-adapters-user-dir = Your adapters are read from { $path }
 cli-adapters-no-user-dir = This system has no folder for your adapters; FREEMAPPER_ADAPTER_DIR names one
 
+## adapters check. A finding arrives in `{ $finding }` as in the lines above. `{ $capability }` is
+## a fixed word (`rasters`, `alkis-buildings`, `nas`, `osm`), the same in every language.
+
+cli-check-adapter = adapter { $adapter } ({ $name }), revision { $revision }, hosts: { $hosts }
+cli-check-error = error: { $finding }
+cli-check-warning = warning: { $finding }
+cli-check-passed = { $folder } passes the check
+cli-check-passed-warnings = { $folder } passes the check, with { $count ->
+        [one] one warning
+       *[other] { $count } warnings
+    }
+cli-check-failed = { $folder } fails the check
+cli-check-no-folder = there is no folder { $folder }
+cli-check-live-ok = { $capability } ok: { $detail }
+cli-check-live-failed = { $capability } FAILED: { $detail }
+cli-check-live-not-asked = { $capability } not asked: { $detail }
+cli-check-live-box-outside = the box does not lie inside the boundary of the adapter { $adapter }; a live check asks the services for a place the adapter covers
+cli-check-live-cannot = the live check cannot run: { $detail }
+cli-check-detail-not-declared = the adapter declares none
+cli-check-detail-stopped = an earlier part failed
+cli-check-detail-see-warnings = see the warnings
+cli-check-detail-outside-dataset = the box lies outside the dataset
+cli-check-detail-objects = { $count ->
+        [one] one object
+       *[other] { $count } objects
+    }
+cli-check-detail-layers = { $layers } layers, { $count } objects
+cli-check-detail-trees = { $count ->
+        [one] one tree
+       *[other] { $count } trees
+    }
+cli-check-detail-extract = { $label }, data of { $date }
+cli-check-raster-orthophoto = orthophoto
+cli-check-raster-terrain = terrain model
+cli-check-raster-surface = surface model
+cli-check-raster-tiles = { $product }: { $count ->
+        [one] one tile
+       *[other] { $count } tiles
+    }
+
 ## Lists in sentences
 
 # A list in a sentence: its last item after the others, which are joined by commas.
@@ -519,6 +559,11 @@ help-adapters = Show the region adapters: the states and countries freemapper ha
 help-adapters-list = List the adapters with where each comes from (built in, your folder, a project), its revision, the day it was last checked and the hosts it asks
 help-adapters-list-json = Print the list as JSON
 help-adapters-list-project = Also read the adapters in the folder `adapters` of this project folder, as --adapters-from-project would
+help-adapters-check = Check the folder of an adapter before it is used or passed on: whether it would load, what its author should know, and with --live whether its services answer. Exit code 0: it passes; 1: it has findings; 2: the check could not run
+help-adapters-check-dir = The folder of the adapter; its name is the id of the adapter
+help-adapters-check-live = Also ask the services of the adapter for the box --bbox names and say what each delivers. The requests stay on the hosts the manifest declares
+help-adapters-check-bbox = The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary of the adapter; 150 m by 150 m is enough
+help-adapters-check-json = Print the result as JSON
 help-arg-adapters-from-project = Also load the adapters in the folder `adapters` of the project folder. freemapper names each of them with the hosts it asks. Use it for a project you trust: an adapter makes freemapper ask the servers it names
 
 ## The summary of a run, for the MCP server and the area page

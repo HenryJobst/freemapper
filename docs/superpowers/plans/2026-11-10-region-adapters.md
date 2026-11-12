@@ -577,6 +577,17 @@ and the code differ, the code and the ADRs hold:
 Left for later: the host policy for the built-in adapters alone (after live runs), the raster code and the WFS
 constants that the manifests made double, and the estimate inside the backends.
 
+## Stage E as built (2026-11-12)
+
+- E1: `freemapper_sources::replay` holds the replay and the recording fetcher; `docs/adapters/fixtures.md`
+  describes the format.
+- E2 (ADR 0109): the command is `adapters check <dir>`, with `adapter` as an alias of `adapters`, since D7 named
+  the group `adapters`. Static checks and `--live --bbox` are built, `--json` too. `--fixtures` is not: no folder
+  has a recording and `adapter record` is deferred. The static checks are `freemapper_manifest::check`; the live
+  check fetches a project without the OSM extract (`project::fetch_project_sources`) with the checked adapter as
+  the only one in the registry. "Boundary area plausible for the object-id prefix" became two warnings: an area
+  under 1 km² or over 2 million km², and a prefix a built-in adapter has.
+
 ---
 
 ## Stage E: tooling

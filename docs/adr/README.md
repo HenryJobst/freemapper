@@ -151,3 +151,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0103](0103-the-area-page-takes-the-regions-from-the-registry.md) | The area page and the texts take the regions from the registry | Accepted | 2026-11-12 |
 | [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) | Requests go to public addresses, and with a policy to declared hosts only | Accepted | 2026-11-12 |
 | [0107](0107-adapter-manifests-format-1-as-built.md) | Adapter manifests, format 1, as built | Accepted | 2026-11-12 |
+| [0109](0109-the-adapter-check-reads-a-folder-and-asks-its-services.md) | The adapter check reads a folder and, when asked, its services | Accepted | 2026-11-12 |

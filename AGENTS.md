@@ -111,6 +111,12 @@ Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
 
+`adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
+(warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`
+(each with `severity`, `code`, `file`, `line`, `key`, `message`), `live` and `live_warnings`. `--live --bbox
+minLon,minLat,maxLon,maxLat` also fetches for that box from the servers the manifest names; run it only when the
+person asks for it.
+
 `init`, `fetch`, `derive`, `export` and `run` take `--adapters-from-project`: it also loads the region adapters in
 the folder `adapters` of the project folder, which can make freemapper ask other servers. Pass it only when the
 person asks for it; the MCP server and the area page never load such adapters. Each one loaded is named in a

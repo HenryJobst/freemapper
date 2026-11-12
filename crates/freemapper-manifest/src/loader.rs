@@ -158,7 +158,7 @@ pub fn load_dirs(
             if is_file {
                 continue;
             }
-            match load_one(registry, &folder, dir.origin, running) {
+            match load_folder(registry, &folder, dir.origin, running) {
                 Ok((adapter, notes)) => {
                     if !notes.is_empty() {
                         warnings.push(AdapterWarning {
@@ -182,7 +182,7 @@ pub fn load_dirs(
 
 /// Loads the adapter of `folder` into `registry`; the findings of an adapter that loads, or
 /// those that keep it out.
-fn load_one(
+pub fn load_folder(
     registry: &mut Registry,
     folder: &Path,
     origin: Origin,
@@ -277,7 +277,7 @@ fn load_one(
 /// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: a
 /// point inside the one is inside the other. Two neighbours whose simplified borders cross are
 /// not among them.
-fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
+pub(crate) fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
     use geo::{Contains, InteriorPoint};
     let inside = |shape: &MultiPolygon<f64>, of: &MultiPolygon<f64>| {
         shape

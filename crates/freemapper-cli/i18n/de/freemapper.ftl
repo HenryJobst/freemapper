@@ -77,6 +77,46 @@ cli-adapters-never-checked = nie
 cli-adapters-user-dir = Ihre Adapter werden aus { $path } gelesen
 cli-adapters-no-user-dir = Dieses System hat keinen Ordner für Ihre Adapter; FREEMAPPER_ADAPTER_DIR nennt einen
 
+## adapters check. Ein Befund kommt in `{ $finding }` wie in den Zeilen oben. `{ $capability }` ist
+## ein festes Wort (`rasters`, `alkis-buildings`, `nas`, `osm`), in jeder Sprache dasselbe.
+
+cli-check-adapter = Adapter { $adapter } ({ $name }), Revision { $revision }, Hosts: { $hosts }
+cli-check-error = Fehler: { $finding }
+cli-check-warning = Warnung: { $finding }
+cli-check-passed = { $folder } besteht die Prüfung
+cli-check-passed-warnings = { $folder } besteht die Prüfung, mit { $count ->
+        [one] einer Warnung
+       *[other] { $count } Warnungen
+    }
+cli-check-failed = { $folder } besteht die Prüfung nicht
+cli-check-no-folder = Es gibt keinen Ordner { $folder }
+cli-check-live-ok = { $capability } in Ordnung: { $detail }
+cli-check-live-failed = { $capability } FEHLGESCHLAGEN: { $detail }
+cli-check-live-not-asked = { $capability } nicht angefragt: { $detail }
+cli-check-live-box-outside = Das Rechteck liegt nicht innerhalb der Grenze des Adapters { $adapter }; eine Live-Prüfung fragt die Dienste für einen Ort an, den der Adapter abdeckt
+cli-check-live-cannot = Die Live-Prüfung kann nicht laufen: { $detail }
+cli-check-detail-not-declared = der Adapter erklärt keine
+cli-check-detail-stopped = ein früherer Teil ist fehlgeschlagen
+cli-check-detail-see-warnings = siehe die Warnungen
+cli-check-detail-outside-dataset = das Rechteck liegt außerhalb des Datensatzes
+cli-check-detail-objects = { $count ->
+        [one] ein Objekt
+       *[other] { $count } Objekte
+    }
+cli-check-detail-layers = { $layers } Ebenen, { $count } Objekte
+cli-check-detail-trees = { $count ->
+        [one] ein Baum
+       *[other] { $count } Bäume
+    }
+cli-check-detail-extract = { $label }, Datenstand { $date }
+cli-check-raster-orthophoto = Luftbild
+cli-check-raster-terrain = Geländemodell
+cli-check-raster-surface = Oberflächenmodell
+cli-check-raster-tiles = { $product }: { $count ->
+        [one] eine Kachel
+       *[other] { $count } Kacheln
+    }
+
 ## Aufzählungen im Satz
 
 # Eine Aufzählung im Satz: das letzte Glied nach den anderen, die Kommas verbinden.
@@ -519,6 +559,11 @@ help-adapters = Die Regionsadapter zeigen: die Bundesländer und Länder, für d
 help-adapters-list = Die Adapter auflisten, jeweils mit Herkunft (eingebaut, Ihr Ordner, ein Projekt), Revision, dem Tag der letzten Prüfung und den Hosts, die er anfragt
 help-adapters-list-json = Die Liste als JSON ausgeben
 help-adapters-list-project = Auch die Adapter im Ordner `adapters` dieses Projektordners lesen, wie es --adapters-from-project täte
+help-adapters-check = Den Ordner eines Adapters prüfen, bevor er benutzt oder weitergegeben wird: ob er laden würde, was sein Autor wissen sollte und, mit --live, ob seine Dienste antworten. Exit-Code 0: bestanden; 1: Befunde; 2: Die Prüfung konnte nicht laufen
+help-adapters-check-dir = Der Ordner des Adapters; sein Name ist die Kennung des Adapters
+help-adapters-check-live = Auch die Dienste des Adapters für das Rechteck aus --bbox anfragen und sagen, was jeder liefert. Die Anfragen bleiben auf den Hosts, die das Manifest erklärt
+help-adapters-check-bbox = Das Rechteck der Live-Prüfung in Grad, als minLon,minLat,maxLon,maxLat. Es liegt innerhalb der Grenze des Adapters; 150 m mal 150 m genügen
+help-adapters-check-json = Das Ergebnis als JSON ausgeben
 help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite

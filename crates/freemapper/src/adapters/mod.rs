@@ -18,6 +18,15 @@ pub fn builtin() -> Registry {
     registry
 }
 
+/// A registry with the raster backends of the program and no adapter: what the manifest of an
+/// adapter that is checked on its own may name.
+pub fn backends() -> Registry {
+    let mut registry = Registry::new();
+    freemapper_adapters_de::states::register_backends(&mut registry)
+        .expect("the built-in backends have distinct names");
+    registry
+}
+
 static REGISTRY: OnceLock<Registry> = OnceLock::new();
 
 /// The registry of this process: the one installed, else the built-in states.
@@ -246,6 +255,17 @@ mod tests {
              sources for those only so far"
         );
         assert_eq!(region_names(true)[2], "Sachsen");
+    }
+
+    /// The backends alone: no adapter, and every backend a built-in manifest names.
+    #[test]
+    fn the_backends_come_without_an_adapter() {
+        let backends = backends();
+        assert_eq!(backends.len(), 0);
+        for name in ["lgb", "geosn", "lgv", "hvbg", "lgln"] {
+            assert!(backends.backend(name).is_some(), "{name}");
+        }
+        assert!(backends.backend("lvermgeo").is_none());
     }
 
     #[test]

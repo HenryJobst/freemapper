@@ -1871,6 +1871,103 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     assert!(err.starts_with("Warnung: Der Adapter in "), "{err}");
 }
 
+/// `adapters check` reads the folder of one adapter: exit code 0 when it would load, 1 with
+/// findings, 2 when the check cannot run. `adapter check` is the same command.
+#[test]
+fn adapters_check_passes_fails_and_refuses() {
+    let hamburg = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../adapters/de/manifests/hamburg"
+    );
+    let check = |args: &[&str]| {
+        let output = freemapper().args(args).output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    // The folder of a built-in state passes, with the warning that its id is built in.
+    let (code, out, err) = check(&["adapters", "check", hamburg]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    let lines: Vec<&str> = out.lines().collect();
+    assert!(
+        lines[0].starts_with("adapter hamburg (Hamburg), revision 1, hosts: "),
+        "{out}"
+    );
+    assert!(lines[1].contains("[check.built-in-id]"), "{out}");
+    assert!(
+        lines[2].ends_with("passes the check, with one warning"),
+        "{out}"
+    );
+    assert!(err.is_empty(), "{err}");
+    let (code, out, _) = check(&["adapter", "check", hamburg, "--json"]);
+    assert_eq!(code, Some(0), "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["passed"], true);
+    assert_eq!(json["adapter"]["id"], "hamburg");
+    assert_eq!(json["findings"][0]["code"], "check.built-in-id");
+    assert_eq!(json["findings"][0]["severity"], "warning");
+    let (_, out, _) = check(&["adapters", "check", hamburg, "--lang", "de"]);
+    assert!(
+        out.starts_with("Adapter hamburg (Hamburg), Revision 1, Hosts: "),
+        "{out}"
+    );
+    assert!(
+        out.contains("besteht die Prüfung, mit einer Warnung"),
+        "{out}"
+    );
+
+    // A folder with a defect: every finding, and exit code 1.
+    let dir = tempfile::tempdir().unwrap();
+    write_adapter(dir.path(), "mine");
+    let mine = dir.path().join("mine");
+    std::fs::write(
+        mine.join("boundary.geojson"),
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[9.7,53.4],[10.3,53.4],[10.3,53.7],[9.7,53.7],[9.7,53.4]]]}}"#,
+    )
+    .unwrap();
+    let (code, out, _) = check(&["adapters", "check", mine.to_str().unwrap()]);
+    assert_eq!(code, Some(1), "{out}");
+    assert!(out.starts_with("error: "), "{out}");
+    assert!(out.contains("[boundary.crs]"), "{out}");
+    assert!(out.trim_end().ends_with("fails the check"), "{out}");
+    let (code, out, _) = check(&["adapters", "check", mine.to_str().unwrap(), "--json"]);
+    assert_eq!(code, Some(1), "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(json["passed"], false);
+    assert_eq!(json["findings"][0]["code"], "boundary.crs");
+
+    // What cannot run: no folder, a live check without a box, a box outside the boundary.
+    let nowhere = dir.path().join("nowhere");
+    let (code, out, err) = check(&["adapters", "check", nowhere.to_str().unwrap()]);
+    assert_eq!(code, Some(2), "{out}{err}");
+    assert!(err.starts_with("error: there is no folder "), "{err}");
+    let (code, _, err) = check(&["adapters", "check", hamburg, "--live"]);
+    assert_eq!(code, Some(2), "{err}");
+    assert!(err.contains("--bbox"), "{err}");
+    let cache = dir.path().join("cache");
+    let (code, out, err) = check(&[
+        "adapters",
+        "check",
+        hamburg,
+        "--live",
+        "--bbox",
+        "13.84,52.53,13.85,52.54",
+        "--cache-dir",
+        cache.to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(2), "{out}{err}");
+    assert_eq!(
+        err.trim_end(),
+        "error: the box does not lie inside the boundary of the adapter hamburg; a live check \
+         asks the services for a place the adapter covers"
+    );
+    assert!(out.is_empty(), "{out}");
+    assert!(!cache.exists());
+}
+
 /// A command loads the adapters of its project folder only with `--adapters-from-project`,
 /// and then says which adapter asks which hosts.
 #[test]

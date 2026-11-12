@@ -877,6 +877,19 @@ pub fn fetch_project(
     fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
 }
 
+/// [`fetch_project`] without the OSM extract: what the services of the adapters deliver for
+/// the map area. The check of an adapter asks this; an extract has 50 to 500 MB and is the
+/// same for every adapter of its region.
+pub fn fetch_project_sources(
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    mode: FetchMode,
+    progress: &mut dyn FnMut(Note),
+) -> Result<ProjectFile, ProjectError> {
+    fetch_project_parts(dir, fetcher, cache, mode, progress, &|| false, false)
+}
+
 /// A project file with its folder, as the raster fetch of an adapter sees it.
 struct ProjectDir<'a> {
     dir: &'a Path,
@@ -965,7 +978,7 @@ pub fn fetch_project_cancellable(
     };
     // A failure after the stop was asked for is the stop (a refused request surfaces as many
     // kinds of error).
-    fetch_project_parts(dir, &guarded, cache, mode, progress, cancelled).map_err(|e| {
+    fetch_project_parts(dir, &guarded, cache, mode, progress, cancelled, true).map_err(|e| {
         if cancelled() {
             ProjectError::Cancelled
         } else {
@@ -974,6 +987,7 @@ pub fn fetch_project_cancellable(
     })
 }
 
+/// `osm`: whether the OSM extract is fetched and read as well.
 fn fetch_project_parts(
     dir: &Path,
     fetcher: &dyn Fetcher,
@@ -981,6 +995,7 @@ fn fetch_project_parts(
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
     cancelled: &dyn Fn() -> bool,
+    osm: bool,
 ) -> Result<ProjectFile, ProjectError> {
     stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
@@ -1117,6 +1132,9 @@ fn fetch_project_parts(
     );
     stop_if(cancelled)?;
     project.save(dir)?;
+    if !osm {
+        return Ok(project);
+    }
     let skip_update = skips(Part::OsmUpdate);
     let osm = fetch_osm_into(dir, fetcher, cache, mode, skip_update, &project, progress)?;
     stop_if(cancelled)?;
@@ -4624,6 +4642,30 @@ mod tests {
         .unwrap();
         assert_eq!(project.terrain.unwrap().fetched, earlier);
         assert_eq!(project.surface.unwrap().fetched, earlier);
+    }
+
+    /// The fetch for the check of an adapter brings what the services of the adapters deliver
+    /// and leaves the OSM extract alone.
+    #[test]
+    fn the_sources_of_a_project_come_without_the_osm_extract() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        let project =
+            fetch_project_sources(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
+                .unwrap();
+        assert!(project.orthophoto.is_some() && project.terrain.is_some());
+        assert!(project.buildings.is_some() && project.land_use.is_some());
+        assert!(project.osm.is_none());
+        assert!(!dir.path().join(OSM_CANDIDATES_RELPATH).exists());
+        let asked = fetcher.log.borrow();
+        assert!(!asked.is_empty());
+        assert!(
+            asked.iter().all(|url| !url.contains("geofabrik")),
+            "{asked:?}"
+        );
+        // The same project fetched whole reads the extract.
+        drop(asked);
+        assert!(fetch(dir.path(), &fetcher, &cache).0.osm.is_some());
     }
 
     #[test]

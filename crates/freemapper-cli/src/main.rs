@@ -1,5 +1,6 @@
 //! `freemapper` command line interface.
 
+mod adapter_check;
 mod adapters;
 mod errors;
 mod estimate;
@@ -221,6 +222,7 @@ enum Commands {
         cache: CacheArgs,
     },
     /// Show the region adapters: the states and countries freemapper has data sources for.
+    #[command(alias = "adapter")]
     Adapters {
         #[command(subcommand)]
         command: AdaptersCommand,
@@ -259,6 +261,31 @@ enum AdaptersCommand {
         /// --adapters-from-project would.
         #[arg(long, value_name = "DIR")]
         project: Option<PathBuf>,
+    },
+    /// Check the folder of an adapter before it is used or passed on: whether it would load,
+    /// what its author should know, and with --live whether its services answer. Exit code 0:
+    /// it passes; 1: it has findings; 2: the check could not run.
+    Check {
+        /// The folder of the adapter; its name is the id of the adapter.
+        dir: PathBuf,
+        /// Also ask the services of the adapter for the box --bbox names and say what each
+        /// delivers. The requests stay on the hosts the manifest declares.
+        #[arg(long, requires = "bbox")]
+        live: bool,
+        /// The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies
+        /// inside the boundary of the adapter; 150 m by 150 m is enough.
+        #[arg(
+            long,
+            value_name = "BOX",
+            requires = "live",
+            allow_hyphen_values = true
+        )]
+        bbox: Option<adapter_check::LiveBox>,
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
 }
 
@@ -869,6 +896,18 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         Commands::Adapters {
             command: AdaptersCommand::List { json, project },
         } => adapters::list(json, project.as_deref()),
+        Commands::Adapters {
+            command:
+                AdaptersCommand::Check {
+                    dir,
+                    live,
+                    bbox,
+                    json,
+                    cache,
+                },
+        } => {
+            return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
+        }
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;

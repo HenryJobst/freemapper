@@ -973,9 +973,21 @@ Ein Adapter lässt freemapper die Server anfragen, die er nennt, und keine ander
 trotzdem, bevor Sie es in Ihren Adapterordner kopieren: `[net] hosts` zählt jeden Server auf.
 
 Ein Projektordner kann Adapter in seinem Ordner `adapters` mitbringen. freemapper lädt sie nur, wenn Sie es
-sagen, mit `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` oder `run`, und nennt dann jeden
-in einer Warnung mit den Servern, die er anfragen darf. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen Sie den Schalter für ein
-eigenes Projekt.
+sagen, mit `--adapters-from-project` bei `init`, `fetch`, `derive`, `export` oder `run`, und nennt dann jeden in
+einer Warnung mit den Servern, die er anfragen darf. Die Gebietsseite und der KI-Assistent laden sie nie. Nutzen
+Sie den Schalter für ein eigenes Projekt.
+
+`freemapper adapters check <Ordner>` prüft den Ordner eines Adapters, ohne einen Server anzufragen: ob er laden
+würde und was sein Autor wissen sollte. Mit `--live --bbox minLon,minLat,maxLon,maxLat` fragt der Befehl
+zusätzlich die Dienste des Adapters für ein kleines Rechteck innerhalb seiner Grenze an (150 m mal 150 m
+genügen) und sagt je Fähigkeit, was ankam:
+
+```sh
+freemapper adapters check ~/meine-adapter/saarland
+freemapper adapters check ~/meine-adapter/saarland --live --bbox 6.9930,49.2330,6.9952,49.2344
+```
+
+Der Exit-Code ist 0, wenn der Adapter besteht, 1 bei Befunden und 2, wenn die Prüfung nicht laufen konnte.
 
 Das Format des Manifests beschreibt
 [ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md) (englisch); die Manifeste der eingebauten

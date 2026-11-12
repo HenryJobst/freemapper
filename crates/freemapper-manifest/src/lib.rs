@@ -14,6 +14,7 @@ use std::path::Path;
 pub mod adapter;
 pub mod alkis;
 pub mod boundary;
+pub mod check;
 pub mod dates;
 pub mod error;
 pub mod estimate;

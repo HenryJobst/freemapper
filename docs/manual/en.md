@@ -938,8 +938,21 @@ An adapter makes freemapper ask the servers it names, and no others. Still, read
 into your adapter folder: `[net] hosts` lists every server.
 
 A project folder can bring adapters along in its folder `adapters`. freemapper loads them only when you say so,
-with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each in a
-warning with the servers it may ask. The area page and the AI assistant never load them. Use the switch for a project of your own.
+with `--adapters-from-project` on `init`, `fetch`, `derive`, `export` or `run`, and then names each in a warning
+with the servers it may ask. The area page and the AI assistant never load them. Use the switch for a project of
+your own.
+
+`freemapper adapters check <folder>` checks the folder of an adapter without asking a server: whether it would
+load, and what its author should know. With `--live --bbox minLon,minLat,maxLon,maxLat` it also asks the
+services of the adapter for a small box inside its boundary (150 m by 150 m is enough) and says what arrived
+for each capability:
+
+```sh
+freemapper adapters check ~/my-adapters/saarland
+freemapper adapters check ~/my-adapters/saarland --live --bbox 6.9930,49.2330,6.9952,49.2344
+```
+
+The exit code is 0 when the adapter passes, 1 with findings and 2 when the check could not run.
 
 The format of the manifest is described in
 [ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md); the manifests of the built-in states in
