@@ -1,0 +1,89 @@
+# North Rhine-Westphalia: a WFS, a WMS and a backend for the tile lists of the heights.
+format = 1
+
+[adapter]
+id = "nordrheinwestfalen"
+provider = "geobasisnrw"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DENW"
+names = { en = "North Rhine-Westphalia", de = "Nordrhein-Westfalen" }
+
+[net]
+hosts = ["www.wfs.nrw.de", "www.wms.nrw.de", "www.opengeodata.nrw.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+# Five extracts, each with its own boundary; an area on a district border reads two.
+[[osm.extract]]
+geofabrik = "europe/germany/nordrhein-westfalen/arnsberg-regbez"
+megabytes = 195.2
+label = "North Rhine-Westphalia, Arnsberg"
+boundary = "osm-arnsberg.geojson"
+cache_prefix = "nrw-arnsberg"
+
+[[osm.extract]]
+geofabrik = "europe/germany/nordrhein-westfalen/detmold-regbez"
+megabytes = 137.3
+label = "North Rhine-Westphalia, Detmold"
+boundary = "osm-detmold.geojson"
+cache_prefix = "nrw-detmold"
+
+[[osm.extract]]
+geofabrik = "europe/germany/nordrhein-westfalen/duesseldorf-regbez"
+megabytes = 217.2
+label = "North Rhine-Westphalia, Düsseldorf"
+boundary = "osm-duesseldorf.geojson"
+cache_prefix = "nrw-duesseldorf"
+
+[[osm.extract]]
+geofabrik = "europe/germany/nordrhein-westfalen/koeln-regbez"
+megabytes = 225.2
+label = "North Rhine-Westphalia, Köln"
+boundary = "osm-koeln.geojson"
+cache_prefix = "nrw-koeln"
+
+[[osm.extract]]
+geofabrik = "europe/germany/nordrhein-westfalen/muenster-regbez"
+megabytes = 140.9
+label = "North Rhine-Westphalia, Münster"
+boundary = "osm-muenster.geojson"
+cache_prefix = "nrw-muenster"
+
+[attribution]
+licence = "dl-de/zero-2-0"
+text = "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0"
+
+[alkis]
+kind = "wfs"
+name = "Geobasis NRW ALKIS"
+crs = 25832
+url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+square_bez = "ohne Unterart (Nordrhein-Westfalen)"
+
+[orthophoto]
+kind = "wms"
+url = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
+layer = "nw_dop_rgb"
+crs = 25832
+max_px = 4000
+date = { kind = "wms-featureinfo", layer = "nw_dop_utm_info", field = "Bildflugdatum" }
+
+[terrain]
+kind = "backend"
+backend = "geobasis-nrw"
+
+[surface]
+backend = "geobasis-nrw"
+
+[preview]
+wms = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
+layer = "nw_dop_rgb"
+format = "image/jpeg"
+attribution = "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0"
+agency = "Geobasis NRW"

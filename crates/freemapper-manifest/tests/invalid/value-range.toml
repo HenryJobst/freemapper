@@ -1,0 +1,38 @@
+# expect: manifest.value
+# a request of 100 000 pixels
+format = 1
+
+[adapter]
+id = "sample"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+names = { en = "Sample", de = "Beispiel" }
+
+[net]
+hosts = ["geo.example.org"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/hamburg"
+megabytes = 54
+label = "Sample"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "© Sample {year}, dl-de/by-2-0"
+
+[alkis]
+kind = "wfs"
+url = "https://geo.example.org/alkis/wfs"
+buildings_type = "ave:GebaeudeBauwerk"
+land_use_type = "ave:NutzungFlurstueck"
+
+[orthophoto]
+kind = "wms"
+url = "https://geo.example.org/dop/wms"
+layer = "dop20"
+max_px = 100000

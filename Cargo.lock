@@ -809,6 +809,18 @@ version = "0.21.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.1#46ce8c67bd15fc66f4ffed3093eb95672eb2cef3"
 
 [[package]]
+name = "freemapper-manifest"
+version = "0.13.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-fs",
+ "freemapper-georef",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "freemapper-omap"
 version = "0.21.1"
 source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.1#46ce8c67bd15fc66f4ffed3093eb95672eb2cef3"
