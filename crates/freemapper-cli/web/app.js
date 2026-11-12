@@ -169,13 +169,17 @@ let savedSignature = null;
 let conflict = false;
 
 function signature() {
-  return JSON.stringify({ area, sourceId });
+  return JSON.stringify({ area, sourceId, content: contentKey(content) });
 }
 
 /** The signature of the area that `project` holds, as `signature()` gives it once shown. */
 function savedSignatureOf(project) {
   const saved = project && project.area ? geometryOf(project.area) : null;
-  return JSON.stringify({ area: saved, sourceId: saved ? project.source_id : null });
+  return JSON.stringify({
+    area: saved,
+    sourceId: saved ? project.source_id : null,
+    content: contentKey(contentOf(project)),
+  });
 }
 
 /** Tells the run panel that the area, the preview or the project changed. */
@@ -192,6 +196,9 @@ function updateControls() {
   }
   $("search").querySelector("button").disabled = busy;
   for (const id of ["kind", "scale", "title"]) $(id).disabled = busy || (project && project.exists);
+  for (const control of $("content-section").querySelectorAll("input, select")) {
+    control.disabled = busy;
+  }
 }
 
 /** "Error: …" in the page language; the bare message while the texts are missing. */
@@ -549,13 +556,25 @@ $("save").addEventListener("click", () => saveArea(true));
 
 /**
  * freemapper.toml holds another state than this page saved or read: show `text` in the banner,
- * take the saved area as the saved one and wait for an explicit "Save".
+ * take the saved area as the saved one and wait for an explicit "Save". The content settings follow
+ * the file unless the person changed them since they were loaded.
  */
 function showConflict(text) {
   conflict = true;
   setMessage("");
   showBanner(text);
   savedSignature = savedSignatureOf(project);
+  if (contentKey(content) === contentKey(loadedContent)) {
+    // The person did not touch the section: take what the file says now, so that a "Save" does not
+    // overwrite a choice that the command line or an assistant wrote.
+    content = contentOf(project);
+    loadedContent = contentOf(project);
+    showContent();
+  } else {
+    // The person changed it and sees it: their choice stays; open the section so they see what
+    // "Save" will write.
+    $("content-section").open = true;
+  }
 }
 
 /**
@@ -569,6 +588,8 @@ async function saveArea(explicit = false) {
   $("save").disabled = true;
   try {
     const body = { area, source_id: sourceId };
+    // Only a choice that differs from the file; without one the stored settings stay as they are.
+    if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
     if (!project.exists) {
       body.kind = $("kind").value;
       body.scale = Number($("scale").value) || undefined;
@@ -578,6 +599,7 @@ async function saveArea(explicit = false) {
     const answer = await api("api/save", body, project.revision);
     savedHere = true;
     savedSignature = signature();
+    loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
     setMessage(
       t(
         answer.zone_changed
@@ -618,13 +640,13 @@ async function saveArea(explicit = false) {
   }
 }
 
-/** True when the shown area is the one in freemapper.toml. */
+/** True when the shown area and content settings are the ones in freemapper.toml. */
 function isSaved() {
   return !!project && project.exists && signature() === savedSignature;
 }
 
 /**
- * Saves first when the area changed; true when the project on disk matches the page. After a
+ * Saves first when the area or the content settings changed; true when the project on disk matches the page. After a
  * conflict it saves nothing and answers false: the person decides with "Save".
  */
 async function ensureSaved() {
@@ -682,6 +704,124 @@ window.freemapperPage = {
   reloadProject,
 };
 
+// --- Content profiles (ADR 0100, 0101) --------------------------------------------------------
+
+// The texts by literal id, so that the tests find every one of them in this script. A group, a
+// profile or a place that the server lists and this table lacks shows under its own name; the
+// Rust test `content_names_cover_the_library` fails first.
+const CONTENT_NAMES = {
+  profiles: {
+    safe: ["page-content-profile-safe", "page-content-profile-safe-hint"],
+    balanced: ["page-content-profile-balanced", "page-content-profile-balanced-hint"],
+    full: ["page-content-profile-full", "page-content-profile-full-hint"],
+  },
+  groups: {
+    walls: "page-content-group-walls",
+    fences: "page-content-group-fences",
+    hedges: "page-content-group-hedges",
+    slopes: "page-content-group-slopes",
+    stairs: "page-content-group-stairs",
+    trees: "page-content-group-trees",
+    "water-features": "page-content-group-water-features",
+    monuments: "page-content-group-monuments",
+    furniture: "page-content-group-furniture",
+    passages: "page-content-group-passages",
+    contours: "page-content-group-contours",
+    "out-of-bounds": "page-content-group-out-of-bounds",
+    paths: "page-content-group-paths",
+    streets: "page-content-group-streets",
+  },
+  places: {
+    map: "page-content-place-map",
+    candidates: "page-content-place-candidates",
+    off: "page-content-place-off",
+  },
+  profileDefault: "page-content-place-profile",
+};
+
+// The choice on the page: a profile and the groups that differ from it ({ group: place }).
+let content = { profile: "balanced", groups: {} };
+// The choice as last loaded from the file or saved: tells whether the person changed it since.
+let loadedContent = { profile: "balanced", groups: {} };
+
+/** The choice that `project` holds; `balanced` without exceptions when its file has none. */
+function contentOf(project) {
+  const stored = project && project.content;
+  const groups = {};
+  if (stored) {
+    for (const name of project.content_options.groups) if (stored[name]) groups[name] = stored[name];
+  }
+  return { profile: (stored && stored.profile) || "balanced", groups };
+}
+
+/** The choice in a fixed order, to compare two of them. */
+function contentKey(choice) {
+  return JSON.stringify([choice.profile, Object.entries(choice.groups).sort()]);
+}
+
+/** The choice as `api/save` takes it: flat, with the groups by their names in freemapper.toml. */
+function contentBody(choice) {
+  return { profile: choice.profile, ...choice.groups };
+}
+
+/** Builds the controls once from the lists of the server, in the library's order. */
+function buildContent(options) {
+  const profiles = $("content-profile");
+  for (const name of options.profiles) {
+    const [nameId, hintId] = CONTENT_NAMES.profiles[name] || [null, null];
+    const label = document.createElement("label");
+    label.className = "option";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "content-profile";
+    radio.value = name;
+    radio.id = `content-profile-${name}`;
+    radio.addEventListener("change", () => {
+      content.profile = name;
+      notifyRun();
+    });
+    const text = document.createElement("span");
+    text.textContent = nameId ? t(nameId) : name;
+    label.append(radio, text);
+    const hint = document.createElement("p");
+    hint.className = "hint option-help";
+    hint.id = `content-profile-${name}-hint`;
+    hint.textContent = hintId ? t(hintId) : "";
+    radio.setAttribute("aria-describedby", hint.id);
+    profiles.append(label, hint);
+  }
+  const groups = $("content-groups");
+  for (const group of options.groups) {
+    const label = document.createElement("label");
+    label.className = "group-row";
+    const text = document.createElement("span");
+    text.textContent = CONTENT_NAMES.groups[group] ? t(CONTENT_NAMES.groups[group]) : group;
+    const select = document.createElement("select");
+    select.id = `content-group-${group}`;
+    select.append(new Option(t(CONTENT_NAMES.profileDefault), ""));
+    for (const place of options.places) {
+      select.append(new Option(CONTENT_NAMES.places[place] ? t(CONTENT_NAMES.places[place]) : place, place));
+    }
+    select.addEventListener("change", () => {
+      if (select.value) content.groups[group] = select.value;
+      else delete content.groups[group];
+      notifyRun();
+    });
+    label.append(text, select);
+    groups.append(label);
+  }
+}
+
+/** Shows `content` in the controls. */
+function showContent() {
+  for (const radio of $("content-profile").querySelectorAll("input")) {
+    radio.checked = radio.value === content.profile;
+  }
+  for (const select of $("content-groups").querySelectorAll("select")) {
+    select.value = content.groups[select.id.slice("content-group-".length)] || "";
+  }
+}
+
 // --- Update notice ---------------------------------------------------------------------------
 
 /** One quiet line when the daily check found a newer version; no button, the command does it. */
@@ -720,6 +860,10 @@ async function start() {
     $("folder").textContent = project.dir;
     showUpdateNotice();
     showSettings();
+    buildContent(project.content_options);
+    content = contentOf(project);
+    loadedContent = contentOf(project);
+    showContent();
     $("has-map").hidden = !project.has_map;
     if (project.area) {
       await chooseArea(project.area, project.source_id, null, true);

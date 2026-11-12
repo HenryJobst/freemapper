@@ -21,3 +21,8 @@ tiles through the local server.
    back to the first tab (`tab-select 0`), change its area and click "Speichern": the banner says that
    freemapper.toml was changed in another window, nothing is saved, and a second "Speichern" saves.
 8. Dark mode: `set-color-scheme dark` and `screenshot`: the panel turns dark, the map stays light.
+9. Content profile: open "Was auf die Karte kommt" (eingeklappt), choose "Voll" and set "Mauern" to "Aus", click
+   "Speichern": `freemapper.toml` gets `[content]` with `profile = "full"` and `walls = "off"`. Reload: "Voll" and
+   "Aus" are still chosen, the other groups say "Wie im Profil". Change only the profile to "Sicher" and click
+   "Karte erzeugen" with a mocked `api/run`: the page saves first (`api/save` carries `content`) and the
+   exception stays.

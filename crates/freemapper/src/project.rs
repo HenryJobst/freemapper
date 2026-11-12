@@ -606,6 +606,27 @@ pub fn init_project(
     declination_date: NaiveDate,
     title: Option<String>,
 ) -> Result<ProjectFile, ProjectError> {
+    init_project_with_content(
+        dir,
+        area,
+        map_kind,
+        scale_denominator,
+        declination_date,
+        title,
+        None,
+    )
+}
+
+/// [`init_project`] with the content settings (ADR 0100) in the same write.
+pub fn init_project_with_content(
+    dir: &Path,
+    area: &MapArea,
+    map_kind: MapKind,
+    scale_denominator: Option<u32>,
+    declination_date: NaiveDate,
+    title: Option<String>,
+    content: Option<ContentSettings>,
+) -> Result<ProjectFile, ProjectError> {
     let scale_denominator = scale_denominator.unwrap_or(map_kind.default_scale());
     map_kind.check_scale(scale_denominator)?;
     let path = dir.join(PROJECT_FILE_NAME);
@@ -645,7 +666,7 @@ pub fn init_project(
         terrain: None,
         surface: None,
         ndsm_tiles: Vec::new(),
-        content: None,
+        content,
     };
     // Always write a title: the PDF, freemapper-print and freemapper-courseplan then read the
     // same one instead of each deriving its own from the folder name.
@@ -720,6 +741,16 @@ impl AreaSaved {
 /// setting. Data fetched for the old area is fetched again for the new one by the next `fetch`;
 /// the result says whether it was dropped and why.
 pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<AreaSaved, ProjectError> {
+    set_map_area_with_content(dir, area, None)
+}
+
+/// [`set_map_area`] that also stores `content` (ADR 0100) in the same write; `None` leaves the
+/// saved settings as they are.
+pub fn set_map_area_with_content(
+    dir: &Path,
+    area: &MapArea,
+    content: Option<ContentSettings>,
+) -> Result<AreaSaved, ProjectError> {
     area.validate()?;
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
@@ -747,6 +778,9 @@ pub fn set_map_area(dir: &Path, area: &MapArea) -> Result<AreaSaved, ProjectErro
         project.drop_fetched(dir);
     }
     project.provider = provider;
+    if content.is_some() {
+        project.content = content;
+    }
     project.save(dir)?;
     Ok(AreaSaved {
         project,

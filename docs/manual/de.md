@@ -364,7 +364,12 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    die Quellenangabe, wenn Sie die Karte weitergeben; dann nennen Sie die Quellen selbst. Die Seite zeigt
    diesen Hinweis, sobald Sie die Wahl treffen. Kartenart, Maßstab und Titel stellen Sie weiter oben ein;
    bei einem vorhandenen Projekt sind sie schreibgeschützt (sie stehen in `freemapper.toml`).
-3. **„Karte erzeugen“ drücken.** Hat sich das Gebiet seit dem letzten Speichern geändert, speichert die Seite
+
+   Der Abschnitt „Was auf die Karte kommt“ (eingeklappt) stellt das Inhaltsprofil und die Ausnahmen je Gruppe
+   ein, wie `--content` und `--content-set`. Eine Gruppe auf „Wie im Profil“ folgt dem Profil. Wechseln Sie das
+   Profil, bleiben Ihre Ausnahmen stehen, und Sie können sie einzeln zurücknehmen. Die Seite speichert die Wahl
+   mit dem Gebiet; was die Profile tun, steht in [Abschnitt 8](#8-was-die-vorlagen-zeigen).
+3. **„Karte erzeugen“ drücken.** Haben sich das Gebiet oder die Inhaltseinstellungen seit dem letzten Speichern geändert, speichert die Seite sie
    zuerst. „Vorhandene Karte ersetzen“ erscheint nur, wenn es schon eine Karte gibt, und ist nie vorgewählt.
    Ist sie angehakt, fragt ein Dialog nach; „Abbrechen“ ist dort vorgewählt. Die alte Karte bleibt als
    `.omap.bak` im Projektordner.
@@ -562,7 +567,7 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 
 | Profil | Wirkung |
 |---|---|
-| `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, Flächen, Wasser und Wege auf der Karte, alles andere Kandidat. |
+| `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, ALKIS-Flächen (Verkehr, Gewässer, Parks) und OSM-Wege mit bekannter Oberfläche kommen auf die Karte. Mauern, Zäune, Bäume, OSM-Teiche, Wege ohne bekannte Oberfläche und alles andere Unsichere bleiben Kandidat. |
 | `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen, Böschungen, Treppen, Türme, Durchgänge. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Wege und Gleise kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Höhenlinien, Sperrgebiete, Ausstattung und Laternen, OSM-Parkflächen und OSM-Denkmäler bleiben Kandidat. |
 | `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
 

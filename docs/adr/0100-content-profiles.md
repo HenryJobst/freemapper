@@ -7,9 +7,9 @@ Status: Accepted
 
 The build puts every object on the map or among the candidates by the `target` of its rule
 (`assets/rules/*.toml`, 18 of 81 OSM rules say `map`, the Berlin, state and NAS rules none) or by the module
-that draws it. Buildings, ALKIS areas, water, parks and paths are map objects; walls, fences, hedges, banks,
-stairs, trees, contours, areas that shall not be entered and street furniture are candidates, whatever their
-source. The generated maps looked empty without the candidates and impressive with them (user, 2026-11-12),
+that draws it. Buildings, the ALKIS areas (traffic, water, parks) and OSM paths of a known surface are map
+objects; walls, fences, hedges, banks, stairs, trees, contours, areas that shall not be entered, street furniture,
+OSM water and OSM paths without a surface are candidates, whatever their source. The generated maps looked empty without the candidates and impressive with them (user, 2026-11-12),
 although a wall of the cadastre is as reliable as a building.
 
 ## Decision

@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $1,451](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C451-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $1,498](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%241%2C498-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -47,8 +47,8 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.12.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.12.0) of
-11 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
+The current version is [v0.13.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.13.0) of
+12 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of
@@ -305,7 +305,7 @@ furniture, barriers, paths without a surface tag, contours, out-of-bounds areas 
 out-of-bounds candidates are left out. Because uncertain data is drawn too, check this map in the terrain before
 training. With both switches you get both files side by side.
 
-What goes straight onto the map and what stays a candidate is set by `--content`: `safe` keeps buildings, areas, water and paths, `balanced` (default) also puts streets with kerbs, banks and stairs from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, paths and railways also from OSM, onto the map, `full` puts everything there. `--content-set` sets single groups, for example `--content-set fences=candidates`; the choice is stored in `freemapper.toml` and holds in the browser and through MCP.
+What goes straight onto the map and what stays a candidate is set by `--content`: `safe` keeps buildings, the ALKIS areas (traffic, water, parks) and paths of a known surface, `balanced` (default) also puts streets with kerbs, banks and stairs from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, paths and railways also from OSM, onto the map, `full` puts everything there. `--content-set` sets single groups, for example `--content-set fences=candidates`; the choice is stored in `freemapper.toml` and holds in the browser and through MCP.
 
 ## Starting point for OCAD
 

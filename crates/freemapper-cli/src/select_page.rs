@@ -468,3 +468,48 @@ fn page_follows_the_suite_rules() {
         .sum();
     assert!(vendored < 300 * 1024, "{vendored} bytes");
 }
+
+#[test]
+fn content_names_cover_the_library() {
+    use freemapper::build::content::{Group, Place, Profile};
+    // The script lists the ids literally (so `every_page_message_is_used` sees them); a group,
+    // profile or place that the library gains must get its texts here first.
+    let script = script_ids(&asset("app.js"));
+    let catalog_en = page_ids("en");
+    let catalog_de = page_ids("de");
+    let mut wanted: Vec<String> = Group::ALL
+        .iter()
+        .map(|g| format!("page-content-group-{}", g.name()))
+        .collect();
+    wanted.extend(
+        Place::ALL
+            .iter()
+            .map(|p| format!("page-content-place-{}", p.name())),
+    );
+    for profile in Profile::ALL {
+        wanted.push(format!("page-content-profile-{}", profile.name()));
+        wanted.push(format!("page-content-profile-{}-hint", profile.name()));
+    }
+    wanted.push("page-content-place-profile".to_string());
+    for id in wanted {
+        assert!(script.contains(&id), "app.js does not name {id}");
+        assert!(catalog_en.contains(&id) && catalog_de.contains(&id), "{id}");
+    }
+}
+
+#[test]
+fn content_section_is_in_the_run_panel_before_the_start_button() {
+    let html = asset("index.html");
+    let run = html.find(r#"<section id="run""#).unwrap();
+    let section = html.find(r#"<details id="content-section">"#).unwrap();
+    let start = html.find(r#"id="run-start""#).unwrap();
+    assert!(run < section && section < start);
+    for id in ["content-profile", "content-groups"] {
+        assert!(html.contains(&format!(r#"<fieldset id="{id}">"#)), "{id}");
+    }
+    // Every control the script builds has a label: the profile radios and the group selects sit
+    // inside a <label>.
+    let script = asset("app.js");
+    assert!(script.contains("label.append(radio, text)"));
+    assert!(script.contains("label.append(text, select)"));
+}

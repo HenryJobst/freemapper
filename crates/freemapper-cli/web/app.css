@@ -288,3 +288,44 @@ label.option.select {
 .notice {
   font-size: 13px;
 }
+
+/* --- Content section ---------------------------------------------------------------------------- */
+
+#content-section {
+  margin: 10px 0 0;
+}
+
+#content-section summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#content-section fieldset {
+  border: none;
+  margin: 8px 0 0;
+  padding: 0;
+  min-width: 0;
+}
+
+#content-section legend {
+  font-weight: 600;
+  padding: 0;
+}
+
+label.group-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+label.group-row > span {
+  width: auto;
+  flex: 1;
+}
+
+label.group-row > select {
+  flex: none;
+  max-width: 48%;
+}

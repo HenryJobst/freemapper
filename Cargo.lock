@@ -681,7 +681,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "chrono",
  "contour",
@@ -721,7 +721,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper-adapter-api"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "chrono",
  "freemapper-fs",
@@ -737,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper-adapters-de"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "chrono",
  "freemapper",
@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper-cli"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -818,7 +818,7 @@ dependencies = [
 
 [[package]]
 name = "freemapper-sources"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "chrono",
  "crc32fast",

@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 1.451 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.451%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 1.498 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-1.498%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -49,8 +49,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.12.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.12.0) vom
-11. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
+Aktuelle Version ist [v0.13.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.13.0) vom
+12. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
 Schulhof- und Sprintkarten für elf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
 Rheinland-Pfalz. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
@@ -314,8 +314,8 @@ Kartenobjekten**: Möblierung, Barrieren, Wege ohne Oberflächenangabe, Höhenli
 Punkte in Sperrgebiet-Kandidaten fehlen. Weil auch unsichere Daten eingezeichnet sind, ist diese Karte vor dem Training
 im Gelände zu prüfen. Mit beiden Schaltern entstehen beide Dateien nebeneinander.
 
-Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, Flächen,
-Gewässern und Wegen, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen und Treppen aus ALKIS, den Registern und der
+Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, den ALKIS-Flächen
+(Verkehr, Gewässer, Parks) und den Wegen mit bekannter Oberfläche, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen, Böschungen und Treppen aus ALKIS, den Registern und der
 Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Wege und Gleise auch aus OSM auf die Karte, `full` alles. Einzelne Gruppen stellt `--content-set` ein, etwa
 `--content-set fences=candidates`; die Wahl steht in `freemapper.toml` und gilt auch im Browser und über MCP.
 
