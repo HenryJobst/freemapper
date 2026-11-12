@@ -23,11 +23,13 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use freemapper::area::MapArea;
+use freemapper::build::content::{ContentSettings, Group, Place, Profile};
 use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{AreaPreview, preview_area};
 use freemapper::places::{find_places, lookup_url, place_area};
 use freemapper::project::{
-    MAX_AREA_SIDE_M, MapKind, ProjectFile, init_project, map_path, set_map_area,
+    MAX_AREA_SIDE_M, MapKind, ProjectFile, init_project_with_content, map_path,
+    set_map_area_with_content,
 };
 pub use freemapper_web::open_browser;
 use freemapper_web::{LocalServer, ServeOptions, embedded};
@@ -300,6 +302,34 @@ fn run_defaults_json(options: &RunOptions) -> Value {
     })
 }
 
+/// The stored content settings (ADR 0100) as the page reads them, or null while the file has none.
+fn content_json(content: Option<&ContentSettings>) -> Value {
+    content.map_or(Value::Null, |c| {
+        serde_json::to_value(c).unwrap_or(Value::Null)
+    })
+}
+
+/// The profiles, groups and places the content section lists, by their names in `freemapper.toml`
+/// and in the library's order. The page names them with its own texts (ADR 0101).
+fn content_options_json() -> Value {
+    json!({
+        "profiles": Profile::ALL.map(Profile::name),
+        "groups": Group::ALL.map(Group::name),
+        "places": Place::ALL.map(Place::name),
+    })
+}
+
+/// The `content` of a save request: none when the page sends none (the stored settings stay), an
+/// error sentence when it is not a valid choice.
+fn content_of(body: &Value, lang: &Lang) -> Result<Option<ContentSettings>, SaveError> {
+    match body.get("content") {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => serde_json::from_value(value.clone())
+            .map(Some)
+            .map_err(|_| SaveError::Refused(TEXTS.text(lang, "cli-save-bad-content", &[]))),
+    }
+}
+
 /// The revision of `freemapper.toml` in `dir` (core ADR 0030), or `None` while there is none.
 fn project_revision(dir: &Path) -> Option<String> {
     std::fs::read(dir.join("freemapper.toml"))
@@ -328,6 +358,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "has_map": map_path(&state.dir).exists(),
             "max_side_m": MAX_AREA_SIDE_M,
             "from_agent": state.defaults.from_agent,
+            "content": content_json(project.content.as_ref()),
         }),
         None => json!({
             "exists": false,
@@ -341,8 +372,10 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "has_map": false,
             "max_side_m": MAX_AREA_SIDE_M,
             "from_agent": state.defaults.from_agent,
+            "content": null,
         }),
     };
+    answer["content_options"] = content_options_json();
     answer["run_defaults"] = run_defaults_json(&state.defaults.run);
     answer["allowed_scales"] = MapKind::ALL
         .into_iter()
@@ -528,6 +561,7 @@ async fn save(
         {
             return Err(SaveError::Stale(current));
         }
+        let content = content_of(&body, &lang)?;
         let area = area_of(&body, &lang)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
@@ -551,9 +585,11 @@ async fn save(
                 .map(str::to_string)
                 .or(state.defaults.title.clone());
             let today = chrono::Local::now().date_naive();
-            init_project(dir, &area, kind, scale, today, title).map_err(|e| message(&e, &lang))?;
+            init_project_with_content(dir, &area, kind, scale, today, title, content)
+                .map_err(|e| message(&e, &lang))?;
         } else {
-            let saved = set_map_area(dir, &area).map_err(|e| message(&e, &lang))?;
+            let saved =
+                set_map_area_with_content(dir, &area, content).map_err(|e| message(&e, &lang))?;
             zone_changed = saved.zone_changed;
             provider_changed = saved.provider_changed;
         }
@@ -580,6 +616,7 @@ async fn save(
         Ok(Err(SaveError::Stale(current))) => {
             freemapper_web::stale(&current, &TEXTS.text(&lang, "page-save-stale", &[]))
         }
+        Ok(Err(SaveError::Refused(e))) => freemapper_web::refused(&e),
         Ok(Err(SaveError::Other(e))) => bad_request(e),
         Err(e) => internal_error(&lang, e),
     }
@@ -591,6 +628,8 @@ enum SaveError {
     Locked(String),
     /// The file changed since the page read it; its revision now.
     Stale(String),
+    /// The content settings are not a valid choice (422).
+    Refused(String),
     Other(String),
 }
 
@@ -603,6 +642,7 @@ impl From<String> for SaveError {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use freemapper::project::init_project;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn save_is_refused_while_a_pipeline_runs() {

@@ -86,6 +86,7 @@ cli-open-folder-refused = Der Ordnername ist nicht sicher genug, um ihn an den D
 cli-save-running = Für dieses Projekt läuft gerade ein Lauf. Speichern Sie noch einmal, wenn er fertig ist.
 cli-save-unknown-kind = Unbekannte Kartenart „{ $kind }“. Möglich sind schoolyard und sprint.
 cli-save-scale-too-large = Der Maßstab { $scale } ist zu groß.
+cli-save-bad-content = Die Inhaltseinstellungen sind ungültig. Es wurde nichts gespeichert.
 
 ## Die Gebietsauswahl-Seite (`web/`, ADR 0096). Die Seite holt jede `page-*`- und `suite-*`-Meldung
 ## über `api/texts`; ein `{ $name }` bleibt im Text stehen, die Seite setzt den Wert ein. Keine
@@ -166,6 +167,35 @@ page-layer-aerial-rheinland-pfalz = Luftbild Rheinland-Pfalz (LVermGeo RP)
 
 ## Das Lauf-Feld der Gebietsauswahl-Seite (ADR 0090)
 
+page-content-heading = Was auf die Karte kommt
+page-content-help = Das Profil legt fest, was gleich auf die Karte kommt und was als Kandidat zur Prüfung bleibt. Eine Wahl für eine Gruppe geht dem Profil vor. Sie wird mit dem Gebiet gespeichert.
+page-content-profile-legend = Profil
+page-content-profile-safe = Sicher
+page-content-profile-safe-hint = Jedes Objekt bleibt dort, wo die Erzeugung es hinlegt: Gebäude, Flächen, Gewässer und Wege kommen auf die Karte, Mauern, Zäune, Bäume und Ähnliches bleiben Kandidaten.
+page-content-profile-balanced = Ausgewogen
+page-content-profile-balanced-hint = Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte, bei Mauern, Zäunen, Hecken und Gewässern auch die von OpenStreetMap. Alles andere bleibt, wo die Erzeugung es hinlegt.
+page-content-profile-full = Voll
+page-content-profile-full-hint = Alles kommt auf die Karte, wie in der Trainingskarte.
+page-content-groups-legend = Je Gruppe
+page-content-groups-help = „Wie im Profil“ folgt dem Profil. Was das für eine Gruppe bedeutet, hängt davon ab, woher das einzelne Objekt stammt.
+page-content-place-profile = Wie im Profil
+page-content-place-map = Karte
+page-content-place-candidates = Kandidat
+page-content-place-off = Aus
+page-content-group-walls = Mauern
+page-content-group-fences = Zäune
+page-content-group-hedges = Hecken
+page-content-group-slopes = Böschungen und Felswände
+page-content-group-stairs = Treppen
+page-content-group-trees = Bäume und Baumgruppen
+page-content-group-water-features = Gewässer, Brunnen und Quellen
+page-content-group-monuments = Türme, Denkmäler und Leitungen
+page-content-group-furniture = Ausstattung und Laternen
+page-content-group-passages = Durchgänge
+page-content-group-contours = Höhenlinien
+page-content-group-out-of-bounds = Sperrgebiete
+page-content-group-paths = Wege
+page-content-group-streets = Straßen und Plätze
 page-run-heading = Karte erzeugen
 page-opt-ocad = OCAD-Startprojekt schreiben
 page-help-ocad = Für alle, die in OCAD weiterarbeiten.
