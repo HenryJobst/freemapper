@@ -141,6 +141,29 @@ fn warnings_name_what_the_author_should_know() {
     assert_eq!(codes(&folder), Ok(vec!["check.shares-ground"]));
 }
 
+/// The region whose ground an adapter shares is named as a person knows it, not by its id.
+#[test]
+fn the_ground_an_adapter_shares_is_named_by_its_region() {
+    let dir = tempfile::tempdir().unwrap();
+    let on_sample = SQUARE
+        .replace("4000", "6020")
+        .replace("4100", "6080")
+        .replace("58", "56");
+    let text =
+        manifest("inner").replace("[adapter]\n", "[adapter]\nlast_verified = \"2026-03-01\"\n");
+    let folder = write(dir.path(), "inner", &text, &on_sample);
+    let checked = check_folder(&folder, Registry::new(), &built_in(), RUNNING, today()).unwrap();
+    let messages: Vec<&str> = checked
+        .warnings
+        .iter()
+        .map(|w| w.message.as_str())
+        .collect();
+    assert_eq!(
+        messages,
+        ["the adapter lies on the ground of Sample: a map there gets the objects of both"]
+    );
+}
+
 /// What keeps a folder out of the adapter folder of a person fails the check with the same
 /// code.
 #[test]

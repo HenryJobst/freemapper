@@ -862,11 +862,11 @@ erst mit `run --force`.
 **Brandenburg: vollständiges ALKIS und Potsdamer Bäume.** In Brandenburg liest freemapper zusätzlich das
 vollständige ALKIS aus dem NAS-Dienst der LGB (dl-de/by-2-0). Es enthält, was dem vereinfachten ALKIS fehlt:
 vermessene Mauern und Mauerkanten, Zäune, Hecken, Denkmäler, Brunnen, Gräben und Bäche, auf Sprintkarten auch
-Böschungsoberkanten und Brücken. Daraus werden Kandidaten: Mauern 515, Zäune 518, Hecken 410.1, Denkmäler 526,
-Brunnen 311, Gräben 306, Bäche 305, Böschungsoberkanten 104 und Brücken 501.5. Das Symbol wählt der Code im
-Kataster, nie die Höhe. Die Ebenen liegen in `data/alkis-nas/`, etwa 1 MB je km². Im Park Sanssouci (0,74 km²
+Böschungsoberkanten und Brücken. Daraus werden Mauern 515, Zäune 518, Hecken 410.1, Denkmäler 526,
+Brunnen 311, Gräben 306, Bäche 305, Böschungsoberkanten 104 und Brücken 501.5; ob sie in die Karte kommen oder
+Kandidaten bleiben, entscheidet das Inhaltsprofil (Kapitel 8). Das Symbol wählt der Code im Kataster, nie die Höhe. Die Ebenen liegen in `data/alkis-nas/`, etwa 1 MB je km². Im Park Sanssouci (0,74 km²
 mit Puffer) enthalten die sechs Ebenen 780, 146, 315, 4, 1 und 0 Objekte in 0,6 MB.
-Jeder Kandidat trägt `freemapper:source=alkis-nas/<Ebene>` und `freemapper:alkis` mit der Bezeichnung des
+Jedes dieser Objekte trägt `freemapper:source=alkis-nas/<Ebene>` und `freemapper:alkis` mit der Bezeichnung des
 Katasters, z. B. `Mauerkante, rechts`. Sein Datenstand ist das Datum, seit dem die Objektversion im Kataster
 steht (`beginnt`). Zwei Kanten einer Mauer, die auf dem Papier näher als 0,55 mm liegen, werden eine Linie 515
 in der Mitte (Kapitel 9). Überdachungen und Bauteile nimmt freemapper nur aus dem vereinfachten ALKIS, damit sie
@@ -879,12 +879,13 @@ neben einer Linie des vollständigen ALKIS mit demselben Symbol, lässt freemapp
 Berlin. Die Reihenfolge ist in jedem Bundesland dieselbe: Register vor ALKIS vor Straßenbefahrung vor OSM.
 
 In und um Potsdam lädt freemapper die Bäume der Stadtkarte (dl-de/zero-2-0). Sie liegen in `data/trees/`; die
-Größenschätzung rechnet 1 MB je km². Die Daten kennen keine Krone, deshalb wird jeder Baum Kandidat 418.
+Größenschätzung rechnet 1 MB je km². Die Daten kennen keine Krone, deshalb wird jeder Baum ein Punkt 418; mit `safe` bleibt er Kandidat, mit
+`balanced` kommt er in die Karte.
 Baumstümpfe fallen weg. Jeder Baum trägt sein eigenes Aufnahmedatum als Datenstand, von 1993 bis 2026, und
 seine Art in `freemapper:baum`, z. B. `Laubbaum`. Ein OSM-Baum weniger als 2 m neben einem Potsdamer Baum fällt
 weg. Ein Berliner Gebiet fragt dort nichts ab, auch innerhalb der Ausdehnung der Potsdamer Daten. Im Park
-Sanssouci lädt freemapper 1964 Bäume; 1646 davon liegen im Kartengebiet mit Puffer, und 1267 bleiben nach dem
-Ausdünnen Punkte. Reicht der Platz auf dem Datenträger nicht, lässt freemapper das vollständige ALKIS und die
+Sanssouci lädt freemapper 1964 Bäume; 1646 davon liegen im Kartengebiet mit Puffer. Im Beispiel bleiben 773 als
+Punkte, die übrigen liegen in Baumgruppenflächen oder fallen beim Ausdünnen weg. Reicht der Platz auf dem Datenträger nicht, lässt freemapper das vollständige ALKIS und die
 Bäume zusammen weg. Die gespeicherten bleiben dann. Eine Antwort über 256 MB bricht freemapper beim Lesen ab.
 
 **Berlin: Bauwerke, Bäume und die K5.** Berührt ein Kartengebiet Berlin, lädt freemapper sechs weitere

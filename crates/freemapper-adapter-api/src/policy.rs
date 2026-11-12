@@ -302,9 +302,10 @@ impl UrlPolicy {
             }));
         }
         match from {
+            // The refused address first, as for a host an adapter does not name.
             Some(from) => FetchError::NotAllowed {
-                url: bare(from),
-                reason: format!("a redirect to {refused}"),
+                url: refused.subject,
+                reason: format!("{} ({} redirects there)", refused.reason, bare(from)),
             },
             None => FetchError::NotAllowed {
                 url: refused.subject,
@@ -523,14 +524,15 @@ mod tests {
              address: the adapter hessen does not name the host cdn.example.net. If the \
              service has moved there, add the host to `[net] hosts` of the adapter's manifest"
         );
-        // A refusal of another kind, and one of a policy that is nobody's, read as before.
+        // A refusal of another kind names the refused address first as well, then the address
+        // that redirected there. One of a policy that is nobody's reads as before.
         let plain = policy.check_url("http://geo.example.org/a").unwrap_err();
         assert_eq!(
             policy
                 .refusal(plain, Some("https://geo.example.org/b"))
                 .to_string(),
-            "https://geo.example.org/b: freemapper does not send requests to this address: a \
-             redirect to http://geo.example.org/a: not https"
+            "http://geo.example.org/a: freemapper does not send requests to this address: not \
+             https (https://geo.example.org/b redirects there)"
         );
         let nobody = UrlPolicy::new(["geo.example.org"]).unwrap();
         assert_eq!(

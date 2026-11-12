@@ -120,9 +120,14 @@ pub fn check_folder(
             format!("the boundary encloses {km2:.3} km², which is no size for a region"),
         );
     }
+    // The regions by their names, as the warning of a project run names them.
     let neighbours: Vec<String> = sharing_ground(built_in, adapter)
         .into_iter()
         .filter(|other| *other != loaded.id)
+        .map(|other| match built_in.get(&other) {
+            Some(region) => region.info().names.en.clone(),
+            None => other,
+        })
         .collect();
     if !neighbours.is_empty() {
         warn(

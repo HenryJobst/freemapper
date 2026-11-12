@@ -830,10 +830,11 @@ own layers (below). An existing map gets the canopies only with `run --force`.
 **Brandenburg: full ALKIS and Potsdam trees.** In Brandenburg freemapper also reads the full ALKIS from the
 LGB's NAS service (dl-de/by-2-0). It holds what the simplified ALKIS lacks: surveyed walls and wall edges,
 fences, hedges, monuments, fountains, ditches and brooks, and on sprint maps also embankment tops and bridges.
-They become candidates: walls 515, fences 518, hedges 410.1, monuments 526, fountains 311, ditches 306, brooks
-305, embankment tops 104 and bridges 501.5. The code in the cadastre picks the symbol, never the height. The
+They become walls 515, fences 518, hedges 410.1, monuments 526, fountains 311, ditches 306, brooks 305,
+embankment tops 104 and bridges 501.5; the content profile decides whether they go onto the map or stay
+candidates (chapter 8). The code in the cadastre picks the symbol, never the height. The
 layers are stored in `data/alkis-nas/`, about 1 MB per km². At Park Sanssouci (0.74 km² with the buffer) the
-six layers hold 780, 146, 315, 4, 1 and 0 objects in 0.6 MB. Each candidate carries
+six layers hold 780, 146, 315, 4, 1 and 0 objects in 0.6 MB. Each of these objects carries
 `freemapper:source=alkis-nas/<layer>` and `freemapper:alkis` with the cadastre's name, e.g. `Mauerkante,
 rechts`. Its data currency is the date the object version entered the cadastre (`beginnt`). Two edges of one
 wall closer than 0.55 mm on paper become a single 515 line in the middle (chapter 9). freemapper takes
@@ -847,11 +848,11 @@ register before ALKIS before the street survey before OSM.
 
 In and around Potsdam freemapper fetches the trees of the Potsdam city map (Bäume der Stadtkarte,
 dl-de/zero-2-0). They are stored in `data/trees/`; the size estimate counts 1 MB per km². The data has no crown size, so
-every tree becomes a 418 candidate. Stumps are left out. Each tree carries its own survey date as data
+every tree becomes a 418 point; with `safe` it stays a candidate, with `balanced` it goes onto the map. Stumps are left out. Each tree carries its own survey date as data
 currency, from 1993 to 2026, and its kind in `freemapper:baum`, e.g. `Laubbaum`. An OSM tree less than 2 m from
 a Potsdam tree is dropped. A Berlin area makes no request there, even inside the Potsdam data's extent. At Park
-Sanssouci freemapper fetches 1964 trees; 1646 of them lie in the map area with its buffer, and 1267 stay points
-after the thinning. If the disk has too little room, freemapper leaves out the full ALKIS and the trees together.
+Sanssouci freemapper fetches 1964 trees; 1646 of them lie in the map area with its buffer. In the example 773 stay
+points; the others lie in tree-group areas or are dropped by the thinning. If the disk has too little room, freemapper leaves out the full ALKIS and the trees together.
 The stored ones then stay. An answer larger than 256 MB is stopped while it is read.
 
 **Berlin: structures, trees and the K5.** When a map area touches Berlin, freemapper fetches six more layers

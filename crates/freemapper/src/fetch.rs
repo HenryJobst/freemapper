@@ -3697,8 +3697,8 @@ mod tests {
         plain.max_get_bytes = 4000;
         assert_eq!(plain.get("https://geo.example.org/a").unwrap(), b"done");
         let policy = UrlPolicy::new(["geo.example.org"]).unwrap();
-        let away = "https://geo.example.org/away: a redirect to https://evil.example.net/x: the \
-                    host is not one of the declared hosts";
+        let away = "https://evil.example.net/x: the host is not one of the declared hosts \
+                    (https://geo.example.org/away redirects there)";
         {
             let bound = plain
                 .bound_to(&policy)
@@ -3851,16 +3851,16 @@ mod tests {
         ));
         assert_eq!(
             reason,
-            "https://geo.example.org/a: a redirect to https://evil.example.net/x: the host is \
-             not one of the declared hosts"
+            "https://evil.example.net/x: the host is not one of the declared hosts \
+             (https://geo.example.org/a redirects there)"
         );
         // The target was not asked, and the first URL only once.
         assert_eq!(*asked.lock().unwrap(), ["/a"]);
         // A redirect from https to http is refused as well.
         let reason = not_allowed(fetcher.get("https://geo.example.org/plain"));
-        assert!(
-            reason.ends_with("a redirect to http://geo.example.org/x: not https"),
-            "{reason}"
+        assert_eq!(
+            reason,
+            "http://geo.example.org/x: not https (https://geo.example.org/plain redirects there)"
         );
         assert_eq!(*asked.lock().unwrap(), ["/a", "/plain"]);
     }
@@ -3879,7 +3879,7 @@ mod tests {
         for path in ["/v4", "/v6", "/meta"] {
             let reason = not_allowed(fetcher.get(&format!("https://geo.example.org{path}")));
             assert!(
-                reason.ends_with("an IP address, not a DNS name"),
+                reason.contains(": an IP address, not a DNS name (https://geo.example.org/"),
                 "{reason}"
             );
         }

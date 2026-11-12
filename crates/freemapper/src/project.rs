@@ -1257,13 +1257,14 @@ pub(crate) fn mark_stored(
                 item.cached = true;
             }
         }
-        estimate.total_megabytes = estimate
-            .items
-            .iter()
-            .filter(|i| !i.cached)
-            .map(|i| i.megabytes)
-            .sum();
     }
+    // Counted from zero: the sum of nothing is -0.0, and an estimate with nothing left to
+    // download says 0 MB.
+    estimate.total_megabytes = estimate
+        .items
+        .iter()
+        .filter(|i| !i.cached)
+        .fold(0.0, |total, i| total + i.megabytes);
 }
 
 /// Checks the downloads of an online fetch against the free disk space ([`crate::space::plan`]):
@@ -7599,6 +7600,23 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(!bdom_dir.exists());
         assert_eq!(project.surface, Some(stored));
         assert!(dir.path().join(SURFACE_RELPATH).exists());
+    }
+
+    /// With everything of the area fetched nothing is left to download: 0 MB, not the -0.0
+    /// that the sum of nothing is.
+    #[test]
+    fn an_estimate_with_everything_fetched_totals_zero() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = strausberg_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let today = chrono::Local::now().date_naive();
+        let estimate = crate::layers::estimate_download(dir.path(), &cache, today).unwrap();
+        assert!(
+            estimate.items.iter().all(|i| i.cached),
+            "{:?}",
+            estimate.items
+        );
+        assert_eq!(estimate.total_megabytes.to_string(), "0");
     }
 
     #[test]

@@ -10,8 +10,12 @@ eleven states, because they need nothing but the repository. G3 and G4 record fo
 each kind of fetch: Brandenburg (tiles in the cache), Berlin (the code adapter), Saxony-Anhalt
 (per-area services, declared by its manifest alone) and Hesse (archives read by range requests).
 The other seven were recorded to prove the migration; every later change to one of their requests
-would have paid for them with a new recording. Saarland, added after the migration, was never
-recorded: it has unit tests with synthetic archives and `adapters check --live`.
+would have paid for them with a new recording. For Saxony, Hamburg, Schleswig-Holstein,
+Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate nothing
+compares the requests of a fetch or the files of the pipeline with a recording any more: a change
+there shows in G1, G2 and G5, in the unit tests of their backends and in `adapters check --live`.
+Their lines in `g1-hosts.txt` are frozen as recorded. Saarland, added after the migration, was
+never recorded: it has unit tests with synthetic archives and `adapters check --live`.
 
 | Layer | Records | Files | Needs |
 |---|---|---|---|
