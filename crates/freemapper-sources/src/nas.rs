@@ -38,6 +38,18 @@ pub const LGB_NAS: NasService = NasService {
     namespaces: None,
 };
 
+/// The files in the layer list of `service` that name no NAS layer. A misspelled file would
+/// drop that layer for the state silently, so a list is checked before it is used.
+pub fn unknown_layers(service: &NasService) -> Vec<&str> {
+    service
+        .layers
+        .iter()
+        .flat_map(|files| files.iter())
+        .map(|file| file.as_ref())
+        .filter(|file| !NAS_LAYERS.iter().any(|layer| layer.file == *file))
+        .collect()
+}
+
 /// One AdV feature type, stored as `data/alkis-nas/<file>.geojson` for the map kinds that use it.
 #[derive(Debug, PartialEq)]
 pub struct NasLayer {
@@ -1223,9 +1235,8 @@ mod tests {
     #[test]
     fn nas_service_asks_only_its_layers() {
         // A state whose service lacks most types, and needs the prefix declared.
-        static ONLY_WALLS: [&str; 1] = ["sonstiges-bauwerk"];
         let service = NasService {
-            layers: Some(&ONLY_WALLS),
+            layers: Some(Cow::Borrowed(&[Cow::Borrowed("sonstiges-bauwerk")])),
             namespaces: Some(Cow::Borrowed(
                 "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)",
             )),
@@ -1297,24 +1308,15 @@ mod tests {
         assert_eq!(fetcher.calls.get(), 0);
     }
 
-    /// The files in the layer list of `service` that name no NAS layer.
-    fn unknown_layers(service: &NasService) -> Vec<&'static str> {
-        service
-            .layers
-            .unwrap_or_default()
-            .iter()
-            .copied()
-            .filter(|file| !NAS_LAYERS.iter().any(|l| l.file == *file))
-            .collect()
-    }
-
     #[test]
     fn nas_service_layer_lists_name_known_layers() {
         // A misspelled file in a service's list would drop that layer for the state silently.
         assert_eq!(unknown_layers(&LGB_NAS), Vec::<&str>::new());
-        static MISSPELLED: [&str; 2] = ["sonstiges-bauwerk", "vegetationsmerkmale"];
         let service = NasService {
-            layers: Some(&MISSPELLED),
+            layers: Some(Cow::Borrowed(&[
+                Cow::Borrowed("sonstiges-bauwerk"),
+                Cow::Borrowed("vegetationsmerkmale"),
+            ])),
             ..LGB_NAS
         };
         assert_eq!(unknown_layers(&service), ["vegetationsmerkmale"]);

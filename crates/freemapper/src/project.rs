@@ -9950,7 +9950,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn serve_potsdam_trees(fetcher: &MapFetcher) {
         use crate::sources::trees::{POTSDAM, test_support};
         fetcher.insert_prefix(
-            POTSDAM.endpoints[0],
+            &POTSDAM.endpoints[0],
             test_support::POTSDAM.as_bytes().to_vec(),
         );
         for endpoint in &POTSDAM.endpoints[1..] {

@@ -40,13 +40,19 @@ pub const POTSDAM: TreeDataset = TreeDataset {
         max_n: 5_820_000.0,
     },
     format: TreeFormat::OdsGeoJsonExport {
-        geo_field: "geo_point_2d",
+        geo_field: Cow::Borrowed("geo_point_2d"),
     },
-    endpoints: &[
-        "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson",
-        "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson",
-        "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson",
-    ],
+    endpoints: Cow::Borrowed(&[
+        Cow::Borrowed(
+            "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson",
+        ),
+        Cow::Borrowed(
+            "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson",
+        ),
+        Cow::Borrowed(
+            "https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson",
+        ),
+    ]),
     fields: TreeFields {
         kind: Cow::Borrowed("ggartbez"),
         id: Cow::Borrowed("pktnr"),
@@ -54,7 +60,7 @@ pub const POTSDAM: TreeDataset = TreeDataset {
         species: None,
         crown: None,
     },
-    skipped_kinds: &["Baumstumpf"],
+    skipped_kinds: Cow::Borrowed(&[Cow::Borrowed("Baumstumpf")]),
     attribution: Cow::Borrowed("Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"),
     max_bytes: MAX_ANSWER_BYTES,
 };
@@ -106,7 +112,7 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
     let kind = text(properties, &fields.kind);
     if kind
         .as_deref()
-        .is_some_and(|k| dataset.skipped_kinds.contains(&k))
+        .is_some_and(|k| dataset.skipped_kinds.iter().any(|kind| kind == k))
     {
         return;
     }
@@ -191,7 +197,7 @@ pub fn fetch_dataset(
         skipped: Vec::new(),
         regions: vec![dataset.region.clone()],
     };
-    for endpoint in dataset.endpoints {
+    for endpoint in dataset.endpoints.iter() {
         let url = dataset.url(endpoint, &area.region_bbox).ok_or_else(|| {
             FetchError::Alkis(invalid(format!("{}: area out of range", dataset.name)))
         })?;

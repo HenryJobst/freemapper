@@ -202,15 +202,15 @@ mod tests {
         assert_eq!(fetcher.calls.get(), 0);
         // Inside: one request per endpoint.
         fetcher.insert_prefix(
-            POTSDAM.endpoints[0],
+            &POTSDAM.endpoints[0],
             test_support::POTSDAM.as_bytes().to_vec(),
         );
         fetcher.insert_prefix(
-            POTSDAM.endpoints[1],
+            &POTSDAM.endpoints[1],
             br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
         );
         fetcher.insert_prefix(
-            POTSDAM.endpoints[2],
+            &POTSDAM.endpoints[2],
             br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
         );
         let layers = fetch_tree_layers(&fetcher, &FetchArea::new(sanssouci(), Crs::Utm33), &part);
@@ -231,7 +231,7 @@ mod tests {
         let area = FetchArea::new(sanssouci(), Crs::Utm33);
         let size = test_support::POTSDAM.len() as u64;
         let fetcher = MapFetcher::default();
-        for endpoint in POTSDAM.endpoints {
+        for endpoint in POTSDAM.endpoints.iter() {
             fetcher.insert_prefix(endpoint, test_support::POTSDAM.as_bytes().to_vec());
         }
         // One byte over the cap: stopped while it is read, not asked again.

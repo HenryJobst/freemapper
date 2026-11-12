@@ -24,7 +24,7 @@ pub struct NasService {
     pub max_bytes: u64,
     /// The files of the NAS layers the service serves; `None`: all of them. A type the state
     /// does not serve answers an exception report, which would warn on every fetch.
-    pub layers: Option<&'static [&'static str]>,
+    pub layers: Option<Cow<'static, [Cow<'static, str>]>>,
     /// The `NAMESPACES` parameter, for a server that wants the `adv` prefix declared.
     pub namespaces: Option<Cow<'static, str>>,
 }
@@ -32,7 +32,9 @@ pub struct NasService {
 impl NasService {
     /// Whether the service serves the layer stored as `file`.
     pub fn serves(&self, file: &str) -> bool {
-        self.layers.is_none_or(|files| files.contains(&file))
+        self.layers
+            .as_ref()
+            .is_none_or(|files| files.iter().any(|served| served == file))
     }
 
     /// The GetFeature of `type_name` features in `bbox` (in [`NasService::crs`]), rounded
@@ -58,11 +60,11 @@ impl NasService {
 }
 
 /// How a dataset is read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TreeFormat {
     /// An OpenDataSoft `exports/geojson` endpoint, asked with `where=in_bbox(<geo_field>, …)` in
     /// WGS84 (no paging). The geometry is WGS84 too.
-    OdsGeoJsonExport { geo_field: &'static str },
+    OdsGeoJsonExport { geo_field: Cow<'static, str> },
 }
 
 /// The field names of a dataset (properties of the served features).
@@ -95,10 +97,10 @@ pub struct TreeDataset {
     pub envelope: BoundingBox,
     pub format: TreeFormat,
     /// The endpoints, whose points are merged (Potsdam serves 283 772 points in three datasets).
-    pub endpoints: &'static [&'static str],
+    pub endpoints: Cow<'static, [Cow<'static, str>]>,
     pub fields: TreeFields,
     /// Kinds that are no tree and are not stored.
-    pub skipped_kinds: &'static [&'static str],
+    pub skipped_kinds: Cow<'static, [Cow<'static, str>]>,
     /// The line for the attribution once a tree of the dataset is drawn.
     pub attribution: Cow<'static, str>,
     /// The largest answer of one endpoint (bytes); a larger one fails the dataset.
@@ -140,7 +142,7 @@ impl TreeDataset {
     /// projects to.
     pub fn url(&self, endpoint: &str, region_bbox: &BoundingBox) -> Option<String> {
         let (lat_min, lon_min, lat_max, lon_max) = wgs84_bbox(region_bbox)?;
-        Some(match self.format {
+        Some(match &self.format {
             TreeFormat::OdsGeoJsonExport { geo_field } => format!(
                 "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
             ),
