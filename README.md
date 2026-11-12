@@ -81,7 +81,7 @@ Bayern). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-Geplant: Genehmigungen und Ansprechpartner. Zu jedem Kartenbereich soll freemapper künftig auch zeigen, wer gefragt werden muss: bei Waldkarten die berührten Schutzgebiete (Naturschutz, Landschaftsschutz, FFH, Nationalpark) und die zuständige Forstverwaltung, bei Sprintkarten Gemeinde oder Bezirk, Straßenverkehrs- und Grünflächenamt, Denkmal- und Schlösserverwaltungen und, wo offene Daten es hergeben, die Grundstückseigentümer der öffentlichen Hand. Das Ergebnis wäre ein Bericht `permits.md` neben der Karte, jeweils mit Quelle und Datenstand. Er ist ein Hinweis und keine Rechtsauskunft, und Eigentümer privater Flächen stehen nicht in offenen Daten. Die Recherche dazu steht in [`docs/research`](docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
+Geplant: Genehmigungen und Ansprechpartner. Zu jedem Kartenbereich soll freemapper künftig auch zeigen, wer gefragt werden muss: bei Waldkarten die berührten Schutzgebiete (Naturschutz, Landschaftsschutz, FFH, Nationalpark) und die zuständige Forstverwaltung, bei Sprintkarten Gemeinde oder Bezirk, Straßenverkehrs- und Grünflächenamt, Denkmal- und Schlösserverwaltungen und, wo offene Daten es hergeben, die Grundstückseigentümer der öffentlichen Hand. Das Ergebnis wäre ein Bericht `permits.md` neben der Karte, jeweils mit Quelle und Datenstand. Er ist ein Hinweis und keine Rechtsauskunft, und Eigentümer privater Flächen stehen nicht in offenen Daten. Die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## Handbuch
 
@@ -352,7 +352,7 @@ für Sprint, IOF-Schulsatz 2019 für Schulhof), der die Platzhalter nach Nummer 
   vorhandene OOM-Karte bleibt bei `--ocad` ohne `--force` unverändert.
 
 Die Dateien sind noch nicht in OCAD geprüft. Was zu prüfen ist, steht in
-[`docs/ocad/test-checklist.md`](docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
+[`docs/ocad/test-checklist.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
 Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die Kandidaten-Karte deckungsgleich
 einblendet (sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
 OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
