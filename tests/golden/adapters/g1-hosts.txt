@@ -1,6 +1,7 @@
 # The hosts a fetch of each state asked when the golden net recorded all eleven (store version 1),
 # without Geofabrik's. Every built-in manifest declares at least these
 # (crates/adapters/de/tests/manifests.rs). A state that is still recorded must ask exactly these.
+# The lines of the other seven are frozen: no fetch is compared with them any more.
 brandenburg: data.geobasis-bb.de isk.geobasis-bb.de ogc-api.geobasis-bb.de opendata.potsdam.de
 berlin: data.geobasis-bb.de gdi.berlin.de
 saxony: geocloud.landesvermessung.sachsen.de geodienste.sachsen.de

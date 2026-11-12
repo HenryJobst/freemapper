@@ -179,7 +179,9 @@ other people, so do it from the sources:
    `AccessConstraints` of each service's capabilities. Where a service says in its own words that downloading
    needs a contract, do not use that service, whatever the catalogue says. Saarland's two INSPIRE WCS services
    were left out for this reason. Where the capabilities only point to general terms, the agency's terms of
-   use decide; quote the sentence in your pull request.
+   use decide; quote the sentence in your pull request. The same holds where `Fees` names a fee schedule for
+   a product the agency lists as open data: the WFS of Saxony-Anhalt says `Kostenverordnung` there, and § 2
+   of the agency's terms of use (version 5.0) puts its open data under dl-de/by-2-0.
 2. Take the name of the provider exactly as the agency prescribes it (`© GeoBasis-DE / LVermGeo ST`,
    `© GeoBasis DE/LVGL-SL (Jahr)`), blanks and brackets included.
 3. Write `[attribution] text` with what the licence asks for:
