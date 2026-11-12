@@ -13,6 +13,7 @@ pub mod nas;
 pub mod ogc_api;
 pub mod raster;
 pub mod raster_fetch;
+pub mod replay;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;

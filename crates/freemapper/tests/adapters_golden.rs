@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 #[path = "support/replay.rs"]
 mod replay;
 
-use replay::{CutOff, RecordingFetcher, ReplayFetcher};
+use replay::CutOff;
 
 /// `tests/golden/adapters/` at the repository root.
 fn golden_dir() -> PathBuf {
@@ -720,7 +720,7 @@ fn replay_returns_recorded_bytes_and_logs_requests() {
         ),
     )
     .unwrap();
-    let fetcher = ReplayFetcher::new(&index, &store);
+    let fetcher = replay::replay(&index, &store);
     assert_eq!(
         fetcher.get("https://example.invalid/a").unwrap(),
         b"the whole answer"
@@ -892,7 +892,7 @@ fn replayed_fetch_until(id: &str, cut: Option<&str>) -> Replayed {
     let root = tempfile::tempdir().unwrap();
     let (dir, cache_dir) = (root.path().join(id), root.path().join("cache"));
     let cache = Cache::new(cache_dir.clone());
-    let fetcher = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+    let fetcher = replay::replay(&golden_dir().join(id).join("index.toml"), &store);
     let log = fetcher.log();
     let add = |line: String| log.lock().unwrap().push(line);
     clock::with_fixed(golden_noon(), || {
@@ -1179,7 +1179,7 @@ fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
         let project_file = dir.join("freemapper.toml");
         let before = std::fs::read(&project_file).unwrap();
         let store = fetched_store();
-        let offline = ReplayFetcher::new(&golden_dir().join(id).join("index.toml"), &store);
+        let offline = replay::replay(&golden_dir().join(id).join("index.toml"), &store);
         fetch_project(dir, &offline, &replayed.cache, FetchMode::Offline, quiet).unwrap();
         assert_eq!(
             offline.trace(),
@@ -1330,7 +1330,7 @@ fn record_state() {
     let dir = root.path().join(&id);
     let cache = Cache::new(root.path().join("cache"));
     let index = golden_dir().join(&id).join("index.toml");
-    let recorder = RecordingFetcher::new(HttpFetcher::new(), &index, &store);
+    let recorder = replay::record(HttpFetcher::new(), &index, &store);
     clock::with_fixed(golden_noon(), || {
         init_golden_project(&dir, &region);
         seed_extracts(&region, &cache);
@@ -1341,7 +1341,7 @@ fn record_state() {
             eprintln!("the fetch failed and is recorded as it is: {e}");
         }
     });
-    recorder.save();
+    recorder.save().unwrap();
     // The candidates of the real extract: G4 puts them in place of the empty extract's.
     let candidates = dir.join("data/osm-candidates.geojson");
     if candidates.is_file() {

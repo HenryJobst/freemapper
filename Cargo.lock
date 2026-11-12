@@ -851,10 +851,13 @@ dependencies = [
  "image",
  "miniz_oxide 0.9.1",
  "quick-xml",
+ "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.21",
  "tiff",
+ "toml",
  "weezl",
  "zip",
 ]

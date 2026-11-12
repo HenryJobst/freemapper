@@ -24,9 +24,12 @@ geojson.workspace = true
 image.workspace = true
 miniz_oxide.workspace = true
 quick-xml.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 tiff.workspace = true
+toml.workspace = true
 weezl.workspace = true
 zip.workspace = true
 
