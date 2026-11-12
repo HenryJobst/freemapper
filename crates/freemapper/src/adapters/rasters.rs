@@ -1,53 +1,60 @@
-//! The raster backends of the ten providers behind the legacy adapters (plan C7): the fetch
-//! goes to the provider's function in `project.rs`, and `derive` learns from here what a tile
-//! provider keeps in the cache. The backends move into the adapter crate provider by provider.
+//! The raster backends behind the legacy adapters (plan C7). A provider whose backend lives in
+//! the adapter crate gets that one. For the others the fetch goes to the provider's function in
+//! `project.rs`; they move into the adapter crate provider by provider.
 
 use freemapper_adapter_api::env::AdapterEnv;
-use freemapper_adapter_api::error::{AdapterError, FetchError};
-use freemapper_adapter_api::fetch::FetchedTile;
-use freemapper_adapter_api::geometry::provider_tiles_in;
+use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{
-    DeriveEnv, DeriveInputs, HeightInput, NdsmInput, OrthophotoInput, ProviderInfo, RasterArea,
-    RasterBackend, RasterKind, StoredRasters,
+    DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, RasterKind, StoredRasters,
 };
 use freemapper_adapter_api::records::AdapterId;
+use freemapper_adapters_de::lgb::LgbBackend;
+use freemapper_adapters_de::tile_fetch::{TileProducts, tile_inputs};
 
 use crate::crs::BoundingBox;
-use crate::fetch::TilePaths as _;
-use crate::sources::lgb::{Product, ProductTiles as _, TileCurrency};
+use crate::project;
+use crate::sources::lgb::{Product, ProductTiles as _};
 use crate::sources::region::Provider;
-use crate::tiles::TileId;
 
-/// The tile products of a tile provider.
-struct TileProducts {
-    /// The products every tile of the area must be recorded with.
-    required: &'static [Product],
-    /// The orthophoto tiles; `None`: the orthophoto is an image fetched for the area.
-    orthophoto: Option<Product>,
-    dtm: Product,
-    dsm: Product,
+/// A raster fetch: the signature of [`RasterBackend::fetch`] without the backend.
+type RasterFetch =
+    fn(&mut AdapterEnv<'_>, &mut dyn RasterProject, &BoundingBox) -> Result<(), AdapterError>;
+
+/// The raster backend of `provider`.
+pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
+    let fetch: RasterFetch = match provider {
+        Provider::Lgb => return Box::new(LgbBackend::new()),
+        Provider::GeoSn => project::fetch_geosn_rasters,
+        Provider::LvermGeo => project::fetch_lvermgeo_rasters,
+        Provider::Lgv => project::fetch_lgv_rasters,
+        Provider::Hvbg => project::fetch_hvbg_rasters,
+        Provider::LvermGeoSh => project::fetch_sh_rasters,
+        Provider::LaivMv => project::fetch_mv_rasters,
+        Provider::GeobasisNrw => project::fetch_nrw_rasters,
+        Provider::Lgln => project::fetch_lgln_rasters,
+        Provider::LvermGeoRp => project::fetch_rp_rasters,
+    };
+    Box::new(LegacyBackend::new(provider, fetch))
 }
 
-/// The products LGB records for every tile.
-pub(crate) const LGB_PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
-
 /// The raster backend of a provider, as the enums describe it.
-pub(crate) struct LegacyBackend {
+struct LegacyBackend {
     provider: Provider,
+    fetch: RasterFetch,
     info: ProviderInfo,
 }
 
 impl LegacyBackend {
-    pub(crate) fn new(provider: Provider) -> Self {
-        let products = tile_products(provider);
+    fn new(provider: Provider, fetch: RasterFetch) -> Self {
         Self {
             provider,
+            fetch,
             info: ProviderInfo {
                 id: AdapterId::built_in(provider.id()),
                 cache_dir: cache_dir(provider).map(str::to_string),
                 terrain_source: provider.terrain_source().to_string(),
-                kind: match products {
+                kind: match tile_products(provider) {
                     Some(products) => RasterKind::Tiles {
                         grid_km: products.dtm.grid_km(),
                     },
@@ -75,24 +82,19 @@ fn cache_dir(provider: Provider) -> Option<&'static str> {
     }
 }
 
-/// The tile products of a tile provider: required, terrain and surface model. The per-area
-/// providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP) store
-/// their height models per area and have none.
+/// The tile products of a tile provider that is still a legacy backend: required, terrain and
+/// surface model. The per-area providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis
+/// NRW, LGLN, LVermGeo RP) store their height models per area and have none.
 fn tile_products(provider: Provider) -> Option<TileProducts> {
     match provider {
-        Provider::Lgb => Some(TileProducts {
-            required: &LGB_PRODUCTS,
-            orthophoto: Some(Product::Orthophoto),
-            dtm: Product::Dtm,
-            dsm: Product::ImageDsm,
-        }),
         Provider::GeoSn => Some(TileProducts {
             required: &[Product::SaxonyDtm],
             orthophoto: None,
             dtm: Product::SaxonyDtm,
             dsm: Product::SaxonyDsm,
         }),
-        Provider::LvermGeo
+        Provider::Lgb
+        | Provider::LvermGeo
         | Provider::Lgv
         | Provider::Hvbg
         | Provider::LvermGeoSh
@@ -114,7 +116,7 @@ impl RasterBackend for LegacyBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        crate::project::fetch_rasters(self.provider, env, project, bbox)
+        (self.fetch)(env, project, bbox)
     }
 
     fn derive_inputs(
@@ -130,80 +132,6 @@ impl RasterBackend for LegacyBackend {
     }
 }
 
-/// What `derive` reads of a tile provider: the recorded tiles as archives in the cache.
-fn tile_inputs(
-    provider: &str,
-    products: &TileProducts,
-    env: &DeriveEnv<'_>,
-    stored: &StoredRasters<'_>,
-    area: &RasterArea,
-) -> DeriveInputs {
-    let needed = provider_tiles_in(env.regions, &area.bbox, provider, products.dtm.grid_km());
-    let outdated: Vec<TileId> = needed
-        .into_iter()
-        .filter(|tile| {
-            products.required.iter().any(|product| {
-                !stored
-                    .tiles
-                    .iter()
-                    .any(|r| r.product == *product && r.tile == tile.name())
-            })
-        })
-        .collect();
-    let tiles = |product: Product| -> Result<Vec<FetchedTile>, AdapterError> {
-        let mut fetched = Vec::new();
-        let mut missing = Vec::new();
-        for record in stored.tiles.iter().filter(|r| r.product == product) {
-            let tile = TileId::parse(&record.tile).ok_or_else(|| {
-                AdapterError::ProjectFile(format!("invalid tile id {:?}", record.tile))
-            })?;
-            let zip = env.cache.tile_path(product, tile, record.published);
-            if !zip.exists() {
-                missing.push(tile);
-                continue;
-            }
-            fetched.push(FetchedTile {
-                product,
-                tile,
-                url: record.url.clone(),
-                currency: TileCurrency {
-                    created: record.currency,
-                    revised: None,
-                    published: record.published,
-                },
-                zip,
-            });
-        }
-        if !missing.is_empty() {
-            return Err(FetchError::MissingOffline(product, missing).into());
-        }
-        Ok(fetched)
-    };
-    DeriveInputs {
-        outdated,
-        orthophoto: match products.orthophoto {
-            Some(product) => tiles(product).map(OrthophotoInput::Tiles),
-            None => Ok(OrthophotoInput::Image),
-        },
-        dtm: tiles(products.dtm).map(HeightInput::Tiles),
-        dsm: stored
-            .tiles
-            .iter()
-            .any(|r| r.product == products.dsm)
-            .then(|| tiles(products.dsm).map(HeightInput::Tiles)),
-        ndsm: stored
-            .ndsm_tiles
-            .iter()
-            .map(|record| NdsmInput {
-                tile: record.tile.clone(),
-                // The tile comes from the project file: only a valid tile id names a cache file.
-                path: TileId::parse(&record.tile)
-                    .map(|tile| env.cache.ndsm_path(tile, record.published)),
-            })
-            .collect(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,7 +143,8 @@ mod tests {
             let provider = crate::sources::region::Region::from_id(&facts.id)
                 .unwrap()
                 .provider();
-            let info = LegacyBackend::new(provider).info;
+            let backend = backend(provider);
+            let info = backend.provider();
             assert_eq!(info.id.as_str(), facts.provider, "{}", facts.id);
             assert_eq!(info.cache_dir, facts.cache_dir, "{}", facts.id);
             assert_eq!(info.terrain_source, facts.terrain_source, "{}", facts.id);
@@ -227,11 +156,11 @@ mod tests {
             );
         }
         assert_eq!(
-            LegacyBackend::new(Provider::Lgb).info.kind,
+            backend(Provider::Lgb).provider().kind,
             RasterKind::Tiles { grid_km: 1 }
         );
         assert_eq!(
-            LegacyBackend::new(Provider::GeoSn).info.kind,
+            backend(Provider::GeoSn).provider().kind,
             RasterKind::Tiles { grid_km: 2 }
         );
     }

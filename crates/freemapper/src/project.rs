@@ -59,8 +59,8 @@ use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
+use crate::fetch::fetch_tiles_each;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, fetch_tiles, write_inside};
-use crate::fetch::{fetch_ndsm_tiles, fetch_tiles_each};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::MapCoord;
@@ -385,8 +385,8 @@ pub(crate) use freemapper_sources::raster_fetch::{
     SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH,
 };
 use freemapper_sources::raster_fetch::{
-    drop_wms_orthophoto, fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface,
-    raster_tiles, say_kept_surface_tiles, tile_record, warn_beyond_state,
+    fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface, raster_tiles,
+    say_kept_surface_tiles, tile_record, warn_beyond_state,
 };
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
@@ -675,7 +675,6 @@ pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
-use crate::adapters::rasters::LGB_PRODUCTS as PRODUCTS;
 pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
@@ -1176,195 +1175,10 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The raster fetch of `provider`, for the legacy backends (`adapters/rasters.rs`) until each
-/// function moves into the backend of its provider.
-pub(crate) fn fetch_rasters(
-    provider: Provider,
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    match provider {
-        Provider::LvermGeo => fetch_lvermgeo_rasters(env, project, bbox),
-        Provider::Lgv => fetch_lgv_rasters(env, project, bbox),
-        Provider::GeoSn => fetch_geosn_rasters(env, project, bbox),
-        Provider::Hvbg => fetch_hvbg_rasters(env, project, bbox),
-        Provider::LvermGeoSh => fetch_sh_rasters(env, project, bbox),
-        Provider::LaivMv => fetch_mv_rasters(env, project, bbox),
-        Provider::GeobasisNrw => fetch_nrw_rasters(env, project, bbox),
-        Provider::Lgln => fetch_lgln_rasters(env, project, bbox),
-        Provider::LvermGeoRp => fetch_rp_rasters(env, project, bbox),
-        Provider::Lgb => fetch_lgb_rasters(env, project, bbox),
-    }
-}
-
-/// The LGB rasters of `bbox`: orthophoto and DTM tiles, the nDOM point clouds, and the bDOM where
-/// no nDOM is published. With `skip_surface` (no disk space for it) neither surface model is
-/// downloaded; the cached tiles recorded before stay.
-fn fetch_lgb_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
-    let cache = env.cache;
-    let tiles = raster_tiles(env, bbox, Provider::Lgb.id(), "LGB", 1);
-    // What the project recorded before this fetch.
-    let old_tiles: Vec<TileRecord> = project.records().tiles.clone();
-    let old_ndsm: Vec<NdsmRecord> = project.records().ndsm_tiles.clone();
-    let mut records = Vec::new();
-    for product in PRODUCTS {
-        for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, env.progress)? {
-            let record = TileRecord {
-                product,
-                tile: fetched.tile.name(),
-                url: fetched.url,
-                currency: fetched.currency.currency(),
-                published: fetched.currency.published,
-            };
-            let previous = old_tiles
-                .iter()
-                .find(|r| r.product == product && r.tile == record.tile);
-            if let Some(previous) = previous.filter(|p| p.published != record.published) {
-                (env.progress)(note!(
-                    "warning-tile-changed",
-                    product = format!("{product:?}"),
-                    tile = &record.tile,
-                    old = previous.published.to_string(),
-                    new = record.published.to_string()
-                ));
-            }
-            records.push(record);
-        }
-    }
-    // Record the tiles first: they may have replaced older cached versions, and a failing
-    // buildings download must not leave the project pointing at those.
-    let previous_dsm: Vec<TileRecord> = old_tiles
-        .iter()
-        .filter(|r| r.product == Product::ImageDsm)
-        .cloned()
-        .collect();
-    *project.records().tiles = records;
-    project.save()?;
-    if skip_surface {
-        let cached = |tile: &str, path: &dyn Fn(TileId) -> PathBuf| {
-            TileId::parse(tile).is_some_and(|t| tiles.contains(&t) && path(t).exists())
-        };
-        let r = project.records();
-        r.ndsm_tiles
-            .retain(|r| cached(&r.tile, &|t| cache.ndsm_path(t, r.published)));
-        r.tiles.extend(
-            previous_dsm
-                .into_iter()
-                .filter(|r| cached(&r.tile, &|t| cache.tile_path(r.product, t, r.published))),
-        );
-        let kept: Vec<&str> = r
-            .ndsm_tiles
-            .iter()
-            .map(|r| r.tile.as_str())
-            .chain(
-                r.tiles
-                    .iter()
-                    .filter(|r| r.product == Product::ImageDsm)
-                    .map(|r| r.tile.as_str()),
-            )
-            .collect();
-        say_kept_surface_tiles(&kept, env.progress);
-        drop_wms_orthophoto(project);
-        project.save()?;
-        return Ok(());
-    }
-    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, env.progress)?
-        .into_iter()
-        .map(|t| NdsmRecord {
-            tile: t.tile.name(),
-            url: t.url,
-            published: t.published,
-        })
-        .collect();
-    for record in &ndsm_tiles {
-        let previous = old_ndsm.iter().find(|p| p.tile == record.tile);
-        if let Some(previous) = previous.filter(|p| p.published != record.published)
-            && let (Some(old), Some(new)) = (previous.published, record.published)
-        {
-            (env.progress)(note!(
-                "warning-tile-changed",
-                product = "nDSM",
-                tile = &record.tile,
-                old = old.to_string(),
-                new = new.to_string()
-            ));
-        }
-    }
-    // Where no nDOM point cloud is published (Berlin), the nDSM comes from the bDOM surface
-    // model minus the DTM. It is only a template: an unavailable bDOM costs a warning.
-    let without_ndsm: Vec<TileId> = tiles
-        .iter()
-        .copied()
-        .filter(|tile| !ndsm_tiles.iter().any(|r| r.tile == tile.name()))
-        .collect();
-    *project.records().ndsm_tiles = ndsm_tiles;
-    if !without_ndsm.is_empty() {
-        match fetch_tiles_each(
-            fetcher,
-            cache,
-            Product::ImageDsm,
-            &without_ndsm,
-            mode,
-            env.progress,
-        ) {
-            Ok(results) => {
-                for (tile, result) in results {
-                    let fetched = match result {
-                        Ok(fetched) => fetched,
-                        Err(e) => {
-                            (env.progress)(note!(
-                                "warning-bdom-tile-unavailable",
-                                tile = tile.name(),
-                                error = Arg::error(e)
-                            ));
-                            continue;
-                        }
-                    };
-                    (env.progress)(note!("progress-ndsm-from-bdom", tile = tile.name()));
-                    let record = TileRecord {
-                        product: Product::ImageDsm,
-                        tile: tile.name(),
-                        url: fetched.url,
-                        currency: fetched.currency.currency(),
-                        published: fetched.currency.published,
-                    };
-                    if let Some(previous) = previous_dsm
-                        .iter()
-                        .find(|p| p.tile == record.tile && p.published != record.published)
-                    {
-                        (env.progress)(note!(
-                            "warning-tile-changed",
-                            product = format!("{:?}", Product::ImageDsm),
-                            tile = &record.tile,
-                            old = previous.published.to_string(),
-                            new = record.published.to_string()
-                        ));
-                    }
-                    project.records().tiles.push(record);
-                }
-            }
-            Err(e) => (env.progress)(note!(
-                "warning-bdom-unavailable",
-                error = Arg::error(e),
-                tiles = crate::fetch::tile_names(&without_ndsm)
-            )),
-        }
-    }
-    drop_wms_orthophoto(project);
-    project.save()?;
-    Ok(())
-}
-
 /// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
 /// only a template; with `skip_surface` only the cached ones recorded before), and the
 /// orthophoto from the WMS.
-fn fetch_geosn_rasters(
+pub(crate) fn fetch_geosn_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1526,7 +1340,7 @@ fn fetch_k5_into(
 
 /// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
 /// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
-fn fetch_lvermgeo_rasters(
+pub(crate) fn fetch_lvermgeo_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1604,7 +1418,7 @@ fn fetch_lvermgeo_rasters(
 /// The LGV rasters of `bbox` (EPSG:25832): the orthophoto from the WMS (2026), DGM1 and bDOM
 /// (2022) read out of the statewide archives. The bDOM is only a template: an unavailable one
 /// costs a warning.
-fn fetch_lgv_rasters(
+pub(crate) fn fetch_lgv_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1695,7 +1509,7 @@ fn fetch_lgv_rasters(
 /// The HVBG rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 read out
 /// of the Downloadcenter's municipal zips. The DOM1 is only a template: an unavailable one costs
 /// a warning.
-fn fetch_hvbg_rasters(
+pub(crate) fn fetch_hvbg_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1771,7 +1585,7 @@ fn fetch_hvbg_rasters(
 
 /// The Geobasis NRW rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1
 /// from the 1 km tiles. The DOM1 is only a template: an unavailable one costs a warning.
-fn fetch_nrw_rasters(
+pub(crate) fn fetch_nrw_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1818,7 +1632,7 @@ fn fetch_nrw_rasters(
 /// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
 /// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
 /// names. The DOM1 is only a template: an unavailable one costs a warning.
-fn fetch_rp_rasters(
+pub(crate) fn fetch_rp_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1867,7 +1681,7 @@ fn fetch_rp_rasters(
 /// The LVermGeo SH rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and bDOM
 /// from the Downloadportal. The bDOM is only a template (and a 105 MB download per km²): an
 /// unavailable one costs a warning.
-fn fetch_sh_rasters(
+pub(crate) fn fetch_sh_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1940,7 +1754,7 @@ fn fetch_sh_rasters(
 /// The LAiV M-V rasters of `bbox` (EPSG:25833): the orthophoto from the DOP WCS, DGM1 and DOM1
 /// from the height WCS, masked to the MV tile set. The DOM1 is only a template: an unavailable
 /// one costs a warning.
-fn fetch_mv_rasters(
+pub(crate) fn fetch_mv_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
@@ -1987,7 +1801,7 @@ fn fetch_mv_rasters(
 /// The LGLN rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from the
 /// WCS, all dated by the STAC searches. The DOM1 is only a template: an unavailable one costs a
 /// warning, and so does one much older than the orthophoto.
-fn fetch_lgln_rasters(
+pub(crate) fn fetch_lgln_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,

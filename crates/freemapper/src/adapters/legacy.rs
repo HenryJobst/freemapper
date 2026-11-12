@@ -12,8 +12,7 @@ use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use geo_types::MultiPolygon;
 
-use crate::adapters::rasters::LegacyBackend;
-use crate::adapters::{alkis, credit, estimate};
+use crate::adapters::{alkis, credit, estimate, rasters};
 use crate::crs::BoundingBox;
 use std::sync::OnceLock;
 
@@ -25,7 +24,7 @@ pub struct LegacyAdapter {
     info: RegionInfo,
     /// The box around the boundary, found when first asked for.
     alkis: Box<dyn AlkisSource>,
-    rasters: LegacyBackend,
+    rasters: Box<dyn RasterBackend>,
     bounds: OnceLock<BoundingBox>,
 }
 
@@ -152,7 +151,7 @@ impl LegacyAdapter {
             region,
             info,
             alkis: alkis::source(region),
-            rasters: LegacyBackend::new(region.provider()),
+            rasters: rasters::backend(region.provider()),
             bounds: OnceLock::new(),
         }
     }
@@ -181,7 +180,7 @@ impl RegionAdapter for LegacyAdapter {
     }
 
     fn rasters(&self) -> Option<&dyn RasterBackend> {
-        Some(&self.rasters)
+        Some(&*self.rasters)
     }
 
     fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {

@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::STALE_PART_AGE;
+use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::geometry::provider_tiles_in;
+use freemapper_adapter_api::rasters::{
+    DeriveEnv, DeriveInputs, HeightInput, NdsmInput, OrthophotoInput, RasterArea, StoredRasters,
+};
 
 use crate::fetch::{
     CacheDir, FetchError, FetchMode, FetchedTile, Fetcher, get_with_retries, write_cache_file,
@@ -519,4 +524,88 @@ fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError>
         }
     }
     Ok(())
+}
+
+/// The tile products of a tile provider.
+pub struct TileProducts {
+    /// The products every tile of the area must be recorded with.
+    pub required: &'static [Product],
+    /// The orthophoto tiles; `None`: the orthophoto is an image fetched for the area.
+    pub orthophoto: Option<Product>,
+    pub dtm: Product,
+    pub dsm: Product,
+}
+
+/// What `derive` reads of a tile provider: the recorded tiles as archives in the cache.
+pub fn tile_inputs(
+    provider: &str,
+    products: &TileProducts,
+    env: &DeriveEnv<'_>,
+    stored: &StoredRasters<'_>,
+    area: &RasterArea,
+) -> DeriveInputs {
+    let needed = provider_tiles_in(env.regions, &area.bbox, provider, products.dtm.grid_km());
+    let outdated: Vec<TileId> = needed
+        .into_iter()
+        .filter(|tile| {
+            products.required.iter().any(|product| {
+                !stored
+                    .tiles
+                    .iter()
+                    .any(|r| r.product == *product && r.tile == tile.name())
+            })
+        })
+        .collect();
+    let tiles = |product: Product| -> Result<Vec<FetchedTile>, AdapterError> {
+        let mut fetched = Vec::new();
+        let mut missing = Vec::new();
+        for record in stored.tiles.iter().filter(|r| r.product == product) {
+            let tile = TileId::parse(&record.tile).ok_or_else(|| {
+                AdapterError::ProjectFile(format!("invalid tile id {:?}", record.tile))
+            })?;
+            let zip = env.cache.tile_path(product, tile, record.published);
+            if !zip.exists() {
+                missing.push(tile);
+                continue;
+            }
+            fetched.push(FetchedTile {
+                product,
+                tile,
+                url: record.url.clone(),
+                currency: TileCurrency {
+                    created: record.currency,
+                    revised: None,
+                    published: record.published,
+                },
+                zip,
+            });
+        }
+        if !missing.is_empty() {
+            return Err(FetchError::MissingOffline(product, missing).into());
+        }
+        Ok(fetched)
+    };
+    DeriveInputs {
+        outdated,
+        orthophoto: match products.orthophoto {
+            Some(product) => tiles(product).map(OrthophotoInput::Tiles),
+            None => Ok(OrthophotoInput::Image),
+        },
+        dtm: tiles(products.dtm).map(HeightInput::Tiles),
+        dsm: stored
+            .tiles
+            .iter()
+            .any(|r| r.product == products.dsm)
+            .then(|| tiles(products.dsm).map(HeightInput::Tiles)),
+        ndsm: stored
+            .ndsm_tiles
+            .iter()
+            .map(|record| NdsmInput {
+                tile: record.tile.clone(),
+                // The tile comes from the project file: only a valid tile id names a cache file.
+                path: TileId::parse(&record.tile)
+                    .map(|tile| env.cache.ndsm_path(tile, record.published)),
+            })
+            .collect(),
+    }
 }
