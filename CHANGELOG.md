@@ -19,6 +19,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Nennt eine Projektdatei einen Anbieter oder ein Bundesland, das dieses freemapper nicht kennt, sagt die Fehlermeldung das und nennt die Kennung. Vorher stand dort eine Parser-Meldung über einen unbekannten Wert.
 - Tests: `save_creates_the_project` scheiterte gelegentlich unter Windows und Linux. Der Server antwortet auf einen POST an eine GET-Route mit 405, bevor er den Body liest, und schließt die Verbindung, wenn der Body erst danach ankommt. Der Test-Client benutzte diese Verbindung weiter. Die Prüfung schickt den Request jetzt roh in einem Stück. Das Programm selbst ändert sich nicht.
+- Tests: Unter Linux scheiterten die Update-Tests gelegentlich mit „Text file busy“. Die Kopie des Programms, die sie starten, schrieb der Testprozess selbst, und ein gleichzeitig gestarteter Kindprozess eines anderen Tests erbte die offene Datei. Jetzt schreibt `cp` die Kopie in einem eigenen Prozess. Das Programm selbst ändert sich nicht.
 - Die Gebietsseite zeigt die Hinweise zum Speicherplatz in ihrer eigenen Sprache: was aus Platzmangel wegfällt, warum ein Lauf nicht startet und dass sich der freie Platz nicht lesen lässt. Vorher kamen sie in der Sprache des Programms, auf einer deutschen Seite also oft auf Englisch. Dasselbe gilt für die Ablehnung eines ungültigen `pdf_sources`.
 
 ## [0.13.0] - 2026-11-12

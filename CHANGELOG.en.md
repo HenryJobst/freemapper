@@ -19,6 +19,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - When a project file names a provider or a state this freemapper does not know, the error says so and names the id. Before, it was a parser message about an unknown value.
 - Tests: `save_creates_the_project` failed now and then on Windows and Linux. The server answers a POST to a GET route with 405 before it reads the body, and closes the connection when the body arrives only afterwards. The test client kept using that connection. The check now sends the request raw, in one piece. The program itself does not change.
+- Tests: on Linux the update tests failed now and then with "Text file busy". The test process wrote the copy of the program they start itself, and a child process another test started at the same moment inherited the open file. Now `cp` writes the copy in a process of its own. The program itself does not change.
 - The area page shows the disk space notes in its own language: what is left out for lack of space, why a run does not start, and that the free space cannot be read. Before, they came in the program's language, so a German page often showed them in English. The same goes for the refusal of an invalid `pdf_sources`.
 
 ## [0.13.0] - 2026-11-12
