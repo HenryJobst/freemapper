@@ -6,6 +6,7 @@ pub mod ndsm;
 pub mod orthophoto;
 pub mod relief;
 pub mod terrain;
+pub mod vegetation;
 
 use std::path::PathBuf;
 
