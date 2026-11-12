@@ -449,3 +449,70 @@ pub fn lgb_items(tiles: &[TileId], cache: &CacheDir) -> Vec<EstimateItem> {
     }
     items
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::crs::{Crs, ProjectedPoint};
+    use crate::lvgl::Model;
+
+    /// Saarland: the orthophoto by the area, and 2 MB (DGM1) and 2.5 MB (DOM1) per 1 km tile
+    /// of the area that is not in the cache yet.
+    #[test]
+    fn saarland_counts_the_tiles_that_are_not_cached() {
+        // 100 m in Saarbrücken, inside the tile 353/5455 of zone 32.
+        let corner = |easting: f64, northing: f64| {
+            Crs::Utm33
+                .reproject(Crs::Utm32, ProjectedPoint { easting, northing })
+                .unwrap()
+        };
+        let (low, high) = (
+            corner(353_400.0, 5_455_400.0),
+            corner(353_500.0, 5_455_500.0),
+        );
+        let bbox = BoundingBox {
+            min_e: low.easting.min(high.easting),
+            min_n: low.northing.min(high.northing),
+            max_e: low.easting.max(high.easting),
+            max_n: low.northing.max(high.northing),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let sizes = |items: &[EstimateItem]| -> Vec<(String, f64, bool)> {
+            items
+                .iter()
+                .map(|item| (item.what.clone(), item.megabytes, item.cached))
+                .collect()
+        };
+        let items = lvgl_items(&bbox, &cache);
+        assert_eq!(
+            items.iter().map(|item| item.part).collect::<Vec<_>>(),
+            [Part::Orthophoto, Part::Terrain, Part::Surface]
+        );
+        assert_eq!(
+            sizes(&items)[1..],
+            [
+                ("terrain model (LVGL DGM1 2025)".to_string(), 2.0, false),
+                ("surface model (LVGL DOM1 2025)".to_string(), 2.5, false),
+            ]
+        );
+        assert_eq!(items[0].what, "orthophoto (LVGL WMS)");
+        assert!(!items[0].cached && items[0].megabytes >= 0.1);
+
+        // The terrain tile is in the cache: nothing left to download of it.
+        let tile = TileId {
+            east_km: 353,
+            north_km: 5455,
+        };
+        let file = Model::Dgm1.tile_cache_file(&cache, tile);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, b"tile").unwrap();
+        assert_eq!(
+            sizes(&lvgl_items(&bbox, &cache))[1..],
+            [
+                ("terrain model (LVGL DGM1 2025)".to_string(), 0.0, true),
+                ("surface model (LVGL DOM1 2025)".to_string(), 2.5, false),
+            ]
+        );
+    }
+}

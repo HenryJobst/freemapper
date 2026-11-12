@@ -219,8 +219,10 @@ fn directory(
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832), read out of the district archives and
 /// cached, mosaicked into a Float32 GeoTIFF `out` with its world file. A tile is looked for in
 /// the archives in the order of [`DISTRICTS`], and the directory of an archive is read only
-/// when the archives before it do not hold a tile (a tile on a district border is in two; the
-/// first is taken). Tiles outside Saarland are in no archive and stay empty; returned are the
+/// when the archives before it do not hold a tile. A tile on a district border is in the
+/// archive of each district it touches, whole and the same in each (the 294 such tiles of
+/// either model had one CRC-32 per tile on 2026-11-12), so the first archive that holds it is
+/// as good as any. Tiles outside Saarland are in no archive and stay empty; returned are the
 /// tiles inside Saarland that no archive holds. No tile at all is an error (the archives were
 /// renamed or replaced by a newer survey).
 pub fn fetch_model(
@@ -524,7 +526,8 @@ mod tests {
     }
 
     /// A tile is read from the first archive that holds it, once, and the archives after it
-    /// are not asked: the tile at the district border is in NK and in SB.
+    /// are not asked: the tile at the district border is in NK and in SB. (The archives of the
+    /// LVGL hold the same tile there; the two values here only show which archive was read.)
     #[test]
     fn a_tile_is_read_from_the_district_archive_that_holds_it() {
         let dir = tempfile::tempdir().unwrap();

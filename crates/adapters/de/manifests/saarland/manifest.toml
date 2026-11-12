@@ -28,7 +28,7 @@ label = "Saarland"
 
 [attribution]
 licence = "dl-de/by-2-0"
-text = "© GeoBasis DE/LVGL-SL {year}, dl-de/by-2-0, Daten geändert"
+text = "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"
 
 [alkis]
 kind = "wfs"

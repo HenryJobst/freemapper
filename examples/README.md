@@ -129,7 +129,7 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
 Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis ist das jüngste Beispiel und mit dem
 Inhaltsprofil `balanced` entstanden, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet:
-Die Karte hat deshalb 26 Symbole und nur 249 Kandidaten. Die älteren Beispiele stammen aus der Zeit davor.
+Die Karte selbst hat deshalb 26 Symbole, und es bleiben nur 249 Kandidaten. Die älteren Beispiele stammen aus der Zeit davor.
 
 ## Lizenzen
 

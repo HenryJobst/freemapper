@@ -380,7 +380,8 @@ fn local(name: &str) -> String {
 }
 
 /// All features of `type_name` in `bbox`, page by page; a feature repeated on a later page
-/// (same `oid`) is kept once, and a page without new features ends the paging.
+/// (same `oid`) is kept once, and a page without new features ends the paging. The features
+/// come in the order of their `oid`: from the service, or sorted here when it does not sort.
 pub fn fetch_wfs(
     fetcher: &dyn Fetcher,
     service: &WfsService,
@@ -437,6 +438,13 @@ pub fn fetch_wfs(
             "{name} returned {} of {matched} features in the area; run `freemapper fetch` again",
             features.len()
         ))));
+    }
+    if !service.sorted {
+        // The order the service did not give: two runs over one area write the same.
+        features.sort_by(|a, b| {
+            let oid = |feature: &Value| feature["properties"]["oid"].as_str().map(str::to_string);
+            oid(a).cmp(&oid(b))
+        });
     }
     Ok(features)
 }
@@ -599,7 +607,8 @@ mod tests {
     }
 
     /// A service that refuses `SORTBY` (Saarland's ArcGIS server answers it with an
-    /// exception) is paged in the order it gives; the others are sorted by `oid` as before.
+    /// exception) is paged in the order it gives, and its features are sorted by `oid` here;
+    /// the others are sorted by the service as before.
     #[test]
     fn an_unsorted_service_is_paged_without_sortby() {
         let bbox = BoundingBox {
@@ -659,11 +668,12 @@ mod tests {
             .iter()
             .map(|feature| feature["properties"]["oid"].as_str().unwrap())
             .collect();
+        // In the order of the `oid`, as a sorted service gives them: two runs write the same.
         assert_eq!(
             oids,
             [
-                "DESLALKI4T001GlcBL",
                 "DESLALKI4T0019CcBL",
+                "DESLALKI4T001GlcBL",
                 "DESLALKI4T00third"
             ]
         );

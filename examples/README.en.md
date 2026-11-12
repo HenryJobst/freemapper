@@ -123,7 +123,7 @@ little relief.
 In Saarland two rectangles ran, both in Saarlouis. The second lies 180 m further west and takes in the Vauban
 island in the old arm of the Saar and the ramparts in the Stadtgarten. Saarlouis is the newest example and was
 made with the content profile `balanced`, which draws the objects of the cadastre and the registers straight
-onto the map: the map therefore has 26 symbols and only 249 candidates. The older examples date from before.
+onto the map: the map itself therefore has 26 symbols, and only 249 candidates are left. The older examples date from before.
 
 ## Licences
 

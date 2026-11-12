@@ -64,6 +64,11 @@ Also there (not used): `OD_TrueDOP20_2025_tif_LK` (233 GB), `OD_LIDAR_Punktwolke
   4,003,508 bytes, deflated to 1.2 to 2.2 MB. DOM1 has the same layout (`dom1_32_…`, to verify when built).
 - Which district zip holds a tile is not in its name: the adapter reads the six directories (about 35 KB each)
   and finds the tile. This is the pattern of Hamburg and Hesse (`freemapper_sources::zip_range`).
+- A tile on a district border is in the archive of each district it touches. Checked on 2026-11-12 from the
+  central directories of all twelve archives: of the 2 775 tiles of each model, 294 are in more than one
+  archive, and every one of them has the same CRC-32 and size in each. The copies are the same whole tile, not
+  cut at the district border, so the adapter takes the first archive that holds a tile. Repeat the comparison
+  when the archives of a new survey replace these.
 - The WCS `EL.GridCoverage` would be simpler (1 m with `RESOLUTION=x(1)&RESOLUTION=y(1)`; without it about
   18 m per pixel), but see "Licence", and there is no WCS for the surface model.
 
@@ -105,4 +110,27 @@ Live checks at Saarbrücken, St. Wendel and Perl passed.
    `crates/adapters`: a finding for the design, since the plan wanted a new state to touch only its folder and
    the registration line).
 3. Hosts: `geoportal.saarland.de`, `www.shop.lvgl.saarland.de`.
-4. Credit: `© GeoBasis DE/LVGL-SL {year}, dl-de/by-2-0` (the source note the records ask for).
+4. Credit: `© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert`. The records give the source note as
+   `© GeoBasis DE/LVGL-SL (Jahr)`. No publication of the LVGL was found that shows a year in use, so the
+   adapter keeps the parentheses of the record. The notes of the project add the address of the licence text
+   (`https://www.govdata.de/dl-de/by-2-0`), which dl-de/by-2-0 asks for.
+
+## What a state costs beyond its folder (gate E5, ADR 0111)
+
+Inside `crates/adapters/de` the state and its agency are enums, so Saarland added an arm or a row in about
+twenty places: `State::ALL`, `id`, `object_id_prefix`, `agency`, `crs`, the three tables of `Agency`, the
+manifest and boundary tables, `backend_name`, the ALKIS constants, the credit, the estimate, the backend table.
+
+Outside `crates/adapters`:
+
+- `freemapper-sources`: the WFS reader (upper-case names, `SHAPE`, paging without `SORTBY`, sorted by `oid`
+  afterwards).
+- `freemapper-manifest`: the key `[alkis] sorted`.
+- Tests that count or list the states: the registry order, the list of states in messages, `adapters list`, the
+  adapters of the area page and its content security policy, the boundary files. More than twenty assertions
+  in nine files said "eleven" or counted on it.
+- The golden harness: the id tables of the engine's tests (`regions::ALL`, a point inside each region), the new
+  list `regions::LEGACY` that G1, G2, G3, `region_at` and `geometry_of` now go through, and the filter of the
+  examples in `generated_boxes`. Every further state meets these too, until the net is smaller.
+- One golden file, because the debug text of a WFS constant gained a field.
+- The documents every state gets: manual, README, examples, changelog, AGENTS.md.
