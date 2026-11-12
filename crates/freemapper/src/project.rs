@@ -76,14 +76,13 @@ use crate::sources::osm::{
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    Provider, Region, overlaps_in, provider_tiles, raster_region, raster_region_in, regions_for,
-    touches_berlin,
+    Provider, Region, overlaps_in, provider_tiles, raster_region, raster_region_in, touches_berlin,
 };
 use crate::sources::trees;
 use crate::sources::wms::OrthophotoSource;
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
-use crate::tiles::{TileId, tiles_covering_grid};
+use crate::tiles::TileId;
 
 mod export;
 pub use export::*;
@@ -379,7 +378,7 @@ pub(crate) use freemapper_sources::raster_fetch::{
 };
 use freemapper_sources::raster_fetch::{
     drop_wms_orthophoto, fetch_area_heights, fetch_wms_orthophoto, keep_stored_surface,
-    say_kept_surface_tiles, tile_record,
+    raster_tiles, say_kept_surface_tiles, tile_record, warn_beyond_state,
 };
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
@@ -944,6 +943,7 @@ fn fetch_project_parts(
     {
         let mut env = AdapterEnv {
             fetcher,
+            regions: registry(),
             cache,
             mode,
             today: crate::clock::today(),
@@ -1167,7 +1167,7 @@ fn fetch_lgb_rasters(
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
-    let tiles = raster_tiles(bbox, Provider::Lgb, 1, env.progress);
+    let tiles = raster_tiles(env, bbox, Provider::Lgb.id(), "LGB", 1);
     // What the project recorded before this fetch.
     let old_tiles: Vec<TileRecord> = project.records().tiles.clone();
     let old_ndsm: Vec<NdsmRecord> = project.records().ndsm_tiles.clone();
@@ -1331,10 +1331,11 @@ fn fetch_geosn_rasters(
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
     let tiles = raster_tiles(
+        env,
         bbox,
-        Provider::GeoSn,
+        Provider::GeoSn.id(),
+        "GeoSN",
         Product::SaxonyDtm.grid_km(),
-        env.progress,
     );
     let previous = std::mem::take(project.records().tiles);
     let mut records = Vec::new();
@@ -1648,25 +1649,6 @@ fn fetch_lgv_rasters(
     }
     project.save()?;
     Ok(())
-}
-
-/// Reports once that the map area reaches into a state other than `provider`'s. Whether the `name`
-/// rasters end at the border depends on the service (the LGLN WMS and WCS cover the Hamburg corner
-/// but the WMS is white in Bremen; the LVermGeo RP WMS is white across the Rhine at Mainz while
-/// its tiles cover Wiesbaden; tiles may reach slightly past), so the line promises no empty
-/// templates. ALKIS and OSM are read from both states.
-fn warn_beyond_state(
-    env: &mut AdapterEnv<'_>,
-    project: &dyn RasterProject,
-    provider: &str,
-    name: &str,
-) {
-    if regions_for(&project.region_bbox())
-        .iter()
-        .any(|r| r.provider().id() != provider)
-    {
-        (env.progress)(note!("progress-beyond-border", provider = name));
-    }
 }
 
 /// The HVBG rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 read out
@@ -2052,44 +2034,6 @@ fn fetch_lgln_rasters(
     Ok(())
 }
 
-/// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
-/// published, and the templates stay empty there (reported once).
-fn raster_tiles(
-    bbox: &BoundingBox,
-    provider: Provider,
-    km: u32,
-    progress: &mut dyn FnMut(Note),
-) -> Vec<TileId> {
-    if provider.per_area() {
-        // No 25833 tile grid (Hesse even has negative eastings, which a `TileId` cannot hold).
-        return Vec::new();
-    }
-    let tiles = provider_tiles(bbox, provider, km);
-    let outside: Vec<TileId> = tiles_covering_grid(bbox, km)
-        .into_iter()
-        .filter(|t| !tiles.contains(t))
-        .collect();
-    if !outside.is_empty() {
-        progress(note!(
-            "progress-beyond-border-no-data",
-            provider = match provider {
-                Provider::Lgb => "LGB",
-                Provider::GeoSn => "GeoSN",
-                Provider::LvermGeo => "LVermGeo",
-                Provider::Lgv => "LGV",
-                Provider::Hvbg => "HVBG",
-                Provider::LvermGeoSh => "LVermGeo SH",
-                Provider::LaivMv => "LAiV M-V",
-                Provider::GeobasisNrw => "Geobasis NRW",
-                Provider::Lgln => "LGLN",
-                Provider::LvermGeoRp => "LVermGeo RP",
-            },
-            tiles = crate::fetch::tile_names(&outside)
-        ));
-    }
-    tiles
-}
-
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs
 /// ([`extracts_for`]: one per state, one per North Rhine-Westphalia government district) into
 /// [`OSM_CANDIDATES_RELPATH`]; a feature in two extracts is kept once. Offline from the cached
@@ -2182,6 +2126,7 @@ fn alkis_env<'a>(
 ) -> AdapterEnv<'a> {
     AdapterEnv {
         fetcher,
+        regions: registry(),
         cache,
         mode,
         today: crate::clock::today(),

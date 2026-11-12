@@ -140,6 +140,7 @@ mod tests {
         let cache = freemapper_adapter_api::cache::CacheDir::new("no-cache".into());
         let mut env = AdapterEnv {
             fetcher,
+            regions: registry(),
             cache: &cache,
             mode: FetchMode::Online,
             today: crate::clock::today(),

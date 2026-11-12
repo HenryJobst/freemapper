@@ -6,7 +6,8 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::env::AdapterEnv;
-use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::error::{AdapterError, tile_names};
+use freemapper_adapter_api::geometry::{provider_tiles_in, regions_for_in};
 use freemapper_adapter_api::project::{RasterProject, RasterRecords};
 use freemapper_adapter_api::records::{TileRecord, WcsRecord, WmsRecord, stored_bbox};
 
@@ -14,6 +15,7 @@ use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode, FetchedTile};
 use crate::height_model::HeightModel;
 use crate::note::{Arg, Note, note};
+use crate::tiles::{TileId, tiles_covering_grid};
 use crate::wms::{DateLabel, OrthophotoSource};
 
 /// The WMS orthophoto (GeoSN, LVermGeo) as fetched, before it becomes the template.
@@ -318,4 +320,48 @@ pub fn tile_record(
         ));
     }
     record
+}
+
+/// Reports once that the map area reaches into a region of another provider than `provider`.
+/// Whether the `name` rasters end at the border depends on the service (the LGLN WMS and WCS
+/// cover the Hamburg corner but the WMS is white in Bremen; the LVermGeo RP WMS is white across
+/// the Rhine at Mainz while its tiles cover Wiesbaden; tiles may reach slightly past), so the
+/// line promises no empty templates. ALKIS and OSM are read from both regions.
+pub fn warn_beyond_state(
+    env: &mut AdapterEnv<'_>,
+    project: &dyn RasterProject,
+    provider: &str,
+    name: &str,
+) {
+    if regions_for_in(env.regions, &project.region_bbox())
+        .iter()
+        .any(|adapter| adapter.info().provider.as_str() != provider)
+    {
+        (env.progress)(note!("progress-beyond-border", provider = name));
+    }
+}
+
+/// The tiles of the `km` grid of `provider` over `bbox` that touch its regions; the others are
+/// not published, and the templates stay empty there (reported once, with the provider's
+/// `name`).
+pub fn raster_tiles(
+    env: &mut AdapterEnv<'_>,
+    bbox: &BoundingBox,
+    provider: &str,
+    name: &str,
+    km: u32,
+) -> Vec<TileId> {
+    let tiles = provider_tiles_in(env.regions, bbox, provider, km);
+    let outside: Vec<TileId> = tiles_covering_grid(bbox, km)
+        .into_iter()
+        .filter(|t| !tiles.contains(t))
+        .collect();
+    if !outside.is_empty() {
+        (env.progress)(note!(
+            "progress-beyond-border-no-data",
+            provider = name,
+            tiles = tile_names(&outside)
+        ));
+    }
+    tiles
 }

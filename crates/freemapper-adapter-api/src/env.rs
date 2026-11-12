@@ -5,12 +5,16 @@ use chrono::NaiveDate;
 use crate::cache::CacheDir;
 use crate::fetch::{FetchMode, Fetcher};
 use crate::note::Note;
+use crate::registry::Registry;
 
-/// The surroundings of one fetch: how to download, where the cache lies, what day it is and
-/// where to report. An adapter asks nothing else of the engine; above all it never reads the
+/// The surroundings of one fetch: how to download, which regions there are, where the cache
+/// lies, what day it is and where to report. An adapter asks nothing else of the engine; above all it never reads the
 /// clock itself, so a test can fix the day.
 pub struct AdapterEnv<'a> {
     pub fetcher: &'a dyn Fetcher,
+    /// The regions the program knows, for the questions of `geometry` (which tiles a provider
+    /// publishes, whether the area reaches into another region).
+    pub regions: &'a Registry,
     pub cache: &'a CacheDir,
     pub mode: FetchMode,
     /// The day the records of this fetch are dated with.

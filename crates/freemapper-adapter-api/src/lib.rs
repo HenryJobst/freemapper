@@ -15,6 +15,7 @@ pub mod error;
 pub mod estimate;
 pub mod fetch;
 pub mod fs;
+pub mod geometry;
 pub mod info;
 pub mod note;
 pub mod project;

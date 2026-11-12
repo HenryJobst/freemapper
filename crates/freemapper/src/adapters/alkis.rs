@@ -89,6 +89,7 @@ mod tests {
     /// CRS of that service. The table is the two matches `sources/alkis.rs` had.
     #[test]
     fn every_state_asks_its_service() {
+        use crate::adapters::registry;
         use crate::fetch::FetchMode;
         use crate::fetch::test_support::MapFetcher;
         use crate::sources::alkis::FetchArea;
@@ -142,6 +143,7 @@ mod tests {
                 let fetcher = MapFetcher::default();
                 let mut env = AdapterEnv {
                     fetcher: &fetcher,
+                    regions: registry(),
                     cache: &cache,
                     mode: FetchMode::Online,
                     today: crate::clock::today(),
