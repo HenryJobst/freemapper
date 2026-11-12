@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.13.0] - 2026-11-12
+
 ### Hinzugefügt
 
 - Die Gebietsseite bietet das Inhaltsprofil an (ADR 0101): ein eingeklappter Abschnitt „Was auf die Karte kommt“ im Block „Karte erzeugen“ mit den drei Profilen und einer Wahl je Gruppe („Wie im Profil“, Karte, Kandidat, Aus). Die Wahl wird mit dem Gebiet gespeichert, in einem Schreibvorgang unter der Revision von `freemapper.toml`; ein Wechsel des Profils behält die Ausnahmen.

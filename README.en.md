@@ -47,8 +47,8 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.12.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.12.0) of
-11 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
+The current version is [v0.13.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.13.0) of
+12 November 2026 (see the [changes](CHANGELOG.en.md) for what is new). freemapper makes schoolyard and
 sprint maps for eleven states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and
 Rhineland-Palatinate. All maps show water, and the colours follow the IOF printing definitions of

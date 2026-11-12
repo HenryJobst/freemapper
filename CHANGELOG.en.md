@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-12
+
 ### Added
 
 - The area page offers the content profile (ADR 0101): a collapsed section "What goes onto the map" in the "Create the map" block with the three profiles and one choice per group ("As in the profile", Map, Candidate, Off). The choice is saved with the area, in one write under the revision of `freemapper.toml`; a change of the profile keeps the exceptions.
