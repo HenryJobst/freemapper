@@ -19,6 +19,7 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode, write_cache_file};
+use crate::las_files::{cached_las, check_las_file, las_path};
 use crate::lgb::{TileCurrency, TileProvider, parse_currency_csv};
 use crate::note::{Arg, note};
 use crate::states::State;
@@ -63,6 +64,7 @@ impl LgbAlsBackend {
                 id: AdapterId::built_in(TileProvider::Lgb.id()),
                 cache_dir: TileProvider::Lgb.id().to_string(),
                 source: "lgb-als".to_string(),
+                epsg: 25833,
                 grid_km: 1,
             },
         }
@@ -109,7 +111,7 @@ impl PointCloudBackend for LgbAlsBackend {
         }
         let mut fetched = Vec::new();
         for tile in tiles {
-            let cached = cached_las(&dir, tile);
+            let cached = cached_las(&dir, &tile.name());
             let url = als_tile_url(tile);
             let found = |(published, path): (NaiveDate, PathBuf)| PointCloudTile {
                 record: PointCloudRecord {
@@ -136,7 +138,7 @@ impl PointCloudBackend for LgbAlsBackend {
                 ));
                 continue;
             };
-            let path = las_path(&dir, tile, currency.published);
+            let path = las_path(&dir, &tile.name(), currency.published);
             if path.exists() {
                 (env.progress)(note!("progress-point-cloud-cached", tile = tile.name()));
                 fetched.push(found((currency.published, path)));
@@ -175,7 +177,7 @@ impl PointCloudBackend for LgbAlsBackend {
 
     fn cached(&self, cache: &CacheDir, record: &PointCloudRecord) -> Option<PathBuf> {
         let tile = TileId::parse(&record.tile)?;
-        let path = las_path(&self.dir(cache), tile, record.published?);
+        let path = las_path(&self.dir(cache), &tile.name(), record.published?);
         path.exists().then_some(path)
     }
 
@@ -186,38 +188,12 @@ impl PointCloudBackend for LgbAlsBackend {
             .map(|tile| EstimateItem {
                 what: format!("LGB point cloud {}", tile.name()),
                 megabytes: ALS_MB_PER_TILE,
-                cached: !cached_las(&dir, tile).is_empty(),
+                cached: !cached_las(&dir, &tile.name()).is_empty(),
                 part: Part::PointCloud,
                 store: Store::Cache,
             })
             .collect()
     }
-}
-
-/// `<tile>_<published>.laz` in `dir`.
-fn las_path(dir: &Path, tile: TileId, published: NaiveDate) -> PathBuf {
-    dir.join(format!("{}_{published}.laz", tile.name()))
-}
-
-/// The cached point clouds of `tile` in `dir`, newest first.
-fn cached_las(dir: &Path, tile: TileId) -> Vec<(NaiveDate, PathBuf)> {
-    let prefix = format!("{}_", tile.name());
-    let mut files: Vec<(NaiveDate, PathBuf)> = std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let date = name
-                .strip_prefix(&prefix)?
-                .strip_suffix(".laz")?
-                .parse()
-                .ok()?;
-            Some((date, entry.path()))
-        })
-        .collect();
-    files.sort_by_key(|(date, _)| std::cmp::Reverse(*date));
-    files
 }
 
 /// Streams the zip of `tile` next to `path`, unpacks its LAZ file to `path` and checks that it
@@ -288,22 +264,6 @@ fn unpack_las(
         .map_err(|e| corrupt(format!("{member}: {e}")))?;
     if copied > max_bytes {
         return Err(too_large());
-    }
-    Ok(())
-}
-
-/// Checks that the file at `path` is a complete LAS/LAZ point cloud: its header, the LAZ chunk
-/// table at the end and the last point have to be readable.
-fn check_las_file(url: &str, path: &Path) -> Result<(), FetchError> {
-    let corrupt = |message: String| FetchError::CorruptArchive {
-        url: url.to_string(),
-        message: format!("not a complete LAS point cloud: {message}"),
-    };
-    let mut reader = las::Reader::from_path(path).map_err(|e| corrupt(e.to_string()))?;
-    let total = reader.header().number_of_points();
-    if total > 0 {
-        reader.seek(total - 1).map_err(|e| corrupt(e.to_string()))?;
-        reader.read_points(1).map_err(|e| corrupt(e.to_string()))?;
     }
     Ok(())
 }
@@ -629,12 +589,17 @@ mod tests {
     }
 
     #[test]
-    fn only_brandenburg_has_point_clouds() {
+    fn brandenburg_and_north_rhine_westphalia_have_point_clouds() {
         for state in State::ALL {
             let adapter = crate::states::StateAdapter::new(state);
+            let backend = freemapper_adapter_api::adapter::RegionAdapter::point_cloud(&adapter);
             assert_eq!(
-                freemapper_adapter_api::adapter::RegionAdapter::point_cloud(&adapter).is_some(),
-                state == State::Brandenburg,
+                backend.map(|b| b.info().epsg),
+                match state {
+                    State::Brandenburg => Some(25833),
+                    State::NordrheinWestfalen => Some(25832),
+                    _ => None,
+                },
                 "{state:?}"
             );
         }

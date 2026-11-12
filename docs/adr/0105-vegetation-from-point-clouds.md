@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis, the Brandenburg source, fetch, derive and export); tuning on real parks open
+Status: Accepted (analysis, the Brandenburg and North Rhine-Westphalia sources, fetch, derive and export, checked on two parks)
 
 ## Context
 
@@ -39,6 +39,15 @@ the crowns, so it does not help.
     that the scan still has and the cadastre no longer (the 2021 scan against the 2025 ALKIS).
 - The export also cuts the areas at the paved areas (501.5) of the map: parked cars give returns at the
   heights of bushes.
+- North Rhine-Westphalia is the second source (`nrw_3dm`): Geobasis NRW lists every LAZ tile
+  (`3dm_32_<E>_<N>_1_nw.laz`, 1 km, EPSG:25832, 36 000 tiles, median 80 MB, nine in ten below 165 MB, the
+  largest 553 MB) with its size and date in an `index.json` of about 3 MB. A download must have exactly the size
+  the index gives and be a complete point cloud; tiles are cached as `32<E>-<N>_<date>.laz`. Its classes follow
+  the same AdV scheme as LGB's, with more of them: 2 ground, 20 last echoes above ground, 1 intermediate echoes,
+  and the synthetic fill points 26 (ground), 21 (buildings) and 9 (water), the cellar points 24 and the bridges
+  17. `read_tile` leaves out every synthetic point (LAS flag), class 24 and bridges.
+- A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS
+  and passes it the map area plus buffer in that CRS.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
   Rhine-Westphalia, Brandenburg, Saxony, Thuringia, Berlin, Saarland). A region adapter offers them through
   `PointCloudBackend` (`freemapper-adapter-api`), next to its rasters and agreed with stage D of the adapters:
@@ -58,8 +67,7 @@ the crowns, so it does not help.
   a project with the choice (the area page's estimate before saving does not know it). `derive` counts the
   returns of the recorded tiles over the DTM on a 3 m grid over the map area plus buffer and writes the class
   areas to `data/vegetation.geojson` (property `code`, a MultiPolygon in the map's CRS); without records or
-  choice it removes the file. Only maps in UTM zone 33 read point clouds, because the backends serve
-  EPSG:25833.
+  choice it removes the file. A map reads only point clouds in its own CRS (see below).
 - The export cuts the areas at the ALKIS buildings and the water and, where the map already has an area of the
   same symbol (an ALKIS park 401, a wood 405), keeps only the part that differs; patches below 1.5 mm × 1.5 mm
   go. Tags: `freemapper:source` and `freemapper:point-cloud` (the product, `lgb-als`), `freemapper:currency`
@@ -80,7 +88,10 @@ the crowns, so it does not help.
   almost wholly 410 before the building mask, and a cleared building plot (roofs in the 2021 scan, gone in the
   2025 cadastre) was a large 410 area before the single-echo rule. With both, the exported 410 areas went from
   13 to 1 (reeds at a pond edge), 405 from 159 to 112; the crowns stayed runnable forest. The other thresholds
-  (open share, green index, undergrowth) look right on this park and stay; Berlin and the other states have no
-  point-cloud source yet, so no second park was checked.
+  (open share, green index, undergrowth) look right on this park and stay.
+- The Volksgarten in Cologne (NRW, scan 2023) with the same values: four tiles of 45 to 59 MB, seven minutes
+  for the whole run in a debug build. The lawns came out open (and stay out of the export, where ALKIS has the
+  park), the tree stands runnable forest, the shrubs around the pond 410 and those on the railway embankment 406
+  and 408; buildings stayed free. No value was changed for it.
 - Parks get the green shades first; the forest map kind reuses the module with its own cell size and minimum
   areas.

@@ -321,10 +321,10 @@ pub(super) fn stored_vegetation_objects(
     const PAVED_AREA_CODE: &str = "501.5";
     use geo::{Area as _, BooleanOps as _, MapCoords as _};
     let path = dir.join(VEGETATION_RELPATH);
-    if !project.wants_vegetation() || !path.exists() {
+    if !path.exists() {
         return Ok(Vec::new());
     }
-    let Some(backend) = point_cloud_backend(&project.region_bbox()?) else {
+    let Some(backend) = point_cloud_backend(project, &project.region_bbox()?) else {
         return Ok(Vec::new());
     };
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;

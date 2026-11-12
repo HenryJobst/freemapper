@@ -452,7 +452,10 @@ impl RegionAdapter for StateAdapter {
     }
 
     fn point_cloud(&self) -> Option<&dyn PointCloudBackend> {
-        crate::lgb_als::point_cloud(self.state)
+        match self.state {
+            State::NordrheinWestfalen => Some(crate::nrw_3dm::backend()),
+            state => crate::lgb_als::point_cloud(state),
+        }
     }
 }
 

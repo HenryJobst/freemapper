@@ -1185,7 +1185,7 @@ fn fetch_project_parts(
         mode,
         skips(Part::PointCloud),
         &mut project,
-        &area.region_bbox,
+        &area,
         progress,
     );
     stop_if(cancelled)?;
@@ -1308,28 +1308,33 @@ fn check_space(
     Ok(Some(plan))
 }
 
-/// The point-cloud backend of a map of `region_bbox`, as [`raster_backend`] finds the region;
-/// `None` where the state publishes no point clouds.
-fn point_cloud_backend(region_bbox: &BoundingBox) -> Option<&'static dyn PointCloudBackend> {
-    raster_region_in(registry(), region_bbox).and_then(|adapter| adapter.point_cloud())
+/// The point-cloud backend of `project`, a map of `region_bbox`, as [`raster_backend`] finds
+/// the region: `None` where the state publishes no point clouds, where the content settings do
+/// not ask for the vegetation, and where the tiles are in another CRS than the map.
+fn point_cloud_backend(
+    project: &ProjectFile,
+    region_bbox: &BoundingBox,
+) -> Option<&'static dyn PointCloudBackend> {
+    raster_region_in(registry(), region_bbox)
+        .and_then(|adapter| adapter.point_cloud())
+        .filter(|backend| project.wants_vegetation() && backend.info().epsg == project.crs().epsg())
 }
 
-/// The point-cloud tiles under `region_bbox` (EPSG:25833) for the vegetation candidates (ADR
-/// 0105), recorded in `project`, when its content settings ask for the vegetation. Optional like
-/// the K5 map: a full disk (`skip`) or a failed
-/// fetch keeps the recorded tiles that are still cached, the latter with a warning; where the
-/// state publishes none, nothing is requested and the records go.
+/// The point-cloud tiles under `area.bbox` (the map area plus buffer in the map's CRS) for the
+/// vegetation candidates (ADR 0105), recorded in `project` when [`point_cloud_backend`] gives a
+/// backend; otherwise nothing is requested and the records go. Optional like the K5 map: a full
+/// disk (`skip`) or a failed fetch keeps the recorded tiles that are still cached, the latter
+/// with a warning.
 fn fetch_point_clouds_into(
     fetcher: &dyn Fetcher,
     cache: &Cache,
     mode: FetchMode,
     skip: bool,
     project: &mut ProjectFile,
-    region_bbox: &BoundingBox,
+    area: &FetchArea,
     progress: &mut dyn FnMut(Note),
 ) {
-    let backend = point_cloud_backend(region_bbox).filter(|_| project.wants_vegetation());
-    let Some(backend) = backend else {
+    let Some(backend) = point_cloud_backend(project, &area.region_bbox) else {
         project.point_clouds.clear();
         return;
     };
@@ -1353,7 +1358,7 @@ fn fetch_point_clouds_into(
         skip_surface: false,
         progress: &mut *progress,
     };
-    match backend.fetch(&mut env, region_bbox) {
+    match backend.fetch(&mut env, &area.bbox) {
         Ok(tiles) => project.point_clouds = tiles.into_iter().map(|t| t.record).collect(),
         Err(e) => {
             progress(note!(
@@ -1365,21 +1370,18 @@ fn fetch_point_clouds_into(
     }
 }
 
-/// The cached files of the recorded point-cloud tiles with their tile names, while the content
-/// settings ask for the vegetation. A tile no longer
-/// cached, or one that cannot be opened, is left out with a warning. None outside UTM zone 33:
-/// the backends serve EPSG:25833.
+/// The cached files of the recorded point-cloud tiles with their tile names, while
+/// [`point_cloud_backend`] gives a backend. A tile no longer cached is left out with a warning.
 fn point_cloud_files(
     project: &ProjectFile,
     region_bbox: &BoundingBox,
     cache: &Cache,
     progress: &mut dyn FnMut(Note),
 ) -> Vec<(String, PathBuf)> {
-    if project.point_clouds.is_empty() || !project.wants_vegetation() || project.crs() != Crs::Utm33
-    {
+    if project.point_clouds.is_empty() {
         return Vec::new();
     }
-    let Some(backend) = point_cloud_backend(region_bbox) else {
+    let Some(backend) = point_cloud_backend(project, region_bbox) else {
         return Vec::new();
     };
     project
@@ -8101,6 +8103,95 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             .to_rgba8();
         let centre = png.get_pixel(png.width() / 2, png.height() / 2).0;
         assert_eq!(centre, crate::derive::ndsm::colour(12.0));
+    }
+
+    /// Serves the NRW point-cloud index and one tile under the Cologne school: dense bushes 1.6 m
+    /// above the synthetic terrain on 30 m × 30 m west of the school.
+    fn serve_nrw_point_cloud(fetcher: &MapFetcher) {
+        use freemapper_adapters_de::nrw_3dm::{INDEX_URL, tile_url};
+        use las::point::Classification;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.laz");
+        let mut builder = las::Builder::from((1, 4));
+        builder.point_format.is_compressed = true;
+        let transform = |offset| las::Transform {
+            scale: 0.01,
+            offset,
+        };
+        builder.transforms = las::Vector {
+            x: transform(300_000.0),
+            y: transform(5_600_000.0),
+            z: transform(0.0),
+        };
+        let mut writer = las::Writer::from_path(&path, builder.into_header().unwrap()).unwrap();
+        // The terrain of `serve_synthetic_nrw` rises 0.01 m per metre east from 20 m at the tile's
+        // west edge.
+        let terrain = |e: f64| 20.0 + (e - 354_000.0) * 0.01;
+        for i in 0..60 {
+            for j in 0..60 {
+                let (e, n) = (
+                    354_660.25 + f64::from(i) * 0.5,
+                    5_642_610.25 + f64::from(j) * 0.5,
+                );
+                let ground = (i + j) % 10 == 0;
+                writer
+                    .write_point(las::Point {
+                        x: e,
+                        y: n,
+                        z: terrain(e) + if ground { 0.0 } else { 1.6 },
+                        classification: if ground {
+                            Classification::Ground
+                        } else {
+                            Classification::new(20).unwrap()
+                        },
+                        number_of_returns: 2,
+                        return_number: 2,
+                        ..Default::default()
+                    })
+                    .unwrap();
+            }
+        }
+        writer.close().unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let name = "3dm_32_354_5642_1_nw.laz";
+        fetcher.insert(
+            INDEX_URL,
+            serde_json::json!({"datasets": [{"files": [
+                {"name": name, "size": bytes.len().to_string(), "timestamp": "2023-07-19T07:30:49"}
+            ]}]})
+            .to_string()
+            .into_bytes(),
+        );
+        fetcher.insert(&tile_url(name), bytes);
+    }
+
+    #[test]
+    fn nrw_vegetation_comes_from_its_own_point_clouds_in_zone_32() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = koeln_school(&fetcher);
+        serve_nrw_point_cloud(&fetcher);
+        want_vegetation(dir.path());
+        let (project, _) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.crs(), crate::crs::Crs::Utm32);
+        assert_eq!(project.point_clouds.len(), 1);
+        assert_eq!(project.point_clouds[0].tile, "32354-5642");
+        assert_eq!(project.point_clouds[0].published, "2023-07-19".parse().ok());
+        assert!(
+            !fetcher
+                .log
+                .borrow()
+                .iter()
+                .any(|u| u.contains("geobasis-bb")),
+            "no Brandenburg point cloud for a map in zone 32"
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let codes = vegetation_codes(dir.path());
+        assert!(
+            codes.iter().any(|(c, e, n)| c == "410"
+                && (354_660.0..354_690.0).contains(e)
+                && (5_642_610.0..5_642_640.0).contains(n)),
+            "{codes:?}"
+        );
     }
 
     #[test]

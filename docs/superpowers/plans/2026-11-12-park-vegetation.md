@@ -32,7 +32,8 @@
 
 - [x] `PointCloudBackend` in `freemapper-adapter-api/src/pointcloud.rs` (`info`, `fetch`, `cached`, `estimate`), `PointCloudRecord` for the project file, `RegionAdapter::point_cloud` (default `None`), `Part::PointCloud` with its texts.
 - [x] Brandenburg: `crates/adapters/de/src/lgb_als.rs` (zip per km tile streamed into the cache, only the LAZ file kept and checked to its last point, currency from `bb_laserscandaten_aktualitaet.csv`, older publications removed, a failing tile falls back to the cache or is left out with a warning).
-- [ ] North Rhine-Westphalia (index.json, LAZ), Rhineland-Palatinate (Metalink with SHA-256), Saxony, Thuringia, Bavaria, Saarland; Berlin only with range reads.
+- [x] North Rhine-Westphalia (index.json, LAZ, size checked against the index; `PointCloudInfo::epsg`, the engine uses a backend only for maps in its CRS).
+- [ ] Rhineland-Palatinate (Metalink with SHA-256), Saxony, Thuringia, Bavaria, Saarland; Berlin only with range reads.
 - [ ] `[pointcloud]` in the manifests once stage D has named backends (D5).
 - [x] The engine counts the estimate items in `estimate_download` and the disk check (Task 2, beside the fetch step).
 
@@ -54,4 +55,5 @@
 ### Task 4: Check on real parks
 
 - [x] Sanssouci (2026-11-12): building mask, single-echo rule for roofs, cut at paved areas; the other thresholds stay. Recorded in ADR 0105.
-- [ ] Viktoriapark and a park in NRW once Berlin and NRW have point-cloud backends.
+- [x] Volksgarten Cologne (NRW): plausible with the Sanssouci values.
+- [ ] Viktoriapark once Berlin has a point-cloud backend (range reads).

@@ -22,7 +22,9 @@ pub struct PointCloudInfo {
     pub cache_dir: String,
     /// The product, for `freemapper:source` on the vegetation candidates (`lgb-als`).
     pub source: String,
-    /// The side of a tile in km, in EPSG:25833.
+    /// The CRS of the tiles (25833, 25832): a map in another one cannot use them.
+    pub epsg: u32,
+    /// The side of a tile in km, in [`Self::epsg`].
     pub grid_km: u32,
 }
 
@@ -48,7 +50,7 @@ pub trait PointCloudBackend: Send + Sync {
     /// Who publishes them, and how.
     fn info(&self) -> &PointCloudInfo;
 
-    /// Makes the tiles under `bbox` (EPSG:25833) available in the cache and returns them in grid
+    /// Makes the tiles under `bbox` (in [`PointCloudInfo::epsg`]) available in the cache and returns them in grid
     /// order. A tile the provider does not publish is left out with a progress line; offline,
     /// the newest cached file of a tile is used.
     fn fetch(
@@ -61,7 +63,7 @@ pub trait PointCloudBackend: Send + Sync {
     fn cached(&self, cache: &CacheDir, record: &PointCloudRecord) -> Option<PathBuf>;
 
     /// The point-cloud downloads of a map of `area` (part [`Part::PointCloud`], stored in the
-    /// cache).
+    /// cache); `area.map_bbox` is in [`PointCloudInfo::epsg`] when the map can use them.
     ///
     /// [`Part::PointCloud`]: crate::records::Part::PointCloud
     fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem>;

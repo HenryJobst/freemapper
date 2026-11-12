@@ -10,6 +10,7 @@ pub mod geobasis_nrw;
 pub mod geosn;
 pub mod hvbg;
 pub mod laiv_mv;
+mod las_files;
 pub mod lgb;
 pub mod lgb_als;
 pub mod lgln;
@@ -18,6 +19,7 @@ pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_sh;
 pub mod lvgl;
+pub mod nrw_3dm;
 pub mod states;
 pub mod tile_fetch;
 

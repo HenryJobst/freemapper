@@ -59,6 +59,9 @@ const STRUCTURE_ABOVE_M: f64 = 2.5;
 /// Sanssouci (LGB 2021) 70 to 100 % on roofs, up to 30 % in crowns.
 const STRUCTURE_SINGLE_SHARE: f64 = 0.6;
 
+/// The cellar points of the AdV scheme: below the ground, in light wells and cellar stairs.
+const CELLAR_CLASS: u8 = 24;
+
 /// Points read per chunk.
 const CHUNK_POINTS: u64 = 1_000_000;
 
@@ -155,13 +158,19 @@ pub fn read_tile(
     {
         for point in points.points() {
             let point = point.map_err(las_error)?;
-            if matches!(
-                point.classification,
-                Classification::Building
-                    | Classification::LowPoint
-                    | Classification::Water
-                    | Classification::HighNoise
-            ) {
+            // Synthetic fill points (under bridges and in dense forest), cellar points (24 of the
+            // AdV scheme) and bridges are no returns of what grows there.
+            if point.is_synthetic
+                || matches!(
+                    point.classification,
+                    Classification::Building
+                        | Classification::LowPoint
+                        | Classification::Water
+                        | Classification::BridgeDeck
+                        | Classification::HighNoise
+                )
+                || u8::from(point.classification) == CELLAR_CLASS
+            {
                 continue;
             }
             let col = ((point.x - grid.west) / grid.pixel_size).floor();
@@ -638,13 +647,17 @@ mod tests {
         use las::point::Classification;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile.laz");
-        let header = las::Builder::from((1, 2)).into_header().unwrap();
+        let header = las::Builder::from((1, 4)).into_header().unwrap();
         let mut writer = las::Writer::from_path(&path, header).unwrap();
-        for (x, z, classification) in [
-            (1.0, 30.0, Classification::Ground),
-            (2.0, 31.5, Classification::MediumVegetation),
-            (4.0, 45.0, Classification::Building),
-            (20.0, 31.0, Classification::LowVegetation),
+        for (x, z, classification, is_synthetic) in [
+            (1.0, 30.0, Classification::Ground, false),
+            (2.0, 31.5, Classification::MediumVegetation, false),
+            (4.0, 45.0, Classification::Building, false),
+            (20.0, 31.0, Classification::LowVegetation, false),
+            // A filled-in ground point (NRW 26), a cellar point (24), a bridge (17).
+            (3.0, 30.0, Classification::new(26).unwrap(), true),
+            (5.0, 27.0, Classification::new(CELLAR_CLASS).unwrap(), false),
+            (6.0, 36.0, Classification::BridgeDeck, false),
         ] {
             writer
                 .write_point(las::Point {
@@ -652,6 +665,7 @@ mod tests {
                     y: 5.0,
                     z,
                     classification,
+                    is_synthetic,
                     ..Default::default()
                 })
                 .unwrap();
