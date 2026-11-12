@@ -590,6 +590,9 @@ Note the trailing blank in `"Sporthalle "`.
   - **Elbe estuary overlap with Schleswig-Holstein: 89.0 km²** off Cuxhaven (53.84–53.97°N, 8.71–8.98°E). It is in the
     official data: the full-resolution ALKIS polygons of NI (DE03) and SH (DE01) overlap by **88.986 km²** — both states'
     cadastres claim the same part of the outer Elbe. On land the two borders follow the Elbe and agree.
+    Since 2026-11-13 the two boundary files of freemapper split this water at the line of equal distance from the
+    two claims ([ADR 0113](../adr/0113-the-mouth-of-the-elbe-is-split-at-the-line-of-equal-distance.md)); the
+    asset of Lower Saxony has 51,364.58 km² since.
   - Hamburg: the full NI polygon and the Hamburg asset overlap by 141,990 m² (Hamburg's own 25 m simplification). Hamburg's
     Neuwerk/Scharhörn parts (3.53, 4.08 km²) do not touch NI (no hole needed).
   - Bremen and Thuringia have no freemapper asset; the Bremen holes come straight from ALKIS (Bremen's own polygon not

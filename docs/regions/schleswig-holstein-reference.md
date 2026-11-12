@@ -518,6 +518,10 @@ The school parcel's `bez` is **"Öffentliche Zwecke"** (as in Saxony-Anhalt), no
   - the SH exclave/Hamburg hole and the Hamburg exclave/SH hole match.
   - So `regions_for` will report both regions only for bboxes that really straddle; the usual margin suffices.
 - Neighbours: Hamburg (a freemapper region), Lower Saxony (across the Elbe), Mecklenburg-Western Pomerania, Denmark.
+- The cadastre also holds 89 km² of the outer Elbe that the cadastre of Lower Saxony holds too. Since 2026-11-13
+  the boundary file of freemapper keeps the part nearer to Schleswig-Holstein's own ground
+  ([ADR 0113](../adr/0113-the-mouth-of-the-elbe-is-split-at-the-line-of-equal-distance.md)); it has 16,007.02 km²
+  since.
 
 ---
 
