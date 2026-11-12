@@ -62,7 +62,10 @@ the crowns, so it does not help.
   the member in ranges of 32 MB to a file: about 240 MB packed and 550 MB unpacked for the tile of the
   Viktoriapark. It is unpacked (deflate, or deflate64 in two archives, through the crate `deflate64`),
   checked against its CRC and size, and kept as LAZ (`las_files::compress_las`). The day the archive last
-  changed names the cache file, so a new scan replaces it and a cached tile costs one HEAD request. The
+  changed names the cache file, so a new scan replaces it and a cached tile costs one HEAD request; any other
+  change to the archive makes its cached tiles load again too, because the server says no more. A tile the
+  provider's list no longer names serves from the cache (all four sources), and an archive that fails is asked
+  once per fetch. The
   classes differ from the AdV scheme: 2 ground, 3, 4 and 5 low, medium and high vegetation, in which the
   buildings lie too, and 7 low points; the building mask and the single-echo rule take out the roofs.
 - A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS

@@ -617,11 +617,11 @@ im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das AL
 freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
 nur den Teil mit anderer Klasse.
 
-Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark und am Berliner Viktoriapark. Schilf
-und Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
-dichtes Gebüsch schlechter. Die Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen
-am Luftbild und im Gelände.
-Ist der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
+Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark und am Berliner Viktoriapark. Schilf und
+Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
+dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Die
+Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und im Gelände. Ist
+der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
 Punktwolken-Quelle.
 
 ### Was direkt auf die Karte kommt

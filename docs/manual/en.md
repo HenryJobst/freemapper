@@ -590,10 +590,10 @@ longer has are recognised by their laser echoes too. Where the map already has a
 candidate shows only the part of another class.
 
 It is checked on Sanssouci, the Volksgarten in Cologne, the Stadtpark in Mainz and the Viktoriapark in Berlin.
-Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs
-are recognised less well there. The point cloud can be some years older than the orthophoto. Check the areas
-against the orthophoto and in the terrain. When space is short, the point clouds are the first part left out.
-The other states have no point-cloud source yet.
+Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
+recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The point
+cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
+space is short, the point clouds are the first part left out. The other states have no point-cloud source yet.
 
 ### What goes straight onto the map
 

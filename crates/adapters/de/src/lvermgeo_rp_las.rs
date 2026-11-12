@@ -20,8 +20,8 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
 use crate::las_files::{
-    cached_las, download_las, fallback, las_path, parse_utm32_tile_name as parse_tile_name,
-    utm32_tile_name as tile_name,
+    cached_las, download_las, fallback, las_path, not_published,
+    parse_utm32_tile_name as parse_tile_name, utm32_tile_name as tile_name,
 };
 use crate::note::{Arg, note};
 use crate::tiles::{TileId, tiles_covering_grid};
@@ -220,7 +220,7 @@ impl PointCloudBackend for RpLasBackend {
                 Ok(published) => published,
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Err(FetchError::NotFound(_)) => {
-                    (env.progress)(note!("progress-point-cloud-not-published", tile = &name));
+                    not_published(env, &name, cached, &mut fetched, found);
                     continue;
                 }
                 Err(e) => {
@@ -265,7 +265,7 @@ impl PointCloudBackend for RpLasBackend {
                 }
             };
             let Some(file) = files.get(&tile) else {
-                (env.progress)(note!("progress-point-cloud-not-published", tile = &name));
+                not_published(env, &name, cached, &mut fetched, found);
                 continue;
             };
             (env.progress)(note!("progress-downloading", url = &url));

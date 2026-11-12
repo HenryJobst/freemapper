@@ -214,3 +214,21 @@ pub(crate) fn fallback(
         )),
     }
 }
+
+/// A tile the provider's list does not name (any more): the newest cached file serves if there is
+/// one, else the tile is not published.
+pub(crate) fn not_published(
+    env: &mut AdapterEnv<'_>,
+    name: &str,
+    cached: Vec<(NaiveDate, PathBuf)>,
+    fetched: &mut Vec<PointCloudTile>,
+    found: impl Fn((NaiveDate, PathBuf)) -> PointCloudTile,
+) {
+    match cached.into_iter().next() {
+        Some(newest) => {
+            (env.progress)(note!("progress-point-cloud-cached", tile = name));
+            fetched.push(found(newest));
+        }
+        None => (env.progress)(note!("progress-point-cloud-not-published", tile = name)),
+    }
+}

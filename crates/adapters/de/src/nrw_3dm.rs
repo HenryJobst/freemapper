@@ -20,7 +20,7 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
 use crate::las_files::{
-    cached_las, download_las, las_path, parse_utm32_tile_name as parse_tile_name,
+    cached_las, download_las, las_path, not_published, parse_utm32_tile_name as parse_tile_name,
     utm32_tile_name as tile_name,
 };
 use crate::note::{Arg, note};
@@ -202,10 +202,8 @@ impl PointCloudBackend for Nrw3dmBackend {
                 continue;
             }
             let Some(entry) = index.get(&tile) else {
-                (env.progress)(note!(
-                    "progress-point-cloud-not-published",
-                    tile = tile_name(tile)
-                ));
+                let found = |newest| found(tile_url(&name), newest);
+                not_published(env, &tile_name(tile), cached, &mut fetched, found);
                 continue;
             };
             let url = tile_url(&entry.name);

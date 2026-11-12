@@ -22,7 +22,9 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
-use crate::las_files::{cached_las, check_las_file, compress_las, fallback, las_path};
+use crate::las_files::{
+    cached_las, check_las_file, compress_las, fallback, las_path, not_published,
+};
 use crate::note::note;
 use crate::sources::zip_range::{Member, find_member, read_members, stream_member};
 use crate::tiles::{TileId, tiles_covering_grid};
@@ -100,11 +102,19 @@ impl Default for BerlinAlsBackend {
 }
 
 /// What a fetch learnt about one archive: the day of its last change and, once a tile had to be
-/// read, its members.
+/// read, its members; or why it could not, so a failing archive is asked once per fetch.
 #[derive(Default)]
 struct Archive {
-    changed: Option<NaiveDate>,
-    members: Option<Vec<Member>>,
+    changed: Option<Result<NaiveDate, String>>,
+    members: Option<Result<Vec<Member>, String>>,
+}
+
+/// The error an [`Archive`] remembered, again as an error of `url`.
+fn again(url: &str, message: &str) -> FetchError {
+    FetchError::Http {
+        url: url.to_string(),
+        message: message.to_string(),
+    }
 }
 
 impl PointCloudBackend for BerlinAlsBackend {
@@ -142,24 +152,23 @@ impl PointCloudBackend for BerlinAlsBackend {
                 continue;
             }
             let known = archives.entry(archive).or_default();
-            let changed = match known.changed {
-                Some(changed) => Ok(changed),
+            let changed = match &known.changed {
+                Some(Ok(changed)) => Ok(*changed),
+                Some(Err(message)) => Err(again(&url, message)),
                 None => env.fetcher.last_modified(&url).and_then(|changed| {
-                    changed.ok_or_else(|| FetchError::Http {
-                        url: url.clone(),
-                        message: "the server names no date of the archive".to_string(),
-                    })
+                    changed.ok_or_else(|| again(&url, "the server names no date of the archive"))
                 }),
             };
             let changed = match changed {
                 Ok(changed) => changed,
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Err(e) => {
+                    known.changed = Some(Err(e.to_string()));
                     fallback(env, &name, cached, e, &mut fetched, found);
                     continue;
                 }
             };
-            known.changed = Some(changed);
+            known.changed = Some(Ok(changed));
             let path = las_path(&dir, &name, changed);
             if path.exists() {
                 (env.progress)(note!("progress-point-cloud-cached", tile = &name));
@@ -168,22 +177,29 @@ impl PointCloudBackend for BerlinAlsBackend {
             }
             if known.members.is_none() {
                 match read_members(env.fetcher, &url) {
-                    Ok(members) => known.members = Some(members),
+                    Ok(members) => known.members = Some(Ok(members)),
                     Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
-                    Err(e) => {
-                        fallback(env, &name, cached, e, &mut fetched, found);
-                        continue;
-                    }
+                    Err(e) => known.members = Some(Err(e.to_string())),
                 }
             }
+            let members = match &known.members {
+                Some(Ok(members)) => members,
+                Some(Err(message)) => {
+                    fallback(
+                        env,
+                        &name,
+                        cached,
+                        again(&url, message),
+                        &mut fetched,
+                        found,
+                    );
+                    continue;
+                }
+                None => unreachable!("asked above"),
+            };
             let wanted = member_name(tile);
-            let Some(member) = known
-                .members
-                .as_deref()
-                .and_then(|members| find_member(members, |file| file == wanted))
-                .cloned()
-            else {
-                (env.progress)(note!("progress-point-cloud-not-published", tile = &name));
+            let Some(member) = find_member(members, |file| file == wanted).cloned() else {
+                not_published(env, &name, cached, &mut fetched, found);
                 continue;
             };
             (env.progress)(note!("progress-downloading", url = &url));
@@ -478,6 +494,45 @@ mod tests {
             }
         }
         assert!(fetch(&Stopped, &cache, FetchMode::Online).is_err());
+    }
+
+    #[test]
+    fn a_tile_the_archive_dropped_serves_from_the_cache_and_a_failing_archive_is_asked_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, 10, "2025-08-14");
+        fetch(&fetcher, &cache, FetchMode::Online).unwrap();
+        // A newer archive without the tile: the cached one serves.
+        let dropped = MapFetcher::default();
+        let url = archive_url("Mitte");
+        dropped.insert(&url, archive(&[("3dm_33_391_5817_1_be.las", las(3), true)]));
+        dropped.set_modified(&url, "2026-02-01".parse().unwrap());
+        let (tiles, _) = fetch(&dropped, &cache, FetchMode::Online).unwrap();
+        assert_eq!(tiles[0].record.published, "2025-08-14".parse().ok());
+        // Two tiles of a failing archive: one question, two warnings.
+        let down = MapFetcher::default();
+        down.failing.borrow_mut().push(url.clone());
+        let registry = registry();
+        let mut notes = Vec::new();
+        let mut env = AdapterEnv {
+            fetcher: &down,
+            regions: &registry,
+            cache: &cache,
+            mode: FetchMode::Online,
+            today: "2026-11-12".parse().unwrap(),
+            skip_surface: false,
+            progress: &mut |n| notes.push(n.to_string()),
+        };
+        let two_tiles = BoundingBox {
+            max_e: 392_100.0,
+            ..BBOX
+        };
+        let tiles = BerlinAlsBackend::new().fetch(&mut env, &two_tiles).unwrap();
+        assert_eq!(tiles.len(), 1, "the cached tile");
+        assert_eq!(down.calls.get(), 1);
+        let warnings = notes.iter().filter(|n| n.contains("503")).count();
+        assert_eq!(warnings, 2, "{notes:?}");
     }
 
     #[test]
