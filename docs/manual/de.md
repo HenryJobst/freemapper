@@ -601,23 +601,26 @@ kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS
 
 ### Vegetation aus Laserpunktwolken
 
-In Brandenburg, Nordrhein-Westfalen und Rheinland-Pfalz kann freemapper die Vegetation aus den klassifizierten
-Laserpunktwolken der LGB, von Geobasis NRW bzw. vom LVermGeo RP ableiten:
+In Brandenburg, Berlin, Nordrhein-Westfalen und Rheinland-Pfalz kann freemapper die Vegetation aus den
+klassifizierten Laserpunktwolken der LGB, des Geoportals Berlin, von Geobasis NRW bzw. vom LVermGeo RP ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
 Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
 
-Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß: je
-Quadratkilometer-Kachel etwa 160 MB in Brandenburg, meist 50 bis 165 MB in Nordrhein-Westfalen und meist 110
-bis 500 MB in Rheinland-Pfalz, für einen
-Park meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
+Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß. Je
+Quadratkilometer-Kachel lädt freemapper etwa 160 MB in Brandenburg, etwa 240 MB in Berlin (als LAZ im
+Zwischenspeicher etwa 100 MB), meist 50 bis 165 MB in Nordrhein-Westfalen und meist 110 bis 500 MB in
+Rheinland-Pfalz; ein Park braucht meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
 (oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
 schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
 im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
 freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
-nur den Teil mit anderer Klasse. Geprüft ist das an Sanssouci, am Kölner Volksgarten und am Mainzer Stadtpark; Schilf und Gebüsch am
-Ufer erscheinen als 410. Die Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und
-im Gelände.
+nur den Teil mit anderer Klasse.
+
+Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark und am Berliner Viktoriapark. Schilf
+und Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
+dichtes Gebüsch schlechter. Die Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen
+am Luftbild und im Gelände.
 Ist der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
 Punktwolken-Quelle.
 

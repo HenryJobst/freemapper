@@ -20,7 +20,7 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
 use crate::las_files::{
-    cached_las, download_las, las_path, parse_utm32_tile_name as parse_tile_name,
+    cached_las, download_las, fallback, las_path, parse_utm32_tile_name as parse_tile_name,
     utm32_tile_name as tile_name,
 };
 use crate::note::{Arg, note};
@@ -302,33 +302,6 @@ impl PointCloudBackend for RpLasBackend {
                 store: Store::Cache,
             })
             .collect()
-    }
-}
-
-/// A tile that cannot be fetched: the vegetation is only a candidate, so the newest cached file
-/// serves, or the tile is left out.
-fn fallback(
-    env: &mut AdapterEnv<'_>,
-    name: &str,
-    cached: Vec<(NaiveDate, PathBuf)>,
-    error: FetchError,
-    fetched: &mut Vec<PointCloudTile>,
-    found: impl Fn((NaiveDate, PathBuf)) -> PointCloudTile,
-) {
-    match cached.into_iter().next() {
-        Some(older) => {
-            (env.progress)(note!(
-                "warning-point-cloud-unavailable-cached",
-                tile = name,
-                reason = Arg::error(error)
-            ));
-            fetched.push(found(older));
-        }
-        None => (env.progress)(note!(
-            "warning-point-cloud-unavailable-skipped",
-            tile = name,
-            reason = Arg::error(error)
-        )),
     }
 }
 

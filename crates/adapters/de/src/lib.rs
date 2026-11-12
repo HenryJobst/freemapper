@@ -5,6 +5,7 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod berlin;
+pub mod berlin_als;
 pub mod boundaries;
 pub mod geobasis_nrw;
 pub mod geosn;

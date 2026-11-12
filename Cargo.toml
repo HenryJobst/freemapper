@@ -46,6 +46,8 @@ osmpbf = "0.3.8"
 las = { version = "=0.11.1", features = ["laz"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 crc32fast = "1.5.4"
+# Deflate64 (method 9) members of the Berlin laser archives.
+deflate64 = "0.1.12"
 miniz_oxide = "0.9.1"
 # Tests only: the key parser of freemapper-update, to check the committed public keys; same pin as
 # in freemapper-core, already in Cargo.lock through it.

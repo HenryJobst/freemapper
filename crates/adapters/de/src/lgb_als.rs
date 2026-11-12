@@ -602,14 +602,14 @@ mod tests {
     }
 
     #[test]
-    fn brandenburg_north_rhine_westphalia_and_rhineland_palatinate_have_point_clouds() {
+    fn four_states_have_point_clouds() {
         // The adapters come in the order of the states.
         for (state, adapter) in State::ALL.into_iter().zip(crate::states::adapters()) {
             let backend = adapter.point_cloud();
             assert_eq!(
                 backend.map(|b| b.info().epsg),
                 match state {
-                    State::Brandenburg => Some(25833),
+                    State::Brandenburg | State::Berlin => Some(25833),
                     State::NordrheinWestfalen | State::RheinlandPfalz => Some(25832),
                     _ => None,
                 },

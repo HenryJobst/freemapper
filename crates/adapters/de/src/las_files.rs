@@ -9,7 +9,9 @@ use freemapper_adapter_api::env::AdapterEnv;
 use sha2::{Digest as _, Sha256};
 
 use crate::fetch::FetchError;
+use crate::note::{Arg, note};
 use crate::tiles::TileId;
+use freemapper_adapter_api::pointcloud::PointCloudTile;
 
 /// A tile a list says is larger is no tile of a state (the largest of Geobasis NRW has 553 MB,
 /// of Rhineland-Palatinate about 1.2 GB).
@@ -146,4 +148,69 @@ pub(crate) fn download_las(
         let _ = std::fs::remove_file(&part);
     }
     result
+}
+
+/// Writes the LAS point cloud at `src` compressed as LAZ to `dst`, point by point with the same
+/// header; for a provider that serves plain LAS (a fifth of the size in the cache).
+pub(crate) fn compress_las(url: &str, src: &Path, dst: &Path) -> Result<(), FetchError> {
+    /// Points read and written at a time.
+    const CHUNK: u64 = 1 << 20;
+    let corrupt = |message: String| FetchError::CorruptArchive {
+        url: url.to_string(),
+        message: format!("not a LAS point cloud: {message}"),
+    };
+    let io = |e: las::Error| FetchError::Io(dst.to_path_buf(), std::io::Error::other(e));
+    let mut reader = las::Reader::from_path(src).map_err(|e| corrupt(e.to_string()))?;
+    let mut builder = las::Builder::from(reader.header().clone());
+    builder.point_format.is_compressed = true;
+    let header = builder.into_header().map_err(|e| corrupt(e.to_string()))?;
+    let result = (|| {
+        // `Writer::from_path` would compress by the extension, and `dst` is a partial file.
+        let file = std::fs::File::create(dst).map_err(|e| FetchError::Io(dst.to_path_buf(), e))?;
+        let mut writer = las::Writer::new(std::io::BufWriter::new(file), header).map_err(io)?;
+        loop {
+            let points = reader
+                .read_points(CHUNK)
+                .map_err(|e| corrupt(e.to_string()))?;
+            if points.is_empty() {
+                break;
+            }
+            for point in points.points() {
+                let point = point.map_err(|e| corrupt(e.to_string()))?;
+                writer.write_point(point).map_err(io)?;
+            }
+        }
+        writer.close().map_err(io)
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(dst);
+    }
+    result
+}
+
+/// A tile that cannot be fetched: the vegetation is only a candidate, so the newest cached file
+/// serves, or the tile is left out.
+pub(crate) fn fallback(
+    env: &mut AdapterEnv<'_>,
+    name: &str,
+    cached: Vec<(NaiveDate, PathBuf)>,
+    error: FetchError,
+    fetched: &mut Vec<PointCloudTile>,
+    found: impl Fn((NaiveDate, PathBuf)) -> PointCloudTile,
+) {
+    match cached.into_iter().next() {
+        Some(older) => {
+            (env.progress)(note!(
+                "warning-point-cloud-unavailable-cached",
+                tile = name,
+                reason = Arg::error(error)
+            ));
+            fetched.push(found(older));
+        }
+        None => (env.progress)(note!(
+            "warning-point-cloud-unavailable-skipped",
+            tile = name,
+            reason = Arg::error(error)
+        )),
+    }
 }

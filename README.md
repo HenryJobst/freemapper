@@ -210,7 +210,7 @@ Oder das Gebiet im Browser wählen, siehe [Gebiet im Browser wählen](#gebiet-im
 - `freemapper derive <ordner>` – berechnet daraus Luftbild, Schummerung, Hangneigung, lokales Relief
   und das nDOM (Höhe über Grund: Hecken, Mauern, Bäume, Spielgeräte) als Vorlagen sowie Höhenlinien
   (Schulhof 1 m, Sprint 2 m; jede fünfte als Zählkurve), kleine Kuppen, Senken, Erdböschungen und
-  Felswände als Kandidaten; mit `--content-set vegetation=candidates` in Brandenburg,
+  Felswände als Kandidaten; mit `--content-set vegetation=candidates` in Brandenburg, Berlin,
   Nordrhein-Westfalen und Rheinland-Pfalz auch die Vegetation aus Laserpunktwolken.
 - `freemapper export <ordner>` – schreibt die OOM-Karte mit den Gebäuden als fertigen Kartenobjekten
   (Symbol 521, mit Herkunft: ALKIS-Objekt-ID und Datenstand). Übernommen werden Gebäude bis zum Puffer

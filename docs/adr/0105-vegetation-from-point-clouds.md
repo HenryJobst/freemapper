@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis, the Brandenburg, North Rhine-Westphalia and Rhineland-Palatinate sources, fetch, derive and export, checked on two parks)
+Status: Accepted (analysis, the sources of Brandenburg, Berlin, North Rhine-Westphalia and Rhineland-Palatinate, fetch, derive and export, checked on two parks)
 
 ## Context
 
@@ -54,6 +54,17 @@ the crowns, so it does not help.
   so a fetch with the tile cached asks only the metadata, and the Metalink only when a tile has to be
   downloaded. A tile without metadata (404) is not published. The LAS header names no CRS; the backend sets
   25832. A tile of Mainz has only the classes 2 and 20.
+- Berlin is the fourth source (`berlin_als`): the Geoportal Berlin has no file per tile, only nine zip64
+  archives of 1 to 51 GB (226 GB in all, one per part of the city) with one plain LAS file per km tile
+  (`3dm_33_<E>_<N>_1_be.las`, EPSG:25833, scan of 2021, LAS 1.4, point format 6, no CRS in the header). The
+  backend picks the archive by the tile (three columns by east, three rows by north), reads its central
+  directory by two or three byte ranges (`zip_range::read_members`, now with the zip64 records) and streams
+  the member in ranges of 32 MB to a file: about 240 MB packed and 550 MB unpacked for the tile of the
+  Viktoriapark. It is unpacked (deflate, or deflate64 in two archives, through the crate `deflate64`),
+  checked against its CRC and size, and kept as LAZ (`las_files::compress_las`). The day the archive last
+  changed names the cache file, so a new scan replaces it and a cached tile costs one HEAD request. The
+  classes differ from the AdV scheme: 2 ground, 3, 4 and 5 low, medium and high vegetation, in which the
+  buildings lie too, and 7 low points; the building mask and the single-echo rule take out the roofs.
 - A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS
   and passes it the map area plus buffer in that CRS.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
@@ -111,5 +122,10 @@ the crowns, so it does not help.
   152 MB, every hash matching. The crowns came out runnable forest, the lawns and the railway land open,
   scattered shrubs 406 and 408, 13 small areas 410; houses stayed free. Returns on the Rhine come out open in
   `derive`, and the export cuts them at the water. No value was changed for it.
+- The Viktoriapark in Berlin (scan of February and March 2021) with the same values: two tiles read out of
+  the archive `Mitte` (about 240 MB each, 105 MB each as LAZ), 30 minutes and at most 1 GB of memory for the
+  whole run in a debug build. The trees came out runnable forest, the lawns and the sports ground open, the
+  blocks of houses free. The scan was made without leaves: the returns pass through shrubs and crowns, so
+  there are few green shades (72 areas 406, 11 areas 408, none 410). In Berlin a thicket is easily missed.
 - Parks get the green shades first; the forest map kind reuses the module with its own cell size and minimum
   areas.

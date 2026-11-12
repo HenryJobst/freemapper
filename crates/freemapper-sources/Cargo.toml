@@ -15,6 +15,7 @@ testing = ["freemapper-adapter-api/testing"]
 [dependencies]
 chrono.workspace = true
 crc32fast.workspace = true
+deflate64.workspace = true
 freemapper-adapter-api.workspace = true
 freemapper-contract.workspace = true
 freemapper-fs.workspace = true
