@@ -113,6 +113,7 @@ fn a_wfs_table_builds_the_service() {
             land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
             crs: Crs::Utm32,
             square_bez: Some(Cow::Borrowed("ohne Unterart (Nordrhein-Westfalen)")),
+            sorted: true,
         }
     );
     assert_eq!(alkis::ogc_api(manifest.alkis.as_ref().unwrap()), None);
@@ -127,6 +128,17 @@ fn a_wfs_table_builds_the_service() {
         ("Sample ALKIS", Crs::Utm32)
     );
     assert_eq!(service.square_bez, None);
+    assert!(service.sorted);
+    // `sorted = false` is for a service that refuses SORTBY; anything but a boolean is the
+    // parser's finding.
+    let unsorted = sample().replace("kind = \"wfs\"\n", "kind = \"wfs\"\nsorted = false\n");
+    let manifest = parse(&unsorted, Path::new("sample")).unwrap();
+    let Some(Alkis::Wfs(wfs)) = &manifest.alkis else {
+        panic!("{:?}", manifest.alkis);
+    };
+    assert!(!alkis::wfs_service(wfs).sorted);
+    let wrong = sample().replace("kind = \"wfs\"\n", "kind = \"wfs\"\nsorted = \"no\"\n");
+    assert!(parse(&wrong, Path::new("sample")).is_err());
 }
 
 #[test]
@@ -149,6 +161,7 @@ fn an_ogc_api_table_builds_the_source_with_its_fallback() {
                 land_use_type: Cow::Borrowed("ave:NutzungFlurstueck"),
                 crs: Crs::Utm32,
                 square_bez: None,
+                sorted: true,
             }),
             normalise: Normaliser::HamburgAscii,
         })

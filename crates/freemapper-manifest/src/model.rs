@@ -173,6 +173,8 @@ pub struct Wfs {
     pub crs: Crs,
     /// `bez` given to squares without one.
     pub square_bez: Option<String>,
+    /// Whether the service takes `SORTBY`; `sorted = false` in the manifest says it does not.
+    pub sorted: bool,
 }
 
 /// The presets that turn the features of a service into the LGB spellings.

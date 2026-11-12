@@ -1009,6 +1009,7 @@ impl Check<'_> {
         buildings_type: &Text,
         land_use_type: &Text,
         square_bez: Option<&Text>,
+        sorted: bool,
         crs: Option<Crs>,
     ) -> Option<Wfs> {
         let name = match name {
@@ -1044,6 +1045,7 @@ impl Check<'_> {
             land_use_type: land_use_type?,
             crs: crs?,
             square_bez: square_bez?,
+            sorted,
         })
     }
 
@@ -1087,6 +1089,7 @@ impl Check<'_> {
                     buildings?,
                     land_use?,
                     raw.square_bez.as_ref(),
+                    raw.sorted.as_ref().is_none_or(|sorted| *sorted.get_ref()),
                     crs,
                 );
                 fine.then_some(Alkis::Wfs(wfs?))
@@ -1099,6 +1102,7 @@ impl Check<'_> {
                     self.absent(raw.buildings_type.as_ref(), "alkis.buildings_type", kind),
                     self.absent(raw.land_use_type.as_ref(), "alkis.land_use_type", kind),
                     self.absent(raw.square_bez.as_ref(), "alkis.square_bez", kind),
+                    self.absent(raw.sorted.as_ref(), "alkis.sorted", kind),
                 ]
                 .iter()
                 .all(Option::is_some);
@@ -1146,6 +1150,7 @@ impl Check<'_> {
                             &fallback.buildings_type,
                             &fallback.land_use_type,
                             fallback.square_bez.as_ref(),
+                            true,
                             crs,
                         )
                         .map(Some)

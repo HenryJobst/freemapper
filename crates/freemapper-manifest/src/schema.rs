@@ -110,6 +110,7 @@ pub(crate) struct RawAlkis {
     pub buildings_type: Option<Text>,
     pub land_use_type: Option<Text>,
     pub square_bez: Option<Text>,
+    pub sorted: Option<Spanned<bool>>,
     pub buildings: Option<Text>,
     pub land_use: Option<Text>,
     pub normalise: Option<Text>,

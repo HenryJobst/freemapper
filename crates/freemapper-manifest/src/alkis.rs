@@ -17,6 +17,7 @@ pub fn wfs_service(wfs: &Wfs) -> WfsService {
         land_use_type: Cow::Owned(wfs.land_use_type.clone()),
         crs: wfs.crs,
         square_bez: wfs.square_bez.clone().map(Cow::Owned),
+        sorted: wfs.sorted,
     }
 }
 
