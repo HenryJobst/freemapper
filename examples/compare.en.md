@@ -107,7 +107,7 @@ pixel difference.
 
 The counts suggested a different pair: Sanssouci and Herrenhausen have the most candidates per map object, 4.5 and
 7.8. But their maps are small, and many of their candidates are trees, small points that change little area. In
-Cochem and Blankenese, contours and out-of-bounds areas change large parts of the sheet. Monschau follows closely at
+Cochem and the old Blankenese, contours and out-of-bounds areas change large parts of the sheet. Monschau follows closely at
 4.6 %, so the gap to the first two is small. The first three places stayed the same at 60 dpi and 120 dpi.
 
 With `balanced` the map and the training map move closer together, because the contours are on the map already. The

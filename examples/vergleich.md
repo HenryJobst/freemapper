@@ -107,7 +107,7 @@ es zählt die Reihenfolge. Die Tabelle ist nach der Pixeldifferenz sortiert.
 
 Die Erwartung aus den Zählungen war eine andere: Sanssouci und Herrenhausen haben mit 4,5 und 7,8 die meisten
 Kandidaten je Kartenobjekt. Ihre Karten sind aber klein, und die Kandidaten sind zu großen Teilen Bäume, kleine Punkte, die
-wenig Fläche ändern. In Cochem und Blankenese ändern Höhenlinien und Sperrflächen große Teile des Blattes. Monschau
+wenig Fläche ändern. In Cochem und im alten Blankenese ändern Höhenlinien und Sperrflächen große Teile des Blattes. Monschau
 liegt mit 4,6 % dicht dahinter, der Abstand zu den ersten beiden ist klein. Die ersten drei Plätze blieben bei 60 dpi
 und 120 dpi gleich.
 
