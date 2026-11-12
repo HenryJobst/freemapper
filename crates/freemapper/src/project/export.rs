@@ -165,11 +165,11 @@ pub(super) fn stored_contour_objects(
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
     // The contours come from the terrain model of the area's raster provider.
-    let provider = match project.provider {
-        Some(provider) => provider,
-        None => raster_region(&project.region_bbox()?).map_or(Provider::Lgb, Region::provider),
+    let provider = match &project.provider {
+        Some(provider) => Some(provider.clone()),
+        None => raster_provider(&project.region_bbox()?),
     };
-    let source = provider.terrain_source();
+    let source = terrain_source(provider.as_ref());
     let map_area = area.projected_polygon_in(project.crs());
     // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
@@ -1060,18 +1060,7 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         objects: map_objects,
     };
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
-    attribution.extend(lgb_attribution(&project));
-    attribution.extend(berlin_attribution(&project, &registers));
-    attribution.extend(tree_attribution(&registers));
-    attribution.extend(geosn_attribution(&project));
-    attribution.extend(lvermgeo_attribution(&project));
-    attribution.extend(lgv_attribution(&project));
-    attribution.extend(hvbg_attribution(&project));
-    attribution.extend(sh_attribution(&project));
-    attribution.extend(mv_attribution(&project));
-    attribution.extend(nrw_attribution(&project));
-    attribution.extend(lgln_attribution(&project));
-    attribution.extend(rp_attribution(&project));
+    attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
     let info = PeripheralInfo {
         title: project.display_title(dir),

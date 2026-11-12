@@ -3,15 +3,16 @@
 
 use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 use chrono::NaiveDate;
-use geo_types::MultiPolygon;
+use freemapper_adapter_api::info::OsmExtractInfo;
+use freemapper_adapter_api::records::AdapterId;
 
+use crate::adapters::{RegionAdapter, Registry, registry};
 use crate::area::GeoBox;
 use crate::crs::{BoundingBox, LatLon};
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher};
-use crate::sources::region::{Region, parse_boundary, regions_for, within_margin};
+use crate::sources::region::{regions_for_in, within_margin};
 
 /// Read buffer for the extract.
 const READ_BUFFER_BYTES: usize = 4 * 1024 * 1024;
@@ -493,320 +494,146 @@ pub const EXTRACT_URL: &str =
     "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf";
 pub const STATE_URL: &str =
     "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt";
-const SAXONY_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf";
-const SAXONY_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt";
-const SAXONY_ANHALT_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-latest.osm.pbf";
-const SAXONY_ANHALT_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt";
-const HAMBURG_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf";
-const HAMBURG_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt";
-const HESSEN_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf";
-const HESSEN_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt";
-const SCHLESWIG_HOLSTEIN_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf";
-const SCHLESWIG_HOLSTEIN_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt";
-const MECKLENBURG_VORPOMMERN_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf";
-const MECKLENBURG_VORPOMMERN_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt";
-const NIEDERSACHSEN_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf";
-const NIEDERSACHSEN_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt";
-const RHEINLAND_PFALZ_EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf";
-const RHEINLAND_PFALZ_STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
 
-/// A government district (Regierungsbezirk) of North Rhine-Westphalia. Geofabrik serves each as
-/// its own extract (137-225 MB), so a map reads one of them instead of the 917 MB state extract.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum GovernmentDistrict {
-    Arnsberg,
-    Detmold,
-    Duesseldorf,
-    Koeln,
-    Muenster,
+/// An OSM extract of Geofabrik a map reads: one of the extracts the adapter of a region names
+/// (`RegionInfo::osm`).
+#[derive(Debug, Clone)]
+pub struct ExtractRef {
+    /// The adapter that names the extract.
+    pub adapter: AdapterId,
+    /// Its place in the adapter's list.
+    pub index: usize,
+    info: OsmExtractInfo,
 }
 
-/// The Geofabrik extract of a government district.
-struct DistrictExtract {
-    url: &'static str,
-    state_url: &'static str,
-    /// Start of the cache file name, `nrw-<slug>_`.
-    prefix: &'static str,
+/// Two refs are the same when they name the same extract, whichever adapter lists it (Berlin
+/// reads the extract of Brandenburg).
+impl PartialEq for ExtractRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.info.geofabrik_path == other.info.geofabrik_path
+    }
+}
+
+impl Eq for ExtractRef {}
+
+impl ExtractRef {
+    fn new(adapter: &dyn RegionAdapter, index: usize) -> Option<Self> {
+        let info = adapter.info();
+        Some(Self {
+            adapter: info.id.clone(),
+            index,
+            info: info.osm.get(index)?.clone(),
+        })
+    }
+
+    /// The extract `index` of the adapter `id` in the registry of the process.
+    pub fn of(id: &str, index: usize) -> Option<Self> {
+        Self::new(registry().get(id)?, index)
+    }
+
+    pub fn url(&self) -> String {
+        self.info.url()
+    }
+
+    pub fn state_url(&self) -> String {
+        self.info.state_url()
+    }
+
+    /// Start of the cache file name, `<prefix><date>.osm.pbf`.
+    pub(crate) fn prefix(&self) -> &str {
+        &self.info.prefix
+    }
+
     /// Rough download size in MB.
-    megabytes: f64,
-    label: &'static str,
-}
-
-/// The extract of the district with Geofabrik's `slug`: URL, state URL and cache prefix all come
-/// from the slug.
-macro_rules! district_extract {
-    ($slug:literal, $megabytes:literal, $label:literal) => {
-        DistrictExtract {
-            url: concat!(
-                "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/",
-                $slug,
-                "-regbez-latest.osm.pbf"
-            ),
-            state_url: concat!(
-                "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/",
-                $slug,
-                "-regbez-updates/state.txt"
-            ),
-            prefix: concat!("nrw-", $slug, "_"),
-            megabytes: $megabytes,
-            label: $label,
-        }
-    };
-}
-
-impl GovernmentDistrict {
-    /// The district's extract: slug, size (Geofabrik, 2026-11-08) and label.
-    fn extract(self) -> DistrictExtract {
-        match self {
-            Self::Arnsberg => {
-                district_extract!("arnsberg", 195.2, "North Rhine-Westphalia, Arnsberg")
-            }
-            Self::Detmold => {
-                district_extract!("detmold", 137.3, "North Rhine-Westphalia, Detmold")
-            }
-            Self::Duesseldorf => {
-                district_extract!("duesseldorf", 217.2, "North Rhine-Westphalia, Düsseldorf")
-            }
-            Self::Koeln => district_extract!("koeln", 225.2, "North Rhine-Westphalia, Köln"),
-            Self::Muenster => {
-                district_extract!("muenster", 140.9, "North Rhine-Westphalia, Münster")
-            }
-        }
+    pub fn megabytes(&self) -> f64 {
+        self.info.megabytes
     }
 
-    /// All districts, in the order their extracts are read.
-    pub const ALL: [Self; 5] = [
-        Self::Arnsberg,
-        Self::Detmold,
-        Self::Duesseldorf,
-        Self::Koeln,
-        Self::Muenster,
-    ];
-
-    /// The district's extract boundary: Geofabrik's `<district>-regbez.poly` in EPSG:25833,
-    /// simplified 25 m (ODbL). Neighbouring boundaries overlap by a few hundred metres, as the
-    /// extracts do.
-    fn boundary(self) -> &'static MultiPolygon<f64> {
-        static BOUNDARIES: [OnceLock<MultiPolygon<f64>>; 5] = [
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-            OnceLock::new(),
-        ];
-        let (index, text) = match self {
-            Self::Arnsberg => (
-                0,
-                include_str!("../../../../assets/regions/osm/nrw-arnsberg.geojson"),
-            ),
-            Self::Detmold => (
-                1,
-                include_str!("../../../../assets/regions/osm/nrw-detmold.geojson"),
-            ),
-            Self::Duesseldorf => (
-                2,
-                include_str!("../../../../assets/regions/osm/nrw-duesseldorf.geojson"),
-            ),
-            Self::Koeln => (
-                3,
-                include_str!("../../../../assets/regions/osm/nrw-koeln.geojson"),
-            ),
-            Self::Muenster => (
-                4,
-                include_str!("../../../../assets/regions/osm/nrw-muenster.geojson"),
-            ),
-        };
-        BOUNDARIES[index].get_or_init(|| parse_boundary(text))
+    pub fn label(&self) -> &str {
+        &self.info.label
     }
 }
 
-/// A Geofabrik extract freemapper reads.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ExtractSource {
-    /// Brandenburg with Berlin.
-    Brandenburg,
-    Saxony,
-    SaxonyAnhalt,
-    Hamburg,
-    Hessen,
-    SchleswigHolstein,
-    MecklenburgVorpommern,
-    /// Niedersachsen, with Bremen inside it.
-    Niedersachsen,
-    /// Rheinland-Pfalz (without Wiesbaden and Mainz-Kastel, which are Hesse).
-    RheinlandPfalz,
-    /// A North Rhine-Westphalia government district.
-    NordrheinWestfalen(GovernmentDistrict),
-}
-
-/// The extracts a map of `bbox` (EPSG:25833) reads, each once: the extract of every region the
-/// area touches; in North Rhine-Westphalia every government district extract whose boundary lies
-/// within the region margin of the area (two or more on a district border). Warnings go to
-/// `progress`.
-pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(Note)) -> Vec<ExtractSource> {
-    let mut sources: Vec<ExtractSource> = Vec::new();
-    for region in regions_for(bbox) {
-        let found: Vec<ExtractSource> = match region {
-            Region::Brandenburg | Region::Berlin => vec![ExtractSource::Brandenburg],
-            Region::Saxony => vec![ExtractSource::Saxony],
-            Region::SaxonyAnhalt => vec![ExtractSource::SaxonyAnhalt],
-            Region::Hamburg => vec![ExtractSource::Hamburg],
-            Region::Hessen => vec![ExtractSource::Hessen],
-            Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
-            Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
-            Region::Niedersachsen => vec![ExtractSource::Niedersachsen],
-            Region::RheinlandPfalz => vec![ExtractSource::RheinlandPfalz],
-            Region::NordrheinWestfalen => nrw_districts_for(bbox, progress)
-                .into_iter()
-                .map(ExtractSource::NordrheinWestfalen)
-                .collect(),
-        };
-        for source in found {
-            if !sources.contains(&source) {
-                sources.push(source);
-            }
-        }
-    }
-    sources
-}
-
-/// The districts whose extract boundary lies within the margin of `bbox`. The boundaries cover
-/// the state with its margin; should an area at the state border still miss them all, the
-/// nearest district's extract is read.
-fn nrw_districts_for(
+/// The extracts a map of `bbox` (EPSG:25833) reads, each once: those of every adapter of
+/// `registry` the area touches. An adapter with one extract gives that one; one with several
+/// (the government districts of North Rhine-Westphalia) those whose boundary lies within the
+/// region margin of the area (two or more on a district border). Warnings go to `progress`.
+pub fn extracts_for_in(
+    registry: &Registry,
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(Note),
-) -> Vec<GovernmentDistrict> {
-    let near: Vec<GovernmentDistrict> = GovernmentDistrict::ALL
-        .into_iter()
-        .filter(|district| within_margin(district.boundary(), bbox))
+) -> Vec<ExtractRef> {
+    let mut extracts: Vec<ExtractRef> = Vec::new();
+    for adapter in regions_for_in(registry, bbox) {
+        for index in extract_indices(adapter, bbox, progress) {
+            if let Some(extract) = ExtractRef::new(adapter, index)
+                && !extracts.contains(&extract)
+            {
+                extracts.push(extract);
+            }
+        }
+    }
+    extracts
+}
+
+/// The extracts a map of `bbox` (EPSG:25833) reads, from the registry of the process.
+pub fn extracts_for(bbox: &BoundingBox, progress: &mut dyn FnMut(Note)) -> Vec<ExtractRef> {
+    extracts_for_in(registry(), bbox, progress)
+}
+
+/// Which extracts of `adapter` a map of `bbox` reads. With several, those whose boundary lies
+/// within the margin of `bbox`, and any without a boundary. The boundaries cover the region with
+/// its margin; should an area at its edge still miss them all, the nearest extract is read.
+fn extract_indices(
+    adapter: &dyn RegionAdapter,
+    bbox: &BoundingBox,
+    progress: &mut dyn FnMut(Note),
+) -> Vec<usize> {
+    let count = adapter.info().osm.len();
+    if count <= 1 {
+        return (0..count).collect();
+    }
+    let near: Vec<usize> = (0..count)
+        .filter(|&index| {
+            adapter
+                .extract_boundary(index)
+                .is_none_or(|boundary| within_margin(boundary, bbox))
+        })
         .collect();
     if !near.is_empty() {
         return near;
     }
-    let nearest = nearest_district(bbox);
-    if let Some(district) = nearest {
+    let nearest = nearest_extract(adapter, bbox);
+    if let Some(index) = nearest {
         progress(note!(
             "warning-osm-nrw-nearest",
-            district = ExtractSource::NordrheinWestfalen(district).label()
+            district = adapter.info().osm[index].label.as_str()
         ));
     }
     nearest.into_iter().collect()
 }
 
-/// The district whose extract boundary is nearest to `bbox`.
-fn nearest_district(bbox: &BoundingBox) -> Option<GovernmentDistrict> {
+/// The extract of `adapter` whose boundary is nearest to `bbox`.
+fn nearest_extract(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> Option<usize> {
     use geo::{Distance as _, Euclidean};
     let rect = geo_types::Rect::new(
         geo_types::coord! { x: bbox.min_e, y: bbox.min_n },
         geo_types::coord! { x: bbox.max_e, y: bbox.max_n },
     )
     .to_polygon();
-    GovernmentDistrict::ALL
-        .into_iter()
-        .map(|district| (district, Euclidean.distance(district.boundary(), &rect)))
+    (0..adapter.info().osm.len())
+        .filter_map(|index| {
+            let boundary = adapter.extract_boundary(index)?;
+            Some((index, Euclidean.distance(boundary, &rect)))
+        })
         .filter(|(_, distance)| distance.is_finite())
         .min_by(|a, b| a.1.total_cmp(&b.1))
-        .map(|(district, _)| district)
+        .map(|(index, _)| index)
 }
 
-impl ExtractSource {
-    pub fn url(self) -> &'static str {
-        match self {
-            Self::Brandenburg => EXTRACT_URL,
-            Self::Saxony => SAXONY_EXTRACT_URL,
-            Self::SaxonyAnhalt => SAXONY_ANHALT_EXTRACT_URL,
-            Self::Hamburg => HAMBURG_EXTRACT_URL,
-            Self::Hessen => HESSEN_EXTRACT_URL,
-            Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_EXTRACT_URL,
-            Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_EXTRACT_URL,
-            Self::Niedersachsen => NIEDERSACHSEN_EXTRACT_URL,
-            Self::RheinlandPfalz => RHEINLAND_PFALZ_EXTRACT_URL,
-            Self::NordrheinWestfalen(district) => district.extract().url,
-        }
-    }
-
-    pub fn state_url(self) -> &'static str {
-        match self {
-            Self::Brandenburg => STATE_URL,
-            Self::Saxony => SAXONY_STATE_URL,
-            Self::SaxonyAnhalt => SAXONY_ANHALT_STATE_URL,
-            Self::Hamburg => HAMBURG_STATE_URL,
-            Self::Hessen => HESSEN_STATE_URL,
-            Self::SchleswigHolstein => SCHLESWIG_HOLSTEIN_STATE_URL,
-            Self::MecklenburgVorpommern => MECKLENBURG_VORPOMMERN_STATE_URL,
-            Self::Niedersachsen => NIEDERSACHSEN_STATE_URL,
-            Self::RheinlandPfalz => RHEINLAND_PFALZ_STATE_URL,
-            Self::NordrheinWestfalen(district) => district.extract().state_url,
-        }
-    }
-
-    /// Start of the cache file name, `<prefix><date>.osm.pbf`.
-    fn prefix(self) -> &'static str {
-        match self {
-            Self::Brandenburg => "brandenburg_",
-            Self::Saxony => "sachsen_",
-            Self::SaxonyAnhalt => "sachsen-anhalt_",
-            Self::Hamburg => "hamburg_",
-            Self::Hessen => "hessen_",
-            Self::SchleswigHolstein => "schleswig-holstein_",
-            Self::MecklenburgVorpommern => "mecklenburg-vorpommern_",
-            Self::Niedersachsen => "niedersachsen_",
-            Self::RheinlandPfalz => "rheinland-pfalz_",
-            Self::NordrheinWestfalen(district) => district.extract().prefix,
-        }
-    }
-
-    /// Rough download size in MB.
-    pub fn megabytes(self) -> f64 {
-        match self {
-            Self::Brandenburg => 300.0,
-            Self::Saxony => 270.0,
-            Self::SaxonyAnhalt => 177.0,
-            Self::Hamburg => 54.0,
-            Self::Hessen => 348.0,
-            Self::SchleswigHolstein => 159.0,
-            Self::MecklenburgVorpommern => 128.8,
-            Self::Niedersachsen => 510.0,
-            Self::RheinlandPfalz => 275.0,
-            Self::NordrheinWestfalen(district) => district.extract().megabytes,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Brandenburg => "Brandenburg",
-            Self::Saxony => "Saxony",
-            Self::SaxonyAnhalt => "Saxony-Anhalt",
-            Self::Hamburg => "Hamburg",
-            Self::Hessen => "Hesse",
-            Self::SchleswigHolstein => "Schleswig-Holstein",
-            Self::MecklenburgVorpommern => "Mecklenburg-Vorpommern",
-            Self::Niedersachsen => "Lower Saxony",
-            Self::RheinlandPfalz => "Rhineland-Palatinate",
-            Self::NordrheinWestfalen(district) => district.extract().label,
-        }
-    }
-}
 /// Largest OSM extract downloaded: the largest state extract is about 350 MB.
 const MAX_EXTRACT_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 /// Partial downloads older than this are left over from interrupted runs.
@@ -831,12 +658,12 @@ pub fn parse_state_date(text: &str) -> Option<NaiveDate> {
 }
 
 /// Date of the newest cached OSM extract (Geofabrik's state when downloaded).
-pub fn cached_extract_date(cache: &Cache, source: ExtractSource) -> Option<NaiveDate> {
+pub fn cached_extract_date(cache: &Cache, source: &ExtractRef) -> Option<NaiveDate> {
     cached_extracts(cache, source).first().map(|e| e.date)
 }
 
 /// Cached extracts, newest first.
-fn cached_extracts(cache: &Cache, source: ExtractSource) -> Vec<Extract> {
+fn cached_extracts(cache: &Cache, source: &ExtractRef) -> Vec<Extract> {
     let mut extracts: Vec<Extract> = std::fs::read_dir(cache.osm_dir())
         .into_iter()
         .flatten()
@@ -850,7 +677,7 @@ fn cached_extracts(cache: &Cache, source: ExtractSource) -> Vec<Extract> {
                 .ok()?;
             let path = entry.path();
             Some(Extract {
-                data_date: check_pbf(&path, source.url())
+                data_date: check_pbf(&path, &source.url())
                     .ok()
                     .flatten()
                     .unwrap_or(date),
@@ -869,7 +696,7 @@ fn cached_extracts(cache: &Cache, source: ExtractSource) -> Vec<Extract> {
 pub fn fetch_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,
-    source: ExtractSource,
+    source: &ExtractRef,
     mode: FetchMode,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
@@ -907,14 +734,14 @@ pub fn fetch_extract(
 fn refresh_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,
-    source: ExtractSource,
+    source: &ExtractRef,
     newest: Option<Extract>,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
-    let state = fetcher.get(source.state_url())?;
+    let state = fetcher.get(&source.state_url())?;
     let date =
         parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
-            url: source.state_url().to_string(),
+            url: source.state_url(),
             message: "no timestamp in the state file".to_string(),
         })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
@@ -935,8 +762,8 @@ fn refresh_extract(
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
     let result = fetcher
-        .download_to(source.url(), &part, MAX_EXTRACT_BYTES, progress)
-        .and_then(|()| check_pbf(&part, source.url()));
+        .download_to(&source.url(), &part, MAX_EXTRACT_BYTES, progress)
+        .and_then(|()| check_pbf(&part, &source.url()));
     let header_date = match result {
         Ok(header_date) => header_date,
         Err(e) => {
@@ -997,39 +824,36 @@ pub mod golden {
 
     /// The extracts `region` reads, as [`extracts_for`] maps them (North Rhine-Westphalia: all
     /// five government districts).
-    pub fn extracts_of(region: Region) -> Vec<OsmFacts> {
-        let sources: Vec<ExtractSource> = match region {
-            Region::Brandenburg | Region::Berlin => vec![ExtractSource::Brandenburg],
-            Region::Saxony => vec![ExtractSource::Saxony],
-            Region::SaxonyAnhalt => vec![ExtractSource::SaxonyAnhalt],
-            Region::Hamburg => vec![ExtractSource::Hamburg],
-            Region::Hessen => vec![ExtractSource::Hessen],
-            Region::SchleswigHolstein => vec![ExtractSource::SchleswigHolstein],
-            Region::MecklenburgVorpommern => vec![ExtractSource::MecklenburgVorpommern],
-            Region::Niedersachsen => vec![ExtractSource::Niedersachsen],
-            Region::RheinlandPfalz => vec![ExtractSource::RheinlandPfalz],
-            Region::NordrheinWestfalen => GovernmentDistrict::ALL
-                .into_iter()
-                .map(ExtractSource::NordrheinWestfalen)
-                .collect(),
-        };
-        sources
-            .into_iter()
-            .map(|source| OsmFacts {
-                url: source.url().to_string(),
-                state_url: source.state_url().to_string(),
-                prefix: source.prefix().to_string(),
-                megabytes: source.megabytes(),
-                label: source.label().to_string(),
+    pub fn extracts_of(region: &AdapterId) -> Vec<OsmFacts> {
+        registry()
+            .get(region.as_str())
+            .expect("the built-in states are in the registry")
+            .info()
+            .osm
+            .iter()
+            .map(|extract| OsmFacts {
+                url: extract.url(),
+                state_url: extract.state_url(),
+                prefix: extract.prefix.clone(),
+                megabytes: extract.megabytes,
+                label: extract.label.clone(),
             })
             .collect()
     }
+}
+
+/// The extract `index` of the built-in adapter `id`, for tests.
+#[cfg(test)]
+pub(crate) fn extract_of(id: &str, index: usize) -> ExtractRef {
+    ExtractRef::of(id, index).unwrap_or_else(|| panic!("no extract {index} of {id}"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, regions};
 
     pub(crate) const FIXTURE_PBF: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -1052,7 +876,7 @@ mod tests {
         fetch_extract(
             fetcher,
             cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |_| {},
         )
@@ -1064,7 +888,7 @@ mod tests {
         let cache = Cache::new(dir.path().to_path_buf());
         let fetcher = MapFetcher::default();
         serve(&fetcher, "2026-11-06");
-        let saxony = ExtractSource::Saxony;
+        let saxony = extract_of("saxony", 0);
         assert_eq!(
             saxony.url(),
             "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf"
@@ -1073,11 +897,11 @@ mod tests {
             saxony.state_url(),
             "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt"
         );
-        fetcher.insert(saxony.state_url(), state("2026-11-06"));
-        fetcher.insert(saxony.url(), std::fs::read(FIXTURE_PBF).unwrap());
+        fetcher.insert(&saxony.state_url(), state("2026-11-06"));
+        fetcher.insert(&saxony.url(), std::fs::read(FIXTURE_PBF).unwrap());
         online(&fetcher, &cache).unwrap();
         let mut messages = Vec::new();
-        fetch_extract(&fetcher, &cache, saxony, FetchMode::Online, &mut |m| {
+        fetch_extract(&fetcher, &cache, &saxony, FetchMode::Online, &mut |m| {
             messages.push(m.to_string())
         })
         .unwrap();
@@ -1095,7 +919,7 @@ mod tests {
             "{messages:?}"
         );
         assert_eq!(
-            cached_extract_date(&cache, saxony),
+            cached_extract_date(&cache, &saxony),
             "2026-11-06".parse().ok()
         );
         // Berlin (Mitte) reads the Brandenburg extract.
@@ -1107,13 +931,13 @@ mod tests {
         };
         assert_eq!(
             extracts_for(&mitte, &mut |_| {}),
-            [ExtractSource::Brandenburg]
+            [extract_of("brandenburg", 0)]
         );
     }
 
     #[test]
     fn hamburg_extract_urls() {
-        let hamburg = ExtractSource::Hamburg;
+        let hamburg = extract_of("hamburg", 0);
         assert_eq!(
             hamburg.url(),
             "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf"
@@ -1127,7 +951,7 @@ mod tests {
 
     #[test]
     fn hessen_extract_urls() {
-        let hessen = ExtractSource::Hessen;
+        let hessen = extract_of("hessen", 0);
         assert_eq!(
             hessen.url(),
             "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
@@ -1142,7 +966,7 @@ mod tests {
 
     #[test]
     fn schleswig_holstein_extract_urls() {
-        let sh = ExtractSource::SchleswigHolstein;
+        let sh = extract_of("schleswigholstein", 0);
         assert_eq!(
             sh.url(),
             "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf"
@@ -1157,7 +981,7 @@ mod tests {
 
     #[test]
     fn mv_extract_urls() {
-        let mv = ExtractSource::MecklenburgVorpommern;
+        let mv = extract_of("mecklenburgvorpommern", 0);
         assert_eq!(
             mv.url(),
             "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf"
@@ -1172,7 +996,7 @@ mod tests {
 
     #[test]
     fn ni_extract_urls() {
-        let ni = ExtractSource::Niedersachsen;
+        let ni = extract_of("niedersachsen", 0);
         assert_eq!(
             ni.url(),
             "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf"
@@ -1199,7 +1023,7 @@ mod tests {
 
     #[test]
     fn rp_extract_urls() {
-        let rp = ExtractSource::RheinlandPfalz;
+        let rp = extract_of("rheinlandpfalz", 0);
         assert_eq!(
             rp.url(),
             "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf"
@@ -1233,8 +1057,11 @@ mod tests {
             max_e: -66_480.0,
             max_n: 5_671_881.0,
         };
-        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
-        assert_eq!(extracts_for(&school, &mut |_| {}), [koeln]);
+        let koeln = extract_of("nordrheinwestfalen", 3);
+        assert_eq!(
+            extracts_for(&school, &mut |_| {}),
+            std::slice::from_ref(&koeln)
+        );
         assert_eq!(
             koeln.url(),
             "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
@@ -1246,13 +1073,13 @@ mod tests {
         assert_eq!(koeln.label(), "North Rhine-Westphalia, Köln");
         assert_eq!(koeln.megabytes(), 225.2);
         for (district, slug) in [
-            (GovernmentDistrict::Arnsberg, "arnsberg"),
-            (GovernmentDistrict::Detmold, "detmold"),
-            (GovernmentDistrict::Duesseldorf, "duesseldorf"),
-            (GovernmentDistrict::Koeln, "koeln"),
-            (GovernmentDistrict::Muenster, "muenster"),
+            (0, "arnsberg"),
+            (1, "detmold"),
+            (2, "duesseldorf"),
+            (3, "koeln"),
+            (4, "muenster"),
         ] {
-            let source = ExtractSource::NordrheinWestfalen(district);
+            let source = extract_of("nordrheinwestfalen", district);
             let base = format!(
                 "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/{slug}-regbez"
             );
@@ -1263,10 +1090,10 @@ mod tests {
         // Places well inside the other four districts read only their own extract.
         // City centres of Arnsberg, Bielefeld, Duesseldorf and Muenster (25833).
         for (e, n, district) in [
-            (17_721.0, 5_716_725.0, GovernmentDistrict::Arnsberg),
-            (56_406.0, 5_783_147.0, GovernmentDistrict::Detmold),
-            (-73_850.0, 5_707_053.0, GovernmentDistrict::Duesseldorf),
-            (-6_319.0, 5_782_536.0, GovernmentDistrict::Muenster),
+            (17_721.0, 5_716_725.0, 0),
+            (56_406.0, 5_783_147.0, 1),
+            (-73_850.0, 5_707_053.0, 2),
+            (-6_319.0, 5_782_536.0, 4),
         ] {
             let bbox = BoundingBox {
                 min_e: e - 200.0,
@@ -1276,7 +1103,7 @@ mod tests {
             };
             assert_eq!(
                 extracts_for(&bbox, &mut |_| {}),
-                [ExtractSource::NordrheinWestfalen(district)],
+                [extract_of("nordrheinwestfalen", district)],
                 "{e} {n}"
             );
         }
@@ -1284,10 +1111,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().to_path_buf());
         let fetcher = MapFetcher::default();
-        fetcher.insert(koeln.state_url(), state("2026-11-06"));
-        fetcher.insert(koeln.url(), std::fs::read(FIXTURE_PBF).unwrap());
+        fetcher.insert(&koeln.state_url(), state("2026-11-06"));
+        fetcher.insert(&koeln.url(), std::fs::read(FIXTURE_PBF).unwrap());
         let mut messages = Vec::new();
-        fetch_extract(&fetcher, &cache, koeln, FetchMode::Online, &mut |m| {
+        fetch_extract(&fetcher, &cache, &koeln, FetchMode::Online, &mut |m| {
             messages.push(m.to_string())
         })
         .unwrap();
@@ -1299,12 +1126,12 @@ mod tests {
             "{messages:?}"
         );
         assert_eq!(
-            cached_extract_date(&cache, koeln),
+            cached_extract_date(&cache, &koeln),
             "2026-11-06".parse().ok()
         );
         // A neighbouring district's cache file is not taken for Koeln's.
-        let detmold = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Detmold);
-        assert_eq!(cached_extract_date(&cache, detmold), None);
+        let detmold = extract_of("nordrheinwestfalen", 1);
+        assert_eq!(cached_extract_date(&cache, &detmold), None);
     }
 
     #[test]
@@ -1316,12 +1143,9 @@ mod tests {
             max_e: -135_321.0,
             max_n: 5_663_343.0,
         };
-        assert!(
-            GovernmentDistrict::ALL
-                .iter()
-                .all(|d| !within_margin(d.boundary(), &belgium))
-        );
-        assert_eq!(nearest_district(&belgium), Some(GovernmentDistrict::Koeln));
+        let nrw = registry().get("nordrheinwestfalen").unwrap();
+        assert!((0..5).all(|i| !within_margin(nrw.extract_boundary(i).unwrap(), &belgium)));
+        assert_eq!(nearest_extract(nrw, &belgium), Some(3));
     }
 
     #[test]
@@ -1338,20 +1162,20 @@ mod tests {
         };
         // Rhineland-Palatinate lies on the other side of that border, so it is read too.
         assert_eq!(
-            regions_for(&sliver),
-            [Region::NordrheinWestfalen, Region::RheinlandPfalz]
+            crate::sources::region::regions_for(&sliver),
+            [
+                crate::sources::region::ids::regions::NORDRHEIN_WESTFALEN,
+                crate::sources::region::ids::regions::RHEINLAND_PFALZ
+            ]
         );
-        assert!(
-            GovernmentDistrict::ALL
-                .iter()
-                .all(|d| !within_margin(d.boundary(), &sliver))
-        );
+        let nrw = registry().get("nordrheinwestfalen").unwrap();
+        assert!((0..5).all(|i| !within_margin(nrw.extract_boundary(i).unwrap(), &sliver)));
         let mut messages = Vec::new();
         assert_eq!(
             extracts_for(&sliver, &mut |m| messages.push(m.to_string())),
             [
-                ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln),
-                ExtractSource::RheinlandPfalz
+                extract_of("nordrheinwestfalen", 3),
+                extract_of("rheinlandpfalz", 0)
             ]
         );
         assert_eq!(
@@ -1374,15 +1198,174 @@ mod tests {
     }
 
     #[test]
+    fn nrw_district_border_reads_two_extracts_with_the_old_warning() {
+        // Koeln-Worringen on the Koeln / Duesseldorf district border (25833 E -70550 /
+        // N 5689830): a 1 km box reaches both extracts, in the order the adapter lists them.
+        let border = BoundingBox {
+            min_e: -71_050.0,
+            min_n: 5_689_330.0,
+            max_e: -70_050.0,
+            max_n: 5_690_330.0,
+        };
+        let mut messages = Vec::new();
+        let read = extracts_for_in(registry(), &border, &mut |m| messages.push(m.to_string()));
+        assert_eq!(
+            read,
+            [
+                extract_of("nordrheinwestfalen", 2),
+                extract_of("nordrheinwestfalen", 3)
+            ]
+        );
+        assert_eq!(
+            read.iter()
+                .map(|e| (e.adapter.as_str(), e.index))
+                .collect::<Vec<_>>(),
+            [("nordrheinwestfalen", 2), ("nordrheinwestfalen", 3)]
+        );
+        assert!(messages.is_empty(), "{messages:?}");
+        // Where no district boundary is within the margin, the warning names the nearest.
+        let sliver = BoundingBox {
+            min_e: -83_909.0,
+            min_n: 5_619_611.0,
+            max_e: -83_909.0,
+            max_n: 5_619_611.0,
+        };
+        extracts_for_in(registry(), &sliver, &mut |m| messages.push(m.to_string()));
+        assert_eq!(
+            messages,
+            [
+                "warning: no North Rhine-Westphalia district extract within 100 m of the area; \
+              reading the nearest, North Rhine-Westphalia, Köln"
+            ]
+        );
+    }
+
+    /// A square region for [`extracts_for_in`]: `extracts` extracts, each with the boundary
+    /// `far`, which lies nowhere near the region.
+    struct Square {
+        info: freemapper_adapter_api::info::RegionInfo,
+        boundary: geo_types::MultiPolygon<f64>,
+        far: geo_types::MultiPolygon<f64>,
+    }
+
+    impl RegionAdapter for Square {
+        fn info(&self) -> &freemapper_adapter_api::info::RegionInfo {
+            &self.info
+        }
+
+        fn boundary(&self) -> &geo_types::MultiPolygon<f64> {
+            &self.boundary
+        }
+
+        fn extract_boundary(&self, _index: usize) -> Option<&geo_types::MultiPolygon<f64>> {
+            Some(&self.far)
+        }
+
+        fn alkis(&self) -> Option<&dyn freemapper_adapter_api::alkis::AlkisSource> {
+            None
+        }
+
+        fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
+            None
+        }
+
+        fn attribution(
+            &self,
+            _used: &freemapper_adapter_api::credit::UsedSources<'_>,
+        ) -> Vec<freemapper_adapter_api::credit::CreditLine> {
+            Vec::new()
+        }
+
+        fn estimate(
+            &self,
+            _area: &freemapper_adapter_api::estimate::EstimateArea,
+            _env: &freemapper_adapter_api::estimate::EstimateEnv<'_>,
+        ) -> Vec<freemapper_adapter_api::records::EstimateItem> {
+            Vec::new()
+        }
+    }
+
+    fn square(extracts: usize) -> Registry {
+        let rect = |min: f64, max: f64| {
+            geo_types::MultiPolygon(vec![
+                geo_types::Rect::new(
+                    geo_types::coord! { x: min, y: min },
+                    geo_types::coord! { x: max, y: max },
+                )
+                .to_polygon(),
+            ])
+        };
+        let mut registry = Registry::new();
+        registry
+            .add(std::sync::Arc::new(Square {
+                info: freemapper_adapter_api::info::RegionInfo {
+                    id: AdapterId::built_in("square"),
+                    provider: AdapterId::built_in("squares"),
+                    names: freemapper_adapter_api::info::Names {
+                        en: "Square".to_string(),
+                        de: "Quadrat".to_string(),
+                    },
+                    crs: crate::crs::Crs::Utm33,
+                    object_id_prefix: None,
+                    osm: (0..extracts)
+                        .map(|i| OsmExtractInfo {
+                            geofabrik_path: format!("europe/square/part-{i}"),
+                            megabytes: 1.0,
+                            label: format!("Square, part {i}"),
+                            prefix: format!("square-{i}_"),
+                        })
+                        .collect(),
+                    credit_short: None,
+                    preview: None,
+                },
+                boundary: rect(0.0, 10_000.0),
+                far: rect(900_000.0, 910_000.0),
+            }))
+            .unwrap();
+        registry
+    }
+
+    #[test]
+    fn single_extract_regions_ignore_boundaries() {
+        let inside = BoundingBox {
+            min_e: 4_000.0,
+            min_n: 4_000.0,
+            max_e: 5_000.0,
+            max_n: 5_000.0,
+        };
+        // One extract: read whatever its boundary says, without a warning.
+        let mut messages = Vec::new();
+        let read = extracts_for_in(&square(1), &inside, &mut |m| messages.push(m.to_string()));
+        assert_eq!(
+            read.iter().map(|e| e.url()).collect::<Vec<_>>(),
+            ["https://download.geofabrik.de/europe/square/part-0-latest.osm.pbf"]
+        );
+        assert_eq!((read[0].adapter.as_str(), read[0].index), ("square", 0));
+        assert!(messages.is_empty(), "{messages:?}");
+        // Several extracts: the boundaries decide, here the nearest with the warning.
+        let read = extracts_for_in(&square(2), &inside, &mut |m| messages.push(m.to_string()));
+        assert_eq!(read.len(), 1);
+        assert_eq!(messages.len(), 1, "{messages:?}");
+        // Outside the region nothing is read.
+        let outside = BoundingBox {
+            min_e: 500_000.0,
+            min_n: 500_000.0,
+            max_e: 501_000.0,
+            max_n: 501_000.0,
+        };
+        assert!(extracts_for_in(&square(1), &outside, &mut |_| {}).is_empty());
+    }
+
+    #[test]
     fn corrupt_district_extract_names_its_url() {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().to_path_buf());
         let fetcher = MapFetcher::default();
-        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
-        fetcher.insert(koeln.state_url(), state("2026-11-06"));
-        fetcher.insert(koeln.url(), b"<html>portal</html>".to_vec());
+        let koeln = extract_of("nordrheinwestfalen", 3);
+        fetcher.insert(&koeln.state_url(), state("2026-11-06"));
+        fetcher.insert(&koeln.url(), b"<html>portal</html>".to_vec());
         let err =
-            fetch_extract(&fetcher, &cache, koeln, FetchMode::Online, &mut |_| {}).unwrap_err();
+            fetch_extract(&fetcher, &cache, &koeln, FetchMode::Online, &mut |_| {}).unwrap_err();
         let text = err.to_string();
         assert!(
             text.contains("koeln-regbez-latest.osm.pbf is not a complete OSM extract"),
@@ -1728,7 +1711,7 @@ mod tests {
         let extract = fetch_extract(
             &crate::fetch::HttpFetcher::new(),
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Offline,
             &mut |_| {},
         )
@@ -1802,7 +1785,7 @@ mod tests {
         let extract = fetch_extract(
             &fetcher,
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |m| eprintln!("{m}"),
         )
@@ -1896,7 +1879,7 @@ mod tests {
         let extract = fetch_extract(
             &FullDisk(&fetcher),
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |m| messages.push(m.to_string()),
         )
@@ -1922,7 +1905,7 @@ mod tests {
         let extract = fetch_extract(
             &fetcher,
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |m| messages.push(m.to_string()),
         )
@@ -1940,7 +1923,7 @@ mod tests {
             fetch_extract(
                 &fetcher,
                 &empty,
-                ExtractSource::Brandenburg,
+                &extract_of("brandenburg", 0),
                 FetchMode::Online,
                 &mut |_| {}
             )
@@ -1965,7 +1948,7 @@ mod tests {
         let extract = fetch_extract(
             &fetcher,
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |m| messages.push(m.to_string()),
         )
@@ -1988,7 +1971,7 @@ mod tests {
         let offline = fetch_extract(
             &fetcher,
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Offline,
             &mut |_| {},
         )
@@ -2004,7 +1987,7 @@ mod tests {
         let err = fetch_extract(
             &MapFetcher::default(),
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Offline,
             &mut |_| {},
         )
@@ -2076,7 +2059,7 @@ mod tests {
         fetch_extract(
             &fetcher,
             &cache,
-            ExtractSource::Brandenburg,
+            &extract_of("brandenburg", 0),
             FetchMode::Online,
             &mut |m| messages.push(m.to_string()),
         )

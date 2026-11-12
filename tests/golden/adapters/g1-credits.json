@@ -1,0 +1,1716 @@
+[
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2025, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "saxony"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2025, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "hamburg"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "records": "both",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2025, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "records": "rasters",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "records": "both",
+    "regions": [
+      "hessen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "records": "rasters",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2025, dl-de/zero-2-0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "records": "rasters",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2025, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "rasters",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "rasters",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2025, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2025
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "rasters",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg",
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg",
+      "berlin"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "berlin",
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "berlin",
+      "brandenburg"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert",
+      "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg",
+      "saxony"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg",
+      "saxony"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg",
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg",
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "brandenburg",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "brandenburg",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxony",
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "records": "both",
+    "regions": [
+      "saxony",
+      "saxonyanhalt"
+    ],
+    "sheet": [
+      "Quelle: GeoSN, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "saxonyanhalt",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "saxonyanhalt",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE / LVermGeo ST 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hamburg",
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "hamburg",
+      "schleswigholstein"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hamburg",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "hamburg",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hamburg",
+      "schleswigholstein",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "hamburg",
+      "schleswigholstein",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "schleswigholstein",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "schleswigholstein",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "schleswigholstein",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "schleswigholstein",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "mecklenburgvorpommern",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "mecklenburgvorpommern",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "niedersachsen",
+      "schleswigholstein",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "niedersachsen",
+      "schleswigholstein",
+      "mecklenburgvorpommern"
+    ],
+    "sheet": [
+      "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)",
+      "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hessen",
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "hessen",
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hessen",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "hessen",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "hessen",
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "hessen",
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "alkis",
+    "regions": [
+      "nordrheinwestfalen",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0",
+      "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+    ],
+    "records": "both",
+    "regions": [
+      "nordrheinwestfalen",
+      "niedersachsen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "© GeoBasis-DE/LGLN 2026, Daten geändert, CC BY 4.0"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "nordrheinwestfalen",
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "nordrheinwestfalen",
+      "rheinlandpfalz"
+    ],
+    "sheet": [
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "alkis",
+    "regions": [
+      "rheinlandpfalz",
+      "hessen",
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  },
+  {
+    "notes": [
+      "© OpenStreetMap contributors, ODbL",
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]",
+      "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+    ],
+    "records": "both",
+    "regions": [
+      "rheinlandpfalz",
+      "hessen",
+      "nordrheinwestfalen"
+    ],
+    "sheet": [
+      "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) 2026, dl-de/zero-2-0, verändert",
+      "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0",
+      "©GeoBasis-DE / LVermGeoRP2026, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
+    ],
+    "year": 2026
+  }
+]

@@ -34,8 +34,9 @@ The MCP server's texts have ids that start with `mcp-`: `mcp-tool-<tool>` and `m
 for the descriptions, whose English text equals the one in `src/mcp.rs`
 (`cargo test -p freemapper-cli print_the_english_descriptions -- --ignored --nocapture` prints them).
 
-Progress lines and warnings of the engine are not in this folder. Their texts live beside the engine, in
-`crates/freemapper/i18n/<language>/notes.ftl`, with ids that start with `progress-`, `warning-` and `word-`
-(`crates/freemapper/src/note.rs`); `cargo test -p freemapper` checks them the same way.
+Progress lines and warnings of the engine are not in this folder. Their texts live in
+`crates/freemapper-adapter-api/i18n/<language>/notes.ftl`, with ids that start with `progress-`, `warning-` and
+`word-` (`crates/freemapper-adapter-api/src/note.rs`); `cargo test -p freemapper-adapter-api` checks them the
+same way. The engine, the readers and the adapters built in share that one catalog (ADR 0082).
 
 Texts are written for the person at the terminal: in German with "Sie", terms as in `docs/glossary.md`.

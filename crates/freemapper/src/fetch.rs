@@ -1,7 +1,6 @@
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
-use crate::note::{Arg, Note, note};
-use std::collections::HashMap;
+use crate::note::{Note, note};
 use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -9,108 +8,30 @@ use std::time::Duration;
 
 use chrono::NaiveDate;
 
-use crate::sources::alkis::AlkisError;
-use crate::sources::lgb::ndsm_tile_url;
-use crate::sources::lgb::{CurrencyCsvError, Product, TileCurrency, parse_currency_csv};
-use crate::sources::region::Provider;
 use crate::space::{DiskSpace, SystemDiskSpace};
-use crate::tiles::TileId;
+
+// The fetcher, its errors and the tile types live in `freemapper-adapter-api` (ADR 0082); the
+// old paths stay.
+pub use freemapper_adapter_api::error::FetchError;
+pub(crate) use freemapper_adapter_api::error::tile_names;
+pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
+pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
+#[cfg(test)]
+pub(crate) use freemapper_adapter_api::fetch::{
+    download_with_retries, get_limited_with_retries, get_with_retries,
+};
+#[cfg(test)]
+pub(crate) use freemapper_adapter_api::fetch::{
+    get_range_with_retries, is_ogc_report, ogc_exception,
+};
+use freemapper_adapter_api::fetch::{megabytes, too_large};
+pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
+use freemapper_adapter_api::trust::TrustAnchors;
 
 /// Largest download accepted; LGB DOP20 tiles are about 8 MB.
 const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 
-#[derive(Debug, thiserror::Error)]
-pub enum FetchError {
-    #[error("download of {url} failed: {message}")]
-    Http { url: String, message: String },
-    #[error("{}", crate::space::io_error_text(.0, .1))]
-    Io(PathBuf, std::io::Error),
-    #[error("download of {url} is not a complete tile archive: {message}")]
-    CorruptArchive { url: String, message: String },
-    #[error("download of {url} is not a complete OSM extract: {message}")]
-    CorruptExtract { url: String, message: String },
-    #[error(
-        "{} not covered by the published tiles; reduce the map area or buffer_m in freemapper.toml",
-        tiles_are(.0)
-    )]
-    TilesNotCovered(Vec<TileId>),
-    #[error(
-        "offline and not cached: {product} {tiles}; run `freemapper fetch` online",
-        product = .0,
-        tiles = tile_list(.1)
-    )]
-    MissingOffline(Product, Vec<TileId>),
-    #[error(transparent)]
-    CurrencyCsv(#[from] CurrencyCsvError),
-    #[error(transparent)]
-    Alkis(#[from] AlkisError),
-    #[error("no OSM extract cached; run `freemapper fetch` online")]
-    OsmExtractMissing,
-    #[error("{0} not found on the server")]
-    NotFound(String),
-    /// The server refused the request (HTTP 4xx other than 404); asking again does not help.
-    /// `detail` is what an OGC exception report in the answer says.
-    #[error(
-        "{url}: the server refused the request (HTTP {status}){}",
-        detail.as_deref().map(|d| format!(": {d}")).unwrap_or_default()
-    )]
-    Refused {
-        url: String,
-        status: u16,
-        detail: Option<String>,
-    },
-    /// A streamed download grew past its limit (a misbehaving server); asking again does not
-    /// help.
-    #[error("download of {url} is larger than {limit_mb} MB; stopped")]
-    TooLarge { url: String, limit_mb: u64 },
-    /// Offline: the model `label` stored at `path` is missing, cannot be read or does not cover
-    /// the map area.
-    #[error(
-        "no {label} stored for this map area: {path} is missing, cannot be read or does not cover it; run `freemapper fetch` online first",
-        path = .path.display()
-    )]
-    NotStored { label: String, path: PathBuf },
-    /// The server answered a byte range with the whole file; asking again does not help.
-    #[error("{url}: the server ignored the byte range {range} (HTTP {status})")]
-    RangeIgnored {
-        url: String,
-        range: String,
-        status: u16,
-    },
-    /// The caller asked to stop; no request was made.
-    #[error("cancelled")]
-    Cancelled,
-}
-
-impl FetchError {
-    /// Whether writing failed because the volume is full.
-    pub fn is_disk_full(&self) -> bool {
-        matches!(self, FetchError::Io(_, e) if crate::space::is_storage_full(e))
-    }
-}
-
-pub(crate) fn tile_names(tiles: &[TileId]) -> String {
-    tiles
-        .iter()
-        .map(TileId::name)
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// `tile X` or `tiles X, Y`.
-fn tile_list(tiles: &[TileId]) -> String {
-    let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
-    format!("{noun} {}", tile_names(tiles))
-}
-
-/// `tile X is` or `tiles X, Y are`.
-fn tiles_are(tiles: &[TileId]) -> String {
-    let verb = if tiles.len() == 1 { "is" } else { "are" };
-    format!("{} {verb}", tile_list(tiles))
-}
-
-/// Partial files older than this are left over from interrupted runs.
-pub(crate) const STALE_PART_AGE: Duration = Duration::from_secs(3600);
+pub(crate) use freemapper_adapter_api::cache::STALE_PART_AGE;
 
 /// A [`Fetcher`] that refuses every request once `cancelled` says so, with
 /// [`FetchError::Cancelled`]. The fetch code asks it before each request, so a cancel takes
@@ -155,57 +76,6 @@ impl Fetcher for CancelCheck<'_> {
     ) -> Result<(), FetchError> {
         self.check()?;
         self.inner.download_to(url, path, max_bytes, progress)
-    }
-}
-
-/// Source of downloads; HTTP in production, in-memory in tests.
-pub trait Fetcher {
-    fn get(&self, url: &str) -> Result<Vec<u8>, FetchError>;
-
-    /// The `Last-Modified` date of `url`, if the server sends one.
-    fn last_modified(&self, _url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        Ok(None)
-    }
-
-    /// Bytes `range` of `url`, for reading single members of very large archives.
-    fn get_range(&self, url: &str, range: ByteRange) -> Result<Vec<u8>, FetchError> {
-        let bytes = self.get(url)?;
-        let len = bytes.len() as u64;
-        let (start, end) = match range {
-            ByteRange::From { start, len: n } => (start.min(len), (start + n).min(len)),
-            ByteRange::Last(n) => (len.saturating_sub(n), len),
-        };
-        Ok(bytes[start as usize..end as usize].to_vec())
-    }
-
-    /// Downloads `url` into the file `path`, reporting the size; large files stream instead of
-    /// being held in memory. More than `max_bytes` is [`FetchError::TooLarge`], and `path` is
-    /// removed.
-    fn download_to(
-        &self,
-        url: &str,
-        path: &Path,
-        max_bytes: u64,
-        progress: &mut dyn FnMut(Note),
-    ) -> Result<(), FetchError> {
-        let bytes = self.get(url)?;
-        if bytes.len() as u64 > max_bytes {
-            let _ = std::fs::remove_file(path);
-            return Err(too_large(url, max_bytes));
-        }
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
-        }
-        let written = freemapper_fs::create_new_file(path).and_then(|mut f| f.write_all(&bytes));
-        if let Err(e) = written {
-            let _ = std::fs::remove_file(path);
-            return Err(FetchError::Io(path.to_path_buf(), e));
-        }
-        progress(note!(
-            "progress-downloaded",
-            megabytes = megabytes(bytes.len() as u64).to_string()
-        ));
-        Ok(())
     }
 }
 
@@ -279,20 +149,12 @@ fn stream(
     Ok(())
 }
 
-/// A part of a file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ByteRange {
-    /// `len` bytes from `start`.
-    From { start: u64, len: u64 },
-    /// The last `n` bytes.
-    Last(u64),
-}
-
-/// A redirect answer as an error. Only the agents of [`PORTAL_HOST`] return one: they follow
-/// none, as a followed redirect would keep the portal's pinned trust.
+/// A redirect answer as an error. Only the agents of a pinned host return one: they follow
+/// none, as a followed redirect would keep the host's pinned trust. `pinned` is that host.
 fn refuse_redirect(
     url: &str,
     response: &ureq::http::Response<ureq::Body>,
+    pinned: Option<&str>,
 ) -> Result<(), FetchError> {
     let status = response.status();
     if !status.is_redirection() {
@@ -310,19 +172,12 @@ fn refuse_redirect(
     Err(FetchError::Http {
         url: url.to_string(),
         message: format!(
-            "{PORTAL_HOST} answered with a redirect (HTTP {}) to {location}; freemapper does not \
+            "{} answered with a redirect (HTTP {}) to {location}; freemapper does not \
              follow redirects of this host, because it pins the host's certificates",
+            pinned.unwrap_or("the server"),
             status.as_u16()
         ),
     })
-}
-
-/// [`FetchError::TooLarge`] for `url` over `max_bytes`.
-fn too_large(url: &str, max_bytes: u64) -> FetchError {
-    FetchError::TooLarge {
-        url: url.to_string(),
-        limit_mb: max_bytes.div_ceil(1024 * 1024),
-    }
 }
 
 /// A ureq error as [`FetchError`]; 404 becomes [`FetchError::NotFound`].
@@ -334,129 +189,6 @@ fn status_error(url: &str, e: ureq::Error) -> FetchError {
             message: e.to_string(),
         },
     }
-}
-
-/// An answer of HTTP `status` (400 or more) with `body` as [`FetchError`]: 404 is
-/// [`FetchError::NotFound`], another 4xx [`FetchError::Refused`] with the text of an OGC
-/// exception report in `body` (MapServer answers a WCS request outside its coverage with a 400
-/// `ows:ExceptionReport`), a 5xx a (retried) [`FetchError::Http`].
-pub(crate) fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchError {
-    match status {
-        404 => FetchError::NotFound(url.to_string()),
-        400..500 => FetchError::Refused {
-            url: url.to_string(),
-            status,
-            detail: ogc_exception(body),
-        },
-        _ => FetchError::Http {
-            url: url.to_string(),
-            message: ureq::Error::StatusCode(status).to_string(),
-        },
-    }
-}
-
-/// The code and text of an OGC (OWS or WMS service) exception report, as [`one_line`]s; `None`
-/// for any other body, and for a report that names neither.
-pub(crate) fn ogc_exception(body: &[u8]) -> Option<String> {
-    if !is_ogc_report(body) {
-        return None;
-    }
-    let text = String::from_utf8_lossy(body);
-    let between = |open: &str, close: char| {
-        let start = text.find(open)? + open.len();
-        text[start..].split(close).next().map(str::trim)
-    };
-    let code = between("exceptionCode=\"", '"').or_else(|| between(" code=\"", '"'));
-    // OWS `<ows:ExceptionText>…<`, WMS `<ServiceException code="…">…<`.
-    let message = between("ExceptionText>", '<').or_else(|| {
-        // Past the `<ServiceExceptionReport` element.
-        let from = text.find("<ServiceExceptionReport").map_or(0, |at| at + 1);
-        let rest = &text[from..];
-        let rest = &rest[rest.find("<ServiceException")?..];
-        let body = &rest[rest.find('>')? + 1..];
-        body.split('<').next().map(str::trim)
-    });
-    let line = |s: &str| one_line(s, 300);
-    match (code, message) {
-        (Some(code), Some(message)) => Some(format!("{}: {}", line(code), line(message))),
-        (Some(one), None) | (None, Some(one)) => Some(line(one)),
-        (None, None) => None,
-    }
-}
-
-/// `text` on one line of at most `max_chars` characters (then `…`): control characters become
-/// spaces, bidi controls and zero-width characters (U+061C, U+200B–U+200F, U+202A–U+202E,
-/// U+2060, U+2066–U+2069, U+FEFF) are dropped, runs of white space shrink to
-/// one. Server text must not reach the terminal as escape sequences or reordered lines.
-pub(crate) fn one_line(text: &str, max_chars: usize) -> String {
-    let invisible = |c: char| {
-        matches!(
-            c,
-            '\u{061C}'
-                | '\u{200B}'..='\u{200F}'
-                | '\u{202A}'..='\u{202E}'
-                | '\u{2060}'
-                | '\u{2066}'..='\u{2069}'
-                | '\u{FEFF}'
-        )
-    };
-    let printable: String = text
-        .chars()
-        .filter(|&c| !invisible(c))
-        .map(|c| if c.is_control() { ' ' } else { c })
-        .collect();
-    let line = printable.split_whitespace().collect::<Vec<_>>().join(" ");
-    match line.char_indices().nth(max_chars) {
-        Some((end, _)) => format!("{}…", &line[..end]),
-        None => line,
-    }
-}
-
-/// Whether the root element of `body` (after a BOM, an XML declaration, comments and a DOCTYPE) is an OGC
-/// exception report: `ExceptionReport` (any namespace prefix) or `ServiceExceptionReport`.
-pub(crate) fn is_ogc_report(body: &[u8]) -> bool {
-    let mut rest = body.strip_prefix(b"\xef\xbb\xbf").unwrap_or(body);
-    loop {
-        rest = rest.trim_ascii_start();
-        let (open, close): (&[u8], &[u8]) = if rest.starts_with(b"<?") {
-            (b"<?", b"?>")
-        } else if rest.starts_with(b"<!--") {
-            (b"<!--", b"-->")
-        } else if rest.starts_with(b"<!") {
-            // A DOCTYPE; an internal subset in `[ … ]` may itself contain `>`.
-            let end = match rest.iter().position(|&b| b == b'[') {
-                Some(open) if rest[..open].iter().all(|&b| b != b'>') => {
-                    rest.windows(2).position(|w| w == b"]>").map(|i| i + 2)
-                }
-                _ => rest.iter().position(|&b| b == b'>').map(|i| i + 1),
-            };
-            let Some(end) = end else { return false };
-            rest = &rest[end..];
-            continue;
-        } else {
-            break;
-        };
-        let inner = &rest[open.len()..];
-        let Some(end) = inner.windows(close.len()).position(|w| w == close) else {
-            return false;
-        };
-        rest = &inner[end + close.len()..];
-    }
-    let Some(tag) = rest.strip_prefix(b"<") else {
-        return false;
-    };
-    let Some(end) = tag
-        .iter()
-        .position(|&b| b.is_ascii_whitespace() || b == b'>' || b == b'/')
-    else {
-        return false;
-    };
-    let name = &tag[..end];
-    let local = name
-        .iter()
-        .rposition(|&b| b == b':')
-        .map_or(name, |colon| &name[colon + 1..]);
-    matches!(local, b"ExceptionReport" | b"ServiceExceptionReport")
 }
 
 /// Largest error answer read for its exception report.
@@ -480,64 +212,45 @@ const BODY_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 /// Progress is reported after each step of a large download.
 const PROGRESS_STEP_BYTES: u64 = 25 * 1024 * 1024;
 
-fn megabytes(bytes: u64) -> u64 {
-    bytes / (1024 * 1024)
-}
-
 /// Time to receive a large file such as the OSM extract (300 MB at 1 Mbit/s: 40 minutes).
 const LARGE_BODY_TIMEOUT: Duration = Duration::from_secs(2 * 3600);
 
-/// The LVermGeo SH Downloadportal. It sends its leaf certificate without the intermediate
-/// `D-TRUST BR CA 1-20-1 2020`, and rustls does not fetch missing intermediates, so this host
-/// is verified against the bundled intermediate and its root instead of the default roots.
-///
-/// The agents of this host follow no redirects: a followed redirect would keep the trust of the
-/// URL it started from (a redirect away from the portal checked against the D-TRUST anchors, one
-/// to the portal against the default roots). A redirect answer is an error naming this host.
-const PORTAL_HOST: &str = "geodaten.schleswig-holstein.de";
-
-/// The only trust anchors for [`PORTAL_HOST`]: the intermediate `D-TRUST BR CA 1-20-1 2020`
-/// (valid to 2035-02-11) and the root `D-TRUST BR Root CA 1 2020` that signed it.
-///
-/// The intermediate is a trust anchor because the server omits it from its chain. As an anchor,
-/// its own validity period, extended key usage and revocation are not checked, and the pin does
-/// not follow a later distrust of the root in the default roots. This applies to that one host
-/// only; the leaf is still fully verified (chain, validity and host name). When the portal
-/// changes its CA or the intermediate expires, its requests fail with a certificate error until
-/// `assets/tls/` is updated.
-const PORTAL_ANCHORS: [&[u8]; 2] = [
-    include_bytes!("../../../assets/tls/d-trust-br-ca-1-20-1-2020.pem"),
-    include_bytes!("../../../assets/tls/d-trust-br-root-ca-1-2020.pem"),
-];
-
-/// Which certificates a URL is verified against.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Trust {
-    /// ureq's default (webpki) roots, for every host but the portal.
-    DefaultRoots,
-    /// Only the bundled [`PORTAL_ANCHORS`].
-    PortalAnchors,
+/// The pinned hosts: the trust anchors the raster backends of the registry name, each host
+/// once (the first backend that names a host decides its anchors).
+fn registered_anchors() -> Vec<TrustAnchors> {
+    let mut anchors: Vec<TrustAnchors> = Vec::new();
+    for adapter in crate::adapters::registry().adapters() {
+        if let Some(trust) = adapter.rasters().and_then(|backend| backend.trust())
+            && !anchors
+                .iter()
+                .any(|known| known.host.eq_ignore_ascii_case(trust.host))
+        {
+            anchors.push(*trust);
+        }
+    }
+    anchors
 }
 
-/// The trust for `url`: the bundled anchors exactly for absolute URLs on the host
-/// [`PORTAL_HOST`], the default roots for everything else, including URLs that do not parse.
+/// Which of `anchors` verifies `url`: the anchors of a host exactly for absolute URLs on that
+/// host. `None` is the default roots, for everything else, including URLs that do not parse.
 /// Hosts compare without case, and a single trailing dot (the fully qualified form of the same
 /// name, as a pasted URL may carry) is the same host.
-fn trust_for(url: &str) -> Trust {
-    let Ok(uri) = url.parse::<ureq::http::Uri>() else {
-        return Trust::DefaultRoots;
-    };
+fn trust_for(url: &str, anchors: &[TrustAnchors]) -> Option<usize> {
+    let uri = url.parse::<ureq::http::Uri>().ok()?;
     let host = uri
         .host()
         .map(|host| host.strip_suffix('.').unwrap_or(host));
     match (uri.scheme(), host) {
-        (Some(_), Some(host)) if host.eq_ignore_ascii_case(PORTAL_HOST) => Trust::PortalAnchors,
-        _ => Trust::DefaultRoots,
+        (Some(_), Some(host)) => anchors
+            .iter()
+            .position(|trust| host.eq_ignore_ascii_case(trust.host)),
+        _ => None,
     }
 }
 
-fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
-    PORTAL_ANCHORS
+fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
+    trust
+        .pems
         .iter()
         .map(|pem| ureq::tls::Certificate::from_pem(pem).expect("bundled certificates are PEM"))
         .collect()
@@ -547,12 +260,16 @@ fn portal_anchors() -> Vec<ureq::tls::Certificate<'static>> {
 struct Agents {
     normal: ureq::Agent,
     large: ureq::Agent,
+    /// The host these agents are pinned to: they verify it against its trust anchors only and
+    /// follow no redirect. `None`: the default roots, for every other host.
+    pinned: Option<&'static str>,
 }
 
 /// Downloads over HTTPS; a stalled server fails with a timeout instead of hanging.
 pub struct HttpFetcher {
     default: Agents,
-    portal: Agents,
+    /// The agents of the pinned hosts, each with its trust anchors.
+    pinned: Vec<(TrustAnchors, Agents)>,
 }
 
 impl HttpFetcher {
@@ -566,37 +283,42 @@ impl HttpFetcher {
     }
 
     fn with_timeouts(connect: Duration, response: Duration, body: Duration) -> Self {
-        let agent = |body: Duration, trust: Trust| -> ureq::Agent {
+        let agent = |body: Duration, trust: Option<&TrustAnchors>| -> ureq::Agent {
             let config = ureq::Agent::config_builder()
                 .timeout_connect(Some(connect))
                 .timeout_recv_response(Some(response))
                 .timeout_recv_body(Some(body));
             match trust {
-                Trust::DefaultRoots => config,
-                Trust::PortalAnchors => config.max_redirects(0).tls_config(
+                None => config,
+                Some(trust) => config.max_redirects(0).tls_config(
                     ureq::tls::TlsConfig::builder()
-                        .root_certs(ureq::tls::RootCerts::new_with_certs(&portal_anchors()))
+                        .root_certs(ureq::tls::RootCerts::new_with_certs(&certificates(trust)))
                         .build(),
                 ),
             }
             .build()
             .into()
         };
-        let agents = |trust: Trust| Agents {
+        let agents = |trust: Option<&TrustAnchors>| Agents {
             normal: agent(body, trust),
             large: agent(LARGE_BODY_TIMEOUT.max(body), trust),
+            pinned: trust.map(|trust| trust.host),
         };
         Self {
-            default: agents(Trust::DefaultRoots),
-            portal: agents(Trust::PortalAnchors),
+            default: agents(None),
+            pinned: registered_anchors()
+                .into_iter()
+                .map(|trust| (trust, agents(Some(&trust))))
+                .collect(),
         }
     }
 
     /// The agents verifying `url`'s host.
     fn agents(&self, url: &str) -> &Agents {
-        match trust_for(url) {
-            Trust::DefaultRoots => &self.default,
-            Trust::PortalAnchors => &self.portal,
+        let anchors: Vec<TrustAnchors> = self.pinned.iter().map(|(trust, _)| *trust).collect();
+        match trust_for(url, &anchors) {
+            Some(index) => &self.pinned[index].1,
+            None => &self.default,
         }
     }
 }
@@ -616,15 +338,15 @@ impl Fetcher for HttpFetcher {
             ByteRange::From { start, len } => (format!("bytes={start}-{}", start + len - 1), len),
             ByteRange::Last(n) => (format!("bytes=-{n}"), n),
         };
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
             .header("Range", &header)
             .call()
             .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         if response.status() != 206 {
             return Err(FetchError::RangeIgnored {
                 url: url.to_string(),
@@ -657,14 +379,14 @@ impl Fetcher for HttpFetcher {
             url: url.to_string(),
             message,
         };
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .large
             .get(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| http_error(e.to_string()))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
         }
@@ -685,14 +407,14 @@ impl Fetcher for HttpFetcher {
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
-        let response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let response = agents
             .normal
             .head(url)
             .header("User-Agent", USER_AGENT)
             .call()
             .map_err(|e| status_error(url, e))?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         Ok(response
             .headers()
             .get("last-modified")
@@ -703,8 +425,8 @@ impl Fetcher for HttpFetcher {
 
     fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
         let http_error = |e: ureq::Error| status_error(url, e);
-        let mut response = self
-            .agents(url)
+        let agents = self.agents(url);
+        let mut response = agents
             .normal
             .get(url)
             .header("User-Agent", USER_AGENT)
@@ -714,7 +436,7 @@ impl Fetcher for HttpFetcher {
             .build()
             .call()
             .map_err(http_error)?;
-        refuse_redirect(url, &response)?;
+        refuse_redirect(url, &response, agents.pinned)?;
         let status = response.status().as_u16();
         if status >= 400 {
             let mut body = Vec::new();
@@ -740,18 +462,21 @@ impl Fetcher for HttpFetcher {
     }
 }
 
-/// Tile cache shared by all projects. It also answers how much space the volumes freemapper
-/// writes to have left (the system's free space, unless replaced).
+pub use freemapper_adapter_api::cache::CacheDir;
+
+/// The cache shared by all projects: its folder ([`CacheDir`], which the cache derefs to) and how
+/// much space the volumes freemapper writes to have left (the system's free space, unless
+/// replaced).
 #[derive(Debug, Clone)]
 pub struct Cache {
-    root: PathBuf,
+    dir: CacheDir,
     space: Arc<dyn DiskSpace>,
 }
 
 impl Cache {
     pub fn new(root: PathBuf) -> Self {
         Self {
-            root,
+            dir: CacheDir::new(root),
             space: Arc::new(SystemDiskSpace),
         }
     }
@@ -759,11 +484,6 @@ impl Cache {
     /// The cache with `space` as the source of free space (tests simulate a full disk).
     pub fn with_disk_space(self, space: Arc<dyn DiskSpace>) -> Self {
         Self { space, ..self }
-    }
-
-    /// The folder of the cache.
-    pub fn root(&self) -> &Path {
-        &self.root
     }
 
     pub fn disk_space(&self) -> &dyn DiskSpace {
@@ -774,826 +494,42 @@ impl Cache {
     pub fn default_location() -> Option<Self> {
         dirs::cache_dir().map(|dir| Self::new(dir.join("freemapper")))
     }
+}
 
-    fn product_dir(&self, product: Product) -> PathBuf {
-        self.root
-            .join(product.provider_dir_name())
-            .join(product.cache_dir_name())
-    }
+impl std::ops::Deref for Cache {
+    type Target = CacheDir;
 
-    pub fn tile_path(&self, product: Product, tile: TileId, published: NaiveDate) -> PathBuf {
-        self.product_dir(product)
-            .join(format!("{}_{published}.zip", tile.name()))
-    }
-
-    /// Folder of the cached nDSM point clouds.
-    pub fn ndsm_dir(&self) -> PathBuf {
-        self.root.join("lgb").join("ndom")
-    }
-
-    /// Cached nDSM file of `tile`, named after the server date (`<tile>.laz` when undated).
-    pub fn ndsm_path(&self, tile: TileId, published: Option<NaiveDate>) -> PathBuf {
-        self.ndsm_dir().join(match published {
-            Some(date) => format!("{}_{date}.laz", tile.name()),
-            None => format!("{}.laz", tile.name()),
-        })
-    }
-
-    /// Whether some publication of `tile` of `product` is cached.
-    pub fn has_tile(&self, product: Product, tile: TileId) -> bool {
-        let probe = self.tile_path(product, tile, NaiveDate::MIN);
-        !cached_versions(&probe, tile).is_empty()
-    }
-
-    /// Whether an nDSM point cloud of `tile` is cached.
-    pub fn has_ndsm(&self, tile: TileId) -> bool {
-        !cached_ndsm(&self.ndsm_dir(), tile).is_empty()
-    }
-
-    /// Folder of the cached OSM extracts.
-    pub fn osm_dir(&self) -> PathBuf {
-        self.root.join("osm")
-    }
-
-    pub fn currency_csv_path(&self, product: Product) -> PathBuf {
-        self.product_dir(product).join("currency.csv")
-    }
-
-    /// Folder of the LGV Hamburg archive members.
-    pub fn lgv_dir(&self) -> PathBuf {
-        self.root.join("lgv")
-    }
-
-    /// Folder of the HVBG Hesse tiles, zip directories and metadata list.
-    pub fn hvbg_dir(&self) -> PathBuf {
-        self.root.join("hvbg")
-    }
-
-    /// Folder of the LVermGeo SH tiles (DGM1, the bDOM reduced to 1 m) and tile lists.
-    pub fn lvermgeo_sh_dir(&self) -> PathBuf {
-        self.root.join("lvermgeo_sh")
-    }
-
-    /// Folder of the Geobasis NRW DGM1/DOM1 tiles and the kept tile lists.
-    pub fn geobasis_nrw_dir(&self) -> PathBuf {
-        self.root.join("geobasis_nrw")
-    }
-
-    /// Folder of the LVermGeo RP DGM1/DOM1 tiles and the kept tile lists (per area).
-    pub fn lvermgeo_rp_dir(&self) -> PathBuf {
-        self.root.join("lvermgeo_rp")
-    }
-
-    /// Folder of the LAiV M-V tile lists (`overview.php` answers), per area.
-    pub fn laiv_mv_dir(&self) -> PathBuf {
-        self.root.join("laiv_mv")
-    }
-
-    /// The collected GeoSN tile index rows of `product`.
-    pub fn currency_index_path(&self, product: Product) -> PathBuf {
-        self.product_dir(product).join("currency.json")
+    fn deref(&self) -> &CacheDir {
+        &self.dir
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FetchMode {
-    Online,
-    /// Use the cache only.
-    Offline,
-}
-
-/// A tile archive available in the cache.
-#[derive(Debug, Clone, PartialEq)]
-pub struct FetchedTile {
-    pub product: Product,
-    pub tile: TileId,
-    pub url: String,
-    pub currency: TileCurrency,
-    pub zip: PathBuf,
-}
-
-/// Makes `tiles` of `product` available in `cache` and returns them in the given order.
-///
-/// Online, the currency CSV is downloaded on every call and a tile is downloaded only when the
-/// cache lacks its current publication. Offline, the cached CSV and archives are used.
-pub fn fetch_tiles(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<Vec<FetchedTile>, FetchError> {
-    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
-    let uncovered: Vec<TileId> = tiles
-        .iter()
-        .copied()
-        .filter(|tile| !table.contains_key(tile))
-        .collect();
-    if !uncovered.is_empty() {
-        return Err(not_in_table(product, mode, uncovered));
-    }
-    let mut fetched = Vec::new();
-    let mut missing = Vec::new();
-    for &tile in tiles {
-        match fetch_tile(
-            fetcher,
-            cache,
-            product,
-            tile,
-            table[&tile].clone(),
-            mode,
-            progress,
-        )? {
-            Some(tile) => fetched.push(tile),
-            None => missing.push(tile),
-        }
-    }
-    if !missing.is_empty() {
-        return Err(FetchError::MissingOffline(product, missing));
-    }
-    Ok(fetched)
-}
-
-/// One tile of [`fetch_tiles_each`] and how fetching it went.
-pub type TileOutcome = (TileId, Result<FetchedTile, FetchError>);
-
-/// Like [`fetch_tiles`], but every tile succeeds or fails on its own; only a currency CSV that
-/// cannot be read fails the whole call.
-pub fn fetch_tiles_each(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<Vec<TileOutcome>, FetchError> {
-    let table = currency_table(fetcher, cache, product, tiles, mode, progress)?;
-    Ok(tiles
-        .iter()
-        .map(|&tile| {
-            let result = match table.get(&tile) {
-                None => Err(not_in_table(product, mode, vec![tile])),
-                Some(entry) => {
-                    fetch_tile(fetcher, cache, product, tile, entry.clone(), mode, progress)
-                        .and_then(|fetched| {
-                            fetched.ok_or(FetchError::MissingOffline(product, vec![tile]))
-                        })
-                }
-            };
-            (tile, result)
-        })
-        .collect())
-}
-
-/// Tiles missing from the currency table: not published, or (GeoSN offline, whose cached index
-/// only holds the areas asked for before) not fetched yet.
-fn not_in_table(product: Product, mode: FetchMode, tiles: Vec<TileId>) -> FetchError {
-    if mode == FetchMode::Offline && product.provider() == Provider::GeoSn {
-        FetchError::MissingOffline(product, tiles)
-    } else {
-        FetchError::TilesNotCovered(tiles)
-    }
-}
-
-/// Currency and download URL of each tile a provider publishes.
-type CurrencyTable = HashMap<TileId, (TileCurrency, String)>;
-
-/// The currency table of `product`, from its provider: the LGB currency CSV or the GeoSN tile
-/// index. Online the answer replaces (CSV) or extends (index) the cached copy once it parses;
-/// offline the cached copy is used.
-fn currency_table(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<CurrencyTable, FetchError> {
-    match product.provider() {
-        Provider::Lgb => lgb_currency_table(fetcher, cache, product, tiles, mode, progress),
-        Provider::GeoSn => geosn_currency_table(fetcher, cache, product, tiles, mode, progress),
-        // LVermGeo rasters are fetched per area (WMS, WCS), not as tiles.
-        Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => Err(FetchError::TilesNotCovered(tiles.to_vec())),
-    }
-}
-
-fn lgb_currency_table(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<CurrencyTable, FetchError> {
-    let csv_path = cache.currency_csv_path(product);
-    let csv = match mode {
-        FetchMode::Online => {
-            let url = product.currency_csv_url();
-            progress(note!("progress-downloading", url = url));
-            fetcher.get(url)?
-        }
-        FetchMode::Offline => match std::fs::read(&csv_path) {
-            Ok(bytes) => bytes,
-            Err(_) => return Err(FetchError::MissingOffline(product, tiles.to_vec())),
-        },
-    };
-    let table = parse_currency_csv(&String::from_utf8_lossy(&csv))?;
-    if mode == FetchMode::Online {
-        // Only a CSV that parsed replaces the cached one, so `--offline` keeps working.
-        write_cache_file(&csv_path, &csv)?;
-    }
-    Ok(table
-        .into_iter()
-        .map(|(tile, currency)| (tile, (currency, product.tile_url(tile))))
-        .collect())
-}
-
-/// The GeoSN index rows of `tiles`. The index is queried per area, so the cached copy collects
-/// the rows of every query (`{"33414-5654": ["2024-11-30", "https://…"], …}`).
-fn geosn_currency_table(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<CurrencyTable, FetchError> {
-    let path = cache.currency_index_path(product);
-    let mut cached: std::collections::BTreeMap<String, (NaiveDate, String)> = std::fs::read(&path)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
-        .unwrap_or_default();
-    if mode == FetchMode::Online {
-        let url = crate::sources::geosn::index_url(product, tiles);
-        progress(note!(
-            "progress-tile-index-download",
-            product = format!("{product}")
-        ));
-        let rows = get_with_retries(fetcher, &url, |answer| {
-            crate::sources::geosn::parse_index(&String::from_utf8_lossy(answer)).map_err(
-                |message| FetchError::Http {
-                    url: url.clone(),
-                    message,
-                },
-            )
-        })?;
-        for row in rows {
-            let download = row.url.unwrap_or_else(|| product.tile_url(row.tile));
-            cached.insert(row.tile.name(), (row.currency, download));
-        }
-        let json = serde_json::to_vec(&cached).expect("index table serialises");
-        write_cache_file(&path, &json)?;
-    } else if cached.is_empty() {
-        return Err(FetchError::MissingOffline(product, tiles.to_vec()));
-    }
-    Ok(cached
-        .into_iter()
-        .filter_map(|(name, (date, url))| {
-            let currency = TileCurrency {
-                created: date,
-                revised: None,
-                published: date,
-            };
-            Some((TileId::parse(&name)?, (currency, url)))
-        })
-        .collect())
-}
-
-/// One tile of `product` in the cache; `None` offline when no version of it is cached.
-fn fetch_tile(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    product: Product,
-    tile: TileId,
-    (mut currency, url): (TileCurrency, String),
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<Option<FetchedTile>, FetchError> {
-    let mut zip = cache.tile_path(product, tile, currency.published);
-    if zip.exists() {
-        progress(note!("progress-tile-cached", tile = tile.name()));
-    } else if mode == FetchMode::Offline {
-        match newest_cached_version(&zip, tile) {
-            Some((published, older)) => {
-                progress(note!(
-                    "warning-tile-cached-older",
-                    product = format!("{product}"),
-                    tile = tile.name(),
-                    published = published.to_string(),
-                    newer = currency.published.to_string()
-                ));
-                currency.published = published;
-                zip = older;
-            }
-            None => return Ok(None),
-        }
-    } else {
-        progress(note!("progress-downloading", url = &url));
-        let bytes = fetcher.get(&url)?;
-        check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
-            url: url.clone(),
-            message,
-        })?;
-        write_cache_file(&zip, &bytes)?;
-        remove_older_versions(&zip, tile)?;
-        freemapper_fs::remove_stale_cache_parts(zip.parent().expect("cache paths"), STALE_PART_AGE);
-    }
-    Ok(Some(FetchedTile {
-        product,
-        tile,
-        url,
-        currency,
-        zip,
-    }))
-}
-
-/// A cached nDSM point cloud of one tile.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NdsmTile {
-    pub tile: TileId,
-    pub url: String,
-    /// The server's `Last-Modified` date, if it sends one.
-    pub published: Option<NaiveDate>,
-    pub path: PathBuf,
-}
-
-/// Makes the nDSM point clouds of `tiles` available in `cache`. A tile is downloaded when the
-/// server's `Last-Modified` date has no cached file yet; tiles the server does not have are
-/// skipped with a warning. Offline, the newest cached file per tile is used.
-pub fn fetch_ndsm_tiles(
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    tiles: &[TileId],
-    mode: FetchMode,
-    progress: &mut dyn FnMut(Note),
-) -> Result<Vec<NdsmTile>, FetchError> {
-    let dir = cache.ndsm_dir();
-    let mut fetched = Vec::new();
-    for &tile in tiles {
-        let url = ndsm_tile_url(tile);
-        let cached = cached_ndsm(&dir, tile);
-        if mode == FetchMode::Offline {
-            match cached.into_iter().next() {
-                Some((published, path)) => fetched.push(NdsmTile {
-                    tile,
-                    url,
-                    published,
-                    path,
-                }),
-                None => progress(note!("warning-ndsm-no-cached", tile = tile.name())),
-            }
-            continue;
-        }
-        // The nDSM is only a template: a failing server falls back to the cache or skips the tile.
-        let unavailable = |reason: Arg, progress: &mut dyn FnMut(Note)| {
-            let fallback = cached.first().cloned();
-            progress(if fallback.is_some() {
-                note!(
-                    "warning-ndsm-tile-unavailable-cached",
-                    tile = tile.name(),
-                    reason = reason
-                )
-            } else {
-                note!(
-                    "warning-ndsm-tile-unavailable-skipped",
-                    tile = tile.name(),
-                    reason = reason
-                )
-            });
-            fallback
-        };
-        let published = match fetcher.last_modified(&url) {
-            Ok(date) => date,
-            Err(FetchError::NotFound(_)) => {
-                progress(note!("progress-ndsm-not-published", tile = tile.name()));
-                continue;
-            }
-            Err(e) => {
-                if let Some((published, path)) = unavailable(Arg::error(e), progress) {
-                    fetched.push(NdsmTile {
-                        tile,
-                        url,
-                        published,
-                        path,
-                    });
-                }
-                continue;
-            }
-        };
-        let path = cache.ndsm_path(tile, published);
-        if path.exists() {
-            progress(note!("progress-ndsm-cached", tile = tile.name()));
-        } else {
-            progress(note!("progress-downloading", url = &url));
-            let bytes = match fetcher.get(&url).and_then(|b| check_las(&url, b)) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    if let Some((published, path)) = unavailable(Arg::error(e), progress) {
-                        fetched.push(NdsmTile {
-                            tile,
-                            url,
-                            published,
-                            path,
-                        });
-                    }
-                    continue;
-                }
-            };
-            write_cache_file(&path, &bytes)?;
-            for (_, older) in cached_ndsm(&dir, tile)
-                .into_iter()
-                .filter(|(_, p)| *p != path)
-            {
-                let _ = std::fs::remove_file(older);
-            }
-        }
-        fetched.push(NdsmTile {
-            tile,
-            url,
-            published,
-            path,
-        });
-    }
-    Ok(fetched)
-}
-
-/// Checks that `bytes` is a complete LAS/LAZ point cloud: the header, the LAZ chunk table at the
-/// end of the file and the point count all have to be readable.
-fn check_las(url: &str, bytes: Vec<u8>) -> Result<Vec<u8>, FetchError> {
-    let corrupt = |message: String| FetchError::CorruptArchive {
-        url: url.to_string(),
-        message: format!("not a complete LAS point cloud: {message}"),
-    };
-    {
-        let mut reader = las::Reader::new(std::io::Cursor::new(bytes.clone()))
-            .map_err(|e| corrupt(e.to_string()))?;
-        let total = reader.header().number_of_points();
-        // The last chunk ends the file: reading the final point fails on a truncated download.
-        if total > 0 {
-            reader.seek(total - 1).map_err(|e| corrupt(e.to_string()))?;
-            reader.read_points(1).map_err(|e| corrupt(e.to_string()))?;
-        }
-    }
-    Ok(bytes)
-}
-
-/// Cached nDSM files of `tile`, newest first (undated ones last).
-fn cached_ndsm(dir: &Path, tile: TileId) -> Vec<(Option<NaiveDate>, PathBuf)> {
-    let name = tile.name();
-    let mut files: Vec<(Option<NaiveDate>, PathBuf)> = std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| {
-            let file = entry.file_name().to_string_lossy().into_owned();
-            let stem = file.strip_prefix(&name)?.strip_suffix(".laz")?;
-            let date = match stem {
-                "" => None,
-                dated => Some(dated.strip_prefix('_')?.parse().ok()?),
-            };
-            Some((date, entry.path()))
-        })
-        .collect();
-    files.sort_by_key(|(date, _)| std::cmp::Reverse(*date));
-    files
-}
-
-/// Checks that `bytes` is a zip archive with the tile's raster and world file, reading both
-/// members to the end so their checksums are verified.
-fn check_archive(bytes: &[u8], product: Product, tile: TileId) -> Result<(), String> {
-    let mut archive =
-        zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| e.to_string())?;
-    for member in [product.raster_member(tile), product.world_file_member(tile)] {
-        let mut entry = archive
-            .by_name(&member)
-            .map_err(|e| format!("{member}: {e}"))?;
-        std::io::copy(&mut entry, &mut std::io::sink()).map_err(|e| format!("{member}: {e}"))?;
-    }
-    Ok(())
-}
-
-/// Cached publications of `tile` in the folder of `path`, newest first.
-fn cached_versions(path: &Path, tile: TileId) -> Vec<(NaiveDate, PathBuf)> {
-    let dir = path.parent().expect("cache paths have a parent");
-    let prefix = format!("{}_", tile.name());
-    let mut versions: Vec<(NaiveDate, PathBuf)> = std::fs::read_dir(dir)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let date = name
-                .strip_prefix(&prefix)?
-                .strip_suffix(".zip")?
-                .parse()
-                .ok()?;
-            Some((date, entry.path()))
-        })
-        .collect();
-    versions.sort_by_key(|v| std::cmp::Reverse(v.0));
-    versions
-}
-
-fn newest_cached_version(path: &Path, tile: TileId) -> Option<(NaiveDate, PathBuf)> {
-    cached_versions(path, tile).into_iter().next()
-}
-
-/// Attempts per request to a server that drops connections now and then (gdi.berlin.de, GeoSN).
-pub(crate) const ATTEMPTS: u32 = 3;
-#[cfg(not(test))]
-const RETRY_DELAY: Duration = Duration::from_secs(2);
-#[cfg(test)]
-const RETRY_DELAY: Duration = Duration::ZERO;
-
-/// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
-/// and answers `check` refuses (an error page with status 200) are retried; a missing URL or a
-/// refused request is not, and neither is a write to a full disk.
-pub(crate) fn get_with_retries<T>(
-    fetcher: &dyn Fetcher,
-    url: &str,
-    check: impl Fn(&[u8]) -> Result<T, FetchError>,
-) -> Result<T, FetchError> {
-    get_with_attempts(fetcher, url, ATTEMPTS, check)
-}
-
-/// [`get_with_retries`] for an answer of at most `max_bytes`: it streams into the file `part`
-/// (removed afterwards) through [`Fetcher::download_to`], so a larger answer is stopped while it
-/// is read, as [`FetchError::TooLarge`] (not asked again).
-pub(crate) fn get_limited_with_retries<T>(
-    fetcher: &dyn Fetcher,
-    url: &str,
-    part: &Path,
-    max_bytes: u64,
-    check: impl Fn(&[u8]) -> Result<T, FetchError>,
-) -> Result<T, FetchError> {
-    retrying(ATTEMPTS, || {
-        let read = fetcher
-            .download_to(url, part, max_bytes, &mut |_| {})
-            .and_then(|()| std::fs::read(part).map_err(|e| FetchError::Io(part.to_path_buf(), e)));
-        let _ = std::fs::remove_file(part);
-        read.and_then(|bytes| check(&bytes))
-    })
-}
-
-/// [`get_with_retries`] with up to `attempts` tries.
-pub(crate) fn get_with_attempts<T>(
-    fetcher: &dyn Fetcher,
-    url: &str,
-    attempts: u32,
-    check: impl Fn(&[u8]) -> Result<T, FetchError>,
-) -> Result<T, FetchError> {
-    retrying(attempts, || {
-        fetcher.get(url).and_then(|bytes| check(&bytes))
-    })
-}
-
-/// `once` up to `attempts` times, like [`get_with_retries`].
-fn retrying<T>(
-    attempts: u32,
-    mut once: impl FnMut() -> Result<T, FetchError>,
-) -> Result<T, FetchError> {
-    let mut attempt = 1;
-    loop {
-        let result = once();
-        match result {
-            Err(
-                FetchError::NotFound(_)
-                | FetchError::Refused { .. }
-                | FetchError::TooLarge { .. }
-                | FetchError::Cancelled,
-            ) => return result,
-            // Asking again does not free disk space.
-            Err(ref e) if e.is_disk_full() => return result,
-            Err(_) if attempt < attempts => {
-                std::thread::sleep(RETRY_DELAY * attempt);
-                attempt += 1;
-            }
-            _ => return result,
-        }
-    }
-}
-
-/// [`Fetcher::download_to`] of `url` into `path` (at most `max_bytes`), tried up to
-/// [`ATTEMPTS`] times like [`get_with_retries`]; only the transfer is retried, what was
-/// downloaded is the caller's to check. A download over the limit is not retried.
-pub(crate) fn download_with_retries(
-    fetcher: &dyn Fetcher,
-    url: &str,
-    path: &Path,
-    max_bytes: u64,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), FetchError> {
-    let mut attempt = 1;
-    loop {
-        let result = fetcher.download_to(url, path, max_bytes, progress);
-        match result {
-            Err(
-                FetchError::NotFound(_)
-                | FetchError::Refused { .. }
-                | FetchError::TooLarge { .. }
-                | FetchError::Cancelled,
-            ) => return result,
-            Err(ref e) if e.is_disk_full() => return result,
-            Err(_) if attempt < ATTEMPTS => {
-                std::thread::sleep(RETRY_DELAY * attempt);
-                attempt += 1;
-            }
-            _ => return result,
-        }
-    }
-}
-
-/// Bytes `range` of `url`, asked for up to three times like [`get_with_retries`]; an answer
-/// of another length than asked for (a clamped or cut range) is an error.
-pub(crate) fn get_range_with_retries(
-    fetcher: &dyn Fetcher,
-    url: &str,
-    range: ByteRange,
-) -> Result<Vec<u8>, FetchError> {
-    let mut attempt = 1;
-    loop {
-        let result = fetcher.get_range(url, range).and_then(|bytes| {
-            let fits = match range {
-                ByteRange::From { len, .. } => bytes.len() as u64 == len,
-                ByteRange::Last(n) => !bytes.is_empty() && bytes.len() as u64 <= n,
-            };
-            if fits {
-                return Ok(bytes);
-            }
-            let asked = match range {
-                ByteRange::From { start, len } => format!("{len} bytes from byte {start}"),
-                ByteRange::Last(n) => format!("the last {n} bytes"),
-            };
-            Err(FetchError::Http {
-                url: url.to_string(),
-                message: format!("asked for {asked}, got {} bytes", bytes.len()),
-            })
-        });
-        match result {
-            Err(
-                FetchError::NotFound(_)
-                | FetchError::Refused { .. }
-                | FetchError::RangeIgnored { .. }
-                | FetchError::Cancelled,
-            ) => return result,
-            Err(_) if attempt < ATTEMPTS => {
-                std::thread::sleep(RETRY_DELAY * attempt);
-                attempt += 1;
-            }
-            _ => return result,
-        }
-    }
-}
-
-/// [`freemapper_fs::write_cache_file`] with the error as [`FetchError::Io`]; for the cache.
-pub(crate) fn write_cache_file(path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
-    freemapper_fs::write_cache_file(path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
-}
-
-/// [`crate::fsutil::write_inside`] with the error as [`FetchError::Io`]; for project files.
-pub(crate) fn write_inside(root: &Path, path: &Path, bytes: &[u8]) -> Result<(), FetchError> {
-    crate::fsutil::write_inside(root, path, bytes).map_err(|(path, e)| FetchError::Io(path, e))
-}
-
-/// Deletes the other cached publications of `tile` next to `current`.
-fn remove_older_versions(current: &Path, tile: TileId) -> Result<(), FetchError> {
-    let dir = current.parent().expect("cache paths have a parent");
-    let prefix = format!("{}_", tile.name());
-    let entries = std::fs::read_dir(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if path != current && name.starts_with(&prefix) && name.ends_with(".zip") {
-            std::fs::remove_file(&path).map_err(|e| FetchError::Io(path.clone(), e))?;
-        }
-    }
-    Ok(())
-}
+// The tile download of LGB and GeoSN (cache paths, currency lists, nDSM point clouds) lives in
+// `freemapper-adapters-de` (ADR 0082).
+pub use freemapper_adapters_de::tile_fetch::{
+    NdsmTile, TileOutcome, TilePaths, fetch_ndsm_tiles, fetch_tiles, fetch_tiles_each,
+};
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    use std::cell::{Cell, RefCell};
-    use std::collections::HashMap;
+    use crate::sources::lgb::ProductTiles as _;
     use std::io::Write as _;
 
-    use super::{FetchError, Fetcher};
     use crate::sources::alkis::test_support::{building_feature, land_use_feature, page};
     use crate::sources::alkis::{BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT};
     use crate::sources::lgb::Product;
     use crate::tiles::TileId;
-
-    /// Serves fixed responses by URL and counts the requests.
-    #[derive(Default)]
-    pub(crate) struct MapFetcher {
-        pub responses: RefCell<HashMap<String, Vec<u8>>>,
-        /// Answers for URLs starting with the key, when no exact response matches.
-        pub prefixes: RefCell<HashMap<String, Vec<u8>>>,
-        /// `Last-Modified` dates by URL.
-        pub modified: RefCell<HashMap<String, chrono::NaiveDate>>,
-        pub calls: Cell<usize>,
-        /// URLs that fail with a server error.
-        pub failing: RefCell<Vec<String>>,
-        /// URL prefixes the server refuses with HTTP 400.
-        pub refusing: RefCell<Vec<String>>,
-        /// The bodies of the refusals, by URL prefix (none: an empty body).
-        pub refusal_bodies: RefCell<HashMap<String, Vec<u8>>>,
-        /// URL prefixes that fail with a reset this many more times before they answer.
-        pub flaky: RefCell<HashMap<String, u32>>,
-        /// Every URL requested with `get`, in order.
-        pub log: RefCell<Vec<String>>,
-    }
-
-    impl MapFetcher {
-        pub fn insert(&self, url: &str, bytes: Vec<u8>) {
-            self.responses.borrow_mut().insert(url.to_string(), bytes);
-        }
-
-        pub fn insert_prefix(&self, prefix: &str, bytes: Vec<u8>) {
-            self.prefixes.borrow_mut().insert(prefix.to_string(), bytes);
-        }
-
-        fn fail_if_failing(&self, url: &str) -> Result<(), FetchError> {
-            if self
-                .refusing
-                .borrow()
-                .iter()
-                .any(|p| url.starts_with(p.as_str()))
-            {
-                let body = self
-                    .refusal_bodies
-                    .borrow()
-                    .iter()
-                    .find(|(p, _)| url.starts_with(p.as_str()))
-                    .map(|(_, body)| body.clone())
-                    .unwrap_or_default();
-                return Err(super::status_answer_error(url, 400, &body));
-            }
-            if let Some(left) = self
-                .flaky
-                .borrow_mut()
-                .iter_mut()
-                .find(|(p, left)| url.starts_with(p.as_str()) && **left > 0)
-                .map(|(_, left)| left)
-            {
-                *left -= 1;
-                return Err(FetchError::Http {
-                    url: url.to_string(),
-                    message: "Connection reset by peer".to_string(),
-                });
-            }
-            if self.failing.borrow().iter().any(|u| u == url) {
-                return Err(FetchError::Http {
-                    url: url.to_string(),
-                    message: "503 Service Unavailable".to_string(),
-                });
-            }
-            Ok(())
-        }
-
-        pub fn set_modified(&self, url: &str, date: chrono::NaiveDate) {
-            self.modified.borrow_mut().insert(url.to_string(), date);
-        }
-    }
-
-    impl Fetcher for MapFetcher {
-        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
-            self.calls.set(self.calls.get() + 1);
-            self.log.borrow_mut().push(url.to_string());
-            self.fail_if_failing(url)?;
-            let by_prefix = || {
-                let prefixes = self.prefixes.borrow();
-                prefixes
-                    .iter()
-                    .filter(|(prefix, _)| url.starts_with(prefix.as_str()))
-                    .max_by_key(|(prefix, _)| prefix.len())
-                    .map(|(_, bytes)| bytes.clone())
-            };
-            self.responses
-                .borrow()
-                .get(url)
-                .cloned()
-                .or_else(by_prefix)
-                .ok_or_else(|| FetchError::NotFound(url.to_string()))
-        }
-
-        fn last_modified(&self, url: &str) -> Result<Option<chrono::NaiveDate>, FetchError> {
-            self.calls.set(self.calls.get() + 1);
-            self.fail_if_failing(url)?;
-            if !self.responses.borrow().contains_key(url) {
-                return Err(FetchError::NotFound(url.to_string()));
-            }
-            Ok(self.modified.borrow().get(url).copied())
-        }
-    }
+    pub(crate) use freemapper_adapter_api::testing::MapFetcher;
+    pub(crate) use freemapper_adapters_de::geobasis_nrw::test_support::{
+        nrw_meta_zip, serve_synthetic_nrw,
+    };
+    pub(crate) use freemapper_adapters_de::laiv_mv::test_support::serve_synthetic_mv;
+    pub(crate) use freemapper_adapters_de::lvermgeo_rp::test_support::{
+        rp_tile_list, serve_synthetic_rp,
+    };
+    pub(crate) use freemapper_sources::testing::{
+        dtm_tiff, geotiff, red_jpeg, solid_jpeg, wcs_answer,
+    };
 
     /// A tile archive with the raster and world file members LGB uses.
     pub fn tile_zip(product: Product, tile: TileId, raster: &[u8], world_file: &str) -> Vec<u8> {
@@ -1606,32 +542,6 @@ pub(crate) mod test_support {
             .unwrap();
         zip.write_all(world_file.as_bytes()).unwrap();
         zip.finish().unwrap().into_inner()
-    }
-
-    /// A uniformly red JPEG.
-    pub fn red_jpeg(width: u32, height: u32) -> Vec<u8> {
-        solid_jpeg(width, height, [255, 0, 0])
-    }
-
-    /// A JPEG of one colour.
-    pub fn solid_jpeg(width: u32, height: u32, rgb: [u8; 3]) -> Vec<u8> {
-        let img = image::RgbImage::from_pixel(width, height, image::Rgb(rgb));
-        let mut bytes = Vec::new();
-        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 95)
-            .encode_image(&img)
-            .unwrap();
-        bytes
-    }
-
-    /// A 32-bit float LZW GeoTIFF body like DGM1 (without GeoKeys; the world file locates it).
-    pub fn dtm_tiff(width: u32, height: u32, values: &[f32]) -> Vec<u8> {
-        let mut bytes = std::io::Cursor::new(Vec::new());
-        tiff::encoder::TiffEncoder::new(&mut bytes)
-            .unwrap()
-            .with_compression(tiff::encoder::Compression::Lzw)
-            .write_image::<tiff::encoder::colortype::Gray32Float>(width, height, values)
-            .unwrap();
-        bytes.into_inner()
     }
 
     /// Serves the currency CSVs and coarse synthetic orthophoto and DTM archives (100 × 100
@@ -1677,7 +587,7 @@ pub(crate) mod test_support {
         fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&land_use, None));
         // The full ALKIS (NAS) has nothing there.
         fetcher.insert_prefix(
-            crate::sources::alkis_nas::LGB_NAS.url,
+            &crate::sources::alkis_nas::LGB_NAS.url,
             crate::sources::alkis_nas::test_support::EMPTY
                 .as_bytes()
                 .to_vec(),
@@ -1780,55 +690,15 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        let saxony = crate::sources::osm::extract_of("saxony", 0);
         fetcher.insert(
-            saxony.state_url(),
+            &saxony.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            saxony.url(),
+            &saxony.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
-    }
-
-    /// A WCS `multipart/related` answer like LVermGeo's: a GML part, then a Float32 TIFF on
-    /// `grid` with ModelPixelScale and ModelTiepoint tags.
-    pub fn wcs_answer(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
-        let mut answer =
-            b"--wcs\nContent-Type: text/xml\nContent-ID: GML-Part\n\n<coverage/>\n--wcs\nContent-Type: image/tiff\nContent-ID: 1.tif\n\n"
-                .to_vec();
-        answer.extend_from_slice(&geotiff(grid, values));
-        answer.extend_from_slice(b"\n--wcs--\n");
-        answer
-    }
-
-    /// A Float32 GeoTIFF on `grid` with ModelPixelScale and ModelTiepoint tags (no world file),
-    /// like the LVermGeo WCS answers and the LGV height model tiles.
-    pub fn geotiff(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
-        use tiff::tags::Tag;
-        let mut tiff = std::io::Cursor::new(Vec::new());
-        {
-            let mut encoder = tiff::encoder::TiffEncoder::new(&mut tiff).unwrap();
-            let mut image = encoder
-                .new_image::<tiff::encoder::colortype::Gray32Float>(grid.width, grid.height)
-                .unwrap();
-            image
-                .encoder()
-                .write_tag(
-                    Tag::ModelPixelScaleTag,
-                    &[grid.pixel_size, grid.pixel_size, 0.0][..],
-                )
-                .unwrap();
-            image
-                .encoder()
-                .write_tag(
-                    Tag::ModelTiepointTag,
-                    &[0.0, 0.0, 0.0, grid.west, grid.north, 0.0][..],
-                )
-                .unwrap();
-            image.write_data(values).unwrap();
-        }
-        tiff.into_inner()
     }
 
     /// Serves everything a Saxony-Anhalt project in `bbox` (EPSG:25832) fetches: DGM1 and DOM1
@@ -1884,77 +754,15 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::SaxonyAnhalt;
+        let extract = crate::sources::osm::extract_of("saxonyanhalt", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
-    }
-
-    /// Serves the LAiV M-V height models of `bbox` (EPSG:25833, at most 4000 m a side): the
-    /// overview lists the 2 km tiles that touch Mecklenburg-Vorpommern (DGM1 dated 2024-03-01,
-    /// DOM1 2024-08-01), and the WCS answers with a plain TIFF of the area inside the coverage
-    /// (one answer for any subset). In the listed tiles the terrain rises 0.01 m per metre east
-    /// from 5 m and the surface lies 12 m above it; elsewhere both are 0.0, as the real WCS fills
-    /// areas without a tile.
-    pub fn serve_synthetic_mv(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::laiv_mv::{self, Model};
-        use crate::sources::region::{Region, regions_for};
-        let tiles: Vec<TileId> = crate::tiles::tiles_covering_grid(bbox, 2)
-            .into_iter()
-            // `regions_for` adds 100 m around the box: the tile itself.
-            .filter(|tile| {
-                regions_for(&tile.bounds_km(2).buffered(-100.0))
-                    .contains(&Region::MecklenburgVorpommern)
-            })
-            .collect();
-        for (model, date, lift) in [
-            (Model::Dgm1, "2024-03-01", 5.0),
-            (Model::Dom1, "2024-08-01", 17.0),
-        ] {
-            fetcher.insert_prefix(
-                &laiv_mv::overview_prefix(model),
-                laiv_mv::test_support::overview_answer(model, &tiles, date),
-            );
-            let Some(inside) = bbox.intersection(&laiv_mv::ENVELOPE) else {
-                continue;
-            };
-            let grid = crate::raster::GridSpec::covering(&inside, 1.0);
-            let values: Vec<f32> = (0..grid.height)
-                .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
-                .map(|(x, y)| {
-                    let (e, n) = (
-                        grid.west + f64::from(x) + 0.5,
-                        grid.north - f64::from(y) - 0.5,
-                    );
-                    let tile = TileId {
-                        east_km: (e / 2000.0).floor() as u32 * 2,
-                        north_km: (n / 2000.0).floor() as u32 * 2,
-                    };
-                    if tiles.contains(&tile) {
-                        lift + x as f32 * 0.01
-                    } else {
-                        0.0
-                    }
-                })
-                .collect();
-            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
-        }
-        // The dop20 overview (tiles dated 2024-08-14) and the DOP WCS: a flat JPEG per piece.
-        fetcher.insert_prefix(
-            &format!("{}?type[]=dop20&bbox=", laiv_mv::OVERVIEW),
-            laiv_mv::test_support::dop20_overview_answer(&tiles, "2024-08-14"),
-        );
-        let ortho =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        let source = crate::sources::wms::OrthophotoSource::Wcs(laiv_mv::DOP);
-        for (piece, url) in crate::sources::wms::source_pieces(&source, &ortho) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [120, 130, 110]));
-        }
     }
 
     /// Serves everything a Mecklenburg-Vorpommern project in `bbox` (EPSG:25833) fetches: the
@@ -1974,13 +782,13 @@ pub(crate) mod test_support {
             alkis::MV_LAND_USE_ENDPOINT,
             include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-land-use.json").to_vec(),
         );
-        let extract = crate::sources::osm::ExtractSource::MecklenburgVorpommern;
+        let extract = crate::sources::osm::extract_of("mecklenburgvorpommern", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -2059,13 +867,13 @@ pub(crate) mod test_support {
             lgv::LAND_USE_ENDPOINT,
             lgv::test_support::LAND_USE.as_bytes().to_vec(),
         );
-        let extract = crate::sources::osm::ExtractSource::Hamburg;
+        let extract = crate::sources::osm::extract_of("hamburg", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -2107,13 +915,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::Hessen;
+        let extract = crate::sources::osm::extract_of("hessen", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -2206,13 +1014,13 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        let extract = crate::sources::osm::ExtractSource::SchleswigHolstein;
+        let extract = crate::sources::osm::extract_of("schleswigholstein", 0);
         fetcher.insert(
-            extract.state_url(),
+            &extract.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            extract.url(),
+            &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
     }
@@ -2290,175 +1098,6 @@ pub(crate) mod test_support {
         }
     }
 
-    /// The GetFeatureInfo text answer of the NRW orthophoto WMS (flight 11.05.2025), as the
-    /// server gives it.
-    pub const NRW_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'nw_dop_utm_info'\n  \
-        Feature 20301: \n    Kachelname = '32354_5642'\n    Bildflugdatum = '11.05.2025'\n    \
-        Bodenauflösung = '0.10'\n    Photometrie = 'RGBI'\n    Bit_pro_Kanal = '8'\n";
-
-    /// The meta zip of Geobasis NRW: a CSV `csv_name` with the usual preamble and a row per
-    /// `(tile name, date)`.
-    pub fn nrw_meta_zip(csv_name: &str, release: &str, rows: &[(String, &str)]) -> Vec<u8> {
-        use std::io::Write;
-        let mut csv = format!(
-            "Kachelinformationen fuer die Datenabgabe\r\nLand;Nordrhein-Westfalen\r\n\
-             Aktualitaet_Kachelinformationen;{release}\r\nVersion_Standard;3.3\r\n\
-             Kachelname;Aktualitaet;Erfassungsmethode\r\n",
-        );
-        for (name, date) in rows {
-            csv.push_str(&format!("{name};{date};5020\r\n"));
-        }
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        zip.start_file(csv_name, zip::write::SimpleFileOptions::default())
-            .unwrap();
-        zip.write_all(csv.as_bytes()).unwrap();
-        zip.finish().unwrap().into_inner()
-    }
-
-    /// Serves the Geobasis NRW rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
-    /// right size with the flight date 11.05.2025, the meta zips
-    /// of DGM1 and DOM1 naming every tile of `bbox` (scanned 2022-02-12, file names with
-    /// `_2022`) and the tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
-    /// above).
-    pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::geobasis_nrw::{Model, WMS, meta_url, tile_url};
-        let photo =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        // The WMS allows 4000 px a side: a larger area comes in pieces, each of its own size.
-        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [0, 100, 200]));
-        }
-        fetcher.insert_prefix(
-            &format!(
-                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                WMS.url
-            ),
-            NRW_FLIGHT_INFO.as_bytes().to_vec(),
-        );
-        let tiles = crate::tiles::tiles_covering(bbox);
-        for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
-            let name = |t: &TileId| format!("{slug}_32_{}_{}_1_nw_2022", t.east_km, t.north_km);
-            let rows: Vec<(String, &str)> = tiles.iter().map(|t| (name(t), "2022-02-12")).collect();
-            fetcher.insert(
-                &meta_url(model),
-                nrw_meta_zip(&format!("{slug}_nw.csv"), "2026-10-26", &rows),
-            );
-            for tile in &tiles {
-                let grid = crate::raster::GridSpec {
-                    west: f64::from(tile.east_km) * 1000.0,
-                    north: f64::from(tile.north_km + 1) * 1000.0,
-                    pixel_size: 1.0,
-                    width: 1000,
-                    height: 1000,
-                };
-                let heights: Vec<f32> = (0..1000 * 1000)
-                    .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
-                    .collect();
-                fetcher.insert(&tile_url(model, &name(tile)), geotiff(&grid, &heights));
-            }
-        }
-    }
-
-    /// A `Laserbefliegung` answer of the LVermGeo RP Blattschnitt WFS (GML 3.2, as MapServer
-    /// writes it) with a feature per `(tile, flugjahr, flugtage)`; an empty `flugjahr` or
-    /// `flugtage` is left out, as the server does.
-    pub fn rp_tile_list(rows: &[(TileId, &str, &str)]) -> String {
-        let mut gml = format!(
-            "<?xml version='1.0' encoding=\"UTF-8\" ?>\n<wfs:FeatureCollection \
-             xmlns:ms=\"http://mapserver.gis.umn.edu/mapserver\" \
-             xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
-             xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" timeStamp=\"2026-11-08T07:03:21\" \
-             numberMatched=\"{0}\" numberReturned=\"{0}\">\n",
-            rows.len()
-        );
-        for (gid, (tile, year, days)) in rows.iter().enumerate() {
-            let (e, n) = (tile.east_km * 1000, tile.north_km * 1000);
-            gml.push_str(&format!(
-                "<wfs:member><ms:Laserbefliegung gml:id=\"Laserbefliegung.{gid}\"><ms:msGeometry>\
-                 <gml:Polygon gml:id=\"Laserbefliegung.{gid}.1\" \
-                 srsName=\"urn:ogc:def:crs:EPSG::25832\"><gml:exterior><gml:LinearRing>\
-                 <gml:posList srsDimension=\"2\">{e} {n1} {e1} {n1} {e1} {n} {e} {n} {e} {n1} \
-                 </gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></ms:msGeometry>\
-                 <ms:gid>{gid}</ms:gid><ms:art>Laserbefliegung</ms:art>\
-                 <ms:betrifft>DGM, DOM, Laserpunkte</ms:betrifft>\
-                 <ms:kachel>{:03}{:04}</ms:kachel>",
-                tile.east_km,
-                tile.north_km,
-                e1 = e + 1000,
-                n1 = n + 1000,
-            ));
-            if !year.is_empty() {
-                gml.push_str(&format!("<ms:flugjahr>{year}</ms:flugjahr>"));
-            }
-            if !days.is_empty() {
-                gml.push_str(&format!("<ms:flugtage>{days}</ms:flugtage>"));
-            }
-            gml.push_str("</ms:Laserbefliegung></wfs:member>\n");
-        }
-        gml.push_str("</wfs:FeatureCollection>\n");
-        gml
-    }
-
-    /// The GetFeatureInfo text answer of the LVermGeo RP orthophoto WMS at the Görres-Gymnasium,
-    /// Koblenz (block 400/5578, `erstellung` 25.08.2025), as the server gives it.
-    pub const RP_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'rp_dop20_info'\n  \
-        Feature 5098: \n\nLayer 'metadaten'\n  Feature 5098: \n    gid = '5098'\n    \
-        publikation = '2026-01-11 02:15:10.166'\n    name = 'dop20rgbi_32400_5578'\n    \
-        titel = 'Digitale Orthophotos 0,2m Rheinland-Pfalz (DOP20RGB) - 4005578'\n    \
-        erstellung = '25.08.2025'\n    aktualisierung = 'n/a'\n    \
-        csw-anfrage = 'https://metadatenkatalog-vermkv.service24.rlp.de/extern/vertriebsprodukte?\
-        request=GetRecords&service=CSW&version=2.0.2'\n";
-
-    /// Serves the LVermGeo RP height models of a project in `bbox` (EPSG:25832): the tile list
-    /// naming every tile of `bbox` (flown 30.03.24 and 06.04.24, file names with `_2024`) and
-    /// the DGM1 and DOM1 tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
-    /// above).
-    pub fn serve_synthetic_rp_heights(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lvermgeo_rp::{Model, tile_list_prefix, tile_url};
-        let tiles = crate::tiles::tiles_covering(bbox);
-        let rows: Vec<(TileId, &str, &str)> = tiles
-            .iter()
-            .map(|t| (*t, "2024", "30.03.24, 06.04.24"))
-            .collect();
-        fetcher.insert_prefix(&tile_list_prefix(), rp_tile_list(&rows).into_bytes());
-        for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
-            for tile in &tiles {
-                let grid = crate::raster::GridSpec {
-                    west: f64::from(tile.east_km) * 1000.0,
-                    north: f64::from(tile.north_km + 1) * 1000.0,
-                    pixel_size: 1.0,
-                    width: 1000,
-                    height: 1000,
-                };
-                let heights: Vec<f32> = (0..1000 * 1000)
-                    .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
-                    .collect();
-                let name = format!("{slug}_32_{}_{}_1_rp_2024", tile.east_km, tile.north_km);
-                fetcher.insert(&tile_url(model, &name), geotiff(&grid, &heights));
-            }
-        }
-    }
-
-    /// Serves the LVermGeo RP rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
-    /// right size with the flight date [`RP_FLIGHT_INFO`] (25.08.2025) and the height models of
-    /// [`serve_synthetic_rp_heights`].
-    pub fn serve_synthetic_rp(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lvermgeo_rp::WMS;
-        let photo =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [80, 120, 60]));
-        }
-        fetcher.insert_prefix(
-            &format!(
-                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                WMS.url
-            ),
-            RP_FLIGHT_INFO.as_bytes().to_vec(),
-        );
-        serve_synthetic_rp_heights(fetcher, bbox);
-    }
-
     /// The orthophoto flight date and the height model date the synthetic LGLN STAC answers give
     /// (the live ones at the Kaiser-Wilhelm- und Ratsgymnasium, Hannover).
     pub const LGLN_FLIGHT: &str = "2025-03-06T00:00:00Z";
@@ -2480,7 +1119,7 @@ pub(crate) mod test_support {
             let values: Vec<f32> = (0..grid.height)
                 .flat_map(|_| (0..grid.width).map(move |x| lift + x as f32 * 0.01))
                 .collect();
-            fetcher.insert_prefix(model.wcs().url, geotiff(&grid, &values));
+            fetcher.insert_prefix(&model.wcs().url, geotiff(&grid, &values));
         }
         fetcher.insert_prefix(
             lgln::DOP_STAC,
@@ -2693,7 +1332,21 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use crate::sources::lgb::{Product, ProductTiles as _, ndsm_tile_url, parse_currency_csv};
+    use crate::tiles::TileId;
+    use freemapper_adapters_de::tile_fetch::cached_ndsm;
     use std::cell::Cell;
+
+    /// `status_answer_error` lives in the api crate, which has no HTTP client, and words a
+    /// server error as the client does.
+    #[test]
+    fn a_server_error_is_worded_as_the_http_client_words_it() {
+        let ours = status_answer_error("https://example.invalid/x", 503, b"");
+        let FetchError::Http { message, .. } = ours else {
+            panic!("{ours:?}");
+        };
+        assert_eq!(message, ureq::Error::StatusCode(503).to_string());
+    }
 
     const TILE: TileId = TileId {
         east_km: 421,
@@ -3947,9 +2600,28 @@ mod tests {
         (a.connect, a.recv_response, a.recv_body) == (b.connect, b.recv_response, b.recv_body)
     }
 
+    use crate::sources::lvermgeo_sh::{PORTAL_HOST, PORTAL_TRUST};
+
+    /// The agents of the portal in `fetcher`.
+    fn portal(fetcher: &HttpFetcher) -> &Agents {
+        let (trust, agents) = &fetcher.pinned[0];
+        assert_eq!(*trust, PORTAL_TRUST);
+        agents
+    }
+
+    /// The portal is the only pinned host of the built-in adapters.
+    #[test]
+    fn the_registry_pins_the_portal_only() {
+        assert_eq!(registered_anchors(), [PORTAL_TRUST]);
+        let fetcher = HttpFetcher::new();
+        assert_eq!(fetcher.pinned.len(), 1);
+        assert_eq!(portal(&fetcher).pinned, Some(PORTAL_HOST));
+        assert_eq!(fetcher.default.pinned, None);
+    }
+
     #[test]
     fn portal_host_uses_the_bundled_anchors() {
-        let anchors: Vec<_> = portal_anchors()
+        let anchors: Vec<_> = certificates(&PORTAL_TRUST)
             .iter()
             .map(|cert| fingerprint(cert.der()))
             .collect();
@@ -3971,7 +2643,7 @@ mod tests {
             // A fully qualified name is the same host.
             "https://geodaten.schleswig-holstein.de./x",
         ] {
-            assert_eq!(trust_for(url), Trust::PortalAnchors, "{url}");
+            assert_eq!(trust_for(url, &[PORTAL_TRUST]), Some(0), "{url}");
             let agents = fetcher.agents(url);
             for (agent, default) in [
                 (&agents.normal, &fetcher.default.normal),
@@ -4006,7 +2678,7 @@ mod tests {
             "https://geodaten.schleswig-holstein.de.evil./x",
             "not a url",
         ] {
-            assert_eq!(trust_for(url), Trust::DefaultRoots, "{url}");
+            assert_eq!(trust_for(url, &[PORTAL_TRUST]), None, "{url}");
             let agents = fetcher.agents(url);
             for agent in [&agents.normal, &agents.large] {
                 assert!(
@@ -4030,7 +2702,7 @@ mod tests {
     #[test]
     fn portal_agents_follow_no_redirects() {
         let fetcher = HttpFetcher::new();
-        for agent in [&fetcher.portal.normal, &fetcher.portal.large] {
+        for agent in [&portal(&fetcher).normal, &portal(&fetcher).large] {
             assert_eq!(agent.config().max_redirects(), 0);
         }
         // The other hosts follow redirects as before.
@@ -4060,10 +2732,11 @@ mod tests {
         });
         let pinned = HttpFetcher {
             default: Agents {
-                normal: fetcher.portal.normal.clone(),
-                large: fetcher.portal.large.clone(),
+                normal: portal(&fetcher).normal.clone(),
+                large: portal(&fetcher).large.clone(),
+                pinned: Some(PORTAL_HOST),
             },
-            portal: fetcher.portal,
+            pinned: Vec::new(),
         };
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("tile.part");
@@ -4109,8 +2782,7 @@ mod tests {
     #[ignore = "network"]
     fn live_portal_anchors_refuse_other_chains() {
         let fetcher = HttpFetcher::new();
-        let result = fetcher
-            .portal
+        let result = portal(&fetcher)
             .normal
             .get("https://opendata.schleswig-holstein.de/api/3/action/status_show")
             .call();

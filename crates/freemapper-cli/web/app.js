@@ -40,106 +40,104 @@ const osm = L.tileLayer("tiles/osm/{z}/{x}/{y}.png", {
   maxZoom: 19,
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 }).addTo(map);
-const aerial = L.tileLayer.wms("https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms", {
-  layers: "bebb_dop20c",
-  format: "image/png",
-  maxZoom: 20,
-  attribution: "© GeoBasis-DE/LGB, dl-de/by-2-0",
-});
-const aerialSaxony = L.tileLayer.wms("https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest", {
-  layers: "sn_dop_020",
-  format: "image/jpeg",
-  maxZoom: 20,
-  attribution: "Quelle: GeoSN, dl-de/by-2-0",
-});
-const aerialSaxonyAnhalt = L.tileLayer.wms(
-  "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest",
-  {
-    layers: "lsa_lvermgeo_dop20_2",
-    format: "image/jpeg",
-    maxZoom: 20,
-    attribution: "© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0",
-  },
-);
-const aerialHamburg = L.tileLayer.wms("https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt", {
-  layers: "dop_zeitreihe_unbelaubt",
-  format: "image/jpeg",
-  maxZoom: 20,
-  // The open 2026 vintage; 2023 is a closed-licence satellite image.
-  time: "2026",
-  attribution: "Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0",
-});
-// `he_dop_rgb` is served at all scales (`he_dop20_rgb` only below 1:9000, blank when zoomed out).
-const aerialHessen = L.tileLayer.wms(
-  "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows",
-  {
-    layers: "he_dop_rgb",
-    format: "image/jpeg",
-    maxZoom: 20,
-    attribution: "Geobasisdaten © HVBG, dl-de/zero-2-0",
-  },
-);
-// The current DOP20 mosaic (EPSG:3857 is among the layer's CRS).
-const aerialSchleswigHolstein = L.tileLayer.wms(
-  "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD",
-  {
-    layers: "sh_dop20_rgb",
-    format: "image/jpeg",
-    maxZoom: 20,
-    attribution: "© GeoBasis-DE/LVermGeo SH/CC BY 4.0",
-  },
-);
-// The ADV DOP20 mosaic (EPSG:3857 is offered); the WMS stamps a watermark, fine for a preview.
-const aerialMecklenburgVorpommern = L.tileLayer.wms(
-  "https://www.geodaten-mv.de/dienste/adv_dop",
-  {
-    layers: "mv_dop",
-    format: "image/jpeg",
-    maxZoom: 20,
-    attribution: "©GeoBasis-DE/MV/CC BY 4.0",
-  },
-);
-// The current DOP mosaic (EPSG:3857 is among the layer's CRS).
-const aerialNordrheinWestfalen = L.tileLayer.wms("https://www.wms.nrw.de/geobasis/wms_nw_dop", {
-  layers: "nw_dop_rgb",
-  format: "image/jpeg",
-  maxZoom: 20,
-  attribution: "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln), dl-de/zero-2-0",
-});
-// The newest DOP20 (EPSG:3857 is among the service's CRS); Bremen is left white.
-const aerialNiedersachsen = L.tileLayer.wms(
-  "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms",
-  {
-    layers: "ni_dop20",
-    format: "image/jpeg",
-    maxZoom: 20,
-    attribution: "© GeoBasis-DE/LGLN, CC BY 4.0",
-  },
-);
-// The current DOP20 (EPSG:3857 is among the layer's CRS); white beyond the state border.
-const aerialRheinlandPfalz = L.tileLayer.wms("https://geo4.service24.rlp.de/wms/rp_dop20.fcgi", {
-  layers: "rp_dop20",
-  format: "image/jpeg",
-  maxZoom: 20,
-  attribution: `©GeoBasis-DE / LVermGeoRP${new Date().getFullYear()}, dl-de/by-2-0, www.lvermgeo.rlp.de`,
-});
+/** The regions freemapper supports, from `api/adapters`: `[{ id, names, preview }]`. */
+let adapters = [];
+
+/** `text` as HTML that shows it as it is: Leaflet takes layer names and credits as HTML. */
+function escapeHtml(text) {
+  const span = document.createElement("span");
+  span.textContent = text;
+  return span.innerHTML;
+}
+
+function isText(value) {
+  return typeof value === "string" && value !== "";
+}
+
+/**
+ * The aerial photo of a region as the page can draw it, or null: every field a text, the
+ * parameters plain values, and none of them an option of Leaflet (they are query parameters of
+ * the WMS request and nothing else).
+ */
+function usablePreview(preview) {
+  if (!preview || typeof preview !== "object") return null;
+  const { wms, layer, format, attribution, agency } = preview;
+  if (![wms, layer, format, attribution, agency].every(isText)) return null;
+  const params = {};
+  const given = preview.params && typeof preview.params === "object" ? preview.params : {};
+  for (const [name, value] of Object.entries(given)) {
+    const plain = typeof value === "string" || typeof value === "number";
+    if (plain && !(name in L.TileLayer.WMS.prototype.options)) params[name] = String(value);
+  }
+  return { wms, layer, format, attribution, agency, params };
+}
+
+/**
+ * The regions of `api/adapters` the page can use: each with a name, and with its aerial photo
+ * when that is complete. When the answer fails the list is empty and `problem` says why; the
+ * page then works without aerial photos.
+ */
+async function loadAdapters() {
+  try {
+    const list = await api("api/adapters");
+    const regions = (Array.isArray(list) ? list : [])
+      .filter((region) => region && region.names && isText(region.names.en))
+      .map((region) => ({ ...region, preview: usablePreview(region.preview) }));
+    return { regions, problem: null };
+  } catch (e) {
+    return { regions: [], problem: e.message };
+  }
+}
+
+/** The names of `regions` in the page language, joined by `separator`. */
+function regionNames(regions, separator) {
+  return regions
+    .map((region) => (isText(region.names[language()]) ? region.names[language()] : region.names.en))
+    .join(separator);
+}
+
+/**
+ * The aerial photos of the regions: one WMS layer per service, named after the regions that
+ * share it (Brandenburg and Berlin share the one of LGB). Regions share a layer only when
+ * their previews are the same in every field.
+ */
+function aerialLayers() {
+  const layers = new Map();
+  for (const region of adapters) {
+    const preview = region.preview;
+    if (!preview) continue;
+    const key = JSON.stringify([
+      preview.wms,
+      preview.layer,
+      preview.format,
+      preview.attribution,
+      preview.agency,
+      Object.entries(preview.params).sort(),
+    ]);
+    if (!layers.has(key)) layers.set(key, { preview, regions: [] });
+    layers.get(key).regions.push(region);
+  }
+  const year = String(new Date().getFullYear());
+  const named = {};
+  for (const { preview, regions } of layers.values()) {
+    const name = t("page-layer-aerial-of", {
+      state: regionNames(regions, "/"),
+      agency: preview.agency,
+    });
+    named[escapeHtml(name)] = L.tileLayer.wms(preview.wms, {
+      ...preview.params,
+      layers: preview.layer,
+      format: preview.format,
+      maxZoom: 20,
+      attribution: escapeHtml(preview.attribution.replaceAll("{year}", year)),
+    });
+  }
+  return named;
+}
+
 /** The layer control, with its names in the page language: built once the texts are loaded. */
 function showLayerNames() {
-  L.control
-    .layers({
-      [t("page-layer-osm")]: osm,
-      [t("page-layer-aerial")]: aerial,
-      [t("page-layer-aerial-saxony")]: aerialSaxony,
-      [t("page-layer-aerial-saxony-anhalt")]: aerialSaxonyAnhalt,
-      [t("page-layer-aerial-hamburg")]: aerialHamburg,
-      [t("page-layer-aerial-hessen")]: aerialHessen,
-      [t("page-layer-aerial-schleswig-holstein")]: aerialSchleswigHolstein,
-      [t("page-layer-aerial-mecklenburg-vorpommern")]: aerialMecklenburgVorpommern,
-      [t("page-layer-aerial-nordrhein-westfalen")]: aerialNordrheinWestfalen,
-      [t("page-layer-aerial-niedersachsen")]: aerialNiedersachsen,
-      [t("page-layer-aerial-rheinland-pfalz")]: aerialRheinlandPfalz,
-    })
-    .addTo(map);
+  L.control.layers({ [escapeHtml(t("page-layer-osm"))]: osm, ...aerialLayers() }).addTo(map);
 }
 map.attributionControl.addAttribution(
   '<a href="https://github.com/HenryJobst/freemapper">freemapper</a>',
@@ -205,6 +203,13 @@ function updateControls() {
 function failedText(message) {
   const text = t("page-failed", { error: message });
   return text === "page-failed" ? message : text;
+}
+
+/** What to say about an area outside every region: with the regions by name when known. */
+function outsideText() {
+  return adapters.length
+    ? t("page-outside", { states: regionNames(adapters, ", ") })
+    : t("page-outside-unknown");
 }
 
 function setMessage(text, kind) {
@@ -285,7 +290,7 @@ function showPreview() {
   const unusable = preview.too_large || preview.outside_coverage;
   $("too-large").hidden = !unusable;
   $("too-large").textContent = preview.outside_coverage
-    ? t("page-outside")
+    ? outsideText()
     : t("page-too-large", { max: Math.round(preview.max_side_m) });
   const names = preview.tiles.map((t) => t.name);
   $("tiles").textContent = unusable
@@ -855,6 +860,9 @@ async function start() {
     // First the texts: everything below writes them.
     await loadTexts();
     setMode(null);
+    // The page works without the list of the regions: the map keeps OpenStreetMap.
+    const listed = await loadAdapters();
+    adapters = listed.regions;
     showLayerNames();
     project = await api("api/project");
     $("folder").textContent = project.dir;
@@ -870,6 +878,9 @@ async function start() {
       savedSignature = signature();
     }
     if (window.freemapperRun) window.freemapperRun.init(project);
+    if (listed.problem) {
+      setMessage(t("page-adapters-failed", { detail: listed.problem }), "error");
+    }
   } catch (e) {
     setMessage(failedText(e.message), "error");
   }

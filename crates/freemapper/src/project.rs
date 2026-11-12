@@ -4,9 +4,12 @@ use crate::note::{Arg, Note, note};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use chrono::{Datelike as _, NaiveDate};
+use chrono::NaiveDate;
+use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources, lines_with_licences};
+use freemapper_adapter_api::records::AdapterId;
 use serde::{Deserialize, Serialize};
 
+use crate::adapters::registry;
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::barriers::resolve_barrier_overlaps;
@@ -54,8 +57,7 @@ use crate::derive::terrain::{
     hillshade, mosaic_dtm, read_float_raster, slope_deg, slope_shade, write_gray_png,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
-use crate::fetch::{Cache, FetchError, FetchMode, FetchedTile, Fetcher, fetch_tiles, write_inside};
-use crate::fetch::{fetch_ndsm_tiles, fetch_tiles_each};
+use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::MapCoord;
@@ -66,19 +68,19 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::lgb::{Product, TileCurrency, attribution, attribution_with_berlin};
+use crate::sources::lgb::Product;
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    Provider, Region, provider_tiles, raster_region, regions_for, touches_berlin,
+    overlaps_in, raster_provider, raster_region_in, region_of_object_id, terrain_source,
+    touches_berlin,
 };
 use crate::sources::trees;
-use crate::sources::wms::{DateLabel, OrthophotoSource};
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
-use crate::tiles::{TileId, tiles_covering_grid};
+use crate::tiles::TileId;
 
 mod export;
 pub use export::*;
@@ -106,6 +108,12 @@ pub enum ProjectError {
     },
     #[error("invalid project file: {0}")]
     Toml(String),
+    /// The project file names a provider or a region this program has no adapter for: it was
+    /// made with adapters that are not installed here.
+    #[error(
+        "the project file names the adapter \"{0}\", which this freemapper does not have; a newer version may have it"
+    )]
+    UnknownAdapter(String),
     #[error(transparent)]
     Area(#[from] AreaError),
     #[error(transparent)]
@@ -151,7 +159,8 @@ pub enum ProjectError {
     )]
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
-        "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has data sources for those only so far"
+        "the map area lies outside the supported states ({}); freemapper has data sources for those only so far",
+        crate::adapters::region_names(false).join(", ")
     )]
     OutsideCoverage,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -310,7 +319,7 @@ pub struct ProjectFile {
     pub crs: u32,
     /// Who serves the rasters, from the raster region (missing in older projects).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider: Option<Provider>,
+    pub provider: Option<AdapterId>,
     /// Map title for the peripheral information; the folder name when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
@@ -363,88 +372,31 @@ pub struct ProjectFile {
     pub content: Option<ContentSettings>,
 }
 
-/// The grid the area of a raster record is stored on, in metres. A projected coordinate differs
-/// in its last digits from one maths library to the next; on this grid the project file is the
-/// same bytes on every system.
-const STORED_METRE: f64 = 0.001;
+// The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
+use freemapper_adapter_api::cache::CacheDir;
+use freemapper_adapter_api::env::AdapterEnv;
+use freemapper_adapter_api::error::AdapterError;
+use freemapper_adapter_api::project::{RasterProject, RasterRecords};
+use freemapper_adapter_api::rasters::{
+    DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
+};
+use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
+// The steps of a raster fetch that name no state, and the files they write.
+pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
+use freemapper_adapter_api::records::{on_grid, stored_bbox};
+#[cfg(test)]
+use freemapper_sources::raster_fetch::UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
+pub(crate) use freemapper_sources::raster_fetch::{
+    SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH,
+};
 
 /// The grid the area of the OSM record is stored on, in degrees (about a millimetre).
 const STORED_DEGREE: f64 = 1e-8;
-
-/// `value` on the grid of `step`. Dividing by the whole number of steps in one unit gives the
-/// number that is written with as few digits as the grid has; multiplying by the step would
-/// leave `5816416.924000001` in the file.
-fn on_grid(value: f64, step: f64) -> f64 {
-    let per_unit = (1.0 / step).round();
-    (value * per_unit).round() / per_unit
-}
-
-/// `bbox` as a raster record stores it: rounded to the millimetre.
-fn stored_bbox(bbox: &BoundingBox) -> [f64; 4] {
-    [bbox.min_e, bbox.min_n, bbox.max_e, bbox.max_n].map(|value| on_grid(value, STORED_METRE))
-}
 
 /// `area` as the OSM record stores it.
 fn stored_geo_box(area: &GeoBox) -> [f64; 4] {
     [area.min_lat, area.min_lon, area.max_lat, area.max_lon]
         .map(|value| on_grid(value, STORED_DEGREE))
-}
-
-/// Whether the stored area of a raster record covers `bbox`. The rounding of [`stored_bbox`]
-/// may leave it up to half a millimetre short, which counts as covered.
-fn stored_bbox_covers(stored: [f64; 4], bbox: &BoundingBox) -> bool {
-    let [min_e, min_n, max_e, max_n] = stored;
-    min_e <= bbox.min_e + STORED_METRE
-        && min_n <= bbox.min_n + STORED_METRE
-        && max_e >= bbox.max_e - STORED_METRE
-        && max_n >= bbox.max_n - STORED_METRE
-}
-
-/// The orthophoto fetched from a WMS for one area.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WmsRecord {
-    /// The flight date text the server gives, e.g. `19.03. + 07.04.2024`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flight: Option<String>,
-    /// What the service calls the date in `flight` when it is no flight date as such
-    /// (LVermGeo RP: `Aktualität (Erstellung)`, the date taken as the flight date).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub flight_label: Option<String>,
-    pub fetched: NaiveDate,
-    /// Area in the map's CRS: min easting, min northing, max easting, max northing.
-    pub bbox: [f64; 4],
-}
-
-impl WmsRecord {
-    fn covers(&self, bbox: &BoundingBox) -> bool {
-        stored_bbox_covers(self.bbox, bbox)
-    }
-}
-
-/// A height model fetched from a WCS for one area.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct WcsRecord {
-    pub fetched: NaiveDate,
-    /// Area in the map's CRS: min easting, min northing, max easting, max northing.
-    pub bbox: [f64; 4],
-    /// The date the provider gives for the data, e.g. `13.05.2024`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub date: Option<String>,
-}
-
-impl WcsRecord {
-    fn covers(&self, bbox: &BoundingBox) -> bool {
-        stored_bbox_covers(self.bbox, bbox)
-    }
-}
-
-/// One fetched nDSM tile; LGB publishes no currency for it, only the server date.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct NdsmRecord {
-    pub tile: String,
-    pub url: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub published: Option<NaiveDate>,
 }
 
 /// Which OSM extract the stored candidates come from and the area they cover.
@@ -478,7 +430,7 @@ pub struct AlkisRecord {
     pub count: usize,
     /// The states whose services delivered objects (missing in projects fetched before Berlin).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub regions: Vec<Region>,
+    pub regions: Vec<AdapterId>,
 }
 
 impl AlkisRecord {
@@ -486,16 +438,6 @@ impl AlkisRecord {
         let [min_e, min_n, max_e, max_n] = self.bbox;
         min_e <= bbox.min_e && min_n <= bbox.min_n && max_e >= bbox.max_e && max_n >= bbox.max_n
     }
-}
-
-/// One fetched tile: where it came from and its data currency.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TileRecord {
-    pub product: Product,
-    pub tile: String,
-    pub url: String,
-    pub currency: NaiveDate,
-    pub published: NaiveDate,
 }
 
 impl ProjectFile {
@@ -516,6 +458,7 @@ impl ProjectFile {
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
+        project.check_adapters()?;
         project.drop_unknown_names(progress);
         if project
             .map_kind
@@ -531,6 +474,30 @@ impl ProjectFile {
             ));
         }
         Ok(project)
+    }
+
+    /// Fails when the file names a provider or a region the registry has no adapter for.
+    fn check_adapters(&self) -> Result<(), ProjectError> {
+        let known_provider = |id: &AdapterId| {
+            registry()
+                .adapters()
+                .any(|adapter| adapter.info().provider == *id)
+        };
+        if let Some(provider) = self.provider.as_ref().filter(|id| !known_provider(id)) {
+            return Err(ProjectError::UnknownAdapter(provider.to_string()));
+        }
+        let records = [&self.buildings, &self.land_use]
+            .into_iter()
+            .flatten()
+            .chain(self.berlin_layers.values())
+            .chain(self.nas_layers.values())
+            .chain(self.tree_layers.values());
+        for region in records.flat_map(|record| &record.regions) {
+            if registry().get(region.as_str()).is_none() {
+                return Err(ProjectError::UnknownAdapter(region.to_string()));
+            }
+        }
+        Ok(())
     }
 
     /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
@@ -704,7 +671,7 @@ pub fn init_project_with_content(
     let region_bbox = area.projected_bbox().buffered(map_kind.default_buffer_m());
     check_area(&region_bbox)?;
     let crs = map_crs(&region_bbox);
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     check_size(
         &area
             .projected_bbox_in(crs)
@@ -755,7 +722,6 @@ pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
 const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
-const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
 pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
 pub(crate) const HILLSHADE_RELPATH: &str = "templates/hillshade.png";
 pub(crate) const SLOPE_RELPATH: &str = "templates/slope.png";
@@ -765,16 +731,10 @@ pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`); the
 /// WMS gives no date of its own.
 const K5_DATASET_DATE: &str = "2026-01-02";
-/// The WMS orthophoto (GeoSN, LVermGeo) as fetched, before it becomes the template.
-pub(crate) const WMS_ORTHOPHOTO_RELPATH: &str = "data/orthophoto-wms.jpg";
-/// The WCS terrain model (LVermGeo DGM1, 1 m) with its world file.
-pub(crate) const TERRAIN_RELPATH: &str = "data/dgm1.tif";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
-/// The WCS surface model (LVermGeo DOM1, 1 m) with its world file.
-pub(crate) const SURFACE_RELPATH: &str = "data/dom1.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// OSM features matching the candidate rules (GeoJSON, EPSG:4326), input of the export.
@@ -829,13 +789,10 @@ pub fn set_map_area_with_content(
     let mut project = ProjectFile::load(dir)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     // Projects saved before the provider was recorded: that of the old area.
-    let old_provider = project.provider.or_else(|| {
-        project
-            .region_bbox()
-            .ok()
-            .and_then(|b| raster_region(&b))
-            .map(Region::provider)
-    });
+    let old_provider = project
+        .provider
+        .clone()
+        .or_else(|| project.region_bbox().ok().and_then(|b| raster_provider(&b)));
     project.map_area = area.to_geojson_value();
     project.map_area_source_id = area.source_id.clone();
     let region_bbox = project.region_bbox()?;
@@ -844,7 +801,7 @@ pub fn set_map_area_with_content(
     let crs = map_crs(&region_bbox);
     check_size(&area.projected_bbox_in(crs).buffered(project.buffer_m))?;
     // Another provider (in the same zone) serves other rasters: fetch them again too.
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     let provider_changed = old_provider.is_some() && old_provider != provider;
     let zone_changed = crs != project.crs();
     if zone_changed || provider_changed {
@@ -879,7 +836,7 @@ pub fn set_content(
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
-    raster_region(region_bbox).map_or(Crs::Utm33, Region::crs)
+    raster_region_in(registry(), region_bbox).map_or(Crs::Utm33, |adapter| adapter.info().crs)
 }
 
 fn default_crs() -> u32 {
@@ -889,7 +846,7 @@ fn default_crs() -> u32 {
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
 /// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    if raster_region(bbox).is_none() {
+    if raster_region_in(registry(), bbox).is_none() {
         return Err(ProjectError::OutsideCoverage);
     }
     check_size(bbox)
@@ -918,6 +875,68 @@ pub fn fetch_project(
     progress: &mut dyn FnMut(Note),
 ) -> Result<ProjectFile, ProjectError> {
     fetch_project_cancellable(dir, fetcher, cache, mode, progress, &|| false)
+}
+
+/// A project file with its folder, as the raster fetch of an adapter sees it.
+struct ProjectDir<'a> {
+    dir: &'a Path,
+    project: &'a mut ProjectFile,
+    /// The map area plus buffer in EPSG:25833.
+    region_bbox: BoundingBox,
+}
+
+impl RasterProject for ProjectDir<'_> {
+    fn records(&mut self) -> RasterRecords<'_> {
+        RasterRecords {
+            tiles: &mut self.project.tiles,
+            ndsm_tiles: &mut self.project.ndsm_tiles,
+            orthophoto: &mut self.project.orthophoto,
+            terrain: &mut self.project.terrain,
+            surface: &mut self.project.surface,
+        }
+    }
+
+    fn save(&mut self) -> Result<(), AdapterError> {
+        // A failed write comes as a fetch error (`fetch::write_inside`). Whatever the save
+        // fails with reaches the caller as the same error: nothing is lost, nothing panics.
+        self.project.save(self.dir).map_err(|error| match error {
+            ProjectError::Fetch(e) => AdapterError::Fetch(e),
+            ProjectError::Io(path, e) => AdapterError::Io(path, e),
+            ProjectError::Toml(message) => AdapterError::ProjectFile(message),
+            other => AdapterError::Engine(Box::new(other)),
+        })
+    }
+
+    fn dir(&self) -> &Path {
+        self.dir
+    }
+
+    fn region_bbox(&self) -> BoundingBox {
+        self.region_bbox
+    }
+
+    fn crs(&self) -> Crs {
+        self.project.crs()
+    }
+}
+
+/// Each error of a raster fetch is the engine's error it stands for, so the caller words it as
+/// before.
+impl From<AdapterError> for ProjectError {
+    fn from(error: AdapterError) -> Self {
+        match error {
+            AdapterError::Fetch(e) => ProjectError::Fetch(e),
+            AdapterError::Io(path, e) => ProjectError::Io(path, e),
+            AdapterError::ProjectFile(message) => ProjectError::Toml(message),
+            AdapterError::OrthophotoNotFetched => ProjectError::OrthophotoNotFetched,
+            AdapterError::TerrainNotFetched => ProjectError::TerrainNotFetched,
+            // The engine's own error, as it was; an error of another kind keeps its words.
+            AdapterError::Engine(e) => match e.downcast::<ProjectError>() {
+                Ok(own) => *own,
+                Err(other) => ProjectError::Toml(other.to_string()),
+            },
+        }
+    }
 }
 
 /// Stops with [`ProjectError::Cancelled`] when `cancelled` says so.
@@ -980,11 +999,11 @@ fn fetch_project_parts(
         project.drop_fetched(dir);
         project.save(dir)?;
     }
-    let provider = raster_region(&region_bbox).map(Region::provider);
+    let provider = raster_provider(&region_bbox);
     if project.provider.is_some() && project.provider != provider {
         progress(note!("warning-other-state"));
         project.drop_fetched(dir);
-        project.provider = provider;
+        project.provider = provider.clone();
         project.save(dir)?;
     }
     project.provider = provider;
@@ -1000,38 +1019,25 @@ fn fetch_project_parts(
     };
     let skips = |part: Part| plan.as_ref().is_some_and(|plan| !plan.fits(part));
     let skip_surface = skips(Part::Surface);
-    let p = &mut project;
-    match raster_region(&region_bbox).map(Region::provider) {
-        Some(Provider::LvermGeo) => {
-            fetch_lvermgeo_rasters(dir, fetcher, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgv) => {
-            fetch_lgv_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::GeoSn) => {
-            fetch_geosn_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Hvbg) => {
-            fetch_hvbg_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LvermGeoSh) => {
-            fetch_sh_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LaivMv) => {
-            fetch_mv_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::GeobasisNrw) => {
-            fetch_nrw_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgln) => {
-            fetch_lgln_rasters(dir, fetcher, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::LvermGeoRp) => {
-            fetch_rp_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
-        Some(Provider::Lgb) | None => {
-            fetch_lgb_rasters(dir, fetcher, cache, mode, skip_surface, p, &bbox, progress)?
-        }
+    {
+        let mut env = AdapterEnv {
+            fetcher,
+            regions: registry(),
+            cache,
+            mode,
+            today: crate::clock::today(),
+            skip_surface,
+            progress: &mut *progress,
+        };
+        let (env, p) = (
+            &mut env,
+            &mut ProjectDir {
+                dir,
+                project: &mut project,
+                region_bbox,
+            },
+        );
+        raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
     }
     stop_if(cancelled)?;
     project.save(dir)?;
@@ -1041,7 +1047,7 @@ fn fetch_project_parts(
         bbox: project.bbox()?,
     };
     let previous = project.buildings.as_ref();
-    let buildings = fetch_buildings_into(dir, fetcher, &area, mode, previous, progress)?;
+    let buildings = fetch_buildings_into(dir, fetcher, cache, &area, mode, previous, progress)?;
     stop_if(cancelled)?;
     if let Some(record) = buildings {
         project.buildings = Some(record);
@@ -1050,6 +1056,7 @@ fn fetch_project_parts(
     let land_use = fetch_land_use_into(
         dir,
         fetcher,
+        cache,
         &area,
         mode,
         project.land_use.as_ref(),
@@ -1218,348 +1225,11 @@ fn check_space(
     Ok(Some(plan))
 }
 
-/// The LGB rasters of `bbox`: orthophoto and DTM tiles, the nDOM point clouds, and the bDOM where
-/// no nDOM is published. With `skip_surface` (no disk space for it) neither surface model is
-/// downloaded; the cached tiles recorded before stay.
-#[allow(clippy::too_many_arguments)]
-fn fetch_lgb_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    let tiles = raster_tiles(bbox, Provider::Lgb, 1, progress);
-    let mut records = Vec::new();
-    for product in PRODUCTS {
-        for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, progress)? {
-            let record = TileRecord {
-                product,
-                tile: fetched.tile.name(),
-                url: fetched.url,
-                currency: fetched.currency.currency(),
-                published: fetched.currency.published,
-            };
-            let previous = project
-                .tiles
-                .iter()
-                .find(|r| r.product == product && r.tile == record.tile);
-            if let Some(previous) = previous.filter(|p| p.published != record.published) {
-                progress(note!(
-                    "warning-tile-changed",
-                    product = format!("{product:?}"),
-                    tile = &record.tile,
-                    old = previous.published.to_string(),
-                    new = record.published.to_string()
-                ));
-            }
-            records.push(record);
-        }
-    }
-    // Record the tiles first: they may have replaced older cached versions, and a failing
-    // buildings download must not leave the project pointing at those.
-    let previous_dsm: Vec<TileRecord> = project
-        .tiles
-        .iter()
-        .filter(|r| r.product == Product::ImageDsm)
-        .cloned()
-        .collect();
-    project.tiles = records;
-    project.save(dir)?;
-    if skip_surface {
-        let cached = |tile: &str, path: &dyn Fn(TileId) -> PathBuf| {
-            TileId::parse(tile).is_some_and(|t| tiles.contains(&t) && path(t).exists())
-        };
-        project
-            .ndsm_tiles
-            .retain(|r| cached(&r.tile, &|t| cache.ndsm_path(t, r.published)));
-        project.tiles.extend(
-            previous_dsm
-                .into_iter()
-                .filter(|r| cached(&r.tile, &|t| cache.tile_path(r.product, t, r.published))),
-        );
-        let kept: Vec<&str> = project
-            .ndsm_tiles
-            .iter()
-            .map(|r| r.tile.as_str())
-            .chain(
-                project
-                    .tiles
-                    .iter()
-                    .filter(|r| r.product == Product::ImageDsm)
-                    .map(|r| r.tile.as_str()),
-            )
-            .collect();
-        say_kept_surface_tiles(&kept, progress);
-        drop_wms_orthophoto(dir, project);
-        project.save(dir)?;
-        return Ok(());
-    }
-    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, progress)?
-        .into_iter()
-        .map(|t| NdsmRecord {
-            tile: t.tile.name(),
-            url: t.url,
-            published: t.published,
-        })
-        .collect();
-    for record in &ndsm_tiles {
-        let previous = project.ndsm_tiles.iter().find(|p| p.tile == record.tile);
-        if let Some(previous) = previous.filter(|p| p.published != record.published)
-            && let (Some(old), Some(new)) = (previous.published, record.published)
-        {
-            progress(note!(
-                "warning-tile-changed",
-                product = "nDSM",
-                tile = &record.tile,
-                old = old.to_string(),
-                new = new.to_string()
-            ));
-        }
-    }
-    // Where no nDOM point cloud is published (Berlin), the nDSM comes from the bDOM surface
-    // model minus the DTM. It is only a template: an unavailable bDOM costs a warning.
-    let without_ndsm: Vec<TileId> = tiles
-        .iter()
-        .copied()
-        .filter(|tile| !ndsm_tiles.iter().any(|r| r.tile == tile.name()))
-        .collect();
-    project.ndsm_tiles = ndsm_tiles;
-    if !without_ndsm.is_empty() {
-        match fetch_tiles_each(
-            fetcher,
-            cache,
-            Product::ImageDsm,
-            &without_ndsm,
-            mode,
-            progress,
-        ) {
-            Ok(results) => {
-                for (tile, result) in results {
-                    let fetched = match result {
-                        Ok(fetched) => fetched,
-                        Err(e) => {
-                            progress(note!(
-                                "warning-bdom-tile-unavailable",
-                                tile = tile.name(),
-                                error = Arg::error(e)
-                            ));
-                            continue;
-                        }
-                    };
-                    progress(note!("progress-ndsm-from-bdom", tile = tile.name()));
-                    let record = TileRecord {
-                        product: Product::ImageDsm,
-                        tile: tile.name(),
-                        url: fetched.url,
-                        currency: fetched.currency.currency(),
-                        published: fetched.currency.published,
-                    };
-                    if let Some(previous) = previous_dsm
-                        .iter()
-                        .find(|p| p.tile == record.tile && p.published != record.published)
-                    {
-                        progress(note!(
-                            "warning-tile-changed",
-                            product = format!("{:?}", Product::ImageDsm),
-                            tile = &record.tile,
-                            old = previous.published.to_string(),
-                            new = record.published.to_string()
-                        ));
-                    }
-                    project.tiles.push(record);
-                }
-            }
-            Err(e) => progress(note!(
-                "warning-bdom-unavailable",
-                error = Arg::error(e),
-                tiles = crate::fetch::tile_names(&without_ndsm)
-            )),
-        }
-    }
-    drop_wms_orthophoto(dir, project);
-    project.save(dir)?;
-    Ok(())
-}
-
-/// An orthophoto of an earlier map area in another state (GeoSN and the per-area providers) is
-/// no longer used by an LGB project.
-fn drop_wms_orthophoto(dir: &Path, project: &mut ProjectFile) {
-    project.orthophoto = None;
-    let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
-    for stale in [wms.clone(), wms.with_extension("jgw")] {
-        freemapper_fs::remove_inside(dir, &stale);
-    }
-}
-
-/// The GeoSN rasters of `bbox`: DGM1 tiles, DOM1 tiles for the nDSM (each one optional: it is
-/// only a template; with `skip_surface` only the cached ones recorded before), and the
-/// orthophoto from the WMS.
-#[allow(clippy::too_many_arguments)]
-fn fetch_geosn_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    let tiles = raster_tiles(
-        bbox,
-        Provider::GeoSn,
-        Product::SaxonyDtm.grid_km(),
-        progress,
-    );
-    let previous = std::mem::take(&mut project.tiles);
-    let mut records = Vec::new();
-    for fetched in fetch_tiles(fetcher, cache, Product::SaxonyDtm, &tiles, mode, progress)? {
-        records.push(tile_record(fetched, &previous, progress));
-    }
-    project.tiles = records;
-    project.ndsm_tiles.clear();
-    project.save(dir)?;
-    let dsm = if skip_surface {
-        let cached = previous.iter().filter(|r| {
-            r.product == Product::SaxonyDsm
-                && TileId::parse(&r.tile).is_some_and(|t| {
-                    tiles.contains(&t) && cache.tile_path(r.product, t, r.published).exists()
-                })
-        });
-        project.tiles.extend(cached.cloned());
-        let kept: Vec<&str> = project
-            .tiles
-            .iter()
-            .filter(|r| r.product == Product::SaxonyDsm)
-            .map(|r| r.tile.as_str())
-            .collect();
-        say_kept_surface_tiles(&kept, progress);
-        Ok(Vec::new())
-    } else {
-        fetch_tiles_each(fetcher, cache, Product::SaxonyDsm, &tiles, mode, progress)
-    };
-    match dsm {
-        Ok(results) => {
-            for (tile, result) in results {
-                match result {
-                    Ok(fetched) => project
-                        .tiles
-                        .push(tile_record(fetched, &previous, progress)),
-                    Err(e) => progress(note!(
-                        "warning-model-tile-unavailable",
-                        model = crate::note::model(Product::SaxonyDsm.label()),
-                        tile = tile.name(),
-                        error = Arg::error(e)
-                    )),
-                }
-            }
-        }
-        Err(e) => progress(note!(
-            "warning-model-unavailable",
-            model = crate::note::model(Product::SaxonyDsm.label()),
-            error = Arg::error(e)
-        )),
-    }
-    let flight = || crate::sources::geosn::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(crate::sources::geosn::WMS),
-            "GeoSN",
-            &flight,
-            None,
-        ),
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The orthophoto of `bbox` from a WMS or WCS into [`WMS_ORTHOPHOTO_RELPATH`]: downloaded again only
-/// when the flight date changed (the date tells whether the state flew the area again);
-/// offline, the stored image must cover `bbox`. `label` names a date that is no flight date as
-/// such, in the record and in the log.
-fn fetch_wms_orthophoto(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    (source, provider, flight_date, label): (
-        &OrthophotoSource,
-        &str,
-        &dyn Fn() -> Option<String>,
-        Option<&DateLabel>,
-    ),
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    let path = dir.join(WMS_ORTHOPHOTO_RELPATH);
-    match mode {
-        FetchMode::Online => {
-            let flight = flight_date();
-            // Reused while the stored image covers the area and the flight date is the same.
-            // Without a date from the service (none known, or the query failed), the image is
-            // reused only while it is recent, and keeps the date it has.
-            let today = crate::clock::today();
-            let recent =
-                |r: &WmsRecord| (today - r.fetched).num_days() < UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
-            let unchanged = project.orthophoto.as_ref().is_some_and(|r| {
-                r.covers(bbox)
-                    && if flight.is_some() {
-                        r.flight == flight
-                    } else {
-                        recent(r)
-                    }
-            }) && path.exists();
-            if unchanged {
-                let kept = flight
-                    .as_deref()
-                    .or_else(|| project.orthophoto.as_ref()?.flight.as_deref());
-                let shown = label.map_or("flight", |l| l.shown);
-                progress(match kept {
-                    Some(date) => {
-                        note!(
-                            "progress-orthophoto-unchanged-dated",
-                            label = shown,
-                            date = date
-                        )
-                    }
-                    None => note!("progress-orthophoto-unchanged"),
-                });
-            } else {
-                progress(note!(
-                    "progress-orthophoto-download",
-                    provider = provider,
-                    service = source.kind()
-                ));
-                crate::sources::wms::fetch_orthophoto_from(fetcher, source, bbox, dir, &path)?;
-                let flight_label = label
-                    .filter(|_| flight.is_some())
-                    .map(|l| l.record.to_string());
-                project.orthophoto = Some(WmsRecord {
-                    flight,
-                    flight_label,
-                    fetched: crate::clock::today(),
-                    bbox: stored_bbox(bbox),
-                });
-            }
-        }
-        FetchMode::Offline => {
-            let covered = project.orthophoto.as_ref().is_some_and(|r| r.covers(bbox));
-            if !path.exists() || !covered {
-                return Err(ProjectError::OrthophotoNotFetched);
-            }
-        }
-    }
-    Ok(())
+/// The raster backend of a map of `region_bbox`: that of the region its centre lies in.
+fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBackend, ProjectError> {
+    raster_region_in(registry(), region_bbox)
+        .and_then(|adapter| adapter.rasters())
+        .ok_or(ProjectError::OutsideCoverage)
 }
 
 /// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
@@ -1625,883 +1295,6 @@ fn fetch_k5_into(
     }
 }
 
-/// The warning for a map area that reaches beyond the union of the supported states: abroad, into
-/// sea outside a state boundary, or into a German state that is no region yet (Bremen, Thuringia,
-/// Bavaria, Baden-Württemberg, Saarland). The states' services stop at
-/// their borders.
-/// How many days a stored orthophoto is reused while the service gives no flight date (none known,
-/// or the query failed) before the next online fetch downloads it again.
-const UNDATED_ORTHOPHOTO_MAX_AGE_DAYS: i64 = 30;
-
-/// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
-/// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
-fn fetch_lvermgeo_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::lvermgeo::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    // LVermGeo serves Saxony-Anhalt only; LGB and GeoSN report this through their missing tiles.
-    warn_beyond_state(project, Provider::LvermGeo, "LVermGeo", progress)?;
-    let flight = || lvermgeo::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(lvermgeo::WMS),
-            "LVermGeo",
-            &flight,
-            None,
-        ),
-        progress,
-    )?;
-    let record = |date: Option<String>| WcsRecord {
-        fetched: crate::clock::today(),
-        bbox: stored_bbox(bbox),
-        date,
-    };
-    match mode {
-        FetchMode::Online => {
-            progress(note!(
-                "progress-model-download",
-                model = crate::note::model(Model::Dgm1.label())
-            ));
-            lvermgeo::fetch_model(fetcher, Model::Dgm1, bbox, dir, &dir.join(TERRAIN_RELPATH))?;
-            project.terrain = Some(record(None));
-            if skip_surface {
-                keep_stored_surface(dir, mode, project, bbox, progress);
-                project.save(dir)?;
-                return Ok(());
-            }
-            progress(note!(
-                "progress-model-download",
-                model = crate::note::model(Model::Dom1.label())
-            ));
-            match lvermgeo::fetch_model(fetcher, Model::Dom1, bbox, dir, &dir.join(SURFACE_RELPATH))
-            {
-                Ok(()) => project.surface = Some(record(lvermgeo::surface_date(fetcher, bbox))),
-                Err(e) => progress(note!(
-                    "warning-model-unavailable",
-                    model = crate::note::model(Model::Dom1.label()),
-                    error = Arg::error(e)
-                )),
-            }
-        }
-        FetchMode::Offline => {
-            let stored = |r: &Option<WcsRecord>, relpath: &str| {
-                r.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
-            };
-            if !stored(&project.terrain, TERRAIN_RELPATH) {
-                return Err(ProjectError::TerrainNotFetched);
-            }
-            if !stored(&project.surface, SURFACE_RELPATH) {
-                progress(note!("warning-no-surface-stored"));
-            }
-        }
-    }
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The LGV rasters of `bbox` (EPSG:25832): the orthophoto from the WMS (2026), DGM1 and bDOM
-/// (2022) read out of the statewide archives. The bDOM is only a template: an unavailable one
-/// costs a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_lgv_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::lgv::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Lgv, "LGV", progress)?;
-    let flight = || lgv::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (&OrthophotoSource::Wms(lgv::WMS), "LGV", &flight, None),
-        progress,
-    )?;
-    // Offline the tiles come from the cache: they were fetched when the record says.
-    let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
-        fetched: match (mode, old) {
-            (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => crate::clock::today(),
-        },
-        bbox: stored_bbox(bbox),
-        date: Some(model.date().to_string()),
-    };
-    let warn_missing = |progress: &mut dyn FnMut(Note), model: Model, missing: Vec<_>| {
-        if !missing.is_empty() {
-            progress(note!(
-                "warning-model-tiles-missing",
-                model = crate::note::model(model.label()),
-                count = missing.len(),
-                names = lgv::names(&missing),
-                state = "hamburg"
-            ));
-        }
-    };
-    progress(note!(
-        "progress-model-read",
-        model = crate::note::model(Model::Dgm1.label())
-    ));
-    let missing = lgv::fetch_model(
-        fetcher,
-        cache,
-        mode,
-        Model::Dgm1,
-        bbox,
-        dir,
-        &dir.join(TERRAIN_RELPATH),
-    )?;
-    warn_missing(progress, Model::Dgm1, missing);
-    project.terrain = Some(record(Model::Dgm1, &project.terrain));
-    if skip_surface {
-        keep_stored_surface(dir, mode, project, bbox, progress);
-        project.save(dir)?;
-        return Ok(());
-    }
-    progress(note!(
-        "progress-model-read",
-        model = crate::note::model(Model::Bdom.label())
-    ));
-    match lgv::fetch_model(
-        fetcher,
-        cache,
-        mode,
-        Model::Bdom,
-        bbox,
-        dir,
-        &dir.join(SURFACE_RELPATH),
-    ) {
-        Ok(missing) => {
-            warn_missing(progress, Model::Bdom, missing);
-            project.surface = Some(record(Model::Bdom, &project.surface));
-        }
-        Err(e) => progress(note!(
-            "warning-model-unavailable",
-            model = crate::note::model(Model::Bdom.label()),
-            error = Arg::error(e)
-        )),
-    }
-    project.save(dir)?;
-    Ok(())
-}
-
-/// Reports once that the map area reaches into a state other than `provider`'s. Whether the `name`
-/// rasters end at the border depends on the service (the LGLN WMS and WCS cover the Hamburg corner
-/// but the WMS is white in Bremen; the LVermGeo RP WMS is white across the Rhine at Mainz while
-/// its tiles cover Wiesbaden; tiles may reach slightly past), so the line promises no empty
-/// templates. ALKIS and OSM are read from both states.
-fn warn_beyond_state(
-    project: &ProjectFile,
-    provider: Provider,
-    name: &str,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    if regions_for(&project.region_bbox()?)
-        .iter()
-        .any(|r| r.provider() != provider)
-    {
-        progress(note!("progress-beyond-border", provider = name));
-    }
-    Ok(())
-}
-
-/// The record of a height model just read; offline the tiles come from the cache, so the record
-/// keeps the date they were fetched.
-fn height_record(
-    mode: FetchMode,
-    bbox: &BoundingBox,
-    found: &crate::sources::height_model::HeightModel,
-    old: &Option<WcsRecord>,
-) -> WcsRecord {
-    WcsRecord {
-        fetched: match (mode, old) {
-            (FetchMode::Offline, Some(old)) => old.fetched,
-            _ => crate::clock::today(),
-        },
-        bbox: stored_bbox(bbox),
-        // Offline without the portal's tile list there is no date: the stored file is unchanged.
-        date: found.date.clone().or_else(|| {
-            old.as_ref()
-                .filter(|_| mode == FetchMode::Offline)?
-                .date
-                .clone()
-        }),
-    }
-}
-
-/// The warning for the tiles of `label` that the provider lacks inside `state`.
-fn warn_missing_tiles(
-    progress: &mut dyn FnMut(Note),
-    state: &str,
-    label: &str,
-    found: &crate::sources::height_model::HeightModel,
-) {
-    if !found.missing.is_empty() {
-        progress(note!(
-            "warning-model-tiles-missing",
-            model = crate::note::model(label),
-            count = found.missing.len(),
-            names = crate::sources::lgv::names(&found.missing),
-            // The catalogs name the state by this key.
-            state = state.to_lowercase().replace(' ', "-")
-        ));
-    }
-}
-
-/// The HVBG rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 read out
-/// of the Downloadcenter's municipal zips. The DOM1 is only a template: an unavailable one costs
-/// a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_hvbg_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::hvbg::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Hvbg, "HVBG", progress)?;
-    let flight = || hvbg::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (&OrthophotoSource::Wms(hvbg::WMS), "HVBG", &flight, None),
-        progress,
-    )?;
-    // What both models report alike is said once, after both: the places without a
-    // Downloadcenter file (with the tiles that stayed empty for want of another file) and
-    // the metadata list's problems.
-    let mut unresolved: Vec<String> = Vec::new();
-    let mut unresolved_empty: Vec<TileId> = Vec::new();
-    let mut list_warnings: Vec<Note> = Vec::new();
-    let mut memo = hvbg::MetadataMemo::default();
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "Hesse",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            hvbg::fetch_model_with(fetcher, cache, mode, model, bbox, dir, out, &mut memo)
-        },
-        &mut |_, found, _, _| {
-            for place in &found.unresolved {
-                if !unresolved.contains(place) {
-                    unresolved.push(place.clone());
-                }
-            }
-            for tile in &found.unresolved_empty {
-                if !unresolved_empty.contains(tile) {
-                    unresolved_empty.push(*tile);
-                }
-            }
-            for warning in &found.warnings {
-                if !list_warnings.contains(warning) {
-                    list_warnings.push(warning.clone());
-                }
-            }
-        },
-        progress,
-    )?;
-    for warning in &list_warnings {
-        progress(warning.clone());
-    }
-    if !unresolved.is_empty() {
-        let places: Vec<String> = unresolved.iter().map(|p| format!("\"{p}\"")).collect();
-        progress(if unresolved_empty.is_empty() {
-            note!("warning-downloadcenter-no-file", places = places.join(", "))
-        } else {
-            note!(
-                "warning-downloadcenter-no-file-empty",
-                places = places.join(", "),
-                count = unresolved_empty.len(),
-                names = crate::sources::lgv::names(&unresolved_empty)
-            )
-        });
-    }
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The Geobasis NRW rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1
-/// from the 1 km tiles. The DOM1 is only a template: an unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_nrw_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::geobasis_nrw::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::GeobasisNrw, "Geobasis NRW", progress)?;
-    let flight = || geobasis_nrw::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(geobasis_nrw::WMS),
-            "Geobasis NRW",
-            &flight,
-            None,
-        ),
-        progress,
-    )?;
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "North Rhine-Westphalia",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
-/// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
-/// names. The DOM1 is only a template: an unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_rp_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::lvermgeo_rp::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    // The WMS is white beyond the state border, while the tiles reach across it.
-    warn_beyond_state(project, Provider::LvermGeoRp, "LVermGeo RP", progress)?;
-    let flight = || lvermgeo_rp::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(lvermgeo_rp::WMS),
-            "LVermGeo RP",
-            &flight,
-            // The block's creation date, taken as the flight date: the record and the log say so.
-            Some(&lvermgeo_rp::FLIGHT_LABEL),
-        ),
-        progress,
-    )?;
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "the map area",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The LVermGeo SH rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and bDOM
-/// from the Downloadportal. The bDOM is only a template (and a 105 MB download per km²): an
-/// unavailable one costs a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_sh_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::lvermgeo_sh::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::LvermGeoSh, "LVermGeo SH", progress)?;
-    let flight = || lvermgeo_sh::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(lvermgeo_sh::WMS),
-            "LVermGeo SH",
-            &flight,
-            None,
-        ),
-        progress,
-    )?;
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "Schleswig-Holstein",
-        (Model::Dgm1.label(), Model::Bdom.label()),
-        &mut |surface, out, progress| {
-            let model = if surface { Model::Bdom } else { Model::Dgm1 };
-            lvermgeo_sh::fetch_model(fetcher, cache, mode, model, bbox, dir, out, progress)
-        },
-        &mut |surface, found, project, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-            if !surface {
-                return;
-            }
-            let year = |date: &str, flight_style: bool| -> Option<i32> {
-                let part = if flight_style {
-                    date.rsplit('.').next()
-                } else {
-                    date.split('-').next()
-                };
-                part?.parse().ok()
-            };
-            let flight_year = project
-                .orthophoto
-                .as_ref()
-                .and_then(|o| o.flight.as_deref())
-                .and_then(|d| year(d, true));
-            let surface_year = found.date.as_deref().and_then(|d| year(d, false));
-            if let (Some(photo), Some(surface)) = (flight_year, surface_year)
-                && photo - surface >= 1
-            {
-                progress(note!(
-                    "warning-surface-older-than-orthophoto",
-                    surface = surface.to_string(),
-                    photo = photo.to_string()
-                ));
-            }
-        },
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The LAiV M-V rasters of `bbox` (EPSG:25833): the orthophoto from the DOP WCS, DGM1 and DOM1
-/// from the height WCS, masked to the MV tile set. The DOM1 is only a template: an unavailable
-/// one costs a warning.
-#[allow(clippy::too_many_arguments)]
-fn fetch_mv_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    cache: &Cache,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::laiv_mv::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::LaivMv, "LAiV M-V", progress)?;
-    let flight = || laiv_mv::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wcs(laiv_mv::DOP),
-            "LAiV M-V",
-            &flight,
-            None,
-        ),
-        progress,
-    )?;
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "Mecklenburg-Vorpommern",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            laiv_mv::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The LGLN rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from the
-/// WCS, all dated by the STAC searches. The DOM1 is only a template: an unavailable one costs a
-/// warning, and so does one much older than the orthophoto.
-fn fetch_lgln_rasters(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    mode: FetchMode,
-    skip_surface: bool,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    use crate::sources::lgln::{self, Model};
-    project.tiles.clear();
-    project.ndsm_tiles.clear();
-    warn_beyond_state(project, Provider::Lgln, "LGLN", progress)?;
-    // One DOP search gives the flight date and the leaf state; offline nothing is asked.
-    let (flown, missing) = match mode {
-        FetchMode::Online => match lgln::orthophoto_date(fetcher, bbox) {
-            Ok(Some(date)) => (Some(date), None),
-            Ok(None) => (None, Some(note!("word-stac-no-image"))),
-            Err(e) => (
-                None,
-                Some(note!("word-stac-no-answer", error = Arg::error(e))),
-            ),
-        },
-        FetchMode::Offline => (None, None),
-    };
-    let flight_text = flown.map(|date| date.format("%d.%m.%Y").to_string());
-    let flight = || flight_text.clone();
-    fetch_wms_orthophoto(
-        dir,
-        fetcher,
-        mode,
-        project,
-        bbox,
-        (&OrthophotoSource::Wms(lgln::WMS), "LGLN", &flight, None),
-        progress,
-    )?;
-    // Without a fresh date a recent stored orthophoto is kept with its own (see
-    // `fetch_wms_orthophoto`); the warning says which of the two happened.
-    let stored = project.orthophoto.as_ref().and_then(|o| o.flight.clone());
-    if let Some(reason) = missing {
-        progress(match &stored {
-            Some(date) => note!("warning-lgln-orthophoto-kept", reason = reason, date = date),
-            None => note!("warning-lgln-orthophoto-undated", reason = reason),
-        });
-    }
-    let shown = stored
-        .as_deref()
-        .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
-    if let (FetchMode::Online, Some(date)) = (mode, shown) {
-        progress(lgln::leaf_state(date));
-    }
-    fetch_area_heights(
-        dir,
-        (mode, skip_surface),
-        project,
-        bbox,
-        "Lower Saxony",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            lgln::fetch_model(fetcher, mode, model, bbox, dir, out)
-        },
-        &mut |surface, found, project, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-            if !surface {
-                return;
-            }
-            // The stored flight date also covers an orthophoto kept after a failed search.
-            let flight = project
-                .orthophoto
-                .as_ref()
-                .and_then(|o| o.flight.as_deref())
-                .and_then(|d| NaiveDate::parse_from_str(d, "%d.%m.%Y").ok());
-            let scanned = found
-                .date
-                .as_deref()
-                .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
-            if let (Some(scanned), Some(flight)) = (scanned, flight)
-                && let Some(warning) = lgln::surface_age_warning(scanned, flight)
-            {
-                progress(warning.clone());
-            }
-        },
-        progress,
-    )?;
-    project.save(dir)?;
-    Ok(())
-}
-
-/// The terrain model (required) and the surface model (a template: a failure costs a warning;
-/// with `skip_surface` it is not read, and the stored one stays while it covers `bbox`) of a
-/// per-area provider whose fetch reports a [`HeightModel`](crate::sources::height_model::HeightModel).
-/// `fetch(surface, out, progress)` reads one model into `out`; `after(surface, found, project, progress)`
-/// says what is specific to the provider once a model was read.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-fn fetch_area_heights(
-    dir: &Path,
-    (mode, skip_surface): (FetchMode, bool),
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    state: &str,
-    (terrain_label, surface_label): (&str, &str),
-    fetch: &mut dyn FnMut(
-        bool,
-        &Path,
-        &mut dyn FnMut(Note),
-    ) -> Result<crate::sources::height_model::HeightModel, FetchError>,
-    after: &mut dyn FnMut(
-        bool,
-        &crate::sources::height_model::HeightModel,
-        &ProjectFile,
-        &mut dyn FnMut(Note),
-    ),
-    progress: &mut dyn FnMut(Note),
-) -> Result<(), ProjectError> {
-    progress(note!(
-        "progress-model-read",
-        model = crate::note::model(terrain_label)
-    ));
-    let found = fetch(false, &dir.join(TERRAIN_RELPATH), progress)?;
-    warn_missing_tiles(progress, state, terrain_label, &found);
-    after(false, &found, project, progress);
-    project.terrain = Some(height_record(mode, bbox, &found, &project.terrain));
-    if skip_surface {
-        keep_stored_surface(dir, mode, project, bbox, progress);
-        project.save(dir)?;
-        return Ok(());
-    }
-    progress(note!(
-        "progress-model-read",
-        model = crate::note::model(surface_label)
-    ));
-    match fetch(true, &dir.join(SURFACE_RELPATH), progress) {
-        Ok(found) => {
-            warn_missing_tiles(progress, state, surface_label, &found);
-            after(true, &found, project, progress);
-            project.surface = Some(height_record(mode, bbox, &found, &project.surface));
-        }
-        Err(e) => keep_surface(
-            dir,
-            mode,
-            project,
-            bbox,
-            surface_label,
-            Arg::error(e),
-            progress,
-        ),
-    }
-    project.save(dir)?;
-    Ok(())
-}
-
-/// After the surface model `label` of a per-area provider failed with `e`: the stored one is
-/// kept when its record still covers `bbox` (derive uses it), and dropped with its file when it
-/// does not; offline nothing is deleted (derive ignores a record that does not cover the area).
-fn keep_surface(
-    dir: &Path,
-    mode: FetchMode,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    label: &str,
-    e: Arg,
-    progress: &mut dyn FnMut(Note),
-) {
-    let model = crate::note::model(label);
-    match stored_surface_or_drop(dir, mode, project, bbox) {
-        Some(fetched) => progress(note!(
-            "warning-model-unavailable-kept",
-            model = model,
-            error = e,
-            fetched = fetched.to_string()
-        )),
-        None => progress(note!("warning-model-unavailable", model = model, error = e)),
-    }
-}
-
-/// The surface model of a per-area provider left out for lack of disk space: the stored one stays
-/// while it covers `bbox`, and the user hears so.
-fn keep_stored_surface(
-    dir: &Path,
-    mode: FetchMode,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-    progress: &mut dyn FnMut(Note),
-) {
-    if let Some(fetched) = stored_surface_or_drop(dir, mode, project, bbox) {
-        progress(note!(
-            "progress-surface-kept",
-            fetched = fetched.to_string()
-        ));
-    }
-}
-
-/// After the surface model of a tile provider was left out: the cached tiles that still serve.
-fn say_kept_surface_tiles(tiles: &[&str], progress: &mut dyn FnMut(Note)) {
-    if !tiles.is_empty() {
-        progress(note!(
-            "progress-surface-tiles-kept",
-            count = tiles.len(),
-            names = tiles.join(", ")
-        ));
-    }
-}
-
-/// The surface model of a per-area provider that is not read this time: the stored one stays
-/// while its record covers `bbox` (the day it was fetched is returned); else it is dropped with
-/// its file, online only (offline derive ignores a record that does not cover the area).
-fn stored_surface_or_drop(
-    dir: &Path,
-    mode: FetchMode,
-    project: &mut ProjectFile,
-    bbox: &BoundingBox,
-) -> Option<NaiveDate> {
-    let stored = project
-        .surface
-        .as_ref()
-        .filter(|r| r.covers(bbox) && dir.join(SURFACE_RELPATH).exists());
-    if let Some(record) = stored {
-        return Some(record.fetched);
-    }
-    if mode == FetchMode::Online {
-        project.surface = None;
-        let surface = dir.join(SURFACE_RELPATH);
-        for file in [surface.clone(), surface.with_extension("tfw")] {
-            freemapper_fs::remove_inside(dir, &file);
-        }
-    }
-    None
-}
-
-/// The tiles of the provider's `km` grid over `bbox` that touch its regions; the others are not
-/// published, and the templates stay empty there (reported once).
-fn raster_tiles(
-    bbox: &BoundingBox,
-    provider: Provider,
-    km: u32,
-    progress: &mut dyn FnMut(Note),
-) -> Vec<TileId> {
-    if provider.per_area() {
-        // No 25833 tile grid (Hesse even has negative eastings, which a `TileId` cannot hold).
-        return Vec::new();
-    }
-    let tiles = provider_tiles(bbox, provider, km);
-    let outside: Vec<TileId> = tiles_covering_grid(bbox, km)
-        .into_iter()
-        .filter(|t| !tiles.contains(t))
-        .collect();
-    if !outside.is_empty() {
-        progress(note!(
-            "progress-beyond-border-no-data",
-            provider = match provider {
-                Provider::Lgb => "LGB",
-                Provider::GeoSn => "GeoSN",
-                Provider::LvermGeo => "LVermGeo",
-                Provider::Lgv => "LGV",
-                Provider::Hvbg => "HVBG",
-                Provider::LvermGeoSh => "LVermGeo SH",
-                Provider::LaivMv => "LAiV M-V",
-                Provider::GeobasisNrw => "Geobasis NRW",
-                Provider::Lgln => "LGLN",
-                Provider::LvermGeoRp => "LVermGeo RP",
-            },
-            tiles = crate::fetch::tile_names(&outside)
-        ));
-    }
-    tiles
-}
-
-/// The record of a fetched tile; warns when the tile was republished since `previous`.
-fn tile_record(
-    fetched: FetchedTile,
-    previous: &[TileRecord],
-    progress: &mut dyn FnMut(Note),
-) -> TileRecord {
-    let record = TileRecord {
-        product: fetched.product,
-        tile: fetched.tile.name(),
-        url: fetched.url,
-        currency: fetched.currency.currency(),
-        published: fetched.currency.published,
-    };
-    if let Some(old) = previous.iter().find(|p| {
-        p.product == record.product && p.tile == record.tile && p.published != record.published
-    }) {
-        progress(note!(
-            "warning-tile-changed",
-            product = format!("{:?}", record.product),
-            tile = &record.tile,
-            old = old.published.to_string(),
-            new = record.published.to_string()
-        ));
-    }
-    record
-}
-
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs
 /// ([`extracts_for`]: one per state, one per North Rhine-Westphalia government district) into
 /// [`OSM_CANDIDATES_RELPATH`]; a feature in two extracts is kept once. Offline from the cached
@@ -2519,12 +1312,12 @@ fn fetch_osm_into(
     let area = project.area()?.geo_box(project.buffer_m);
     let mut extracts = Vec::new();
     for source in extracts_for(&project.region_bbox()?, progress) {
-        let mode = if skip_update && cached_extract_date(cache, source).is_some() {
+        let mode = if skip_update && cached_extract_date(cache, &source).is_some() {
             FetchMode::Offline
         } else {
             mode
         };
-        match fetch_extract(fetcher, cache, source, mode, progress) {
+        match fetch_extract(fetcher, cache, &source, mode, progress) {
             Ok(extract) => extracts.push((source, extract)),
             // Offline without an extract, stored candidates that cover the area are still good.
             Err(FetchError::OsmExtractMissing)
@@ -2585,12 +1378,31 @@ fn merge_features(parts: Vec<Vec<OsmFeature>>) -> Vec<OsmFeature> {
     features
 }
 
+/// The surroundings of an ALKIS fetch: the services are asked through the adapters.
+fn alkis_env<'a>(
+    fetcher: &'a dyn Fetcher,
+    cache: &'a CacheDir,
+    mode: FetchMode,
+    progress: &'a mut dyn FnMut(Note),
+) -> AdapterEnv<'a> {
+    AdapterEnv {
+        fetcher,
+        regions: registry(),
+        cache,
+        mode,
+        today: crate::clock::today(),
+        skip_surface: false,
+        progress,
+    }
+}
+
 /// Downloads the ALKIS buildings in `bbox` to [`BUILDINGS_RELPATH`] and returns the new record;
 /// the stored file is only replaced by an answer that parses. Offline, the stored file must
 /// exist and, if recorded, cover `bbox`; nothing new is recorded then.
 fn fetch_buildings_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
+    cache: &CacheDir,
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
@@ -2610,7 +1422,7 @@ fn fetch_buildings_into(
         };
     }
     progress(note!("progress-alkis-buildings-download"));
-    let text = fetch_buildings_in(fetcher, area)?;
+    let text = fetch_buildings_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_inside(dir, &path, text.as_bytes())?;
     let count = parsed.buildings.len();
@@ -2671,6 +1483,7 @@ fn fetch_buildings_into(
 fn fetch_land_use_into(
     dir: &Path,
     fetcher: &dyn Fetcher,
+    cache: &CacheDir,
     area: &FetchArea,
     mode: FetchMode,
     previous: Option<&AlkisRecord>,
@@ -2685,7 +1498,8 @@ fn fetch_land_use_into(
         return None;
     }
     progress(note!("progress-alkis-land-use-download"));
-    let downloaded = fetch_land_use_in(fetcher, area).and_then(|text| {
+    let fetched = fetch_land_use_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area);
+    let downloaded = fetched.and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
         write_inside(dir, &dir.join(LAND_USE_RELPATH), text.as_bytes())?;
         Ok(land_use)
@@ -2850,7 +1664,9 @@ fn fetch_berlin_layers_into(
                         fetched: crate::clock::today(),
                         latest_update: None,
                         count,
-                        regions: vec![Region::Berlin],
+                        regions: vec![AdapterId::built_in(
+                            freemapper_adapters_de::boundaries::BERLIN,
+                        )],
                     },
                 );
             }
@@ -2988,7 +1804,7 @@ fn fetch_nas_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched.regions,
+                        regions: fetched.regions.clone(),
                     },
                 );
             }
@@ -3058,12 +1874,10 @@ pub fn stored_nas_layers(
     Ok(layers)
 }
 
-/// The tree dataset the project file records under `key`, from the static table; `None` for a
-/// key no dataset has.
+/// The tree dataset the project file records under `key`, from the datasets of the adapters;
+/// `None` for a key no dataset has.
 fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
-    trees::TREE_DATASETS
-        .iter()
-        .find(|dataset| dataset.id == key)
+    trees::all_tree_datasets().find(|dataset| dataset.id == key)
 }
 
 /// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
@@ -3143,7 +1957,7 @@ fn fetch_tree_layers_into(
     ];
     let mut records = BTreeMap::new();
     for fetched in trees::fetch_tree_layers(fetcher, area, &part) {
-        let id = fetched.dataset.id;
+        let id: &str = &fetched.dataset.id;
         let path = tree_layer_path(dir, fetched.dataset);
         let stored = fetched
             .features
@@ -3189,7 +2003,7 @@ fn fetch_tree_layers_into(
                         fetched: crate::clock::today(),
                         latest_update,
                         count,
-                        regions: fetched.regions,
+                        regions: fetched.regions.clone(),
                     },
                 );
             }
@@ -3231,11 +2045,11 @@ pub fn stored_tree_layers(
 ) -> Result<Vec<StoredTreeLayer>, ProjectError> {
     let bbox = project.bbox()?;
     let mut layers = Vec::new();
-    for dataset in &trees::TREE_DATASETS {
+    for dataset in trees::all_tree_datasets() {
         let path = tree_layer_path(dir, dataset);
         let Some(record) = project
             .tree_layers
-            .get(dataset.id)
+            .get(dataset.id.as_ref())
             .filter(|r| path.exists() && r.covers(&bbox))
         else {
             continue;
@@ -3265,7 +2079,7 @@ fn stored_tree_objects(
     let inputs: Vec<TreeInput<'_>> = layers
         .iter()
         .map(|l| TreeInput {
-            dataset: l.dataset.id,
+            dataset: &l.dataset.id,
             features: &l.features,
             fetched: l.fetched,
         })
@@ -3637,91 +2451,31 @@ pub fn derive_project_cancellable(
     }
     let bbox = project.bbox()?;
     let region_bbox = project.region_bbox()?;
-    let provider = raster_region(&region_bbox)
-        .ok_or(ProjectError::OutsideCoverage)?
-        .provider();
-    // The tile products of a tile provider: required, terrain and surface model. The per-area
-    // providers (LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP)
-    // store their height models per area and have none.
-    let tile_products: Option<(&[Product], Product, Product)> = match provider {
-        Provider::Lgb => Some((&PRODUCTS, Product::Dtm, Product::ImageDsm)),
-        Provider::GeoSn => Some((
-            &[Product::SaxonyDtm],
-            Product::SaxonyDtm,
-            Product::SaxonyDsm,
-        )),
-        Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => None,
-    };
-    let needed = tile_products.map_or_else(Vec::new, |(_, dtm_product, _)| {
-        provider_tiles(&bbox, provider, dtm_product.grid_km())
-    });
-    let required = tile_products.map_or(&[][..], |(required, _, _)| required);
-    let outdated: Vec<TileId> = needed
-        .iter()
-        .copied()
-        .filter(|tile| {
-            required.iter().any(|product| {
-                !project
-                    .tiles
-                    .iter()
-                    .any(|r| r.product == *product && r.tile == tile.name())
-            })
-        })
-        .collect();
-    if !outdated.is_empty() {
-        return Err(ProjectError::TilesOutdated(outdated));
+    let inputs = raster_backend(&region_bbox)?.derive_inputs(
+        &DeriveEnv {
+            regions: registry(),
+            cache,
+        },
+        &StoredRasters {
+            tiles: &project.tiles,
+            ndsm_tiles: &project.ndsm_tiles,
+            orthophoto: project.orthophoto.as_ref(),
+            terrain: project.terrain.as_ref(),
+            surface: project.surface.as_ref(),
+        },
+        &RasterArea { bbox, region_bbox },
+    );
+    if !inputs.outdated.is_empty() {
+        return Err(ProjectError::TilesOutdated(inputs.outdated));
     }
-    let tiles = |product: Product| -> Result<Vec<FetchedTile>, ProjectError> {
-        let mut fetched = Vec::new();
-        let mut missing = Vec::new();
-        for record in project.tiles.iter().filter(|r| r.product == product) {
-            let tile = TileId::parse(&record.tile)
-                .ok_or_else(|| ProjectError::Toml(format!("invalid tile id {:?}", record.tile)))?;
-            let zip = cache.tile_path(product, tile, record.published);
-            if !zip.exists() {
-                missing.push(tile);
-                continue;
-            }
-            fetched.push(FetchedTile {
-                product,
-                tile,
-                url: record.url.clone(),
-                currency: TileCurrency {
-                    created: record.currency,
-                    revised: None,
-                    published: record.published,
-                },
-                zip,
-            });
-        }
-        if !missing.is_empty() {
-            return Err(FetchError::MissingOffline(product, missing).into());
-        }
-        Ok(fetched)
-    };
 
     crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
     progress(note!("progress-writing", path = ORTHOPHOTO_RELPATH));
     stop_if(cancelled)?;
-    match provider {
-        Provider::Lgb => build_orthophoto(&tiles(Product::Orthophoto)?, &bbox, dir, &orthophoto)?,
-        Provider::GeoSn
-        | Provider::LvermGeo
-        | Provider::Lgv
-        | Provider::Hvbg
-        | Provider::LvermGeoSh
-        | Provider::LaivMv
-        | Provider::GeobasisNrw
-        | Provider::Lgln
-        | Provider::LvermGeoRp => {
+    match inputs.orthophoto? {
+        OrthophotoInput::Tiles(tiles) => build_orthophoto(&tiles, &bbox, dir, &orthophoto)?,
+        OrthophotoInput::Image => {
             let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
             if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
                 return Err(ProjectError::OrthophotoNotFetched);
@@ -3734,8 +2488,10 @@ pub fn derive_project_cancellable(
         record.as_ref().is_some_and(|r| r.covers(&bbox)) && dir.join(relpath).exists()
     };
     stop_if(cancelled)?;
-    let dtm = if let Some((_, dtm_product, _)) = tile_products {
-        mosaic_dtm(&tiles(dtm_product)?, &bbox)?
+    // A tile provider's terrain mosaic is only in the cache.
+    let tile_provider = matches!(inputs.dtm, Ok(HeightInput::Tiles(_)));
+    let dtm = if let HeightInput::Tiles(tiles) = inputs.dtm? {
+        mosaic_dtm(&tiles, &bbox)?
     } else {
         if !stored_model(&project.terrain, TERRAIN_RELPATH) {
             return Err(ProjectError::TerrainNotFetched);
@@ -3752,7 +2508,7 @@ pub fn derive_project_cancellable(
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
     // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
     // when the Berlin layers have no stairs.
-    let stairs = tile_products.is_some() && {
+    let stairs = tile_provider && {
         let berlin_stairs = !project.berlin_layers.is_empty()
             && stored_berlin_layers(dir, &project)?
                 .iter()
@@ -3796,26 +2552,25 @@ pub fn derive_project_cancellable(
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
         progress(note!("warning-berlin-buildings-missing"));
     }
-    let dsm_recorded = match tile_products {
-        Some((_, _, dsm_product)) => project.tiles.iter().any(|r| r.product == dsm_product),
-        None => stored_model(&project.surface, SURFACE_RELPATH),
+    let dsm_recorded = match &inputs.dsm {
+        Some(Ok(HeightInput::Stored)) => stored_model(&project.surface, SURFACE_RELPATH),
+        Some(_) => true,
+        None => false,
     };
     if project.ndsm_tiles.is_empty() && !dsm_recorded {
         progress(note!("progress-no-ndsm-recorded"));
     }
-    let ndsm_files: Vec<PathBuf> = project
-        .ndsm_tiles
-        .iter()
+    let ndsm_files: Vec<PathBuf> = inputs
+        .ndsm
+        .into_iter()
         .filter_map(|record| {
-            // The tile comes from the project file: only a valid tile id names a cache file.
-            let Some(tile) = TileId::parse(&record.tile) else {
+            let Some(path) = record.path else {
                 progress(note!(
                     "warning-ndsm-tile-invalid",
                     tile = format!("{:?}", record.tile)
                 ));
                 return None;
             };
-            let path = cache.ndsm_path(tile, record.published);
             if !path.exists() {
                 progress(note!("warning-ndsm-not-cached", tile = &record.tile));
                 return None;
@@ -3836,11 +2591,14 @@ pub fn derive_project_cancellable(
     let ndsm_path = dir.join(NDSM_RELPATH);
     stop_if(cancelled)?;
     let dsm = if dsm_recorded {
-        let model = match tile_products {
-            Some((_, _, dsm_product)) => {
-                tiles(dsm_product).and_then(|t| Ok(mosaic_dtm(&t, &bbox)?))
+        let model = match inputs.dsm {
+            Some(Ok(HeightInput::Tiles(tiles))) => {
+                mosaic_dtm(&tiles, &bbox).map_err(ProjectError::from)
             }
-            None => read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from),
+            Some(Err(e)) => Err(ProjectError::from(e)),
+            Some(Ok(HeightInput::Stored)) | None => {
+                read_float_raster(&dir.join(SURFACE_RELPATH)).map_err(ProjectError::from)
+            }
         };
         match model {
             Ok(dsm) => Some(dsm),
@@ -4037,29 +2795,6 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
 }
 
 const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
-/// GeoSN's source note for dl-de/by-2-0 data, which asks for changes to be marked.
-const GEOSN_ATTRIBUTION: &str = "Quelle: GeoSN, dl-de/by-2-0, Daten geändert";
-/// Geoportal Berlin data needs no attribution (dl-de/zero-2-0); it is named anyway.
-const BERLIN_ATTRIBUTION: &str =
-    "© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert";
-/// The Berlin K5 map, once the template was written.
-const BERLIN_K5_ATTRIBUTION: &str =
-    "Geoportal Berlin / Karte 1:5000 von Berlin (K5), dl-de/zero-2-0";
-/// The Berlin tree cadastre, once tree candidates were written.
-const BERLIN_TREES_ATTRIBUTION: &str = "Geoportal Berlin / Baumbestand Berlin, dl-de/zero-2-0";
-/// The Straßenbefahrung layers, once one of them has features.
-const BERLIN_SURVEY_ATTRIBUTION: &str =
-    "Geoportal Berlin / Straßenbefahrung 2014, dl-de/zero-2-0, Daten geändert";
-/// The lighting cadastre and the fountain registers: the stored file and the name in the
-/// attribution, in the order of the line.
-const BERLIN_REGISTERS: [(&str, &str); 3] = [
-    ("beleuchtung", "Öffentliche Beleuchtung"),
-    ("zierbrunnen", "Zierbrunnen"),
-    ("trinkwasserbrunnen", "Trinkwasserbrunnen"),
-];
-/// The building heights (footprint dates), once their layer has features.
-const BERLIN_HEIGHTS_ATTRIBUTION: &str =
-    "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -4069,7 +2804,7 @@ const FREEMAPPER_CREDIT_DE: &str =
 const FREEMAPPER_CREDIT: &str = concat!("Created with freemapper – ", env!("CARGO_PKG_REPOSITORY"));
 
 /// The registers whose points are among `objects`: the files of the Berlin registers
-/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::TREE_DATASETS`). A
+/// ([`BERLIN_REGISTERS`]) and the ids of the city tree cadastres (`trees::all_tree_datasets`). A
 /// group area of the point generalization draws the sources of the trees it merged
 /// (`freemapper:source_id` = `<source>/<source_id>; …`).
 fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
@@ -4094,229 +2829,72 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
         .iter()
         .map(|&(file, _)| file)
         .filter(|file| drawn(format!("geoportal-berlin/{file}")));
-    let cities = trees::TREE_DATASETS
-        .iter()
-        .map(|d| d.id)
+    let cities = trees::all_tree_datasets()
+        .map(|d| d.id.as_ref())
         .filter(|id| drawn(format!("trees/{id}")));
     berlin.chain(cities).collect()
 }
 
-/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
-/// for each dataset that drew trees.
-fn tree_attribution(registers: &[&str]) -> Vec<String> {
-    trees::TREE_DATASETS
-        .iter()
-        .filter(|d| registers.contains(&d.id))
-        .map(|d| d.attribution.to_string())
+/// Attribution of every source the project uses, for the project notes: OpenStreetMap, then the
+/// credit lines of the adapters with the licence texts they refer to. `registers` are the Berlin
+/// registers and city tree cadastres that drew objects ([`drawn_registers`]).
+fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
+    let mut lines = vec![OSM_ATTRIBUTION.to_string()];
+    lines.extend(lines_with_licences(&credit_lines(project, registers)));
+    lines
+}
+
+/// The credit lines of the data sources for the map sheet: those of [`attribution_lines`]
+/// without OpenStreetMap and without the licence texts.
+fn sheet_credit_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
+    credit_lines(project, registers)
+        .into_iter()
+        .map(|credit| credit.text)
         .collect()
 }
 
-/// Attribution of every source the project uses: OSM, LGB once tiles were fetched, and the
-/// Geoportal Berlin. `registers` are the Berlin registers and city tree cadastres that drew
-/// objects ([`drawn_registers`]).
-fn attribution_lines(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
-    let mut lines = vec![OSM_ATTRIBUTION.to_string()];
-    lines.extend(lgb_attribution(project));
-    lines.extend(berlin_attribution(project, registers));
-    lines.extend(tree_attribution(registers));
-    lines.extend(geosn_attribution(project));
-    lines.extend(lvermgeo_attribution(project));
-    lines.extend(lgv_attribution(project));
-    lines.extend(hvbg_attribution(project));
-    lines.extend(nrw_attribution(project));
-    if let Some(line) = rp_attribution(project) {
-        lines.push(line);
-        lines.push(RP_LICENCE_NOTE.to_string());
-    }
-    // The CC BY credits refer to the same licence text, which is given once.
-    let cc_by = [
-        sh_attribution(project),
-        mv_attribution(project),
-        lgln_attribution(project),
-    ];
-    let any_cc_by = cc_by.iter().any(Option::is_some);
-    lines.extend(cc_by.into_iter().flatten());
-    if any_cc_by {
-        lines.push(CC_BY_LICENCE_NOTE.to_string());
-    }
-    lines
+/// The credit lines of every adapter for what the project holds of it, in the order of the
+/// registry.
+fn credit_lines(project: &ProjectFile, registers: &[&str]) -> Vec<CreditLine> {
+    let used = used_sources(project, registers);
+    registry()
+        .adapters()
+        .flat_map(|adapter| adapter.attribution(&used))
+        .collect()
 }
 
-/// The Geoportal Berlin lines: ALKIS once Berlin ALKIS objects were fetched, the K5 map and the
-/// tree cadastre once their data was written, the street survey and the building heights once
-/// their layers have features, and one line for the `registers` that drew objects, each named.
-fn berlin_attribution(project: &ProjectFile, registers: &[&str]) -> Vec<String> {
-    let mut lines = Vec::new();
-    if alkis_records(project).any(|record| record.regions.contains(&Region::Berlin)) {
-        lines.push(BERLIN_ATTRIBUTION.to_string());
-    }
-    if project.k5.is_some() {
-        lines.push(BERLIN_K5_ATTRIBUTION.to_string());
-    }
-    // A stored tree layer without trees draws no candidate.
-    let trees = ["strassenbaeume", "anlagenbaeume"].iter().any(|file| {
-        project
-            .berlin_layers
-            .get(*file)
-            .is_some_and(|r| r.count > 0)
-    });
-    if trees {
-        lines.push(BERLIN_TREES_ATTRIBUTION.to_string());
-    }
-    // A stored layer without features contributed nothing.
-    let has = |keep: &dyn Fn(&str) -> bool| {
-        project
+/// What the project holds, as far as the credit lines depend on it.
+fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedSources<'a> {
+    let region_bbox = project.region_bbox().ok();
+    UsedSources {
+        raster_provider: region_bbox
+            .as_ref()
+            .and_then(|bbox| raster_region_in(registry(), bbox))
+            .map(|adapter| adapter.info().provider.clone()),
+        overlapped: region_bbox.as_ref().map_or_else(Vec::new, |bbox| {
+            registry()
+                .adapters()
+                .filter(|adapter| overlaps_in(*adapter, bbox))
+                .map(|adapter| adapter.info().id.clone())
+                .collect()
+        }),
+        tiles: &project.tiles,
+        orthophoto: project.orthophoto.as_ref(),
+        terrain: project.terrain.as_ref(),
+        alkis: alkis_records(project)
+            .map(|record| AlkisUse {
+                regions: record.regions.clone(),
+                fetched: record.fetched,
+            })
+            .collect(),
+        extra_layers: project
             .berlin_layers
             .iter()
-            .any(|(file, record)| record.count > 0 && keep(file))
-    };
-    if has(&|file| file.starts_with("sb-")) {
-        lines.push(BERLIN_SURVEY_ATTRIBUTION.to_string());
+            .map(|(file, record)| (file.as_str(), record.count))
+            .collect(),
+        extra_templates: project.k5.iter().map(|_| "k5").collect(),
+        drawn_registers: registers,
     }
-    // A register that is fetched but drew nothing (another map kind, outside the area) is not
-    // named.
-    let names: Vec<&str> = BERLIN_REGISTERS
-        .iter()
-        .filter(|(file, _)| registers.contains(file))
-        .map(|&(_, name)| name)
-        .collect();
-    if !names.is_empty() {
-        lines.push(format!(
-            "Geoportal Berlin / {}, dl-de/zero-2-0",
-            names.join(", ")
-        ));
-    }
-    if has(&|file| file == "gebaeudehoehen") {
-        lines.push(BERLIN_HEIGHTS_ATTRIBUTION.to_string());
-    }
-    lines
-}
-
-/// The GeoSN line, once GeoSN tiles, its orthophoto or Saxon ALKIS objects were fetched.
-fn geosn_attribution(project: &ProjectFile) -> Option<String> {
-    let used = project
-        .tiles
-        .iter()
-        .any(|t| t.product.provider() == Provider::GeoSn)
-        || (project.orthophoto.is_some() && raster_provider(project) == Some(Provider::GeoSn))
-        || alkis_records(project).any(|record| record.regions.contains(&Region::Saxony));
-    used.then(|| GEOSN_ATTRIBUTION.to_string())
-}
-
-/// The LVermGeo line, once its rasters or Saxony-Anhalt ALKIS objects were fetched; the year is
-/// that of the newest fetch.
-fn lvermgeo_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::LvermGeo, Region::SaxonyAnhalt)?;
-    Some(format!(
-        "© GeoBasis-DE / LVermGeo ST {year}, dl-de/by-2-0, Daten geändert"
-    ))
-}
-
-/// The LGV line, once its rasters or Hamburg ALKIS objects were fetched; the year is that of the
-/// newest fetch.
-fn lgv_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Lgv, Region::Hamburg)?;
-    Some(format!(
-        "Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) {year}, dl-de/by-2-0, Daten geändert"
-    ))
-}
-
-/// The HVBG line, once its rasters or Hesse ALKIS objects were fetched; the year is that of the
-/// newest fetch.
-fn hvbg_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Hvbg, Region::Hessen)?;
-    Some(format!(
-        "Geobasisdaten © Hessische Verwaltung für Bodenmanagement und Geoinformation (HVBG) {year}, dl-de/zero-2-0, verändert"
-    ))
-}
-
-/// The Geobasis NRW line, once its rasters or North Rhine-Westphalia ALKIS objects were fetched;
-/// the year is that of the newest fetch. The licence (dl-de/zero-2-0) asks for no note of changes.
-fn nrw_attribution(project: &ProjectFile) -> Option<String> {
-    let year =
-        per_area_attribution_year(project, Provider::GeobasisNrw, Region::NordrheinWestfalen)?;
-    Some(format!(
-        "Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) {year}, dl-de/zero-2-0"
-    ))
-}
-
-/// The LVermGeo RP line, once its rasters or Rhineland-Palatinate ALKIS objects were fetched: the
-/// form the open-data page prescribes (no blank before the year of the newest fetch), with the
-/// note of changes, since freemapper derives map objects.
-fn rp_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::LvermGeoRp, Region::RheinlandPfalz)?;
-    Some(format!(
-        "©GeoBasis-DE / LVermGeoRP{year}, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]"
-    ))
-}
-
-/// The licence the LVermGeo RP line refers to (added to the project notes only).
-const RP_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
-
-/// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
-/// Niedersachsen) refer to (added to the project notes only).
-const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
-/// The LVermGeo SH credit the licence prescribes for changed data.
-const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
-
-/// The LVermGeo SH line, once its rasters or Schleswig-Holstein ALKIS objects were fetched.
-fn sh_attribution(project: &ProjectFile) -> Option<String> {
-    per_area_attribution_year(project, Provider::LvermGeoSh, Region::SchleswigHolstein)?;
-    Some(SH_ATTRIBUTION.to_string())
-}
-
-/// The LAiV M-V credit the licence prescribes for changed data.
-const MV_ATTRIBUTION: &str = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)";
-
-/// The LAiV M-V line, once its rasters or Mecklenburg-Vorpommern ALKIS objects were fetched.
-fn mv_attribution(project: &ProjectFile) -> Option<String> {
-    per_area_attribution_year(project, Provider::LaivMv, Region::MecklenburgVorpommern)?;
-    Some(MV_ATTRIBUTION.to_string())
-}
-
-/// The LGLN line, once its rasters or Niedersachsen ALKIS objects were fetched: the credit the
-/// AGNB prescribes (with the year of the newest fetch and the note of changes) and the licence.
-fn lgln_attribution(project: &ProjectFile) -> Option<String> {
-    let year = per_area_attribution_year(project, Provider::Lgln, Region::Niedersachsen)?;
-    Some(format!(
-        "© GeoBasis-DE/LGLN {year}, Daten geändert, CC BY 4.0"
-    ))
-}
-
-/// The year of the newest fetch of `provider`'s data in the project: its terrain model and
-/// orthophoto (when the project's rasters come from it) and its ALKIS objects of `region`.
-fn per_area_attribution_year(
-    project: &ProjectFile,
-    provider: Provider,
-    region: Region,
-) -> Option<i32> {
-    let raster = raster_provider(project) == Some(provider);
-    [
-        project
-            .terrain
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-        project
-            .orthophoto
-            .as_ref()
-            .filter(|_| raster)
-            .map(|r| r.fetched),
-    ]
-    .into_iter()
-    .flatten()
-    .chain(
-        alkis_records(project)
-            .filter(|r| r.regions.contains(&region))
-            .map(|r| r.fetched),
-    )
-    .map(|d| d.year())
-    .max()
-}
-
-/// The provider of the project's rasters.
-fn raster_provider(project: &ProjectFile) -> Option<Provider> {
-    raster_region(&project.region_bbox().ok()?).map(Region::provider)
 }
 
 /// The stored ALKIS records (buildings, land use).
@@ -4326,38 +2904,16 @@ fn alkis_records(project: &ProjectFile) -> impl Iterator<Item = &AlkisRecord> {
         .flatten()
 }
 
-/// The states of the given ALKIS object ids, in [`Region::ALL`] order.
-fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<Region> {
-    let found: Vec<Region> = oids.filter_map(Region::of_object_id).collect();
-    Region::ALL
-        .into_iter()
-        .filter(|r| found.contains(r))
+/// The regions of the given ALKIS object ids, in the order of the registry.
+fn regions_of<'a>(oids: impl Iterator<Item = &'a str>) -> Vec<AdapterId> {
+    let found: Vec<AdapterId> = oids.filter_map(region_of_object_id).collect();
+    registry()
+        .adapters()
+        .map(|adapter| adapter.info().id.clone())
+        .filter(|region| found.contains(region))
         .collect()
 }
 
-/// The LGB attribution line, once tiles were fetched. LGB tiles in Berlin hold Berlin data, and
-/// LGB's licence note then asks for the Geoportal Berlin as well.
-fn lgb_attribution(project: &ProjectFile) -> Option<String> {
-    let tile_year = project
-        .tiles
-        .iter()
-        .filter(|t| t.product.provider() == Provider::Lgb)
-        .map(|t| t.published.year())
-        .max();
-    let alkis_year = alkis_records(project)
-        .filter(|r| r.regions.contains(&Region::Brandenburg))
-        .map(|r| r.fetched.year())
-        .max();
-    let year = tile_year.or(alkis_year)?;
-    let in_berlin = project
-        .region_bbox()
-        .is_ok_and(|bbox| touches_berlin(&bbox));
-    Some(if in_berlin {
-        attribution_with_berlin(year)
-    } else {
-        attribution(year)
-    })
-}
 /// Folders that receive files under fixed names from code that is not given the project
 /// folder (the downloads and the derived templates). `data/berlin` is checked per layer.
 const WRITTEN_FOLDERS: [&str; 2] = ["data", "templates"];
@@ -4378,17 +2934,50 @@ fn check_folders(dir: &Path, folders: &[&str]) -> Result<(), ProjectError> {
 pub mod golden {
     use super::*;
 
+    /// What the project of [`credits`] holds.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum Held {
+        /// The orthophoto, terrain and surface records, and one recorded tile for the tile
+        /// providers.
+        Rasters,
+        /// The ALKIS buildings.
+        Alkis,
+        Both,
+    }
+
+    /// The credit lines of a project: those of `ATTRIBUTION.txt` and those of the map sheet.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Credits {
+        pub notes: Vec<String>,
+        pub sheet: Vec<String>,
+    }
+
     /// The lines of `ATTRIBUTION.txt` that a project of `region` gets when everything it holds
     /// was fetched in `year`. `rasters` adds the orthophoto, terrain and surface records (and
     /// one recorded tile for the tile providers) to the ALKIS records. `lon` and `lat` place the
     /// map area (a 150 m square) inside the region.
     pub fn credit_lines(
-        region: Region,
+        region: &AdapterId,
         lon: f64,
         lat: f64,
         year: i32,
         rasters: bool,
     ) -> Vec<String> {
+        let held = if rasters { Held::Both } else { Held::Alkis };
+        credits(region, lon, lat, year, held, &[]).notes
+    }
+
+    /// The credit lines that a project of `region` gets when everything it holds (`held`) was
+    /// fetched in `year`. `lon` and `lat` place the map area (a 150 m square) inside the region.
+    /// The ALKIS services of the states in `neighbours` delivered objects too (land use record).
+    pub fn credits(
+        region: &AdapterId,
+        lon: f64,
+        lat: f64,
+        year: i32,
+        held: Held,
+        neighbours: &[AdapterId],
+    ) -> Credits {
         let (dlon, dlat) = (0.001_1, 0.000_7);
         let ring = [
             [lon - dlon, lat - dlat],
@@ -4423,14 +3012,20 @@ pub mod golden {
             content: None,
         };
         let bbox = [0.0, 0.0, 1.0, 1.0];
-        project.buildings = Some(AlkisRecord {
+        let alkis = |regions: Vec<AdapterId>| AlkisRecord {
             bbox,
             fetched: date,
             latest_update: None,
             count: 1,
-            regions: vec![region],
-        });
-        if rasters {
+            regions,
+        };
+        if held != Held::Rasters {
+            project.buildings = Some(alkis(vec![region.clone()]));
+        }
+        if !neighbours.is_empty() {
+            project.land_use = Some(alkis(neighbours.to_vec()));
+        }
+        if held != Held::Alkis {
             project.orthophoto = Some(WmsRecord {
                 flight: None,
                 flight_label: None,
@@ -4444,9 +3039,12 @@ pub mod golden {
             };
             project.terrain = Some(wcs.clone());
             project.surface = Some(wcs);
-            let product = match region.provider() {
-                Provider::GeoSn => Some(Product::SaxonyDtm),
-                Provider::Lgb => Some(Product::Dtm),
+            let provider = registry()
+                .get(region.as_str())
+                .map(|adapter| adapter.info().provider.clone());
+            let product = match provider.as_ref().map(AdapterId::as_str) {
+                Some("geosn") => Some(Product::SaxonyDtm),
+                Some("lgb") => Some(Product::Dtm),
                 _ => None,
             };
             if let Some(product) = product {
@@ -4459,7 +3057,10 @@ pub mod golden {
                 });
             }
         }
-        attribution_lines(&project, &[])
+        Credits {
+            notes: attribution_lines(&project, &[]),
+            sheet: sheet_credit_lines(&project, &[]),
+        }
     }
 }
 
@@ -4468,6 +3069,15 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
+    use crate::fetch::TilePaths as _;
+    use crate::sources::lgb::ProductTiles as _;
+    #[allow(unused_imports)]
+    use crate::sources::region::ids::{IdFacts as _, providers, regions};
+    use crate::sources::region::raster_region;
+    use chrono::Datelike as _;
+    use freemapper_adapters_de::states::credit::{
+        BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
+    };
 
     #[test]
     fn set_map_area_keeps_the_rest() {
@@ -4789,7 +3399,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::SaxonyAnhalt]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::SAXONY_ANHALT]);
         let foreign: Vec<String> = fetcher
             .log
             .borrow()
@@ -5042,7 +3652,7 @@ mod tests {
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -5052,7 +3662,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Hamburg]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::HAMBURG]);
         assert!(
             messages
                 .iter()
@@ -5165,7 +3775,7 @@ mod tests {
         let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Hvbg));
+        assert_eq!(project.provider, Some(providers::HVBG));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -5176,7 +3786,7 @@ mod tests {
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Hessen]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::HESSEN]);
         assert!(
             messages
                 .iter()
@@ -5423,7 +4033,7 @@ mod tests {
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -5436,7 +4046,7 @@ mod tests {
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::SchleswigHolstein]
+            [regions::SCHLESWIG_HOLSTEIN]
         );
         assert!(
             messages
@@ -5497,11 +4107,13 @@ mod tests {
         let again = MapFetcher::default();
         let fetcher = match mode {
             FetchMode::Offline => {
-                std::fs::remove_dir_all(cache.lvermgeo_sh_dir().join("bdom")).unwrap();
+                std::fs::remove_dir_all(cache.provider_dir("lvermgeo_sh").join("bdom")).unwrap();
                 &again
             }
             FetchMode::Online => {
-                for entry in std::fs::read_dir(cache.lvermgeo_sh_dir().join("overview")).unwrap() {
+                for entry in
+                    std::fs::read_dir(cache.provider_dir("lvermgeo_sh").join("overview")).unwrap()
+                {
                     let path = entry.unwrap().path();
                     if path
                         .file_name()
@@ -5667,18 +4279,18 @@ mod tests {
             (102, south.lat, south.lon, hydrant),
         ]);
         for extract in [
-            crate::sources::osm::ExtractSource::Hamburg,
-            crate::sources::osm::ExtractSource::SchleswigHolstein,
+            crate::sources::osm::extract_of("hamburg", 0),
+            crate::sources::osm::extract_of("schleswigholstein", 0),
         ] {
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // The rasters come from the centre's provider (Schleswig-Holstein).
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hamburg, Region::SchleswigHolstein]
+            [regions::HAMBURG, regions::SCHLESWIG_HOLSTEIN]
         );
         for extract in ["Hamburg", "Schleswig-Holstein"] {
             let line = format!("reading OSM extract {extract} from 2026-11-06");
@@ -5805,13 +4417,13 @@ mod tests {
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Lgv));
+        assert_eq!(before.provider, Some(providers::LGV));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &norderstedt_area())
             .unwrap()
             .project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
-        assert_eq!(project.provider, Some(Provider::LvermGeoSh));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_SH));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -5915,7 +4527,7 @@ mod tests {
         fetch(dir.path(), &fetcher, &cache);
         assert!(dir.path().join(TERRAIN_RELPATH).exists());
         let project = set_map_area(dir.path(), &frankfurt_area()).unwrap().project;
-        assert_eq!(project.provider, Some(Provider::Hvbg));
+        assert_eq!(project.provider, Some(providers::HVBG));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -5924,10 +4536,10 @@ mod tests {
         crate::fetch::test_support::serve_synthetic_hessen(&fetcher, &project.bbox().unwrap());
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Hvbg));
+        assert_eq!(before.provider, Some(providers::HVBG));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &eppendorf_area()).unwrap().project;
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -5941,13 +4553,13 @@ mod tests {
         let (dir, _cache_dir, cache) = halle_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::LvermGeo));
+        assert_eq!(before.provider, Some(providers::LVERM_GEO));
         assert!(before.terrain.is_some());
         let saved = set_map_area(dir.path(), &eppendorf_area()).unwrap();
         assert!(saved.provider_changed && !saved.zone_changed, "{saved:?}");
         let project = saved.project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm32, "the same zone");
-        assert_eq!(project.provider, Some(Provider::Lgv));
+        assert_eq!(project.provider, Some(providers::LGV));
         assert!(project.terrain.is_none() && project.orthophoto.is_none());
         assert!(project.buildings.is_none());
         assert!(!dir.path().join(TERRAIN_RELPATH).exists());
@@ -6098,6 +4710,7 @@ mod tests {
     /// grid, and a record still covers the area it was fetched for.
     #[test]
     fn stored_areas_are_on_a_grid() {
+        use freemapper_adapter_api::records::{STORED_METRE, stored_bbox_covers};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
@@ -6143,7 +4756,7 @@ mod tests {
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm33);
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -6156,7 +4769,7 @@ mod tests {
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::MecklenburgVorpommern]
+            [regions::MECKLENBURG_VORPOMMERN]
         );
         assert!(
             messages
@@ -6251,7 +4864,7 @@ mod tests {
         let (mut project, _) = fetch(dir.path(), &fetcher, &cache);
         // Objects of both states were fetched (a map at the Luebeck bay).
         project.buildings.as_mut().unwrap().regions =
-            vec![Region::SchleswigHolstein, Region::MecklenburgVorpommern];
+            vec![regions::SCHLESWIG_HOLSTEIN, regions::MECKLENBURG_VORPOMMERN];
         let lines = attribution_lines(&project, &[]);
         assert!(lines.iter().any(|l| l == MV_ATTRIBUTION), "{lines:?}");
         assert!(lines.iter().any(|l| l == SH_ATTRIBUTION), "{lines:?}");
@@ -6311,11 +4924,11 @@ mod tests {
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::LaivMv));
+        assert_eq!(before.provider, Some(providers::LAIV_MV));
         assert!(before.terrain.is_some() && dir.path().join(SURFACE_RELPATH).exists());
         let project = set_map_area(dir.path(), &fixture_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
-        assert_eq!(project.provider, Some(Provider::Lgb));
+        assert_eq!(project.provider, Some(providers::LGB));
         assert!(project.terrain.is_none() && project.surface.is_none());
         assert!(project.orthophoto.is_none() && project.buildings.is_none());
         for relpath in [TERRAIN_RELPATH, SURFACE_RELPATH, WMS_ORTHOPHOTO_RELPATH] {
@@ -6480,16 +5093,16 @@ mod tests {
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         for extract in [
-            crate::sources::osm::ExtractSource::Brandenburg,
-            crate::sources::osm::ExtractSource::MecklenburgVorpommern,
+            crate::sources::osm::extract_of("brandenburg", 0),
+            crate::sources::osm::extract_of("mecklenburgvorpommern", 0),
         ] {
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         // Both states' ALKIS, each OSM extract once, nothing twice.
         assert_eq!(
             project.buildings.as_ref().unwrap().regions,
-            [Region::Brandenburg, Region::MecklenburgVorpommern]
+            [regions::BRANDENBURG, regions::MECKLENBURG_VORPOMMERN]
         );
         for extract in ["Brandenburg", "Mecklenburg-Vorpommern"] {
             let line = format!("reading OSM extract {extract} from 2026-11-06");
@@ -6514,7 +5127,7 @@ mod tests {
         assert_eq!(ids, ["node/101", "node/102"]);
         assert_eq!(project.osm.as_ref().unwrap().count, 2);
         // The rasters come from the centre's provider (MV).
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(
             messages.iter().any(|m| m.starts_with(
@@ -6540,11 +5153,11 @@ mod tests {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let before = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(before.provider, Some(Provider::Lgb));
+        assert_eq!(before.provider, Some(providers::LGB));
         assert!(!before.tiles.is_empty() && before.buildings.is_some() && before.osm.is_some());
         let project = set_map_area(dir.path(), &rostock_area()).unwrap().project;
         assert_eq!(project.crs(), crate::crs::Crs::Utm33, "the same zone");
-        assert_eq!(project.provider, Some(Provider::LaivMv));
+        assert_eq!(project.provider, Some(providers::LAIV_MV));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert!(project.buildings.is_none() && project.land_use.is_none());
         assert!(project.osm.is_none() && project.orthophoto.is_none());
@@ -6681,7 +5294,7 @@ mod tests {
                 "coordinates": [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }),
             crs: 25833,
-            provider: Some(Provider::Lgb),
+            provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -6695,7 +5308,7 @@ mod tests {
                 fetched: NaiveDate::from_ymd_opt(2026, 11, 7).unwrap(),
                 latest_update: NaiveDate::from_ymd_opt(2023, 5, 4),
                 count: 18,
-                regions: vec![Region::Brandenburg],
+                regions: vec![regions::BRANDENBURG],
             }),
             land_use: Some(AlkisRecord {
                 bbox: [421_490.0, 5_821_580.0, 421_737.0, 5_821_897.0],
@@ -6712,7 +5325,7 @@ mod tests {
                     fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
                     latest_update: NaiveDate::from_ymd_opt(2020, 11, 24),
                     count: 4,
-                    regions: vec![Region::Brandenburg],
+                    regions: vec![regions::BRANDENBURG],
                 },
             )]),
             tree_layers: BTreeMap::from([(
@@ -6722,7 +5335,7 @@ mod tests {
                     fetched: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
                     latest_update: NaiveDate::from_ymd_opt(2026, 3, 2),
                     count: 3,
-                    regions: vec![Region::Brandenburg],
+                    regions: vec![regions::BRANDENBURG],
                 },
             )]),
             k5: None,
@@ -7730,6 +6343,176 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             )))
     }
 
+    /// A Brandenburg school project served with LGB tiles and the nDSM point cloud.
+    fn strausberg_school(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache) {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
+        crate::fetch::test_support::serve_synthetic_ndsm(fetcher, school_tile());
+        (dir, cache_dir, cache)
+    }
+
+    /// The raster fetch of every provider gets `skip_surface` the same way (through the
+    /// environment of the fetch): on a disk without room for the surface model it asks for
+    /// nothing of it, says so, and records none.
+    #[test]
+    fn skip_surface_reaches_every_backend() {
+        type School = fn(&MapFetcher) -> (tempfile::TempDir, tempfile::TempDir, Cache);
+        let providers: [(AdapterId, School); 10] = [
+            (providers::LGB, strausberg_school),
+            (providers::GEO_SN, dresden_school),
+            (providers::LVERM_GEO, halle_school),
+            (providers::LGV, eppendorf_school),
+            (providers::HVBG, frankfurt_school),
+            (providers::LVERM_GEO_SH, norderstedt_school),
+            (providers::LAIV_MV, rostock_school),
+            (providers::GEOBASIS_NRW, koeln_school),
+            (providers::LGLN, hannover_school),
+            (providers::LVERM_GEO_RP, koblenz_school),
+        ];
+        for (provider, school) in providers {
+            // With room for everything: the requests of a whole fetch.
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = school(&fetcher);
+            let (whole, _) = fetch(dir.path(), &fetcher, &cache);
+            assert_eq!(whole.provider, Some(provider.clone()));
+            let all: Vec<String> = fetcher.log.borrow().clone();
+            // One byte short: the surface model is the first part to go.
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = school(&fetcher);
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{provider:?}: {messages:?}"
+            );
+            let asked: Vec<String> = fetcher.log.borrow().clone();
+            let extra: Vec<&String> = asked.iter().filter(|url| !all.contains(url)).collect();
+            assert!(extra.is_empty(), "{provider:?} asked for more: {extra:?}");
+            let left_out = all.iter().filter(|url| !asked.contains(url)).count();
+            assert!(
+                left_out > 0,
+                "{provider:?} still asked for the surface model"
+            );
+            assert!(project.surface.is_none(), "{provider:?}");
+            assert!(project.ndsm_tiles.is_empty(), "{provider:?}");
+            assert!(
+                !project
+                    .tiles
+                    .iter()
+                    .any(|r| matches!(r.product, Product::ImageDsm | Product::SaxonyDsm)),
+                "{provider:?}"
+            );
+            // What the run needs is there.
+            assert!(
+                project.orthophoto.is_some()
+                    || project
+                        .tiles
+                        .iter()
+                        .any(|r| r.product == Product::Orthophoto),
+                "{provider:?}"
+            );
+        }
+    }
+
+    /// The checkpoint of a raster fetch writes the project file. When that fails (a folder that
+    /// is gone, a full disk, a link that leads out of the project), the fetch ends with the same
+    /// error as before the raster fetch took a `RasterProject`.
+    #[test]
+    fn a_failed_save_in_a_raster_fetch_is_the_write_error() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        let region_bbox = project.region_bbox().unwrap();
+        let gone = dir.path().join("gone");
+        let direct = project.save(&gone).unwrap_err();
+        let mut in_dir = ProjectDir {
+            dir: &gone,
+            project: &mut project,
+            region_bbox,
+        };
+        let through = ProjectError::from(RasterProject::save(&mut in_dir).unwrap_err());
+        assert!(
+            matches!(through, ProjectError::Fetch(FetchError::Io(..))),
+            "{through:?}"
+        );
+        assert_eq!(through.to_string(), direct.to_string());
+    }
+
+    /// The raster fetch ends with an `AdapterError`; the engine turns it back into the error it
+    /// stands for, with the same words, so the caller words it as before.
+    #[test]
+    fn adapter_errors_map_back_to_the_same_project_error() {
+        let io = |kind| std::io::Error::from(kind);
+        let cases: Vec<(AdapterError, ProjectError)> = vec![
+            (
+                AdapterError::Fetch(FetchError::NotFound("https://example.invalid/x".into())),
+                ProjectError::Fetch(FetchError::NotFound("https://example.invalid/x".into())),
+            ),
+            (
+                AdapterError::Fetch(FetchError::Cancelled),
+                ProjectError::Fetch(FetchError::Cancelled),
+            ),
+            (
+                AdapterError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::NotFound),
+                ),
+                ProjectError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::NotFound),
+                ),
+            ),
+            (
+                AdapterError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::StorageFull),
+                ),
+                ProjectError::Io(
+                    PathBuf::from("data/dgm1.tif"),
+                    io(std::io::ErrorKind::StorageFull),
+                ),
+            ),
+            (
+                AdapterError::ProjectFile("missing field".into()),
+                ProjectError::Toml("missing field".into()),
+            ),
+            (
+                AdapterError::OrthophotoNotFetched,
+                ProjectError::OrthophotoNotFetched,
+            ),
+            (
+                AdapterError::TerrainNotFetched,
+                ProjectError::TerrainNotFetched,
+            ),
+            (
+                AdapterError::Engine(Box::new(ProjectError::NotFetched)),
+                ProjectError::NotFetched,
+            ),
+        ];
+        for (adapter, expected) in cases {
+            let words = adapter.to_string();
+            let back = ProjectError::from(adapter);
+            assert_eq!(
+                std::mem::discriminant(&back),
+                std::mem::discriminant(&expected),
+                "{back:?}"
+            );
+            assert_eq!(back.to_string(), expected.to_string());
+            assert_eq!(words, expected.to_string());
+            if let (ProjectError::Fetch(back), ProjectError::Fetch(expected)) = (&back, &expected) {
+                assert_eq!(
+                    std::mem::discriminant(back),
+                    std::mem::discriminant(expected)
+                );
+            }
+        }
+    }
+
     #[test]
     fn parts_that_do_not_fit_are_skipped_with_a_warning() {
         let fetcher = MapFetcher::default();
@@ -8116,8 +6899,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert_eq!(orthophoto.flight.as_deref(), Some("19.03. + 07.04.2024"));
         assert!(dir.path().join(WMS_ORTHOPHOTO_RELPATH).exists());
         assert_eq!(project.buildings.as_ref().unwrap().count, 3);
-        assert_eq!(project.buildings.unwrap().regions, [Region::Saxony]);
-        assert_eq!(project.land_use.unwrap().regions, [Region::Saxony]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::SAXONY]);
+        assert_eq!(project.land_use.unwrap().regions, [regions::SAXONY]);
         assert!(
             messages.iter().any(|m| m == "3 ALKIS buildings"),
             "{messages:?}"
@@ -8203,7 +6986,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             project
                 .tiles
                 .iter()
-                .all(|r| r.product.provider() == crate::sources::region::Provider::Lgb)
+                .all(|r| r.product.provider() == crate::sources::lgb::TileProvider::Lgb)
         );
         assert!(
             !attribution_lines(&project, &[])
@@ -8290,16 +7073,16 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, tile, "2026-01-26");
         // Saxon ALKIS and the Saxony extract (empty answers are fine here).
         fetcher.insert_prefix(
-            crate::sources::alkis_wfs::GEOSN.url,
+            &crate::sources::alkis_wfs::GEOSN.url,
             include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
         );
-        let saxony = crate::sources::osm::ExtractSource::Saxony;
+        let saxony = crate::sources::osm::extract_of("saxony", 0);
         fetcher.insert(
-            saxony.state_url(),
+            &saxony.state_url(),
             b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
         );
         fetcher.insert(
-            saxony.url(),
+            &saxony.url(),
             std::fs::read(crate::fetch::test_support::OSM_FIXTURE).unwrap(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -8395,11 +7178,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -8417,7 +7200,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, _cache_dir, cache) = koeln_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -8430,7 +7213,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::NordrheinWestfalen]
+            [regions::NORDRHEIN_WESTFALEN]
         );
         assert!(
             messages
@@ -8521,7 +7304,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(project.surface.is_some() && project.buildings.is_some());
         assert!(
@@ -8549,11 +7332,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let (dir, _cache_dir, cache) =
             nrw_project_of(&fetcher, &utm32_area_at(c.easting, c.northing, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hessen, Region::NordrheinWestfalen]
+            [regions::HESSEN, regions::NORDRHEIN_WESTFALEN]
         );
         {
             let log = fetcher.log.borrow();
@@ -8561,7 +7344,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 crate::sources::alkis_wfs::HVBG.url,
                 crate::sources::alkis_wfs::GEOBASIS_NRW.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from NRW alone.
             // Neither the orthophoto WMS nor the Downloadcenter of Hesse is asked (its ALKIS
@@ -8752,11 +7535,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -8778,7 +7561,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         assert_eq!(
             project.orthophoto.unwrap().flight.as_deref(),
@@ -8789,12 +7572,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::Niedersachsen]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::NIEDERSACHSEN]);
         {
             let log = fetcher.log.borrow();
             let getmap: Vec<&String> = log
                 .iter()
-                .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+                .filter(|u| u.starts_with(&*lgln::WMS.url) && u.contains("REQUEST=GetMap"))
                 .collect();
             assert_eq!(getmap.len(), 1, "{log:?}");
             assert!(
@@ -8808,7 +7591,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ] {
                 assert!(
                     log.iter()
-                        .any(|u| u.starts_with(model.wcs().url) && u.contains(coverage)),
+                        .any(|u| u.starts_with(&*model.wcs().url) && u.contains(coverage)),
                     "{coverage}: {log:?}"
                 );
             }
@@ -8983,7 +7766,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .log
             .borrow()
             .iter()
-            .filter(|u| u.starts_with(lgln::WMS.url) && u.contains("REQUEST=GetMap"))
+            .filter(|u| u.starts_with(&*lgln::WMS.url) && u.contains("REQUEST=GetMap"))
             .count();
         assert_eq!(getmap, 1);
         // An empty answer later keeps the stored orthophoto the same way.
@@ -9005,13 +7788,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|step| (485_500.0, 5_876_500.0 - f64::from(step) * 50.0))
             .find(|&(e, n)| {
                 raster_region(&utm32_area_at(e, n, 300.0).projected_bbox())
-                    == Some(Region::Niedersachsen)
+                    == Some(regions::NIEDERSACHSEN)
             })
             .expect("a centre in Niedersachsen");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert_eq!(
             messages
                 .iter()
@@ -9044,12 +7827,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let area = utm32_area_at(590_150.0, 5_706_232.0, 300.0);
         assert_eq!(
             raster_region(&area.projected_bbox()),
-            Some(Region::Niedersachsen)
+            Some(regions::NIEDERSACHSEN)
         );
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &area);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         let warnings: Vec<&String> = messages
             .iter()
             .filter(|m| {
@@ -9148,7 +7931,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (mut project, _) = fetch(dir.path(), &fetcher, &cache);
         // Objects of both states were fetched (a map on the Elbe).
         project.buildings.as_mut().unwrap().regions =
-            vec![Region::SchleswigHolstein, Region::Niedersachsen];
+            vec![regions::SCHLESWIG_HOLSTEIN, regions::NIEDERSACHSEN];
         let lines = attribution_lines(&project, &[]);
         assert!(lines.iter().any(|l| l == SH_ATTRIBUTION), "{lines:?}");
         assert!(
@@ -9172,26 +7955,26 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .find(|&(e, n)| {
                 let area = utm32_area_at(e, n, 300.0);
                 let bbox = area.projected_bbox();
-                raster_region(&bbox) == Some(Region::Niedersachsen)
-                    && regions_for(&bbox).contains(&Region::Hamburg)
+                raster_region(&bbox) == Some(regions::NIEDERSACHSEN)
+                    && regions_for(&bbox).contains(&regions::HAMBURG)
             })
             .expect("a border area south of Harburg");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::Lgln));
+        assert_eq!(project.provider, Some(providers::LGLN));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hamburg, Region::Niedersachsen]
+            [regions::HAMBURG, regions::NIEDERSACHSEN]
         );
         {
             let log = fetcher.log.borrow();
             for service in [
                 crate::sources::lgv::BUILDINGS_ENDPOINT,
-                crate::sources::alkis_wfs::LGLN.url,
+                &crate::sources::alkis_wfs::LGLN.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from Niedersachsen alone.
             for lgv_raster in ["geodienste.hamburg.de", "daten-hamburg.de"] {
@@ -9293,11 +8076,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
             fetcher.insert(
-                extract.url(),
+                &extract.url(),
                 std::fs::read(crate::fetch::test_support::OSM_FIXTURE).expect("OSM fixture"),
             );
         }
@@ -9317,7 +8100,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // Koblenz lies west of the 25833 false easting: the region box is negative.
         assert!(project.region_bbox().unwrap().max_e < 0.0);
         assert_eq!(project.crs(), crate::crs::Crs::Utm32);
-        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_RP));
         assert!(project.tiles.is_empty() && project.ndsm_tiles.is_empty());
         let orthophoto = project.orthophoto.unwrap();
         assert_eq!(orthophoto.flight.as_deref(), Some("25.08.2025"));
@@ -9331,7 +8114,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         for relpath in [WMS_ORTHOPHOTO_RELPATH, TERRAIN_RELPATH, SURFACE_RELPATH] {
             assert!(dir.path().join(relpath).exists(), "{relpath}");
         }
-        assert_eq!(project.buildings.unwrap().regions, [Region::RheinlandPfalz]);
+        assert_eq!(
+            project.buildings.unwrap().regions,
+            [regions::RHEINLAND_PFALZ]
+        );
         {
             let log = fetcher.log.borrow();
             // The orthophoto and the tiles come from the origin hosts, never the registry proxy.
@@ -9515,19 +8301,19 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|step| (447_500.0 - f64::from(step) * 50.0, 5_540_500.0))
             .find(|&(e, n)| {
                 let bbox = utm32_area_at(e, n, 300.0).projected_bbox();
-                raster_region(&bbox) == Some(Region::RheinlandPfalz)
-                    && regions_for(&bbox).contains(&Region::Hessen)
+                raster_region(&bbox) == Some(regions::RHEINLAND_PFALZ)
+                    && regions_for(&bbox).contains(&regions::HESSEN)
             })
             .expect("a border area at Mainz");
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = rp_project_of(&fetcher, &utm32_area_at(e, n, 300.0));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::LvermGeoRp));
+        assert_eq!(project.provider, Some(providers::LVERM_GEO_RP));
         assert!(project.orthophoto.is_some() && project.terrain.is_some());
         assert!(project.surface.is_some());
         assert_eq!(
             project.buildings.unwrap().regions,
-            [Region::Hessen, Region::RheinlandPfalz]
+            [regions::HESSEN, regions::RHEINLAND_PFALZ]
         );
         {
             let log = fetcher.log.borrow();
@@ -9535,7 +8321,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 crate::sources::alkis_wfs::HVBG.url,
                 crate::sources::alkis_wfs::LVERMGEO_RP.url,
             ] {
-                assert!(log.iter().any(|u| u.starts_with(service)), "{service}");
+                assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
             // The rasters come from Rhineland-Palatinate alone. Neither the orthophoto WMS nor
             // the Downloadcenter of Hesse is asked (its ALKIS WFS, on www.gds.hessen.de, is).
@@ -9592,7 +8378,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn regbez_border_reads_two_extracts() {
-        use crate::sources::osm::{ExtractSource, GovernmentDistrict};
         let fetcher = MapFetcher::default();
         let dir = tempfile::tempdir().unwrap();
         let cache_dir = tempfile::tempdir().unwrap();
@@ -9628,8 +8413,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
         assert_eq!(project.crs(), Crs::Utm32);
-        let koeln = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Koeln);
-        let duesseldorf = ExtractSource::NordrheinWestfalen(GovernmentDistrict::Duesseldorf);
+        let koeln = crate::sources::osm::extract_of("nordrheinwestfalen", 3);
+        let duesseldorf = crate::sources::osm::extract_of("nordrheinwestfalen", 2);
         let centre = BoundingBox {
             min_e: ce,
             min_n: cn,
@@ -9638,11 +8423,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         };
         assert_eq!(
             crate::sources::osm::extracts_for(&centre, &mut |_| {}),
-            [koeln]
+            std::slice::from_ref(&koeln)
         );
         assert_eq!(
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {}),
-            [duesseldorf, koeln]
+            [duesseldorf.clone(), koeln.clone()]
         );
         // Geofabrik's district extracts overlap at the border: both hold the same two hydrants.
         let (south, north) = (at(0.0, -300.0), at(0.0, 300.0));
@@ -9653,19 +8438,19 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         ]);
         for extract in [koeln, duesseldorf] {
             fetcher.insert(
-                extract.state_url(),
+                &extract.state_url(),
                 b"timestamp=2026-11-06T21\\:21\\:21Z\n".to_vec(),
             );
-            fetcher.insert(extract.url(), pbf.clone());
+            fetcher.insert(&extract.url(), pbf.clone());
         }
         crate::fetch::test_support::serve_synthetic_nrw(&fetcher, &project.bbox().unwrap());
         // No ALKIS objects in this box.
         fetcher.insert_prefix(
-            crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            &crate::sources::alkis_wfs::GEOBASIS_NRW.url,
             br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.provider, Some(Provider::GeobasisNrw));
+        assert_eq!(project.provider, Some(providers::GEOBASIS_NRW));
         for extract in ["Düsseldorf", "Köln"] {
             let line =
                 format!("reading OSM extract North Rhine-Westphalia, {extract} from 2026-11-06");
@@ -10835,7 +9620,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // which is not asked again, and the layer is left out with a warning.
         let asked: Vec<String> = fetcher.log.borrow()[calls..]
             .iter()
-            .filter(|u| u.starts_with(LGB_NAS.url))
+            .filter(|u| u.starts_with(&*LGB_NAS.url))
             .cloned()
             .collect();
         assert_eq!(asked.len(), 4, "{asked:?}");
@@ -10860,7 +9645,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let walls = &project.nas_layers["sonstiges-bauwerk"];
         assert_eq!(walls.count, 5);
         assert_eq!(walls.latest_update, NaiveDate::from_ymd_opt(2013, 1, 29));
-        assert_eq!(walls.regions, [Region::Brandenburg]);
+        assert_eq!(walls.regions, [regions::BRANDENBURG]);
         let stored =
             std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
                 .unwrap();
@@ -10897,7 +9682,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(
             !fetcher.log.borrow()[calls..]
                 .iter()
-                .any(|u| u.starts_with(LGB_NAS.url))
+                .any(|u| u.starts_with(&*LGB_NAS.url))
         );
         assert!(
             dir.path()
@@ -10917,7 +9702,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
             latest_update: None,
             count: 0,
-            regions: vec![Region::Berlin],
+            regions: vec![regions::BERLIN],
         };
         let previous = BTreeMap::from([("relief".to_string(), record)]);
         // Strausberg, Brandenburg.
@@ -10990,7 +9775,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             fetched: NaiveDate::from_ymd_opt(2026, 11, 8).unwrap(),
             latest_update: None,
             count: 0,
-            regions: vec![Region::Berlin],
+            regions: vec![regions::BERLIN],
         }
     }
 
@@ -11195,7 +9980,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let record = &records["potsdam"];
         assert_eq!(record.count, 3);
         assert_eq!(record.latest_update, NaiveDate::from_ymd_opt(2009, 6, 10));
-        assert_eq!(record.regions, [Region::Brandenburg]);
+        assert_eq!(record.regions, [regions::BRANDENBURG]);
         assert_eq!(
             record.bbox,
             [366_200.0, 5_807_100.0, 367_100.0, 5_807_700.0]
@@ -11743,13 +10528,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
-        assert_eq!(project.buildings.unwrap().regions, [Region::Berlin]);
-        assert_eq!(project.land_use.unwrap().regions, [Region::Berlin]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::BERLIN]);
+        assert_eq!(project.land_use.unwrap().regions, [regions::BERLIN]);
 
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         let project = ProjectFile::load(dir.path()).unwrap();
-        assert_eq!(project.buildings.unwrap().regions, [Region::Brandenburg]);
+        assert_eq!(project.buildings.unwrap().regions, [regions::BRANDENBURG]);
     }
 
     #[test]
@@ -11762,7 +10547,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .iter()
                 .any(|l| l.contains("Berlin"))
         );
-        project.buildings.as_mut().unwrap().regions = vec![Region::Brandenburg, Region::Berlin];
+        project.buildings.as_mut().unwrap().regions = vec![regions::BRANDENBURG, regions::BERLIN];
         assert!(attribution_lines(&project, &[]).contains(&BERLIN_ATTRIBUTION.to_string()));
     }
 

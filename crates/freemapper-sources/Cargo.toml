@@ -1,0 +1,38 @@
+[package]
+name = "freemapper-sources"
+description = "The generic readers of freemapper: WMS, WCS, WFS, zip ranges, float GeoTIFFs and height model tiles"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+# Builders of test data (a GeoTIFF, a JPEG, an archive, a workbook) and the test fetcher, for the
+# tests of the crates that use the readers. Dev-dependencies turn it on.
+testing = ["freemapper-adapter-api/testing"]
+
+[dependencies]
+chrono.workspace = true
+crc32fast.workspace = true
+freemapper-adapter-api.workspace = true
+freemapper-contract.workspace = true
+freemapper-fs.workspace = true
+freemapper-georef.workspace = true
+geo-types.workspace = true
+geojson.workspace = true
+image.workspace = true
+miniz_oxide.workspace = true
+quick-xml.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tiff.workspace = true
+weezl.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
+tempfile.workspace = true

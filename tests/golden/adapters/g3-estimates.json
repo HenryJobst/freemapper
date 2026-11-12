@@ -1,0 +1,190 @@
+[
+  {
+    "in_place": [],
+    "items": [
+      "orthophoto (DOP20) tile 33366-5807 | 8.000 MB | cached: true | Orthophoto | Cache",
+      "terrain model (DGM1) tile 33366-5807 | 1.300 MB | cached: true | Terrain | Cache",
+      "nDSM tile 33366-5807 | 15.000 MB | cached: true | Surface | Cache",
+      "OSM extract Brandenburg (shared by all projects) | 300.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project",
+      "full ALKIS structures (NAS) | 0.132 MB | cached: true | StateLayers | Project",
+      "city tree cadastres | 0.100 MB | cached: true | StateLayers | Project"
+    ],
+    "region": "brandenburg",
+    "tiles": [
+      "33366-5807"
+    ],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [],
+    "items": [
+      "orthophoto (DOP20) tile 33390-5816 | 8.000 MB | cached: true | Orthophoto | Cache",
+      "terrain model (DGM1) tile 33390-5816 | 1.300 MB | cached: true | Terrain | Cache",
+      "nDSM tile 33390-5816 (surface model (bDOM)) | 30.000 MB | cached: true | Surface | Cache",
+      "OSM extract Brandenburg (shared by all projects) | 300.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project",
+      "Berlin ALKIS structures, tree cadastre, street survey and point layers | 0.786 MB | cached: true | BerlinLayers | Project",
+      "Berlin K5 map (1:5000) template | 0.983 MB | cached: true | K5 | Project"
+    ],
+    "region": "berlin",
+    "tiles": [
+      "33390-5816"
+    ],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Orthophoto"
+    ],
+    "items": [
+      "terrain model (GeoSN DGM1) tile 33458-5670 | 14.000 MB | cached: true | Terrain | Cache",
+      "surface model (GeoSN DOM1) tile 33458-5670 | 15.000 MB | cached: true | Surface | Cache",
+      "orthophoto (GeoSN WMS) | 0.524 MB | cached: true | Orthophoto | Project",
+      "OSM extract Saxony (shared by all projects) | 270.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "saxony",
+    "tiles": [
+      "33458-5670"
+    ],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LVermGeo WMS) | 0.548 MB | cached: true | Orthophoto | Project",
+      "terrain model (LVermGeo DGM1) | 0.274 MB | cached: false | Terrain | Project",
+      "surface model (LVermGeo DOM1) | 0.274 MB | cached: false | Surface | Project",
+      "OSM extract Saxony-Anhalt (shared by all projects) | 177.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "saxonyanhalt",
+    "tiles": [],
+    "total_megabytes": "0.548"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LGV WMS) | 0.547 MB | cached: true | Orthophoto | Project",
+      "terrain model (LGV DGM1 2022) | 0.000 MB | cached: true | Terrain | Cache",
+      "surface model (LGV bDOM 2022) | 0.000 MB | cached: true | Surface | Cache",
+      "OSM extract Hamburg (shared by all projects) | 54.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "hamburg",
+    "tiles": [],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (HVBG WMS) | 0.576 MB | cached: true | Orthophoto | Project",
+      "terrain model (HVBG DGM1) | 0.000 MB | cached: true | Terrain | Cache",
+      "surface model (HVBG DOM1) | 0.000 MB | cached: true | Surface | Cache",
+      "tile metadata list (HVBG) | 1.000 MB | cached: true | Terrain | Cache",
+      "OSM extract Hesse (shared by all projects) | 348.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "hessen",
+    "tiles": [],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LVermGeo SH WMS) | 0.537 MB | cached: true | Orthophoto | Project",
+      "terrain model (LVermGeo SH DGM1) | 0.000 MB | cached: true | Terrain | Cache",
+      "surface model (LVermGeo SH bDOM, full-tile download) | 0.000 MB | cached: true | Surface | Cache",
+      "OSM extract Schleswig-Holstein (shared by all projects) | 159.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "schleswigholstein",
+    "tiles": [],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LAiV M-V WCS) | 0.531 MB | cached: true | Orthophoto | Project",
+      "terrain model (LAiV M-V DGM1) | 0.265 MB | cached: false | Terrain | Project",
+      "surface model (LAiV M-V DOM1) | 0.265 MB | cached: false | Surface | Project",
+      "OSM extract Mecklenburg-Vorpommern (shared by all projects) | 128.800 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "mecklenburgvorpommern",
+    "tiles": [],
+    "total_megabytes": "0.531"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (Geobasis NRW WMS) | 0.600 MB | cached: true | Orthophoto | Project",
+      "terrain model (Geobasis NRW DGM1) | 0.000 MB | cached: true | Terrain | Cache",
+      "surface model (Geobasis NRW DOM1) | 0.000 MB | cached: true | Surface | Cache",
+      "OSM extract North Rhine-Westphalia, Köln (shared by all projects) | 225.200 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "nordrheinwestfalen",
+    "tiles": [],
+    "total_megabytes": "-0.000"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LGLN WMS) | 0.557 MB | cached: true | Orthophoto | Project",
+      "terrain model (LGLN DGM1) | 0.278 MB | cached: false | Terrain | Project",
+      "surface model (LGLN DOM1) | 0.278 MB | cached: false | Surface | Project",
+      "OSM extract Lower Saxony (shared by all projects) | 510.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "niedersachsen",
+    "tiles": [],
+    "total_megabytes": "0.557"
+  },
+  {
+    "in_place": [
+      "Terrain",
+      "Orthophoto",
+      "Surface"
+    ],
+    "items": [
+      "orthophoto (LVermGeo RP WMS) | 0.595 MB | cached: true | Orthophoto | Project",
+      "terrain model (LVermGeo RP DGM1) | 0.000 MB | cached: true | Terrain | Cache",
+      "surface model (LVermGeo RP DOM1) | 0.000 MB | cached: true | Surface | Cache",
+      "OSM extract Rhineland-Palatinate (shared by all projects) | 275.000 MB | cached: true | MapData | Cache",
+      "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project"
+    ],
+    "region": "rheinlandpfalz",
+    "tiles": [],
+    "total_megabytes": "-0.000"
+  }
+]

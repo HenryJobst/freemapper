@@ -66,9 +66,7 @@ fetch() {
 run_tests() {
   fetch
   cd "$root"
-  # g5_unknown_provider_is_a_clear_error waits for the registry (plan C14).
-  cargo test -p freemapper --test adapters_golden --locked -- --include-ignored \
-    --skip g5_unknown_provider_is_a_clear_error
+  cargo test -p freemapper --test adapters_golden --locked -- --include-ignored
 }
 
 record() {

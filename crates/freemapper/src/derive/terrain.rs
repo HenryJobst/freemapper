@@ -1,5 +1,6 @@
 //! Terrain templates from the DTM: mosaic, hillshade and slope.
 
+use crate::sources::lgb::ProductTiles as _;
 use std::path::Path;
 
 use super::{DeriveError, read_member, template_grid, write_image_with_world_file};

@@ -688,9 +688,12 @@ dependencies = [
  "crc32fast",
  "dirs",
  "freemapper",
+ "freemapper-adapter-api",
+ "freemapper-adapters-de",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-sources",
  "freemapper-text",
  "fs4",
  "geo",
@@ -713,6 +716,44 @@ dependencies = [
  "weezl",
  "winapi-util",
  "world_magnetic_model",
+ "zip",
+]
+
+[[package]]
+name = "freemapper-adapter-api"
+version = "0.13.0"
+dependencies = [
+ "chrono",
+ "freemapper-fs",
+ "freemapper-georef",
+ "freemapper-text",
+ "geo",
+ "geo-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "freemapper-adapters-de"
+version = "0.13.0"
+dependencies = [
+ "chrono",
+ "freemapper",
+ "freemapper-adapter-api",
+ "freemapper-contract",
+ "freemapper-fs",
+ "freemapper-georef",
+ "freemapper-sources",
+ "geo",
+ "geo-types",
+ "geojson",
+ "image",
+ "las",
+ "serde_json",
+ "tempfile",
+ "tiff",
  "zip",
 ]
 
@@ -774,6 +815,29 @@ source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.21.1#46ce8c67
 dependencies = [
  "quick-xml",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "freemapper-sources"
+version = "0.13.0"
+dependencies = [
+ "chrono",
+ "crc32fast",
+ "freemapper-adapter-api",
+ "freemapper-contract",
+ "freemapper-fs",
+ "freemapper-georef",
+ "geo-types",
+ "geojson",
+ "image",
+ "miniz_oxide 0.9.1",
+ "quick-xml",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tiff",
+ "weezl",
+ "zip",
 ]
 
 [[package]]

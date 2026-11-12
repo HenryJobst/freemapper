@@ -6,6 +6,15 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Intern: Die Bundesländer sind jetzt Regionsadapter (ADR 0082, Stufen B und C; ADR 0102). Ein Bundesland liefert über ein gemeinsames Trait seine Grenze, seine OSM-Auszüge, seinen ALKIS-Dienst, seine Rasterquellen, seine Quellenzeilen und seine Download-Schätzung; die Engine fragt die Registry und nennt selbst kein Bundesland mehr. Die Aufzählungen `Region` und `Provider` gibt es nicht mehr. Der Code der elf Bundesländer liegt in der neuen Crate `freemapper-adapters-de`, die allgemeinen Dienst-Leser in `freemapper-sources`, die gemeinsamen Typen in `freemapper-adapter-api`. Für Nutzerinnen und Nutzer ändert sich nichts: Das Golden-Netz bestätigt für alle elf Bundesländer dieselben Anfragen und byte-gleiche Dateien, und `freemapper.toml` wird gelesen und geschrieben wie zuvor.
+- Die Gebietsseite, ihre Content-Security-Policy, die Meldung für ein Gebiet außerhalb der unterstützten Bundesländer und die MCP-Anweisungen nehmen die Liste der Bundesländer aus der Registry (ADR 0103). Die Luftbild-Ebenen der Seite kommen über den neuen Endpunkt `api/adapters`; sie heißen wie bisher. Fällt der Endpunkt aus, startet die Seite trotzdem, zeigt nur OpenStreetMap und nennt den Grund.
+
+### Behoben
+
+- Nennt eine Projektdatei einen Anbieter oder ein Bundesland, das dieses freemapper nicht kennt, sagt die Fehlermeldung das und nennt die Kennung. Vorher stand dort eine Parser-Meldung über einen unbekannten Wert.
+
 ## [0.13.0] - 2026-11-12
 
 ### Hinzugefügt

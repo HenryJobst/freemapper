@@ -143,6 +143,11 @@ impl Localize for ProjectError {
             ProjectError::Toml(message) => {
                 text(lang, "error-project-toml", &[("message", v(message))])
             }
+            ProjectError::UnknownAdapter(adapter) => text(
+                lang,
+                "error-project-unknown-adapter",
+                &[("adapter", v(adapter))],
+            ),
             ProjectError::Area(e) => e.localize(lang),
             ProjectError::Georef(e) => e.localize(lang),
             ProjectError::Omap(e) => e.localize(lang),
@@ -196,7 +201,11 @@ impl Localize for ProjectError {
                     ("limit", v(format!("{MAX_AREA_SIDE_M:.0}"))),
                 ],
             ),
-            ProjectError::OutsideCoverage => text(lang, "error-project-outside-coverage", &[]),
+            ProjectError::OutsideCoverage => text(
+                lang,
+                "error-project-outside-coverage",
+                &[("states", v(crate::text::states(lang)))],
+            ),
             ProjectError::NotEnoughSpace(shortfall) => shortfall.localize(lang),
         }
     }
@@ -659,6 +668,7 @@ mod tests {
                 hint: ". A new hint",
             },
             ProjectError::Toml("missing field `crs`".into()),
+            ProjectError::UnknownAdapter("czfoo".into()),
             ProjectError::NotFetched,
             ProjectError::Cancelled,
             ProjectError::Layer(

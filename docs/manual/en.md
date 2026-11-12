@@ -309,8 +309,9 @@ contributors.*
   - *Rectangle:* click two corners.
   - *Polygon:* click the corners one by one. To close it, click the first corner or double-click.
   - Esc cancels, Backspace removes the last corner.
-- **Background:** at the top right, choose OpenStreetMap or the orthophoto (LGB for Brandenburg and
-  Berlin, GeoSN for Saxony).
+- **Background:** at the top right, choose OpenStreetMap or the aerial photo of a state. The list
+  names every supported state with its agency, for example "Aerial photo Brandenburg/Berlin (LGB)"
+  or "Aerial photo Saxony (GeoSN)".
 - **On the right** you see:
   - the size with buffer;
   - the data tiles that will be downloaded (thin lines on the map);

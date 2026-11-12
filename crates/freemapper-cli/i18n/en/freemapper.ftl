@@ -59,6 +59,11 @@ cli-find-hint = Create the project with: freemapper init <dir> --osm { $id }
 cli-find-no-area = None of these places has an area that can be a map area. Draw the area with: freemapper select <dir>
 cli-find-nothing = no place found for "{ $query }"; try another name, or draw the area with: freemapper select <dir>
 
+## Lists in sentences
+
+# A list in a sentence: its last item after the others, which are joined by commas.
+cli-list-and = { $first } and { $last }
+
 ## Folder lock
 
 cli-lock-held = another freemapper run is using this folder (since { $time }, started by { $who }). Wait for it or stop it first.
@@ -131,7 +136,9 @@ page-no-room-skip = Not everything fits on the disk (freemapper keeps { $reserve
 page-no-room-stop = Not enough disk space (freemapper keeps { $reserve } free). There is no map without the marked parts, so the fetch stops before it downloads anything. Free some space first:
 page-disk-unknown = freemapper cannot read the free disk space ({ $error }). It fetches without the check.
 page-too-large = The area is too large: at most { $max } m per side (with buffer). Please choose a smaller one.
-page-outside = The area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has no data sources for other regions yet.
+page-outside = The area lies outside the supported states ({ $states }); freemapper has no data sources for other regions yet.
+page-outside-unknown = The area lies outside the regions freemapper supports; it has no data sources there yet.
+page-adapters-failed = The aerial photos cannot be listed ({ $detail }). The map shows OpenStreetMap only; everything else works.
 page-settings = Map
 page-kind = Map kind
 page-schoolyard = Schoolyard map (1:1000)
@@ -154,16 +161,7 @@ page-back-to-agent = Tell your AI assistant that the area is saved.
 page-nothing-saved = Nothing was saved.
 page-failed = Error: { $error }
 page-layer-osm = OpenStreetMap
-page-layer-aerial = Aerial photo Brandenburg/Berlin (LGB)
-page-layer-aerial-saxony = Aerial photo Saxony (GeoSN)
-page-layer-aerial-saxony-anhalt = Aerial photo Saxony-Anhalt (LVermGeo)
-page-layer-aerial-hamburg = Aerial photo Hamburg (LGV)
-page-layer-aerial-hessen = Aerial photo Hesse (HVBG)
-page-layer-aerial-schleswig-holstein = Aerial photo Schleswig-Holstein (LVermGeo SH)
-page-layer-aerial-mecklenburg-vorpommern = Aerial photo Mecklenburg-Vorpommern (LAiV M-V)
-page-layer-aerial-nordrhein-westfalen = Aerial photo North Rhine-Westphalia (Geobasis NRW)
-page-layer-aerial-niedersachsen = Aerial photo Lower Saxony (LGLN)
-page-layer-aerial-rheinland-pfalz = Aerial photo Rhineland-Palatinate (LVermGeo RP)
+page-layer-aerial-of = Aerial photo { $state } ({ $agency })
 
 ## The "Create the map" block of the area page (ADR 0090)
 
@@ -326,6 +324,7 @@ error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for 
 word-kind-schoolyard = schoolyard
 word-kind-sprint = sprint
 error-project-toml = invalid project file: { $message }
+error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; a newer version may have it
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again
@@ -336,7 +335,7 @@ error-project-terrain-not-fetched = no terrain model stored for this map area; r
 error-project-candidates-outdated = the stored OSM candidates do not cover the map area; run `freemapper fetch`
 error-project-stored = { $path }: { $message }; run `freemapper fetch` again
 error-project-area-too-large = map area plus buffer is { $width } × { $height } m, more than { $limit } m per side; reduce the map area or buffer_m in freemapper.toml
-error-project-outside-coverage = the map area lies outside the supported states (Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate); freemapper has data sources for those only so far
+error-project-outside-coverage = the map area lies outside the supported states ({ $states }); freemapper has data sources for those only so far
 
 ## Errors: disk space
 
@@ -564,7 +563,7 @@ mcp-param-start-pipeline-pdf = Also write <name>.pdf, the map ready to print (th
 mcp-param-start-pipeline-pdf-candidates = Also write <name>-candidates.pdf, the training map (the map plus every candidate drawn as a map object; check them in the terrain). Default false.
 mcp-param-start-pipeline-pdf-scale-bar = Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale number stays in the title block).
 mcp-param-start-pipeline-pdf-sources = Source lines on the PDFs: "auto" (default; the full list, shortened only when it takes more than 5 lines), "full" (never shortened) or "credit-only" (only the freemapper credit line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on). ATTRIBUTION.txt always lists every source.
-mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
+mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000) from official geodata of { $states }, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
 
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }

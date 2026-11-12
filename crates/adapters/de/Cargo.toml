@@ -1,0 +1,39 @@
+[package]
+name = "freemapper-adapters-de"
+description = "The region adapters of the German states: what freemapper needs to map Brandenburg, Berlin, Saxony and the others"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+# Test data of the states (a tile index, an archive), for the tests of the crates that use the
+# adapters. Dev-dependencies turn it on.
+testing = ["freemapper-adapter-api/testing", "freemapper-sources/testing"]
+
+[dependencies]
+chrono.workspace = true
+freemapper-adapter-api.workspace = true
+freemapper-contract.workspace = true
+freemapper-fs.workspace = true
+freemapper-georef.workspace = true
+freemapper-sources.workspace = true
+geo.workspace = true
+geo-types.workspace = true
+geojson.workspace = true
+las.workspace = true
+serde_json.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+# The live tests of the state modules (ignored unless asked for) use the HTTP client of the engine.
+freemapper.workspace = true
+image.workspace = true
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
+freemapper-sources = { workspace = true, features = ["testing"] }
+tempfile.workspace = true
+tiff.workspace = true

@@ -417,6 +417,33 @@ Coordination: check who has open work on these CLI files (Global Constraints) an
 - [ ] **Step 4:** Full suite, G1 to G5. Expected: PASS, no golden change.
 - [ ] **Step 5:** Commit; open the PR for stages A to C if not already merged. Watch CI on three systems.
 
+### Stages B and C as built (2026-11-12)
+
+Done on the branch `region-adapters`; [ADR 0102](../../adr/0102-region-adapters-crates-trait-and-registry-as-built.md)
+and [ADR 0103](../../adr/0103-the-area-page-takes-the-regions-from-the-registry.md) record the decisions. Where the
+tasks above and the code differ, the code and the ADRs hold:
+
+- C3: `RegionAdapter::extract_boundary(index)` instead of a `boundary` field in `OsmExtractInfo`; `ExtractRef`
+  keeps a copy of its info.
+- C4: `CreditLine { text, licence: Option<String> }` (the licence is the note text, not an id of the closed list);
+  `UsedSources` also carries the overlapped regions, the extra layers and templates and the drawn registers. New
+  golden `g1-credits.json`.
+- C5: `estimate` answers the raster items of the raster region; the grid of a tile provider is
+  `ProviderInfo.kind`. New goldens `g2-estimates.json` and `g3-estimates.json`.
+- C6: the `WfsService` constants stay in `freemapper-sources`; the table of the states holds a copy of each.
+- C7 to C12: `RasterBackend::derive_inputs(&DeriveEnv, &StoredRasters, &RasterArea) -> DeriveInputs` with one
+  result per input; `AdapterEnv` carries the registry; the geometry functions are in the api crate over `Outline`;
+  the boundaries are embedded by `freemapper-adapters-de`; the clock is in the api crate; no fallback to LGB for
+  an area without a raster region (`check_area` refuses it before).
+- C13: no `ExtraLayer` trait and no `extras()`; `nas()` and `tree_datasets()` are data of the adapter; the preview
+  has an `agency` and its credit a `{year}` placeholder.
+- C14: the adapters of the states are `StateAdapter` in `freemapper-adapters-de::states`, keyed by the crate's own
+  enums `State` and `Agency`; the tests name regions through `sources::region::ids` (constants of `AdapterId`).
+
+Left for later: the tests of the tile download and the old re-exporting modules in `freemapper::sources`, the
+clean build time before and after stage B (never measured on a quiet machine), and `-0.0` as the total of an
+estimate with everything cached.
+
 ---
 
 ## Stage D: manifests
