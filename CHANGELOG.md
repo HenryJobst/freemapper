@@ -6,6 +6,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf. Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
+
+## [0.14.0] - 2026-11-12
+
 ### Hinzugefügt
 
 - Das Saarland ist das zwölfte Bundesland (ADR 0111). Das Luftbild von 2025 kommt aus dem freien Kartendienst des LVGL, Gelände- und Oberflächenmodell des Laserscans von 2025 aus den Landkreis-Archiven seiner Open-Data-Ablage (freemapper liest aus Archiven von bis zu 1,3 GB nur die 1-km-Kacheln des Gebiets), Gebäude und Nutzung aus dem Dienst „ALKIS Vereinfacht“ des Geoportals Saarland. Alles steht unter dl-de/by-2-0; Karten tragen `© GeoBasis DE/LVGL-SL (<Jahr>), dl-de/by-2-0, Daten geändert`. Das Beispiel ist [Altstadt und Festung Saarlouis](examples/saarland-saarlouis/). Das Saarland ist das erste Bundesland, das als Adapter dazukam: ein Manifest-Ordner und ein Raster-Backend.
@@ -23,7 +29,6 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Anfragen gehen nur noch an Server im Internet (ADR 0106). freemapper verbindet sich nicht mehr mit einer Adresse dieses Rechners oder des lokalen Netzes, gleich ob eine URL sie nennt, ein Hostname dorthin auflöst oder ein Server dorthin weiterleitet. Das gilt für die Downloads, die Kartenkacheln der Gebietsseite und das Selbst-Update. Ein Proxy aus der Umgebung (`HTTPS_PROXY`) funktioniert weiter, auch ein lokaler. Eine Anfrage, die nicht gesendet wird, nennt den Grund in der Sprache des Laufs.
 - Die Anfragen für ein Bundesland bleiben auf den Hosts, die sein Manifest erklärt, Weiterleitungen eingeschlossen (höchstens drei): ALKIS, die Raster, das volle ALKIS, die Baumkataster sowie die Register und die K5 Berlins. Leitet ein Server freemapper zu einem Host weiter, den niemand erklärt hat, geht dorthin keine Anfrage; dasselbe gilt für eine vierte Weiterleitung in Folge, eine Weiterleitung auf `http` und eine Adresse in einer Antwort auf einem solchen Host. Die Meldung beginnt mit der abgelehnten Adresse, nennt das Bundesland und sagt, was zu tun ist. Ein Adapter aus einem Ordner ist genauso an seine eigenen Hosts gebunden und fügt einem eingebauten Bundesland keinen hinzu. Vor der Umstellung wurde jedes Bundesland an zwei Orten unter dieser Regel live abgerufen.
-- Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf. Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
 - Intern: Die elf Bundesländer sind Manifeste plus Code (ADR 0107). Jedes hat einen Ordner in `crates/adapters/de/manifests/` mit seinem Manifest und seiner Grenzdatei; Sachsen-Anhalt braucht keinen Raster-Code mehr. Das Golden-Netz bestätigt dieselben Anfragen und byte-gleiche Dateien.
 - Nennt eine Projektdatei einen Adapter, den dieses freemapper nicht hat, sagt die Meldung, woher Adapter kommen.
 - Intern: Die Bundesländer sind jetzt Regionsadapter (ADR 0082, Stufen B und C; ADR 0102). Ein Bundesland liefert über ein gemeinsames Trait seine Grenze, seine OSM-Auszüge, seinen ALKIS-Dienst, seine Rasterquellen, seine Quellenzeilen und seine Download-Schätzung; die Engine fragt die Registry und nennt selbst kein Bundesland mehr. Die Aufzählungen `Region` und `Provider` gibt es nicht mehr. Der Code der elf Bundesländer liegt in der neuen Crate `freemapper-adapters-de`, die allgemeinen Dienst-Leser in `freemapper-sources`, die gemeinsamen Typen in `freemapper-adapter-api`. Für Nutzerinnen und Nutzer ändert sich nichts: Das Golden-Netz bestätigt für alle elf Bundesländer dieselben Anfragen und byte-gleiche Dateien, und `freemapper.toml` wird gelesen und geschrieben wie zuvor.
