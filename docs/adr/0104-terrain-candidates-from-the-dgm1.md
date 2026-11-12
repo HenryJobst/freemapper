@@ -43,9 +43,16 @@ three that work on the DGM1 every state publishes.
   bulk material in a builders' yard, 2 heaps in allotments, 1 unclear); 12 depressions, about 1 real (the
   others in courtyards, light wells, ramps and a traffic island); 14 cliffs, real steps but mostly retaining
   walls and road edges; 155 banks, mostly plausible (path edges, terraces, sports grounds), a few at
-  buildings. So `balanced` keeps all of them candidates. Better filters (depressions near buildings and on
-  traffic areas, knolls on storage and industrial land, cliffs along roads) are the next step before the
-  question comes up again.
+  buildings. So `balanced` keeps all of them candidates.
+- Filters after that measurement, in the export: no knoll or depression on residential, mixed, industrial
+  and commercial land, traffic areas or allotments of the ALKIS land use (heaps, garden mounds, courtyards,
+  ramps; land of `Fläche besonderer funktionaler Prägung` stays open, because schoolyard maps lie there); no
+  depression within 8 m of a building (light wells, basement stairs); a cliff that runs mostly within 3 m of a
+  traffic area or 5 m of a building is offered as an earth bank (retaining walls, road edges). In `derive` the
+  centre line of a bank or cliff is averaged over ±2 m before it is simplified, so it no longer zigzags.
+  Measured again in the three areas: no knoll is left (all seven were heaps), 1 depression (the real hollow in
+  Viktoriapark), 9 cliffs (3 in Marburg became banks), 162 banks. The question whether `balanced` takes the
+  knolls comes back with areas that have real ones.
 - The algorithms are our own. The pairing of drop and steepness follows karttapullautin's cliff test, the drop
   across the patch and the tick side follow omapmaker's cliff classification. No code is copied from omapmaker.
   freemapper does not depend on karttapullautin: its library split (`pullauta-core`) is not upstream, and most of

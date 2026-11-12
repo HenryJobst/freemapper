@@ -561,7 +561,10 @@ From the terrain model come further candidates the contours miss:
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 
-None come at buildings, in water, or next to walls, fences and banks that are already drawn. The terrain
+None come at buildings, in water, or next to walls, fences and banks that are already drawn. Knolls and
+depressions do not come on residential, mixed, commercial and traffic land or in allotments, where they are
+mostly heaps, garden mounds, courtyards or ramps; depressions not within 8 m of a building either. A cliff along
+a street or a building is mostly a retaining wall and is offered as a bank. The terrain
 model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
 as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Banks and cliffs belong to the group `slopes`,
 knolls and depressions to the group `landforms` (see below): with `full`, `--content-set slopes=map` or

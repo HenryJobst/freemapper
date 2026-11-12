@@ -42,6 +42,9 @@ const MIN_BANK_M: f64 = 4.0;
 const MIN_BANK_ELONGATION: f64 = 2.0;
 /// Banks are simplified to this, on the ground.
 const BANK_SIMPLIFY_M: f64 = 0.5;
+/// The centre line is averaged over this many 1-cell bins on each side before it is simplified:
+/// the cells of a wide or uneven bank make it jump sideways from bin to bin.
+const BANK_SMOOTH_BINS: usize = 2;
 /// From this drop on a height jump is an impassable cliff (201), below an earth bank (104).
 const CLIFF_DROP_M: f64 = 3.0;
 
@@ -418,7 +421,7 @@ fn median(values: &mut [f64]) -> f64 {
 }
 
 /// The line along the long axis of the patch: the mean of its cells per pixel along the axis,
-/// simplified; `None` when the patch is too short or not long and narrow enough.
+/// smoothed and simplified; `None` when the patch is too short or not long and narrow enough.
 fn centre_line(cells: &[usize], grid: &GridSpec, min_length_m: f64) -> Option<Vec<(f64, f64)>> {
     let w = grid.width as usize;
     let points: Vec<(f64, f64)> = cells
@@ -444,13 +447,28 @@ fn centre_line(cells: &[usize], grid: &GridSpec, min_length_m: f64) -> Option<Ve
         let bin = (((along(p) - lo) / px).floor() as usize).min(bins - 1);
         sums[bin] = (sums[bin].0 + p.0, sums[bin].1 + p.1, sums[bin].2 + 1);
     }
-    let line: geo_types::LineString<f64> = sums
+    let raw: Vec<(f64, f64)> = sums
         .into_iter()
         .filter(|s| s.2 > 0)
         .map(|(e, n, k)| (e / k as f64, n / k as f64))
-        .collect::<Vec<_>>()
-        .into();
-    let line = line.simplify(BANK_SIMPLIFY_M);
+        .collect();
+    // A moving mean; the ends stay where they are, so the line keeps its length.
+    let last = raw.len() - 1;
+    let smoothed: Vec<(f64, f64)> = (0..raw.len())
+        .map(|i| {
+            if i == 0 || i == last {
+                return raw[i];
+            }
+            let window =
+                &raw[i.saturating_sub(BANK_SMOOTH_BINS)..(i + BANK_SMOOTH_BINS + 1).min(raw.len())];
+            let k = window.len() as f64;
+            (
+                window.iter().map(|p| p.0).sum::<f64>() / k,
+                window.iter().map(|p| p.1).sum::<f64>() / k,
+            )
+        })
+        .collect();
+    let line = geo_types::LineString::<f64>::from(smoothed).simplify(BANK_SIMPLIFY_M);
     (line.0.len() >= 2).then(|| line.0.iter().map(|c| (c.x, c.y)).collect())
 }
 
@@ -655,6 +673,23 @@ mod tests {
         // The low side (east) is on the right: the line runs north.
         let (first, last) = (bank.points[0], bank.points[bank.points.len() - 1]);
         assert!(last.1 > first.1 + 20.0, "{bank:?}");
+    }
+
+    #[test]
+    fn a_ragged_edge_gives_a_smooth_bank() {
+        // The edge jumps 2 m east and back every 2 m, as the cells of a wide, uneven bank do.
+        let ragged = |e: f64, n: f64| {
+            let edge = 30.0 + 2.0 * ((n / 2.0).floor() as i64 % 2) as f64;
+            40.0 + 1.5 / (1.0 + (-(e - edge) * 3.0).exp())
+        };
+        let jumps = height_jumps(&dtm(60, ragged), SPRINT, 1.0);
+        assert_eq!(jumps.len(), 1, "{jumps:?}");
+        let points = &jumps[0].points;
+        assert!(points.len() <= 4, "{points:?}");
+        assert!(
+            points.iter().all(|p| (p.0 - 31.0).abs() < 0.8),
+            "{points:?}"
+        );
     }
 
     #[test]

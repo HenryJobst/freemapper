@@ -587,7 +587,10 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.
 
-An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine. Das
+An Gebäuden, im Wasser und neben schon gezeichneten Mauern, Zäunen und Böschungen entstehen keine. Kuppen und
+Senken entstehen nicht auf Wohn-, Misch-, Gewerbe- und Verkehrsflächen und in Kleingärten, denn dort sind es
+meist Schüttgut, Gartenhügel, Höfe oder Rampen; Senken auch nicht näher als 8 m an Gebäuden. Eine Felswand
+entlang einer Straße oder eines Gebäudes ist meist eine Stützmauer und wird als Böschung angeboten. Das
 Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa einen Meter sind, übersieht es,
 und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
 Mauer herausstellen, eine Felswand als Treppe. Böschungen und Felswände gehören zur Gruppe `slopes`, Kuppen

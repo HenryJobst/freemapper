@@ -261,6 +261,30 @@ const DRAWN_JUMP_CODES: [&str; 7] = ["104", "104.1", "201", "513.1", "513.2", "5
 /// is left out (ground metres): DGM1 is interpolated under buildings, and a wall or shore
 /// already shows the jump.
 const LANDFORM_CLEARANCE_M: f64 = 2.0;
+/// A depression this close to a building is a light well, a basement stair or a hollow DGM1
+/// makes between houses, not a hollow of the ground (ground metres).
+const DEPRESSION_CLEARANCE_M: f64 = 8.0;
+/// ALKIS land use where a knoll or depression is a heap, a garden mound, a courtyard or a ramp
+/// rather than a form of the ground: built land, allotments and traffic areas. Schools and other
+/// land of `Fläche besonderer funktionaler Prägung` stay open, because schoolyard maps lie there.
+const BUILT_LAND_USE: [&str; 3] = [
+    "Wohnbaufläche",
+    "Fläche gemischter Nutzung",
+    "Industrie- und Gewerbefläche",
+];
+const TRAFFIC_LAND_USE: [&str; 6] = [
+    "Straßenverkehr",
+    "Weg",
+    "Platz",
+    "Bahnverkehr",
+    "Flugverkehr",
+    "Schiffsverkehr",
+];
+const ALLOTMENT_LAND_USE: &str = "Kleingarten";
+/// A cliff that runs mostly this close to a traffic area, or to a building, is a retaining wall
+/// or a road edge more often than a cliff: it is offered as an earth bank (ground metres).
+const CLIFF_TRAFFIC_M: f64 = 3.0;
+const CLIFF_BUILDING_M: f64 = 5.0;
 
 /// Candidate objects for the landforms from `derive` (knolls 109, 110, depressions 111, banks
 /// 104, cliffs 201); none when there are none. `drawn` are the objects of the map and of the
@@ -270,13 +294,14 @@ pub(super) fn stored_landform_objects(
     dir: &Path,
     project: &ProjectFile,
     footprints: &[geo_types::Polygon<f64>],
+    land_use: &[LandUse],
     area: &MapArea,
     water: &geo_types::MultiPolygon<f64>,
     drawn: &[&MapObject],
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    use geo::{Distance as _, InterpolateLine as _, Length as _};
+    use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _};
     let path = dir.join(LANDFORMS_RELPATH);
     if !path.exists() {
         return Ok(Vec::new());
@@ -311,27 +336,61 @@ pub(super) fn stored_landform_objects(
             .iter()
             .any(|f| geo::Euclidean.distance(g, f) <= LANDFORM_CLEARANCE_M)
     };
-    // A bank is a repeat when most of it lies along a drawn line or the water.
-    let repeats = |line: &geo_types::LineString<f64>| {
+    let land = |keep: &dyn Fn(&LandUse) -> bool| -> Vec<&geo_types::MultiPolygon<f64>> {
+        land_use
+            .iter()
+            .filter(|l| keep(l))
+            .map(|l| &l.footprint)
+            .collect()
+    };
+    let built = land(&|l| {
+        BUILT_LAND_USE.contains(&l.nutzart.as_str())
+            || TRAFFIC_LAND_USE.contains(&l.nutzart.as_str())
+            || l.bez.as_deref() == Some(ALLOTMENT_LAND_USE)
+    });
+    let traffic = land(&|l| TRAFFIC_LAND_USE.contains(&l.nutzart.as_str()));
+    // Whether most of `line`, sampled every metre, is `near`.
+    let mostly = |line: &geo_types::LineString<f64>,
+                  near: &dyn Fn(&geo_types::Point<f64>) -> bool| {
         let samples = (geo::Euclidean.length(line) / 1.0).ceil().max(1.0) as usize;
         let close = (0..=samples)
             .filter_map(|k| {
                 geo::Euclidean.point_at_ratio_from_start(line, k as f64 / samples as f64)
             })
-            .filter(|p| {
-                geo::Euclidean.distance(p, water) <= LANDFORM_CLEARANCE_M
-                    || drawn_lines
-                        .iter()
-                        .any(|l| geo::Euclidean.distance(p, l) <= LANDFORM_CLEARANCE_M)
-            })
+            .filter(|p| near(p))
             .count();
         2 * close > samples + 1
     };
+    // A bank is a repeat when most of it lies along a drawn line or the water.
+    let repeats = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            geo::Euclidean.distance(p, water) <= LANDFORM_CLEARANCE_M
+                || drawn_lines
+                    .iter()
+                    .any(|l| geo::Euclidean.distance(p, l) <= LANDFORM_CLEARANCE_M)
+        })
+    };
+    let along_roads = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            traffic
+                .iter()
+                .any(|t| geo::Euclidean.distance(p, *t) <= CLIFF_TRAFFIC_M)
+                || footprints
+                    .iter()
+                    .any(|f| geo::Euclidean.distance(p, f) <= CLIFF_BUILDING_M)
+        })
+    };
     let mut objects = Vec::new();
     for form in &forms {
+        let mut landform = form.kind;
+        if landform == LandformKind::Cliff
+            && along_roads(&geo_types::LineString::from(form.points.clone()))
+        {
+            landform = LandformKind::Bank;
+        }
         let Some(code) = LANDFORM_CODES
             .iter()
-            .find(|(kind, _)| *kind == form.kind)
+            .find(|(k, _)| *k == landform)
             .map(|(_, code)| *code)
         else {
             continue;
@@ -351,6 +410,15 @@ pub(super) fn stored_landform_objects(
         }
         match &geometry {
             geo_types::Geometry::Point(p) if geo::Euclidean.distance(p, water) == 0.0 => continue,
+            geo_types::Geometry::Point(p) if built.iter().any(|b| b.contains(p)) => continue,
+            geo_types::Geometry::Point(p)
+                if landform == LandformKind::Depression
+                    && footprints
+                        .iter()
+                        .any(|f| geo::Euclidean.distance(p, f) <= DEPRESSION_CLEARANCE_M) =>
+            {
+                continue;
+            }
             geo_types::Geometry::LineString(l) if repeats(l) => continue,
             _ => {}
         }
@@ -1558,6 +1626,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         dir,
         &project,
         &footprints,
+        &land_use,
         &area,
         &water.union,
         &drawn,
