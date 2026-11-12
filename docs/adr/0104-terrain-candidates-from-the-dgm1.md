@@ -35,9 +35,17 @@ three that work on the DGM1 every state publishes.
   and cliffs belong to the group `slopes`, so `full` or `slopes=map` puts them on the map and `slopes=off`
   drops them; `balanced` leaves them candidates, because the terrain model has no source rank. Knolls and
   depressions get their own group `landforms` (109 to 111), so `full` and `landforms=map` reach them too;
-  `balanced` leaves the group as the build has it. Whether `balanced` takes the knolls is decided on a
-  measured hit rate in three example areas (at least about 80 % real knolls); banks and depressions stay
-  candidates, cliffs always, because a wrong impassable cliff forbids a way in a sprint race.
+  `balanced` leaves the group as the build has it. `balanced` would take the knolls at a hit rate of about
+  80 %; banks and depressions stay candidates, cliffs always, because a wrong impassable cliff forbids a way
+  in a sprint race.
+- Measured on 2026-11-12 in Viktoriapark, Sanssouci and Marburg (examples), against the orthophoto, the
+  relief and the hillshade: 7 knolls, all in Viktoriapark, none clearly a knoll of the terrain (4 heaps of
+  bulk material in a builders' yard, 2 heaps in allotments, 1 unclear); 12 depressions, about 1 real (the
+  others in courtyards, light wells, ramps and a traffic island); 14 cliffs, real steps but mostly retaining
+  walls and road edges; 155 banks, mostly plausible (path edges, terraces, sports grounds), a few at
+  buildings. So `balanced` keeps all of them candidates. Better filters (depressions near buildings and on
+  traffic areas, knolls on storage and industrial land, cliffs along roads) are the next step before the
+  question comes up again.
 - The algorithms are our own. The pairing of drop and steepness follows karttapullautin's cliff test, the drop
   across the patch and the tick side follow omapmaker's cliff classification. No code is copied from omapmaker.
   freemapper does not depend on karttapullautin: its library split (`pullauta-core`) is not upstream, and most of
