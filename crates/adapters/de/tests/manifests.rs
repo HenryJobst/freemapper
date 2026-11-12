@@ -246,6 +246,54 @@ fn every_state_is_held_to_the_hosts_of_its_manifest() {
     assert!(policy.check_url("https://isk.geobasis-bb.de/x").is_err());
 }
 
+/// A host a person allowed for a state is one more host of that state and of no other; an
+/// entry that is no public DNS name is left out. A host nobody allowed is refused with the
+/// command that allows it.
+#[test]
+fn a_host_allowed_for_a_state_widens_that_state_only() {
+    let mut extra = std::collections::BTreeMap::new();
+    extra.insert(
+        "hessen".to_string(),
+        vec![
+            "cdn.example.net".to_string(),
+            "127.0.0.1".to_string(),
+            "*".to_string(),
+            "localhost".to_string(),
+            "user@evil.example.net".to_string(),
+            "evil.example.net:8443".to_string(),
+        ],
+    );
+    let mut registry = Registry::new();
+    states::register_with_hosts(&mut registry, &extra).unwrap();
+    let policy = |id: &str| registry.get(id).unwrap().policy().unwrap();
+    assert!(
+        policy("hessen")
+            .check_url("https://cdn.example.net/x")
+            .is_ok()
+    );
+    assert!(
+        policy("hamburg")
+            .check_url("https://cdn.example.net/x")
+            .is_err()
+    );
+    let hosts: Vec<&str> = policy("hessen").hosts().collect();
+    let declared = &registry.get("hessen").unwrap().declared().unwrap().hosts;
+    assert_eq!(hosts.len(), declared.len() + 1, "{hosts:?}");
+    // What nobody allowed is refused, and the message has the command.
+    let refused = policy("hessen")
+        .check_url("https://other.example.net/x")
+        .unwrap_err();
+    let message = policy("hessen").refusal(refused, None).to_string();
+    assert!(
+        message.contains(
+            "the adapter of Hesse does not name the host other.example.net. If the service \
+             has moved there, allow the host with `freemapper adapters allow-host hessen \
+             other.example.net` and report it at"
+        ),
+        "{message}"
+    );
+}
+
 /// Saxony-Anhalt needs no code: the backend its manifest declares asks what `lvermgeo.rs` asks.
 mod saxony_anhalt {
     use std::path::{Path, PathBuf};

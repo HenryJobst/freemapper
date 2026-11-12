@@ -14,6 +14,7 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 // old paths stay.
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
+pub use freemapper_adapter_api::error::{HostNotNamed, Remedy};
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 #[cfg(test)]
@@ -27,7 +28,9 @@ pub(crate) use freemapper_adapter_api::fetch::{
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
 use freemapper_adapter_api::policy::{self, UrlPolicy};
-pub use freemapper_adapter_api::policy::{PolicyError, REASONS as POLICY_REASONS, redirect_target};
+pub use freemapper_adapter_api::policy::{
+    PolicyError, REASONS as POLICY_REASONS, dns_name, redirect_target,
+};
 use freemapper_adapter_api::trust::TrustAnchors;
 use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{
@@ -642,10 +645,7 @@ impl HttpFetcher {
         };
         policy
             .check_url(url)
-            .map_err(|refused| FetchError::NotAllowed {
-                url: refused.subject,
-                reason: refused.reason.to_string(),
-            })?;
+            .map_err(|refused| policy.refusal(refused, None))?;
         let not_allowed = |reason: String| FetchError::NotAllowed {
             url: bare_url(url).to_string(),
             reason,
@@ -673,7 +673,7 @@ impl HttpFetcher {
             let next = policy::redirect_target(&current, location);
             policy
                 .check_url(&next)
-                .map_err(|refused| not_allowed(format!("a redirect to {refused}")))?;
+                .map_err(|refused| policy.refusal(refused, Some(url)))?;
             current = next;
         }
     }
@@ -3657,6 +3657,44 @@ mod tests {
             Err(FetchError::Cancelled)
         ));
         assert_eq!(asked.lock().unwrap().len(), 6);
+    }
+
+    /// A redirect off the hosts of an adapter's policy is refused with what the person can
+    /// do: the target first, the address that sent freemapper there, and the command.
+    #[test]
+    fn a_redirect_off_the_hosts_of_an_adapter_says_what_to_do() {
+        use freemapper_adapter_api::error::Remedy;
+        use freemapper_adapter_api::policy::Owner;
+        let (base, asked) = stub_server(vec![(
+            "/away?x=1",
+            Stubbed::Redirect("https://cdn.example.net/x?token=abc"),
+        )]);
+        let mut plain = HttpFetcher::local();
+        plain.stub = Some(base.trim_end_matches('/').to_string());
+        let policy = UrlPolicy::new(["geo.example.org"])
+            .unwrap()
+            .owned_by(Owner {
+                adapter: "hessen".to_string(),
+                name: "Hesse".to_string(),
+                remedy: Remedy::AllowHost,
+            });
+        let bound = plain.bound_to(&policy).unwrap();
+        let refused = bound.get("https://geo.example.org/away?x=1").unwrap_err();
+        assert_eq!(
+            refused.to_string(),
+            "https://cdn.example.net/x: freemapper does not send requests to this address: \
+             the adapter of Hesse does not name the host cdn.example.net \
+             (https://geo.example.org/away redirects there). If the service has moved there, \
+             allow the host with `freemapper adapters allow-host hessen cdn.example.net` and \
+             report it at https://github.com/HenryJobst/freemapper/issues"
+        );
+        assert!(matches!(refused, FetchError::HostNotNamed(_)));
+        // Not asked again, and the target never.
+        let again = get_with_retries(&*bound, "https://geo.example.org/away?x=1", |b| {
+            Ok(b.to_vec())
+        });
+        assert!(matches!(again, Err(FetchError::HostNotNamed(_))));
+        assert_eq!(*asked.lock().unwrap(), ["/away?x=1", "/away?x=1"]);
     }
 
     /// A fetcher keeps the one it bound to a policy: the next binding to the same policy asks

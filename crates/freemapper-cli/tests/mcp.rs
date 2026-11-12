@@ -323,6 +323,45 @@ fn mcp_never_loads_the_adapters_of_a_project() {
     assert!(!stderr.contains("project folder"), "{stderr}");
 }
 
+/// The server reads the hosts the person allowed and never writes the file: an entry that a
+/// release made redundant stays for a command of the person to remove, and no tool allows a
+/// host.
+#[cfg(unix)]
+#[test]
+fn mcp_reads_the_allowed_hosts_and_never_writes_them() {
+    let cache = tempfile::tempdir().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let config = if cfg!(target_os = "macos") {
+        home.path().join("Library").join("Application Support")
+    } else {
+        home.path().join("xdg")
+    };
+    let file = config.join("freemapper").join("allowed-hosts.toml");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let stored = "[allow]\nhessen = [\"gds.hessen.de\", \"cdn.example.net\"]\n";
+    std::fs::write(&file, stored).unwrap();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_freemapper"));
+    command
+        .env("HOME", home.path())
+        .env("XDG_CONFIG_HOME", home.path().join("xdg"))
+        .env("FREEMAPPER_ADAPTER_DIR", home.path().join("no-adapters"))
+        .env_remove("FREEMAPPER_UPDATE_TEST_BASE");
+    let mut session = Session::start_with(command, cache.path());
+    let tools = session.request("tools/list", json!({}));
+    let names: Vec<&str> = tools["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    assert!(names.iter().all(|name| !name.contains("host")), "{names:?}");
+    let (error, text) = session.call("list_layers", json!({ "dir": home.path().join("p") }));
+    assert!(error || !text.is_empty());
+    let (stderr, _) = session.close();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), stored);
+    assert!(!stderr.contains("gds.hessen.de"), "{stderr}");
+}
+
 #[test]
 fn mcp_reports_tool_errors() {
     let cache = tempfile::tempdir().unwrap();

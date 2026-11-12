@@ -11,10 +11,11 @@ use std::sync::{Arc, OnceLock};
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
+use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::info::{Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo};
-use freemapper_adapter_api::policy::UrlPolicy;
+use freemapper_adapter_api::policy::{Owner, UrlPolicy};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
 use freemapper_adapter_api::registry::Registry;
@@ -249,12 +250,29 @@ impl ManifestAdapter {
     /// The adapter with its requests kept on the hosts of `[net] hosts`, redirects included:
     /// a service may answer with an address nobody declared. Its ALKIS and its rasters ask
     /// through the policy here; the engine asks its NAS service and its tree cadastres through
-    /// [`RegionAdapter::policy`]. The adapters from a folder and the built-in states are made
-    /// this way.
-    pub fn asking_declared_hosts_only(mut self) -> Self {
-        let policy = UrlPolicy::new(self.manifest.hosts.iter().map(String::as_str))
+    /// [`RegionAdapter::policy`]. The adapters from a folder are made this way: a host the
+    /// manifest does not name belongs into the manifest.
+    pub fn asking_declared_hosts_only(self) -> Self {
+        self.held_to_its_hosts(Remedy::Manifest, &[])
+    }
+
+    /// [`Self::asking_declared_hosts_only`] with what a person can do about a host the adapter
+    /// does not name (`remedy`), and with the hosts in `extra` allowed besides those of the
+    /// manifest: the hosts a person allowed for a built-in state. An entry of `extra` that is
+    /// no DNS name as the manifest's hosts are is left out.
+    pub fn held_to_its_hosts(mut self, remedy: Remedy, extra: &[String]) -> Self {
+        let mut policy = UrlPolicy::new(self.manifest.hosts.iter().map(String::as_str))
             .expect("the validator accepts the hosts the policy accepts");
-        let policy = Arc::new(policy);
+        for host in extra {
+            if let Ok(wider) = policy.clone().with_hosts([host.as_str()]) {
+                policy = wider;
+            }
+        }
+        let policy = Arc::new(policy.owned_by(Owner {
+            adapter: self.info.id.to_string(),
+            name: self.info.names.en.clone(),
+            remedy,
+        }));
         self.alkis = self.alkis.take().map(|inner| {
             Box::new(GuardedAlkis {
                 inner,

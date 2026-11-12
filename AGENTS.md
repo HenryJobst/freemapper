@@ -104,7 +104,8 @@ freemapper run <dir> --pdf
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
-| `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
+| `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). `adapters disallow-host <adapter> <host>` takes it back. The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
+| `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
@@ -263,11 +264,17 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - macOS "cannot be opened" or "killed": remove the quarantine flag (install step 4).
 - A run fails with a download error: services of the states are sometimes down. Try again later; `offline` with
   data fetched before still works.
-- "freemapper does not send requests to this address: … the host is not one of the declared hosts": a service
-  of a state sent freemapper on to a server the state's adapter does not name. Do not work around it. For a
-  built-in state tell the person to report it (<https://github.com/HenryJobst/freemapper/issues>) and to update
-  once a release has the host; for an adapter of the person's own folder, the host belongs in `[net] hosts` of
-  its manifest.
+- "freemapper does not send requests to this address: the adapter of <state> does not name the host <host>":
+  a service of that state moved to a server its adapter does not name yet, or sent freemapper there by a
+  redirect. The message ends with the command that allows the host, `freemapper adapters allow-host <adapter>
+  <host>`. Do not run it on your own. Show the person the message, say that it lets freemapper ask that server
+  for that state, and run the command only after they agreed, with the host exactly as the message names it;
+  never guess a host. Then run the failed command again and ask the person to report the change at
+  <https://github.com/HenryJobst/freemapper/issues>. Through MCP there is no tool for this; the person runs the
+  command in a terminal. For an adapter of the person's own folder the message names the manifest instead: the
+  host belongs in its `[net] hosts`.
+- "freemapper does not send requests to this address" with another reason (an address of this computer or of
+  the local network, not https, more than 3 redirects): nothing to allow. Report it if it is a built-in state.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
   folder. Wait for it, or use another folder.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.

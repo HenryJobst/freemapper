@@ -77,6 +77,24 @@ cli-adapters-never-checked = nie
 cli-adapters-user-dir = Ihre Adapter werden aus { $path } gelesen
 cli-adapters-no-user-dir = Dieses System hat keinen Ordner für Ihre Adapter; FREEMAPPER_ADAPTER_DIR nennt einen
 
+## adapters allow-host (ADR 0110)
+
+cli-allow-host-added = freemapper darf für { $name } jetzt auch { $host } anfragen. Der Eintrag steht in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` nimmt ihn zurück
+cli-allow-host-already = { $host } ist für { $name } schon freigegeben
+cli-allow-host-declared = Der Adapter für { $name } nennt { $host } selbst; es gibt nichts freizugeben
+cli-allow-host-refused = { $host } lässt sich nicht freigeben: { $reason }
+cli-allow-host-unknown-adapter = Es gibt keinen eingebauten Adapter { $adapter }; die eingebauten Adapter sind: { $adapters }
+cli-allow-host-folder-adapter = { $adapter } ist ein Adapter aus Ihrem Adapterordner; tragen Sie den Host stattdessen in `[net] hosts` seines Manifests ein
+cli-allow-host-no-config = Dieses System hat keinen Konfigurationsordner für freigegebene Hosts
+cli-allow-host-write = { $file } ließ sich nicht schreiben: { $detail }
+cli-disallow-host-removed = freemapper fragt { $host } für { $name } nicht mehr an
+cli-disallow-host-absent = { $host } war für { $name } nicht freigegeben; es gibt nichts zurückzunehmen
+cli-allowed-hosts-unreadable = Warnung: { $file } ließ sich nicht lesen ({ $detail }); es sind keine zusätzlichen Hosts freigegeben
+cli-allowed-hosts-ignored = Warnung: { $file }: Der Eintrag { $host } für { $adapter } wird ignoriert: { $reason }
+cli-allowed-hosts-no-adapter = freemapper hat keinen eingebauten Adapter dieses Namens
+cli-allowed-host-redundant = { $host } gehört jetzt zu den Hosts, die der Adapter für { $name } nennt; Ihr Eintrag in { $file } wurde entfernt
+cli-adapters-allowed = von Ihnen freigegeben: { $hosts }
+
 ## adapters check. Ein Befund kommt in `{ $finding }` wie in den Zeilen oben. `{ $capability }` ist
 ## ein festes Wort (`rasters`, `alkis-buildings`, `nas`, `osm`), in jeder Sprache dasselbe.
 
@@ -434,6 +452,9 @@ error-fetch-too-large = Die Datei von { $url } ist größer als { $limit } MB; a
 error-fetch-not-stored = Für dieses Kartengebiet ist nichts gespeichert ({ $label }): { $path } fehlt, lässt sich nicht lesen oder deckt das Gebiet nicht ab; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf
 error-fetch-range-ignored = { $url }: Der Server hat den Bytebereich { $range } nicht beachtet (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper sendet keine Anfragen an diese Adresse: { $reason }
+error-fetch-host-not-named-allow = { $target }: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für { $name } nennt den Host { $host } nicht{ $from }. Ist der Dienst dorthin umgezogen, geben Sie den Host mit `freemapper adapters allow-host { $adapter } { $host }` frei und melden Sie es unter https://github.com/HenryJobst/freemapper/issues
+error-fetch-host-not-named-manifest = { $target }: freemapper sendet keine Anfragen an diese Adresse: Der Adapter { $adapter } nennt den Host { $host } nicht{ $from }. Ist der Dienst dorthin umgezogen, tragen Sie den Host in `[net] hosts` seines Manifests ein
+error-fetch-host-redirected-from = {" "}({ $url } leitet dorthin weiter)
 error-reason-not-a-host-name = kein Hostname
 error-reason-not-ascii = ein Name außerhalb von ASCII muss in seiner „xn--“-Form stehen
 error-reason-not-a-dns-name = kein DNS-Name
@@ -564,6 +585,12 @@ help-adapters-check-dir = Der Ordner des Adapters; sein Name ist die Kennung des
 help-adapters-check-live = Auch die Dienste des Adapters für das Rechteck aus --bbox anfragen und sagen, was jeder liefert. Die Anfragen bleiben auf den Hosts, die das Manifest erklärt
 help-adapters-check-bbox = Das Rechteck der Live-Prüfung in Grad, als minLon,minLat,maxLon,maxLat. Es liegt innerhalb der Grenze des Adapters; 150 m mal 150 m genügen
 help-adapters-check-json = Das Ergebnis als JSON ausgeben
+help-adapters-allow-host = Einem eingebauten Adapter einen weiteren Host freigeben: für ein Bundesland, dessen Dienst auf einen Server umgezogen ist, den sein Adapter noch nicht nennt. Die Meldung zur abgelehnten Adresse nennt den Host. Der Host wird geprüft wie ein Host eines Manifests, und freemapper verbindet sich weiterhin nur mit Servern im Internet
+help-adapters-allow-host-adapter = Die Kennung des eingebauten Adapters, wie `adapters list` sie zeigt
+help-adapters-allow-host-host = Der freizugebende Host: ein DNS-Name, keine Adresse, kein Port
+help-adapters-disallow-host = Einen Host zurücknehmen, den allow-host freigegeben hat
+help-adapters-disallow-host-adapter = Die Kennung des eingebauten Adapters
+help-adapters-disallow-host-host = Der Host, der zurückgenommen wird
 help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite

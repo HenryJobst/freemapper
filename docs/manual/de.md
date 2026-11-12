@@ -993,6 +993,29 @@ Das Format des Manifests beschreibt
 [ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md) (englisch); die Manifeste der eingebauten
 Bundesländer in `crates/adapters/de/manifests/` sind Beispiele. Eine Anleitung für Beitragende folgt.
 
+### Wenn ein Dienst umzieht
+
+Für ein eingebautes Bundesland fragt freemapper nur die Server an, die dessen Adapter nennt. Zieht ein Amt einen
+Dienst auf einen anderen Server um, scheitert der Abruf mit einer Meldung, die mit der abgelehnten Adresse
+beginnt, das Bundesland nennt und mit einem Kommando endet. Mit diesem Kommando geben Sie dem Bundesland den
+einen Host frei, bis eine neue Version von freemapper ihn selbst kennt:
+
+```sh
+freemapper adapters allow-host hessen neuer-server.hessen.de
+```
+
+Nehmen Sie den Host aus der Meldung und prüfen Sie, dass er zum Amt des Bundeslands gehört. Melden Sie den Umzug
+(Kapitel 16), damit die nächste Version den Host mitbringt; freemapper sagt dann einmal, dass Ihr Eintrag
+überflüssig ist, und entfernt ihn.
+
+Die freigegebenen Hosts stehen in `allowed-hosts.toml` in Ihrem Konfigurationsordner (`freemapper` unter
+`~/Library/Application Support`, `~/.config` oder `%APPDATA%`), und nur dort: Ein Projektordner, eine
+Umgebungsvariable von freemapper, ein Schalter eines Laufs oder der KI-Assistent über MCP können keinen Host
+hinzufügen. Ein Host muss ein DNS-Name sein; eine IP-Adresse, `localhost`, ein Name des lokalen Netzes, ein
+Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host gilt: freemapper verbindet sich
+nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
+adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
+
 ## 13. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
@@ -1046,7 +1069,8 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | Gebietsauswahl: „access blocked“ / 403 von OpenStreetMap, oder die Hintergrundkarte bleibt grau | Die Hintergrundkarte kommt von `tile.openstreetmap.org`. Dessen Kachelrichtlinie verlangt eine erkennbare Anwendung (`User-Agent`) oder ein gültiges `Referer`; der Browser schickt hier keinen `Referer`. Bis 0.9.1 lud der Browser die Kacheln selbst und bekam deshalb 403. Seit 0.9.2 holt der lokale Server die Kacheln mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)` und gibt sie an den Browser weiter. | freemapper aktualisieren. Der Rechner braucht Internet. Antwortet der Server mit 502, steht der Grund in der Antwort (z. B. HTTP 403 oder keine Verbindung). Die Luftbilder der Bundesländer sind nicht betroffen. |
 | `…: Der Server hat die Anfrage abgelehnt (HTTP 400)` (englisch: `… refused the request (HTTP 400)`) | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
-| `…: freemapper sendet keine Anfragen an diese Adresse: …` (englisch: `… freemapper does not send requests to this address: …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt, und nie eine Adresse dieses Rechners oder des lokalen Netzes. Steht dahinter `der Host gehört nicht zu den erklärten Hosts`, hat ein Dienst auf einen Server weitergeleitet oder in seiner Antwort auf einen verwiesen, den der Adapter nicht nennt. Auch eine vierte Weiterleitung in Folge und eine Weiterleitung auf `http` werden nicht befolgt. | Bei einem eingebauten Bundesland einen Fehler melden und freemapper aktualisieren, sobald eine neue Version erscheint. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 16). Siehe „Wenn ein Dienst umzieht“ in Kapitel 12. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: …` mit einem anderen Grund (englisch: `… freemapper does not send requests to this address: …`) | freemapper verbindet sich nie mit einer Adresse dieses Rechners oder des lokalen Netzes, folgt höchstens drei Weiterleitungen in Folge und keiner Weiterleitung auf `http`. | Nichts freizugeben. Bei einem eingebauten Bundesland einen Fehler melden. |
 | `…: Der Server hat den Bytebereich … nicht beachtet` (englisch: `… ignored the byte range`) | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
 | `Die Datei von … ist größer als … MB; abgebrochen` (englisch: `download of … is larger than … MB; stopped`) | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |
 | `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein und Mecklenburg-Vorpommern: Das Downloadportal hat sich vermutlich geändert. Nordrhein-Westfalen: Die Kachelliste von Geobasis NRW nennt keine Kachel für das Gebiet. Rheinland-Pfalz: Nach dem Doppelpunkt steht für jede Kachel der Grund, z. B. `not on the server (404)`, `not in LVermGeo RP's tile list` oder `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Einen Fehler melden. |

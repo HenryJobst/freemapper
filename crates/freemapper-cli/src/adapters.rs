@@ -9,7 +9,7 @@
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-use freemapper::adapters::{Registry, builtin, install_registry};
+use freemapper::adapters::{ExtraHosts, Registry, builtin, builtin_with_hosts, install_registry};
 use freemapper_manifest::loader::{AdapterDir, AdapterWarning, Loaded, Origin, load_dirs};
 use freemapper_manifest::model::Version;
 
@@ -84,12 +84,24 @@ pub struct Assembled {
     /// The adapters that came from a folder, in the order they were loaded.
     pub loaded: Vec<Loaded>,
     pub warnings: Vec<AdapterWarning>,
+    /// The hosts the person allowed for built-in adapters, by adapter.
+    pub allowed: ExtraHosts,
 }
 
 /// The built-in adapters, then those of `user`, then those of `project` (the folder
 /// `adapters` of a project folder), each only if given.
 pub fn assemble(user: Option<&Path>, project: Option<&Path>) -> Assembled {
-    let mut registry = builtin();
+    assemble_with_hosts(user, project, &ExtraHosts::new())
+}
+
+/// [`assemble`] with the hosts in `extra` allowed for the built-in adapters they name: what
+/// the person allowed with `adapters allow-host` (ADR 0110).
+pub fn assemble_with_hosts(
+    user: Option<&Path>,
+    project: Option<&Path>,
+    extra: &ExtraHosts,
+) -> Assembled {
+    let mut registry = builtin_with_hosts(extra);
     let dirs: Vec<AdapterDir> = [(user, Origin::User), (project, Origin::Project)]
         .into_iter()
         .filter_map(|(path, origin)| {
@@ -104,6 +116,7 @@ pub fn assemble(user: Option<&Path>, project: Option<&Path>) -> Assembled {
         registry,
         loaded,
         warnings,
+        allowed: extra.clone(),
     }
 }
 
@@ -163,11 +176,17 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
 ///
 /// The fetcher of the run is the plain one. Every adapter asks through its own policy
 /// (`RegionAdapter::policy`), so an adapter from a folder changes nothing for the others.
-pub fn install(project: Option<&Path>) {
+pub fn install(project: Option<&Path>, may_write: bool) {
     let user = user_dir();
     let project = project.map(project_dir);
-    let assembled = assemble(user.dir.as_deref(), project.as_deref());
-    for line in user.warning().into_iter().chain(report_lines(&assembled)) {
+    let allowed = allowed_hosts(may_write);
+    let assembled = assemble_with_hosts(user.dir.as_deref(), project.as_deref(), &allowed.hosts);
+    let lines = user
+        .warning()
+        .into_iter()
+        .chain(allowed.lines)
+        .chain(report_lines(&assembled));
+    for line in lines {
         eprintln!("{line}");
     }
     let installed = install_registry(assembled.registry);
@@ -177,6 +196,48 @@ pub fn install(project: Option<&Path>) {
         installed.is_ok(),
         "the registry was asked before the adapters of the run were installed"
     );
+}
+
+/// The hosts the person allowed for built-in adapters, and what there is to say about them.
+struct AllowedHosts {
+    hosts: ExtraHosts,
+    lines: Vec<String>,
+}
+
+/// Reads the hosts the person allowed (`hosts::file`). With `may_write`, an entry for a host
+/// its adapter names itself by now is taken out of the file and said once; the MCP server and
+/// the area page read the file and never write it.
+fn allowed_hosts(may_write: bool) -> AllowedHosts {
+    let built_in = builtin();
+    let file = crate::hosts::file();
+    let allowed = crate::hosts::load(file.as_deref(), &built_in);
+    let mut lines = allowed.warnings.clone();
+    if let (true, Some(file)) = (may_write, &file) {
+        lines.extend(crate::hosts::drop_redundant(file, &allowed, &built_in));
+    }
+    AllowedHosts {
+        hosts: allowed.hosts,
+        lines,
+    }
+}
+
+/// `freemapper adapters allow-host` and `disallow-host`: allows the built-in adapter `adapter`
+/// the host `host`, or takes it back. The line that says what happened goes to stdout; why
+/// nothing changed is the error.
+pub fn change_allowed_host(adapter: &str, host: &str, allow: bool) -> anyhow::Result<()> {
+    let built_in = builtin();
+    // With the person's folder, to tell an adapter of theirs from a name nobody has.
+    let with_folders = assemble(user_dir().dir.as_deref(), None).registry;
+    let file = crate::hosts::file();
+    let change = if allow {
+        crate::hosts::allow
+    } else {
+        crate::hosts::disallow
+    };
+    let line = change(file.as_deref(), adapter, host, &built_in, &with_folders)
+        .map_err(anyhow::Error::msg)?;
+    println!("{line}");
+    Ok(())
 }
 
 /// The line about `project` (a project folder given to `adapters list`) when it is no folder.
@@ -197,18 +258,27 @@ pub fn list(json: bool, project: Option<&Path>) {
         eprintln!("{line}");
     }
     let project = project.map(project_dir);
-    let assembled = assemble(user.dir.as_deref(), project.as_deref());
+    // The list shows what a run would use and changes nothing: it does not write the file.
+    let allowed = allowed_hosts(false);
+    let mut assembled =
+        assemble_with_hosts(user.dir.as_deref(), project.as_deref(), &allowed.hosts);
+    assembled.allowed = allowed.hosts;
     if json {
         println!("{}", list_json(&assembled, user.dir.as_deref()));
         return;
     }
-    for line in warning_lines(&assembled) {
+    for line in allowed.lines.into_iter().chain(warning_lines(&assembled)) {
         eprintln!("{line}");
     }
     let german = crate::text::lang().code() == "de";
     for line in list_lines(&assembled, user.dir.as_deref(), german) {
         println!("{line}");
     }
+}
+
+/// The hosts the person allowed for the adapter `id`.
+fn allowed_for<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
+    assembled.allowed.get(id).map_or(&[], Vec::as_slice)
 }
 
 /// The adapters on whose ground the adapter `id` lies, if it came from a folder.
@@ -270,6 +340,13 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
                     ),
                 ],
             );
+            let line = match allowed_for(assembled, info.id.as_str()) {
+                [] => line,
+                hosts => {
+                    let allowed = text("cli-adapters-allowed", &[("hosts", v(hosts.join(", ")))]);
+                    format!("{line}  {allowed}")
+                }
+            };
             match overlaps_of(assembled, info.id.as_str()) {
                 [] => line,
                 others => {
@@ -303,6 +380,7 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
                     .and_then(|declared| declared.last_verified)
                     .map(|day| day.to_string()),
                 "hosts": declared.map(|declared| declared.hosts.clone()).unwrap_or_default(),
+                "allowed_hosts": allowed_for(assembled, info.id.as_str()),
                 "overlaps": overlaps_of(assembled, info.id.as_str()),
             })
         })

@@ -247,11 +247,21 @@ mod tests {
         );
         fetcher.insert(elsewhere, page(&[wohnhaus("B")], None));
         let refused = fetch_buildings(&fetcher, &BBOX).unwrap_err();
-        let FetchError::NotAllowed { url, reason } = refused else {
+        let FetchError::HostNotNamed(refused) = refused else {
             panic!("{refused:?}");
         };
-        assert_eq!(url, "https://ogc-api.example.net/page2");
-        assert_eq!(reason, "the host is not one of the declared hosts");
+        assert_eq!(refused.target, "https://ogc-api.example.net/page2");
+        assert_eq!(refused.host, "ogc-api.example.net");
+        assert_eq!(
+            (refused.adapter.as_str(), refused.name.as_str()),
+            ("brandenburg", "Brandenburg")
+        );
+        assert!(
+            refused
+                .to_string()
+                .contains("`freemapper adapters allow-host brandenburg ogc-api.example.net`"),
+            "{refused}"
+        );
         assert_eq!(fetcher.calls.get(), 1);
     }
 

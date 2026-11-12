@@ -77,6 +77,24 @@ cli-adapters-never-checked = never
 cli-adapters-user-dir = Your adapters are read from { $path }
 cli-adapters-no-user-dir = This system has no folder for your adapters; FREEMAPPER_ADAPTER_DIR names one
 
+## adapters allow-host (ADR 0110)
+
+cli-allow-host-added = freemapper may now also ask { $host } for { $name }. The entry is in { $file }; `freemapper adapters disallow-host { $adapter } { $host }` takes it back
+cli-allow-host-already = { $host } is already allowed for { $name }
+cli-allow-host-declared = the adapter of { $name } names { $host } itself; nothing to allow
+cli-allow-host-refused = { $host } cannot be allowed: { $reason }
+cli-allow-host-unknown-adapter = there is no built-in adapter { $adapter }; the built-in adapters are: { $adapters }
+cli-allow-host-folder-adapter = { $adapter } is an adapter of your adapter folder; add the host to `[net] hosts` of its manifest instead
+cli-allow-host-no-config = this system has no configuration folder to keep allowed hosts in
+cli-allow-host-write = { $file } could not be written: { $detail }
+cli-disallow-host-removed = freemapper no longer asks { $host } for { $name }
+cli-disallow-host-absent = { $host } was not allowed for { $name }; nothing to take back
+cli-allowed-hosts-unreadable = warning: { $file } could not be read ({ $detail }); no extra hosts are allowed
+cli-allowed-hosts-ignored = warning: { $file }: the entry { $host } for { $adapter } is ignored: { $reason }
+cli-allowed-hosts-no-adapter = freemapper has no built-in adapter of that name
+cli-allowed-host-redundant = { $host } is now one of the hosts the adapter of { $name } names; your entry in { $file } was removed
+cli-adapters-allowed = allowed by you: { $hosts }
+
 ## adapters check. A finding arrives in `{ $finding }` as in the lines above. `{ $capability }` is
 ## a fixed word (`rasters`, `alkis-buildings`, `nas`, `osm`), the same in every language.
 
@@ -434,6 +452,9 @@ error-fetch-too-large = download of { $url } is larger than { $limit } MB; stopp
 error-fetch-not-stored = no { $label } stored for this map area: { $path } is missing, cannot be read or does not cover it; run `freemapper fetch` online first
 error-fetch-range-ignored = { $url }: the server ignored the byte range { $range } (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper does not send requests to this address: { $reason }
+error-fetch-host-not-named-allow = { $target }: freemapper does not send requests to this address: the adapter of { $name } does not name the host { $host }{ $from }. If the service has moved there, allow the host with `freemapper adapters allow-host { $adapter } { $host }` and report it at https://github.com/HenryJobst/freemapper/issues
+error-fetch-host-not-named-manifest = { $target }: freemapper does not send requests to this address: the adapter { $adapter } does not name the host { $host }{ $from }. If the service has moved there, add the host to `[net] hosts` of the adapter's manifest
+error-fetch-host-redirected-from = {" "}({ $url } redirects there)
 error-reason-not-a-host-name = not a host name
 error-reason-not-ascii = a name outside ASCII must be written in its xn-- form
 error-reason-not-a-dns-name = not a DNS name
@@ -564,6 +585,12 @@ help-adapters-check-dir = The folder of the adapter; its name is the id of the a
 help-adapters-check-live = Also ask the services of the adapter for the box --bbox names and say what each delivers. The requests stay on the hosts the manifest declares
 help-adapters-check-bbox = The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary of the adapter; 150 m by 150 m is enough
 help-adapters-check-json = Print the result as JSON
+help-adapters-allow-host = Allow a built-in adapter one more host: for a state whose service moved to a server its adapter does not name yet. The message about the refused address says which host. The host is checked like a host of a manifest, and freemapper still connects to servers on the internet only
+help-adapters-allow-host-adapter = The id of the built-in adapter, as `adapters list` shows it
+help-adapters-allow-host-host = The host to allow: a DNS name, no address, no port
+help-adapters-disallow-host = Take back a host that allow-host allowed
+help-adapters-disallow-host-adapter = The id of the built-in adapter
+help-adapters-disallow-host-host = The host to take back
 help-arg-adapters-from-project = Also load the adapters in the folder `adapters` of the project folder. freemapper names each of them with the hosts it asks. Use it for a project you trust: an adapter makes freemapper ask the servers it names
 
 ## The summary of a run, for the MCP server and the area page

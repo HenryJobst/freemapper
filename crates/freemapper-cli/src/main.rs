@@ -6,6 +6,7 @@ mod errors;
 mod estimate;
 mod find;
 mod help;
+mod hosts;
 mod jobs;
 mod lock;
 mod mcp;
@@ -286,6 +287,23 @@ enum AdaptersCommand {
         json: bool,
         #[command(flatten)]
         cache: CacheArgs,
+    },
+    /// Allow a built-in adapter one more host: for a state whose service moved to a server
+    /// its adapter does not name yet. The message about the refused address says which host.
+    /// The host is checked like a host of a manifest, and freemapper still connects to
+    /// servers on the internet only.
+    AllowHost {
+        /// The id of the built-in adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The host to allow: a DNS name, no address, no port.
+        host: String,
+    },
+    /// Take back a host that allow-host allowed.
+    DisallowHost {
+        /// The id of the built-in adapter.
+        adapter: String,
+        /// The host to take back.
+        host: String,
     },
 }
 
@@ -698,7 +716,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         cli.command,
         Commands::Adapters { .. } | Commands::Update { .. }
     ) {
-        adapters::install(cli.command.project_adapters());
+        // The MCP server and the area page read the person's settings and never write them.
+        let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
+        adapters::install(cli.command.project_adapters(), may_write);
     }
     match cli.command {
         Commands::Init {
@@ -908,6 +928,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         } => {
             return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
         }
+        Commands::Adapters {
+            command: AdaptersCommand::AllowHost { adapter, host },
+        } => adapters::change_allowed_host(&adapter, &host, true)?,
+        Commands::Adapters {
+            command: AdaptersCommand::DisallowHost { adapter, host },
+        } => adapters::change_allowed_host(&adapter, &host, false)?,
         Commands::Mcp { cache } => {
             let cache = cache.cache()?;
             tokio::runtime::Runtime::new()?.block_on(mcp::serve(cache))?;

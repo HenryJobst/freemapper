@@ -14,7 +14,7 @@ use std::path::Path;
 
 use chrono::NaiveDate;
 
-use crate::error::FetchError;
+use crate::error::{FetchError, HostNotNamed, Remedy};
 use crate::fetch::{ByteRange, Fetcher};
 use crate::note::Note;
 
@@ -249,6 +249,19 @@ pub struct UrlPolicy {
     hosts: BTreeSet<String>,
     /// How many redirects a request may follow; each target passes [`UrlPolicy::check_url`].
     pub max_redirects: u8,
+    /// The adapter the policy belongs to, for the message about a host it does not name.
+    owner: Option<Owner>,
+}
+
+/// The adapter a policy belongs to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Owner {
+    /// The id of the adapter.
+    pub adapter: String,
+    /// The English name of its region.
+    pub name: String,
+    /// What a person can do about a host the adapter does not name.
+    pub remedy: Remedy,
 }
 
 impl UrlPolicy {
@@ -260,7 +273,44 @@ impl UrlPolicy {
         Ok(Self {
             hosts: hosts.into_iter().map(dns_name).collect::<Result<_, _>>()?,
             max_redirects: Self::MAX_REDIRECTS,
+            owner: None,
         })
+    }
+
+    /// The policy as that of the adapter `owner`: a host it does not name is refused with
+    /// what the person can do about it ([`FetchError::HostNotNamed`]).
+    pub fn owned_by(mut self, owner: Owner) -> Self {
+        self.owner = Some(owner);
+        self
+    }
+
+    /// The error of a request this policy refused with `refused`. `from` is the address whose
+    /// answer redirected to the refused one.
+    pub fn refusal(&self, refused: PolicyError, from: Option<&str>) -> FetchError {
+        let bare = |url: &str| url.split(['?', '#']).next().unwrap_or(url).to_string();
+        if let Some(owner) = &self.owner
+            && refused.code == "policy.host-not-declared"
+            && let Ok(host) = host_of(&refused.subject)
+        {
+            return FetchError::HostNotNamed(Box::new(HostNotNamed {
+                target: refused.subject,
+                host,
+                from: from.map(bare),
+                adapter: owner.adapter.clone(),
+                name: owner.name.clone(),
+                remedy: owner.remedy,
+            }));
+        }
+        match from {
+            Some(from) => FetchError::NotAllowed {
+                url: bare(from),
+                reason: format!("a redirect to {refused}"),
+            },
+            None => FetchError::NotAllowed {
+                url: refused.subject,
+                reason: refused.reason.to_string(),
+            },
+        }
     }
 
     /// The hosts of the requests that belong to no adapter: the OSM extracts and their state
@@ -335,10 +385,7 @@ impl<'a> PolicyFetcher<'a> {
     fn through(&self, url: &str) -> Result<&dyn Fetcher, FetchError> {
         self.policy
             .check_url(url)
-            .map_err(|refused| FetchError::NotAllowed {
-                url: refused.subject,
-                reason: refused.reason.to_string(),
-            })?;
+            .map_err(|refused| self.policy.refusal(refused, None))?;
         Ok(self.bound.as_deref().unwrap_or(self.inner))
     }
 }
@@ -430,6 +477,67 @@ mod tests {
             Err(FetchError::NotAllowed { .. })
         ));
         assert_eq!(*log.borrow(), ["https://geo.example.org/items?page=2"]);
+    }
+
+    /// The policy of an adapter refuses a host the adapter does not name with what the
+    /// person can do: the refused address first, then the region, then the next step. For an
+    /// adapter of the program that is the command that allows the host; for a folder of the
+    /// person, the manifest. Other refusals keep their words.
+    #[test]
+    fn the_policy_of_an_adapter_says_what_to_do_about_a_host_it_does_not_name() {
+        let owned = |remedy| {
+            UrlPolicy::new(["geo.example.org"])
+                .unwrap()
+                .owned_by(Owner {
+                    adapter: "hessen".to_string(),
+                    name: "Hesse".to_string(),
+                    remedy,
+                })
+        };
+        let policy = owned(Remedy::AllowHost);
+        let refused = policy
+            .check_url("https://cdn.example.net/tiles/1.zip?sig=abc")
+            .unwrap_err();
+        assert_eq!(
+            policy.refusal(refused.clone(), None).to_string(),
+            "https://cdn.example.net/tiles/1.zip: freemapper does not send requests to this \
+             address: the adapter of Hesse does not name the host cdn.example.net. If the \
+             service has moved there, allow the host with `freemapper adapters allow-host \
+             hessen cdn.example.net` and report it at \
+             https://github.com/HenryJobst/freemapper/issues"
+        );
+        let redirected = policy.refusal(refused.clone(), Some("https://geo.example.org/a?x=1"));
+        assert_eq!(
+            redirected.to_string(),
+            "https://cdn.example.net/tiles/1.zip: freemapper does not send requests to this \
+             address: the adapter of Hesse does not name the host cdn.example.net \
+             (https://geo.example.org/a redirects there). If the service has moved there, \
+             allow the host with `freemapper adapters allow-host hessen cdn.example.net` and \
+             report it at https://github.com/HenryJobst/freemapper/issues"
+        );
+        assert_eq!(
+            owned(Remedy::Manifest)
+                .refusal(refused.clone(), None)
+                .to_string(),
+            "https://cdn.example.net/tiles/1.zip: freemapper does not send requests to this \
+             address: the adapter hessen does not name the host cdn.example.net. If the \
+             service has moved there, add the host to `[net] hosts` of the adapter's manifest"
+        );
+        // A refusal of another kind, and one of a policy that is nobody's, read as before.
+        let plain = policy.check_url("http://geo.example.org/a").unwrap_err();
+        assert_eq!(
+            policy
+                .refusal(plain, Some("https://geo.example.org/b"))
+                .to_string(),
+            "https://geo.example.org/b: freemapper does not send requests to this address: a \
+             redirect to http://geo.example.org/a: not https"
+        );
+        let nobody = UrlPolicy::new(["geo.example.org"]).unwrap();
+        assert_eq!(
+            nobody.refusal(refused, None).to_string(),
+            "https://cdn.example.net/tiles/1.zip: freemapper does not send requests to this \
+             address: the host is not one of the declared hosts"
+        );
     }
 
     /// A fetcher that can hold itself to the policy gets the requests, so its redirects are

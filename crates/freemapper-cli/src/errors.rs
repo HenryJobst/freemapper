@@ -10,7 +10,7 @@ use std::path::Path;
 
 use freemapper::area::AreaError;
 use freemapper::derive::DeriveError;
-use freemapper::fetch::FetchError;
+use freemapper::fetch::{FetchError, Remedy};
 use freemapper::georef::GeorefError;
 use freemapper::ocd::file::OcdBuildError;
 use freemapper::omap::OmapError;
@@ -292,7 +292,7 @@ const POLICY_REASONS: [(&str, &str); 12] = [
 /// Why freemapper did not send a request, in the language of the run. The library gives the
 /// reason in English: one of the reasons of the rules, alone or after what it is about
 /// (`127.0.0.1: an address …`), or one of the three about redirects.
-fn not_allowed_reason(lang: &Lang, reason: &str) -> String {
+pub(crate) fn not_allowed_reason(lang: &Lang, reason: &str) -> String {
     let worded = |english: &str| {
         POLICY_REASONS
             .iter()
@@ -420,6 +420,31 @@ impl Localize for FetchError {
                 "error-fetch-not-allowed",
                 &[url(from), ("reason", v(not_allowed_reason(lang, reason)))],
             ),
+            FetchError::HostNotNamed(refused) => {
+                // The region in the language of the run; the error carries the English name.
+                let name = freemapper::adapters::registry()
+                    .get(&refused.adapter)
+                    .filter(|_| lang.code() == "de")
+                    .map_or(&refused.name, |adapter| &adapter.info().names.de);
+                let from = refused.from.as_ref().map_or_else(String::new, |from| {
+                    text(lang, "error-fetch-host-redirected-from", &[url(from)])
+                });
+                let id = match refused.remedy {
+                    Remedy::AllowHost => "error-fetch-host-not-named-allow",
+                    Remedy::Manifest => "error-fetch-host-not-named-manifest",
+                };
+                text(
+                    lang,
+                    id,
+                    &[
+                        ("target", v(&refused.target)),
+                        ("host", v(&refused.host)),
+                        ("adapter", v(&refused.adapter)),
+                        ("name", v(name)),
+                        ("from", v(from)),
+                    ],
+                )
+            }
         }
     }
 }
@@ -675,7 +700,23 @@ mod tests {
                 url: url(),
                 reason: "more than 3 redirects".into(),
             },
+            host_not_named(Remedy::AllowHost, None),
+            host_not_named(Remedy::AllowHost, Some("https://www.gds.hessen.de/a")),
+            host_not_named(Remedy::Manifest, None),
+            host_not_named(Remedy::Manifest, Some("https://www.gds.hessen.de/a")),
         ]
+    }
+
+    /// A request for Hesse that was not sent because Hesse's adapter does not name the host.
+    fn host_not_named(remedy: Remedy, from: Option<&str>) -> FetchError {
+        FetchError::HostNotNamed(Box::new(freemapper::fetch::HostNotNamed {
+            target: "https://cdn.example.net/x".to_string(),
+            host: "cdn.example.net".to_string(),
+            from: from.map(str::to_string),
+            adapter: "hessen".to_string(),
+            name: "Hesse".to_string(),
+            remedy,
+        }))
     }
 
     fn area_errors() -> Vec<AreaError> {
@@ -932,6 +973,29 @@ mod tests {
             "https://geo.example.org/a: freemapper sendet keine Anfragen an diese Adresse: mehr als 3 Weiterleitungen"
         );
         assert_eq!(error.localize(&english), error.to_string());
+    }
+
+    /// A host an adapter does not name: the refused address first, the state in the language
+    /// of the run, then the command that allows the host and where to report it.
+    #[test]
+    fn a_host_an_adapter_does_not_name_is_told_with_the_command_in_german() {
+        let german = TEXTS.parse_lang_arg("de").unwrap();
+        assert_eq!(
+            host_not_named(Remedy::AllowHost, Some("https://www.gds.hessen.de/a"))
+                .localize(&german),
+            "https://cdn.example.net/x: freemapper sendet keine Anfragen an diese Adresse: Der \
+             Adapter für Hessen nennt den Host cdn.example.net nicht \
+             (https://www.gds.hessen.de/a leitet dorthin weiter). Ist der Dienst dorthin \
+             umgezogen, geben Sie den Host mit `freemapper adapters allow-host hessen \
+             cdn.example.net` frei und melden Sie es unter \
+             https://github.com/HenryJobst/freemapper/issues"
+        );
+        assert_eq!(
+            host_not_named(Remedy::Manifest, None).localize(&german),
+            "https://cdn.example.net/x: freemapper sendet keine Anfragen an diese Adresse: Der \
+             Adapter hessen nennt den Host cdn.example.net nicht. Ist der Dienst dorthin \
+             umgezogen, tragen Sie den Host in `[net] hosts` seines Manifests ein"
+        );
     }
 
     /// The reasons as the library lists them.

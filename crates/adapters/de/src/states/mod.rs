@@ -4,12 +4,14 @@
 //! Berlin and the download estimate.
 
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
+use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
@@ -336,6 +338,12 @@ impl StateAdapter {
     /// The adapter of `state`, with its raster backend taken from `backends`
     /// ([`register_backends`]).
     pub fn new(state: State, backends: &Registry) -> Self {
+        Self::with_hosts(state, backends, &[])
+    }
+
+    /// [`Self::new`] with the hosts in `extra` allowed besides those of the manifest: what a
+    /// person allowed for the state after a service moved (ADR 0110).
+    pub fn with_hosts(state: State, backends: &Registry, extra: &[String]) -> Self {
         let broken = |findings: Vec<freemapper_manifest::ManifestError>| -> ! {
             let lines: Vec<String> = findings.iter().map(ToString::to_string).collect();
             panic!(
@@ -351,7 +359,7 @@ impl StateAdapter {
         let manifest =
             ManifestAdapter::new(manifest, &StateFiles(state), Parse::OnFirstUse, backends)
                 .unwrap_or_else(|findings| broken(findings))
-                .asking_declared_hosts_only();
+                .held_to_its_hosts(Remedy::AllowHost, extra);
         let policy = manifest
             .policy()
             .expect("the manifest was just bound to its hosts")
@@ -432,9 +440,19 @@ impl RegionAdapter for StateAdapter {
 /// Adds the raster backends and the adapters of the states to `registry`, the adapters in the
 /// order the region functions go through them.
 pub fn register(registry: &mut Registry) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    register_with_hosts(registry, &BTreeMap::new())
+}
+
+/// [`register`] with the hosts a person allowed for a state besides those of its manifest, by
+/// the id of the state.
+pub fn register_with_hosts(
+    registry: &mut Registry,
+    extra: &BTreeMap<String, Vec<String>>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     register_backends(registry)?;
     for state in State::ALL {
-        let adapter = StateAdapter::new(state, registry);
+        let hosts = extra.get(state.id()).map_or(&[][..], Vec::as_slice);
+        let adapter = StateAdapter::with_hosts(state, registry, hosts);
         registry.add(Arc::new(adapter))?;
     }
     Ok(())

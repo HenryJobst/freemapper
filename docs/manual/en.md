@@ -958,6 +958,28 @@ The format of the manifest is described in
 [ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md); the manifests of the built-in states in
 `crates/adapters/de/manifests/` are examples. A guide for contributors follows.
 
+### When a service moves
+
+For a built-in state freemapper asks only the servers its adapter names. When an agency moves a service to
+another server, the fetch fails with a message that starts with the refused address, names the state and ends
+with a command. With that command you allow the state the one host until a new version of freemapper knows it
+itself:
+
+```sh
+freemapper adapters allow-host hessen new-server.hessen.de
+```
+
+Take the host from the message and check that it belongs to the agency of the state. Report the move (chapter
+16), so that the next version brings the host; freemapper then says once that your entry is no longer needed and
+removes it.
+
+The allowed hosts are in `allowed-hosts.toml` in your configuration folder (`freemapper` under
+`~/Library/Application Support`, `~/.config` or `%APPDATA%`), and nowhere else: a project folder, an environment
+variable of freemapper, a switch of a run or the AI assistant through MCP cannot add a host. A host must be a
+DNS name; an IP address, `localhost`, a name of the local network, a wildcard or a port is refused. For an
+allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
+allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
+
 ## 13. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
@@ -1007,7 +1029,8 @@ language. The most important messages, in their English wording:
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | Area selection: "access blocked" / 403 from OpenStreetMap, or the base map stays grey | The base map comes from `tile.openstreetmap.org`. Its tile policy asks for an identifiable application (`User-Agent`) or a valid `Referer`; the browser sends no `Referer` here. Up to 0.9.1 the browser loaded the tiles itself and got 403. Since 0.9.2 the local server fetches the tiles with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and passes them to the browser. | Update freemapper. The computer needs internet access. If the server answers 502, the reason is in the response (for example HTTP 403 or no connection). The state aerial images are not affected. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
-| `…: freemapper does not send requests to this address: …` | For a state freemapper asks only the servers its adapter names, and never an address of this computer or of the local network. If `the host is not one of the declared hosts` follows, a service sent freemapper on to a server the adapter does not name, by a redirect or by an address in its answer. A fourth redirect in a row and a redirect to `http` are not followed either. | For a built-in state, report a bug and update freemapper once a new version is out. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 16). See "When a service moves" in chapter 12. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: …` with another reason | freemapper never connects to an address of this computer or of the local network, follows at most three redirects in a row and no redirect to `http`. | Nothing to allow. For a built-in state, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
 | `download of … is larger than … MB; stopped` | A server (the OSM extract, the Downloadportal of Schleswig-Holstein, the full ALKIS or the Potsdam tree cadastre) sends far more than the file can be; freemapper stops and removes the partial download. For the trees it stands in the brackets of `warning: potsdam tree cadastre unavailable`. | Try again later, otherwise report a bug. |
 | `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Hesse: the Downloadcenter may have changed. Schleswig-Holstein and Mecklenburg-Vorpommern: the Downloadportal may have changed. North Rhine-Westphalia: the tile list of Geobasis NRW names no tile for the area. Rhineland-Palatinate: after the colon follows the reason for each tile, for example `not on the server (404)`, `not in LVermGeo RP's tile list` or `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Report a bug. |

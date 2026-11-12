@@ -81,7 +81,8 @@ the tile proxy of the area page asked whatever address they were given.
 - A service that redirects to a host its manifest does not list fails with a message that names the host. The
   fix is one line in `[net] hosts`, which a reviewer sees. For a built-in state that line comes with a release;
   until then maps of that state fail where they worked before, if an agency moves its downloads behind a
-  redirect to a new host. Three more things fail now that went through before: a fourth redirect in a row, a
+  redirect to a new host. The person can allow the state that host in the meantime
+  ([0110](0110-a-person-can-allow-a-state-one-more-host.md)); the message says how. Three more things fail now that went through before: a fourth redirect in a row, a
   redirect to `http`, and an address inside an answer (a `next` link, an entry of an index or of a tile list)
   on a host the manifest does not list.
 - One request of an adapter does not pass the fetcher: the aerial photo on the map of the area page. The browser

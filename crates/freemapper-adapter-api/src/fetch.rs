@@ -299,6 +299,7 @@ fn retrying<T>(
                 | FetchError::Refused { .. }
                 | FetchError::TooLarge { .. }
                 | FetchError::NotAllowed { .. }
+                | FetchError::HostNotNamed(_)
                 | FetchError::Cancelled,
             ) => return result,
             // Asking again does not free disk space.
@@ -331,6 +332,7 @@ pub fn download_with_retries(
                 | FetchError::Refused { .. }
                 | FetchError::TooLarge { .. }
                 | FetchError::NotAllowed { .. }
+                | FetchError::HostNotNamed(_)
                 | FetchError::Cancelled,
             ) => return result,
             Err(ref e) if e.is_disk_full() => return result,
@@ -376,6 +378,7 @@ pub fn get_range_with_retries(
                 | FetchError::RangeIgnored { .. }
                 | FetchError::TooLarge { .. }
                 | FetchError::NotAllowed { .. }
+                | FetchError::HostNotNamed(_)
                 | FetchError::Cancelled,
             ) => return result,
             Err(_) if attempt < ATTEMPTS => {

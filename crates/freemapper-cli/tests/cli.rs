@@ -1968,6 +1968,188 @@ fn adapters_check_passes_fails_and_refuses() {
     assert!(!cache.exists());
 }
 
+/// The file of the allowed hosts in the configuration folder that `home` stands for.
+#[cfg(unix)]
+fn allowed_hosts_file(home: &std::path::Path) -> std::path::PathBuf {
+    let config = if cfg!(target_os = "macos") {
+        home.join("Library").join("Application Support")
+    } else {
+        home.join("xdg")
+    };
+    config.join("freemapper").join("allowed-hosts.toml")
+}
+
+/// freemapper with `home` as the home folder of the person, so its configuration folder is
+/// a folder of the test.
+#[cfg(unix)]
+fn freemapper_at(home: &std::path::Path) -> Command {
+    let mut command = freemapper();
+    command
+        .env("HOME", home)
+        .env("XDG_CONFIG_HOME", home.join("xdg"))
+        .env("FREEMAPPER_ADAPTER_DIR", home.join("no-adapters"));
+    command
+}
+
+/// `adapters allow-host` allows a built-in state one more host in the person's configuration
+/// folder, `adapters list` shows it, and `disallow-host` takes it back. An address or a name
+/// of the local network is refused when it is entered. Nothing else adds a host: not a file
+/// in a project folder, not the variables that name other folders of freemapper.
+#[cfg(unix)]
+#[test]
+fn a_host_is_allowed_in_the_persons_configuration_only() {
+    let home = tempfile::tempdir().unwrap();
+    let run = |command: &mut Command| {
+        let output = command.output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let allowed_with = |command: &mut Command, id: &str, more: &[&str]| -> serde_json::Value {
+        let (code, out, err) = run(command.args(["adapters", "list", "--json"]).args(more));
+        assert_eq!(code, Some(0), "{err}");
+        let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let adapters = json["adapters"].as_array().unwrap();
+        let adapter = adapters.iter().find(|a| a["id"] == id).unwrap();
+        adapter["allowed_hosts"].clone()
+    };
+    let allowed = |command: &mut Command, id: &str| allowed_with(command, id, &[]);
+    let at = || freemapper_at(home.path());
+    assert_eq!(allowed(&mut at(), "hessen"), serde_json::json!([]));
+
+    let (code, out, err) = run(at().args(["adapters", "allow-host", "hessen", "cdn.example.net"]));
+    assert_eq!(code, Some(0), "{err}");
+    assert!(
+        out.starts_with("freemapper may now also ask cdn.example.net for Hesse. "),
+        "{out}"
+    );
+    let file = allowed_hosts_file(home.path());
+    assert!(file.exists(), "{out}");
+    assert_eq!(
+        allowed(&mut at(), "hessen"),
+        serde_json::json!(["cdn.example.net"])
+    );
+    assert_eq!(allowed(&mut at(), "hamburg"), serde_json::json!([]));
+    let (_, out, _) = run(at().args(["adapters", "list"]));
+    let hessen = out
+        .lines()
+        .find(|line| line.starts_with("hessen "))
+        .unwrap();
+    assert!(
+        hessen.ends_with("  allowed by you: cdn.example.net"),
+        "{hessen}"
+    );
+    let (_, out, _) = run(at().args(["adapters", "list", "--lang", "de"]));
+    assert!(
+        out.contains("  von Ihnen freigegeben: cdn.example.net"),
+        "{out}"
+    );
+
+    // What is no public name is refused when it is entered, in the language of the run.
+    for (host, reason) in [
+        ("192.168.0.1", "an IP address, not a DNS name"),
+        ("localhost", "a name of this computer or without a domain"),
+        ("fritz.box", "a name of the local network"),
+    ] {
+        let (code, _, err) = run(at().args(["adapters", "allow-host", "hessen", host]));
+        assert_eq!(code, Some(1), "{host}");
+        assert_eq!(
+            err.trim_end(),
+            format!("error: {host} cannot be allowed: {reason}")
+        );
+    }
+    let (code, _, err) = run(at().args([
+        "adapters",
+        "allow-host",
+        "hessen",
+        "10.0.0.1",
+        "--lang",
+        "de",
+    ]));
+    assert_eq!(code, Some(1));
+    assert_eq!(
+        err.trim_end(),
+        "Fehler: 10.0.0.1 lässt sich nicht freigeben: eine IP-Adresse, kein DNS-Name"
+    );
+    assert_eq!(
+        allowed(&mut at(), "hessen"),
+        serde_json::json!(["cdn.example.net"])
+    );
+
+    // A project that was passed on brings a file of the same name, in every place one might
+    // look: it allows nothing, with the switch for its adapters or without.
+    let project = tempfile::tempdir().unwrap();
+    let theirs = "[allow]\nhamburg = [\"evil.example.net\"]\n";
+    for folder in ["", "freemapper", "adapters", "adapters/freemapper"] {
+        let folder = project.path().join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("allowed-hosts.toml"), theirs).unwrap();
+    }
+    let dir = project.path().to_str().unwrap();
+    assert_eq!(
+        allowed_with(
+            at().current_dir(project.path()),
+            "hamburg",
+            &["--project", dir]
+        ),
+        serde_json::json!([])
+    );
+    // Nor do the variables that name other folders of freemapper move the file.
+    assert_eq!(
+        allowed(
+            at().env("FREEMAPPER_ADAPTER_DIR", project.path())
+                .env("FREEMAPPER_CONFIG_DIR", project.path())
+                .env(
+                    "FREEMAPPER_ALLOWED_HOSTS",
+                    project.path().join("allowed-hosts.toml")
+                ),
+            "hamburg"
+        ),
+        serde_json::json!([])
+    );
+
+    let (code, out, _) = run(at().args(["adapters", "disallow-host", "hessen", "cdn.example.net"]));
+    assert_eq!(code, Some(0));
+    assert_eq!(
+        out.trim_end(),
+        "freemapper no longer asks cdn.example.net for Hesse"
+    );
+    assert_eq!(allowed(&mut at(), "hessen"), serde_json::json!([]));
+    assert!(!file.exists());
+}
+
+/// An entry for a host that a release made part of the adapter is said to be redundant by
+/// the next command, taken out of the file and not mentioned again.
+#[cfg(unix)]
+#[test]
+fn a_redundant_allowed_host_is_said_once_and_removed() {
+    let home = tempfile::tempdir().unwrap();
+    let file = allowed_hosts_file(home.path());
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "[allow]\nhessen = [\"gds.hessen.de\"]\n").unwrap();
+    let project = home.path().join("nothing-here");
+    let fetch = || {
+        let output = freemapper_at(home.path())
+            .arg("fetch")
+            .arg(&project)
+            .arg("--offline")
+            .output()
+            .unwrap();
+        String::from_utf8(output.stderr).unwrap()
+    };
+    let first = fetch();
+    assert!(
+        first.starts_with(
+            "gds.hessen.de is now one of the hosts the adapter of Hesse names; your entry in "
+        ),
+        "{first}"
+    );
+    assert!(!file.exists());
+    assert!(!fetch().contains("gds.hessen.de"));
+}
+
 /// A command loads the adapters of its project folder only with `--adapters-from-project`,
 /// and then says which adapter asks which hosts.
 #[test]

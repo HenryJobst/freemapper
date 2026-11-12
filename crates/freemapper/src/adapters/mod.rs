@@ -12,8 +12,19 @@ pub use freemapper_adapter_api::registry::Registry;
 /// The adapters built into the program: the German states of `freemapper-adapters-de` with
 /// their raster backends, in the order the region functions always went through them.
 pub fn builtin() -> Registry {
+    builtin_with_hosts(&ExtraHosts::new())
+}
+
+/// The hosts a person allowed for built-in adapters besides those of their manifests, by the
+/// id of the adapter (ADR 0110).
+pub type ExtraHosts = std::collections::BTreeMap<String, Vec<String>>;
+
+/// [`builtin`] with the hosts of `extra` allowed for the adapters it names. A host that is no
+/// DNS name as a manifest's hosts are is left out; the check of the address a connection goes
+/// to holds for these hosts as for all.
+pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
     let mut registry = Registry::new();
-    freemapper_adapters_de::states::register(&mut registry)
+    freemapper_adapters_de::states::register_with_hosts(&mut registry, extra)
         .expect("the built-in states have distinct ids and backends");
     registry
 }
@@ -253,11 +264,11 @@ mod tests {
         fetcher.insert_prefix("https://", b"ok".to_vec());
         let elsewhere = "https://geo.example.org/wms?token=abc";
         let refused = asking_for("berlin", &fetcher, |fetcher| fetcher.get(elsewhere));
-        let Err(FetchError::NotAllowed { url, reason }) = refused else {
+        let Err(FetchError::HostNotNamed(refused)) = refused else {
             panic!("{refused:?}");
         };
-        assert_eq!(url, "https://geo.example.org/wms");
-        assert_eq!(reason, "the host is not one of the declared hosts");
+        assert_eq!(refused.target, "https://geo.example.org/wms");
+        assert_eq!(refused.adapter, "berlin");
         assert_eq!(fetcher.calls.get(), 0);
         let own = "https://gdi.berlin.de/services/wms/k5";
         assert!(asking_for("berlin", &fetcher, |fetcher| fetcher.get(own)).is_ok());
