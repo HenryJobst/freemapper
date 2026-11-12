@@ -152,9 +152,23 @@ impl UpdateStub {
 }
 
 /// A copy of the program in `dir`, for the tests that replace or move it.
+///
+/// On Unix `cp` writes the copy in a process of its own. Written from the test process, the open
+/// file would be inherited by every child another test thread forks in that moment, and starting
+/// the copy then fails with "Text file busy" (ETXTBSY) until that child has called exec.
 pub fn copied_program(dir: &std::path::Path) -> std::path::PathBuf {
     let original = std::path::Path::new(env!("CARGO_BIN_EXE_freemapper"));
     let copy = dir.join(original.file_name().unwrap());
+    #[cfg(unix)]
+    {
+        let status = Command::new("cp")
+            .arg(original)
+            .arg(&copy)
+            .status()
+            .unwrap();
+        assert!(status.success(), "cp {} failed", original.display());
+    }
+    #[cfg(not(unix))]
     std::fs::copy(original, &copy).unwrap();
     copy
 }
