@@ -55,7 +55,11 @@ with `Depth: 1` lists a folder.
 | `OD_DGM1_2025_tif_LK` | six zips, one per district: `DGM1_tif_<NK,SB,SLS,SPK,MZG,WND>_EPSG-25832_Entstehung-2025.zip` | 0.56 to 1.17 GB each, 5.5 GB |
 | `OD_DOM1_2025_tif_LK` | six zips: `DOM1_tif_<district>_EPSG-25832_Entstehung-2025.zip` | 0.63 to 1.30 GB each, 6.2 GB |
 
-Also there (not used): `OD_TrueDOP20_2025_tif_LK` (233 GB), `OD_LIDAR_Punktwolke_2025_laz_LK` (124 GB),
+Also there: `OD_LIDAR_Punktwolke_2025_laz_LK` (124 GB, the point clouds of the vegetation, `lvgl_las`, ADR 0105:
+six zip64 archives `LIDAR_laz_<district>_EPSG-25832_Entstehung-2025.zip` of 12.5 to 26.2 GB, 3076 members for
+2775 tiles `3dm_32_<E>_<N>_1_SL_2025_050.laz`, 26 to 46 MB, plain deflate; LAS 1.2, point format 1, no CRS,
+thinned to one point per 0.5 m; classes 1, 2, 6, 8, 9, 14, 20, 24, 30; scan 2025-02-21 in the Saarlouis tile;
+checked 2026-11-12). Not used: `OD_TrueDOP20_2025_tif_LK` (233 GB),
 `OD_ALKIS_shp_LK`, `OD_ALKIS_nas_LK`, `OD_Gebäudemodelle_LoD2_gml_LK`, `OD_Hausumringe_shp_SL`.
 
 - The server answers `Range` requests (HTTP 206) and sends `Last-Modified` and `ETag`. A zip has its central

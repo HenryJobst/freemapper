@@ -1,7 +1,7 @@
 # 0105. Vegetation from point clouds
 
 Date: 2026-11-12
-Status: Accepted (analysis, the sources of Brandenburg, Berlin, North Rhine-Westphalia and Rhineland-Palatinate, fetch, derive and export, checked on two parks)
+Status: Accepted (analysis, the sources of Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland, fetch, derive and export, checked on two parks)
 
 ## Context
 
@@ -68,10 +68,24 @@ the crowns, so it does not help.
   once per fetch. The
   classes differ from the AdV scheme: 2 ground, 3, 4 and 5 low, medium and high vegetation, in which the
   buildings lie too, and 7 low points; the building mask and the single-echo rule take out the roofs.
+- Saarland is the fifth source (`lvgl_las`): the LVGL publishes "3D-Messdaten (2025)" (dl-de/by-2-0) on the
+  open-data share that holds its height models, in six zip64 archives of 12 to 26 GB by district
+  (`LIDAR_laz_<district>_EPSG-25832_Entstehung-2025.zip`), one LAZ file per km tile
+  (`3dm_32_<E>_<N>_1_SL_2025_050.laz`, EPSG:25832, LAS 1.2, point format 1, no CRS in the header), deflated.
+  The tiles are thinned to at most one point per 0.5 m cell (about 4 points per m², 26 to 46 MB a tile). As
+  for the height models (`lvgl::DISTRICTS`), a tile is looked for in the archives in a fixed order, the
+  directory of an archive is read only when the ones before it lack the tile, an archive that cannot be read
+  is passed over, and a tile on a district border (294 of them) is the same in every archive that holds it.
+  The member is streamed by ranges, unpacked, checked against its CRC and kept as it is. The survey is in the
+  names of the archives and of the cache folder (`lvgl/las-2025`), so a cached tile serves without a request;
+  a new survey comes with new names and a new release of the backend. The record names the folder of the
+  archives. The classes: 2 ground, 6 buildings, 9 water, 20 other non-ground (mostly vegetation), 8 and 30
+  synthetic fill points.
 - A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS
   and passes it the map area plus buffer in that CRS.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North
-  Rhine-Westphalia, Brandenburg, Saxony, Thuringia, Berlin, Saarland). A region adapter offers them through
+  Rhine-Westphalia, Brandenburg, Thuringia, Berlin, Saarland; Saxony took its point clouds off its download
+  area in November 2026: the shares of its tile index answer 503 or are empty, so Saxony has no backend). A region adapter offers them through
   `PointCloudBackend` (`freemapper-adapter-api`), next to its rasters and agreed with stage D of the adapters:
   the tiles under a box go into the shared cache as checked LAS/LAZ files, and the backend gives their records
   and download estimate (part `PointCloud`, optional like the surface model). Brandenburg is the first: LGB
@@ -130,5 +144,10 @@ the crowns, so it does not help.
   whole run in a debug build. The trees came out runnable forest, the lawns and the sports ground open, the
   blocks of houses free. The scan was made without leaves: the returns pass through shrubs and crowns, so
   there are few green shades (72 areas 406, 11 areas 408, none 410). In Berlin a thicket is easily missed.
+- The old town of Saarlouis (Saarland, scan of 2025-02-21, without leaves, thinned to 0.5 m) with the same
+  values: four tiles of 35 to 37 MB out of the archive `SLS`. The crowns of the wooded park in the north-west
+  of the area, of the street trees and on the banks of the Saar came out runnable forest (403 areas in `derive`), squares and
+  lawns open (283), the banks 406 and 410 (66 and 41 areas), houses free. The thinning did not hide the
+  crowns. No value was changed for it.
 - Parks get the green shades first; the forest map kind reuses the module with its own cell size and minimum
   areas.

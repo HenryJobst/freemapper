@@ -150,7 +150,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0102](0102-region-adapters-crates-trait-and-registry-as-built.md) | Region adapters, stages B and C: crates, trait and registry as built | Accepted | 2026-11-12 |
 | [0103](0103-the-area-page-takes-the-regions-from-the-registry.md) | The area page and the texts take the regions from the registry | Accepted | 2026-11-12 |
 | [0104](0104-terrain-candidates-from-the-dgm1.md) | Terrain candidates from the DGM1 | Accepted | 2026-11-12 |
-| [0105](0105-vegetation-from-point-clouds.md) | Vegetation from point clouds | Accepted (analysis, the sources of Brandenburg, Berlin, North Rhine-Westphalia and Rhineland-Palatinate, fetch, derive and export) | 2026-11-12 |
+| [0105](0105-vegetation-from-point-clouds.md) | Vegetation from point clouds | Accepted (analysis, the sources of Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland, fetch, derive and export) | 2026-11-12 |
 | [0106](0106-requests-go-to-public-addresses-and-declared-hosts.md) | Requests go to public addresses, and with a policy to declared hosts only | Accepted | 2026-11-12 |
 | [0107](0107-adapter-manifests-format-1-as-built.md) | Adapter manifests, format 1, as built | Accepted | 2026-11-12 |
 | [0108](0108-map-preview.md) | A preview of the map: file, live image and routes | Accepted | 2026-11-12 |

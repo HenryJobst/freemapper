@@ -265,6 +265,10 @@ The INSPIRE ATOM feeds exist but are useless for automation:
 - LSC is not offered in the batch download.
 - `Stand` values in the index: flights 2020-11 to 2023-12; the changelog has a "Los Dresden" update on 2026-01-26.
 - The LAZ version, point format, classes, CRS VLR and file size could **not be verified**.
+- Checked again 2026-11-12: the index link still answers 503, `EpkzyJHScGb5ndd` is still empty, and
+  `downloadbereich-digitale-hoehenmodelle-4851.html` lists only DGM1, DOM1 and nDOM. The readme
+  `liesmich_laz.txt` (2026-11-10) gives LAS 1.2, point format 1, classes 2, 20, 8 and 30 (2 km tiles,
+  EPSG:25833). freemapper has no point-cloud backend for Saxony (ADR 0105) until a share answers again.
 
 ### 5.3 DOM1 (surface model, 1 m): available, the nDSM substitute
 
