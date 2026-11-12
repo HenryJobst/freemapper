@@ -11,6 +11,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Vegetation aus Laserpunktwolken auch in Rheinland-Pfalz (ADR 0105): `fetch` lädt die LAZ-Kacheln des LVermGeo RP, meist 110 bis 500 MB je Quadratkilometer, und behält eine Kachel nur, wenn Größe und SHA-256 zur Metalink-Datei des Landes passen. Das Aufnahmedatum kommt aus den Metadaten der Kachel; ist sie schon im Zwischenspeicher, fragt freemapper nur diese ab. Geprüft am Mainzer Stadtpark.
 - Vegetation aus Laserpunktwolken auch in Berlin (ADR 0105): Das Geoportal Berlin bietet die Punktwolke nur in neun großen ZIP64-Archiven an. freemapper liest daraus per Byte-Bereich nur die Kacheln des Kartengebiets, etwa 240 MB je Quadratkilometer, prüft sie gegen die CRC des Archivs und legt sie als LAZ (etwa 100 MB) in den Zwischenspeicher. Die Befliegung von 2021 war ohne Laub, deshalb erkennt freemapper dort dichtes Gebüsch schlechter. Geprüft am Viktoriapark.
 
+### Geändert
+
+- Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
+
 ## [0.15.0] - 2026-11-12
 
 ### Hinzugefügt

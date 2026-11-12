@@ -120,10 +120,10 @@ mod tests {
     use crate::crs::Crs;
     use crate::fetch::test_support::MapFetcher;
     use crate::fetch::{FetchError, FetchMode, Fetcher};
-    use crate::sources::alkis_wfs;
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, regions};
     use crate::sources::region::regions_for;
+    use freemapper_sources::wfs as alkis_wfs;
     use serde_json::Value;
 
     /// Runs a fetch with `fetcher` and nothing else: the ALKIS sources keep nothing in the
@@ -652,8 +652,8 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            crate::sources::lgv::BUILDINGS_ENDPOINT,
-            crate::sources::lgv::test_support::BUILDINGS
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
+            freemapper_adapters_de::lgv::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
@@ -673,8 +673,8 @@ mod tests {
             assert!((560_000.0..570_000.0).contains(&c.x), "{} {c:?}", b.oid);
         }
         fetcher.insert_prefix(
-            crate::sources::lgv::LAND_USE_ENDPOINT,
-            crate::sources::lgv::test_support::LAND_USE
+            freemapper_adapters_de::lgv::LAND_USE_ENDPOINT,
+            freemapper_adapters_de::lgv::test_support::LAND_USE
                 .as_bytes()
                 .to_vec(),
         );
@@ -1049,12 +1049,12 @@ mod tests {
         let shared = "DENIAL4300009S1dBL";
         assert!(alkis_wfs::test_support::NI_BUILDINGS.contains(&format!("gml:id=\"{shared}\"")));
         let mut hamburg: Value =
-            serde_json::from_str(crate::sources::lgv::test_support::BUILDINGS).unwrap();
+            serde_json::from_str(freemapper_adapters_de::lgv::test_support::BUILDINGS).unwrap();
         let mut border = hamburg["features"][0].clone();
         border["properties"]["oid"] = Value::from(shared);
         hamburg["features"].as_array_mut().unwrap().push(border);
         fetcher.insert_prefix(
-            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
             hamburg.to_string().into_bytes(),
         );
         fetcher.insert_prefix(
@@ -1070,7 +1070,7 @@ mod tests {
         assert_eq!(unique.len(), oids.len(), "no duplicates: {oids:?}");
         let log = fetcher.log.borrow();
         for service in [
-            crate::sources::lgv::BUILDINGS_ENDPOINT,
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
             &alkis_wfs::LGLN.url,
         ] {
             assert!(
@@ -1089,9 +1089,13 @@ mod tests {
             max_e: 565_350.0,
             max_n: 5_938_000.2,
         };
-        let url = collection_url_in(crate::sources::lgv::BUILDINGS_ENDPOINT, &bbox, Crs::Utm32);
+        let url = collection_url_in(
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
+            &bbox,
+            Crs::Utm32,
+        );
         assert!(
-            url.starts_with(crate::sources::lgv::BUILDINGS_ENDPOINT),
+            url.starts_with(freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT),
             "{url}"
         );
         assert!(url.contains("bbox=564950,5937650,565350,5938001"), "{url}");
@@ -1126,8 +1130,8 @@ mod tests {
     fn ogc_api_down() -> MapFetcher {
         let fetcher = MapFetcher::default();
         for endpoint in [
-            crate::sources::lgv::BUILDINGS_ENDPOINT,
-            crate::sources::lgv::LAND_USE_ENDPOINT,
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
+            freemapper_adapters_de::lgv::LAND_USE_ENDPOINT,
         ] {
             fetcher.flaky.borrow_mut().insert(endpoint.to_string(), 100);
         }
@@ -1200,14 +1204,14 @@ mod tests {
         let area = FetchArea::new(region_bbox, Crs::Utm32);
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            crate::sources::lgv::BUILDINGS_ENDPOINT,
-            crate::sources::lgv::test_support::BUILDINGS
+            freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
+            freemapper_adapters_de::lgv::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
         fetcher.insert_prefix(
-            crate::sources::lgv::LAND_USE_ENDPOINT,
-            crate::sources::lgv::test_support::LAND_USE
+            freemapper_adapters_de::lgv::LAND_USE_ENDPOINT,
+            freemapper_adapters_de::lgv::test_support::LAND_USE
                 .as_bytes()
                 .to_vec(),
         );

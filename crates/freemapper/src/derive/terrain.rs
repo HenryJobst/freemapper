@@ -1,6 +1,6 @@
 //! Terrain templates from the DTM: mosaic, hillshade and slope.
 
-use crate::sources::lgb::ProductTiles as _;
+use freemapper_adapters_de::lgb::ProductTiles as _;
 use std::path::Path;
 
 use super::{DeriveError, read_member, template_grid, write_image_with_world_file};
@@ -173,8 +173,8 @@ pub fn write_gray_png(
 mod tests {
     use super::*;
     use crate::fetch::test_support::{dtm_tiff, tile_zip};
-    use crate::sources::lgb::{Product, TileCurrency};
     use crate::tiles::TileId;
+    use freemapper_adapters_de::lgb::{Product, TileCurrency};
 
     const TILE: TileId = TileId {
         east_km: 421,
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn non_float_surface_model_is_named() {
         use crate::fetch::test_support::tile_zip;
-        use crate::sources::lgb::{Product, TileCurrency};
+        use freemapper_adapters_de::lgb::{Product, TileCurrency};
         let dir = tempfile::tempdir().unwrap();
         let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
         let mut tiff = std::io::Cursor::new(Vec::new());

@@ -155,10 +155,11 @@ fn g1_credit_lines_match_for_all_year_and_record_combinations() {
 #[test]
 fn g1_service_constants_are_unchanged() {
     use freemapper::raster::GridSpec;
-    use freemapper::sources::{
-        alkis_nas, alkis_wfs, geobasis_nrw, geosn, hvbg, laiv_mv, lgln, lgv, lvermgeo, lvermgeo_rp,
-        lvermgeo_sh, trees, wms,
+    use freemapper::sources::{alkis_nas, trees, wms};
+    use freemapper_adapters_de::{
+        geobasis_nrw, geosn, hvbg, laiv_mv, lgln, lgv, lvermgeo, lvermgeo_rp, lvermgeo_sh,
     };
+    use freemapper_sources::wfs as alkis_wfs;
     use std::fmt::Write as _;
     let boxes = [
         (400_000.0, 5_800_000.0, 400_300.0, 5_800_200.0),

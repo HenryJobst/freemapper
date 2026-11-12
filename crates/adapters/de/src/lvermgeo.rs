@@ -1,25 +1,11 @@
 //! LVermGeo Saxony-Anhalt open data (dl-de/by-2-0, "© GeoBasis-DE / LVermGeo ST"), all in
 //! EPSG:25832: the orthophoto WMS, DGM1 and DOM1 from the WCS, and flight dates from the tile
-//! index WFS.
-
-use freemapper_adapter_api::env::AdapterEnv;
-use freemapper_adapter_api::error::AdapterError;
-use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
-use freemapper_adapter_api::records::{AdapterId, WcsRecord, stored_bbox};
-use freemapper_sources::raster_fetch::{
-    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, warn_beyond_state,
-};
-use freemapper_sources::wms::OrthophotoSource;
+//! index WFS. The manifest of Saxony-Anhalt declares these services and fetches from them; this
+//! module keeps their constants for the estimate and for the tests of the readers.
 
 use std::borrow::Cow;
-use std::path::Path;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{FetchError, FetchMode, Fetcher};
-use crate::note::{Arg, note};
-use crate::raster::{GridSpec, Raster};
-use crate::sources::float_tiff::write_float_raster;
 use crate::sources::wcs::WcsService;
 use crate::sources::wms::WmsService;
 
@@ -89,161 +75,6 @@ const COVERAGE: BoundingBox = BoundingBox {
     max_n: 5_882_000.0,
 };
 
-/// Downloads `model` over `bbox` (EPSG:25832) in pieces of at most 4000 m and writes it as a
-/// Float32 GeoTIFF `out` with its world file (`.tfw`).
-pub fn fetch_model(
-    fetcher: &dyn Fetcher,
-    model: Model,
-    bbox: &BoundingBox,
-    root: &Path,
-    out: &Path,
-) -> Result<(), FetchError> {
-    let grid = GridSpec::covering(bbox, 1.0);
-    let mut raster = Raster::filled(grid, f32::NAN);
-    model.wcs().fill(fetcher, &mut raster, &grid.bounds())?;
-    write_float_raster(&raster, root, out, model.wcs_endpoint())
-}
-
-/// The flight date of the orthophoto at the centre of `bbox` (EPSG:25832); `None` when the index
-/// does not tell it.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
-    index_date(fetcher, "truedop_kacheln", bbox)
-}
-
-/// The date of the surface model (DOM1) at the centre of `bbox`.
-pub fn surface_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
-    index_date(fetcher, "bdom_aktualitaet_zyklus", bbox)
-}
-
-fn index_date(fetcher: &dyn Fetcher, layer: &str, bbox: &BoundingBox) -> Option<String> {
-    freemapper_sources::dates::wfs_feature_date(
-        fetcher,
-        (
-            INDEX_URL,
-            &format!("atkis_geobasis_bestand:{layer}"),
-            "BFDATUM",
-        ),
-        Crs::Utm32,
-        bbox,
-    )
-}
-
-/// The flight date (`BFDATUM`, e.g. `29.04.2026`) of the first feature in a tile index answer.
-pub fn parse_index_date(json: &str) -> Option<String> {
-    freemapper_sources::dates::parse_feature_field(json, "BFDATUM")
-}
-
-/// The provider id of the adapters.
-const PROVIDER: &str = "lvermgeo";
-
-/// The rasters of LVermGeo (Saxony-Anhalt): requested for the area and stored in the project folder.
-pub struct LvermgeoBackend {
-    info: ProviderInfo,
-}
-
-impl LvermgeoBackend {
-    pub fn new() -> Self {
-        Self {
-            info: ProviderInfo {
-                id: AdapterId::built_in(PROVIDER),
-                cache_dir: None,
-                terrain_source: "lvermgeo-st-dgm1".to_string(),
-                kind: RasterKind::PerArea,
-            },
-        }
-    }
-}
-
-impl Default for LvermgeoBackend {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RasterBackend for LvermgeoBackend {
-    fn provider(&self) -> &ProviderInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        env: &mut AdapterEnv<'_>,
-        project: &mut dyn RasterProject,
-        bbox: &BoundingBox,
-    ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
-    }
-}
-
-/// The LVermGeo rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1 from
-/// the WCS. The DOM1 is only a template: an unavailable one costs a warning.
-fn fetch_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
-    let dir = &project.dir().to_path_buf();
-    project.records().tiles.clear();
-    project.records().ndsm_tiles.clear();
-    // LVermGeo serves Saxony-Anhalt only; LGB and GeoSN report this through their missing tiles.
-    warn_beyond_state(env, project, PROVIDER, "LVermGeo");
-    let flight = || flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        env,
-        project,
-        bbox,
-        (&OrthophotoSource::Wms(WMS), "LVermGeo", &flight, None),
-    )?;
-    let record = |date: Option<String>| WcsRecord {
-        fetched: env.today,
-        bbox: stored_bbox(bbox),
-        date,
-    };
-    match mode {
-        FetchMode::Online => {
-            (env.progress)(note!(
-                "progress-model-download",
-                model = crate::note::model(Model::Dgm1.label())
-            ));
-            fetch_model(fetcher, Model::Dgm1, bbox, dir, &dir.join(TERRAIN_RELPATH))?;
-            *project.records().terrain = Some(record(None));
-            if skip_surface {
-                keep_stored_surface(env, project, bbox);
-                project.save()?;
-                return Ok(());
-            }
-            (env.progress)(note!(
-                "progress-model-download",
-                model = crate::note::model(Model::Dom1.label())
-            ));
-            match fetch_model(fetcher, Model::Dom1, bbox, dir, &dir.join(SURFACE_RELPATH)) {
-                Ok(()) => {
-                    *project.records().surface = Some(record(surface_date(fetcher, bbox)));
-                }
-                Err(e) => (env.progress)(note!(
-                    "warning-model-unavailable",
-                    model = crate::note::model(Model::Dom1.label()),
-                    error = Arg::error(e)
-                )),
-            }
-        }
-        FetchMode::Offline => {
-            let stored = |r: &Option<WcsRecord>, relpath: &str| {
-                r.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
-            };
-            if !stored(&*project.records().terrain, TERRAIN_RELPATH) {
-                return Err(AdapterError::TerrainNotFetched);
-            }
-            if !stored(&*project.records().surface, SURFACE_RELPATH) {
-                (env.progress)(note!("warning-no-surface-stored"));
-            }
-        }
-    }
-    project.save()?;
-    Ok(())
-}
-
 #[cfg(any(test, feature = "testing"))]
 pub mod test_support {
     pub const WCS_DGM1: &[u8] =
@@ -258,6 +89,45 @@ pub mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
+    use std::path::Path;
+
+    use crate::fetch::{FetchError, Fetcher};
+    use crate::raster::{GridSpec, Raster};
+    use crate::sources::float_tiff::write_float_raster;
+
+    /// Downloads `model` over `bbox` (EPSG:25832) in pieces of at most 4000 m and writes it as
+    /// a Float32 GeoTIFF `out` with its world file, as the fetch of a declared model does.
+    fn fetch_model(
+        fetcher: &dyn Fetcher,
+        model: Model,
+        bbox: &BoundingBox,
+        root: &Path,
+        out: &Path,
+    ) -> Result<(), FetchError> {
+        let grid = GridSpec::covering(bbox, 1.0);
+        let mut raster = Raster::filled(grid, f32::NAN);
+        model.wcs().fill(fetcher, &mut raster, &grid.bounds())?;
+        write_float_raster(&raster, root, out, model.wcs_endpoint())
+    }
+
+    /// The flight date (`BFDATUM`) of the first feature in a tile index answer.
+    fn parse_index_date(json: &str) -> Option<String> {
+        freemapper_sources::dates::parse_feature_field(json, "BFDATUM")
+    }
+
+    /// The flight date of the orthophoto at the centre of `bbox`, from the tile index.
+    fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+        freemapper_sources::dates::wfs_feature_date(
+            fetcher,
+            (
+                INDEX_URL,
+                "atkis_geobasis_bestand:truedop_kacheln",
+                "BFDATUM",
+            ),
+            Crs::Utm32,
+            bbox,
+        )
+    }
     use crate::fetch::test_support::MapFetcher;
     use crate::sources::float_tiff::decode_float_tiff;
     use crate::sources::wcs::multipart_tiff;

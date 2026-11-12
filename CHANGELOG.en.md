@@ -11,6 +11,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Vegetation from laser point clouds in Rhineland-Palatinate too (ADR 0105): `fetch` loads the LAZ tiles of LVermGeo RP, mostly 110 to 500 MB per square kilometre, and keeps a tile only when its size and SHA-256 match the Metalink file of the state. The day of the scan comes from the metadata of the tile; when the tile is cached, freemapper asks only for that. Checked on the Stadtpark in Mainz.
 - Vegetation from laser point clouds in Berlin too (ADR 0105): the Geoportal Berlin offers the point cloud only in nine large zip64 archives. freemapper reads just the tiles of the map area out of them by byte ranges, about 240 MB per square kilometre, checks them against the archive's CRC and keeps them in the cache as LAZ (about 100 MB). The 2021 scan was made without leaves, so freemapper recognises dense shrubs there less well. Checked on the Viktoriapark.
 
+### Changed
+
+- Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
+
 ## [0.15.0] - 2026-11-12
 
 ### Added

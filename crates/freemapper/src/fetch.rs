@@ -12,6 +12,9 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 
 // The fetcher, its errors and the tile types live in `freemapper-adapter-api` (ADR 0082); the
 // old paths stay.
+/// What a fetch error names beside the address: the product of a missing tile, and the
+/// currency table that could not be read.
+pub use freemapper_adapter_api::error::CurrencyCsvError;
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 pub use freemapper_adapter_api::error::{HostNotNamed, Remedy};
@@ -31,6 +34,7 @@ use freemapper_adapter_api::policy::{self, UrlPolicy};
 pub use freemapper_adapter_api::policy::{
     PolicyError, REASONS as POLICY_REASONS, dns_name, redirect_target,
 };
+pub use freemapper_adapter_api::records::Product;
 use freemapper_adapter_api::trust::TrustAnchors;
 use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{
@@ -921,18 +925,18 @@ pub use freemapper_adapters_de::tile_fetch::{
 
 #[cfg(test)]
 pub(crate) mod test_support {
-    use crate::sources::lgb::ProductTiles as _;
+    use freemapper_adapters_de::lgb::ProductTiles as _;
     use std::io::Write as _;
 
     use crate::sources::alkis::test_support::{building_feature, land_use_feature, page};
     use crate::sources::alkis::{BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT};
-    use crate::sources::lgb::Product;
     use crate::tiles::TileId;
     pub(crate) use freemapper_adapter_api::testing::MapFetcher;
     pub(crate) use freemapper_adapters_de::geobasis_nrw::test_support::{
         nrw_meta_zip, serve_synthetic_nrw,
     };
     pub(crate) use freemapper_adapters_de::laiv_mv::test_support::serve_synthetic_mv;
+    use freemapper_adapters_de::lgb::Product;
     pub(crate) use freemapper_adapters_de::lvermgeo_rp::test_support::{
         rp_tile_list, serve_synthetic_rp,
     };
@@ -1038,7 +1042,8 @@ pub(crate) mod test_support {
     /// the surface lies 12 m above it) for the 2 km tiles of `bbox`, a WMS orthophoto of the
     /// right size, the Saxon ALKIS fixtures and the Saxony OSM extract.
     pub fn serve_synthetic_saxony(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::{alkis_wfs, geosn};
+        use freemapper_adapters_de::geosn;
+        use freemapper_sources::wfs as alkis_wfs;
         let tiles = crate::tiles::tiles_covering_grid(&bbox.buffered(0.0), 2);
         for (product, layer, lift) in [(Product::SaxonyDtm, 6, 0.0), (Product::SaxonyDsm, 4, 12.0)]
         {
@@ -1116,7 +1121,8 @@ pub(crate) mod test_support {
     /// it), a WMS orthophoto of the right size, the tile index dates, the Saxony-Anhalt ALKIS
     /// fixtures and the Saxony-Anhalt OSM extract.
     pub fn serve_synthetic_saxony_anhalt(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::{alkis_wfs, lvermgeo};
+        use freemapper_adapters_de::lvermgeo;
+        use freemapper_sources::wfs as alkis_wfs;
         let grid = crate::raster::GridSpec::covering(bbox, 1.0);
         for (model, lift) in [(lvermgeo::Model::Dgm1, 80.0), (lvermgeo::Model::Dom1, 92.0)] {
             let values: Vec<f32> = (0..grid.width * grid.height)
@@ -1208,7 +1214,7 @@ pub(crate) mod test_support {
     /// 12 m above), a WMS orthophoto of the right size, the DOP metadata, the Hamburg ALKIS
     /// fixtures and the Hamburg OSM extract.
     pub fn serve_synthetic_hamburg(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lgv;
+        use freemapper_adapters_de::lgv;
         let zip_of = |members: Vec<(String, Vec<u8>)>| {
             let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
             for (name, bytes) in members {
@@ -1292,7 +1298,8 @@ pub(crate) mod test_support {
     /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
     /// the Hesse ALKIS fixtures and the Hesse OSM extract.
     pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::{alkis_wfs, hvbg};
+        use freemapper_adapters_de::hvbg;
+        use freemapper_sources::wfs as alkis_wfs;
         serve_hessen_models(fetcher, bbox);
         let photo =
             crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
@@ -1341,7 +1348,7 @@ pub(crate) mod test_support {
     /// Frankfurt am Main, flown 2023-02-28) and the municipal zips with the 1 km tiles (terrain
     /// 100 m rising 0.01 m per metre east, surface 12 m above).
     pub fn serve_hessen_models(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::hvbg::{self, test_support as he};
+        use freemapper_adapters_de::hvbg::{self, test_support as he};
         const DISTRICT: &str = "Kreisfreie Stadt Frankfurt am Main";
         let tiles = crate::tiles::tiles_covering(bbox);
         let rows: Vec<(TileId, u32, &str, &str)> = tiles
@@ -1381,7 +1388,7 @@ pub(crate) mod test_support {
                 .collect();
             fetcher.insert(
                 &hvbg::file_url(&uri).expect("a server path"),
-                crate::sources::zip_range::test_support::archive(&members),
+                freemapper_sources::zip_range::test_support::archive(&members),
             );
         }
     }
@@ -1393,7 +1400,8 @@ pub(crate) mod test_support {
         fetcher: &MapFetcher,
         bbox: &crate::crs::BoundingBox,
     ) {
-        use crate::sources::{alkis_wfs, lvermgeo_sh};
+        use freemapper_adapters_de::lvermgeo_sh;
+        use freemapper_sources::wfs as alkis_wfs;
         serve_schleswig_holstein_models(fetcher, bbox);
         let photo =
             crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
@@ -1451,7 +1459,7 @@ pub(crate) mod test_support {
         bbox: &crate::crs::BoundingBox,
         lift: f32,
     ) {
-        use crate::sources::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
+        use freemapper_adapters_de::lvermgeo_sh::{ATOM_DATA, PORTAL, Product, overview_prefix};
         let tiles = crate::tiles::tiles_covering(bbox);
         let feature = |tile: &TileId, product: Product| {
             let (e, n) = (tile.east_km, tile.north_km);
@@ -1518,7 +1526,7 @@ pub(crate) mod test_support {
     /// 0.01 m per metre east from 20 m, the surface lies 12 m above it) and the three STAC
     /// searches (flight [`LGLN_FLIGHT`], both height models [`LGLN_HEIGHTS`]).
     pub fn serve_synthetic_lgln(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::lgln::{self, Model, test_support::stac_page};
+        use freemapper_adapters_de::lgln::{self, Model, test_support::stac_page};
         let photo =
             crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
         for (piece, url) in crate::sources::wms::pieces(&lgln::WMS, &photo) {
@@ -1569,7 +1577,7 @@ pub(crate) mod test_support {
                 .unwrap();
         }
         writer.close().unwrap();
-        let url = crate::sources::lgb::ndsm_tile_url(tile);
+        let url = freemapper_adapters_de::lgb::ndsm_tile_url(tile);
         fetcher.insert(&url, std::fs::read(&path).unwrap());
         fetcher.set_modified(&url, "2025-03-03".parse().unwrap());
     }
@@ -1811,8 +1819,10 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
-    use crate::sources::lgb::{Product, ProductTiles as _, ndsm_tile_url, parse_currency_csv};
     use crate::tiles::TileId;
+    use freemapper_adapters_de::lgb::{
+        Product, ProductTiles as _, ndsm_tile_url, parse_currency_csv,
+    };
     use freemapper_adapters_de::tile_fetch::cached_ndsm;
     use std::cell::Cell;
 
@@ -1984,8 +1994,8 @@ mod tests {
         ];
         let product = Product::SaxonyDtm;
         fetcher.insert_prefix(
-            &format!("{}/6/query?", crate::sources::geosn::INDEX_URL),
-            crate::sources::geosn::test_support::DGM1_INDEX
+            &format!("{}/6/query?", freemapper_adapters_de::geosn::INDEX_URL),
+            freemapper_adapters_de::geosn::test_support::DGM1_INDEX
                 .as_bytes()
                 .to_vec(),
         );
@@ -2025,10 +2035,10 @@ mod tests {
         let cache = Cache::new(dir.path().to_path_buf());
         let fetcher = MapFetcher::default();
         let tiles = serve_geosn(&fetcher);
-        fetcher
-            .flaky
-            .borrow_mut()
-            .insert(format!("{}/6/query?", crate::sources::geosn::INDEX_URL), 1);
+        fetcher.flaky.borrow_mut().insert(
+            format!("{}/6/query?", freemapper_adapters_de::geosn::INDEX_URL),
+            1,
+        );
         let fetched = fetch_tiles(
             &fetcher,
             &cache,
@@ -2048,7 +2058,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         let tiles = serve_geosn(&fetcher);
         fetcher.insert_prefix(
-            &format!("{}/6/query?", crate::sources::geosn::INDEX_URL),
+            &format!("{}/6/query?", freemapper_adapters_de::geosn::INDEX_URL),
             br#"{"features":[{"attributes":{"Kachel":"4145654","Download":null,"Stand":"2024-11-30"}}]}"#.to_vec(),
         );
         let fetched = fetch_tiles(
@@ -3080,7 +3090,7 @@ mod tests {
         (a.connect, a.recv_response, a.recv_body) == (b.connect, b.recv_response, b.recv_body)
     }
 
-    use crate::sources::lvermgeo_sh::{PORTAL_HOST, PORTAL_TRUST};
+    use freemapper_adapters_de::lvermgeo_sh::{PORTAL_HOST, PORTAL_TRUST};
 
     /// The agents of the portal in `fetcher`.
     fn portal(fetcher: &HttpFetcher) -> &Agents {

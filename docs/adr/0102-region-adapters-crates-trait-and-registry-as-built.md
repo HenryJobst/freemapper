@@ -60,7 +60,9 @@ the first design.
   (about 1 200 lines against `main`). `sources/` of the engine keeps `region.rs` (wrappers over the registry), `osm.rs`,
   `alkis.rs` (the merge by object id) and thin modules that re-export the moved ones.
 - Old paths such as `freemapper::sources::lgb` re-export the moved modules. They are for the tests of the engine
-  and can go when those tests move.
+  and can go when those tests move. (Gone since 2026-11-12: the engine and its tests name
+  `freemapper-adapters-de` and `freemapper-sources`; the coded raster backend of Saxony-Anhalt, kept to compare the
+  manifest with, went with them.)
 - The golden layers G1 to G5 pass unchanged through every step; three were added (`g1-credits.json`,
   `g2-estimates.json`, `g3-estimates.json`).
 - The city tree lines keep their old place in the credit list through the Berlin adapter. A second city in another

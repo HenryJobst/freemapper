@@ -1,13 +1,9 @@
-//! Moved to `freemapper-adapters-de` as `lgv` (ADR 0082); this module keeps the old paths working.
+//! Tests of the building rules of the engine on Hamburg's buildings (LGV), normalised as the
+//! ALKIS source of `freemapper-sources` does.
 
-pub use freemapper_adapters_de::lgv::*;
-// The LGB spellings and the Hamburg normaliser live in `freemapper-sources` beside the ALKIS
-// sources that use them.
-#[cfg(test)]
-pub(crate) use freemapper_sources::alkis_source::normalise_building;
-pub(crate) use freemapper_sources::alkis_source::spelling_key;
+use freemapper_adapters_de::lgv::*;
+use freemapper_sources::alkis_source::normalise_building;
 
-#[cfg(test)]
 mod tests {
     use super::test_support::*;
     use super::*;

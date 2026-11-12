@@ -1,6 +1,6 @@
 //! Orthophoto template: DOP20 tiles (or one WMS image) mosaicked and clipped to the map area.
 
-use crate::sources::lgb::ProductTiles as _;
+use freemapper_adapters_de::lgb::ProductTiles as _;
 use std::path::Path;
 
 use super::{DeriveError, read_member, template_grid, write_image_with_world_file};
@@ -100,8 +100,8 @@ fn write_mosaic(
 mod tests {
     use super::*;
     use crate::fetch::test_support::{red_jpeg, solid_jpeg, tile_zip};
-    use crate::sources::lgb::{Product, TileCurrency};
     use crate::tiles::TileId;
+    use freemapper_adapters_de::lgb::{Product, TileCurrency};
 
     const TILE: TileId = TileId {
         east_km: 421,

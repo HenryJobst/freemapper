@@ -76,7 +76,6 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
-use crate::sources::lgb::Product;
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
@@ -89,6 +88,7 @@ use crate::sources::trees;
 use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
+use freemapper_adapters_de::lgb::Product;
 
 mod export;
 pub use export::*;
@@ -2716,7 +2716,12 @@ pub fn derive_project_cancellable(
     };
     if stairs {
         progress(note!("progress-writing", path = TERRAIN_MOSAIC_RELPATH));
-        crate::sources::float_tiff::write_float_raster(&dtm, dir, &mosaic, TERRAIN_MOSAIC_RELPATH)?;
+        freemapper_sources::float_tiff::write_float_raster(
+            &dtm,
+            dir,
+            &mosaic,
+            TERRAIN_MOSAIC_RELPATH,
+        )?;
     } else {
         for file in [mosaic.clone(), mosaic.with_extension("tfw")] {
             freemapper_fs::remove_inside(dir, &file);
@@ -3333,11 +3338,11 @@ mod tests {
 
     use super::*;
     use crate::fetch::TilePaths as _;
-    use crate::sources::lgb::ProductTiles as _;
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, providers, regions};
     use crate::sources::region::raster_region;
     use chrono::Datelike as _;
+    use freemapper_adapters_de::lgb::ProductTiles as _;
     use freemapper_adapters_de::states::credit::{
         BERLIN_ATTRIBUTION, GEOSN_ATTRIBUTION, MV_ATTRIBUTION, SH_ATTRIBUTION, tree_attribution,
     };
@@ -4064,7 +4069,7 @@ mod tests {
 
     #[test]
     fn hessen_dom1_failure_keeps_a_covering_surface_and_drops_another() {
-        use crate::sources::hvbg::{self, Model};
+        use freemapper_adapters_de::hvbg::{self, Model};
         for shrink in [false, true] {
             let fetcher = MapFetcher::default();
             let (dir, _cache_dir, cache) = frankfurt_school(&fetcher);
@@ -4122,8 +4127,8 @@ mod tests {
             .collect();
         rows.insert(0, (tiles[0], 44985, "Gemeindefreies Gebiet", "Nirgendwo"));
         fetcher.insert(
-            crate::sources::hvbg::test_support::METADATA_URL,
-            crate::sources::hvbg::test_support::metadata_xlsx(&rows),
+            freemapper_adapters_de::hvbg::test_support::METADATA_URL,
+            freemapper_adapters_de::hvbg::test_support::metadata_xlsx(&rows),
         );
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
         // Said once (not per model), and without claiming empty templates: the tiles came from
@@ -4158,8 +4163,8 @@ mod tests {
             })
             .collect();
         fetcher.insert(
-            crate::sources::hvbg::test_support::METADATA_URL,
-            crate::sources::hvbg::test_support::metadata_xlsx(&rows),
+            freemapper_adapters_de::hvbg::test_support::METADATA_URL,
+            freemapper_adapters_de::hvbg::test_support::metadata_xlsx(&rows),
         );
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
         let said = messages
@@ -4186,11 +4191,11 @@ mod tests {
             )
         }));
         fetcher.insert(
-            crate::sources::hvbg::test_support::METADATA_URL,
-            crate::sources::hvbg::test_support::metadata_xlsx(&rows),
+            freemapper_adapters_de::hvbg::test_support::METADATA_URL,
+            freemapper_adapters_de::hvbg::test_support::metadata_xlsx(&rows),
         );
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
-        let name = crate::sources::lgv::tile_names(&tiles[..1]);
+        let name = freemapper_adapters_de::lgv::tile_names(&tiles[..1]);
         assert!(
             messages.iter().any(|m| m.starts_with(
                 "warning: the Downloadcenter has no file for \"Gemeindefreies Gebiet (Nirgendwo)\""
@@ -4335,8 +4340,8 @@ mod tests {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         fetcher.insert_prefix(
-            &crate::sources::lvermgeo_sh::overview_prefix(
-                crate::sources::lvermgeo_sh::Product::Bdom,
+            &freemapper_adapters_de::lvermgeo_sh::overview_prefix(
+                freemapper_adapters_de::lvermgeo_sh::Product::Bdom,
             ),
             b"<html>maintenance</html>".to_vec(),
         );
@@ -4357,7 +4362,7 @@ mod tests {
         mode: FetchMode,
         shrink: bool,
     ) -> (tempfile::TempDir, ProjectFile, Vec<String>) {
-        use crate::sources::lvermgeo_sh::{Product, overview_prefix};
+        use freemapper_adapters_de::lvermgeo_sh::{Product, overview_prefix};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = norderstedt_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
@@ -4742,7 +4747,7 @@ mod tests {
         fetcher.insert_prefix(
             &format!(
                 "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                crate::sources::hvbg::WMS.url
+                freemapper_adapters_de::hvbg::WMS.url
             ),
             b"bildflug = '02-06-2026'\n".to_vec(),
         );
@@ -5190,7 +5195,7 @@ mod tests {
         fetch(dir.path(), &fetcher, &cache);
         let mut surface = read_float_raster(&dir.path().join(TERRAIN_RELPATH)).unwrap();
         surface.data.iter_mut().for_each(|z| *z -= 5.0);
-        crate::sources::float_tiff::write_float_raster(
+        freemapper_sources::float_tiff::write_float_raster(
             &surface,
             dir.path(),
             &dir.path().join(SURFACE_RELPATH),
@@ -5254,8 +5259,11 @@ mod tests {
         let (dir, _cache_dir, cache) = rostock_school(&fetcher);
         // The portal lists no dop20 tile for the centre: no flight date, now or later.
         fetcher.insert_prefix(
-            &format!("{}?type[]=dop20&bbox=", crate::sources::laiv_mv::OVERVIEW),
-            crate::sources::laiv_mv::test_support::dop20_overview_answer(&[], "2024-08-14"),
+            &format!(
+                "{}?type[]=dop20&bbox=",
+                freemapper_adapters_de::laiv_mv::OVERVIEW
+            ),
+            freemapper_adapters_de::laiv_mv::test_support::dop20_overview_answer(&[], "2024-08-14"),
         );
         let getcoverages = |fetcher: &MapFetcher| {
             fetcher
@@ -7401,7 +7409,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             "{warning}"
         );
         // Nothing of the surface model was downloaded, and no bDOM stands in for it.
-        let ndsm_url = crate::sources::lgb::ndsm_tile_url(school_tile());
+        let ndsm_url = freemapper_adapters_de::lgb::ndsm_tile_url(school_tile());
         assert!(!fetcher.log.borrow().contains(&ndsm_url));
         assert!(!cache.has_ndsm(school_tile()));
         assert!(project.ndsm_tiles.is_empty());
@@ -7575,7 +7583,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     #[test]
     fn skipped_surface_model_of_hamburg_keeps_the_stored_one() {
-        use crate::sources::lgv::Model;
+        use freemapper_adapters_de::lgv::Model;
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         let (before, _) = fetch(dir.path(), &fetcher, &cache);
@@ -7867,7 +7875,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             project
                 .tiles
                 .iter()
-                .all(|r| r.product.provider() == crate::sources::lgb::TileProvider::Lgb)
+                .all(|r| r.product.provider() == freemapper_adapters_de::lgb::TileProvider::Lgb)
         );
         assert!(
             !attribution_lines(&project, &[])
@@ -7954,7 +7962,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(&fetcher, tile, "2026-01-26");
         // Saxon ALKIS and the Saxony extract (empty answers are fine here).
         fetcher.insert_prefix(
-            &crate::sources::alkis_wfs::GEOSN.url,
+            &freemapper_sources::wfs::GEOSN.url,
             include_bytes!("../../../tests/fixtures/saxony-empty.gml").to_vec(),
         );
         let saxony = crate::sources::osm::extract_of("saxony", 0);
@@ -8029,7 +8037,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let project =
             init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
         crate::fetch::test_support::serve_synthetic_nrw(fetcher, &project.bbox().unwrap());
-        use crate::sources::alkis_wfs::{self, test_support as fixtures};
+        use freemapper_sources::wfs::{self as alkis_wfs, test_support as fixtures};
         for (service, buildings, land_use) in [
             (
                 alkis_wfs::GEOBASIS_NRW,
@@ -8110,7 +8118,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     #[test]
     fn nrw_dom1_failure_keeps_the_project_without_an_ndsm() {
-        use crate::sources::geobasis_nrw::{Model, meta_url};
+        use freemapper_adapters_de::geobasis_nrw::{Model, meta_url};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = koeln_school(&fetcher);
         fetcher.failing.borrow_mut().push(meta_url(Model::Dom1));
@@ -8311,8 +8319,8 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         {
             let log = fetcher.log.borrow();
             for service in [
-                crate::sources::alkis_wfs::HVBG.url,
-                crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+                freemapper_sources::wfs::HVBG.url,
+                freemapper_sources::wfs::GEOBASIS_NRW.url,
             ] {
                 assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
@@ -8371,7 +8379,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         fetcher.insert_prefix(
             &format!(
                 "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                crate::sources::geobasis_nrw::WMS.url
+                freemapper_adapters_de::geobasis_nrw::WMS.url
             ),
             b"Layer 'nw_dop_utm_info'\n    Bildflugdatum = '02.06.2027'\n".to_vec(),
         );
@@ -8393,7 +8401,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         fetcher.insert_prefix(
             &format!(
                 "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                crate::sources::geobasis_nrw::WMS.url
+                freemapper_adapters_de::geobasis_nrw::WMS.url
             ),
             b"<ServiceExceptionReport/>".to_vec(),
         );
@@ -8425,7 +8433,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 <ServiceExceptionReport version="1.3.0"><ServiceException code="InvalidDimensionValue">
 msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HEIGHT must be between 1 and 5000 pixels.
 </ServiceException></ServiceExceptionReport>"#;
-        for (_, url) in crate::sources::wms::pieces(&crate::sources::geobasis_nrw::WMS, &photo) {
+        for (_, url) in
+            crate::sources::wms::pieces(&freemapper_adapters_de::geobasis_nrw::WMS, &photo)
+        {
             fetcher.insert(&url, xml.to_vec());
         }
         let error = fetch_project(dir.path(), &fetcher, &cache, FetchMode::Online, &mut |_| {})
@@ -8479,7 +8489,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
         crate::fetch::test_support::serve_synthetic_lgln(fetcher, &project.bbox().unwrap());
-        use crate::sources::alkis_wfs::{LGLN, test_support as fixtures};
+        use freemapper_sources::wfs::{LGLN, test_support as fixtures};
         for (type_name, body) in [
             (LGLN.buildings_type, fixtures::NI_BUILDINGS),
             (LGLN.land_use_type, fixtures::NI_LAND_USE),
@@ -8492,7 +8502,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 body.as_bytes().to_vec(),
             );
         }
-        use crate::sources::lgv;
+        use freemapper_adapters_de::lgv;
         fetcher.insert_prefix(
             lgv::BUILDINGS_ENDPOINT,
             lgv::test_support::BUILDINGS.as_bytes().to_vec(),
@@ -8526,7 +8536,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn ni_project_fetches_products() {
-        use crate::sources::lgln;
+        use freemapper_adapters_de::lgln;
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -8591,7 +8601,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn dom_older_than_dop_is_warned() {
-        use crate::sources::lgln::{self, test_support::stac_page};
+        use freemapper_adapters_de::lgln::{self, test_support::stac_page};
         // The synthetic DOM1 (18.04.2016) is nine years older than the orthophoto (06.03.2025).
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
@@ -8646,7 +8656,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn ni_flight_date_lookup_failures_are_warned() {
-        use crate::sources::lgln::{self, test_support::stac_page};
+        use freemapper_adapters_de::lgln::{self, test_support::stac_page};
         let dop_searches = |fetcher: &MapFetcher| {
             fetcher
                 .log
@@ -8819,7 +8829,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn ni_leaf_on_flight_is_reported() {
-        use crate::sources::lgln::{self, test_support::stac_page};
+        use freemapper_adapters_de::lgln::{self, test_support::stac_page};
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = hannover_school(&fetcher);
         fetcher.insert_prefix(
@@ -8941,8 +8951,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         {
             let log = fetcher.log.borrow();
             for service in [
-                crate::sources::lgv::BUILDINGS_ENDPOINT,
-                &crate::sources::alkis_wfs::LGLN.url,
+                freemapper_adapters_de::lgv::BUILDINGS_ENDPOINT,
+                &freemapper_sources::wfs::LGLN.url,
             ] {
                 assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
@@ -9016,7 +9026,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), area, MapKind::Schoolyard, None, date, None).unwrap();
         crate::fetch::test_support::serve_synthetic_rp(fetcher, &project.bbox().unwrap());
-        use crate::sources::alkis_wfs::{self, test_support as fixtures};
+        use freemapper_sources::wfs::{self as alkis_wfs, test_support as fixtures};
         for (service, buildings, land_use) in [
             (
                 alkis_wfs::LVERMGEO_RP,
@@ -9136,7 +9146,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn rp_orthophoto_is_reused_while_the_flight_is_unchanged() {
-        use crate::sources::lvermgeo_rp::WMS;
+        use freemapper_adapters_de::lvermgeo_rp::WMS;
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = koblenz_school(&fetcher);
         fetch(dir.path(), &fetcher, &cache);
@@ -9288,8 +9298,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         {
             let log = fetcher.log.borrow();
             for service in [
-                crate::sources::alkis_wfs::HVBG.url,
-                crate::sources::alkis_wfs::LVERMGEO_RP.url,
+                freemapper_sources::wfs::HVBG.url,
+                freemapper_sources::wfs::LVERMGEO_RP.url,
             ] {
                 assert!(log.iter().any(|u| u.starts_with(&*service)), "{service}");
             }
@@ -9416,7 +9426,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         crate::fetch::test_support::serve_synthetic_nrw(&fetcher, &project.bbox().unwrap());
         // No ALKIS objects in this box.
         fetcher.insert_prefix(
-            &crate::sources::alkis_wfs::GEOBASIS_NRW.url,
+            &freemapper_sources::wfs::GEOBASIS_NRW.url,
             br#"<?xml version="1.0" encoding="utf-8"?><wfs:FeatureCollection numberReturned="0" numberMatched="0" xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec(),
         );
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -13595,7 +13605,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         crate::fetch::test_support::serve_synthetic_ndsm(&fetcher, school_tile());
         let (dir, _cache_dir, cache) = fetched_school(&fetcher);
         fetcher.set_modified(
-            &crate::sources::lgb::ndsm_tile_url(school_tile()),
+            &freemapper_adapters_de::lgb::ndsm_tile_url(school_tile()),
             "2026-09-01".parse().unwrap(),
         );
         let (_, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -13964,7 +13974,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             assert!(e.contains(crate::fsutil::OUTSIDE_PROJECT), "{e}");
         };
         refused(
-            crate::sources::float_tiff::write_float_raster(
+            freemapper_sources::float_tiff::write_float_raster(
                 &Raster::filled(grid, 1.0),
                 dir,
                 &dir.join(TERRAIN_RELPATH),
