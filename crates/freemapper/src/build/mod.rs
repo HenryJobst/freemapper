@@ -6,6 +6,7 @@ pub mod berlin;
 pub mod buildings;
 pub mod candidates;
 pub mod canopy;
+pub mod content;
 pub mod control_sites;
 pub mod dedup;
 pub mod firm_paths;

@@ -243,6 +243,9 @@ mod tests {
             ("dir", v("/p")),
             ("index", v(1)),
             ("total", v(3)),
+            // The content setting (`--content`).
+            ("summary", v("balanced, walls=map")),
+            ("detail", v("unknown profile `huge`")),
             // `freemapper find`.
             ("category", v("amenity")),
             ("place", v("Strausberg")),

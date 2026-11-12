@@ -21,12 +21,13 @@ use std::path::PathBuf;
 use anyhow::Context;
 use clap::{CommandFactory as _, FromArgMatches as _, Parser, Subcommand, ValueEnum};
 use freemapper::area::MapArea;
+use freemapper::build::content::ContentSettings;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, derive_project, export_candidates_pdf_from,
-    export_ocad_from, export_pdf_from, export_starter_project_from, fetch_project, init_project,
-    map_path, starter_documents,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
+    export_candidates_pdf_from, export_ocad_from, export_pdf_from, export_starter_project_from,
+    fetch_project, init_project, map_path, set_content, starter_documents,
 };
 
 use text::{n, text, v};
@@ -68,6 +69,8 @@ enum Commands {
         /// Map title for the peripheral information (default: the folder name).
         #[arg(long)]
         title: Option<String>,
+        #[command(flatten)]
+        content: ContentArgs,
     },
     /// Write the starter project (OOM map, templates, attribution) into a project folder.
     Export {
@@ -98,6 +101,8 @@ enum Commands {
         /// you pass the map on). ATTRIBUTION.txt always lists every source.
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
+        #[command(flatten)]
+        content: ContentArgs,
     },
     /// Download the data for the map area (orthophoto, terrain model, nDSM, ALKIS buildings, OSM).
     Fetch {
@@ -144,6 +149,8 @@ enum Commands {
         /// you pass the map on). ATTRIBUTION.txt always lists every source.
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
+        #[command(flatten)]
+        content: ContentArgs,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -433,6 +440,41 @@ fn kept(path: &std::path::Path) {
     println!("{}", text("cli-kept-map", &[("path", v(path.display()))]));
 }
 
+/// What goes straight onto the map (ADR 0100): the choice is saved in `freemapper.toml`.
+#[derive(clap::Args)]
+struct ContentArgs {
+    /// What goes straight onto the map: `safe` leaves every object where the build puts it,
+    /// `balanced` (default) puts the objects of the cadastre and the registers on the map, `full`
+    /// puts everything on the map. The choice is saved in freemapper.toml
+    #[arg(long, value_name = "PROFILE")]
+    content: Option<String>,
+    /// Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g.
+    /// `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees,
+    /// water-features, monuments, furniture, passages, contours, out-of-bounds, paths, streets. Saved in
+    /// freemapper.toml
+    #[arg(long = "content-set", value_name = "GROUP=PLACE")]
+    content_set: Vec<String>,
+}
+
+impl ContentArgs {
+    /// Saves what was asked for in the project of `dir`; nothing when nothing was asked.
+    fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let existing = ProjectFile::load(dir)?;
+        let settings = ContentSettings::from_request(
+            self.content.as_deref(),
+            &self.content_set,
+            existing.content.as_ref(),
+        )
+        .map_err(|detail| anyhow::anyhow!(text("cli-content-invalid", &[("detail", v(detail))])))?;
+        if let Some(settings) = settings {
+            let summary = settings.summary();
+            set_content(dir, Some(settings))?;
+            println!("{}", text("cli-content-saved", &[("summary", v(summary))]));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, ValueEnum)]
 enum SourcesArg {
     Auto,
@@ -572,6 +614,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             kind,
             scale,
             title,
+            content,
         } => {
             let area = area.area(part.map(|p| p as usize))?;
             let today = chrono::Local::now().date_naive();
@@ -580,6 +623,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 "{}",
                 text("cli-created-project", &[("path", v(dir.display()))])
             );
+            content.save(&dir)?;
             if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
                 println!("{}", pipeline::line(&note));
             }
@@ -592,8 +636,10 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_candidates,
             pdf_scale_bar,
             pdf_sources,
+            content,
         } => {
             let _lock = lock_folder(&dir)?;
+            content.save(&dir)?;
             // Built once for every output of this command (ADR 0091).
             let documents = starter_documents(&dir)?;
             let existing = map_path(&dir);
@@ -658,9 +704,11 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_candidates,
             pdf_scale_bar,
             pdf_sources,
+            content,
             cache,
         } => {
             let _lock = lock_folder(&dir)?;
+            content.save(&dir)?;
             let options = pipeline::RunOptions {
                 force,
                 offline,

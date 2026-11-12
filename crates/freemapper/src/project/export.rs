@@ -6,6 +6,7 @@
 
 use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
+use crate::build::content::route;
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
 use crate::build::paved_borders::border_paved_areas;
 use crate::build::points::way_footprints;
@@ -993,6 +994,15 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     map_objects.extend(paved.map);
     map_objects.extend(water.map);
     map_objects.extend(generalized.map);
+    // What goes onto the map and what stays a candidate, by the project's content settings
+    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
+    // default.
+    route(
+        &content_settings(&project),
+        &mut map_objects,
+        &mut candidates.parts[0].objects,
+        &symbol_set,
+    );
     // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
     let ways = way_footprints(
         &map_objects,
@@ -1003,14 +1013,16 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         &symbol_set,
     );
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
-    cut_lines_at_ways(
-        &mut candidates.parts[0].objects,
-        &CONTOUR_CODES,
-        &ways,
-        min_piece_m,
-        &georef,
-        &symbol_set,
-    );
+    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
+        cut_lines_at_ways(
+            list,
+            &CONTOUR_CODES,
+            &ways,
+            min_piece_m,
+            &georef,
+            &symbol_set,
+        );
+    }
     cut_lines_at_ways(
         &mut map_objects,
         &NORTH_LINE_CODES,
@@ -1095,6 +1107,20 @@ pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
         attribution_text,
         content,
         info: sheet_info,
+    })
+}
+
+/// The content settings of a project: `balanced` when it has none (ADR 0100). The unit tests of
+/// the build look at where the build puts each object, so they run with `safe`; a test of the
+/// default sets `balanced` itself.
+fn content_settings(project: &ProjectFile) -> crate::build::content::ContentSettings {
+    use crate::build::content::{ContentSettings, Profile};
+    project.content.clone().unwrap_or_else(|| {
+        if cfg!(test) {
+            ContentSettings::with_profile(Profile::Safe)
+        } else {
+            ContentSettings::default()
+        }
     })
 }
 

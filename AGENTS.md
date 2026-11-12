@@ -106,7 +106,9 @@ freemapper run <dir> --pdf
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
-`--pdf-sources auto|full|credit-only`. All commands that download take `--cache-dir <folder>`.
+`--pdf-sources auto|full|credit-only`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
+straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
+<group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
 
 Progress lines go to stdout. Lines starting with `warning:` (with `--lang de`: `Warnung:`) are warnings worth
 passing on. On failure the program prints one line `error: <message>` to stderr (`Fehler: …`) and exits with code 1; a
@@ -169,9 +171,9 @@ states such as `running` or `finished` are the same in both languages. This file
 | Tool | Parameters | What it does |
 |---|---|---|
 | `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
-| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default) or `sprint`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000. For 1:3000 use 4000; freemapper-print enlarges when printing. |
+| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default) or `sprint`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000. For 1:3000 use 4000; freemapper-print enlarges when printing. |
 | `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
-| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources` | Fetches, derives and writes the project in the background. Returns a job id. |
+| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress line or the error. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `orthophoto`, `hillshade`, `slope` or `ndsm`. |
