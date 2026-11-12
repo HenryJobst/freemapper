@@ -35,13 +35,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Installs the toolchain and components named in rust-toolchain.toml.
       - run: rustup toolchain install
-      # On Linux our own crates are optimized lightly as well: the tests win more than the build
-      # loses (measured in PR 55: 157 s instead of 259 s). On macOS and Windows the build loses
-      # more than the tests win, so they keep the profile of Cargo.toml. Set before the cache
-      # step, whose key takes it in.
-      - name: Optimize our own crates
-        if: runner.os == 'Linux'
-        run: echo "CARGO_PROFILE_DEV_OPT_LEVEL=1" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Install minisign
         if: runner.os == 'Linux'
