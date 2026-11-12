@@ -558,7 +558,7 @@ gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie
 verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Bundesland:
-[`examples/`](../../examples/). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
 
 ## 8. Was die Vorlagen zeigen
 

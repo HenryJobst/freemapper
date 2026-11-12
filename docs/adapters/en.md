@@ -64,7 +64,7 @@ There is no command for this yet. By hand:
 2. Make a folder with that name. It will hold `manifest.toml`, the boundary file and nothing that is not
    needed (64 files at most, no links).
 3. Start `manifest.toml` from the manifest that is closest to your region in
-   [`crates/adapters/de/manifests/`](../../crates/adapters/de/manifests/): `saxonyanhalt` for standard
+   [`crates/adapters/de/manifests/`](https://github.com/HenryJobst/freemapper/tree/main/crates/adapters/de/manifests): `saxonyanhalt` for standard
    services, `saarland` for a WFS cadastre with a backend, `hamburg` for an OGC API with a WFS fallback.
 4. Fill `[adapter]`, `[net]`, `[[osm.extract]]` first. `[net] hosts` lists every server the adapter asks.
    freemapper refuses a request to any other host, also when a redirect or a link in an answer leads there.
@@ -159,7 +159,7 @@ impl RasterBackend for MyBackend {
 }
 ```
 
-Read [`crates/adapters/de/src/lvgl.rs`](../../crates/adapters/de/src/lvgl.rs) (Saarland) before you write
+Read [`crates/adapters/de/src/lvgl.rs`](https://github.com/HenryJobst/freemapper/blob/main/crates/adapters/de/src/lvgl.rs) (Saarland) before you write
 one. It shows the parts every backend has: the orthophoto from a WMS through the shared helper, tiles read out
 of archives by range requests and kept in the cache, a missing surface model as a warning and not a failure,
 and tests that run without the network against synthetic archives. The backend is registered under its name in
@@ -167,7 +167,7 @@ and tests that run without the network against synthetic archives. The backend i
 
 Adding a built-in state is not one line yet. Saarland touched about twenty places in the crate, because the
 states are an enum, and some tests that count the states;
-[`saarland-reference.md`](../regions/saarland-reference.md) has the list and commit `dde0b5e` shows them. If
+[`saarland-reference.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/regions/saarland-reference.md) has the list and commit `dde0b5e` shows them. If
 you do not write Rust, send the manifest folder and the research, and say so.
 
 ## 7. Credit and licence

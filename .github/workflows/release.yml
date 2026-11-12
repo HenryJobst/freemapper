@@ -95,9 +95,12 @@ jobs:
           cp "target/${{ matrix.target }}/release/freemapper$exe" "$dir/"
           # AGENTS.md tells an AI agent how to install and use the program.
           cp README.md README.en.md LICENSE AGENTS.md "$dir/"
-          # The user manual with its images, at the path the READMEs link to.
+          # The user manual with its images, at the path the READMEs link to, and what the
+          # manual links to beside it: the glossary and the guide for adapter authors.
           mkdir -p "$dir/docs"
           cp -R docs/manual "$dir/docs/"
+          cp -R docs/adapters "$dir/docs/"
+          cp docs/glossary.md "$dir/docs/"
           if [ "${{ runner.os }}" = "Windows" ]; then
             7z a -tzip "$dir.zip" "$dir" > /dev/null
             archive="$dir.zip"

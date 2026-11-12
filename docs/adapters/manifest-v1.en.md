@@ -290,7 +290,7 @@ Warnings:
 ## Complete examples
 
 The manifests of the built-in states are in
-[`crates/adapters/de/manifests/`](../../crates/adapters/de/manifests/). Saxony-Anhalt declares every source as a
+[`crates/adapters/de/manifests/`](https://github.com/HenryJobst/freemapper/tree/main/crates/adapters/de/manifests). Saxony-Anhalt declares every source as a
 service. Saarland declares the cadastre and names a backend for the rasters. Hamburg uses an OGC API with a WFS
 fallback. Brandenburg has the full ALKIS (`[[extra.nas]]`) and a tree cadastre. Berlin has no `[alkis]`: its
 cadastre is code.

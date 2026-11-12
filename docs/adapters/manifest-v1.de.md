@@ -295,7 +295,7 @@ Warnungen:
 ## Vollständige Beispiele
 
 Die Manifeste der eingebauten Bundesländer liegen in
-[`crates/adapters/de/manifests/`](../../crates/adapters/de/manifests/). Sachsen-Anhalt deklariert jede Quelle
+[`crates/adapters/de/manifests/`](https://github.com/HenryJobst/freemapper/tree/main/crates/adapters/de/manifests). Sachsen-Anhalt deklariert jede Quelle
 als Dienst. Das Saarland deklariert das Kataster und nennt ein Backend für die Raster. Hamburg nutzt eine OGC
 API mit einem WFS als Ersatz. Brandenburg hat das volle ALKIS (`[[extra.nas]]`) und ein Baumkataster. Berlin hat
 kein `[alkis]`: Sein Kataster ist Code.

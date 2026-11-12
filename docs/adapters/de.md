@@ -69,7 +69,7 @@ Dafür gibt es noch keinen Befehl. Von Hand:
 2. Legen Sie einen Ordner mit diesem Namen an. Er enthält `manifest.toml`, die Grenzdatei und nichts, was
    nicht gebraucht wird (höchstens 64 Dateien, keine Verknüpfungen).
 3. Beginnen Sie `manifest.toml` mit dem Manifest aus
-   [`crates/adapters/de/manifests/`](../../crates/adapters/de/manifests/), das Ihrer Region am nächsten ist:
+   [`crates/adapters/de/manifests/`](https://github.com/HenryJobst/freemapper/tree/main/crates/adapters/de/manifests), das Ihrer Region am nächsten ist:
    `saxonyanhalt` für Standarddienste, `saarland` für ein WFS-Kataster mit Backend, `hamburg` für eine OGC API
    mit WFS als Ersatz.
 4. Füllen Sie zuerst `[adapter]`, `[net]` und `[[osm.extract]]`. `[net] hosts` zählt jeden Server auf, den der
@@ -172,7 +172,7 @@ impl RasterBackend for MyBackend {
 }
 ```
 
-Lesen Sie [`crates/adapters/de/src/lvgl.rs`](../../crates/adapters/de/src/lvgl.rs) (Saarland), bevor Sie
+Lesen Sie [`crates/adapters/de/src/lvgl.rs`](https://github.com/HenryJobst/freemapper/blob/main/crates/adapters/de/src/lvgl.rs) (Saarland), bevor Sie
 eines schreiben. Die Datei zeigt, was jedes Backend hat: das Luftbild aus einem WMS über die gemeinsame
 Hilfsfunktion, Kacheln, die mit Bereichsanfragen aus Archiven gelesen und im Zwischenspeicher aufgehoben
 werden, ein fehlendes Oberflächenmodell als Warnung statt als Fehler, und Tests, die ohne Netz gegen
@@ -181,7 +181,7 @@ künstliche Archive laufen. Registriert wird das Backend unter seinem Namen in
 
 Ein eingebautes Bundesland hinzuzufügen ist noch nicht eine Zeile. Das Saarland hat etwa zwanzig Stellen im
 Crate berührt, weil die Bundesländer ein Enum sind, dazu einige Tests, die die Bundesländer zählen;
-[`saarland-reference.md`](../regions/saarland-reference.md) hat die Liste, und Commit `dde0b5e` zeigt die
+[`saarland-reference.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/regions/saarland-reference.md) hat die Liste, und Commit `dde0b5e` zeigt die
 Stellen. Wenn Sie kein Rust schreiben, schicken Sie den Manifestordner und die Recherche und sagen Sie es dazu.
 
 ## 7. Quellenangabe und Lizenz
