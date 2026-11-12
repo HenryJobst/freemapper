@@ -20,6 +20,7 @@ pub mod fs;
 pub mod geometry;
 pub mod info;
 pub mod note;
+pub mod pointcloud;
 pub mod policy;
 pub mod project;
 pub mod rasters;

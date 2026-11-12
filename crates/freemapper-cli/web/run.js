@@ -477,7 +477,8 @@ function previewSettledLine() {
   return previewState && !previewState.fresh ? "page-preview-stale" : "page-preview-stored";
 }
 
-async function requestLivePreview() {
+/** Asks for a live preview; `overtaken` counts how often another tab's request took its turn. */
+async function requestLivePreview(overtaken = 0) {
   const mine = ++previewSeq;
   previewImage().classList.add("computing");
   previewLine("page-preview-computing");
@@ -487,6 +488,12 @@ async function requestLivePreview() {
   } catch (e) {
     if (mine !== previewSeq) return;
     previewImage().classList.remove("computing");
+    // A page in another tab asked for a newer preview, and this one gave up its turn: ask again.
+    // The server computes the newest request whenever it is free, so the two tabs take turns.
+    if (e.status === 409 && e.body && e.body.superseded === true && overtaken < 5) {
+      await requestLivePreview(overtaken + 1);
+      return;
+    }
     // A run started meanwhile: its end brings the image.
     if (running || starting) {
       decidePreview(0);

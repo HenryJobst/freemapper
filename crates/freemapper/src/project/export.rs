@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::build::barrier_gaps::move_points_off_barriers;
-use crate::build::content::route;
+use crate::build::content::{LANDFORM_KEY, route};
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
 use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
 use crate::build::points::way_footprints;
@@ -25,6 +25,14 @@ impl StoredBuildings {
         self.buildings
             .iter()
             .filter(|b| classify(b) == Rule::Object)
+            .flat_map(|b| b.footprint.0.iter().cloned())
+            .collect()
+    }
+
+    /// The footprints of every building, canopies and the other non-map buildings included.
+    pub(super) fn all_footprints(&self) -> Vec<geo_types::Polygon<f64>> {
+        self.buildings
+            .iter()
             .flat_map(|b| b.footprint.0.iter().cloned())
             .collect()
     }
@@ -152,24 +160,13 @@ pub(super) fn stored_contour_objects(
         message: e.to_string(),
     })?;
     let index_every = f64::from(5 * project.map_kind.contour_interval_m());
-    let currency = project
-        .tiles
-        .iter()
-        .filter(|t| t.product == Product::Dtm)
-        .map(|t| t.currency)
-        .max();
+    let (source, currency) = terrain_provenance(project)?;
     let id = |code: &str| {
         symbol_set
             .id_for_code(code)
             .expect("symbol set defines contours")
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
-    // The contours come from the terrain model of the area's raster provider.
-    let provider = match &project.provider {
-        Some(provider) => Some(provider.clone()),
-        None => raster_provider(&project.region_bbox()?),
-    };
-    let source = terrain_source(provider.as_ref());
     let map_area = area.projected_polygon_in(project.crs());
     // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
     let min_piece_m = f64::from(project.scale_denominator) / 1000.0;
@@ -206,11 +203,11 @@ pub(super) fn stored_contour_objects(
                 .collect::<Result<_, _>>()?;
             let closed = coords.len() > 3 && coords.first() == coords.last();
             let mut tags = vec![
-                ("freemapper:source".to_string(), source.to_string()),
+                ("freemapper:source".to_string(), source.clone()),
                 ("freemapper:height".to_string(), format!("{}", line.height)),
             ];
-            if let Some(currency) = currency {
-                tags.push(("freemapper:currency".to_string(), currency.to_string()));
+            if let Some(currency) = &currency {
+                tags.push(("freemapper:currency".to_string(), currency.clone()));
             }
             Ok(MapObject {
                 symbol_id: if (line.height / index_every).fract() == 0.0 {
@@ -236,6 +233,355 @@ pub(super) fn stored_contour_objects(
 /// ISSprOM contour and index contour.
 pub(super) const CONTOUR_CODE: &str = "101";
 pub(super) const INDEX_CONTOUR_CODE: &str = "102";
+
+/// The terrain model the derived candidates come from (that of the area's raster provider) and
+/// the newest currency of its tiles, as tag values.
+fn terrain_provenance(project: &ProjectFile) -> Result<(String, Option<String>), ProjectError> {
+    // The terrain model of the area's raster provider.
+    let provider = match &project.provider {
+        Some(provider) => Some(provider.clone()),
+        None => raster_provider(&project.region_bbox()?),
+    };
+    let currency = project
+        .tiles
+        .iter()
+        .filter(|t| t.product == Product::Dtm)
+        .map(|t| t.currency)
+        .max();
+    Ok((
+        terrain_source(provider.as_ref()),
+        currency.map(|c| c.to_string()),
+    ))
+}
+
+/// ISSprOM symbols of the landform candidates (`derive/landforms.rs`).
+const LANDFORM_CODES: [(LandformKind, &str); 5] = [
+    (LandformKind::Knoll, "109"),
+    (LandformKind::ElongatedKnoll, "110"),
+    (LandformKind::Depression, "111"),
+    (LandformKind::Bank, "104"),
+    (LandformKind::Cliff, "201"),
+];
+/// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks and
+/// walls, cliffs, walls and fences.
+const DRAWN_JUMP_CODES: [&str; 9] = [
+    "104", "104.1", "105", "201", "513.1", "513.2", "515", "516", "518",
+];
+/// A cliff along roads and buildings is offered as an impassable wall: it is mostly a retaining
+/// wall, and an earth bank would show something impassable as passable.
+const RETAINING_WALL_CODE: &str = "515";
+/// A landform this close to a building, or a bank this close to the water or to a drawn line,
+/// is left out (ground metres): DGM1 is interpolated under buildings, and a wall or shore
+/// already shows the jump.
+const LANDFORM_CLEARANCE_M: f64 = 2.0;
+/// A depression this close to a building is a light well, a basement stair or a hollow DGM1
+/// makes between houses, not a hollow of the ground (ground metres).
+const DEPRESSION_CLEARANCE_M: f64 = 8.0;
+/// ALKIS land use where a knoll or depression is a heap, a garden mound, a courtyard or a ramp
+/// rather than a form of the ground: built land, allotments and traffic areas. Schools and other
+/// land of `Fläche besonderer funktionaler Prägung` stay open, because schoolyard maps lie there.
+const BUILT_LAND_USE: [&str; 3] = [
+    "Wohnbaufläche",
+    "Fläche gemischter Nutzung",
+    "Industrie- und Gewerbefläche",
+];
+const TRAFFIC_LAND_USE: [&str; 6] = [
+    "Straßenverkehr",
+    "Weg",
+    "Platz",
+    "Bahnverkehr",
+    "Flugverkehr",
+    "Schiffsverkehr",
+];
+const ALLOTMENT_LAND_USE: &str = "Kleingarten";
+/// A cliff that runs mostly this close to a traffic area, or to a building, is a retaining wall
+/// more often than a cliff: it is offered as [`RETAINING_WALL_CODE`] (ground metres).
+const CLIFF_TRAFFIC_M: f64 = 3.0;
+const CLIFF_BUILDING_M: f64 = 5.0;
+
+/// The vegetation areas from `derive` (ADR 0105) as candidates, while the content settings ask
+/// for them, within the buffer around the map area: cut at the buildings, the water and the paved
+/// areas of the map (parked cars look like
+/// bushes), and where the map already has an area of the same symbol (an ALKIS park, a wood) only
+/// the part that differs. Patches smaller than the
+/// minimum area of the scale go; a class the symbol set lacks is left out.
+pub(super) fn stored_vegetation_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    footprints: &[geo_types::Polygon<f64>],
+    water: &geo_types::MultiPolygon<f64>,
+    map_objects: &[MapObject],
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    use crate::build::berlin::object_polygon;
+    use crate::build::content::POINT_CLOUD_KEY;
+    use crate::build::out_of_bounds::area_object;
+    use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
+    /// The paved area of ISSprOM.
+    const PAVED_AREA_CODE: &str = "501.5";
+    use geo::{Area as _, BooleanOps as _, Buffer as _, MapCoords as _};
+    let path = dir.join(VEGETATION_RELPATH);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let Some(backend) = point_cloud_backend(project, &project.region_bbox()?) else {
+        return Ok(Vec::new());
+    };
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let areas =
+        vegetation_from_geojson(&text).map_err(|message| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message,
+        })?;
+    let source = backend.info().source.clone();
+    let currency = project
+        .point_clouds
+        .iter()
+        .filter_map(|r| r.published)
+        .max();
+    let min_area = min_area_m2(project.scale_denominator);
+    let projected = |polygon: geo_types::Polygon<f64>| {
+        polygon.map_coords(|c| {
+            let p = georef.map_to_projected(crate::omap::coord::MapCoord::new(
+                c.x.round() as i32,
+                c.y.round() as i32,
+            ));
+            geo_types::coord! { x: p.easting, y: p.northing }
+        })
+    };
+    let areas_of = |code: &str| -> Vec<geo_types::Polygon<f64>> {
+        let Some(id) = symbol_set.id_for_code(code) else {
+            return Vec::new();
+        };
+        map_objects
+            .iter()
+            .filter(|o| o.symbol_id == id)
+            .filter_map(object_polygon)
+            .map(projected)
+            .collect()
+    };
+    let paved = areas_of(PAVED_AREA_CODE);
+    let reach = project
+        .area()?
+        .projected_polygon_in(project.crs())
+        .buffer(project.buffer_m);
+    let blocked = geo::unary_union(footprints.iter().chain(&water.0).chain(&paved));
+    let mut objects = Vec::new();
+    for (class, area) in areas {
+        let Some(symbol_id) = symbol_set.id_for_code(class.code()) else {
+            continue;
+        };
+        let drawn = areas_of(class.code());
+        // Like the other candidates, only within the buffer around the map area: the derive
+        // classifies the whole box around it.
+        let mut rest = area.intersection(&reach).difference(&blocked);
+        if !drawn.is_empty() {
+            rest = rest.difference(&geo::unary_union(&drawn));
+        }
+        for piece in rest.0.iter().filter(|p| p.unsigned_area() >= min_area) {
+            let mut tags = vec![
+                ("freemapper:source".to_string(), source.clone()),
+                (POINT_CLOUD_KEY.to_string(), source.clone()),
+            ];
+            if let Some(currency) = currency {
+                tags.push(("freemapper:currency".to_string(), currency.to_string()));
+            }
+            objects.push(area_object(piece, symbol_id, tags, georef)?);
+        }
+    }
+    Ok(objects)
+}
+
+/// Candidate objects for the landforms from `derive` (knolls 109, 110, depressions 111, banks
+/// 104, cliffs 201, retaining walls 515), each tagged [`LANDFORM_KEY`] so the content settings
+/// place them as the group `landforms`; none when there are none. `drawn` are the objects of the map and of the
+/// candidates map so far.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn stored_landform_objects(
+    dir: &Path,
+    project: &ProjectFile,
+    footprints: &[geo_types::Polygon<f64>],
+    land_use: &[LandUse],
+    area: &MapArea,
+    water: &geo_types::MultiPolygon<f64>,
+    drawn: &[&MapObject],
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, ProjectError> {
+    use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _};
+    let path = dir.join(LANDFORMS_RELPATH);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
+    let forms = landforms_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
+        path: path.clone(),
+        message: e.to_string(),
+    })?;
+    let (source, currency) = terrain_provenance(project)?;
+    let jump_ids: Vec<u32> = DRAWN_JUMP_CODES
+        .iter()
+        .filter_map(|c| symbol_set.id_for_code(c))
+        .collect();
+    let drawn_lines: Vec<geo_types::LineString<f64>> = drawn
+        .iter()
+        .filter(|o| jump_ids.contains(&o.symbol_id) && matches!(o.kind, MapObjectKind::Path))
+        .map(|o| {
+            o.coords
+                .iter()
+                .map(|c| {
+                    let p = georef.map_to_projected(*c);
+                    (p.easting, p.northing)
+                })
+                .collect::<Vec<_>>()
+                .into()
+        })
+        .collect();
+    let map_area = area.projected_polygon_in(project.crs());
+    let near_building = |p: &geo_types::Point<f64>| {
+        footprints
+            .iter()
+            .any(|f| geo::Euclidean.distance(p, f) <= LANDFORM_CLEARANCE_M)
+    };
+    let land = |keep: &dyn Fn(&LandUse) -> bool| -> Vec<&geo_types::MultiPolygon<f64>> {
+        land_use
+            .iter()
+            .filter(|l| keep(l))
+            .map(|l| &l.footprint)
+            .collect()
+    };
+    let built = land(&|l| {
+        BUILT_LAND_USE.contains(&l.nutzart.as_str())
+            || TRAFFIC_LAND_USE.contains(&l.nutzart.as_str())
+            || l.bez.as_deref() == Some(ALLOTMENT_LAND_USE)
+    });
+    let traffic = land(&|l| TRAFFIC_LAND_USE.contains(&l.nutzart.as_str()));
+    // Whether most of `line`, sampled every metre, is `near`.
+    let mostly = |line: &geo_types::LineString<f64>,
+                  near: &dyn Fn(&geo_types::Point<f64>) -> bool| {
+        let samples = (geo::Euclidean.length(line) / 1.0).ceil().max(1.0) as usize;
+        let close = (0..=samples)
+            .filter_map(|k| {
+                geo::Euclidean.point_at_ratio_from_start(line, k as f64 / samples as f64)
+            })
+            .filter(|p| near(p))
+            .count();
+        2 * close > samples + 1
+    };
+    // A bank is a repeat when most of it lies along a drawn line or the water.
+    let repeats = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            geo::Euclidean.distance(p, water) <= LANDFORM_CLEARANCE_M
+                || drawn_lines
+                    .iter()
+                    .any(|l| geo::Euclidean.distance(p, l) <= LANDFORM_CLEARANCE_M)
+        })
+    };
+    let along_roads = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            traffic
+                .iter()
+                .any(|t| geo::Euclidean.distance(p, *t) <= CLIFF_TRAFFIC_M)
+                || footprints
+                    .iter()
+                    .any(|f| geo::Euclidean.distance(p, f) <= CLIFF_BUILDING_M)
+        })
+    };
+    let mut objects = Vec::new();
+    for form in &forms {
+        let landform = form.kind;
+        let Some(mut code) = LANDFORM_CODES
+            .iter()
+            .find(|(k, _)| *k == landform)
+            .map(|(_, code)| *code)
+        else {
+            continue;
+        };
+        if landform == LandformKind::Cliff
+            && along_roads(&geo_types::LineString::from(form.points.clone()))
+        {
+            code = RETAINING_WALL_CODE;
+        }
+        let Some(symbol_id) = symbol_set.id_for_code(code) else {
+            continue;
+        };
+        let geometry: geo_types::Geometry<f64> = if form.kind.is_point() {
+            geo_types::Point::from(form.points[0]).into()
+        } else {
+            geo_types::LineString::from(form.points.clone()).into()
+        };
+        if geo::Euclidean.distance(&geometry, &map_area) > project.buffer_m {
+            continue;
+        }
+        match &geometry {
+            geo_types::Geometry::Point(p) if near_building(p) => continue,
+            // A line goes only when most of it is at a building: a terrace bank may end there.
+            geo_types::Geometry::LineString(l) if mostly(l, &near_building) => continue,
+            geo_types::Geometry::Point(p) if geo::Euclidean.distance(p, water) == 0.0 => continue,
+            geo_types::Geometry::Point(p) if built.iter().any(|b| b.contains(p)) => continue,
+            geo_types::Geometry::Point(p)
+                if landform == LandformKind::Depression
+                    && footprints
+                        .iter()
+                        .any(|f| geo::Euclidean.distance(p, f) <= DEPRESSION_CLEARANCE_M) =>
+            {
+                continue;
+            }
+            geo_types::Geometry::LineString(l) if repeats(l) => continue,
+            _ => {}
+        }
+        let coords: Vec<MapCoord> = form
+            .points
+            .iter()
+            .map(|(e, n)| {
+                georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: *e,
+                        northing: *n,
+                    })
+                    .map(|c| MapCoord::new(c.x, c.y))
+            })
+            .collect::<Result<_, _>>()?;
+        let kind = if form.kind.is_point() {
+            // The rotation on paper: the direction of the knoll, turned by the grivation.
+            let (e, n) = form.points[0];
+            let r = form.rotation_deg.to_radians();
+            let ahead = georef.projected_to_map(ProjectedPoint {
+                easting: e + r.cos(),
+                northing: n + r.sin(),
+            })?;
+            // Symbol 110 is long along its own y axis, so it turns a quarter less than its axis.
+            let rotation_rad = if form.kind == LandformKind::ElongatedKnoll {
+                f64::from(coords[0].y - ahead.y).atan2(f64::from(ahead.x - coords[0].x))
+                    - std::f64::consts::FRAC_PI_2
+            } else {
+                0.0
+            };
+            MapObjectKind::Point { rotation_rad }
+        } else {
+            MapObjectKind::Path
+        };
+        let mut tags = vec![
+            ("freemapper:source".to_string(), source.clone()),
+            (
+                "freemapper:height".to_string(),
+                format!("{:.1}", form.height_m),
+            ),
+            (LANDFORM_KEY.to_string(), form.kind.name().to_string()),
+        ];
+        if let Some(currency) = &currency {
+            tags.push(("freemapper:currency".to_string(), currency.clone()));
+        }
+        objects.push(MapObject {
+            symbol_id,
+            kind,
+            coords,
+            tags,
+        });
+    }
+    Ok(objects)
+}
 
 /// The stored ALKIS buildings; none when no buildings were fetched.
 #[cfg(test)]
@@ -811,6 +1157,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         terrain: _,
         surface: _,
         ndsm_tiles: _,
+        point_clouds: _,
         content: _,
     } = project;
     let counted = Counted {
@@ -1307,7 +1654,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let candidates = MapDocument {
+    let mut candidates = MapDocument {
         notes: notes.clone(),
         georef: georef.clone(),
         symbol_set: symbol_set.clone(),
@@ -1340,6 +1687,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         (SLOPE_RELPATH, false, 0.5),
         (NDSM_RELPATH, false, 0.6),
         (K5_RELPATH, false, 0.7),
+        (RELIEF_RELPATH, false, 0.5),
     ]
     .into_iter()
     .filter(|(relpath, _, _)| dir.join(relpath).exists())
@@ -1379,8 +1727,37 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     map_objects.extend(generalized.map);
     // New object builders go here (landform candidates, vegetation): they see every object built
     // so far (`map_objects`, `candidates`), `water.union`, `footprints`, `area` and `georef`, and
-    // what they add is placed by the content settings like the rest. A builder that appends to
-    // `candidates` makes it `mut` again.
+    // what they add is placed by the content settings like the rest.
+    // Knolls, depressions, banks and cliffs from the terrain, where nothing drawn shows them yet.
+    // Before the routing, so that the content settings move the banks and cliffs (group `slopes`)
+    // like the contours; with no source rank, `balanced` leaves them candidates.
+    let drawn: Vec<&MapObject> = map_objects
+        .iter()
+        .chain(&candidates.parts[0].objects)
+        .collect();
+    let landforms = stored_landform_objects(
+        dir,
+        &project,
+        &footprints,
+        &land_use,
+        &area,
+        &water.union,
+        &drawn,
+        &georef,
+        &symbol_set,
+    )?;
+    candidates.parts[0].objects.extend(landforms);
+    // The vegetation from the point clouds, where the user chose it (group `vegetation`).
+    let vegetation = stored_vegetation_objects(
+        dir,
+        &project,
+        &footprints,
+        &water.union,
+        &map_objects,
+        &georef,
+        &symbol_set,
+    )?;
+    candidates.parts[0].objects.extend(vegetation);
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
