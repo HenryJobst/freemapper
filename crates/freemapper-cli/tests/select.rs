@@ -796,6 +796,12 @@ fn refusals_come_in_the_language_of_the_page() {
         assert_eq!(post("api/cancel", json!({}), accept), (409, cancel.into()));
         assert_eq!(post("api/run", json!({}), accept), (404, run.into()));
     }
+    let (status, german) = post("api/run", json!({ "pdf_sources": "x" }), "de");
+    assert_eq!(status, 400);
+    assert!(
+        german.contains("pdf_sources muss auto, full oder credit-only sein"),
+        "{german}"
+    );
     // An area the engine refuses: its error in German, and the save with an unknown kind too.
     let line = json!({ "type": "Polygon", "coordinates": [[[13.84, 52.53], [13.85, 52.54], [13.84, 52.53]]] });
     let (status, english) = post("api/save", json!({ "area": line }), "en");

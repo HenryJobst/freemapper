@@ -273,7 +273,7 @@ fn prepare(state: &AppState, mut options: RunOptions, lang: &Lang) -> Result<Pre
     {
         let today = chrono::Local::now().date_naive();
         let preview = preview_area(&area, project.buffer_m, &state.cache, today);
-        let estimate = estimate_json(&preview.estimate, &state.cache, &state.dir);
+        let estimate = estimate_json(&preview.estimate, &state.cache, &state.dir, lang);
         if estimate["disk"]["stops"] == true {
             let messages: Vec<&str> = estimate["disk"]["messages"]
                 .as_array()
@@ -313,7 +313,7 @@ pub(crate) async fn run(
         Ok(request) => request,
         Err(e) => return bad_request(&lang, e),
     };
-    let options = match parse_options(request) {
+    let options = match parse_options(request, &lang) {
         Ok(options) => options,
         Err(e) => return bad_request(&lang, e),
     };
