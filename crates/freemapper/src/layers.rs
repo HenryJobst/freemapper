@@ -318,6 +318,22 @@ const RASTER_LAYERS: [(&str, &str, &str); 5] = [
     ),
 ];
 
+/// Whether the K5 template belongs to the project in `dir`: its area touches Berlin, the only
+/// state that publishes it, or the folder has the file. A folder without a readable project file
+/// lists it, as before.
+fn has_k5(dir: &Path) -> bool {
+    if dir.join(K5_RELPATH).exists() {
+        return true;
+    }
+    ProjectFile::load(dir)
+        .and_then(|project| project.region_bbox())
+        .map_or(true, |bbox| {
+            regions_for(&bbox)
+                .iter()
+                .any(|region| region.as_str() == freemapper_adapters_de::boundaries::BERLIN)
+        })
+}
+
 pub fn list_layers(dir: &Path) -> Vec<Layer> {
     let map = map_path(dir);
     let mut layers = vec![
@@ -338,7 +354,11 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
             description: "candidates to check: OSM features, contours, out-of-bounds areas",
         },
     ];
+    let k5 = has_k5(dir);
     for (name, relpath, description) in RASTER_LAYERS {
+        if name == "k5" && !k5 {
+            continue;
+        }
         layers.push(Layer {
             name,
             file: dir.join(relpath).display().to_string(),
@@ -355,10 +375,31 @@ pub fn list_layers(dir: &Path) -> Vec<Layer> {
     layers
 }
 
-/// A PNG of a raster template, its longest side at most `max_px`.
+/// A PNG of a layer, its longest side at most `max_px`: of `map` the image of the map objects
+/// that the last export wrote next to the map (ADR 0108), of the others the raster template.
 pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, ProjectError> {
+    if layer == "map" {
+        ProjectFile::load(dir)?;
+        let Some(webp) = crate::project::read_map_preview(dir) else {
+            return Err(ProjectError::Layer(note!(
+                "error-layer-not-made",
+                layer = layer,
+                step = "export"
+            )));
+        };
+        let image = image::load_from_memory(&webp).map_err(|e| {
+            ProjectError::Layer(note!(
+                "error-layer-file",
+                path = crate::project::map_preview_path(dir).display().to_string(),
+                detail = e.to_string()
+            ))
+        })?;
+        return small_png(&image, max_px);
+    }
     let Some((_, relpath, _)) = RASTER_LAYERS.iter().find(|(name, _, _)| *name == layer) else {
-        let names: Vec<&str> = RASTER_LAYERS.iter().map(|(name, _, _)| *name).collect();
+        let names: Vec<&str> = std::iter::once("map")
+            .chain(RASTER_LAYERS.iter().map(|(name, _, _)| *name))
+            .collect();
         return Err(ProjectError::Layer(note!(
             "error-layer-no-preview",
             layer = format!("{layer:?}"),
@@ -387,6 +428,11 @@ pub fn preview_png(dir: &Path, layer: &str, max_px: u32) -> Result<Vec<u8>, Proj
             detail = e.to_string()
         ))
     })?;
+    small_png(&image, max_px)
+}
+
+/// `image` as a PNG, its longest side at most `max_px`.
+fn small_png(image: &image::DynamicImage, max_px: u32) -> Result<Vec<u8>, ProjectError> {
     let small = image.thumbnail(max_px, max_px);
     let mut png = std::io::Cursor::new(Vec::new());
     small
@@ -1842,10 +1888,17 @@ mod tests {
         assert!(matches!(err, ProjectError::AreaTooLarge { .. }), "{err:?}");
     }
 
+    /// A schoolyard project at Viktoriapark, Berlin-Kreuzberg.
+    fn berlin_project(dir: &Path) {
+        let date = "2026-11-07".parse().unwrap();
+        let area = square(13.379, 52.488, 0.002);
+        init_project(dir, &area, MapKind::Schoolyard, None, date, None).unwrap();
+    }
+
     #[test]
     fn k5_template_has_a_layer_and_a_preview() {
         let dir = tempfile::tempdir().unwrap();
-        school_project(dir.path());
+        berlin_project(dir.path());
         let k5 = |dir: &Path| {
             list_layers(dir)
                 .into_iter()
@@ -1862,6 +1915,55 @@ mod tests {
             .unwrap();
         assert!(k5(dir.path()).ready);
         let png = preview_png(dir.path(), "k5", 100).unwrap();
+        let small = image::load_from_memory(&png).unwrap();
+        assert_eq!((small.width(), small.height()), (100, 50));
+    }
+
+    #[test]
+    fn k5_is_a_layer_only_of_projects_in_berlin() {
+        let dir = tempfile::tempdir().unwrap();
+        // Strausberg, Brandenburg: no K5 to fetch, so no layer that never gets ready.
+        school_project(dir.path());
+        assert!(!list_layers(dir.path()).iter().any(|l| l.name == "k5"));
+        // A K5 file in the folder is listed wherever the project lies.
+        std::fs::create_dir_all(dir.path().join("templates")).unwrap();
+        image::RgbImage::new(4, 2)
+            .save(dir.path().join(K5_RELPATH))
+            .unwrap();
+        let k5 = list_layers(dir.path())
+            .into_iter()
+            .find(|l| l.name == "k5")
+            .expect("the K5 file");
+        assert!(k5.ready);
+    }
+
+    #[test]
+    fn the_map_has_a_preview_after_an_export() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let err = preview_png(dir.path(), "map", 100).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("freemapper export or run (MCP: start_pipeline)"),
+            "{err}"
+        );
+        // What an export writes: the image next to the map and its record.
+        let mut webp = Vec::new();
+        image::DynamicImage::ImageRgb8(image::RgbImage::new(400, 200))
+            .write_to(
+                &mut std::io::Cursor::new(&mut webp),
+                image::ImageFormat::WebP,
+            )
+            .unwrap();
+        std::fs::write(crate::project::map_preview_path(dir.path()), webp).unwrap();
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        std::fs::write(
+            dir.path().join("data/map-preview.json"),
+            r#"{"fingerprint":"x","content":{"profile":"balanced"}}"#,
+        )
+        .unwrap();
+        let png = preview_png(dir.path(), "map", 100).unwrap();
+        assert_eq!(&png[1..4], b"PNG");
         let small = image::load_from_memory(&png).unwrap();
         assert_eq!((small.width(), small.height()), (100, 50));
     }
@@ -1988,7 +2090,6 @@ mod tests {
                 "hillshade",
                 "slope",
                 "ndsm",
-                "k5"
             ]
         );
         assert!(list_layers(dir.path()).iter().all(|l| !l.ready));

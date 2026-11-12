@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- MCP: `preview_layer` with the layer `map` shows the image of the map objects that the last run wrote next to the map (without the candidates). Before the first run the message names `freemapper export` or `run`.
 - Two adapters share ground when their common area is more than a hundredth of the smaller region. Before, one inner point of each was tested, so an adapter that reached a third of the way into a state went unnoticed. `adapters list`, `adapters check` and the warning about the adapters of a project use the new measure. The warning now names the regions by name, not by id.
 - The message about an adapter the program does not have says that a newer freemapper may bring it.
 - The example [Treppenviertel Blankenese](examples/hamburg-blankenese/) is rebuilt with the default profile `balanced`: contours, paths and 110 stairs from OpenStreetMap are on the map now (1780 map objects, 755 candidates). The [comparison page](examples/compare.en.md) says which examples were made before the content profiles and gives the measurements for Blankenese and Saarlouis.
@@ -15,6 +16,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- MCP: `list_layers` lists the K5 template only for projects whose area touches Berlin, or when its file is in the folder. Before, every project listed it, and outside Berlin it never got ready.
 - Saarland: a district archive that cannot be read (renamed, or its server down for a moment) no longer stops the fetch when the tiles of the area are in other archives. When an archive is down, its directory from the last run is used; maps whose tiles are in the cache already are still made. A warning with the address of the archive says so in both cases. A cancel, an address freemapper does not ask and a write error on this computer still stop the fetch at once.
 - A folder in the adapter folder whose name starts with a dot (`.git`) no longer causes a warning on every command.
 - A pre-release version of the program (`x.y.z-rc.1`) no longer aborts while loading the adapters; it counts as its release.

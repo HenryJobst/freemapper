@@ -239,6 +239,12 @@ fn mcp_creates_a_project_and_lists_layers() {
     );
     assert!(error);
     assert!(text.contains("start_pipeline"), "{text}");
+    // The map has a preview once a run wrote it; the project is not in Berlin, so no K5.
+    let (error, text) = session.call("preview_layer", json!({ "dir": project, "layer": "map" }));
+    assert!(error);
+    assert!(text.contains("freemapper export or run"), "{text}");
+    let (_, text) = session.call("list_layers", json!({ "dir": project }));
+    assert!(!text.contains("\"k5\""), "{text}");
 }
 
 /// Puts the adapter `theirs` into the folder `adapters` of `project` and makes the project

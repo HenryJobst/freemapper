@@ -163,7 +163,7 @@ struct OpenAreaSelector {
 struct PreviewLayer {
     /// Project folder (absolute path or starting with ~).
     dir: String,
-    /// "orthophoto", "hillshade", "slope" or "ndsm".
+    /// "map", "orthophoto", "hillshade", "slope", "ndsm" or "k5" (Berlin only).
     layer: String,
 }
 
@@ -715,8 +715,9 @@ impl FreemapperServer {
     }
 
     #[tool(
-        description = "A PNG preview (at most 800 px) of a raster template: orthophoto, \
-                       hillshade, slope or ndsm."
+        description = "A PNG preview (at most 800 px) of a layer: map (the image of the map \
+                       objects that the last run wrote, without the candidates), or a raster \
+                       template: orthophoto, hillshade, slope, ndsm, or k5 in Berlin."
     )]
     async fn preview_layer(
         &self,

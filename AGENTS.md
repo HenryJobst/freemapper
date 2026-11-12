@@ -193,7 +193,7 @@ states such as `running` or `finished` are the same in both languages. This file
 | `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress line or the error. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
-| `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `orthophoto`, `hillshade`, `slope` or `ndsm`. |
+| `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `ndsm`, or `k5` in Berlin. |
 | `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline` | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
 | `install_update` | `confirm` | Installs the newest release over the program the server runs from. Without `confirm: true` it installs nothing and returns an error. The new version applies once the MCP server is restarted. |
@@ -211,8 +211,8 @@ states such as `running` or `finished` are the same in both languages. This file
    `pdf_candidates: true` for a quick training map that draws every uncertain object too.
 5. Poll `project_status` every few seconds until `finished` or `failed`. A run takes from one to several minutes,
    longer on the first download. Pass the progress on in short lines, not every line.
-6. On `finished`: `list_layers`, show one or two previews with `preview_layer`, and tell the user which files are in
-   the folder and what to check (see "What to tell the user").
+6. On `finished`: `list_layers`, show the `map` preview and one template with `preview_layer`, and tell the user
+   which files are in the folder and what to check (see "What to tell the user").
 
 Rules:
 

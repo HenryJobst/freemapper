@@ -298,6 +298,7 @@ error-layer-no-preview = Keine Vorschau für { $layer }; Ebenen mit Vorschau: { 
 error-layer-no-ndsm-published = Für die Kacheln dieses Kartengebiets ist kein nDSM veröffentlicht, deshalb gibt es keine ndsm-Vorlage
 error-layer-not-made = { $layer } gibt es noch nicht; rufen Sie { $step ->
         [fetch] freemapper fetch oder run auf (MCP: start_pipeline); nur in Berlin
+        [export] freemapper export oder run auf (MCP: start_pipeline)
        *[derive] freemapper derive oder run auf (MCP: start_pipeline)
     }
 warning-ocad-no-background = { $error }; die OCAD-Karte bekommt daraus keinen Hintergrund
