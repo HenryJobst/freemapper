@@ -21,6 +21,7 @@ shows how the two differ and why.
 | North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 993 | 851 | 32 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 287 | 2142 | 33 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 1323 | 894 | 34 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1444 | 249 | 28 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the reliable objects of the OOM map (ALKIS buildings, areas and water, canopies and carports).
 **Candidates** come as a separate template (`templates/candidates.omap`); the PDF `<name>-candidates.pdf` draws them too; `<name>.pdf` from `--pdf` shows only the map objects. They come from OSM,
@@ -119,6 +120,11 @@ strong relief: dense contours on the castle hill and the valley sides, plus the 
 Speyer is flat. Koblenz shows the Rhine and the Moselle at the Deutsches Eck, but it reached only 23 symbols and has
 little relief.
 
+In Saarland two rectangles ran, both in Saarlouis. The second lies 180 m further west and takes in the Vauban
+island in the old arm of the Saar and the ramparts in the Stadtgarten. Saarlouis is the newest example and was
+made with the content profile `balanced`, which draws the objects of the cadastre and the registers straight
+onto the map: the map therefore has 26 symbols and only 249 candidates. The older examples date from before.
+
 ## Licences
 
 The maps contain derived official geodata and OpenStreetMap data. The attribution is in each `ATTRIBUTION.txt`, in
@@ -127,6 +133,6 @@ the PDFs' peripheral information and in the map notes:
 - OpenStreetMap: © OpenStreetMap contributors, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;
 - Saxony: GeoSN, dl-de/by-2-0; Saxony-Anhalt: © GeoBasis-DE / LVermGeo ST, dl-de/by-2-0;
-- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet].
+- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert.
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

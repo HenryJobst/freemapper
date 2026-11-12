@@ -593,6 +593,10 @@ the backends.
   rasters, NAS, trees), and the engine asks Berlin's registers and K5 through Berlin's policy. The golden net
   replays all eleven states behind their lists. `declared_policy()` (the union) is gone; `HttpFetcher` keeps
   one client per policy.
+- E5, the gate (ADR 0111, plan `2026-11-12-saarland.md`): the user chose Saarland. It came in as a manifest
+  folder plus the backend `lvgl`, with two additions outside the crate of the states (the WFS reader, the
+  manifest key `sorted`). What it needed against the hope of "one registration line" is in the ADR and as D36
+  in the spec; the guide of stage F builds on it.
 - The way out the user asked for (ADR 0110): `adapters allow-host <adapter> <host>` and `disallow-host` keep
   single extra hosts for built-in states in `<config>/freemapper/allowed-hosts.toml`; the engine takes them as
   a parameter (`adapters::builtin_with_hosts`). A host an adapter does not name is its own error

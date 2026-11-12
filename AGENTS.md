@@ -11,8 +11,8 @@ request an OCAD starting point and printable PDFs. Map kinds: `schoolyard` (1:10
 1:4000 or 1:5000).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
-Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate. Bremen, Thuringia, Bavaria,
-Baden-Württemberg and Saarland have no data sources yet; an area there fails with a message that says so. Tell the
+Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and, from the version after
+0.13.0 on, Saarland. Bremen, Thuringia, Bavaria and Baden-Württemberg have no data sources yet; an area there fails with a message that says so. Tell the
 user before you start if the place lies outside these states.
 
 ## Install

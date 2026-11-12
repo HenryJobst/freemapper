@@ -89,6 +89,14 @@ Also there (not used): `OD_TrueDOP20_2025_tif_LK` (233 GB), `OD_LIDAR_Punktwolke
 
 `https://download.geofabrik.de/europe/germany/saarland-latest.osm.pbf` and its `saarland-updates/state.txt`.
 
+## As built (2026-11-12, ADR 0111)
+
+The adapter is `crates/adapters/de/manifests/saarland/` plus `crates/adapters/de/src/lvgl.rs`. The WFS answers no
+`SORTBY` (`oid`, `OID`, `FID`, with prefix or `ASC`: an exception each time), so the manifest says
+`sorted = false`. DOM1 has the layout of DGM1 (`dom1_32_<E>_<N>_1_SL_2025.tif`). The state boundary is the
+feature `OID` `DE10` of `Verwaltungseinheit` (`ART` "Bundesland"), 14 037 vertices, simplified to 1 384.
+Live checks at Saarbrücken, St. Wendel and Perl passed.
+
 ## What the adapter needs beyond a manifest
 
 1. A raster backend (code in `crates/adapters/de`): the WMS orthophoto with its date from the HTML feature

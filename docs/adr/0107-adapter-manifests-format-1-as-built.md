@@ -27,7 +27,9 @@ The design sketched the format; building it against the eleven states changed so
 - A boundary file is GeoJSON with one polygon feature, in EPSG:25833 or in longitude and latitude. It must be a
   valid geometry, and its positions must be possible in the CRS the manifest states.
 - `[alkis]` is a WFS or an OGC API Features service with an optional WFS fallback; `normalise` names the preset
-  that turns the service's spellings into those of LGB.
+  that turns the service's spellings into those of LGB. Added with Saarland
+  ([0111](0111-saarland-the-first-state-on-the-adapter-scheme.md)): `sorted = false` for a WFS that refuses
+  `SORTBY`.
 - The three raster tables are all services or all name one backend, and an orthophoto comes with a terrain model.
   As services they are a WMS or WCS for the orthophoto and a WCS for each height model, each with an optional
   `date`: a WFS that answers GeoJSON, a STAC API or the feature info of the WMS. `DeclaredRasters` fetches them

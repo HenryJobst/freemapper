@@ -1,0 +1,4 @@
+© OpenStreetMap contributors, ODbL
+© GeoBasis DE/LVGL-SL 2026, dl-de/by-2-0, Daten geändert
+
+Created with freemapper – https://github.com/HenryJobst/freemapper

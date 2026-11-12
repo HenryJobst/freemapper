@@ -1,0 +1,47 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-12"
+buffer_m = 50.0
+crs = 25832
+provider = "lvgl"
+title = "Altstadt und Festung Saarlouis"
+tiles = []
+
+[map_area]
+coordinates = [[[6.7425, 49.3125], [6.7545, 49.3125], [6.7545, 49.318], [6.7425, 49.318], [6.7425, 49.3125]]]
+type = "Polygon"
+
+[buildings]
+bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
+fetched = "2026-11-12"
+latest_update = "2026-08-13"
+count = 758
+regions = ["saarland"]
+
+[land_use]
+bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
+fetched = "2026-11-12"
+latest_update = "2026-08-13"
+count = 359
+regions = ["saarland"]
+
+[osm]
+extract = "2026-11-11"
+area = [49.31205084, 6.741811, 49.31844916, 6.755189]
+count = 733
+
+[orthophoto]
+flight = "10.05.2025"
+flight_label = "Aktualisierung"
+fetched = "2026-11-12"
+bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
+
+[terrain]
+fetched = "2026-11-12"
+bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
+date = "2025"
+
+[surface]
+fetched = "2026-11-12"
+bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
+date = "2025"

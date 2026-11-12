@@ -428,16 +428,20 @@ fn generated_boxes() -> Vec<GoldenBox> {
     names.sort();
     let mut boxes: Vec<GoldenBox> = names
         .iter()
-        .map(|name| {
+        .filter_map(|name| {
             let project = ProjectFile::load(&examples_dir().join(name)).unwrap();
             let bbox = project.region_bbox().unwrap();
-            GoldenBox {
+            // The net covers the states that were code before: the example of a state added
+            // since (Saarland) is no box of it.
+            let legacy =
+                raster_region(&bbox).is_some_and(|region| regions::LEGACY.contains(&region));
+            legacy.then(|| GoldenBox {
                 name: format!("example:{name}"),
                 min_e: bbox.min_e.floor() as i64,
                 min_n: bbox.min_n.floor() as i64,
                 max_e: bbox.max_e.ceil() as i64,
                 max_n: bbox.max_n.ceil() as i64,
-            }
+            })
         })
         .collect();
     let mut sequence = Sequence(0x0082);
@@ -1388,7 +1392,7 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 11, "one example per state");
+    assert_eq!(checked, 12, "one example per state");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the
