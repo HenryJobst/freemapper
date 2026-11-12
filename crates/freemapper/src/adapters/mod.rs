@@ -242,6 +242,29 @@ mod tests {
         );
     }
 
+    /// What the engine fetches itself for one region goes through that region's hosts: a
+    /// request off them is not sent, one on them reaches the fetcher, and an id the registry
+    /// does not have is asked plainly.
+    #[test]
+    fn asking_for_an_adapter_keeps_to_its_hosts() {
+        use crate::fetch::test_support::MapFetcher;
+        use crate::fetch::{FetchError, Fetcher as _};
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", b"ok".to_vec());
+        let elsewhere = "https://geo.example.org/wms?token=abc";
+        let refused = asking_for("berlin", &fetcher, |fetcher| fetcher.get(elsewhere));
+        let Err(FetchError::NotAllowed { url, reason }) = refused else {
+            panic!("{refused:?}");
+        };
+        assert_eq!(url, "https://geo.example.org/wms");
+        assert_eq!(reason, "the host is not one of the declared hosts");
+        assert_eq!(fetcher.calls.get(), 0);
+        let own = "https://gdi.berlin.de/services/wms/k5";
+        assert!(asking_for("berlin", &fetcher, |fetcher| fetcher.get(own)).is_ok());
+        assert!(asking_for("nowhere", &fetcher, |fetcher| fetcher.get(elsewhere)).is_ok());
+        assert_eq!(fetcher.calls.get(), 2);
+    }
+
     /// The error for an area outside every region names the regions of the registry; with the
     /// built-in states it reads as it always did.
     #[test]
