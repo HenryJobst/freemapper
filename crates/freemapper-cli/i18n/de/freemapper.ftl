@@ -87,12 +87,13 @@ cli-allow-host-unknown-adapter = Es gibt keinen eingebauten Adapter { $adapter }
 cli-allow-host-folder-adapter = { $adapter } ist ein Adapter aus Ihrem Adapterordner; tragen Sie den Host stattdessen in `[net] hosts` seines Manifests ein
 cli-allow-host-no-config = Dieses System hat keinen Konfigurationsordner für freigegebene Hosts
 cli-allow-host-write = { $file } ließ sich nicht schreiben: { $detail }
+cli-allow-host-unreadable = { $file } lässt sich nicht lesen ({ $detail }); berichtigen oder entfernen Sie die Datei zuerst; es wurde nichts geändert
 cli-disallow-host-removed = freemapper fragt { $host } für { $name } nicht mehr an
 cli-disallow-host-absent = { $host } war für { $name } nicht freigegeben; es gibt nichts zurückzunehmen
 cli-allowed-hosts-unreadable = Warnung: { $file } ließ sich nicht lesen ({ $detail }); es sind keine zusätzlichen Hosts freigegeben
 cli-allowed-hosts-ignored = Warnung: { $file }: Der Eintrag { $host } für { $adapter } wird ignoriert: { $reason }
 cli-allowed-hosts-no-adapter = freemapper hat keinen eingebauten Adapter dieses Namens
-cli-allowed-host-redundant = { $host } gehört jetzt zu den Hosts, die der Adapter für { $name } nennt; Ihr Eintrag in { $file } wurde entfernt
+cli-allowed-host-redundant = Warnung: { $host } gehört jetzt zu den Hosts, die der Adapter für { $name } nennt; Ihr Eintrag in { $file } wurde entfernt
 cli-adapters-allowed = von Ihnen freigegeben: { $hosts }
 
 ## adapters check. Ein Befund kommt in `{ $finding }` wie in den Zeilen oben. `{ $capability }` ist

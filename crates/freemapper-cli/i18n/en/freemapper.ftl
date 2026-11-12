@@ -87,12 +87,13 @@ cli-allow-host-unknown-adapter = there is no built-in adapter { $adapter }; the 
 cli-allow-host-folder-adapter = { $adapter } is an adapter of your adapter folder; add the host to `[net] hosts` of its manifest instead
 cli-allow-host-no-config = this system has no configuration folder to keep allowed hosts in
 cli-allow-host-write = { $file } could not be written: { $detail }
+cli-allow-host-unreadable = { $file } cannot be read ({ $detail }); correct or remove the file first; nothing was changed
 cli-disallow-host-removed = freemapper no longer asks { $host } for { $name }
 cli-disallow-host-absent = { $host } was not allowed for { $name }; nothing to take back
 cli-allowed-hosts-unreadable = warning: { $file } could not be read ({ $detail }); no extra hosts are allowed
 cli-allowed-hosts-ignored = warning: { $file }: the entry { $host } for { $adapter } is ignored: { $reason }
 cli-allowed-hosts-no-adapter = freemapper has no built-in adapter of that name
-cli-allowed-host-redundant = { $host } is now one of the hosts the adapter of { $name } names; your entry in { $file } was removed
+cli-allowed-host-redundant = warning: { $host } is now one of the hosts the adapter of { $name } names; your entry in { $file } was removed
 cli-adapters-allowed = allowed by you: { $hosts }
 
 ## adapters check. A finding arrives in `{ $finding }` as in the lines above. `{ $capability }` is

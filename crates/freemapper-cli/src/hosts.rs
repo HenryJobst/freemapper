@@ -58,7 +58,12 @@ fn declared<'a>(built_in: &'a Registry, id: &str) -> Option<&'a [String]> {
     Some(adapter.declared().map_or(&[], |declared| &declared.hosts))
 }
 
+/// What the file `path` holds, as it is written: nothing when the file is not there, and why
+/// when it cannot be read.
 fn read(path: &Path) -> Result<Stored, String> {
+    if !path.exists() {
+        return Ok(Stored::default());
+    }
     let size = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
     if size > MAX_BYTES {
         return Err(format!("{size} bytes; at most {MAX_BYTES}"));
@@ -124,36 +129,58 @@ pub fn load(path: Option<&Path>, built_in: &Registry) -> Allowed {
     allowed
 }
 
-/// Writes `hosts` as the file `path`; without a host the file is removed.
-fn save(path: &Path, hosts: &ExtraHosts) -> Result<(), String> {
-    let hosts: BTreeMap<String, Vec<String>> = hosts
-        .iter()
-        .filter(|(_, hosts)| !hosts.is_empty())
-        .map(|(adapter, hosts)| (adapter.clone(), hosts.clone()))
-        .collect();
-    if hosts.is_empty() {
-        return match std::fs::remove_file(path) {
+/// Writes `stored` as the file `path`, with everything in it, also what this version leaves
+/// out when it reads; without an entry the file is removed. A file that is a link is written
+/// where the link points.
+fn save(path: &Path, mut stored: Stored) -> Result<(), String> {
+    stored.allow.retain(|_, hosts| !hosts.is_empty());
+    // The file itself, not the link to it: a link stays a link.
+    let target = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    if stored.allow.is_empty() {
+        return match std::fs::remove_file(&target) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
             _ => Ok(()),
         };
     }
-    let body = toml::to_string(&Stored { allow: hosts }).map_err(|e| e.to_string())?;
-    let folder = path.parent().ok_or("no folder")?;
+    let body = toml::to_string(&stored).map_err(|e| e.to_string())?;
+    let folder = target.parent().ok_or("no folder")?;
     std::fs::create_dir_all(folder).map_err(|e| e.to_string())?;
-    // Whole or not at all: written beside the file, then put in its place.
-    let part = path.with_extension("toml.part");
+    // Whole or not at all: written beside the file under a name of this process, then put
+    // in its place.
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |since| since.subsec_nanos());
+    let part = folder.join(format!(".{FILE_NAME}.{}-{stamp}.part", std::process::id()));
     std::fs::write(&part, format!("{HEADER}{body}"))
-        .and_then(|()| std::fs::rename(&part, path))
+        .and_then(|()| std::fs::rename(&part, &target))
         .map_err(|e| {
             let _ = std::fs::remove_file(&part);
             e.to_string()
         })
 }
 
+/// Whether the entry `written` of the file is the host `host`: the same text, or the same
+/// name in another case.
+fn same_host(written: &str, host: &str) -> bool {
+    written == host || dns_name(written).is_ok_and(|name| name == host)
+}
+
 /// Takes the redundant entries out of the file `path`: the hosts an adapter names itself by
-/// now. The lines that say so, one per entry; none when the file could not be written.
+/// now. Everything else in the file stays. The lines that say so, one per entry; none when
+/// the file could not be read or written.
 pub fn drop_redundant(path: &Path, allowed: &Allowed, built_in: &Registry) -> Vec<String> {
-    if allowed.redundant.is_empty() || save(path, &allowed.hosts).is_err() {
+    if allowed.redundant.is_empty() {
+        return Vec::new();
+    }
+    let Ok(mut stored) = read(path) else {
+        return Vec::new();
+    };
+    for (adapter, host) in &allowed.redundant {
+        if let Some(hosts) = stored.allow.get_mut(adapter) {
+            hosts.retain(|written| !same_host(written, host));
+        }
+    }
+    if save(path, stored).is_err() {
         return Vec::new();
     }
     allowed
@@ -170,6 +197,26 @@ pub fn drop_redundant(path: &Path, allowed: &Allowed, built_in: &Registry) -> Ve
             )
         })
         .collect()
+}
+
+/// The file `path` as it is written, for a command that changes it. A file that cannot be
+/// read is an error: the command must not write over what it could not read.
+fn read_to_change(path: &Path) -> Result<Stored, String> {
+    read(path).map_err(|detail| {
+        text(
+            "cli-allow-host-unreadable",
+            &[("file", v(path.display())), ("detail", v(detail))],
+        )
+    })
+}
+
+fn write_changed(path: &Path, stored: Stored) -> Result<(), String> {
+    save(path, stored).map_err(|detail| {
+        text(
+            "cli-allow-host-write",
+            &[("file", v(path.display())), ("detail", v(detail))],
+        )
+    })
 }
 
 /// The name of the region of the adapter `id` in the language of the run.
@@ -247,23 +294,19 @@ pub fn allow(
         return Ok(text("cli-allow-host-declared", &args(Path::new(""))));
     }
     let path = path.ok_or_else(|| text("cli-allow-host-no-config", &[]))?;
-    let mut allowed = load(Some(path), built_in);
-    let list = allowed.hosts.entry(adapter.to_string()).or_default();
-    if list.contains(&host) {
+    let mut stored = read_to_change(path)?;
+    let hosts = stored.allow.entry(adapter.to_string()).or_default();
+    if hosts.iter().any(|written| same_host(written, &host)) {
         return Ok(text("cli-allow-host-already", &args(path)));
     }
-    list.push(host.clone());
-    save(path, &allowed.hosts).map_err(|detail| {
-        text(
-            "cli-allow-host-write",
-            &[("file", v(path.display())), ("detail", v(detail))],
-        )
-    })?;
+    hosts.push(host.clone());
+    write_changed(path, stored)?;
     Ok(text("cli-allow-host-added", &args(path)))
 }
 
 /// `freemapper adapters disallow-host`: takes the host `host` back that was allowed for the
-/// adapter `adapter` in the file `path`.
+/// adapter `adapter` in the file `path`. An entry this version leaves out when it reads (an
+/// adapter it does not know, a host that fails the check) is taken back by its text.
 pub fn disallow(
     path: Option<&Path>,
     adapter: &str,
@@ -271,26 +314,27 @@ pub fn disallow(
     built_in: &Registry,
     with_folders: &Registry,
 ) -> Result<String, String> {
-    let host = entry(adapter, host, built_in, with_folders)?;
+    let checked = entry(adapter, host, built_in, with_folders);
     let name = name_of(built_in, adapter);
-    let args = [("host", v(&host)), ("name", v(&name))];
-    let Some(path) = path else {
-        return Ok(text("cli-disallow-host-absent", &args));
+    let host = checked.as_deref().unwrap_or(host);
+    let args = [("host", v(host)), ("name", v(&name))];
+    let mut stored = match path {
+        Some(path) => read_to_change(path)?,
+        None => Stored::default(),
     };
-    let mut allowed = load(Some(path), built_in);
-    let list = allowed.hosts.entry(adapter.to_string()).or_default();
-    let before = list.len();
-    list.retain(|allowed| *allowed != host);
-    if list.len() == before {
-        return Ok(text("cli-disallow-host-absent", &args));
+    let removed = stored.allow.get_mut(adapter).is_some_and(|hosts| {
+        let before = hosts.len();
+        hosts.retain(|written| !same_host(written, host));
+        hosts.len() < before
+    });
+    match (removed, path) {
+        (true, Some(path)) => {
+            write_changed(path, stored)?;
+            Ok(text("cli-disallow-host-removed", &args))
+        }
+        // Nothing of that name in the file: say why the two cannot be an entry, if so.
+        _ => checked.map(|_| text("cli-disallow-host-absent", &args)),
     }
-    save(path, &allowed.hosts).map_err(|detail| {
-        text(
-            "cli-allow-host-write",
-            &[("file", v(path.display())), ("detail", v(detail))],
-        )
-    })?;
-    Ok(text("cli-disallow-host-removed", &args))
 }
 
 #[cfg(test)]
@@ -510,8 +554,8 @@ mod tests {
         assert_eq!(
             drop_redundant(&path, &allowed, &built_in),
             [format!(
-                "gds.hessen.de is now one of the hosts the adapter of Hesse names; your \
-                 entry in {} was removed",
+                "warning: gds.hessen.de is now one of the hosts the adapter of Hesse names; \
+                 your entry in {} was removed",
                 path.display()
             )]
         );
@@ -519,6 +563,133 @@ mod tests {
         assert!(after.redundant.is_empty());
         assert_eq!(after.hosts["hessen"], ["cdn.example.net"]);
         assert!(drop_redundant(&path, &after, &built_in).is_empty());
+    }
+
+    /// Writing the file keeps what this version does not accept: an entry for an adapter it
+    /// does not know (a newer freemapper may) and a host that fails the check. Reading leaves
+    /// them out; only the entry a command names is added or removed.
+    #[test]
+    fn rewriting_the_file_keeps_what_this_version_does_not_accept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = file_in(dir.path());
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(
+            &path,
+            "[allow]\natlantis = [\"cdn.example.net\"]\n\
+             hessen = [\"10.0.0.1\", \"gds.hessen.de\", \"old.example.net\"]\n",
+        )
+        .unwrap();
+        let built_in = builtin();
+        let stored = || read(&path).unwrap().allow;
+        allow(
+            Some(&path),
+            "hessen",
+            "cdn.example.net",
+            &built_in,
+            &built_in,
+        )
+        .unwrap();
+        assert_eq!(stored()["atlantis"], ["cdn.example.net"]);
+        assert_eq!(
+            stored()["hessen"],
+            [
+                "10.0.0.1",
+                "gds.hessen.de",
+                "old.example.net",
+                "cdn.example.net"
+            ]
+        );
+        // The entry a release made redundant goes, and nothing else.
+        let allowed = load(Some(&path), &built_in);
+        assert_eq!(drop_redundant(&path, &allowed, &built_in).len(), 1);
+        assert_eq!(stored()["atlantis"], ["cdn.example.net"]);
+        assert_eq!(
+            stored()["hessen"],
+            ["10.0.0.1", "old.example.net", "cdn.example.net"]
+        );
+        let taken = disallow(
+            Some(&path),
+            "hessen",
+            "old.example.net",
+            &built_in,
+            &built_in,
+        );
+        assert!(taken.is_ok());
+        assert_eq!(stored()["hessen"], ["10.0.0.1", "cdn.example.net"]);
+        // What this version ignores can still be taken back by its name.
+        for (adapter, host) in [("hessen", "10.0.0.1"), ("atlantis", "cdn.example.net")] {
+            let taken = disallow(Some(&path), adapter, host, &built_in, &built_in).unwrap();
+            assert!(taken.starts_with("freemapper no longer asks "), "{taken}");
+        }
+        assert_eq!(stored().len(), 1);
+        assert_eq!(stored()["hessen"], ["cdn.example.net"]);
+    }
+
+    /// A file that cannot be read is left as it is: no command writes over it.
+    #[test]
+    fn a_file_that_does_not_parse_is_not_overwritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = file_in(dir.path());
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let broken = "[allow]\nhessen = [\"old.example.net\"\n# a bracket is missing\n";
+        std::fs::write(&path, broken).unwrap();
+        let built_in = builtin();
+        for change in [allow, disallow] {
+            let refused = change(
+                Some(&path),
+                "hessen",
+                "cdn.example.net",
+                &built_in,
+                &built_in,
+            )
+            .unwrap_err();
+            assert!(
+                refused.starts_with(&format!("{} cannot be read (", path.display())),
+                "{refused}"
+            );
+            assert!(
+                refused.ends_with("correct or remove the file first; nothing was changed"),
+                "{refused}"
+            );
+        }
+        let allowed = Allowed {
+            redundant: vec![("hessen".to_string(), "old.example.net".to_string())],
+            ..Allowed::default()
+        };
+        assert!(drop_redundant(&path, &allowed, &built_in).is_empty());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), broken);
+    }
+
+    /// A file that is a link stays a link: the entry is written where the link points.
+    #[cfg(unix)]
+    #[test]
+    fn a_linked_file_is_written_where_it_points() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = file_in(dir.path());
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let real = dir.path().join("dotfiles").join("hosts.toml");
+        std::fs::create_dir_all(real.parent().unwrap()).unwrap();
+        std::fs::write(&real, "[allow]\n").unwrap();
+        std::os::unix::fs::symlink(&real, &path).unwrap();
+        let built_in = builtin();
+        allow(
+            Some(&path),
+            "hessen",
+            "cdn.example.net",
+            &built_in,
+            &built_in,
+        )
+        .unwrap();
+        assert!(std::fs::symlink_metadata(&path).unwrap().is_symlink());
+        assert!(
+            std::fs::read_to_string(&real)
+                .unwrap()
+                .contains("cdn.example.net")
+        );
+        // Nothing is left beside either file.
+        for folder in [path.parent().unwrap(), real.parent().unwrap()] {
+            assert_eq!(std::fs::read_dir(folder).unwrap().count(), 1);
+        }
     }
 
     /// The file lies in the configuration folder of the system, under a fixed name; the

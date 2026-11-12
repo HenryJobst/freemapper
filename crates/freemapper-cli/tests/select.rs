@@ -664,6 +664,39 @@ fn page_never_loads_the_adapters_of_a_project() {
     assert!(answer.to_string().contains(unknown), "{answer}");
 }
 
+/// The area page reads the hosts the person allowed and never writes the file: an entry that
+/// a release made redundant stays for a command of the person to remove.
+#[cfg(unix)]
+#[test]
+fn page_reads_the_allowed_hosts_and_never_writes_them() {
+    let home = tempfile::tempdir().unwrap();
+    let config = if cfg!(target_os = "macos") {
+        home.path().join("Library").join("Application Support")
+    } else {
+        home.path().join("xdg")
+    };
+    let file = config.join("freemapper").join("allowed-hosts.toml");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let stored = "[allow]\nhessen = [\"gds.hessen.de\", \"cdn.example.net\"]\n";
+    std::fs::write(&file, stored).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let cache = tempfile::tempdir().unwrap();
+    let xdg = home.path().join("xdg");
+    let selector = Selector::start_with_env(
+        &dir.path().join("school"),
+        cache.path(),
+        &[],
+        &[
+            ("HOME", home.path().to_str().unwrap()),
+            ("XDG_CONFIG_HOME", xdg.to_str().unwrap()),
+        ],
+    );
+    let (status, body) = selector.get("api/adapters");
+    assert_eq!(status, 200, "{body}");
+    drop(selector);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), stored);
+}
+
 #[test]
 fn broken_project_file_is_reported() {
     let dir = tempfile::tempdir().unwrap();

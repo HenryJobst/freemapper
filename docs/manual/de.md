@@ -1005,13 +1005,16 @@ freemapper adapters allow-host hessen neuer-server.hessen.de
 ```
 
 Nehmen Sie den Host aus der Meldung und prüfen Sie, dass er zum Amt des Bundeslands gehört. Melden Sie den Umzug
-(Kapitel 16), damit die nächste Version den Host mitbringt; freemapper sagt dann einmal, dass Ihr Eintrag
-überflüssig ist, und entfernt ihn.
+(Kapitel 16), damit die nächste Version den Host mitbringt. Der nächste Befehl, den Sie danach im Terminal
+ausführen (außer `adapters list`), sagt dann in einer Warnung, dass Ihr Eintrag überflüssig ist, und entfernt
+ihn. Die Gebietsseite und der KI-Assistent über MCP ändern die Datei nie.
 
 Die freigegebenen Hosts stehen in `allowed-hosts.toml` in Ihrem Konfigurationsordner (`freemapper` unter
 `~/Library/Application Support`, `~/.config` oder `%APPDATA%`), und nur dort: Ein Projektordner, eine
 Umgebungsvariable von freemapper, ein Schalter eines Laufs oder der KI-Assistent über MCP können keinen Host
-hinzufügen. Ein Host muss ein DNS-Name sein; eine IP-Adresse, `localhost`, ein Name des lokalen Netzes, ein
+hinzufügen. Wo der Konfigurationsordner liegt, bestimmt das System, unter Linux und macOS über `HOME` und
+`XDG_CONFIG_HOME`; wer diese Variablen für freemapper setzt, etwa die Konfiguration eines MCP-Clients, wählt
+damit die Datei. Ein Host muss ein DNS-Name sein; eine IP-Adresse, `localhost`, ein Name des lokalen Netzes, ein
 Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host gilt: freemapper verbindet sich
 nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
 adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.

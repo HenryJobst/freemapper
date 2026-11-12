@@ -24,9 +24,17 @@ can be.
   one back.
 - The hosts are kept in one file, `allowed-hosts.toml` in `freemapper` of the configuration folder of the system
   (macOS `~/Library/Application Support`, Linux `~/.config`, Windows `%APPDATA%`). Nothing else adds a host: no
-  file in a project folder, no variable of freemapper (`FREEMAPPER_ADAPTER_DIR` and `FREEMAPPER_CONFIG_DIR` do
-  not move the file), no switch of a run, no parameter of the MCP server or the area page. The MCP server and
-  the area page read the file and have no way to write it.
+  file in a project folder, no variable of freemapper (`FREEMAPPER_ADAPTER_DIR` and `FREEMAPPER_CONFIG_DIR`, the
+  folder of the update settings, do not move the file), no switch of a run, no parameter of the MCP server or the
+  area page. The MCP server and the area page read the file and have no way to write it.
+- Where the configuration folder is, the system says. On Linux and macOS that is `HOME` and `XDG_CONFIG_HOME`,
+  so whoever sets those for the program picks the file that is read: a shell profile, or the configuration of
+  an MCP client, also a `.mcp.json` in a project. That is inside the trust already given, because the same
+  configuration names the program that runs. It is said here so that "nothing else" is read with it.
+- A command that changes the file keeps what it does not understand: an entry for an adapter this version does
+  not know and a host that fails the check stay in the file and are only left out when it is read. A file that
+  cannot be read is not written over; the command stops and says so. The file is written whole under another
+  name and then put in its place, and a file that is a link is written where the link points.
 - A host is checked like a host of a manifest, when it is entered and again when the file is read: a DNS name
   of at least two labels, no IP address, no `localhost`, no name of a local network, no wildcard, no user info,
   no port. An entry that fails is left out with a warning.
@@ -41,8 +49,9 @@ can be.
   manifest. It is its own error (`FetchError::HostNotNamed`), and the policy of an adapter knows whose it is
   (`UrlPolicy::owned_by`).
 - `freemapper adapters list` shows the hosts allowed for each adapter (`allowed_hosts` in its JSON). Once a
-  release names a host itself, the next command of the person says that the entry is no longer needed and
-  takes it out of the file.
+  release names a host itself, the next command the person runs says in a `warning:` line that the entry is no
+  longer needed and takes it out of the file. The MCP server, the area page and `adapters list` leave the
+  file as it is.
 
 ## Why this gap is acceptable
 

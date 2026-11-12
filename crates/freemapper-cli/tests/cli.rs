@@ -2142,7 +2142,7 @@ fn a_redundant_allowed_host_is_said_once_and_removed() {
     let first = fetch();
     assert!(
         first.starts_with(
-            "gds.hessen.de is now one of the hosts the adapter of Hesse names; your entry in "
+            "warning: gds.hessen.de is now one of the hosts the adapter of Hesse names; your entry in "
         ),
         "{first}"
     );

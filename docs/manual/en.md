@@ -970,12 +970,15 @@ freemapper adapters allow-host hessen new-server.hessen.de
 ```
 
 Take the host from the message and check that it belongs to the agency of the state. Report the move (chapter
-16), so that the next version brings the host; freemapper then says once that your entry is no longer needed and
-removes it.
+16), so that the next version brings the host. The next command you then run in a terminal (other than `adapters
+list`) says in a warning that your entry is no longer needed and removes it. The area page and the AI assistant
+through MCP never change the file.
 
 The allowed hosts are in `allowed-hosts.toml` in your configuration folder (`freemapper` under
 `~/Library/Application Support`, `~/.config` or `%APPDATA%`), and nowhere else: a project folder, an environment
-variable of freemapper, a switch of a run or the AI assistant through MCP cannot add a host. A host must be a
+variable of freemapper, a switch of a run or the AI assistant through MCP cannot add a host. Where the
+configuration folder is, the system says, on Linux and macOS through `HOME` and `XDG_CONFIG_HOME`; whoever sets
+those for freemapper, the configuration of an MCP client for example, picks the file with them. A host must be a
 DNS name; an IP address, `localhost`, a name of the local network, a wildcard or a port is refused. For an
 allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
 allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
