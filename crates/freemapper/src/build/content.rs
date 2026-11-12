@@ -196,8 +196,9 @@ impl Group {
             | Group::Monuments
             | Group::Slopes
             | Group::Passages
-            | Group::Paths => Some(Rank::Osm),
-            Group::Stairs | Group::Streets => Some(Rank::Survey),
+            | Group::Paths
+            | Group::Stairs => Some(Rank::Osm),
+            Group::Streets => Some(Rank::Survey),
             Group::Furniture | Group::OutOfBounds | Group::Contours => None,
         }
     }
