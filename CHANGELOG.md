@@ -11,7 +11,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Zwei Adapter teilen sich Gebiet, wenn ihre gemeinsame Fläche mehr als ein Hundertstel der kleineren Region ausmacht. Bisher wurde je ein Innenpunkt geprüft; ein Adapter, der ein Drittel weit in ein Bundesland hineinreichte, blieb so unbemerkt. `adapters list`, `adapters check` und die Warnung zu den Adaptern eines Projekts nutzen das neue Maß. Die Warnung nennt die Regionen jetzt mit ihrem Namen statt mit der Kennung.
 - Die Meldung zu einem Adapter, den das Programm nicht hat, sagt, dass ein neueres freemapper ihn vielleicht mitbringt.
 - Das Beispiel [Treppenviertel Blankenese](examples/hamburg-blankenese/) ist neu gebaut, mit dem Standardprofil `balanced`: Höhenlinien, Wege und 110 Treppen aus OpenStreetMap stehen jetzt in der Karte (1780 Kartenobjekte, 755 Kandidaten). Die [Gegenüberstellung](examples/vergleich.md) sagt, welche Beispiele vor den Inhaltsprofilen entstanden sind, und nennt die Messwerte für Blankenese und Saarlouis.
-- Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf. Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
+- Intern: Das Golden-Netz zeichnet nach dem Adapter-Umbau noch vier Bundesländer auf (Brandenburg, Berlin, Sachsen-Anhalt, Hessen), je eines pro Art des Abrufs; die Schichten ohne Aufzeichnung prüfen weiter alle elf Bundesländer, die vor dem Umbau im Programmcode standen (das Saarland hat eigene Tests). Der Fixture-Store der Tests schrumpft von 206 auf 79 MB.
 
 ### Behoben
 
