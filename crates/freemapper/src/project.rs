@@ -1234,52 +1234,6 @@ fn fetch_k5_into(
     }
 }
 
-/// The Geobasis NRW rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, DGM1 and DOM1
-/// from the 1 km tiles. The DOM1 is only a template: an unavailable one costs a warning.
-pub(crate) fn fetch_nrw_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode) = (env.fetcher, env.mode);
-    let cache = env.cache;
-    let dir = &project.dir().to_path_buf();
-    use crate::sources::geobasis_nrw::{self, Model};
-    project.records().tiles.clear();
-    project.records().ndsm_tiles.clear();
-    warn_beyond_state(env, project, Provider::GeobasisNrw.id(), "Geobasis NRW");
-    let flight = || geobasis_nrw::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        env,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wms(geobasis_nrw::WMS),
-            "Geobasis NRW",
-            &flight,
-            None,
-        ),
-    )?;
-    fetch_area_heights(
-        env,
-        project,
-        bbox,
-        "North Rhine-Westphalia",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            geobasis_nrw::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-    )?;
-    project.save()?;
-    Ok(())
-}
-
 /// The LVermGeo RP rasters of `bbox` (EPSG:25832): the orthophoto from the WMS, dated by the
 /// `erstellung` of its block, and DGM1 and DOM1 from the 1 km tiles the `Laserbefliegung` list
 /// names. The DOM1 is only a template: an unavailable one costs a warning.
@@ -1318,53 +1272,6 @@ pub(crate) fn fetch_rp_rasters(
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
             lvermgeo_rp::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
-        },
-        &mut |_, found, _, progress| {
-            for warning in &found.warnings {
-                progress(warning.clone());
-            }
-        },
-    )?;
-    project.save()?;
-    Ok(())
-}
-
-/// The LAiV M-V rasters of `bbox` (EPSG:25833): the orthophoto from the DOP WCS, DGM1 and DOM1
-/// from the height WCS, masked to the MV tile set. The DOM1 is only a template: an unavailable
-/// one costs a warning.
-pub(crate) fn fetch_mv_rasters(
-    env: &mut AdapterEnv<'_>,
-    project: &mut dyn RasterProject,
-    bbox: &BoundingBox,
-) -> Result<(), AdapterError> {
-    let (fetcher, mode) = (env.fetcher, env.mode);
-    let cache = env.cache;
-    let dir = &project.dir().to_path_buf();
-    use crate::sources::laiv_mv::{self, Model};
-    project.records().tiles.clear();
-    project.records().ndsm_tiles.clear();
-    warn_beyond_state(env, project, Provider::LaivMv.id(), "LAiV M-V");
-    let flight = || laiv_mv::flight_date(fetcher, bbox);
-    fetch_wms_orthophoto(
-        env,
-        project,
-        bbox,
-        (
-            &OrthophotoSource::Wcs(laiv_mv::DOP),
-            "LAiV M-V",
-            &flight,
-            None,
-        ),
-    )?;
-    fetch_area_heights(
-        env,
-        project,
-        bbox,
-        "Mecklenburg-Vorpommern",
-        (Model::Dgm1.label(), Model::Dom1.label()),
-        &mut |surface, out, _| {
-            let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            laiv_mv::fetch_model(fetcher, cache, mode, model, bbox, dir, out)
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {

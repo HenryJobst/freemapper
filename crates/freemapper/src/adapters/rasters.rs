@@ -7,8 +7,10 @@ use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
+use freemapper_adapters_de::geobasis_nrw::GeobasisNrwBackend;
 use freemapper_adapters_de::geosn::GeosnBackend;
 use freemapper_adapters_de::hvbg::HvbgBackend;
+use freemapper_adapters_de::laiv_mv::LaivMvBackend;
 use freemapper_adapters_de::lgb::LgbBackend;
 use freemapper_adapters_de::lgln::LglnBackend;
 use freemapper_adapters_de::lgv::LgvBackend;
@@ -32,8 +34,8 @@ pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
         Provider::Lgv => return Box::new(LgvBackend::new()),
         Provider::Hvbg => return Box::new(HvbgBackend::new()),
         Provider::LvermGeoSh => return Box::new(LvermgeoShBackend::new()),
-        Provider::LaivMv => project::fetch_mv_rasters,
-        Provider::GeobasisNrw => project::fetch_nrw_rasters,
+        Provider::LaivMv => return Box::new(LaivMvBackend::new()),
+        Provider::GeobasisNrw => return Box::new(GeobasisNrwBackend::new()),
         Provider::Lgln => return Box::new(LglnBackend::new()),
         Provider::LvermGeoRp => project::fetch_rp_rasters,
     };

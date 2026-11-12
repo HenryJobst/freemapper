@@ -5,8 +5,10 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod boundaries;
+pub mod geobasis_nrw;
 pub mod geosn;
 pub mod hvbg;
+pub mod laiv_mv;
 pub mod lgb;
 pub mod lgln;
 pub mod lgv;
@@ -64,7 +66,9 @@ mod sources {
     pub(crate) mod region {
         pub(crate) use crate::boundaries::*;
     }
-    pub(crate) use crate::{geosn, hvbg, lgb, lgln, lgv, lvermgeo, lvermgeo_sh};
+    pub(crate) use crate::{
+        geobasis_nrw, geosn, hvbg, laiv_mv, lgb, lgln, lgv, lvermgeo, lvermgeo_sh,
+    };
     pub(crate) use freemapper_sources::{
         float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,
         zip_range,

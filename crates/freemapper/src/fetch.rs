@@ -19,8 +19,7 @@ pub(crate) use freemapper_adapter_api::fetch::download_with_retries;
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 pub(crate) use freemapper_adapter_api::fetch::{
-    get_limited_with_retries, get_with_attempts, get_with_retries, one_line, write_cache_file,
-    write_inside,
+    get_limited_with_retries, get_with_retries, one_line, write_cache_file, write_inside,
 };
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
@@ -521,6 +520,10 @@ pub(crate) mod test_support {
     use crate::sources::lgb::Product;
     use crate::tiles::TileId;
     pub(crate) use freemapper_adapter_api::testing::MapFetcher;
+    pub(crate) use freemapper_adapters_de::geobasis_nrw::test_support::{
+        nrw_meta_zip, serve_synthetic_nrw,
+    };
+    pub(crate) use freemapper_adapters_de::laiv_mv::test_support::serve_synthetic_mv;
     pub(crate) use freemapper_sources::testing::{
         dtm_tiff, geotiff, red_jpeg, solid_jpeg, wcs_answer,
     };
@@ -757,68 +760,6 @@ pub(crate) mod test_support {
             &extract.url(),
             std::fs::read(OSM_FIXTURE).expect("OSM fixture"),
         );
-    }
-
-    /// Serves the LAiV M-V height models of `bbox` (EPSG:25833, at most 4000 m a side): the
-    /// overview lists the 2 km tiles that touch Mecklenburg-Vorpommern (DGM1 dated 2024-03-01,
-    /// DOM1 2024-08-01), and the WCS answers with a plain TIFF of the area inside the coverage
-    /// (one answer for any subset). In the listed tiles the terrain rises 0.01 m per metre east
-    /// from 5 m and the surface lies 12 m above it; elsewhere both are 0.0, as the real WCS fills
-    /// areas without a tile.
-    pub fn serve_synthetic_mv(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::laiv_mv::{self, Model};
-        use crate::sources::region::{Region, regions_for};
-        let tiles: Vec<TileId> = crate::tiles::tiles_covering_grid(bbox, 2)
-            .into_iter()
-            // `regions_for` adds 100 m around the box: the tile itself.
-            .filter(|tile| {
-                regions_for(&tile.bounds_km(2).buffered(-100.0))
-                    .contains(&Region::MecklenburgVorpommern)
-            })
-            .collect();
-        for (model, date, lift) in [
-            (Model::Dgm1, "2024-03-01", 5.0),
-            (Model::Dom1, "2024-08-01", 17.0),
-        ] {
-            fetcher.insert_prefix(
-                &laiv_mv::overview_prefix(model),
-                laiv_mv::test_support::overview_answer(model, &tiles, date),
-            );
-            let Some(inside) = bbox.intersection(&laiv_mv::ENVELOPE) else {
-                continue;
-            };
-            let grid = crate::raster::GridSpec::covering(&inside, 1.0);
-            let values: Vec<f32> = (0..grid.height)
-                .flat_map(|y| (0..grid.width).map(move |x| (x, y)))
-                .map(|(x, y)| {
-                    let (e, n) = (
-                        grid.west + f64::from(x) + 0.5,
-                        grid.north - f64::from(y) - 0.5,
-                    );
-                    let tile = TileId {
-                        east_km: (e / 2000.0).floor() as u32 * 2,
-                        north_km: (n / 2000.0).floor() as u32 * 2,
-                    };
-                    if tiles.contains(&tile) {
-                        lift + x as f32 * 0.01
-                    } else {
-                        0.0
-                    }
-                })
-                .collect();
-            fetcher.insert_prefix(&model.wcs().url, geotiff(&grid, &values));
-        }
-        // The dop20 overview (tiles dated 2024-08-14) and the DOP WCS: a flat JPEG per piece.
-        fetcher.insert_prefix(
-            &format!("{}?type[]=dop20&bbox=", laiv_mv::OVERVIEW),
-            laiv_mv::test_support::dop20_overview_answer(&tiles, "2024-08-14"),
-        );
-        let ortho =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        let source = crate::sources::wms::OrthophotoSource::Wcs(laiv_mv::DOP);
-        for (piece, url) in crate::sources::wms::source_pieces(&source, &ortho) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [120, 130, 110]));
-        }
     }
 
     /// Serves everything a Mecklenburg-Vorpommern project in `bbox` (EPSG:25833) fetches: the
@@ -1151,75 +1092,6 @@ pub(crate) mod test_support {
                 ),
                 geotiff(&grid, &surface),
             );
-        }
-    }
-
-    /// The GetFeatureInfo text answer of the NRW orthophoto WMS (flight 11.05.2025), as the
-    /// server gives it.
-    pub const NRW_FLIGHT_INFO: &str = "GetFeatureInfo results:\n\nLayer 'nw_dop_utm_info'\n  \
-        Feature 20301: \n    Kachelname = '32354_5642'\n    Bildflugdatum = '11.05.2025'\n    \
-        Bodenauflösung = '0.10'\n    Photometrie = 'RGBI'\n    Bit_pro_Kanal = '8'\n";
-
-    /// The meta zip of Geobasis NRW: a CSV `csv_name` with the usual preamble and a row per
-    /// `(tile name, date)`.
-    pub fn nrw_meta_zip(csv_name: &str, release: &str, rows: &[(String, &str)]) -> Vec<u8> {
-        use std::io::Write;
-        let mut csv = format!(
-            "Kachelinformationen fuer die Datenabgabe\r\nLand;Nordrhein-Westfalen\r\n\
-             Aktualitaet_Kachelinformationen;{release}\r\nVersion_Standard;3.3\r\n\
-             Kachelname;Aktualitaet;Erfassungsmethode\r\n",
-        );
-        for (name, date) in rows {
-            csv.push_str(&format!("{name};{date};5020\r\n"));
-        }
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
-        zip.start_file(csv_name, zip::write::SimpleFileOptions::default())
-            .unwrap();
-        zip.write_all(csv.as_bytes()).unwrap();
-        zip.finish().unwrap().into_inner()
-    }
-
-    /// Serves the Geobasis NRW rasters of a project in `bbox` (EPSG:25832): a WMS orthophoto of the
-    /// right size with the flight date 11.05.2025, the meta zips
-    /// of DGM1 and DOM1 naming every tile of `bbox` (scanned 2022-02-12, file names with
-    /// `_2022`) and the tiles (terrain 20 m rising 0.01 m per metre east, the surface 12 m
-    /// above).
-    pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
-        use crate::sources::geobasis_nrw::{Model, WMS, meta_url, tile_url};
-        let photo =
-            crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
-        // The WMS allows 4000 px a side: a larger area comes in pieces, each of its own size.
-        for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
-            fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [0, 100, 200]));
-        }
-        fetcher.insert_prefix(
-            &format!(
-                "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo",
-                WMS.url
-            ),
-            NRW_FLIGHT_INFO.as_bytes().to_vec(),
-        );
-        let tiles = crate::tiles::tiles_covering(bbox);
-        for (model, slug, lift) in [(Model::Dgm1, "dgm1", 0.0), (Model::Dom1, "dom1", 12.0)] {
-            let name = |t: &TileId| format!("{slug}_32_{}_{}_1_nw_2022", t.east_km, t.north_km);
-            let rows: Vec<(String, &str)> = tiles.iter().map(|t| (name(t), "2022-02-12")).collect();
-            fetcher.insert(
-                &meta_url(model),
-                nrw_meta_zip(&format!("{slug}_nw.csv"), "2026-10-26", &rows),
-            );
-            for tile in &tiles {
-                let grid = crate::raster::GridSpec {
-                    west: f64::from(tile.east_km) * 1000.0,
-                    north: f64::from(tile.north_km + 1) * 1000.0,
-                    pixel_size: 1.0,
-                    width: 1000,
-                    height: 1000,
-                };
-                let heights: Vec<f32> = (0..1000 * 1000)
-                    .map(|i| 20.0 + (i % 1000) as f32 * 0.01 + lift)
-                    .collect();
-                fetcher.insert(&tile_url(model, &name(tile)), geotiff(&grid, &heights));
-            }
         }
     }
 

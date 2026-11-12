@@ -4,7 +4,7 @@
 use std::sync::OnceLock;
 
 use freemapper_adapter_api::geometry::{
-    Outline, contains_point_in, tile_centre_near, tile_touches_in,
+    Outline, contains_point_in, tile_centre_near, tile_touches_in, touches_region_in,
 };
 use geo_types::MultiPolygon;
 
@@ -147,6 +147,12 @@ pub fn tile_centre_in(tile: TileId, id: &str) -> bool {
 /// can exist for it.
 pub fn tile_touches(tile: TileId, id: &str) -> bool {
     tile_touches_in(own(id), tile)
+}
+
+/// Whether the boundary of the state `id` lies within the region margin of `bbox` (EPSG:25833):
+/// the rule by which an area needs the state.
+pub fn touches(id: &str, bbox: &BoundingBox) -> bool {
+    touches_region_in(own(id), bbox)
 }
 
 /// Whether the point (EPSG:25833) lies inside the boundary of the state `id` itself.
