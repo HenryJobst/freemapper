@@ -326,8 +326,8 @@ const AGENCIES: [Agency; 11] = [
 /// call it by.
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
     for agency in AGENCIES {
-        if let Some(name) = backend_name(agency) {
-            registry.add_backend(name, Arc::from(rasters::backend(agency)))?;
+        if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
+            registry.add_backend(name, Arc::from(backend))?;
         }
     }
     Ok(())

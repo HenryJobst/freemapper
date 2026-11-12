@@ -7,7 +7,6 @@ use crate::laiv_mv::LaivMvBackend;
 use crate::lgb::LgbBackend;
 use crate::lgln::LglnBackend;
 use crate::lgv::LgvBackend;
-use crate::lvermgeo::LvermgeoBackend;
 use crate::lvermgeo_rp::LvermgeoRpBackend;
 use crate::lvermgeo_sh::LvermgeoShBackend;
 use crate::lvgl::LvglBackend;
@@ -15,12 +14,13 @@ use freemapper_adapter_api::rasters::RasterBackend;
 
 use crate::states::Agency;
 
-/// The raster backend of `provider`.
-pub fn backend(agency: Agency) -> Box<dyn RasterBackend> {
-    match agency {
+/// The raster backend of `agency`; `None` for LVermGeo, whose rasters the manifest of
+/// Saxony-Anhalt declares as services.
+pub fn backend(agency: Agency) -> Option<Box<dyn RasterBackend>> {
+    Some(match agency {
         Agency::Lgb => Box::new(LgbBackend::new()),
         Agency::GeoSn => Box::new(GeosnBackend::new()),
-        Agency::LvermGeo => Box::new(LvermgeoBackend::new()),
+        Agency::LvermGeo => return None,
         Agency::Lgv => Box::new(LgvBackend::new()),
         Agency::Hvbg => Box::new(HvbgBackend::new()),
         Agency::LvermGeoSh => Box::new(LvermgeoShBackend::new()),
@@ -29,5 +29,5 @@ pub fn backend(agency: Agency) -> Box<dyn RasterBackend> {
         Agency::Lgln => Box::new(LglnBackend::new()),
         Agency::LvermGeoRp => Box::new(LvermgeoRpBackend::new()),
         Agency::Lvgl => Box::new(LvglBackend::new()),
-    }
+    })
 }
