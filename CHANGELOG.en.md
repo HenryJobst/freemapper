@@ -6,6 +6,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The example [Treppenviertel Blankenese](examples/hamburg-blankenese/) is rebuilt with the default profile `balanced`: contours, paths and 110 stairs from OpenStreetMap are on the map now (1780 map objects, 755 candidates). The [comparison page](examples/compare.en.md) says which examples were made before the content profiles and gives the measurements for Blankenese and Saarlouis.
+
+## [0.14.0] - 2026-11-12
+
 ### Added
 
 - Saarland is the twelfth state (ADR 0111). The orthophoto of 2025 comes from the free map service of the LVGL, the terrain and the surface model of the 2025 laser scan from the district archives of its open-data share (freemapper reads only the 1 km tiles of the area out of archives of up to 1.3 GB), buildings and land use from the service "ALKIS Vereinfacht" of the Geoportal Saarland. All of it is dl-de/by-2-0; maps carry `© GeoBasis DE/LVGL-SL (<year>), dl-de/by-2-0, Daten geändert`. The example is [Saarlouis old town and fortress](examples/saarland-saarlouis/). Saarland is the first state added as an adapter: a manifest folder and one raster backend.
@@ -21,7 +27,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- The example [Treppenviertel Blankenese](examples/hamburg-blankenese/) is rebuilt with the default profile `balanced`: contours, paths and 110 stairs from OpenStreetMap are on the map now (1780 map objects, 755 candidates). The [comparison page](examples/compare.en.md) says which examples were made before the content profiles and gives the measurements for Blankenese and Saarlouis.
 - Requests go to servers on the internet only (ADR 0106). freemapper no longer connects to an address of this computer or of the local network, whether a URL names it, a host name resolves to it or a server redirects to it. This holds for the downloads, the map tiles of the area page and the self-update. A proxy from the environment (`HTTPS_PROXY`) still works, also a local one. A request that is not sent says why, in the language of the run.
 - The requests for a state stay on the hosts its manifest declares, redirects included (at most three): ALKIS, the rasters, the full ALKIS, the tree cadastres, and Berlin's registers and K5 map. A server that sends freemapper on to a host nobody declared gets no request there; the same holds for a fourth redirect in a row, a redirect to `http` and an address in an answer on such a host. The message starts with the refused address, names the state and says what to do. An adapter from a folder is held to its own hosts in the same way and adds none to a built-in state. Before the switch every state was fetched live at two places under this rule.
 - Internal: the eleven states are manifests plus code (ADR 0107). Each has a folder in `crates/adapters/de/manifests/` with its manifest and its boundary file; Saxony-Anhalt needs no raster code any more. The golden net confirms the same requests and byte-identical files.

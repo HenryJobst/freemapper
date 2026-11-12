@@ -24,7 +24,7 @@ in OOM oder OCAD.
 - Bedienung per Kommandozeile, über eine Seite im Browser, auf der man das Kartengebiet wählt und die Karte
   mit allen Optionen gleich erzeugt (siehe [Gebiet im Browser wählen](#gebiet-im-browser-wählen)), oder über
   KI-Agenten (MCP-Server).
-- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und ab der nächsten Version das Saarland (Open Data von LGB,
+- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und Saarland (Open Data von LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP und LVGL);
   Schulhofkarten 1:1000 und Sprintkarten 1:4000.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
@@ -49,11 +49,11 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.13.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.13.0) vom
+Aktuelle Version ist [v0.14.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.14.0) vom
 12. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)). freemapper erzeugt
-Schulhof- und Sprintkarten für elf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
-Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen und
-Rheinland-Pfalz. Das Saarland kommt mit der nächsten Version dazu. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
+Schulhof- und Sprintkarten für zwölf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
+Rheinland-Pfalz und Saarland. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
 PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`). Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
@@ -69,8 +69,8 @@ auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Li
 halten den Abstand der Norm ein, und dichte Baumgruppen werden zu Flächen, die man sieht. Parks sind gelb, und unter der Sprintkarte liegt die belaufbare Fläche in Braun. Überlappen
 Mauern, Zäune und Hecken auf dem Papier, bleibt die stärkere Linie.
 
-Das Programm ist noch in Entwicklung. Ab der nächsten Version lässt sich ein weiteres Bundesland, dessen
-Dienste Standarddienste sind, als Ordner mit einem Manifest ergänzen, ohne Rust; die
+Das Programm ist noch in Entwicklung. Ein weiteres Bundesland, dessen
+Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänzen, ohne Rust; die
 [Anleitung für Beitragende](docs/adapters/de.md) beschreibt den Weg. Als Nächstes folgen genauere Sprintkarten
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
@@ -289,7 +289,7 @@ freemapper run vorstadt
 | Nordrhein-Westfalen | Geobasis NRW | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke |
 | Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Bremen noch nicht dabei |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
-| Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | ab der nächsten Version; Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
+| Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
 
 In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide
