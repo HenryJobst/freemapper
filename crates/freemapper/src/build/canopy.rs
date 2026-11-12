@@ -462,7 +462,7 @@ mod tests {
             assert_eq!(found.len(), 1, "{bez} / {function}");
         }
         // Stored Hamburg data is read by key, and the Hamburg fetch writes the LGB spelling.
-        let normalised = crate::sources::lgv::normalise_building(feature(
+        let normalised = freemapper_sources::alkis_source::normalise_building(feature(
             "Sonstiges Bauwerk Oder Sonstige Einrichtung",
             "Überdachung",
             None,

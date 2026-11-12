@@ -1,9 +1,8 @@
-//! Moved to `freemapper-adapters-de` as `lvermgeo_sh` (ADR 0082); this module keeps the old paths
-//! working.
+//! Tests of the engine's synthetic LVermGeo SH services (Schleswig-Holstein) against the
+//! reader in `freemapper-adapters-de`.
 
-pub use freemapper_adapters_de::lvermgeo_sh::*;
+use freemapper_adapters_de::lvermgeo_sh::*;
 
-#[cfg(test)]
 mod tests {
     use super::*;
     use crate::crs::BoundingBox;

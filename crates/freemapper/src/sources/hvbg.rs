@@ -1,8 +1,8 @@
-//! Moved to `freemapper-adapters-de` as `hvbg` (ADR 0082); this module keeps the old paths working.
+//! Tests of the engine's synthetic HVBG services (Hesse) against the reader in
+//! `freemapper-adapters-de`.
 
-pub use freemapper_adapters_de::hvbg::*;
+use freemapper_adapters_de::hvbg::*;
 
-#[cfg(test)]
 mod tests {
     use super::test_support::*;
     use super::*;

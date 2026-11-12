@@ -236,10 +236,11 @@ mod tests {
     }
 
     /// The `src/` folders of the workspace crates that emit notes, from this crate's folder.
-    const EMITTING_CRATES: [&str; 4] = [
+    const EMITTING_CRATES: [&str; 5] = [
         "src",
         "../freemapper/src",
         "../freemapper-sources/src",
+        "../freemapper-manifest/src",
         "../adapters/de/src",
     ];
 

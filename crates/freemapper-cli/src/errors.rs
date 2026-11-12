@@ -10,6 +10,7 @@ use std::path::Path;
 
 use freemapper::area::AreaError;
 use freemapper::derive::DeriveError;
+use freemapper::fetch::{CurrencyCsvError, Product};
 use freemapper::fetch::{FetchError, Remedy};
 use freemapper::georef::GeorefError;
 use freemapper::ocd::file::OcdBuildError;
@@ -18,7 +19,6 @@ use freemapper::places::PlaceError;
 use freemapper::project::{MAX_AREA_SIDE_M, ProjectError};
 use freemapper::raster::RasterError;
 use freemapper::sources::alkis::AlkisError;
-use freemapper::sources::lgb::{CurrencyCsvError, Product};
 use freemapper::sources::osm::OsmError;
 use freemapper::space::{Part, RESERVE_BYTES, Shortfall, is_storage_full, size, size_down};
 use freemapper::tiles::TileId;

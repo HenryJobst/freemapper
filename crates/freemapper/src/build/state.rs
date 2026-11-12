@@ -25,7 +25,7 @@ use crate::build::walls::{PAIRED, PAIRED_ALSO, PAIRED_LABEL, pair_distance_m, pa
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
-use crate::sources::lgv::spelling_key;
+use freemapper_sources::alkis_source::spelling_key;
 
 /// `gebnutzbez` of a building part.
 pub(crate) const PART: &str = "Bauteil";
@@ -403,7 +403,7 @@ mod tests {
     use super::*;
     use crate::build::canopy::{CanopyInput, canopy_objects};
     use crate::crs::{Crs, ProjectedPoint};
-    use crate::sources::alkis_wfs::{parse_gml, test_support as gml};
+    use freemapper_sources::wfs::{parse_gml, test_support as gml};
 
     /// The stored form of a vereinfacht fixture: GeoJSON features in the state's CRS.
     fn gml_features(text: &str) -> Vec<Value> {

@@ -1520,7 +1520,7 @@ mod tests {
     #[test]
     fn ni_fixture_pond_is_drawn() {
         use crate::sources::alkis::parse_land_use;
-        use crate::sources::alkis_wfs::{parse_gml, test_support::NI_LAND_USE};
+        use freemapper_sources::wfs::{parse_gml, test_support::NI_LAND_USE};
         let features = parse_gml(NI_LAND_USE).unwrap();
         let collection =
             serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string();

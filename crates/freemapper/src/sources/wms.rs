@@ -10,7 +10,7 @@ mod tests {
     use crate::crs::BoundingBox;
     use crate::fetch::test_support::{MapFetcher, solid_jpeg};
     use crate::raster::GridSpec;
-    use crate::sources::{geosn, hvbg, lgv, lvermgeo};
+    use freemapper_adapters_de::{geosn, hvbg, lgv, lvermgeo};
 
     fn grid(width: u32, height: u32) -> GridSpec {
         GridSpec {
@@ -139,7 +139,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     fn dop_source() -> OrthophotoSource {
-        OrthophotoSource::Wcs(crate::sources::laiv_mv::DOP)
+        OrthophotoSource::Wcs(freemapper_adapters_de::laiv_mv::DOP)
     }
 
     #[test]
@@ -208,7 +208,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            &crate::sources::laiv_mv::DOP.url,
+            &freemapper_adapters_de::laiv_mv::DOP.url,
             br#"<?xml version="1.0" encoding="UTF-8"?>
 <ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/2.0" version="2.0.1"><ows:Exception exceptionCode="InvalidSubsetting"><ows:ExceptionText>subset out of range</ows:ExceptionText></ows:Exception></ows:ExceptionReport>"#
                 .to_vec(),
@@ -265,7 +265,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let dir = tempfile::tempdir().unwrap();
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            &crate::sources::laiv_mv::DOP.url,
+            &freemapper_adapters_de::laiv_mv::DOP.url,
             "<html>\x1b]0;owned\x07\u{202E}evil\nline two</html>"
                 .as_bytes()
                 .to_vec(),

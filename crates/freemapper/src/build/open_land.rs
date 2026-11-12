@@ -18,7 +18,7 @@ use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
-use crate::sources::lgv::spelling_key;
+use freemapper_sources::alkis_source::spelling_key;
 
 /// ISSprOM 401 open land.
 pub const OPEN_LAND_CODE: &str = "401";

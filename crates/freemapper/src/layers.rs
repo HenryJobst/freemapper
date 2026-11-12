@@ -18,11 +18,11 @@ use crate::project::{
     NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH,
     check_area, check_size, map_crs, map_path,
 };
-use crate::sources::lgb::Product;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
 use crate::sources::region::{provider_tiles_in, raster_region_in, regions_for};
 use crate::space::{Part, Store};
 use crate::tiles::TileId;
+use freemapper_adapters_de::lgb::Product;
 /// Typical download sizes in MB.
 const ALKIS_MB: f64 = 0.5;
 /// The Berlin vector layers in the centre, per km²: the ALKIS structure layers, relief, hedges
@@ -841,7 +841,7 @@ mod tests {
 
     #[test]
     fn nrw_estimate_counts_tiles_and_marks_cached_ones() {
-        use crate::sources::geobasis_nrw::{Model, cached_tiles};
+        use freemapper_adapters_de::geobasis_nrw::{Model, cached_tiles};
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // Two tiles side by side: the tile border 355 km east lies inside the area.
@@ -1012,7 +1012,7 @@ mod tests {
             north_km: 5579,
         };
         std::fs::write(
-            crate::sources::lvermgeo_rp::list_path(
+            freemapper_adapters_de::lvermgeo_rp::list_path(
                 &dir,
                 &area
                     .projected_bbox_in(crate::crs::Crs::Utm32)
@@ -1050,7 +1050,7 @@ mod tests {
     #[test]
     fn rp_estimate_counts_the_tiles_the_kept_list_names() {
         use crate::fetch::test_support::rp_tile_list;
-        use crate::sources::lvermgeo_rp::list_path;
+        use freemapper_adapters_de::lvermgeo_rp::list_path;
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         // At the Hesse border in Mainz: the tile 447/5540 is 43 % RP, 448/5540 lies wholly in
@@ -1117,7 +1117,7 @@ mod tests {
 
     #[test]
     fn hamburg_estimate_counts_every_tile_touching_hamburg() {
-        use crate::sources::lgv::Model;
+        use freemapper_adapters_de::lgv::Model;
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let area = langenhorn_area(0.02);
@@ -1502,7 +1502,7 @@ mod tests {
 
     #[test]
     fn hamburg_estimate_marks_cached_tiles() {
-        use crate::sources::lgv::Model;
+        use freemapper_adapters_de::lgv::Model;
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
         let p = crate::crs::utm33_inverse(crate::crs::ProjectedPoint {

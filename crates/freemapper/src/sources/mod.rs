@@ -2,24 +2,14 @@
 
 pub mod alkis;
 pub mod alkis_nas;
-pub mod alkis_wfs;
 pub mod berlin;
-pub mod float_tiff;
-pub mod geobasis_nrw;
-pub mod geosn;
-pub mod height_model;
-pub mod hvbg;
-pub mod laiv_mv;
-pub mod lgb;
-pub mod lgln;
-pub mod lgv;
-pub mod lvermgeo;
-pub mod lvermgeo_rp;
-pub mod lvermgeo_sh;
+#[cfg(test)]
+mod hvbg;
+#[cfg(test)]
+mod lgv;
+#[cfg(test)]
+mod lvermgeo_sh;
 pub mod osm;
 pub mod region;
 pub mod trees;
-pub mod wcs;
 pub mod wms;
-pub mod xlsx;
-pub mod zip_range;
