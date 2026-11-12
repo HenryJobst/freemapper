@@ -1,7 +1,8 @@
 # 0082. Region adapters: a trait, TOML manifests and adapter crates
 
 Date: 2026-11-10
-Status: Proposed
+Status: Accepted (built in stages A to F by 2026-11-12; what differs from this text is recorded in 0102, 0103,
+0106, 0107, 0110 and 0111)
 
 ## Context
 

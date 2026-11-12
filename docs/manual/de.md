@@ -990,9 +990,10 @@ freemapper adapters check ~/meine-adapter/saarland --live --bbox 6.9930,49.2330,
 
 Der Exit-Code ist 0, wenn der Adapter besteht, 1 bei Befunden und 2, wenn die Prüfung nicht laufen konnte.
 
-Das Format des Manifests beschreibt
-[ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md) (englisch); die Manifeste der eingebauten
-Bundesländer in `crates/adapters/de/manifests/` sind Beispiele. Eine Anleitung für Beitragende folgt.
+Wie man einen Adapter schreibt, steht in der [Anleitung für Beitragende](../adapters/de.md), mit einem
+[Tutorial](../adapters/tutorial.de.md), das einen Schritt für Schritt baut, und einer
+[Referenz](../adapters/manifest-v1.de.md) aller Schlüssel des Manifests. Die Manifeste der eingebauten
+Bundesländer in `crates/adapters/de/manifests/` sind Beispiele.
 
 ### Wenn ein Dienst umzieht
 

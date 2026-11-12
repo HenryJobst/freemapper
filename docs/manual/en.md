@@ -955,9 +955,10 @@ freemapper adapters check ~/my-adapters/saarland --live --bbox 6.9930,49.2330,6.
 
 The exit code is 0 when the adapter passes, 1 with findings and 2 when the check could not run.
 
-The format of the manifest is described in
-[ADR 0107](../adr/0107-adapter-manifests-format-1-as-built.md); the manifests of the built-in states in
-`crates/adapters/de/manifests/` are examples. A guide for contributors follows.
+How to write an adapter is in the [guide for contributors](../adapters/en.md), with a
+[tutorial](../adapters/tutorial.en.md) that builds one step by step and a
+[reference](../adapters/manifest-v1.en.md) of every key of the manifest. The manifests of the built-in states in
+`crates/adapters/de/manifests/` are examples.
 
 ### When a service moves
 

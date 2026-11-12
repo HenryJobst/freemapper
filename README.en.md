@@ -67,8 +67,10 @@ of the city map; the two edges of a wall become one line in the middle. Point sy
 asks for, and dense tree groups become areas that show. Parks are yellow, and the walkable area in brown lies under the sprint map. Where walls, fences and hedges overlap on
 paper, the stronger line stays.
 
-freemapper is still under development. Next, the region adapters are rebuilt so that other developers
-can contribute adapters for their own country. Then come more detailed sprint maps for further states,
+freemapper is still under development. From the next version on, a further state whose services are
+standard ones can be added as a folder with a manifest, without Rust; the
+[guide for contributors](docs/adapters/en.md) describes the way. Next come more detailed sprint maps for
+further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
 and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria). Thuringia follows once its height-data server is

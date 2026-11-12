@@ -1,11 +1,10 @@
 # Recorded answers of an adapter (fixtures)
 
-This page describes the format. The contributor guide (stage F of the adapter work) explains how to record and
-when.
+This page describes the format. The [guide for contributors](en.md) says where recorded answers are used.
 
 A recording lets freemapper run a fetch without the network: every request is answered from files. The golden net
-of the built-in states uses one per state, and `freemapper adapter check --fixtures` will use the one in the
-folder of an adapter. The code is `freemapper_sources::replay`.
+of the built-in states uses one per recorded state. `freemapper adapters check` does not play recordings back;
+it reads the folder and, with `--live`, asks the services. The code is `freemapper_sources::replay`.
 
 ## Layout
 

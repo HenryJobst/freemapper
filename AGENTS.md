@@ -315,3 +315,5 @@ This section is for coding agents in a clone of the repository, not for using th
 - Decisions are recorded in [`docs/adr/`](docs/adr/README.md); every change gets a changelog entry in
   `CHANGELOG.md` and `CHANGELOG.en.md`.
 - Shared code comes from [freemapper-core](https://github.com/HenryJobst/freemapper-core), pinned by tag.
+- A new state or region is a region adapter: [`docs/adapters/en.md`](docs/adapters/en.md) is the guide,
+  [`docs/adapters/manifest-v1.en.md`](docs/adapters/manifest-v1.en.md) the reference of the manifest.

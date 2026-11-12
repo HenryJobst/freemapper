@@ -69,9 +69,10 @@ auch die Bäume der Stadtkarte; die zwei Kanten einer Mauer werden dabei eine Li
 halten den Abstand der Norm ein, und dichte Baumgruppen werden zu Flächen, die man sieht. Parks sind gelb, und unter der Sprintkarte liegt die belaufbare Fläche in Braun. Überlappen
 Mauern, Zäune und Hecken auf dem Papier, bleibt die stärkere Linie.
 
-Das Programm ist noch in Entwicklung. Als Nächstes werden die Regionsadapter so umgebaut, dass andere
-Entwickler eigene Adapter für ihr Land beitragen können. Danach folgen genauere Sprintkarten für weitere
-Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
+Das Programm ist noch in Entwicklung. Ab der nächsten Version lässt sich ein weiteres Bundesland, dessen
+Dienste Standarddienste sind, als Ordner mit einem Manifest ergänzen, ohne Rust; die
+[Anleitung für Beitragende](docs/adapters/de.md) beschreibt den Weg. Als Nächstes folgen genauere Sprintkarten
+für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen,
 Bayern). Thüringen folgt, sobald sein Server für die
