@@ -12,7 +12,6 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::registry::Registry;
-use geo_types::MultiPolygon;
 
 use crate::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use crate::boundary::MAX_BOUNDARY_BYTES;
@@ -153,9 +152,13 @@ pub fn load_dirs(
         };
         entries.sort();
         for folder in entries {
-            // A plain file beside the folders (a note, a `.DS_Store`) is nobody's adapter.
+            // A plain file beside the folders (a note, a `.DS_Store`) is nobody's adapter, and
+            // neither is what starts with a dot (`.git`, the folder of a sync tool).
             let is_file = std::fs::symlink_metadata(&folder).is_ok_and(|kind| kind.is_file());
-            if is_file {
+            let hidden = folder
+                .file_name()
+                .is_some_and(|name| name.to_string_lossy().starts_with('.'));
+            if is_file || hidden {
                 continue;
             }
             match load_folder(registry, &folder, dir.origin, running) {
@@ -280,16 +283,17 @@ pub fn load_folder(
     Ok((entry, notes))
 }
 
-/// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: a
-/// point inside the one is inside the other. Two neighbours whose simplified borders cross are
-/// not among them.
-pub(crate) fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
-    use geo::{Contains, InteriorPoint};
-    let inside = |shape: &MultiPolygon<f64>, of: &MultiPolygon<f64>| {
-        shape
-            .interior_point()
-            .is_some_and(|point| of.contains(&point))
-    };
+/// Two regions share ground when their common area is more than this share of the smaller of
+/// the two. Neighbours whose borders were simplified apart overlap by a strip that stays below
+/// it; the largest common area of two built-in states is 0.55 % (the mouth of the Elbe, which
+/// the boundaries of Lower Saxony and Schleswig-Holstein both hold).
+const SHARED_GROUND: f64 = 0.01;
+
+/// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: the
+/// two have more than [`SHARED_GROUND`] of the smaller one in common. Two neighbours whose
+/// simplified borders cross are not among them.
+pub fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
+    use geo::{Area, BooleanOps};
     let bounds = adapter.bounds();
     registry
         .adapters()
@@ -300,9 +304,12 @@ pub(crate) fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -
                 || bounds.max_e < theirs.min_e
                 || theirs.max_n < bounds.min_n
                 || bounds.max_n < theirs.min_n;
-            !apart
-                && (inside(adapter.boundary(), other.boundary())
-                    || inside(other.boundary(), adapter.boundary()))
+            if apart {
+                return false;
+            }
+            let (mine, theirs) = (adapter.boundary(), other.boundary());
+            let smaller = mine.unsigned_area().min(theirs.unsigned_area());
+            smaller > 0.0 && mine.intersection(theirs).unsigned_area() > SHARED_GROUND * smaller
         })
         .map(|other| other.info().id.to_string())
         .collect()

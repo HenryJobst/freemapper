@@ -18,6 +18,8 @@ Ordner-Adapter liest freemapper ab Version 0.14.0.
 - Er enthält höchstens 64 Dateien. Der Ordner und die Dateien, die freemapper liest, müssen echte sein; einer
   Verknüpfung folgt das Programm nicht.
 - Eine `rules.toml` im Ordner wird nicht gelesen (Warnung `adapter.rules-not-read`); der Adapter lädt trotzdem.
+- Im Adapterordner werden neben den Ordnern der Adapter einfache Dateien übergangen, ebenso alles, dessen Name
+  mit einem Punkt beginnt (`.git`, der Ordner eines Sync-Werkzeugs).
 
 ## Regeln, die überall gelten
 
@@ -290,7 +292,7 @@ Warnungen:
 | `check.built-in-id` | Ein Adapter mit dieser Kennung ist ins Programm eingebaut; aus einem Adapterordner lädt dieser nicht. |
 | `check.prefix-shared` | Ein eingebauter Adapter hat dasselbe `object_id_prefix`. |
 | `check.boundary-area` | Die Grenze umschließt weniger als 1 km² oder mehr als 2 000 000 km²: wahrscheinlich die falsche Einheit. |
-| `check.shares-ground` | Der Adapter liegt auf dem Gebiet eines anderen. Eine Karte dort bekommt die Objekte beider. |
+| `check.shares-ground` | Der Adapter liegt auf dem Gebiet eines anderen: Beide haben mehr als ein Hundertstel der kleineren Region gemeinsam. Eine Karte dort bekommt die Objekte beider. |
 
 ## Vollständige Beispiele
 
