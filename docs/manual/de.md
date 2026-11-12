@@ -601,28 +601,32 @@ kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS
 
 ### Vegetation aus Laserpunktwolken
 
-In Brandenburg, Berlin, Nordrhein-Westfalen und Rheinland-Pfalz kann freemapper die Vegetation aus den
-klassifizierten Laserpunktwolken der LGB, des Geoportals Berlin, von Geobasis NRW bzw. vom LVermGeo RP ableiten:
+In Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz und im Saarland kann freemapper die Vegetation aus
+den klassifizierten Laserpunktwolken der LGB, des Geoportals Berlin, von Geobasis NRW, vom LVermGeo RP bzw. vom
+LVGL ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
 Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
 
 Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß. Je
 Quadratkilometer-Kachel lädt freemapper etwa 160 MB in Brandenburg, etwa 240 MB in Berlin (als LAZ im
-Zwischenspeicher etwa 100 MB), meist 50 bis 165 MB in Nordrhein-Westfalen und meist 110 bis 500 MB in
-Rheinland-Pfalz; ein Park braucht meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
+Zwischenspeicher etwa 100 MB), meist 50 bis 165 MB in Nordrhein-Westfalen, meist 110 bis 500 MB in
+Rheinland-Pfalz und etwa 40 MB im Saarland; ein Park braucht meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
 (oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
 schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
 im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
 freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
 nur den Teil mit anderer Klasse.
 
-Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark und am Berliner Viktoriapark. Schilf und
+Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark, am Berliner Viktoriapark und an der
+Altstadt von Saarlouis. Schilf und
 Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
-dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Die
+dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Auch die
+Saarländer Befliegung (Februar 2025) war ohne Laub, und das LVGL hat die Punktwolke auf einen Punkt je 0,5 m
+ausgedünnt; die Kronen erkennt freemapper dort trotzdem. Die
 Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und im Gelände. Ist
 der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
-Punktwolken-Quelle.
+Punktwolken-Quelle. Sachsen hat seine Punktwolken im November 2026 aus dem Downloadbereich genommen.
 
 ### Was direkt auf die Karte kommt
 

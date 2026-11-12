@@ -204,8 +204,8 @@ Or choose the area in the browser, see [Choosing the area in the browser](#choos
 - `freemapper derive <dir>` – computes orthophoto, hillshade, slope, local relief and nDSM (height above
   ground: hedges, walls, trees, playground equipment) templates from them, and contour lines (schoolyard
   1 m, sprint 2 m; every fifth an index contour), small knolls, depressions, earth banks and cliffs as
-  candidates; with `--content-set vegetation=candidates` in Brandenburg, Berlin, North Rhine-Westphalia
-  and Rhineland-Palatinate also the vegetation from laser point clouds.
+  candidates; with `--content-set vegetation=candidates` in Brandenburg, Berlin, North Rhine-Westphalia,
+  Rhineland-Palatinate and Saarland also the vegetation from laser point clouds.
 - `freemapper export <dir>` – writes the OOM map with the buildings as finished map objects (symbol 521,
   with provenance: ALKIS object id and data currency). Buildings up to the buffer around the map area
   are included; underground parts, structures such as chimneys and very small buildings are left out,

@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Vegetation from laser point clouds in Saarland too (ADR 0105): LVGL offers the 2025 point cloud in six large zip64 archives by district, on the same share as the height models. freemapper reads only the tiles of the map area out of them by byte ranges, about 40 MB per square kilometre, and checks them against the archive's CRC. The scan was made in February without leaves, and the point cloud is thinned to one point per 0.5 m; freemapper still finds the crowns. Checked on the old town of Saarlouis. Saxony gets no point clouds for now: GeoSN took them off its download area in November 2026.
 - Vegetation from laser point clouds in Rhineland-Palatinate too (ADR 0105): `fetch` loads the LAZ tiles of LVermGeo RP, mostly 110 to 500 MB per square kilometre, and keeps a tile only when its size and SHA-256 match the Metalink file of the state. The day of the scan comes from the metadata of the tile; when the tile is cached, freemapper asks only for that. Checked on the Stadtpark in Mainz.
 - Vegetation from laser point clouds in Berlin too (ADR 0105): the Geoportal Berlin offers the point cloud only in nine large zip64 archives. freemapper reads just the tiles of the map area out of them by byte ranges, about 240 MB per square kilometre, checks them against the archive's CRC and keeps them in the cache as LAZ (about 100 MB). The 2021 scan was made without leaves, so freemapper recognises dense shrubs there less well. Checked on the Viktoriapark.
 

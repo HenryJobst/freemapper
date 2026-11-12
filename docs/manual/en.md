@@ -574,26 +574,32 @@ go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStr
 
 ### Vegetation from laser point clouds
 
-In Brandenburg, Berlin, North Rhine-Westphalia and Rhineland-Palatinate freemapper can derive the vegetation
-from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW and LVermGeo RP: open land
+In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland freemapper can derive the
+vegetation from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW, LVermGeo RP and
+LVGL: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
 shows more than the nDSM, which only sees the crowns.
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
 kilometre tile freemapper loads about 160 MB in Brandenburg, about 240 MB in Berlin (about 100 MB as LAZ in the
-cache), mostly 50 to 165 MB in North Rhine-Westphalia and mostly 110 to 500 MB in Rhineland-Palatinate; a park
+cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in Rhineland-Palatinate and about 40 MB in
+Saarland; a park
 usually needs two to four tiles. Only `--content-set vegetation=candidates` (or the area page) makes the next
 `fetch` load them into the shared cache. `derive` writes `data/vegetation.geojson` from them, and the export puts
 the areas into the candidates map. There are none at buildings, in water or on paved areas; roofs that ALKIS no
 longer has are recognised by their laser echoes too. Where the map already has a park or a wood from ALKIS, the
 candidate shows only the part of another class.
 
-It is checked on Sanssouci, the Volksgarten in Cologne, the Stadtpark in Mainz and the Viktoriapark in Berlin.
+It is checked on Sanssouci, the Volksgarten in Cologne, the Stadtpark in Mainz, the Viktoriapark in Berlin and
+the old town of Saarlouis.
 Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
-recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The point
+recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The Saarland scan (February 2025)
+was made without leaves too, and LVGL thinned the point cloud to one point per 0.5 m; freemapper still finds the
+crowns there. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
-space is short, the point clouds are the first part left out. The other states have no point-cloud source yet.
+space is short, the point clouds are the first part left out. The other states have no point-cloud source yet. Saxony took its point clouds off its download area in November
+2026.
 
 ### What goes straight onto the map
 
