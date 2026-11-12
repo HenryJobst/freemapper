@@ -357,7 +357,7 @@ screenshot shows the German page.*
    the same as `--content` and `--content-set`. A group set to "As in the profile" follows the profile. If you
    change the profile, your exceptions stay and you can reset them one by one. The page saves the choice with
    the area; what the profiles do is explained in [section 8](#8-what-the-templates-show).
-3. **Press "Create map".** If the area changed since the last save, the page saves it first. "Replace the
+3. **Press "Create map".** If the area or the content settings changed since the last save, the page saves them first. "Replace the
    existing map" appears only when a map exists, and is never ticked in advance. When it is ticked, a dialog
    asks first; "Cancel" has the focus there. The old map stays in the project folder as `.omap.bak`.
 4. **Progress:** The page shows "Step 2 of 4: Computing templates", a bar without a percentage (freemapper

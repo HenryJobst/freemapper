@@ -12,7 +12,7 @@ save checks.
 
 ## Decision
 
-- The run panel gets a collapsed `<details>` "What goes onto the map" before the start button. It is collapsed
+- The "Create the map" block gets a collapsed `<details>` "What goes onto the map" before the start button. It is collapsed
   because the page already folds secondary lists that way (the download details) and because 14 groups would
   push the start button out of sight; most people keep `balanced`.
 - It holds the three profiles as radio buttons, each with its hint, and one select per group in the library's
@@ -41,7 +41,11 @@ save checks.
 - A person on the page can choose the former behaviour (`safe`) or everything (`full`) without a terminal.
 - The server and the library own the lists; the page owns the words. A new group needs one table entry and two
   catalog messages.
-- Cost if wrong: a stale page overwriting a choice made on the command line is stopped by the revision check, as
-  for the area.
+- After a conflict (another window, the command line or an assistant wrote the file) the page takes the content
+  settings from the file when the person has not changed the section since it was loaded, so an explicit "Save"
+  does not overwrite them unseen. When the person did change it, the choice stays and the section opens, so they
+  see what "Save" writes. The area follows the same "the page keeps what the person did" rule.
+- Cost if wrong: a stale page overwriting a choice made on the command line is stopped by the revision check; only
+  an explicit "Save" after a conflict writes the person's own, visible choice.
 
 Source: ADR 0100 (user decision 2026-11-12: adjustable on the area page).
