@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
 
 ## [0.15.0] - 2026-11-12

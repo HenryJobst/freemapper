@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The boundaries of Lower Saxony and Schleswig-Holstein no longer overlap in the mouth of the Elbe. The cadastres of both states hold the same 89 km² of water off Cuxhaven; freemapper now splits that area at the line of equal distance from the two claim lines (ADR 0113). Maps do not change, the area is open water.
 - Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
 
 ## [0.15.0] - 2026-11-12
