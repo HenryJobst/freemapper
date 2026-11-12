@@ -290,6 +290,11 @@ mod tests {
             ("state", v("Brandenburg/Berlin")),
             ("agency", v("LGB")),
             ("adapter", v("czfoo")),
+            // The adapter warnings the MCP server passes on.
+            (
+                "lines",
+                v("warning: the adapter in /a/broken is left out: …"),
+            ),
         ];
         assert_eq!(TEXTS.problems(&sample), Vec::<String>::new());
     }

@@ -391,7 +391,7 @@ Ablauf, wie der Agent ihn geht:
 4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück
    (mit `ocad: true` auch den OCAD-Ausgangsstand, mit `pdf: true` das PDF der Karte, mit `pdf_candidates: true` das PDF mit Kandidaten).
 5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
-6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Vorlagen.
+6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Karte und der Vorlagen.
 
 Passt kein Suchtreffer oder will man das Gebiet selbst zeichnen, öffnet `open_area_selector` die
 Gebietsauswahl im Browser und gibt die Adresse zurück; nach dem Speichern geht es mit Schritt 3 weiter.
