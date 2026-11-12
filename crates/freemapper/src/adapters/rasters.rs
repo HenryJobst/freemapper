@@ -8,8 +8,10 @@ use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_adapters_de::geosn::GeosnBackend;
+use freemapper_adapters_de::hvbg::HvbgBackend;
 use freemapper_adapters_de::lgb::LgbBackend;
 use freemapper_adapters_de::lgln::LglnBackend;
+use freemapper_adapters_de::lgv::LgvBackend;
 use freemapper_adapters_de::lvermgeo::LvermgeoBackend;
 
 use crate::crs::BoundingBox;
@@ -26,8 +28,8 @@ pub(crate) fn backend(provider: Provider) -> Box<dyn RasterBackend> {
         Provider::Lgb => return Box::new(LgbBackend::new()),
         Provider::GeoSn => return Box::new(GeosnBackend::new()),
         Provider::LvermGeo => return Box::new(LvermgeoBackend::new()),
-        Provider::Lgv => project::fetch_lgv_rasters,
-        Provider::Hvbg => project::fetch_hvbg_rasters,
+        Provider::Lgv => return Box::new(LgvBackend::new()),
+        Provider::Hvbg => return Box::new(HvbgBackend::new()),
         Provider::LvermGeoSh => project::fetch_sh_rasters,
         Provider::LaivMv => project::fetch_mv_rasters,
         Provider::GeobasisNrw => project::fetch_nrw_rasters,

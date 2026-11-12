@@ -6,8 +6,10 @@
 
 pub mod boundaries;
 pub mod geosn;
+pub mod hvbg;
 pub mod lgb;
 pub mod lgln;
+pub mod lgv;
 pub mod lvermgeo;
 pub mod tile_fetch;
 
@@ -36,7 +38,11 @@ mod fetch {
     pub(crate) use freemapper_adapter_api::error::FetchError;
     pub(crate) use freemapper_adapter_api::fetch::*;
 
+    /// The cache as the tests of the state modules name it.
     #[cfg(test)]
+    pub(crate) use freemapper_adapter_api::cache::CacheDir as Cache;
+
+    #[cfg(any(test, feature = "testing"))]
     pub(crate) mod test_support {
         pub(crate) use freemapper_adapter_api::testing::MapFetcher;
         pub(crate) use freemapper_sources::testing::*;
@@ -54,9 +60,10 @@ mod sources {
     pub(crate) mod region {
         pub(crate) use crate::boundaries::*;
     }
-    pub(crate) use crate::{geosn, lgb, lgln, lvermgeo};
+    pub(crate) use crate::{geosn, hvbg, lgb, lgln, lgv, lvermgeo};
     pub(crate) use freemapper_sources::{
-        float_tiff, height_model, metalink, wcs, wfs as alkis_wfs, wms, xlsx, zip_range,
+        float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,
+        zip_range,
     };
 }
 

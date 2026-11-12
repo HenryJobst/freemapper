@@ -15,14 +15,14 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
-#[cfg(test)]
-pub(crate) use freemapper_adapter_api::fetch::{
-    ATTEMPTS, get_range_with_retries, is_ogc_report, ogc_exception,
-};
 pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
 pub(crate) use freemapper_adapter_api::fetch::{
     download_with_retries, get_limited_with_retries, get_with_attempts, get_with_retries, one_line,
     write_cache_file, write_inside,
+};
+#[cfg(test)]
+pub(crate) use freemapper_adapter_api::fetch::{
+    get_range_with_retries, is_ogc_report, ogc_exception,
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 
