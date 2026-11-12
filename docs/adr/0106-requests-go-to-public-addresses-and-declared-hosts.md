@@ -28,10 +28,12 @@ the tile proxy of the area page asked whatever address they were given.
 - A `UrlPolicy` is a list of hosts. A URL passes when its host is in the list. The requests that belong to no
   adapter have a fixed list (`UrlPolicy::core()`): `download.geofabrik.de`, `nominatim.openstreetmap.org` and
   `tile.openstreetmap.org`.
-- The address a connection is opened to is checked as well (`policy::check_addr`). Refused are loopback, private,
-  link-local, unique-local, multicast and unspecified addresses, the shared address space of carriers, the
-  documentation and benchmark nets, and an IPv4 address of these kinds inside an IPv6 address (mapped, compatible,
-  NAT64, 6to4). The check sits in the resolver of the HTTP client (`freemapper::fetch::GuardedResolver`): the
+- The address a connection is opened to is checked as well (`policy::check_addr`). For IPv4, refused are loopback,
+  private, link-local, multicast and unspecified addresses, the shared address space of carriers and the
+  documentation and benchmark nets. For IPv6 the rule is the other way round: only global unicast (`2000::/3`)
+  passes, without the documentation nets and the protocol assignments (Teredo among them). An IPv4 address inside
+  an IPv6 one (mapped, behind the well-known NAT64 prefix, 6to4) is judged as that IPv4 address, so a network
+  without IPv4 still reaches an IPv4 server. The check sits in the resolver of the HTTP client (`freemapper::fetch::GuardedResolver`): the
   client connects to the addresses the resolver returns and to no other, so the address checked is the address
   used. It runs for every redirect hop again.
 - Every agent of freemapper that talks to the internet is built by `freemapper::fetch::guarded_agent`: the two

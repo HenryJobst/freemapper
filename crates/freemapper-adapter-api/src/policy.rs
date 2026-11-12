@@ -128,34 +128,26 @@ fn public_v4(addr: Ipv4Addr) -> bool {
         || a >= 224) // multicast, reserved, broadcast
 }
 
-/// Whether a request may go to the IPv6 address. An IPv4 address inside it (mapped, compatible,
-/// NAT64, 6to4) is judged as that IPv4 address.
+/// Whether a request may go to the IPv6 address. Everything is refused that is not global
+/// unicast (`2000::/3`), and of that the nets for documentation and for protocols (Teredo among
+/// them). An IPv4 address inside an IPv6 one is judged as that IPv4 address: mapped
+/// (`::ffff:a.b.c.d`), behind the well-known NAT64 prefix (how a network without IPv4 reaches
+/// an IPv4 server) and 6to4.
 fn public_v6(addr: Ipv6Addr) -> bool {
-    let s = addr.segments();
     let embedded = |high: u16, low: u16| {
         let [a, b] = high.to_be_bytes();
         let [c, d] = low.to_be_bytes();
         public_v4(Ipv4Addr::new(a, b, c, d))
     };
-    if addr.is_unspecified() || addr.is_loopback() {
-        return false;
-    }
-    match s {
-        // `::ffff:a.b.c.d` (mapped) and `::a.b.c.d` (compatible).
-        [0, 0, 0, 0, 0, 0xffff, high, low] | [0, 0, 0, 0, 0, 0, high, low] => embedded(high, low),
-        // NAT64.
+    match addr.segments() {
+        [0, 0, 0, 0, 0, 0xffff, high, low] => embedded(high, low),
         [0x64, 0xff9b, 0, 0, 0, 0, high, low] => embedded(high, low),
-        // 6to4.
         [0x2002, high, low, ..] => embedded(high, low),
-        // Documentation.
-        [0x2001, 0xdb8, ..] => false,
-        // Unique local, link-local and the old site-local, multicast.
-        [first, ..] => {
-            !(first & 0xfe00 == 0xfc00
-                || first & 0xff80 == 0xfe80
-                || first & 0xffc0 == 0xfec0
-                || first & 0xff00 == 0xff00)
-        }
+        // 2001::/23, the protocol assignments (Teredo, ORCHID, benchmarking), and the
+        // documentation nets 2001:db8::/32 and 3fff::/20.
+        [0x2001, second, ..] if second < 0x200 || second == 0xdb8 => false,
+        [first, ..] if first & 0xfff0 == 0x3ff0 => false,
+        [first, ..] => first & 0xe000 == 0x2000,
     }
 }
 
@@ -420,6 +412,19 @@ mod tests {
             "64:ff9b::7f00:1",
             "2002:7f00:1::1",
             "2002:c0a8:101::1",
+            // IPv6 is refused unless it is global unicast: the deprecated IPv4-compatible
+            // form, the local NAT64 prefix, Teredo and the other protocol assignments, the
+            // second documentation net, and everything outside 2000::/3.
+            "::808:808",
+            "64:ff9b:1::808:808",
+            "2001::1",
+            "2001:0:4136:e378:8000:63bf:3fff:fdd2",
+            "2001:2::1",
+            "2001:10::1",
+            "3fff::1",
+            "4000::1",
+            "100::1",
+            "e000::1",
         ] {
             let addr: IpAddr = refused.parse().unwrap();
             let error = check_addr(addr).unwrap_err();
@@ -435,6 +440,8 @@ mod tests {
             "192.167.255.255",
             "193.99.144.80",
             "2a00:1450:4001:81b::200e",
+            "2001:4860:4860::8888",
+            "2606:4700::6810:84e5",
             "::ffff:8.8.8.8",
             "64:ff9b::808:808",
             "2002:808:808::1",
