@@ -13,7 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
-- Saarland: Ein Landkreis-Archiv, das sich nicht lesen lässt (umbenannt, oder der Server ist kurz nicht erreichbar), stoppt den Abruf nicht mehr, wenn die Kacheln des Gebiets in anderen Archiven liegen. Fällt ein Archiv aus, gilt sein Verzeichnis vom letzten Lauf; Karten, deren Kacheln schon im Zwischenspeicher liegen, entstehen weiter.
+- Saarland: Ein Landkreis-Archiv, das sich nicht lesen lässt (umbenannt, oder der Server ist kurz nicht erreichbar), stoppt den Abruf nicht mehr, wenn die Kacheln des Gebiets in anderen Archiven liegen. Fällt ein Archiv aus, gilt sein Verzeichnis vom letzten Lauf; Karten, deren Kacheln schon im Zwischenspeicher liegen, entstehen weiter. Beides meldet eine Warnung mit der Adresse des Archivs. Ein Abbruch, eine nicht erlaubte Adresse oder ein Schreibfehler auf diesem Rechner beenden den Abruf weiterhin sofort.
 - Ein Ordner im Adapterordner, dessen Name mit einem Punkt beginnt (`.git`), löst nicht mehr bei jedem Befehl eine Warnung aus.
 - Eine Vorabversion des Programms (`x.y.z-rc.1`) bricht beim Laden der Adapter nicht mehr ab; sie zählt als ihre Release-Version.
 

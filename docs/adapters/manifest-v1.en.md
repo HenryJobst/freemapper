@@ -17,8 +17,8 @@ Folder adapters are read by freemapper 0.14.0 and later.
 - It holds at most 64 files. The folder and the files freemapper reads must be real ones; a link is not
   followed.
 - A `rules.toml` in the folder is not read (warning `adapter.rules-not-read`); the adapter still loads.
-- In the adapter folder, beside the folders of the adapters, a plain file and anything whose name starts with
-  a dot (`.git`, the folder of a sync tool) is passed over.
+- In the adapter folder, beside the folders of the adapters, plain files and anything whose name starts with
+  a dot (`.git`, the folder of a sync tool) are passed over.
 
 ## Rules that hold everywhere
 

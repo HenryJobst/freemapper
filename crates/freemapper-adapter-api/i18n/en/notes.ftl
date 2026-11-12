@@ -41,6 +41,8 @@ progress-model-read = reading the { $model }
 warning-model-unavailable = { $model } unavailable ({ $error }); no nDSM template
 warning-model-unavailable-kept = { $model } unavailable ({ $error }); kept the surface model fetched on { $fetched }
 warning-model-tile-unavailable = { $model } of tile { $tile } unavailable ({ $error }); no nDSM template there
+warning-archive-passed-over = { $model }: an archive could not be read ({ $error }); it was passed over, and the tiles of the map area come from the other archives
+warning-archive-directory-kept = { $model }: an archive could not be read ({ $error }); its directory kept from an earlier run is used, so a tile the LVGL replaced since is not noticed
 warning-model-tiles-missing = the { $model } has no { $count ->
         [one] tile
        *[other] tiles

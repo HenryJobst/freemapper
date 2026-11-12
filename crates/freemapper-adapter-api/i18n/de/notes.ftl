@@ -46,6 +46,8 @@ progress-model-read = { $model } wird gelesen
 warning-model-unavailable = { $model } nicht verfügbar ({ $error }); keine nDSM-Vorlage
 warning-model-unavailable-kept = { $model } nicht verfügbar ({ $error }); das am { $fetched } geladene Oberflächenmodell bleibt
 warning-model-tile-unavailable = { $model } der Kachel { $tile } nicht verfügbar ({ $error }); dort keine nDSM-Vorlage
+warning-archive-passed-over = { $model }: Ein Archiv ließ sich nicht lesen ({ $error }); es wurde übergangen, und die Kacheln des Kartengebiets kommen aus den anderen Archiven
+warning-archive-directory-kept = { $model }: Ein Archiv ließ sich nicht lesen ({ $error }); verwendet wird sein Verzeichnis aus einem früheren Lauf, eine seither vom LVGL ersetzte Kachel fällt so nicht auf
 warning-model-tiles-missing = { $model }: { $state ->
         [the-map-area] Im Kartengebiet
         [hamburg] In Hamburg
