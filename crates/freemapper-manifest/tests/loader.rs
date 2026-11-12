@@ -196,6 +196,26 @@ fn ground_is_shared_by_area_not_by_the_middle_of_a_region() {
     assert_eq!(overlaps, [("partly", vec!["sample"]), ("strip", vec![])]);
 }
 
+/// A boundary whose ring crosses itself is not a region: the folder is left out with a finding
+/// about the boundary, and the measure of shared ground never sees it.
+#[test]
+fn a_boundary_that_crosses_itself_is_left_out() {
+    let dir = tempfile::tempdir().unwrap();
+    // A bow tie over the west edge of `sample` (the square from 400 000 to 401 000).
+    let bow_tie = r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+        [[[399500,5800000],[400800,5801000],[400800,5800000],[399500,5801000],[399500,5800000]]]}}"#;
+    let folder = write(dir.path(), "bowtie", &manifest("bowtie"));
+    std::fs::write(folder.join("boundary.geojson"), bow_tie).unwrap();
+    let mut registry = Registry::new();
+    registry
+        .add(built_in("sample", &manifest("sample"), &Registry::new()))
+        .unwrap();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty(), "{loaded:?}");
+    let (code, _) = skipped(&warnings);
+    assert_eq!(code, "boundary.invalid");
+}
+
 /// Review focus 4: an id is taken once. A folder cannot replace an adapter the program has,
 /// nor one loaded before it.
 #[test]
