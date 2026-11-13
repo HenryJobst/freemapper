@@ -166,4 +166,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0118](0118-paper-and-symbol-measures-are-types.md) | Paper and symbol measures are types | Accepted | 2026-11-13 |
 | [0119](0119-baden-wuerttemberg-ndom-on-the-terrain-and-alkis-by-code.md) | Baden-Württemberg: the nDOM1 on the terrain, and the ALKIS of the views by code | Accepted | 2026-11-13 |
 | [0120](0120-permit-sources-of-region-adapters.md) | Permit sources of region adapters | Accepted | 2026-11-13 |
+| [0121](0121-bremen-the-full-alkis-as-the-simplified-schema.md) | Bremen: the full ALKIS as the simplified schema, and grid points taken as cells | Accepted | 2026-11-13 |
 | [0122](0122-a-sliver-is-measured-by-its-short-side.md) | A sliver is measured by its short side | Accepted | 2026-11-13 |

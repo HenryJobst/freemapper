@@ -292,17 +292,19 @@ mod tests {
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, regions};
 
-    /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg; the
-    /// queries over the registry find them for an area there and nowhere else.
+    /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg, the full
+    /// ALKIS of Bremen to Bremen; the queries over the registry find them for an area there
+    /// and nowhere else.
     #[test]
     fn brandenburg_names_the_nas_service_and_the_tree_cadastre() {
         use crate::crs::BoundingBox;
         use crate::sources::{alkis_nas, trees};
         for adapter in registry().adapters() {
-            let brandenburg = adapter.info().id.as_str() == "brandenburg";
+            let id = adapter.info().id.as_str();
+            let brandenburg = id == "brandenburg";
             assert_eq!(
                 adapter.nas().is_some(),
-                brandenburg,
+                brandenburg || id == "bremen",
                 "{}",
                 adapter.info().id
             );
@@ -336,6 +338,18 @@ mod tests {
         assert_eq!(trees::tree_datasets_for(&sanssouci).len(), 1);
         assert!(alkis_nas::nas_services_for(&zwinger).is_empty());
         assert!(trees::tree_datasets_for(&zwinger).is_empty());
+        // The market square of Bremen (EPSG:25833): its own service, asked in zone 32.
+        let market = BoundingBox {
+            min_e: 85_100.0,
+            min_n: 5_898_400.0,
+            max_e: 85_600.0,
+            max_n: 5_898_900.0,
+        };
+        let services = alkis_nas::nas_services_for(&market);
+        assert_eq!(services.len(), 1);
+        assert_eq!(services[0].name, "GeoBremen ALKIS (NAS)");
+        assert_eq!(services[0].crs, crate::crs::Crs::Utm32);
+        assert!(trees::tree_datasets_for(&market).is_empty());
     }
 
     /// Each built-in adapter is held to the hosts of its own manifest, not to those of
@@ -601,7 +615,7 @@ mod tests {
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
-             Baden-Württemberg); freemapper has data sources for those only so far"
+             Baden-Württemberg, Bremen); freemapper has data sources for those only so far"
         );
         assert_eq!(region_names(true)[2], "Sachsen");
     }
@@ -618,19 +632,19 @@ mod tests {
     }
 
     #[test]
-    fn registry_lists_the_thirteen() {
+    fn registry_lists_the_fourteen() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
         let all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
         assert_eq!(ids, all);
-        assert_eq!(ids.len(), 13);
+        assert_eq!(ids.len(), 14);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
         let legacy: Vec<String> = regions::LEGACY.iter().map(ToString::to_string).collect();
         assert_eq!(ids[..11], legacy);
-        assert_eq!(ids[11..], ["saarland", "badenwuerttemberg"]);
+        assert_eq!(ids[11..], ["saarland", "badenwuerttemberg", "bremen"]);
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 13);
+        assert_eq!(registry().len(), 14);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

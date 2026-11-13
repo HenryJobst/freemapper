@@ -44,7 +44,11 @@ cli-ocad-wrote = { $count ->
        *[other] Wrote { $path } ({ $count } objects)
     }
 cli-ocad-left-out = Left out of the OCAD map: { $skipped } objects (no symbol for OCAD, no area, or outside OCAD's drawing area of ±2 m) and { $dropped } degenerate line parts or holes.
-cli-ocad-load-symbols = In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official ISSprOM 2019 or school symbol set; it replaces freemapper's placeholder symbols by number.
+cli-ocad-load-symbols = In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official symbol set{ $kind ->
+        [forest] {" "}ISOM 2017-2
+        [schoolyard] , the IOF school set 2019
+       *[other] {" "}ISSprOM 2019
+    }; it replaces freemapper's placeholder symbols by number.
 
 ## select
 
@@ -640,7 +644,11 @@ cli-summary-map-lacks-canopies = The map lacks the ALKIS canopies and carports (
 cli-summary-wrote-ocad = Wrote the OCAD map { $path } ({ $count } objects)
 cli-summary-kept-ocad = Kept the existing OCAD map { $path } (it may contain the mapper's work; force replaces it)
 cli-summary-ocad-left-out = Left out of the OCAD map: { $skipped } objects and { $dropped } degenerate parts
-cli-summary-ocad-symbols = In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official ISSprOM 2019 or school symbol set; it replaces the placeholder symbols by number.
+cli-summary-ocad-symbols = In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official symbol set{ $kind ->
+        [forest] {" "}ISOM 2017-2
+        [schoolyard] , the IOF school set 2019
+       *[other] {" "}ISSprOM 2019
+    }; it replaces the placeholder symbols by number.
 cli-summary-ocad-failed = OCAD export failed: { $error }
 cli-summary-pdf-without-credits = PDF without source credits: ODbL and dl-de/by-2-0 ask you to name the sources when you pass the map on; see ATTRIBUTION.txt
 cli-summary-wrote-pdf = Wrote the map { $path } (without candidates)

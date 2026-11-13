@@ -205,8 +205,8 @@ const UNCOVERED_M: f64 = 50.0;
 const COVERAGE_STEP_M: f64 = 25.0;
 
 /// Whether part of `bbox` (EPSG:25833) lies outside every region of `registry`: a point of it
-/// more than [`UNCOVERED_M`] from all their boundaries, e.g. in Bremen (a hole in
-/// Niedersachsen), in Thuringia or another state that is no region yet, abroad or at sea.
+/// more than [`UNCOVERED_M`] from all their boundaries, e.g. in Thuringia or another state that
+/// is no region yet, abroad or at sea.
 pub fn reaches_beyond_coverage_in(registry: &Registry, bbox: &BoundingBox) -> bool {
     use geo::{BooleanOps as _, Distance as _, Euclidean};
     // Every boundary part within UNCOVERED_M of a point of `bbox` lies in this rectangle.

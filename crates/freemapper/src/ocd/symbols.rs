@@ -2,7 +2,8 @@
 //! → OCAD symbol number table.
 //!
 //! The placeholders carry the right number, name, type and main colour. In OCAD the official
-//! ISSprOM 2019 or school symbol set replaces them by number ("Load colors and symbols from").
+//! symbol set of the map kind (ISSprOM 2019, the school set or ISOM 2017-2) replaces them by
+//! number ("Load colors and symbols from").
 
 use std::collections::{HashMap, HashSet};
 

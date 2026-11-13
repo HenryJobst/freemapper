@@ -27,6 +27,7 @@ pub const NIEDERSACHSEN: &str = "niedersachsen";
 pub const RHEINLAND_PFALZ: &str = "rheinlandpfalz";
 pub const SAARLAND: &str = "saarland";
 pub const BADEN_WUERTTEMBERG: &str = "badenwuerttemberg";
+pub const BREMEN: &str = "bremen";
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
 const BRANDENBURG_BOUNDARY: &str = include_str!("../manifests/brandenburg/boundary.geojson");
@@ -74,9 +75,15 @@ const SAARLAND_BOUNDARY: &str = include_str!("../manifests/saarland/boundary.geo
 /// EPSG:25833. Along the Rhine the line differs from that of Rhineland-Palatinate by up to 30 m.
 const BADEN_WUERTTEMBERG_BOUNDARY: &str =
     include_str!("../manifests/badenwuerttemberg/boundary.geojson");
+/// Bremen from the municipal areas of its full ALKIS (`AX_KommunalesGebiet`, simplified 25 m,
+/// EPSG:25833; CC BY 4.0): four parts, the city of Bremen, Bremerhaven with the port area of
+/// the city of Bremen inside it, and two small exclaves. The municipal area of Bremerhaven
+/// reaches 8 km² into the Weser, which the cadastre of Lower Saxony holds too; that water is
+/// left to the boundary of Lower Saxony.
+const BREMEN_BOUNDARY: &str = include_str!("../manifests/bremen/boundary.geojson");
 
 /// The states in the order of the registry, each with its boundary.
-const STATES: [(&str, &str); 13] = [
+const STATES: [(&str, &str); 14] = [
     (BRANDENBURG, BRANDENBURG_BOUNDARY),
     (BERLIN, BERLIN_BOUNDARY),
     (SAXONY, SAXONY_BOUNDARY),
@@ -90,6 +97,7 @@ const STATES: [(&str, &str); 13] = [
     (RHEINLAND_PFALZ, RHEINLAND_PFALZ_BOUNDARY),
     (SAARLAND, SAARLAND_BOUNDARY),
     (BADEN_WUERTTEMBERG, BADEN_WUERTTEMBERG_BOUNDARY),
+    (BREMEN, BREMEN_BOUNDARY),
 ];
 
 /// The outline of a state: its boundary and the box around it.
@@ -118,7 +126,8 @@ pub fn boundary_text(id: &str) -> Option<&'static str> {
 
 /// The outline of the state `id`, parsed once.
 pub fn outline(id: &str) -> Option<&'static StateOutline> {
-    static OUTLINES: [OnceLock<StateOutline>; 13] = [
+    static OUTLINES: [OnceLock<StateOutline>; 14] = [
+        OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
@@ -221,7 +230,7 @@ mod tests {
             );
             assert!(boundary_text(id).is_some(), "{id}");
         }
-        assert!(outline("bremen").is_none());
+        assert!(outline("thueringen").is_none());
         // Hamburg city hall lies in Hamburg and not in Schleswig-Holstein.
         let (e, n) = (165_800.0, 5_945_300.0);
         assert_eq!(
