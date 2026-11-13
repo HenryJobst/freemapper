@@ -509,7 +509,13 @@ fn report_ocad(outcome: &OcadOutcome) {
             )
         );
     }
-    println!("{}", text("cli-ocad-load-symbols", &[]));
+    println!(
+        "{}",
+        text(
+            "cli-ocad-load-symbols",
+            &[("kind", v(outcome.map_kind.name()))]
+        )
+    );
 }
 
 /// Prints what a step of `run` wrote.

@@ -21,6 +21,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Fixed
 
 - Forest maps: the north lines are now 20 mm (1:15 000) or 30 mm (1:10 000) apart, 300 m on the ground, as ISOM 2017-2 requires; before they were 450 m apart, as in ISOM 2000.
+- The OCAD hint after `--ocad`: on a forest map freemapper told you to load the ISSprOM 2019 or school symbol set in OCAD. The hint now names the set of the map kind: ISOM 2017-2 for forest maps, ISSprOM 2019 for sprint maps, the IOF school set 2019 for schoolyard maps. The same goes for the summary through MCP and on the area page. The README now names ISOM 2017-2 as well.
 
 ## [0.17.0] - 2026-11-13
 
