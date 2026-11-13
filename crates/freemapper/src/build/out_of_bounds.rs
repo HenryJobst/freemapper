@@ -22,8 +22,8 @@ const PRIVATE_LAND_USES: [&str; 4] = [
 ];
 /// On the schoolyard map, parts at least this much inside the map area are the school's land.
 const OWN_LAND_SHARE: f64 = 0.5;
-/// Pieces smaller than (1 mm)² or narrower than 1 mm, enlarged like the symbols, are slivers
-/// along parcel boundaries and at the clip edge.
+/// Pieces smaller than (1 mm)² or with a short side ([`short_side`]) under 1 mm, enlarged like
+/// the symbols, are slivers along parcel boundaries and at the clip edge.
 const MIN_SIDE_MM: SymbolMm = SymbolMm(1.0);
 
 /// The `bez` of the sports and recreation land use that is private ground: allotment gardens.
@@ -115,22 +115,43 @@ impl LandClip {
         }
     }
 
-    /// `polygon` is a sliver: smaller than (1 mm)², or narrower than 1 mm on paper or than
-    /// `width_cap_m` on the ground, whichever is less (`f64::INFINITY`: the paper limit alone,
-    /// `0.0`: no width limit).
+    /// `polygon` is a sliver: smaller than (1 mm)², or with a short side ([`short_side`]) under
+    /// 1 mm on paper or under `width_cap_m` on the ground, whichever is less (`f64::INFINITY`:
+    /// the paper limit alone, `0.0`: no width limit).
     pub(crate) fn is_sliver(&self, polygon: &Polygon<f64>, width_cap_m: f64) -> bool {
         polygon.unsigned_area() < self.min_area
-            || mean_width(polygon) < self.min_width.min(width_cap_m)
+            || short_side(polygon) < self.min_width.min(width_cap_m)
     }
 }
 
-/// Mean width of a polygon: 2·area/perimeter, holes included.
-pub(crate) fn mean_width(polygon: &Polygon<f64>) -> f64 {
-    let perimeter: f64 = std::iter::once(polygon.exterior())
+/// The length of all rings of a polygon, holes included.
+fn perimeter(polygon: &Polygon<f64>) -> f64 {
+    std::iter::once(polygon.exterior())
         .chain(polygon.interiors())
         .map(|r| geo::Euclidean.length(r))
-        .sum();
-    2.0 * polygon.unsigned_area() / perimeter.max(f64::MIN_POSITIVE)
+        .sum()
+}
+
+/// Mean width of a polygon: 2·area/perimeter, holes included. It is the width of a long strip
+/// and half the side of a square, so it fits watercourses, not compact areas ([`short_side`]).
+pub(crate) fn mean_width(polygon: &Polygon<f64>) -> f64 {
+    2.0 * polygon.unsigned_area() / perimeter(polygon).max(f64::MIN_POSITIVE)
+}
+
+/// The short side of the rectangle with the area and the perimeter of `polygon` (holes
+/// included): the width of a strip and the side of a square. A shape rounder than a square has
+/// no such rectangle and gets the side of the square with its area.
+pub(crate) fn short_side(polygon: &Polygon<f64>) -> f64 {
+    let area = polygon.unsigned_area();
+    // The sides are the roots of x² − (perimeter/2)·x + area: perimeter/4 ± √spread.
+    let quarter = perimeter(polygon) / 4.0;
+    let spread = quarter * quarter - area;
+    if spread <= 0.0 {
+        return area.sqrt();
+    }
+    // The short side as area / long side: the difference of the two terms would cancel on a
+    // long strip.
+    area / (quarter + spread.sqrt())
 }
 
 /// The land use's class as tagged: `nutzart / bez`, or `nutzart` alone.
@@ -468,6 +489,54 @@ mod tests {
         };
         assert!(!sliver(MapKind::Sprint));
         assert!(sliver(MapKind::Schoolyard));
+    }
+
+    #[test]
+    fn the_short_side_of_a_rectangle_is_its_width() {
+        let rect = |w, h| Polygon::new(ring(0.0, 0.0, w, h), vec![]);
+        assert!((short_side(&rect(20.0, 30.0)) - 20.0).abs() < 1e-9);
+        assert!((short_side(&rect(10.0, 10.0)) - 10.0).abs() < 1e-9);
+        // A strip of 1 cm over a kilometre keeps its width; 2·area/perimeter agrees there and
+        // gives half the side of the square.
+        assert!((short_side(&rect(0.01, 1000.0)) - 0.01).abs() < 1e-9);
+        assert!((mean_width(&rect(0.01, 1000.0)) - 0.01).abs() < 1e-6);
+        assert!((mean_width(&rect(10.0, 10.0)) - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_shape_rounder_than_a_square_is_as_wide_as_the_square_of_its_area() {
+        // A regular 32-gon of radius 10 m: 312 m², no rectangle has that area with its perimeter.
+        let corners: Vec<(f64, f64)> = (0..=32)
+            .map(|i| {
+                let angle = std::f64::consts::TAU * f64::from(i % 32) / 32.0;
+                (10.0 * angle.cos(), 10.0 * angle.sin())
+            })
+            .collect();
+        let round = Polygon::new(LineString::from(corners), vec![]);
+        assert!((short_side(&round) - round.unsigned_area().sqrt()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_hole_narrows_the_short_side() {
+        // A frame of 30 × 30 m with a hole of 20 × 20 m, 5 m wide all around: 500 m² along
+        // 200 m of outline and hole give a short side of 5.28 m.
+        let frame = Polygon::new(ring(0.0, 0.0, 30.0, 30.0), vec![ring(5.0, 5.0, 20.0, 20.0)]);
+        assert!((short_side(&frame) - 5.279).abs() < 1e-3);
+        assert!(short_side(&frame) < short_side(&Polygon::new(ring(0.0, 0.0, 30.0, 30.0), vec![])));
+    }
+
+    #[test]
+    fn a_house_plot_is_no_sliver_on_a_forest_map() {
+        // 1:10000 with the symbols at 150 %: 1 mm of the norm is 15 m on the ground. A plot of
+        // 20 × 25 m is wider than that, though 2·area/perimeter is only 11 m; a strip of
+        // 12 × 60 m is not.
+        let f = fixture();
+        let (e, n) = f.centre;
+        let clip = LandClip::new(&f.clip, SymbolScale::new(MapKind::Forest, 10000));
+        let plot = Polygon::new(ring(e, n, 20.0, 25.0), vec![]);
+        let strip = Polygon::new(ring(e, n, 12.0, 60.0), vec![]);
+        assert!(!clip.is_sliver(&plot, f64::INFINITY));
+        assert!(clip.is_sliver(&strip, f64::INFINITY));
     }
 
     #[test]

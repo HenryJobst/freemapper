@@ -115,7 +115,7 @@ Ein Beispiel der Kartenart `forest` (ISOM 2017-2), für ein schnelles Training i
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
-| Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1147 | 134 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+| Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
 
 Erzeugt mit `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
 und `run --pdf-candidates --ocad`. Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte;
