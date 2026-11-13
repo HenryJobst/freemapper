@@ -737,10 +737,10 @@ mcp-error-content = Cannot read the content setting: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG and reads the OSM extract already cached; --offline uses what was fetched before
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de) through the hosts of Berlin's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
 help-permits-dir = Project folder
 help-permits-offline = Use the data fetched before only, without network access
-help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG. A failure there is a warning and the map stays
+help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de). A failure there is a warning and the map stays
 cli-wrote-permits = Wrote the permit notes { $path }
 cli-summary-wrote-permits = Wrote the permit notes { $path }
 cli-permits-failed = the permit notes could not be written: { $error }

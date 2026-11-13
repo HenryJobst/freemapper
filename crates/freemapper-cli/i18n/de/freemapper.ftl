@@ -754,10 +754,10 @@ mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 ## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
 ## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
 
-help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de) über die Hosts von Berlins Adapter, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
 help-permits-dir = Projektordner
 help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
-help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG. Ein Fehler dort ist eine Warnung, die Karte bleibt
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin auch das Geoportal Berlin (gdi.berlin.de). Ein Fehler dort ist eine Warnung, die Karte bleibt
 cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
@@ -861,12 +861,12 @@ permits-hint-park-operator = Betreiber eines Parks oder Gartens im Kartengebiet 
 permits-hint-school-operator = Träger oder Betreiber der Schule oder Einrichtung laut OpenStreetMap: { $operator }. Für das Gelände fragen Sie die Schulleitung oder diesen Träger.
 permits-section-districts = Bezirke ({ $source })
 permits-section-green-spaces = Grünanlagen ({ $source })
-permits-section-owners = Eigentum des Landes und des Bundes ({ $source })
+permits-section-owners = Eigentum des Bundeslandes und des Bundes ({ $source })
 permits-section-monuments = Denkmale ({ $source })
 permits-section-protected-objects = Naturdenkmale und andere Schutzobjekte ({ $source })
 permits-none-districts = Laut { $source } liegt das Kartengebiet in keinem Bezirk.
 permits-none-green-spaces = Laut { $source } liegt im Kartengebiet keine öffentliche Grünanlage.
-permits-none-owners = Laut { $source } liegt im Kartengebiet kein Grundstück des Landes oder des Bundes.
+permits-none-owners = Laut { $source } liegt im Kartengebiet kein Grundstück des Bundeslandes oder des Bundes.
 permits-none-monuments = Laut { $source } liegt im Kartengebiet kein Denkmal.
 permits-none-protected-objects = Laut { $source } liegt im Kartengebiet kein Naturdenkmal, kein geschützter Landschaftsbestandteil und keine Fläche mit besonderer Regelung.
 permits-share-line = { $name }: { $share }

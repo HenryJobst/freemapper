@@ -901,7 +901,8 @@ brauchen Sie weiter, und fragen müssen Sie auch.
 
 ### Hinweise erstellen
 
-Die Hinweise entstehen nur auf Ihren Wunsch, und nur dann fragt freemapper das BfN und das BKG.
+Die Hinweise entstehen nur auf Ihren Wunsch, und nur dann fragt freemapper das BfN und das BKG, für ein
+Kartengebiet in Berlin auch das Geoportal Berlin.
 
 - Im Terminal, nachdem die Karte einmal geladen wurde:
 
@@ -915,7 +916,8 @@ Die Hinweise entstehen nur auf Ihren Wunsch, und nur dann fragt freemapper das B
 - Dem KI-Assistenten sagen Sie zum Beispiel: „Erstelle für das Projekt auch die Hinweise zu Genehmigungen.“
   Er zeigt Ihnen den Text, sobald er fertig ist.
 
-`permits` fragt die beiden Dienste des Bundes und liest den OSM-Auszug, der schon im Zwischenspeicher liegt.
+`permits` fragt die beiden Dienste des Bundes, in Berlin auch das Geoportal Berlin, und liest den OSM-Auszug,
+der schon im Zwischenspeicher liegt.
 Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap aus und sagen das;
 `freemapper fetch` lädt ihn. Das Ganze dauert etwa eine halbe Minute, den größten Teil davon braucht das Lesen
 des OSM-Auszugs.
@@ -974,8 +976,11 @@ Liegt das Kartengebiet in Berlin, fragt freemapper zusätzlich fünf Dienste des
 - „Grünanlagen“ nennt die öffentlichen Grünanlagen mit Bezirk, Widmung und Anteil. Die Teile eines Parks
   zählen zum Park („Viktoriapark, Rosengarten“ zählt als „Viktoriapark“). Öffentliche Spielplätze werden nur
   gezählt.
-- „Eigentum des Landes und des Bundes“ nennt aus dem Liegenschaftsplan, welcher Anteil des Kartengebiets dem
-  Land Berlin und welcher dem Bund gehört. Es gibt eine Zeile je Eigentümer, nie eine Liste der Flurstücke.
+- „Eigentum des Bundeslandes und des Bundes“ nennt aus dem Liegenschaftsplan, welcher Anteil des Kartengebiets
+  dem Bundesland Berlin (in den Daten „Land Berlin“) und welcher dem Bund („Bundesrepublik Deutschland“)
+  gehört. Es gibt eine Zeile je Eigentümer, nie eine Liste der Flurstücke. Andere Eigentümer, die in den Daten
+  stehen könnten, nennt freemapper nicht: Ihre Flurstücke teilen sich eine Zeile „Andere öffentliche
+  Eigentümer“.
 - „Denkmale“ zählt die Denkmale je Art (Baudenkmal, Gesamtanlage, Ensemble, Gartendenkmal) und verlinkt bis zu
   20 Einträge der Denkmaldatenbank Berlin. Seltene Arten bekommen ihre Links zuerst, die übrigen Einträge
   werden gezählt.
@@ -983,10 +988,12 @@ Liegt das Kartengebiet in Berlin, fragt freemapper zusätzlich fünf Dienste des
   flächige), geschützte Landschaftsbestandteile und Flächen mit besonderer Regelung, mit der Verordnung, wo die
   Daten sie nennen. Ein Baum zählt, wenn er im Kartengebiet steht.
 
-Die Hinweise nennen dann das Bezirksamt: Ordnungsamt sowie Straßen- und Grünflächenamt für jeden Bezirk, die
-untere Denkmalschutzbehörde für jeden Bezirk mit einem Denkmal im Gebiet und die untere Naturschutzbehörde für
-jeden Bezirk mit einem Naturdenkmal oder geschützten Landschaftsbestandteil. Der Hinweis zu den Eigentümern nennt
-die Anteile des Landes und des Bundes; für den Rest bleibt es beim Grundbuchauszug.
+Die Hinweise nennen dann das Bezirksamt, für jeden Bezirk, der mehr als den Rand des Gebiets berührt (0,5 % oder
+mehr): Ordnungsamt sowie Straßen- und Grünflächenamt, die untere Denkmalschutzbehörde, wenn ein Denkmal des
+Gebiets in diesem Bezirk liegt, und die untere Naturschutzbehörde, wenn dort ein Naturdenkmal oder geschützter
+Landschaftsbestandteil liegt. Nur ein Objekt, das allein in Bezirken am Rand liegt, nennt seinen Bezirk am Rand.
+Der Hinweis zu den Eigentümern nennt die Anteile des Bundeslandes und des Bundes; für den Rest bleibt es beim
+Grundbuchauszug.
 
 Fällt ein Dienst aus, fehlt nur sein Abschnitt, und die Tabelle der Quellen nennt ihn „nicht erreichbar“. Fehlen
 die Bezirke, steht wieder der allgemeine Hinweis für Berlin und Hamburg da. Die NSG, LSG, FFH-Gebiete,
@@ -1006,7 +1013,7 @@ Vogelschutzgebiete und den Naturpark nimmt freemapper weiter vom BfN, nicht aus 
   Berlin, für Hamburg noch nicht.
 - Laut Geoportal Berlin sind bei den Schutzobjekten nur die amtlichen analogen Karten rechtsverbindlich. Die
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
-- Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für Land und Bund. Die Hinweise
+- Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
   sagen, wie man einen Grundbuchauszug bekommt.
 - Forstverwaltungen, Wasserschutzgebiete und Denkmale außerhalb Berlins fehlen noch. Sie kommen in späteren
   Versionen.

@@ -871,7 +871,8 @@ still have to ask them.
 
 ### Making the notes
 
-The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG.
+The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG, and for
+a map area in Berlin also the Geoportal Berlin.
 
 - In the terminal, after the map was fetched once:
 
@@ -885,7 +886,8 @@ The notes are made only when you ask for them, and only then does freemapper ask
 - Tell the AI assistant, for example: "Also make the permit notes for the project." It shows you the text
   once it is done.
 
-`permits` asks the two federal services and reads the OSM extract that is already in the cache. It does not
+`permits` asks the two federal services, in Berlin also the Geoportal Berlin, and reads the OSM extract that is
+already in the cache. It does not
 download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
 it. It all takes about half a minute, most of it for reading the OSM extract.
 
@@ -943,17 +945,20 @@ Their sections follow "Administrative units":
   park count as the park ("Viktoriapark, Rosengarten" counts as "Viktoriapark"). Public playgrounds are only
   counted.
 - "Land of the state and of the Bund" says from the Liegenschaftsplan what share of the map area belongs to the
-  Land Berlin and what share to the Bund. There is one line per owner, never a list of parcels.
+  state of Berlin ("Land Berlin" in the data) and what share to the Bund ("Bundesrepublik Deutschland"). There
+  is one line per owner, never a list of parcels. Any other owner the data might name is not named: those
+  parcels share one line, "Other public owners".
 - "Monuments" counts the monuments per kind (Baudenkmal, Gesamtanlage, Ensemble, Gartendenkmal) and links up to
   20 entries of the Denkmaldatenbank Berlin. Rare kinds get their links first; the other entries are counted.
 - "Natural monuments and other protected objects" names natural monuments (trees and boulders as points, and
   areas), protected landscape features and areas with special rules, with the ordinance where the data name it.
   A tree counts when it stands in the map area.
 
-The hints then name the Bezirksamt: the Ordnungsamt and the Straßen- und Grünflächenamt for each Bezirk, the
-lower monument authority for each Bezirk with a monument in the area, and the lower nature conservation authority
-for each Bezirk with a natural monument or protected landscape feature. The owner hint gives the shares of the
-Land and the Bund; for the rest it stays with the extract from the land register.
+The hints then name the Bezirksamt, for each Bezirk that is more than an edge of the area (0.5 % or more): the
+Ordnungsamt and the Straßen- und Grünflächenamt, the lower monument authority where a monument of the area lies
+in that Bezirk, and the lower nature conservation authority where a natural monument or protected landscape
+feature does. Only an object that lies in edge Bezirke alone names its edge Bezirk. The owner hint gives the
+shares of the state and the Bund; for the rest it stays with the extract from the land register.
 
 If a service is down, only its section is missing, and the table of sources says "not reachable". Without the
 Bezirke the general hint for Berlin and Hamburg comes back. Nature reserves, landscape protection areas, FFH and
@@ -973,7 +978,7 @@ bird protection areas and the nature park still come from the BfN, not from the 
   for Hamburg not yet.
 - The Geoportal Berlin says that for the protected objects only the official analogue maps are legally binding.
   The notes quote that sentence word for word below the table of sources.
-- Owners of land are not in open data, except the Land and the Bund in Berlin. The notes say how to get an
+- Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
   extract from the land register.
 - Forest administrations, water protection areas and monuments outside Berlin are not in yet. They come in later
   versions.

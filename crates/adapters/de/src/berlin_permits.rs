@@ -183,7 +183,7 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             "liegenschaftsplan",
             Wording {
                 en: "land of the Land Berlin and the Bund (Liegenschaftsplan)",
-                de: "Liegenschaftsplan (Flurstücke des Landes Berlin und des Bundes)",
+                de: "Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes)",
             },
             &["liegenschaftsplan"],
             &[PermitSection::Owners],

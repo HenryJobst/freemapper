@@ -27,7 +27,7 @@ The engine must not name a region (ADR 0082, 0114). Berlin is a code adapter, so
   keys of its layers, and the sections of the notes it fills. It fetches raw GeoJSON features, one list per layer,
   and turns stored features into typed findings.
 - **Typed findings, the same for every region.** `District`, `GreenSpace` (name, district, dedication),
-  `Playground`, `OwnerShare` (owner), `Monument` (kind, link) and `ProtectedObject` (Naturdenkmal, geschützter
+  `Playground`, `OwnerShare` (owner, or none for a public owner the source does not name), `Monument` (kind, link) and `ProtectedObject` (Naturdenkmal, geschützter
   Landschaftsbestandteil or an area with special rules; name, citation), each with its geometry in WGS 84.
   The engine knows these kinds, not Berlin's attribute names.
 - **Asked only on request and only on the adapter's ground.** `permits::fetch` asks the sources of an adapter
@@ -45,16 +45,20 @@ The engine must not name a region (ADR 0082, 0114). Berlin is a code adapter, so
   most 20 links; rarer kinds keep theirs first, the rest are counted. Equal protected points are one entry with a
   count.
 - **Hints that use the district.** When a source read the districts, the city-state hint of step 1 and the
-  Ordnungsamt hint of the Gemeinde give way to one hint per district (Ordnungsamt and Straßen- und Grünflächenamt
-  of the Bezirksamt), plus the lower monument authority for each district with a monument on the map and the
-  lower nature conservation authority for each district with a Naturdenkmal or geschützter Landschaftsbestandteil.
-  The owner hint names the share of each public owner and keeps the honest text for the rest. Without the
+  Ordnungsamt hint of the Gemeinde give way to one hint for each district that is more than an edge of the map
+  (0.5 % or more; Ordnungsamt and Straßen- und Grünflächenamt of the Bezirksamt), plus the lower monument
+  authority and the lower nature conservation authority for the districts that hold a monument, or a
+  Naturdenkmal or geschützter Landschaftsbestandteil, of the map. The same edge rule holds there: an object names
+  the districts holding it that are more than an edge, and only an object that lies in edge districts alone names
+  those. The owner hint names the share of each public owner and keeps the honest text for the rest. Without the
   districts the hints of step 1 come back; Hamburg keeps them.
 - **Berlin brings five services.** `alkis_bezirke`, `gruenanlagen` (with the playgrounds), `liegenschaftsplan`,
   `denkmale` and `schutzgebiete` (layers `a_nd`, `e_fnd`, `g_glb`, `f_fspr`). The NSG, LSG, FFH, SPA and Naturpark
   layers of Berlin are left out: the BfN has them for every state, and each kind comes from one source. The parts of
   a park carry the park's name ("Viktoriapark, Rosengarten" counts as "Viktoriapark"). Links to monuments are kept
-  only into the Denkmaldatenbank Berlin; they are text, never fetched.
+  only into the Denkmaldatenbank Berlin; they are text, never fetched. Of the owners in the Liegenschaftsplan only
+  "Land Berlin" and "Bundesrepublik Deutschland" are named; a parcel of any other owner counts under one line
+  "other public owners" without its name, so the notes cannot carry a private name the data might hold.
 - **`permits.json` stays schema 1.** The regional part is a new optional field `regional`; notes without it are
   written and read as before.
 
@@ -62,6 +66,11 @@ The engine must not name a region (ADR 0082, 0114). Berlin is a code adapter, so
 
 - Another state with open district, park or monument data can bring its sources the same way without a change to
   the engine; a manifest cannot declare them yet (no `[[info_layer]]`).
+- The texts of the district hints follow Berlin's office structure: a Bezirksamt with an Ordnungsamt, a Straßen-
+  und Grünflächenamt and lower monument and nature conservation authorities. Hamburg's Bezirksämter are organised
+  differently and Hamburg has one central Denkmalschutzamt, so a future city state may need hint texts of its
+  own, even when its sources fit the finding kinds.
 - The Bezirk hints depend on one service. When `alkis_bezirke` is down, the notes fall back to the city-state hint.
-- The liegenschaftsplan names only public owners; the notes never show a parcel number or a person.
+- The liegenschaftsplan names only public owners, and Berlin's adapter names only the two of its list; the notes
+  never show a parcel number or a person.
 - `freemapper.toml`, `ATTRIBUTION.txt`, the map, the PDFs and the golden files do not change.
