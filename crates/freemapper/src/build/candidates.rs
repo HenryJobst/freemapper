@@ -271,7 +271,7 @@ impl Rules {
             .iter()
             .filter(|r| match kind {
                 MapKind::Schoolyard => r.schoolyard.is_some(),
-                MapKind::Sprint => r.sprint.is_some(),
+                MapKind::Sprint | MapKind::Forest => r.sprint.is_some(),
             })
             .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
@@ -285,7 +285,7 @@ impl Rules {
             // A rule without a symbol for this map kind does not take part (as in `wants`).
             let has_symbol = match kind {
                 MapKind::Schoolyard => rule.schoolyard.is_some(),
-                MapKind::Sprint => rule.sprint.is_some(),
+                MapKind::Sprint | MapKind::Forest => rule.sprint.is_some(),
             };
             if !has_symbol || !rule.when.iter().all(|c| c.holds(tags)) {
                 return None;
@@ -308,7 +308,7 @@ impl Rules {
         let (rule, draw) = rule;
         let code = match kind {
             MapKind::Schoolyard => rule.schoolyard.clone(),
-            MapKind::Sprint => rule.sprint.clone(),
+            MapKind::Sprint | MapKind::Forest => rule.sprint.clone(),
         }?;
         let matched = rule
             .when
@@ -960,7 +960,7 @@ mod tests {
         target: Target,
     ) -> (Vec<MapObject>, SymbolSet) {
         let f = fixture();
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         let currency = "2026-11-06".parse().unwrap();
         let objects = osm_objects(
             features,
@@ -1022,7 +1022,7 @@ mod tests {
                 vec![at(0.0, 3.0 * step), at(1.8e-5, 3.0 * step)],
             ),
         ];
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let found = osm_objects(
             &features,
             &Rules::berlin(),
@@ -1074,7 +1074,7 @@ mod tests {
             piece("Li_20141006_2", "2014-10-06", false, 1.0, 2.0),
             piece("Li_x_3", "2014-01-01", true, 2.0, 3.0),
         ];
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let joined = |features: &[OsmFeature]| {
             osm_objects(
                 features,
@@ -1139,7 +1139,9 @@ mod tests {
             ] {
                 if let Some(code) = code {
                     assert!(
-                        kind.symbol_set().id_for_code(code).is_some(),
+                        kind.symbol_set(kind.default_scale())
+                            .id_for_code(code)
+                            .is_some(),
                         "{code} in {kind:?}"
                     );
                 }
@@ -1790,7 +1792,7 @@ mod tests {
             &[("highway", "track"), ("surface", "gravel")],
             vec![SCHOOL, at(0.0, 0.0074)],
         );
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let currency = "2026-11-06".parse().unwrap();
         let objects = osm_objects(
             &[track],
@@ -2093,7 +2095,7 @@ mod tests {
                 (&rule.sprint, MapKind::Sprint),
             ] {
                 let Some(code) = code else { continue };
-                let set = kind.symbol_set();
+                let set = kind.symbol_set(kind.default_scale());
                 let symbol_type = set.symbol_type(set.id_for_code(code).unwrap());
                 let fits: &[u32] = match rule.draw {
                     DrawKind::Point => &[1],

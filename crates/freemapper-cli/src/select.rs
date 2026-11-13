@@ -1470,6 +1470,7 @@ pub(crate) mod tests {
             json!({
                 "schoolyard": MapKind::Schoolyard.allowed_scales(),
                 "sprint": MapKind::Sprint.allowed_scales(),
+                "forest": MapKind::Forest.allowed_scales(),
             })
         );
     }

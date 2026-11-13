@@ -769,7 +769,7 @@ mod tests {
     }
 
     fn water(f: &Fixture, land_use: &[LandUse]) -> (WaterObjects, SymbolSet) {
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let objects = water_objects(land_use, &f.clip, &f.georef, &set).unwrap();
         (objects, set)
     }
@@ -844,7 +844,7 @@ mod tests {
             assert!((objects.union.unsigned_area() - 1200.0).abs() < 1e-6);
         }
         // The school set (125 %) has both symbols too.
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let pond = land(
             "DEBBAL01",
             "Meer",
@@ -1549,7 +1549,7 @@ mod tests {
             max_e: bounds.max().x + 100.0,
             max_n: bounds.max().y + 100.0,
         };
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let objects = water_objects(&land_use, &clip, &georef, &set).unwrap();
         let fills = with_code(&objects.map, &set, "301.1");
         let banks = with_code(&objects.map, &set, "301.6");
@@ -1595,7 +1595,7 @@ mod tests {
     #[test]
     fn osm_water_inside_alkis_water_is_dropped() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         // ALKIS lake: 100 x 100 m, x and y from -50 to 50 m around the centre.
         let union = MultiPolygon(vec![Polygon::new(
@@ -1632,7 +1632,7 @@ mod tests {
     #[test]
     fn osm_water_is_measured_inside_the_clip_window() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         // The OSM lake lies mostly outside the clip (x from 100 to 300 m); the window ends at
         // 150 m, where the drawn ALKIS water (clipped to it) covers the whole visible part.
@@ -1648,7 +1648,7 @@ mod tests {
     #[test]
     fn drop_covered_water_guards_keep_the_object() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let union = MultiPolygon(vec![Polygon::new(
             ring(e - 50.0, n - 50.0, 100.0, 100.0),
@@ -1674,7 +1674,7 @@ mod tests {
     #[test]
     fn self_intersecting_osm_ring_is_kept() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let union = MultiPolygon(vec![Polygon::new(
             ring(e - 50.0, n - 50.0, 100.0, 100.0),
@@ -1772,7 +1772,7 @@ mod tests {
     #[test]
     fn fountain_jets_inside_a_basin_are_dropped() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         // An OSM fountain basin (20 × 20 m) and an ALKIS pond (x from 50 to 80 m).
         let basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
@@ -1793,7 +1793,7 @@ mod tests {
     #[test]
     fn register_fountain_in_water_is_dropped() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let union = MultiPolygon(vec![Polygon::new(
             ring(e + 50.0, n - 15.0, 30.0, 30.0),
@@ -1838,7 +1838,7 @@ mod tests {
     #[test]
     fn register_fountain_in_an_osm_basin_is_dropped_and_named() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let mut basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
         basin
@@ -1900,7 +1900,7 @@ mod tests {
     #[test]
     fn nas_fountain_in_water_is_dropped() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let union = MultiPolygon(vec![Polygon::new(
             ring(e + 50.0, n - 15.0, 30.0, 30.0),
@@ -1923,7 +1923,7 @@ mod tests {
     #[test]
     fn free_standing_fountain_is_kept() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let (e, n) = f.centre;
         let basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
         let union = MultiPolygon(vec![Polygon::new(

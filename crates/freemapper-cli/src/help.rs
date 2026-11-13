@@ -340,7 +340,7 @@ mod tests {
         assert!(help.contains("Optionen:"), "{help}");
         assert!(help.contains("[Standard: schoolyard]"), "{help}");
         assert!(
-            help.contains("[mögliche Werte: schoolyard, sprint]"),
+            help.contains("[mögliche Werte: schoolyard, sprint, forest]"),
             "{help}"
         );
         assert!(!help.contains("possible values"), "{help}");

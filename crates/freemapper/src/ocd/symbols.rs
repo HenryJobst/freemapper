@@ -493,7 +493,7 @@ mod tests {
             ] {
                 assert_eq!(ocad_number(code, kind), Some(number), "{code}");
             }
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             let all = placeholders(&set);
             let kind_of = |code: &str| all[&set.id_for_code(code).unwrap()].kind.clone();
             assert!(matches!(kind_of("301.1"), PlaceholderKind::Area { .. }));
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn walkable_area_is_the_last_ocad_colour_and_symbol_990() {
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let colours = colours(&set);
         assert_eq!(colours.len(), 33);
         let base = colours.last().unwrap();

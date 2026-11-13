@@ -158,7 +158,7 @@ pub(super) fn stored_contour_objects(
         path: path.clone(),
         message: e.to_string(),
     })?;
-    let index_every = f64::from(5 * project.map_kind.contour_interval_m());
+    let index_every = 5.0 * project.map_kind.contour_interval_m();
     let (source, currency) = terrain_provenance(project)?;
     let id = |code: &str| {
         symbol_set
@@ -603,7 +603,7 @@ pub(super) fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, Pr
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     Ok(
         !stored_building_objects(&project, stored.as_ref(), &area, &georef, &symbol_set)?
@@ -629,7 +629,7 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
     let map_area = area.projected_polygon_in(project.crs());
@@ -1355,7 +1355,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
 
     // Buildings first: they are the map's own objects, candidates only a template.
     let stored_buildings = read_stored_buildings(dir)?;
@@ -1613,7 +1613,10 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     });
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     // North lines first: within their black they lie under walls and fences.
-    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
+    let spacing_mm = NORTH_LINE_SPACING_MM
+        * project
+            .map_kind
+            .symbol_enlargement(project.scale_denominator);
     let mut map_objects = north_lines(&content, spacing_mm, &symbol_set);
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.

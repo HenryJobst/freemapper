@@ -190,17 +190,20 @@ pub enum ProjectError {
 pub enum MapKind {
     Schoolyard,
     Sprint,
+    /// Forest map after ISOM 2017-2 (spec 2026-11-13).
+    Forest,
 }
 
 impl MapKind {
     /// Every kind freemapper writes.
-    pub const ALL: [MapKind; 2] = [MapKind::Schoolyard, MapKind::Sprint];
+    pub const ALL: [MapKind; 3] = [MapKind::Schoolyard, MapKind::Sprint, MapKind::Forest];
 
     /// The same kind in the words of the suite contract.
     pub fn contract(self) -> freemapper_contract::MapKind {
         match self {
             Self::Schoolyard => freemapper_contract::MapKind::Schoolyard,
             Self::Sprint => freemapper_contract::MapKind::Sprint,
+            Self::Forest => freemapper_contract::MapKind::Forest,
         }
     }
 
@@ -215,7 +218,9 @@ impl MapKind {
 
     /// The map scales freemapper writes for this kind, which freemapper-print accepts (its
     /// `iof-print.toml` tables). Sprint maps are drawn at 1:4000 (100 % symbols) or 1:5000;
-    /// 1:3000 needs 133 % symbols, which only freemapper-print applies (ADR 0085).
+    /// 1:3000 needs 133 % symbols, which only freemapper-print applies (ADR 0085). Forest maps
+    /// are drawn at 1:15000, 1:10000 or 1:7500 with their own enlargement
+    /// ([`MapKind::symbol_enlargement`]).
     pub fn allowed_scales(self) -> &'static [u32] {
         self.contract().drawing_scales()
     }
@@ -263,26 +268,33 @@ impl MapKind {
         match self {
             Self::Schoolyard => 20.0,
             Self::Sprint => 50.0,
+            Self::Forest => 100.0,
         }
     }
 
-    /// The map kind's symbol set plus the sheet symbols for the peripheral information.
-    /// The symbol set of the map kind with the sheet symbols; the sprint map also gets the
-    /// walkable area (belaufbare Fläche, ADR 0069).
-    pub fn symbol_set(self) -> SymbolSet {
+    /// The symbol set of the map kind at this scale with the sheet symbols; the sprint map also
+    /// gets the walkable area (belaufbare Fläche, ADR 0069).
+    pub fn symbol_set(self, scale: u32) -> SymbolSet {
         match self {
             Self::Schoolyard => SymbolSet::school_2019().with_sheet_symbols(),
             Self::Sprint => SymbolSet::issprom_2019()
                 .with_sheet_symbols()
                 .with_walkable_area(),
+            Self::Forest => {
+                let _ = scale;
+                SymbolSet::issprom_2019().with_sheet_symbols()
+            }
         }
     }
 
-    /// Enlargement of the norm's symbols over ISSprOM 2019 (school set: 125 %).
-    pub fn symbol_enlargement(self) -> f64 {
+    /// Enlargement of the norm's symbols at this scale: the school set draws ISSprOM 2019 at
+    /// 125 %, a forest map the 1:15000 set of ISOM 2017-2 at 150 % for 1:10000 and 200 % for
+    /// 1:7500.
+    pub fn symbol_enlargement(self, scale: u32) -> f64 {
         match self {
             Self::Schoolyard => crate::omap::symbol_set::SCHOOL_SYMBOL_ENLARGEMENT,
             Self::Sprint => 1.0,
+            Self::Forest => FOREST_BASE_SCALE / f64::from(scale.max(1)),
         }
     }
 
@@ -291,7 +303,7 @@ impl MapKind {
     pub fn slope_black_deg(self) -> f32 {
         match self {
             Self::Schoolyard => 15.0,
-            Self::Sprint => 30.0,
+            Self::Sprint | Self::Forest => 30.0,
         }
     }
 
@@ -300,6 +312,7 @@ impl MapKind {
         match self {
             Self::Schoolyard => 1.5,
             Self::Sprint => 2.0,
+            Self::Forest => 3.0,
         }
     }
 
@@ -308,6 +321,7 @@ impl MapKind {
         match self {
             Self::Schoolyard => 3.0,
             Self::Sprint => 5.0,
+            Self::Forest => 8.0,
         }
     }
 
@@ -316,18 +330,23 @@ impl MapKind {
     pub fn landform_min_height_m(self) -> f64 {
         match self {
             Self::Schoolyard => 0.5,
-            Self::Sprint => 1.0,
+            Self::Sprint | Self::Forest => 1.0,
         }
     }
 
-    /// Contour interval in metres (spec §4.4).
-    pub fn contour_interval_m(self) -> u32 {
+    /// Contour interval in metres (spec §4.4); a forest map in flat land halves it
+    /// (`derive::contours::contour_interval_for`).
+    pub fn contour_interval_m(self) -> f64 {
         match self {
-            Self::Schoolyard => 1,
-            Self::Sprint => 2,
+            Self::Schoolyard => 1.0,
+            Self::Sprint => 2.0,
+            Self::Forest => 5.0,
         }
     }
 }
+
+/// The scale the ISOM 2017-2 symbols are drawn for at 100 %.
+const FOREST_BASE_SCALE: f64 = 15000.0;
 
 /// Contents of `freemapper.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -2414,7 +2433,7 @@ pub fn derive_project_cancellable(
     progress(note!("progress-writing", path = CONTOURS_RELPATH));
     stop_if(cancelled)?;
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
-    let interval = f64::from(project.map_kind.contour_interval_m());
+    let interval = project.map_kind.contour_interval_m();
     let lines = generalize(
         contour_lines(&smoothed, interval),
         project.scale_denominator,
@@ -5195,9 +5214,9 @@ mod tests {
         assert_eq!(MapKind::Sprint.default_scale(), 4000);
         assert_eq!(MapKind::Schoolyard.default_buffer_m(), 20.0);
         assert_eq!(MapKind::Sprint.default_buffer_m(), 50.0);
-        assert_eq!(MapKind::Schoolyard.symbol_set().symbol_count(), 195);
+        assert_eq!(MapKind::Schoolyard.symbol_set(1000).symbol_count(), 195);
         // Sprint: the walkable area (990) after the sheet symbols.
-        assert_eq!(MapKind::Sprint.symbol_set().symbol_count(), 190);
+        assert_eq!(MapKind::Sprint.symbol_set(4000).symbol_count(), 190);
     }
 
     #[test]
@@ -5207,16 +5226,36 @@ mod tests {
     }
 
     #[test]
+    fn forest_is_a_kind_with_the_isom_scales() {
+        assert_eq!(MapKind::from_name("forest"), Some(MapKind::Forest));
+        assert_eq!(MapKind::Forest.default_scale(), 15000);
+        assert_eq!(MapKind::Forest.allowed_scales(), [7500, 10000, 15000]);
+        assert_eq!(MapKind::Forest.symbol_enlargement(15000), 1.0);
+        assert_eq!(MapKind::Forest.symbol_enlargement(10000), 1.5);
+        assert_eq!(MapKind::Forest.symbol_enlargement(7500), 2.0);
+        assert_eq!(MapKind::Schoolyard.symbol_enlargement(1000), 1.25);
+        assert_eq!(MapKind::Sprint.symbol_enlargement(5000), 1.0);
+        assert_eq!(MapKind::Forest.contour_interval_m(), 5.0);
+        assert_eq!(MapKind::Forest.default_buffer_m(), 100.0);
+        assert_eq!(MapKind::Forest.landform_min_height_m(), 1.0);
+        let err = MapKind::Forest.check_scale(4000).unwrap_err().to_string();
+        assert!(err.contains("1:7500, 1:10000, 1:15000"), "{err}");
+    }
+
+    #[test]
     fn map_kind_sheet_values() {
-        assert_eq!(MapKind::Schoolyard.symbol_enlargement(), 1.25);
-        assert_eq!(MapKind::Sprint.symbol_enlargement(), 1.0);
-        assert_eq!(MapKind::Schoolyard.contour_interval_m(), 1);
-        assert_eq!(MapKind::Sprint.contour_interval_m(), 2);
+        assert_eq!(MapKind::Schoolyard.symbol_enlargement(1000), 1.25);
+        assert_eq!(MapKind::Sprint.symbol_enlargement(4000), 1.0);
+        assert_eq!(MapKind::Schoolyard.contour_interval_m(), 1.0);
+        assert_eq!(MapKind::Sprint.contour_interval_m(), 2.0);
         assert_eq!(
-            MapKind::Schoolyard.symbol_set().id_for_code("991"),
+            MapKind::Schoolyard.symbol_set(1000).id_for_code("991"),
             Some(191)
         );
-        assert_eq!(MapKind::Sprint.symbol_set().id_for_code("991"), Some(185));
+        assert_eq!(
+            MapKind::Sprint.symbol_set(4000).id_for_code("991"),
+            Some(185)
+        );
     }
 
     #[test]
@@ -6240,7 +6279,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         set_content(dir.path(), Some(content.clone())).unwrap();
         let documents = starter_documents(dir.path()).unwrap();
         // What the fixture holds: a building, paving with its border, a fence.
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let all: Vec<&MapObject> = documents
             .map
             .parts
@@ -6587,7 +6626,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             "the passage is a candidate"
         );
         let documents = starter_documents(dir.path()).unwrap();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let sources: Vec<(String, String)> = documents
             .map
             .parts
@@ -9239,7 +9278,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     /// The Berlin candidates (symbol code, source tag) of the starter documents.
     fn berlin_candidates(dir: &Path) -> Vec<(String, String)> {
         let documents = starter_documents(dir).unwrap();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let code = |id| {
             ["515", "522"]
                 .into_iter()
@@ -9341,7 +9380,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             vec![railing("1", 5_820_830.7), railing("2", 5_820_838.0)],
         );
         let documents = starter_documents(dir.path()).unwrap();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let fences: Vec<&MapObject> = documents.candidates.parts[0]
             .objects
             .iter()
@@ -9651,7 +9690,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         )
         .unwrap();
         let documents = starter_documents(dir.path()).unwrap();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let objects: Vec<&MapObject> = documents
             .candidates
             .parts
@@ -9715,7 +9754,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .find(|(k, _)| k == "freemapper:source")
                 .map(|(_, v)| v.clone())
         };
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let stairs = |documents: &StarterDocuments| -> Vec<MapObject> {
             documents.candidates.parts[0]
                 .objects
@@ -9858,7 +9897,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             layer.to_string(),
         )
         .unwrap();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         let stairs: Vec<MapObject> = starter_documents(dir.path()).unwrap().candidates.parts[0]
             .objects
             .iter()
@@ -10021,7 +10060,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(nas.len(), 1, "the two segments are one fence");
         assert_eq!(
             Some(nas[0].symbol_id),
-            project.map_kind.symbol_set().id_for_code("518")
+            project
+                .map_kind
+                .symbol_set(project.scale_denominator)
+                .id_for_code("518")
         );
         assert_eq!(tag(nas[0], "freemapper:alkis").as_deref(), Some("Zaun"));
         assert_eq!(
@@ -10832,7 +10874,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             info: PeripheralInfo {
                 title: String::new(),
                 scale_denominator: 1000,
-                contour_interval_m: 5,
+                contour_interval_m: 5.0,
                 attribution: Vec::new(),
             },
             content_settings: ContentSettings::default(),
@@ -11552,7 +11594,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!candidates.contains("node/9669755236"));
         assert!(candidates.contains(r#"<t k="freemapper:currency">2026-11-06</t>"#));
         let pitch_symbol = MapKind::Schoolyard
-            .symbol_set()
+            .symbol_set(1000)
             .id_for_code("501.10")
             .unwrap();
         assert!(candidates.contains(&format!(r#"<object type="1" symbol="{pitch_symbol}""#)));
@@ -11622,7 +11664,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         store_traffic_areas(dir.path());
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
-        let paved = MapKind::Sprint.symbol_set().id_for_code("501.5").unwrap();
+        let paved = MapKind::Sprint
+            .symbol_set(4000)
+            .id_for_code("501.5")
+            .unwrap();
         assert!(map.contains(r#"<t k="freemapper:source_id">DEBBAL0100000030</t>"#));
         assert!(map.contains(&format!(r#"<object type="1" symbol="{paved}""#)));
         assert!(!map.contains("DEBBAL0100000031"), "Weg is a candidate");
@@ -11767,7 +11812,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             store_lake_and_ponds(dir.path());
             let map = std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap())
                 .unwrap();
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             let (fill, bank) = (
                 set.id_for_code("301.1").unwrap(),
                 set.id_for_code("301.6").unwrap(),
@@ -11820,7 +11865,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         export_starter_project(dir.path(), false).unwrap();
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let fountain = MapKind::Sprint.symbol_set().id_for_code("311").unwrap();
+        let fountain = MapKind::Sprint.symbol_set(4000).id_for_code("311").unwrap();
         for jet in ["node/20", "node/21", "node/22"] {
             assert_eq!(symbols_of(&candidates, jet), Vec::<u32>::new(), "{jet}");
         }
@@ -11838,7 +11883,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             export_starter_project(dir.path(), false).unwrap();
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap()
         };
-        let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
+        let pond = MapKind::Sprint.symbol_set(4000).id_for_code("301").unwrap();
         assert_eq!(symbols_of(&candidates, "way/10"), [pond]);
         assert_eq!(symbols_of(&candidates, "way/11"), [pond]);
     }
@@ -11862,7 +11907,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let pond = MapKind::Sprint.symbol_set().id_for_code("301").unwrap();
+        let pond = MapKind::Sprint.symbol_set(4000).id_for_code("301").unwrap();
         assert_eq!(symbols_of(&map, "way/10"), [pond]);
         assert!(symbols_of(&candidates, "way/10").is_empty());
     }
@@ -11878,7 +11923,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // On the schoolyard map the way parcel is out of bounds (520), not a paved candidate.
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let out_of_bounds = MapKind::Schoolyard.symbol_set().id_for_code("520").unwrap();
+        let out_of_bounds = MapKind::Schoolyard
+            .symbol_set(1000)
+            .id_for_code("520")
+            .unwrap();
         assert_eq!(symbols_of(&candidates, "DEBBAL0100000031"), [out_of_bounds]);
     }
 
@@ -11932,7 +11980,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(!map.contains("DEBBAL0100000030"), "sand road: not paved");
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let paved = MapKind::Sprint.symbol_set().id_for_code("501.5").unwrap();
+        let paved = MapKind::Sprint
+            .symbol_set(4000)
+            .id_for_code("501.5")
+            .unwrap();
         assert_eq!(symbols_of(&candidates, "DEBBAL0100000030"), [paved]);
     }
 
@@ -11942,7 +11993,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir) = sprint_with_ways(&fetcher);
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
-        let track = MapKind::Sprint.symbol_set().id_for_code("505.2").unwrap();
+        let track = MapKind::Sprint
+            .symbol_set(4000)
+            .id_for_code("505.2")
+            .unwrap();
         assert!(map.contains(r#"<t k="freemapper:source_id">way/1</t>"#));
         assert!(map.contains(&format!(r#"<object type="1" symbol="{track}""#)));
         assert!(!map.contains("way/2"));
@@ -11978,7 +12032,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         firm_footway_into_the_street(dir.path());
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
-        let firm = MapKind::Sprint.symbol_set().id_for_code("501.6").unwrap();
+        let firm = MapKind::Sprint
+            .symbol_set(4000)
+            .id_for_code("501.6")
+            .unwrap();
         assert_eq!(symbols_of(&map, "way/5"), [firm]);
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
@@ -12018,7 +12075,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         store_traffic_areas(dir.path());
         let cut =
             std::fs::read_to_string(export_starter_project(dir.path(), true).unwrap()).unwrap();
-        let firm = MapKind::Sprint.symbol_set().id_for_code("501.6").unwrap();
+        let firm = MapKind::Sprint
+            .symbol_set(4000)
+            .id_for_code("501.6")
+            .unwrap();
         assert_eq!(symbols_of(&cut, "way/5"), [firm], "one piece, in the open");
         // The street starts 15 m before the way's end (4 mm on paper at 1:4000): the cut piece
         // ends clearly before the whole one.
@@ -12151,7 +12211,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             !candidates.contains("DEBBAL0100000010"),
             "the school's own land"
         );
-        let id = MapKind::Schoolyard.symbol_set().id_for_code("520").unwrap();
+        let id = MapKind::Schoolyard
+            .symbol_set(1000)
+            .id_for_code("520")
+            .unwrap();
         assert!(candidates.contains(&format!(r#"<object type="1" symbol="{id}">"#)));
         let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
         assert!(
@@ -12846,7 +12909,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             project.declination_date,
         )
         .unwrap();
-        let symbol_set = project.map_kind.symbol_set();
+        let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
         let rect = |w: f64, s: f64, width: f64, height: f64| {
             Polygon::new(
                 LineString::from(vec![
@@ -12999,7 +13062,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         assert!(candidates.contains(r#"<t k="freemapper:source">lgb-dgm1</t>"#));
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         for code in ["101", "102"] {
             let id = set.id_for_code(code).unwrap();
             assert!(
@@ -13138,7 +13201,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .filter(|h| h.contains('.'))
             .collect();
         assert_eq!(heights, ["1.1", "1.2", "1.3", "1.4"]);
-        let symbol_set = ProjectFile::load(dir.path()).unwrap().map_kind.symbol_set();
+        let symbol_set = ProjectFile::load(dir.path())
+            .unwrap()
+            .map_kind
+            .symbol_set(4000);
         for (code, object_type) in [("109", 0), ("110", 0), ("111", 0), ("104", 1)] {
             let id = symbol_set.id_for_code(code).unwrap();
             let start = format!(r#"<object type="{object_type}" symbol="{id}""#);
@@ -13230,7 +13296,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         export_starter_project(dir.path(), false).unwrap();
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let symbol_set = ProjectFile::load(dir.path()).unwrap().map_kind.symbol_set();
+        let symbol_set = ProjectFile::load(dir.path())
+            .unwrap()
+            .map_kind
+            .symbol_set(4000);
         let code_of = |id: &str| {
             ["104", "109", "111", "201", "515"]
                 .into_iter()
@@ -13415,8 +13484,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
         let georef = Georeferencing::new(area.centroid(), 1000, date).unwrap();
-        let outline =
-            map_area_outline(&area, &georef, &MapKind::Schoolyard.symbol_set(), &project).unwrap();
+        let outline = map_area_outline(
+            &area,
+            &georef,
+            &MapKind::Schoolyard.symbol_set(1000),
+            &project,
+        )
+        .unwrap();
 
         let vertices: Vec<_> = area.polygon.exterior().points().collect();
         assert_eq!(outline.coords.len(), vertices.len());
@@ -13818,7 +13892,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             }
         }
-        assert_eq!(MapKind::from_name("forest"), None);
+        assert_eq!(MapKind::from_name("park"), None);
         assert_eq!(PROJECT_FILE_NAME, "freemapper.toml");
     }
 
@@ -13836,6 +13910,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir) = match kind {
             MapKind::Schoolyard => derived_school(&fetcher),
             MapKind::Sprint => sprint_with_ways(&fetcher),
+            MapKind::Forest => unreachable!("core has no contract fixture of a forest map yet"),
         };
         let mut project = ProjectFile::load(dir.path()).unwrap();
         project.title = Some("Clara-Zetkin-Schule".to_string());

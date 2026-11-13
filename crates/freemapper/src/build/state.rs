@@ -456,7 +456,7 @@ mod tests {
             geo_types::coord! { x: e1 + 10.0, y: n1 + 10.0 },
         )
         .to_polygon();
-        (georef, area, kind.symbol_set())
+        (georef, area, kind.symbol_set(kind.default_scale()))
     }
 
     fn passages(crs: Crs, kind: MapKind, features: &[Value]) -> Vec<MapObject> {
@@ -521,7 +521,7 @@ mod tests {
                 "{state}"
             );
             for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-                let set = kind.symbol_set();
+                let set = kind.symbol_set(kind.default_scale());
                 let found = passages(*crs, kind, features);
                 assert_eq!(found.len(), expected, "{state} {kind:?}");
                 for o in &found {
@@ -686,7 +686,7 @@ mod tests {
     }
 
     fn code_of(kind: MapKind, object: &MapObject) -> String {
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         let codes = [
             "104", "305", "306", "311", "410.1", "417", "418", "501.5", "513.2", "515", "518",
             "522", "526",

@@ -173,7 +173,12 @@ impl Built {
         );
         // Then the points keep the norm's gap to walls and fences, on the tick side with room for
         // the ticks (`build/barrier_gaps.rs`).
-        move_points_off_barriers(&mut [&mut map, &mut candidates], self.map_kind, symbol_set);
+        move_points_off_barriers(
+            &mut [&mut map, &mut candidates],
+            self.map_kind,
+            georef.scale_denominator,
+            symbol_set,
+        );
         Ok(Placed { map, candidates })
     }
 

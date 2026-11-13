@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn a_park_becomes_a_yellow_map_object_with_provenance() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let park = land(
             "Sport-, Freizeit- und Erholungsfläche",
             Some("Grünanlage"),
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn a_park_beyond_the_school_grounds_stays_out_of_bounds() {
         let f = fixture();
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         // A park mostly outside the school's map area is a 520 candidate there, no 401.
         let outside = land(
             "Sport-, Freizeit- und Erholungsfläche",
@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn osm_parks_stay_candidates_only_where_alkis_has_none() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let alkis = vec![map_square(&f, "401", 0.0, 0.0, 100.0, &set)];
         let candidates = vec![
             // Inside the ALKIS park: gone.
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn the_walkable_area_covers_the_map_window_on_sprint_maps_only() {
         let f = fixture();
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let content = PaperRect::of_bbox(&f.clip, &f.georef).unwrap();
         let base = walkable_base(&content, MapKind::Sprint, &set).unwrap();
         assert_eq!(Some(base.symbol_id), set.id_for_code("990"));
@@ -467,7 +467,7 @@ mod tests {
                 "{e} {n}"
             );
         }
-        let school = MapKind::Schoolyard.symbol_set();
+        let school = MapKind::Schoolyard.symbol_set(1000);
         assert!(walkable_base(&content, MapKind::Schoolyard, &school).is_none());
     }
 }

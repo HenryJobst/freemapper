@@ -65,7 +65,7 @@ impl PaperRect {
 pub struct PeripheralInfo {
     pub title: String,
     pub scale_denominator: u32,
-    pub contour_interval_m: u32,
+    pub contour_interval_m: f64,
     /// Attribution lines, the freemapper credit line last.
     pub attribution: Vec<String>,
 }
@@ -251,7 +251,7 @@ mod tests {
         SymbolSet::school_2019().with_sheet_symbols()
     }
 
-    fn info(scale_denominator: u32, contour_interval_m: u32) -> PeripheralInfo {
+    fn info(scale_denominator: u32, contour_interval_m: f64) -> PeripheralInfo {
         PeripheralInfo {
             title: "Clara-Zetkin-Schule".to_string(),
             scale_denominator,
@@ -307,7 +307,7 @@ mod tests {
             rect_mm(-5.0, -5.0, 5.0, 5.0),
             rect_mm(-400.0, -300.0, 400.0, 300.0),
         ] {
-            for o in info_block(&content, &info(1000, 1), &school_set()) {
+            for o in info_block(&content, &info(1000, 1.0), &school_set()) {
                 assert!(o.coords.iter().all(|c| c.y > content.max_y), "{o:?}");
             }
         }
@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn info_block_texts_schoolyard() {
         let set = school_set();
-        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(1000, 1), &set);
+        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(1000, 1.0), &set);
         assert_eq!(
             texts(&objects),
             [
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn bar_scale_sprint() {
         let set = school_set();
-        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(4000, 2), &set);
+        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(4000, 2.0), &set);
         let all = texts(&objects);
         assert_eq!(
             &all[1..6],
@@ -366,7 +366,7 @@ mod tests {
     fn bar_unit_is_its_own_text() {
         let set = school_set();
         let content = rect_mm(-50.0, -50.0, 50.0, 50.0);
-        let objects = info_block(&content, &info(1000, 1), &set);
+        let objects = info_block(&content, &info(1000, 1.0), &set);
         let label = |t: &str| {
             objects
                 .iter()

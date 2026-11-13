@@ -54,7 +54,8 @@ pub(crate) const PAIRED_LABEL: &str = "Mauer (Mauerkanten gepaart)";
 /// The pair distance (ground metres) on a map of `kind` at `scale_denominator`:
 /// [`WALL_PAIR_MM`] enlarged like the symbols (§3.1).
 pub fn pair_distance_m(kind: MapKind, scale_denominator: u32) -> f64 {
-    WALL_PAIR_MM * kind.symbol_enlargement() * f64::from(scale_denominator) / 1000.0
+    WALL_PAIR_MM * kind.symbol_enlargement(scale_denominator) * f64::from(scale_denominator)
+        / 1000.0
 }
 
 type P = [f64; 2];

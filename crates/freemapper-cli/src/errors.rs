@@ -126,6 +126,7 @@ impl Localize for ProjectError {
                 let kind = match *kind {
                     "schoolyard" => text(lang, "word-kind-schoolyard", &[]),
                     "sprint" => text(lang, "word-kind-sprint", &[]),
+                    "forest" => text(lang, "word-kind-forest", &[]),
                     other => other.to_owned(),
                 };
                 let args = [

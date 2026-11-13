@@ -640,7 +640,7 @@ mod tests {
         (
             georef,
             geo_types::Polygon::new(ring.into(), vec![]),
-            kind.symbol_set(),
+            kind.symbol_set(kind.default_scale()),
         )
     }
 
@@ -703,7 +703,7 @@ mod tests {
     fn curbs_are_edge_candidates_on_sprint_only() {
         let curbs = stored("bd_bordstein", SB_BORDSTEIN);
         let found = survey_objects("sb-bordstein", &curbs, MapKind::Sprint);
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         assert_eq!(found.len(), 2, "{found:?}");
         assert!(
             found
@@ -742,7 +742,7 @@ mod tests {
     /// A kerb line of the survey from `(x, y)` points in 1/1000 mm on paper (1:4000: 250 per
     /// ground metre).
     fn kerb(points: &[(i32, i32)]) -> MapObject {
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         MapObject {
             symbol_id: set.id_for_code("501.1").unwrap(),
             kind: MapObjectKind::Path,
@@ -932,7 +932,7 @@ mod tests {
         railings.push(barrier);
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
             let found = survey_objects("sb-gelaender", &railings, kind);
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             assert_eq!(found.len(), 5, "{found:?}");
             assert!(
                 found
@@ -961,7 +961,7 @@ mod tests {
             assert_eq!(found.len(), 1);
             assert_eq!(
                 Some(found[0].symbol_id),
-                kind.symbol_set().id_for_code("515")
+                kind.symbol_set(kind.default_scale()).id_for_code("515")
             );
             assert_eq!(object_tag(&found[0], "berlin:hms"), Some("2"));
             assert_eq!(
@@ -981,7 +981,7 @@ mod tests {
             })
             .collect();
         let found = survey_objects("sb-moebel", &furniture, MapKind::Schoolyard);
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         assert_eq!(found.len(), 3, "{found:?}");
         assert!(
             found
@@ -1021,7 +1021,7 @@ mod tests {
             })
             .collect();
         let found = survey_objects("sb-moebel", &furniture, MapKind::Sprint);
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         assert_eq!(found.len(), 3, "{found:?}");
         assert!(
             found
@@ -1060,13 +1060,13 @@ mod tests {
         assert!(matches!(school[0].kind, MapObjectKind::Path));
         assert_eq!(
             Some(school[0].symbol_id),
-            MapKind::Schoolyard.symbol_set().id_for_code("543")
+            MapKind::Schoolyard.symbol_set(1000).id_for_code("543")
         );
         let sprint = survey_objects("sb-moebel", &[bench], MapKind::Sprint);
         assert_eq!(sprint.len(), 1, "{sprint:?}");
         assert_eq!(
             Some(sprint[0].symbol_id),
-            MapKind::Sprint.symbol_set().id_for_code("531")
+            MapKind::Sprint.symbol_set(4000).id_for_code("531")
         );
         assert_eq!(object_tag(&sprint[0], "freemapper:control"), Some("bench"));
         // The point is the middle of the bench: 392501, 5820500.
@@ -1083,7 +1083,7 @@ mod tests {
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(
             Some(found[0].symbol_id),
-            MapKind::Sprint.symbol_set().id_for_code("531")
+            MapKind::Sprint.symbol_set(4000).id_for_code("531")
         );
         assert!(matches!(found[0].kind, MapObjectKind::Point { .. }));
         assert_eq!(
@@ -1127,14 +1127,14 @@ mod tests {
                 .map(|o| Some(o.symbol_id))
                 .collect()
         };
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         assert_eq!(
             codes(MapKind::Sprint),
             ["522", "311", "311", "313"]
                 .map(|c| set.id_for_code(c))
                 .to_vec()
         );
-        let set = MapKind::Schoolyard.symbol_set();
+        let set = MapKind::Schoolyard.symbol_set(1000);
         assert_eq!(
             codes(MapKind::Schoolyard),
             ["522", "311", "311", "313"]
@@ -1237,7 +1237,7 @@ mod tests {
     #[test]
     fn survey_lines_near_alkis_are_dropped_and_named() {
         let kind = MapKind::Sprint;
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         let alkis = "geoportal-berlin/bauwerke-linien";
         let survey = "geoportal-berlin/sb-gelaender";
         let mut berlin = vec![
@@ -1484,7 +1484,7 @@ mod tests {
         let sprint = objects("relief", RELIEF, MapKind::Sprint);
         // Two Oberkante lines; Unterkante and Sonstige Begrenzungskante are skipped.
         assert_eq!(sprint.len(), 2);
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         assert!(
             sprint
                 .iter()
@@ -1537,7 +1537,7 @@ mod tests {
     #[test]
     fn crown_decides_417_or_418() {
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             let (big, small) = (set.id_for_code("417"), set.id_for_code("418"));
             // Street trees: crowns of 4.5 and 5 m.
             let street = objects("strassenbaeume", STRASSENBAEUME, kind);
@@ -1683,7 +1683,7 @@ mod tests {
     fn lamps_of_the_cadastre_are_schoolyard_candidates() {
         let kind = MapKind::Schoolyard;
         let lamps = [register_point("beleuchtung", "1", (392_400.0, 5_820_400.0))];
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         let lamp = survey_objects("beleuchtung", &lamps, kind);
         assert_eq!(lamp.len(), 1);
         assert_eq!(Some(lamp[0].symbol_id), set.id_for_code("545"));
@@ -1702,7 +1702,7 @@ mod tests {
         assert_eq!(lamp.len(), 1);
         assert_eq!(
             Some(lamp[0].symbol_id),
-            MapKind::Sprint.symbol_set().id_for_code("531")
+            MapKind::Sprint.symbol_set(4000).id_for_code("531")
         );
         assert_eq!(
             object_tag(&lamp[0], "freemapper:control"),
@@ -1716,7 +1716,7 @@ mod tests {
 
     #[test]
     fn drinking_fountains_are_313_on_sprint_too() {
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let register = [register_point(
             "trinkwasserbrunnen",
             "1",
@@ -1758,8 +1758,12 @@ mod tests {
             osm_point(kind, "545", "highway=street_lamp", "node/5", 0.0, 5.5), // 5.5 m
             osm_point(kind, "544", "man_made=mast", "node/3", 0.0, 0.5),       // not a lamp
         ];
-        let (osm, berlin) =
-            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
+        let (osm, berlin) = drop_points_near_registers(
+            osm,
+            berlin,
+            &kind.symbol_set(kind.default_scale()),
+            georef.scale_denominator,
+        );
         assert_eq!(ids(&osm), ["node/5", "node/3"]);
         let layers: Vec<_> = berlin
             .iter()
@@ -1823,8 +1827,12 @@ mod tests {
             // A bollard is no mast: the OSM mast beside it stays.
             osm_point(kind, "544", "man_made=mast", "node/6", 80.5, 0.0),
         ];
-        let (osm, berlin) =
-            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
+        let (osm, berlin) = drop_points_near_registers(
+            osm,
+            berlin,
+            &kind.symbol_set(kind.default_scale()),
+            georef.scale_denominator,
+        );
         assert_eq!(ids(&osm), ["node/2", "node/6"]);
         assert_eq!(berlin.len(), 5, "the survey wins");
         let also = |layer: &str| {
@@ -1913,8 +1921,12 @@ mod tests {
         let mut berlin = survey_objects("beleuchtung", &lamps, kind);
         berlin.extend(survey_objects("sb-moebel", &masts, kind));
         let osm = vec![osm_point(kind, "544", "man_made=mast", "node/1", 2.5, 0.0)];
-        let (osm, berlin) =
-            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
+        let (osm, berlin) = drop_points_near_registers(
+            osm,
+            berlin,
+            &kind.symbol_set(kind.default_scale()),
+            georef.scale_denominator,
+        );
         assert_eq!(ids(&osm), ["node/1"]);
         assert_eq!(berlin.len(), 1);
     }
@@ -1941,8 +1953,12 @@ mod tests {
             osm_point(kind, "313", "amenity=drinking_water", "node/12", 0.5, 0.0), // other kind
             osm_point(kind, "313", "amenity=drinking_water", "node/13", 100.0, 2.0),
         ];
-        let (osm, berlin) =
-            drop_points_near_registers(osm, berlin, &kind.symbol_set(), georef.scale_denominator);
+        let (osm, berlin) = drop_points_near_registers(
+            osm,
+            berlin,
+            &kind.symbol_set(kind.default_scale()),
+            georef.scale_denominator,
+        );
         assert_eq!(ids(&osm), ["node/11", "node/12"]);
         // The survey jet at the register fountain and the survey tap at the register tap go;
         // the pump 30 m away stays.
@@ -1969,8 +1985,12 @@ mod tests {
             0.0,
             0.0,
         )];
-        let (osm, _) =
-            drop_points_near_registers(osm, vec![], &kind.symbol_set(), georef.scale_denominator);
+        let (osm, _) = drop_points_near_registers(
+            osm,
+            vec![],
+            &kind.symbol_set(kind.default_scale()),
+            georef.scale_denominator,
+        );
         assert_eq!(osm.len(), 1);
     }
 
