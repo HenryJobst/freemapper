@@ -20,6 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Waldkarten (ADR 0116): Undurchdringliche Vegetation ist ISOM 2017-2 410 statt des Symbols 411 aus der ersten Ausgabe. Die Wegklassen 502 bis 505 gehören zur Inhaltsgruppe `paths`, also verschiebt `--content-set paths=candidates` alle Wege. Treppen mit `incline=down` laufen bergauf wie auf Sprintkarten. Eine Waldkarte lädt die Flächen und Bordsteine der Berliner Straßenbefahrung und die städtischen Baumkataster nicht mehr, weil sie sie nicht zeichnet. Die Prüfung, ob ein Gebiet flach ist, liest das Geländemodell nur alle 5 m. Am Kartenrand steht die Äquidistanz, mit der die Höhenlinien gerechnet wurden, auch wenn `contour_interval_m` seitdem geändert wurde.
 - Hamburg, Saarland, Sachsen-Anhalt und Adapter aus Ordnern: Scheitert der Abruf des Oberflächenmodells, bleibt ein früher gespeichertes Modell nur, wenn es das Kartengebiet deckt, und die Warnung nennt den Tag, von dem es stammt. Bisher blieb auch das Modell eines anderen Gebiets mit seinem Eintrag im Projekt liegen, und die Warnung sprach in jedem Fall von einer fehlenden nDOM-Vorlage, auch wenn `derive` sie aus dem alten Modell noch erzeugte. Die übrigen Bundesländer verhielten sich schon so.
 
 ## [0.16.0] - 2026-11-13

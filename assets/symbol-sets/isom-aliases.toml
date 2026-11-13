@@ -20,7 +20,6 @@ drop = [
 [alias]
 "104.1" = "104"   # very high earth bank
 "301.6" = "301.4" # bank line of uncrossable water
-"410" = "411"     # impassable vegetation
 "501.3" = "501"   # paved area with scattered trees
 "501.5" = "501"   # paved area, light traffic
 "501.6" = "505"   # paved path 1.4 m: footpath

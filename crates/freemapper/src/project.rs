@@ -1186,7 +1186,7 @@ fn fetch_project_parts(
         fetcher,
         &area,
         mode,
-        skips(Part::StateLayers),
+        skips(Part::StateLayers) || !fetches_tree_registers(project.map_kind),
         &project.tree_layers,
         progress,
     );
@@ -1870,6 +1870,11 @@ pub fn stored_nas_layers(
         }
     }
     Ok(layers)
+}
+
+/// Whether a map of `kind` uses the city tree cadastres; a forest map draws none of their trees.
+fn fetches_tree_registers(kind: MapKind) -> bool {
+    kind != MapKind::Forest
 }
 
 /// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
@@ -11742,6 +11747,35 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             std::fs::write(dir.path().join(PROJECT_FILE_NAME), text).unwrap();
         }
+    }
+
+    /// Lines without a stored interval were traced at the kind's: the margin names that, also
+    /// when `freemapper.toml` was changed after the derive.
+    #[test]
+    fn the_margin_names_the_interval_the_lines_were_traced_at() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = forest_with_ways(&fetcher, &[]);
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&[], None),
+        )
+        .unwrap();
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.contour_interval_m = Some(2.5);
+        project.save(dir.path()).unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(
+            map.contains("Äquidistanz 5 m"),
+            "the lines are at the forest's 5 m"
+        );
+    }
+
+    #[test]
+    fn a_forest_project_fetches_no_tree_registers() {
+        assert!(fetches_tree_registers(MapKind::Sprint));
+        assert!(fetches_tree_registers(MapKind::Schoolyard));
+        assert!(!fetches_tree_registers(MapKind::Forest));
     }
 
     #[test]

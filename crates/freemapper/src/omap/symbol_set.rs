@@ -391,6 +391,12 @@ mod tests {
         assert!(set.leaves_out("501.1"));
         assert_eq!(set.id_for_code("990"), None);
         assert!(!set.leaves_out("505"));
+        // Impassable vegetation is ISOM 2017-2's 410, not the first edition's 411.
+        assert!(!set.is_aliased("410"));
+        let fight = set.id_for_code("410").unwrap();
+        assert!(set.symbols_xml.contains(&format!(
+            r#"id="{fight}" code="410" name="Vegetation: fight""#
+        )));
         // The sheet symbols keep the aliases.
         let sheet = set.with_sheet_symbols();
         assert!(sheet.id_for_code("991").is_some());

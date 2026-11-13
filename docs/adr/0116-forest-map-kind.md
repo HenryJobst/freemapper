@@ -36,7 +36,7 @@ The suite contract had the kind `forest` without drawing scales (freemapper-core
   not OOM's separate 10 000 file. No walkable area (990): the forest is the white paper.
 - **Aliases instead of a second code path.** The build modules keep their ISSprOM codes.
   `assets/symbol-sets/isom-aliases.toml` maps each code to the ISOM code that draws the same thing with the same
-  symbol type (505.1 → 505, 505.2 → 504, 532.6–532.9 → 532, 509.1/509.2 → 509, 513.1/513.2 → 513, 410 → 411,
+  symbol type (505.1 → 505, 505.2 → 504, 532.6–532.9 → 532, 509.1/509.2 → 509, 513.1/513.2 → 513,
   301.6 → 301.4, 501.x areas → 501, paved paths 501.6/501.7 → 505 and 501.8/501.9 → 503, 601 → 601.1) or leaves the
   object out (321, 410.1, 501.1, 541–545, 990). `id_for_code` asks the aliases first, because some codes mean
   different things in the two norms (501.1 is a step line in ISSprOM and the paved-area fill in ISOM).

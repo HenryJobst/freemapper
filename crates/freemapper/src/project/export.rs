@@ -151,13 +151,15 @@ pub(super) fn stored_contour_objects(
 ) -> Result<(Vec<MapObject>, f64), ProjectError> {
     use geo::{Contains as _, Distance as _, InteriorPoint as _};
     let path = dir.join(CONTOURS_RELPATH);
-    let interval_of = |stored: Option<f64>| {
-        stored
-            .or(project.contour_interval_m)
-            .unwrap_or_else(|| project.map_kind.contour_interval_m())
-    };
+    // The derive stores an interval that is not the kind's; without one the lines are at the
+    // kind's, whatever freemapper.toml says now. Without lines it is the one the next derive takes.
+    let interval_of =
+        |stored: Option<f64>| stored.unwrap_or_else(|| project.map_kind.contour_interval_m());
     if !path.exists() {
-        return Ok((Vec::new(), interval_of(None)));
+        let next = project
+            .contour_interval_m
+            .unwrap_or_else(|| project.map_kind.contour_interval_m());
+        return Ok((Vec::new(), next));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
     let (lines, stored) =
