@@ -6685,6 +6685,17 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         cache_short_of_kept(dir, cache, short, |_| true)
     }
 
+    /// Runs `f` on a day on which the OSM extract of the fixtures (state of 2026-11-06) is still
+    /// current. The tests whose outcome depends on whether that extract is due for an update
+    /// run on it; on the real day they began to fail a week after the fixture was made.
+    fn while_the_extract_is_current<R>(f: impl FnOnce() -> R) -> R {
+        let at = NaiveDate::from_ymd_opt(2026, 11, 8)
+            .unwrap()
+            .and_hms_opt(12, 0, 0)
+            .unwrap();
+        crate::clock::with_fixed(at, f)
+    }
+
     /// [`cache_short_of`] the parts `kept` says: the others do not fit at all.
     fn cache_short_of_kept(
         dir: &Path,
@@ -6693,7 +6704,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         kept: impl Fn(Part) -> bool,
     ) -> Cache {
         use crate::space::test_support::FixedSpace;
-        let today = chrono::Local::now().date_naive();
+        let today = crate::clock::today();
         let mut estimate = crate::layers::estimate_download(dir, cache, today).unwrap();
         estimate.items.retain(|item| kept(item.part));
         let roomy = FixedSpace::everywhere("disk", u64::MAX / 2);
@@ -7056,97 +7067,103 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     #[test]
     fn skipped_surface_model_keeps_the_stored_one() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = halle_school(&fetcher);
-        let (before, _) = fetch(dir.path(), &fetcher, &cache);
-        let stored = before.surface.clone().expect("a surface model");
-        let cache = cache_short_of(dir.path(), &cache, 1);
-        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert!(
-            messages
-                .iter()
-                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
-            "{messages:?}"
-        );
-        let kept = format!(
-            "freemapper keeps the surface model fetched on {} for the nDSM template",
-            stored.fetched
-        );
-        assert!(messages.contains(&kept), "{messages:?}");
-        assert_eq!(project.surface, Some(stored));
-        assert!(dir.path().join(SURFACE_RELPATH).exists());
+        while_the_extract_is_current(|| {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = halle_school(&fetcher);
+            let (before, _) = fetch(dir.path(), &fetcher, &cache);
+            let stored = before.surface.clone().expect("a surface model");
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{messages:?}"
+            );
+            let kept = format!(
+                "freemapper keeps the surface model fetched on {} for the nDSM template",
+                stored.fetched
+            );
+            assert!(messages.contains(&kept), "{messages:?}");
+            assert_eq!(project.surface, Some(stored));
+            assert!(dir.path().join(SURFACE_RELPATH).exists());
+        });
     }
 
     #[test]
     fn skipped_surface_model_keeps_the_cached_geosn_tiles() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = dresden_school(&fetcher);
-        let (before, _) = fetch(dir.path(), &fetcher, &cache);
-        let dsm: Vec<TileRecord> = before
-            .tiles
-            .iter()
-            .filter(|r| r.product == Product::SaxonyDsm)
-            .cloned()
-            .collect();
-        assert_eq!(dsm.len(), 2, "{:?}", before.tiles);
-        // One surface tile is gone from the cache; the other stays.
-        let path = |r: &TileRecord| {
-            cache.tile_path(
-                Product::SaxonyDsm,
-                TileId::parse(&r.tile).unwrap(),
-                r.published,
-            )
-        };
-        std::fs::remove_file(path(&dsm[0])).unwrap();
-        let cache = cache_short_of(dir.path(), &cache, 1);
-        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert!(
-            messages
+        while_the_extract_is_current(|| {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = dresden_school(&fetcher);
+            let (before, _) = fetch(dir.path(), &fetcher, &cache);
+            let dsm: Vec<TileRecord> = before
+                .tiles
                 .iter()
-                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
-            "{messages:?}"
-        );
-        let kept = format!(
-            "freemapper keeps the cached surface model of tile {} for the nDSM template",
-            dsm[1].tile
-        );
-        assert!(messages.contains(&kept), "{messages:?}");
-        assert!(!path(&dsm[0]).exists());
-        let now: Vec<&TileRecord> = project
-            .tiles
-            .iter()
-            .filter(|r| r.product == Product::SaxonyDsm)
-            .collect();
-        assert_eq!(now, [&dsm[1]]);
+                .filter(|r| r.product == Product::SaxonyDsm)
+                .cloned()
+                .collect();
+            assert_eq!(dsm.len(), 2, "{:?}", before.tiles);
+            // One surface tile is gone from the cache; the other stays.
+            let path = |r: &TileRecord| {
+                cache.tile_path(
+                    Product::SaxonyDsm,
+                    TileId::parse(&r.tile).unwrap(),
+                    r.published,
+                )
+            };
+            std::fs::remove_file(path(&dsm[0])).unwrap();
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{messages:?}"
+            );
+            let kept = format!(
+                "freemapper keeps the cached surface model of tile {} for the nDSM template",
+                dsm[1].tile
+            );
+            assert!(messages.contains(&kept), "{messages:?}");
+            assert!(!path(&dsm[0]).exists());
+            let now: Vec<&TileRecord> = project
+                .tiles
+                .iter()
+                .filter(|r| r.product == Product::SaxonyDsm)
+                .collect();
+            assert_eq!(now, [&dsm[1]]);
+        });
     }
 
     #[test]
     fn skipped_surface_model_of_hamburg_keeps_the_stored_one() {
-        use freemapper_adapters_de::lgv::Model;
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
-        let (before, _) = fetch(dir.path(), &fetcher, &cache);
-        let stored = before.surface.clone().expect("a surface model");
-        // The bDOM tiles are no longer cached, so the next fetch would read them again.
-        let bdom = Model::Bdom.tile_cache_file(&cache, TileId::parse("33000-5000").unwrap());
-        let bdom_dir = bdom.parent().unwrap();
-        std::fs::remove_dir_all(bdom_dir).unwrap();
-        let cache = cache_short_of(dir.path(), &cache, 1);
-        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert!(
-            messages
-                .iter()
-                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
-            "{messages:?}"
-        );
-        let kept = format!(
-            "freemapper keeps the surface model fetched on {} for the nDSM template",
-            stored.fetched
-        );
-        assert!(messages.contains(&kept), "{messages:?}");
-        assert!(!bdom_dir.exists());
-        assert_eq!(project.surface, Some(stored));
-        assert!(dir.path().join(SURFACE_RELPATH).exists());
+        while_the_extract_is_current(|| {
+            use freemapper_adapters_de::lgv::Model;
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+            let (before, _) = fetch(dir.path(), &fetcher, &cache);
+            let stored = before.surface.clone().expect("a surface model");
+            // The bDOM tiles are no longer cached, so the next fetch would read them again.
+            let bdom = Model::Bdom.tile_cache_file(&cache, TileId::parse("33000-5000").unwrap());
+            let bdom_dir = bdom.parent().unwrap();
+            std::fs::remove_dir_all(bdom_dir).unwrap();
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{messages:?}"
+            );
+            let kept = format!(
+                "freemapper keeps the surface model fetched on {} for the nDSM template",
+                stored.fetched
+            );
+            assert!(messages.contains(&kept), "{messages:?}");
+            assert!(!bdom_dir.exists());
+            assert_eq!(project.surface, Some(stored));
+            assert!(dir.path().join(SURFACE_RELPATH).exists());
+        });
     }
 
     /// Hamburg reads the surface model for the area. When that fails, a stored one that covers
@@ -7195,17 +7212,19 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     /// that the sum of nothing is.
     #[test]
     fn an_estimate_with_everything_fetched_totals_zero() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = strausberg_school(&fetcher);
-        fetch(dir.path(), &fetcher, &cache);
-        let today = chrono::Local::now().date_naive();
-        let estimate = crate::layers::estimate_download(dir.path(), &cache, today).unwrap();
-        assert!(
-            estimate.items.iter().all(|i| i.cached),
-            "{:?}",
-            estimate.items
-        );
-        assert_eq!(estimate.total_megabytes.to_string(), "0");
+        while_the_extract_is_current(|| {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = strausberg_school(&fetcher);
+            fetch(dir.path(), &fetcher, &cache);
+            let today = crate::clock::today();
+            let estimate = crate::layers::estimate_download(dir.path(), &cache, today).unwrap();
+            assert!(
+                estimate.items.iter().all(|i| i.cached),
+                "{:?}",
+                estimate.items
+            );
+            assert_eq!(estimate.total_megabytes.to_string(), "0");
+        });
     }
 
     #[test]
@@ -7239,31 +7258,33 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
     #[test]
     fn skipped_surface_model_of_an_area_provider_keeps_the_stored_one() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir, cache) = rostock_school(&fetcher);
-        let (before, _) = fetch(dir.path(), &fetcher, &cache);
-        let stored = before.surface.clone().expect("a surface model");
-        let cache = cache_short_of(dir.path(), &cache, 1);
-        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert!(
-            messages
-                .iter()
-                .any(|m| m.starts_with("warning: freemapper skips the surface model")),
-            "{messages:?}"
-        );
-        assert!(
-            !messages
-                .iter()
-                .any(|m| m.starts_with("reading the") && m.contains("DOM")),
-            "{messages:?}"
-        );
-        let kept = format!(
-            "freemapper keeps the surface model fetched on {} for the nDSM template",
-            stored.fetched
-        );
-        assert!(messages.contains(&kept), "{messages:?}");
-        assert_eq!(project.surface, Some(stored));
-        assert!(dir.path().join(SURFACE_RELPATH).exists());
+        while_the_extract_is_current(|| {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = rostock_school(&fetcher);
+            let (before, _) = fetch(dir.path(), &fetcher, &cache);
+            let stored = before.surface.clone().expect("a surface model");
+            let cache = cache_short_of(dir.path(), &cache, 1);
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            assert!(
+                messages
+                    .iter()
+                    .any(|m| m.starts_with("warning: freemapper skips the surface model")),
+                "{messages:?}"
+            );
+            assert!(
+                !messages
+                    .iter()
+                    .any(|m| m.starts_with("reading the") && m.contains("DOM")),
+                "{messages:?}"
+            );
+            let kept = format!(
+                "freemapper keeps the surface model fetched on {} for the nDSM template",
+                stored.fetched
+            );
+            assert!(messages.contains(&kept), "{messages:?}");
+            assert_eq!(project.surface, Some(stored));
+            assert!(dir.path().join(SURFACE_RELPATH).exists());
+        });
     }
 
     /// A schoolyard project around the Helene-Haeusler-Schule, Berlin-Prenzlauer Berg (tile

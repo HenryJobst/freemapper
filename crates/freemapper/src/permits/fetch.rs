@@ -994,6 +994,12 @@ mod tests {
     }
 
     /// Berlin's regional inputs as the adapter parses the fixtures, read on `fetched`.
+    /// Runs `f` on 2026-11-13, the day the tests below expect a fetch to be dated with.
+    fn on_the_day_of_the_fixtures<R>(f: impl FnOnce() -> R) -> R {
+        let at = date("2026-11-13").and_hms_opt(12, 0, 0).unwrap();
+        clock::with_fixed(at, f)
+    }
+
     fn berlin_from_fixtures(fetched: NaiveDate) -> Vec<RegionalInput> {
         berlin()
             .permit_sources()
@@ -1332,125 +1338,129 @@ mod tests {
 
     #[test]
     fn offline_berlin_notes_match_online() {
-        let (dir, project) = viktoriapark();
-        let fetcher = MapFetcher::default();
-        serve_berlin(&fetcher, &project);
-        let (_root, cache) = empty_cache();
-        let online = fetch(&project, dir.path(), &fetcher, &cache, false)
-            .0
-            .unwrap();
-        let today = date("2026-11-13");
-        // The notes as the adapter's own parse of the served files gives them, not read back
-        // from the store: the fetch and the store must not change a finding.
-        let direct = Inputs {
-            regional: berlin_from_fixtures(today),
-            ..online.clone()
-        };
-        assert_eq!(online.regional, direct.regional);
-        let notes = write_permit_notes(dir.path(), &project, &direct, today).unwrap();
-        let part = &notes.regional[0];
-        assert_eq!(part.adapter, "berlin");
-        let districts: Vec<&str> = part
-            .districts
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|s| s.item.name.as_str())
-            .collect();
-        assert_eq!(districts[0], "Friedrichshain-Kreuzberg", "{districts:?}");
-        assert!(districts.contains(&"Tempelhof-Schöneberg"), "{districts:?}");
-        let owners: Vec<Option<&str>> = part
-            .owners
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|s| s.item.owner.as_deref())
-            .collect();
-        assert_eq!(
-            owners,
-            [Some("Land Berlin"), Some("Bundesrepublik Deutschland")]
-        );
-        let monuments = part.monuments.as_ref().unwrap();
-        assert!(monuments.total >= 40, "{}", monuments.total);
-        assert!(
-            monuments
-                .groups
+        on_the_day_of_the_fixtures(|| {
+            let (dir, project) = viktoriapark();
+            let fetcher = MapFetcher::default();
+            serve_berlin(&fetcher, &project);
+            let (_root, cache) = empty_cache();
+            let online = fetch(&project, dir.path(), &fetcher, &cache, false)
+                .0
+                .unwrap();
+            let today = date("2026-11-13");
+            // The notes as the adapter's own parse of the served files gives them, not read back
+            // from the store: the fetch and the store must not change a finding.
+            let direct = Inputs {
+                regional: berlin_from_fixtures(today),
+                ..online.clone()
+            };
+            assert_eq!(online.regional, direct.regional);
+            let notes = write_permit_notes(dir.path(), &project, &direct, today).unwrap();
+            let part = &notes.regional[0];
+            assert_eq!(part.adapter, "berlin");
+            let districts: Vec<&str> = part
+                .districts
+                .as_ref()
+                .unwrap()
                 .iter()
-                .any(|g| g.kind == "Gartendenkmal" && g.links.len() == 1)
-        );
-        let objects = part.protected_objects.as_ref().unwrap();
-        assert!(!objects.is_empty());
-        let green = part.green_spaces.as_ref().unwrap();
-        assert!(green.entries.iter().any(|s| s.item.name == "Viktoriapark"));
-        assert!(green.playgrounds >= 3, "{}", green.playgrounds);
-        assert_eq!(
-            green.playgrounds, 4,
-            "every playground of the fixture is on the map"
-        );
-        let keys: Vec<&str> = notes.hints.iter().map(|h| h.key.as_str()).collect();
-        assert!(!keys.contains(&crate::permits::notes::hint_key::CITY_STATE));
+                .map(|s| s.item.name.as_str())
+                .collect();
+            assert_eq!(districts[0], "Friedrichshain-Kreuzberg", "{districts:?}");
+            assert!(districts.contains(&"Tempelhof-Schöneberg"), "{districts:?}");
+            let owners: Vec<Option<&str>> = part
+                .owners
+                .as_ref()
+                .unwrap()
+                .iter()
+                .map(|s| s.item.owner.as_deref())
+                .collect();
+            assert_eq!(
+                owners,
+                [Some("Land Berlin"), Some("Bundesrepublik Deutschland")]
+            );
+            let monuments = part.monuments.as_ref().unwrap();
+            assert!(monuments.total >= 40, "{}", monuments.total);
+            assert!(
+                monuments
+                    .groups
+                    .iter()
+                    .any(|g| g.kind == "Gartendenkmal" && g.links.len() == 1)
+            );
+            let objects = part.protected_objects.as_ref().unwrap();
+            assert!(!objects.is_empty());
+            let green = part.green_spaces.as_ref().unwrap();
+            assert!(green.entries.iter().any(|s| s.item.name == "Viktoriapark"));
+            assert!(green.playgrounds >= 3, "{}", green.playgrounds);
+            assert_eq!(
+                green.playgrounds, 4,
+                "every playground of the fixture is on the map"
+            );
+            let keys: Vec<&str> = notes.hints.iter().map(|h| h.key.as_str()).collect();
+            assert!(!keys.contains(&crate::permits::notes::hint_key::CITY_STATE));
 
-        let calls = fetcher.calls.get();
-        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
-            .0
-            .unwrap();
-        assert_eq!(fetcher.calls.get(), calls, "offline asks no server");
-        assert_eq!(offline, online);
-        assert_eq!(
-            write_permit_notes(dir.path(), &project, &offline, today).unwrap(),
-            notes
-        );
+            let calls = fetcher.calls.get();
+            let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+                .0
+                .unwrap();
+            assert_eq!(fetcher.calls.get(), calls, "offline asks no server");
+            assert_eq!(offline, online);
+            assert_eq!(
+                write_permit_notes(dir.path(), &project, &offline, today).unwrap(),
+                notes
+            );
 
-        // A record of step 1 has no regional part; it still reads, without Berlin.
-        let sources = dir.path().join(PERMITS_DIR).join("sources.json");
-        let mut record: Value =
-            serde_json::from_str(&std::fs::read_to_string(&sources).unwrap()).unwrap();
-        assert!(record["regional"].is_array());
-        record.as_object_mut().unwrap().remove("regional");
-        std::fs::write(&sources, serde_json::to_vec(&record).unwrap()).unwrap();
-        let old = fetch(&project, dir.path(), &fetcher, &cache, true)
-            .0
-            .unwrap();
-        assert!(old.regional.is_empty());
-        assert_eq!(old.admin, online.admin);
+            // A record of step 1 has no regional part; it still reads, without Berlin.
+            let sources = dir.path().join(PERMITS_DIR).join("sources.json");
+            let mut record: Value =
+                serde_json::from_str(&std::fs::read_to_string(&sources).unwrap()).unwrap();
+            assert!(record["regional"].is_array());
+            record.as_object_mut().unwrap().remove("regional");
+            std::fs::write(&sources, serde_json::to_vec(&record).unwrap()).unwrap();
+            let old = fetch(&project, dir.path(), &fetcher, &cache, true)
+                .0
+                .unwrap();
+            assert!(old.regional.is_empty());
+            assert_eq!(old.admin, online.admin);
+        });
     }
 
     /// The findings the engine reads back from the store, online and offline, are the ones the
     /// adapter parses from the same fixture files itself (review finding 11).
     #[test]
     fn stored_berlin_layers_parse_as_the_adapter_parses_them() {
-        let (dir, project) = viktoriapark();
-        let fetcher = MapFetcher::default();
-        serve_berlin(&fetcher, &project);
-        let (_root, cache) = empty_cache();
-        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
-            .0
-            .unwrap();
-        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
-            .0
-            .unwrap();
-        let expected = berlin_from_fixtures(date("2026-11-13"));
-        assert_eq!(inputs.regional.len(), expected.len());
-        for ((online, offline), expected) in
-            inputs.regional.iter().zip(&offline.regional).zip(&expected)
-        {
-            assert_eq!(online.source.key, expected.source.key);
-            let SourceInput::Read { items, .. } = &online.findings else {
-                panic!("{:?}", online.findings);
+        on_the_day_of_the_fixtures(|| {
+            let (dir, project) = viktoriapark();
+            let fetcher = MapFetcher::default();
+            serve_berlin(&fetcher, &project);
+            let (_root, cache) = empty_cache();
+            let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+                .0
+                .unwrap();
+            let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+                .0
+                .unwrap();
+            let expected = berlin_from_fixtures(date("2026-11-13"));
+            assert_eq!(inputs.regional.len(), expected.len());
+            for ((online, offline), expected) in
+                inputs.regional.iter().zip(&offline.regional).zip(&expected)
+            {
+                assert_eq!(online.source.key, expected.source.key);
+                let SourceInput::Read { items, .. } = &online.findings else {
+                    panic!("{:?}", online.findings);
+                };
+                assert!(!items.is_empty(), "{}", online.source.key);
+                assert_eq!(online, expected, "{}", expected.source.key);
+                assert_eq!(offline, expected, "{}", expected.source.key);
+            }
+            let bezirke: &RegionalInput = &inputs.regional[0];
+            let SourceInput::Read { items, .. } = &bezirke.findings else {
+                panic!("{:?}", bezirke.findings);
             };
-            assert!(!items.is_empty(), "{}", online.source.key);
-            assert_eq!(online, expected, "{}", expected.source.key);
-            assert_eq!(offline, expected, "{}", expected.source.key);
-        }
-        let bezirke: &RegionalInput = &inputs.regional[0];
-        let SourceInput::Read { items, .. } = &bezirke.findings else {
-            panic!("{:?}", bezirke.findings);
-        };
-        assert!(
-            items
-                .iter()
-                .all(|f| matches!(f.kind, FindingKind::District { .. }))
-        );
-        assert_eq!(items.len(), 2);
+            assert!(
+                items
+                    .iter()
+                    .all(|f| matches!(f.kind, FindingKind::District { .. }))
+            );
+            assert_eq!(items.len(), 2);
+        });
     }
 }
