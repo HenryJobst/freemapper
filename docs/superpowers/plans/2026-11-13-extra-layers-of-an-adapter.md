@@ -59,7 +59,7 @@ functions; the three `remove_*_layer` go. `export.rs` and `build/` do not change
 - [x] Tests of the generic functions first (six, in `extras.rs`), watched failing on stubs.
 - [x] The generic functions.
 - [x] The three families of `project.rs` as calls; the 301 tests of the module pass unchanged.
-- [ ] Workspace tests, stub tests, `scripts/golden.sh test`: no golden file changes.
+- [x] Workspace tests (1918 passed), stub tests, `scripts/golden.sh test` (22 passed): no golden file changes.
 - [ ] Pull request, review by "freemapper".
 
 ### Step 2: the adapters say what they have
