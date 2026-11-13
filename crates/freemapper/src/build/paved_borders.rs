@@ -16,6 +16,7 @@ use crate::build::geometry::object_polygon;
 use crate::build::points::{GENERALIZATION_SOURCE, boundary_lines, line_coords, projected};
 use crate::crs::BoundingBox;
 use crate::georef::Georeferencing;
+use crate::measure::PaperMm;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
 
 /// The paved area, light traffic, and the edge of a paved area.
@@ -27,6 +28,8 @@ const KNOWN_EDGE_M: f64 = 0.4;
 /// A 501.1 line that is there covers an edge within this distance (ground metres): 0.2 mm on
 /// paper at 1:4000, so a kerb and a border that differ by a hair are not drawn twice.
 const EDGE_LINE_M: f64 = 0.75;
+/// A border shorter than this on paper is not drawn.
+const MIN_BORDER_MM: PaperMm = PaperMm(1.0);
 /// A border is simplified by this much (ground metres).
 const SIMPLIFY_M: f64 = 0.05;
 /// The `freemapper:generalized` value of a border line.
@@ -49,7 +52,7 @@ pub fn border_paved_areas(
     ) else {
         return 0;
     };
-    let min_length = f64::from(georef.scale_denominator) / 1000.0;
+    let min_length = MIN_BORDER_MM.metres(georef.scale_denominator);
     let areas = |list: &Vec<MapObject>| -> Vec<Polygon<f64>> {
         list.iter()
             .filter(|o| o.symbol_id == paved)

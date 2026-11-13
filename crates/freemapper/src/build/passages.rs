@@ -14,6 +14,7 @@ use crate::build::geometry::object_polygon;
 use crate::build::points::{HIDDEN_KEY, OUT_OF_BOUNDS_CODE, projected};
 use crate::crs::BoundingBox;
 use crate::georef::Georeferencing;
+use crate::measure::PaperMm;
 use crate::omap::{MapObject, SymbolSet};
 
 /// The value of [`HIDDEN_KEY`] on a passage no runner can reach.
@@ -23,7 +24,7 @@ const PASSAGE_CODE: &str = "522";
 /// A passage touches what lies within this distance on paper (mm) of it: 2 m at 1:4000. It
 /// bridges the gap between a passage that ends a little inside its building (an OSM way ends
 /// at the doorway, the cadastre part at the wall) and the street.
-pub const REACH_TOLERANCE_MM: f64 = 0.5;
+pub const REACH_TOLERANCE_MM: PaperMm = PaperMm(0.5);
 
 /// Tags the 522 passages among `objects` that cannot be reached ([`UNREACHABLE`]).
 ///
@@ -81,7 +82,7 @@ pub fn hide_unreachable(
     let street: Vec<bool> = regions.iter().map(|r| r.intersects(&edge)).collect();
 
     // A graph of the passages and the ground pieces, joined where they come within the tolerance.
-    let tolerance = REACH_TOLERANCE_MM * f64::from(georef.scale_denominator) / 1000.0;
+    let tolerance = REACH_TOLERANCE_MM.metres(georef.scale_denominator);
     let reach: Vec<MultiPolygon<f64>> = passages.iter().map(|(_, p)| p.buffer(tolerance)).collect();
     let bounds = |m: &MultiPolygon<f64>| m.bounding_rect();
     let region_bounds: Vec<Option<Rect<f64>>> = regions.iter().map(|r| r.bounding_rect()).collect();

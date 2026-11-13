@@ -9,6 +9,7 @@ use geo::{Area as _, Contains as _, Simplify as _};
 
 use super::contours::{contour_lines, gaussian_smooth};
 use super::terrain::gradient;
+use crate::measure::PaperMm;
 use crate::raster::{GridSpec, Raster};
 
 /// Smoothing before knolls and depressions are looked for: DGM1 noise makes false tops.
@@ -17,7 +18,7 @@ const KNOLL_SIGMA_M: f64 = 1.0;
 const RING_STEP_M: f64 = 0.25;
 /// Widest knoll or depression, on paper and at least on the ground: wider ones are shown by
 /// the contours.
-const MAX_DIAMETER_MM: f64 = 5.0;
+const MAX_DIAMETER_MM: PaperMm = PaperMm(5.0);
 const MAX_DIAMETER_M: f64 = 10.0;
 /// Narrowest knoll or depression on the ground.
 const MIN_DIAMETER_M: f64 = 2.0;
@@ -36,7 +37,7 @@ const DROP_REACH_M: f64 = 3.0;
 /// A bank holds most of the drop of twice the reach; a plain slope only half.
 const MIN_DROP_SHARE: f64 = 0.7;
 /// Shortest bank on paper, and on the ground.
-const MIN_BANK_MM: f64 = 2.0;
+const MIN_BANK_MM: PaperMm = PaperMm(2.0);
 const MIN_BANK_M: f64 = 4.0;
 /// A steep patch at least this much longer than wide is a bank; a rounder one is a hillside.
 const MIN_BANK_ELONGATION: f64 = 2.0;
@@ -119,8 +120,9 @@ pub fn knolls_and_depressions(
     min_height_m: f64,
 ) -> Vec<Landform> {
     let smoothed = gaussian_smooth(dtm, KNOLL_SIGMA_M);
-    let max_diameter_m =
-        (MAX_DIAMETER_MM * f64::from(scale_denominator) / 1000.0).max(MAX_DIAMETER_M);
+    let max_diameter_m = MAX_DIAMETER_MM
+        .metres(scale_denominator)
+        .max(MAX_DIAMETER_M);
     let limits = FormLimits {
         min_height_m,
         min_area_m2: std::f64::consts::PI * (MIN_DIAMETER_M / 2.0).powi(2),
@@ -318,7 +320,7 @@ pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64
         .iter()
         .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
         .collect();
-    let min_length_m = (MIN_BANK_MM * f64::from(scale_denominator) / 1000.0).max(MIN_BANK_M);
+    let min_length_m = MIN_BANK_MM.metres(scale_denominator).max(MIN_BANK_M);
     // The height at a point, `None` off the raster or on a cell without data.
     let height_at = |(e, n): (f64, f64)| -> Option<f64> {
         let x = ((e - grid.west) / px).floor();
