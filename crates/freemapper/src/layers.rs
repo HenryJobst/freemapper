@@ -25,11 +25,6 @@ use crate::tiles::TileId;
 use freemapper_adapters_de::lgb::Product;
 /// Typical download sizes in MB.
 const ALKIS_MB: f64 = 0.5;
-/// The K5 map (1:5000) PNG template at 0.25 m per pixel, per km² (measured 9.1 MB around a park
-/// and 17 MB in dense blocks, 2026-11-09).
-const K5_MB_PER_KM2: f64 = 15.0;
-/// Name of the K5 item in the estimate.
-pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 /// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched. The live run
 /// at Sanssouci (0.74 km² fetch box, 2026-11-09) stored 0.58 MB of GeoJSON (0.8 MB per km²); the
 /// GML answers were 1.79 MB, the largest 0.87 MB, and each lies on the disk as a part file until
@@ -149,8 +144,8 @@ pub(crate) fn estimate_area(
         part: Part::MapData,
         store: Store::Project,
     });
-    // The adapters the area touches bring the sets of extra layers they fetch themselves
-    // (Berlin's registers and surveys), each with its item; with Berlin comes the K5 template.
+    // The adapters the area touches bring the sets of extra layers and the raster templates
+    // they fetch themselves (Berlin's registers and surveys, and its K5 map), each with its item.
     for adapter in freemapper_adapter_api::geometry::regions_for_in(registry(), bbox) {
         for set in adapter.extras() {
             let estimate = &set.info().estimate;
@@ -161,8 +156,14 @@ pub(crate) fn estimate_area(
                 Part::BerlinLayers,
             ));
         }
-        if adapter.info().id.as_str() == freemapper_adapters_de::boundaries::BERLIN {
-            items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+        for template in adapter.templates() {
+            let estimate = &template.info().estimate;
+            items.push(per_km2_item(
+                bbox,
+                estimate.what,
+                estimate.megabytes_per_km2,
+                Part::K5,
+            ));
         }
     }
     if !crate::sources::alkis_nas::nas_services_for(bbox).is_empty() {
@@ -457,6 +458,8 @@ fn small_png(image: &image::DynamicImage, max_px: u32) -> Result<Vec<u8>, Projec
 mod tests {
     use super::*;
 
+    /// The item of Berlin's K5 template, as its adapter words it.
+    const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
     /// The item of Berlin's set of extra layers, as its adapter words it.
     const BERLIN_LAYERS_ITEM: &str =
         "Berlin ALKIS structures, tree cadastre, street survey and point layers";

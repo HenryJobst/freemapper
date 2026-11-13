@@ -13,7 +13,7 @@ use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
-use freemapper_adapter_api::extras::{ExtraSet, NasService, TreeDataset};
+use freemapper_adapter_api::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
@@ -349,6 +349,8 @@ pub struct StateAdapter {
     alkis: Option<Box<dyn AlkisSource>>,
     /// The sets of extra layers the state fetches with code (Berlin's registers and surveys).
     extras: Vec<Box<dyn ExtraSet>>,
+    /// The raster templates the state fetches with code (Berlin's K5).
+    templates: Vec<Box<dyn RasterTemplate>>,
 }
 
 impl StateAdapter {
@@ -391,10 +393,15 @@ impl StateAdapter {
             State::Berlin => vec![Box::new(crate::berlin::Registers)],
             _ => Vec::new(),
         };
+        let templates: Vec<Box<dyn RasterTemplate>> = match state {
+            State::Berlin => vec![Box::new(crate::berlin::K5)],
+            _ => Vec::new(),
+        };
         Self {
             state,
             alkis,
             extras,
+            templates,
             manifest,
         }
     }
@@ -437,6 +444,10 @@ impl RegionAdapter for StateAdapter {
 
     fn extras(&self) -> &[Box<dyn ExtraSet>] {
         &self.extras
+    }
+
+    fn templates(&self) -> &[Box<dyn RasterTemplate>] {
+        &self.templates
     }
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
@@ -577,6 +588,28 @@ mod tests {
             }
             assert!(set.has("gebaeudehoehen"));
             assert!(!set.has("notes"));
+        }
+    }
+
+    /// Berlin has a map of its own to lay under a map: the K5 (1:5000) is its one raster
+    /// template. No other state has one.
+    #[test]
+    fn berlin_alone_has_a_raster_template() {
+        for adapter in adapters() {
+            let templates = adapter.templates();
+            if adapter.info().id.as_str() != "berlin" {
+                assert!(templates.is_empty(), "{}", adapter.info().id);
+                continue;
+            }
+            assert_eq!(templates.len(), 1);
+            let info = templates[0].info();
+            assert_eq!(info.key, "k5");
+            assert_eq!(info.crs, crate::crs::Crs::Utm33);
+            assert_eq!(info.dataset_date, "2026-01-02");
+            assert_eq!(info.dataset_label, "K5 dataset");
+            assert_eq!(info.estimate.what, "Berlin K5 map (1:5000) template");
+            assert_eq!(info.estimate.megabytes_per_km2, 15.0);
+            assert_eq!(info.notes.download, "progress-k-five-download");
         }
     }
 

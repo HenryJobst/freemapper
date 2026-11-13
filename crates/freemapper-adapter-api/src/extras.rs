@@ -4,6 +4,7 @@
 //! ([`ExtraSet`]).
 
 use std::borrow::Cow;
+use std::path::Path;
 
 use freemapper_contract::MapKind;
 use freemapper_georef::crs::{BoundingBox, Crs, ProjectedPoint};
@@ -87,6 +88,50 @@ pub struct FetchedExtra {
     pub key: &'static str,
     /// The features in the CRS of the set, or why the layer could not be fetched.
     pub features: Result<Vec<Value>, FetchError>,
+}
+
+/// A raster template an adapter fetches with code of its own: an image to lay under the map
+/// while it is drawn, such as the official map of a city. The engine keeps it as
+/// `templates/<key>.png` with its world file, fetches it for an area the region of the adapter
+/// touches, keeps it while it covers the area and removes it otherwise. A template never fails
+/// a fetch.
+pub trait RasterTemplate: Send + Sync {
+    fn info(&self) -> &RasterTemplateInfo;
+
+    /// Writes the template over `bbox` (the map area with its buffer, in the CRS of the map)
+    /// as the PNG `out` with its world file (`.pgw`) beside it, both below `root`, on the
+    /// template grid of `bbox`.
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &BoundingBox,
+        root: &Path,
+        out: &Path,
+    ) -> Result<(), FetchError>;
+}
+
+/// The facts of a [`RasterTemplate`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct RasterTemplateInfo {
+    /// The key of the template; its file is `templates/<key>.png`.
+    pub key: &'static str,
+    /// The CRS the template is served in: a map in another CRS gets none.
+    pub crs: Crs,
+    /// The date of the dataset, recorded with the template, and what the record calls it.
+    pub dataset_date: &'static str,
+    pub dataset_label: &'static str,
+    pub notes: TemplateNotes,
+    pub estimate: ExtraEstimate,
+}
+
+/// The message ids of a template, texts of the catalog of this crate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TemplateNotes {
+    /// The stored template still covers the area.
+    pub unchanged: &'static str,
+    pub download: &'static str,
+    /// The template could not be fetched: `detail`.
+    pub unavailable: &'static str,
 }
 
 /// A NAS WFS of one state.
