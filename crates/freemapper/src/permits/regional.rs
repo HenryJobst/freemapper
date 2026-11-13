@@ -156,10 +156,11 @@ pub struct RegionalStatus {
 pub(crate) struct HintFacts {
     /// The districts on the map that are more than an edge, by share, descending.
     pub districts: Vec<String>,
-    /// The districts that hold a monument on the map.
+    /// The districts that hold a monument on the map: for each monument those that are more
+    /// than an edge, or its edge districts when it lies only there.
     pub monument_districts: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
-    /// looks after.
+    /// looks after, chosen as for the monuments.
     pub nature_districts: Vec<String>,
     /// The public owners with their share in percent; `None` when no owner section was read.
     pub owners: Option<Vec<(String, f64)>>,
@@ -276,25 +277,40 @@ fn one_adapter(
             _ => None,
         })
         .collect();
+    // The districts that hold an object `test` picks. Like the district-office hint, an object
+    // names only the districts holding it that are more than an edge of the map; an object
+    // that lies only in edge districts names those.
     let holding = |test: &dyn Fn(&FindingKind) -> bool| -> Vec<String> {
-        let mut found: Vec<String> = Vec::new();
-        // In the order of the districts: by share.
-        for entry in districts.iter().flatten() {
-            let name = entry.item.name.as_str();
-            let holds = district_shapes
+        let entries: Vec<&Share<DistrictEntry>> = districts.iter().flatten().collect();
+        let mut named = vec![false; entries.len()];
+        for (object, _) in on_map.iter().filter(|(p, _)| test(p.kind)) {
+            let holds: Vec<usize> = entries
                 .iter()
-                .filter(|(n, _)| *n == name)
-                .any(|(_, shape)| {
-                    on_map
+                .enumerate()
+                .filter(|(_, entry)| {
+                    district_shapes
                         .iter()
-                        .filter(|(p, _)| test(p.kind))
-                        .any(|(p, _)| p.shape.in_district(plane, shape))
-                });
-            if holds && !found.iter().any(|f| f == name) {
-                found.push(name.to_string());
+                        .filter(|(n, _)| *n == entry.item.name)
+                        .any(|(_, shape)| object.shape.in_district(plane, shape))
+                })
+                .map(|(i, _)| i)
+                .collect();
+            let inner: Vec<usize> = holds
+                .iter()
+                .copied()
+                .filter(|&i| !entries[i].at_edge)
+                .collect();
+            for i in if inner.is_empty() { holds } else { inner } {
+                named[i] = true;
             }
         }
-        found
+        // In the order of the districts: by share.
+        entries
+            .iter()
+            .zip(named)
+            .filter(|(_, named)| *named)
+            .map(|(entry, _)| entry.item.name.clone())
+            .collect()
     };
     let green_spaces = read(PermitSection::GreenSpaces).then(|| green_spaces(&on_map));
     let owners = read(PermitSection::Owners).then(|| owners(&on_map));

@@ -1985,6 +1985,77 @@ mod tests {
         );
     }
 
+    /// The authority hints name the Bezirke that are more than an edge, as the Bezirksamt hint
+    /// does; an object that lies only in edge Bezirke names those (review finding 6).
+    #[test]
+    fn authority_hints_skip_edge_bezirke_unless_the_object_lies_only_there() {
+        let monument = FindingKind::Monument {
+            kind: "Baudenkmal".into(),
+            link: None,
+        };
+        let pond = FindingKind::ProtectedObject {
+            kind: ProtectedObjectKind::ProtectedLandscapePart,
+            name: Some("Pfuhl".into()),
+            citation: None,
+        };
+        // West 70 %, Ost about 30 %, Rand 0.2 % of the map at its east side.
+        let bezirke = || {
+            regional(
+                "bezirke",
+                PermitSection::Districts,
+                vec![
+                    district("West", square(12.9, 51.9, 13.07, 52.2)),
+                    district("Ost", square(13.07, 51.9, 13.0998, 52.2)),
+                    district("Rand", square(13.0998, 51.9, 13.2, 52.2)),
+                ],
+            )
+        };
+        let hints = |objects: Vec<PermitFinding>, objects_too: Vec<PermitFinding>| {
+            let found = notes(
+                MapKind::Sprint,
+                &with_regional(
+                    city_state(),
+                    vec![
+                        bezirke(),
+                        regional("denkmale", PermitSection::Monuments, objects),
+                        regional("schutz", PermitSection::ProtectedObjects, objects_too),
+                    ],
+                ),
+            );
+            let of = |key: &str| -> Vec<String> {
+                hint(&found, key)
+                    .iter()
+                    .map(|h| h.args["district"].clone())
+                    .collect()
+            };
+            (
+                of(hint_key::DISTRICT_OFFICE),
+                of(hint_key::MONUMENT_AUTHORITY),
+                of(hint_key::NATURE_OBJECT_AUTHORITY),
+            )
+        };
+        // Both objects cross from Ost into Rand: only Ost is named.
+        let (offices, monuments, nature) = hints(
+            vec![area(monument.clone(), square(13.09, 52.05, 13.1, 52.06))],
+            vec![area(pond.clone(), square(13.09, 52.07, 13.1, 52.08))],
+        );
+        assert_eq!(
+            offices,
+            ["West", "Ost"],
+            "an edge Bezirk has no office hint"
+        );
+        assert_eq!(monuments, ["Ost"]);
+        assert_eq!(nature, ["Ost"]);
+        // Both objects lie only in Rand: Rand is named, the edge Bezirk it is.
+        let (offices, monuments, nature) = hints(
+            vec![area(monument, square(13.0999, 52.05, 13.1, 52.06))],
+            vec![area(pond, square(13.0999, 52.07, 13.1, 52.08))],
+        );
+        assert_eq!(offices, ["West", "Ost"]);
+        assert_eq!(monuments, ["Rand"]);
+        assert_eq!(nature, ["Rand"]);
+    }
+
     #[test]
     fn owner_shares_are_one_line_per_owner() {
         let owner = |name: &str| FindingKind::OwnerShare { owner: name.into() };
