@@ -80,6 +80,45 @@ with `boundaries::BERLIN` and `nas_services_for(..).is_empty()` as "in reach" be
 Tests first: a registry with a made-up adapter that has one set and one template; the engine fetches, stores,
 estimates and removes it without naming it. G2 and G3 unchanged.
 
+#### Step 2 as planned in detail (2026-11-13, after step 1 and its review were merged as PR 62 and 63)
+
+Ruling: only a set that an adapter fetches with code of its own becomes an `ExtraSet` (Berlin). The full ALKIS
+and the tree cadastres stay families of the engine fed by `nas()` and `tree_datasets()`: they name no region
+today, and a layer of theirs is one file merged from the services of every state the area touches (features
+that two services return are kept once), which a fetch per adapter cannot give. Cost if wrong: a second code
+adapter that wants a merged family needs the merge in the engine then.
+
+Ruling: the records of the set `berlin` stay in the field `berlin_layers` of the project file (contract with
+print and courseplan). The engine maps a set to its records by the set's key; a second set gets a field then.
+
+Sub-steps, one commit each, golden unchanged after each:
+
+- **2a, API and Berlin's adapter.** `freemapper-adapter-api/src/extras.rs`: `trait ExtraSet { info() -> &ExtraSetInfo;
+  layers(kind) -> Vec<ExtraLayerInfo>; has(key) -> bool; fetch(fetcher, region_bbox, kind) -> Vec<FetchedExtra> }`,
+  `ExtraSetInfo { key, notes: ExtraNotes, estimate: ExtraEstimate { what, megabytes_per_km2 } }`,
+  `ExtraLayerInfo { key, crs, register }`, `FetchedExtra { key, features: Result<Vec<Value>, FetchError> }`;
+  `RegionAdapter::extras(&self) -> &[Box<dyn ExtraSet>]` (default empty). The api crate gets `freemapper-contract`
+  for `MapKind`. `adapters/de`: `berlin::Registers` implements it over `EXTRA_LAYERS`, `extra_layers`,
+  `fetch_extra_layers`; `StateAdapter` returns it for Berlin. Tests: Berlin has one set `berlin` whose layers per
+  kind are those of `extra_layers(kind)`, `register` is true for the five layers `build/dedup.rs` ranks as
+  registers; every other state has none.
+- **2b, the engine fetches the sets of the registry.** `project/extras.rs`: `Family` is built from a set
+  (`known` becomes a call of `ExtraSet::has`); `fetch_berlin_layers_into` becomes `fetch_extra_sets_into`: for the
+  adapters with sets whose boundary the area touches (`touches_region_in`, the rule `near_berlin` is), through
+  `asking_for(adapter id, …)`. `stored_berlin_layers` reads through the set. The message for a key that is no
+  layer gets a catalog id (review of PR 63). Test: a registry with a made-up adapter that has one set; the engine
+  fetches, stores and removes its layers without naming it.
+- **2c, the estimate.** `layers.rs` builds the item of a set from `ExtraSetInfo::estimate` in the place and order
+  of today's Berlin item (G2 holds it).
+2a to 2c are one pull request (done: the trait and Berlin's set; the engine fetches the set of the registry; the
+estimate asks the set). `ExtraLayerInfo` carries the key only: whether a layer is a register is a question of
+`dedup::rank` about the `freemapper:source` of an object, which names a type inside a file for some layers, so it
+is settled in step 3 with the rank. 2d is the next pull request.
+
+- **2d, raster templates.** `RegionAdapter::templates(&self) -> &[RasterTemplate]` for the K5: the WMS, the file,
+  the pixel size, the date of the dataset, its item of the estimate; `fetch_k5_into` becomes generic; the record
+  stays in `k5`.
+
 ### Step 3: the engine names no region
 
 **Files:** `crates/freemapper/src/{project.rs,project/export.rs,layers.rs,sources/region.rs,sources/berlin.rs}`,

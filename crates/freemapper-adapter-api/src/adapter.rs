@@ -6,7 +6,7 @@ use geo_types::MultiPolygon;
 use crate::alkis::AlkisSource;
 use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
-use crate::extras::{NasService, TreeDataset};
+use crate::extras::{ExtraSet, NasService, TreeDataset};
 use crate::info::{Declared, RegionInfo};
 use crate::pointcloud::PointCloudBackend;
 use crate::policy::UrlPolicy;
@@ -55,6 +55,11 @@ pub trait RegionAdapter: Send + Sync {
 
     /// The tree cadastres of cities in the region.
     fn tree_datasets(&self) -> &[TreeDataset] {
+        &[]
+    }
+
+    /// The sets of extra layers the adapter fetches with code of its own; empty for most.
+    fn extras(&self) -> &[Box<dyn ExtraSet>] {
         &[]
     }
 

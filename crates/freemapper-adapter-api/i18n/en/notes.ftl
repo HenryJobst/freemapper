@@ -115,6 +115,7 @@ progress-berlin-download = downloading Berlin ALKIS structures, tree cadastre, s
 progress-berlin-features = { $count } Berlin { $file } features
 warning-berlin-layer-kept = Berlin { $file } unavailable ({ $detail }); keeping the stored layer
 warning-berlin-layer-skipped = Berlin { $file } unavailable ({ $detail }); layer skipped
+error-extra-layer-unknown = not a layer of { $folder }
 warning-berlin-buildings-missing = no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin
 
 ## The full ALKIS layers (NAS)
